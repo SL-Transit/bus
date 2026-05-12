@@ -353,37 +353,28 @@ document.getElementById('tabBack').onclick = () => {
   render();
 };
 
-// ===== FIREBASE SYNC =====
-db.ref('bus/car1').on('value', snap => {
-  const data = snap.val();
-  if (!data) return;
-  lastPos = data;
-  
-  const info = getStatusInfo(data); 
-  
-  document.getElementById('statusCard').className = `status-card ${info.cls}`;
-  document.getElementById('statusIcon').textContent = info.icon;
-  document.getElementById('statusTitle').innerText = info.title;
-  document.getElementById('statusSub').innerText = info.sub;
-  
-  const upTime = new Date(data.ts).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-  document.getElementById('lastUpdate').innerText = `เมื่อ ${upTime} น.`;
-  
-  renderNextBus(); 
-  updateBusOnMap(data);
-  renderRouteStrip(data); 
+// ===== FIREBASE LISTENER =====
+db.ref('bus/car1').on('value', snap=>{
+  lastPos=snap.val(); fullRender(lastPos);
 });
 
-  
-  updateBusOnMap(data);
-});
+// ===== CLOCK =====
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=`${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  renderNextBus();
+}
+tick(); setInterval(tick,1000);
+fullRender(null);
 
-window.onload = () => {
-  initMap();
-  render();
-};
+// ===== MAP INIT — รอ Longdo พร้อม =====
+(function waitLongdo(){
+  if(window.longdo){ initMap(); }
+  else { setTimeout(waitLongdo, 300); }
+})();
 </script>
 </body>
 </html>
-
-
