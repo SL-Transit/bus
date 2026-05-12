@@ -182,7 +182,7 @@ function initMap() {
       location: { lon: 101.245, lat: 13.710 },
     });
     
-    // ซ่อนปุ่มควบคุมตามความต้องการของผู้ใช้
+    // --- ส่วนที่แก้ไข: ซ่อนปุ่มควบคุมตามความต้องการของผู้ใช้ ---
     mapObj.Ui.LayerSelector.visible(false); // ซ่อน แผนที่, ดาวเทียม, จราจร
     mapObj.Ui.DPad.visible(false);          // ซ่อน ปุ่มทิศทางซ้ายมือ
     mapObj.Ui.Zoombar.visible(false);       // ซ่อน แถบซูมซ้ายมือ
@@ -190,7 +190,7 @@ function initMap() {
     
     mapReady = true;
 
-    // เลื่อนแผนที่ไปตำแหน่งปัจจุบันของผู้ใช้อัตโนมัติ
+    // --- ส่วนที่แก้ไข: เลื่อนแผนที่ไปตำแหน่งปัจจุบันของผู้ใช้อัตโนมัติ ---
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(function(position) {
         const userLoc = {
@@ -198,7 +198,7 @@ function initMap() {
           lat: position.coords.latitude
         };
         mapObj.location(userLoc, true);
-        mapObj.zoom(14, true); // ซูมเข้าไปเพื่อให้เห็นตำแหน่งชัดเจนขึ้น
+        mapObj.zoom(14, true);
       }, function(error) {
         console.warn("Geolocation error:", error);
       });
@@ -252,119 +252,164 @@ function updateBusOnMap(pos) {
   const dir = pos.direction==='back' ? STOPS_BACK : STOPS_GO;
   let latlng = null;
   if (pos.lat && pos.lng) { latlng={lon:pos.lng, lat:pos.lat}; }
-  else if (pos.stopIdx!==undefined && dir[pos.stopIdx]) { latlng={lon:dir[pos.stopIdx].lng, lat:dir[pos.stopIdx].lat}; }
-  
-  if (latlng) {
-    if (!busMarker) {
-      busMarker = new longdo.Marker(latlng, {
-        icon: { html:'<div style="font-size:32px">🚌</div>', offset:{x:-16,y:-16} }
-      });
-      mapObj.Overlays.add(busMarker);
-    } else {
-      busMarker.location(latlng);
-    }
+  else if (pos.stopIdx!==undefined && dir[pos.stopIdx]) {
+    const s=dir[pos.stopIdx]; latlng={lon:s.lng,lat:s.lat};
+  }
+  if (!latlng) return;
+  if (busMarker) mapObj.Overlays.remove(busMarker);
+  busMarker = new longdo.Marker(latlng, {
+    title:'รถอยู่ที่นี่',
+    icon:{ html:'<div style="font-size:32px;animation:bob 1.5s infinite">🚌</div>', offset:{x:-16,y:-32} }
+  });
+  mapObj.Overlays.add(busMarker);
+  // หมายเหตุ: ไม่ใช้ mapObj.location(latlng) ที่นี่ เพื่อไม่ให้แผนที่เลื่อนหนีจากตำแหน่งผู้ใช้ทุกครั้งที่รถขยับ
+}
+
+// ===== STATUS =====
+function getStatusInfo(pos) {
+  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
+  const elapsed=(Date.now()-pos.ts)/1000;
+  const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
+  const stopName=dir[pos.stopIdx]?.name||'?';
+  const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
+  const dirLabel=pos.direction==='back'?'↩ แปดริ้ว➡️สนามชัย':'↪ สนามชัย➡️แปดริ้ว';
+  const timeAgo=Math.round(elapsed/60);
+  const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
+
+  if (pos.status==='at' || elapsed>120) {
+    return {cls:'stopped',icon:'🛑',title:'จอดรอผู้โดยสาร ตามป้ายรถ',sub:`${stopName} · ${dirLabel} คิว ${pos.queue||'?'} · ${timeStr}`};
+  } else if (pos.status==='towards' && nextStop) {
+    return {cls:'arriving',icon:'🚍',title:`กำลังใกล้จะถึง ${nextStop}`,sub:`${dirLabel} คิว ${pos.queue||'?'} · ${timeStr}`};
+  } else {
+    return {cls:'running',icon:'🚌',title:'กำลังวิ่ง',sub:`ออกจาก ${stopName} · ${dirLabel} คิว ${pos.queue||'?'} · ${timeStr}`};
   }
 }
 
-// ===== UI & CLOCK =====
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').innerText = now.toLocaleTimeString('th-TH');
-  const opt = { weekday:'short', day:'numeric', month:'short', year:'numeric' };
-  document.getElementById('dateText').innerText = now.toLocaleDateString('th-TH', opt);
-}
-setInterval(updateClock, 1000);
-updateClock();
+// ===== HELPERS =====
+function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
+function nowMin(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+function curTrips(){return viewDir==='go'?TRIPS_GO:TRIPS_BACK;}
+function curStops(){return viewDir==='go'?STOPS_GO:STOPS_BACK;}
 
-// ===== RENDER LOGIC =====
-function render() {
-  const visual = document.getElementById('routeVisual');
-  visual.innerHTML = '';
-  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
-  
-  stops.forEach((s, i) => {
-    const col = document.createElement('div');
-    col.className = 'stop-col';
-    
-    const dotW = document.createElement('div');
-    dotW.className = 'stop-dot-w';
-    
-    const icon = document.createElement('div');
-    icon.className = 'stop-icon';
-    icon.innerText = i===0 || i===stops.length-1 ? '🏢' : '🚏';
-    
-    dotW.appendChild(icon);
-    col.appendChild(dotW);
-    
-    const name = document.createElement('div');
-    name.className = 'sn';
-    name.innerText = s.name;
-    col.appendChild(name);
-    
-    visual.appendChild(col);
-    
-    if (i < stops.length-1) {
-      const line = document.createElement('div');
-      line.className = 'line-seg';
-      visual.appendChild(line);
-    }
-  });
-  
-  renderSchedule();
-  drawRoute();
+function findCurTrip(){
+  const trips=curTrips(),now=nowMin();
+  for(let i=0;i<trips.length;i++){
+    if(now>=toMin(trips[i].times[0])-5&&now<=toMin(trips[i].times[2])+10) return i;
+  }
+  return null;
+}
+function findNextTrip(){
+  const trips=curTrips(),now=nowMin();
+  for(let i=0;i<trips.length;i++){
+    // แก้ไข: ถ้าเวลาปัจจุบันเลยเวลาออกของคิวนี้ไปแล้ว ให้ข้ามไปดูคิวถัดไป
+    if(toMin(trips[i].times[0]) > now) return i;
+  }
+  return null;
 }
 
-function renderSchedule() {
-  const head = document.getElementById('schedHead');
-  const body = document.getElementById('schedBody');
-  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
-  const trips = viewDir==='go' ? TRIPS_GO : TRIPS_BACK;
-  
-  head.innerHTML = `<div>คิว</div>` + stops.map(s=>`<div>${s.name}</div>`).join('');
-  
-  body.innerHTML = '';
-  trips.forEach(t => {
-    const row = document.createElement('div');
-    row.className = 'trip-row';
-    row.innerHTML = `<div><span class="queue-badge">คิว ${t.q}</span></div>` + 
-                    t.times.map(time => `<div class="t-cell">${time}</div>`).join('');
-    body.appendChild(row);
-  });
+// ===== RENDER =====
+function renderStatus(pos){
+  const info=getStatusInfo(pos);
+  document.getElementById('statusCard').className=`status-card ${info.cls}`;
+  document.getElementById('statusIcon').textContent=info.icon;
+  document.getElementById('statusTitle').textContent=info.title;
+  document.getElementById('statusSub').textContent=info.sub;
 }
 
-document.getElementById('tabGo').onclick = () => {
+function renderRouteStrip(pos){
+  const stops=curStops();
+  const stopIdx=(pos&&pos.direction===viewDir)?pos.stopIdx:null;
+  document.getElementById('routeVisual').innerHTML=stops.map((s,i)=>{
+    const isA=i===stopIdx,isP=stopIdx!==null&&i<stopIdx;
+    return `<div class="stop-col">
+      <div class="stop-dot-w">
+        ${isA?'<div class="bus-anim">🚌</div>':''}
+        <div class="stop-icon ${isA?'active':isP?'passed':''}">🚏</div>
+      </div>
+      <div class="sn ${isA?'active':''}">${s.name}</div>
+    </div>${i<stops.length-1?`<div class="line-seg ${isP?'passed':''}"></div>`:''}`;
+  }).join('');
+}
+
+function renderNextBus(){
+  const next=findNextTrip(),trips=curTrips();
+  if(next===null){
+    document.getElementById('nextTime').textContent='--:--';
+    document.getElementById('nextDetail').textContent='ไม่มีรถแล้วในวันนี้';
+    return;
+  }
+  const dep=trips[next].times[0],diff=toMin(dep)-nowMin();
+  document.getElementById('nextTime').textContent=dep+' น.';
+  document.getElementById('nextDetail').textContent=diff<=0?'กำลังจะออก!':`อีก ${diff} นาที · คิวที่ ${trips[next].q}`;
+}
+
+function renderSched(){
+  const trips=curTrips(),stops=curStops(),now=nowMin(),cur=findCurTrip();
+  document.getElementById('schedHead').innerHTML=
+    `<div>คิว</div>${stops.map(s=>`<div>${s.name.replace('ท่ารถ','').replace('ขนส่ง','')}</div>`).join('')}`;
+  document.getElementById('schedBody').innerHTML=trips.map((t,i)=>{
+    // แก้ไข: เช็คว่าเวลาออก (times[0]) เลยเวลาปัจจุบันไปหรือยัง เพื่อขีดฆ่า
+    const isPast = now > toMin(t.times[0]);
+    const done=now>toMin(t.times[2])+10,isCur=i===cur;
+    
+    return `<div class="trip-row ${isCur?'cur':''} ${(done||isPast)&&!isCur?'done-row':''}">
+      <div><span class="queue-badge">คิว ${t.q}</span></div>
+      ${t.times.map((x,j)=> {
+        // ขีดฆ่าถ้าเวลาผ่านไปแล้ว
+        const timePassed = now > toMin(x);
+        return `<div class="t-cell ${timePassed && !isCur ? 'done' : ''}">${x}${isCur&&j===0?'<span class="now-b">วิ่งอยู่</span>':''}</div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function updateLastUpdate(pos){
+  document.getElementById('lastUpdate').textContent=
+    pos?`เมื่อ ${new Date(pos.ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
+}
+
+function fullRender(pos){
+  renderStatus(pos); renderRouteStrip(pos); renderSched(); renderNextBus(); updateLastUpdate(pos);
+  if(pos) updateBusOnMap(pos);
+}
+
+// ===== TABS =====
+document.getElementById('tabGo').onclick=function(){
   viewDir='go';
-  document.getElementById('tabGo').className = 'dir-tab active-go';
-  document.getElementById('tabBack').className = 'dir-tab';
-  render();
+  this.className='dir-tab active-go';
+  document.getElementById('tabBack').className='dir-tab';
+  drawRoute(); fullRender(lastPos);
 };
-document.getElementById('tabBack').onclick = () => {
+document.getElementById('tabBack').onclick=function(){
   viewDir='back';
-  document.getElementById('tabGo').className = 'dir-tab';
-  document.getElementById('tabBack').className = 'dir-tab active-back';
-  render();
+  this.className='dir-tab active-back';
+  document.getElementById('tabGo').className='dir-tab';
+  drawRoute(); fullRender(lastPos);
 };
 
-// ===== FIREBASE SYNC =====
-db.ref('bus_status').on('value', snap => {
-  const data = snap.val();
-  if (!data) return;
-  lastPos = data;
-  
-  document.getElementById('statusTitle').innerText = data.status || 'กำลังวิ่ง';
-  document.getElementById('statusSub').innerText = data.subStatus || 'อัปเดตล่าสุดเมื่อสักครู่';
-  document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('th-TH');
-  
-  if (data.nextTime) document.getElementById('nextTime').innerText = data.nextTime;
-  if (data.nextDetail) document.getElementById('nextDetail').innerText = data.nextDetail;
-  
-  updateBusOnMap(data);
+// ===== FIREBASE LISTENER =====
+db.ref('bus/car1').on('value', snap=>{
+  lastPos=snap.val(); fullRender(lastPos);
 });
 
-window.onload = () => {
-  initMap();
-  render();
-};
+// ===== CLOCK =====
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=`${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  renderNextBus();
+  renderSched(); // อัปเดตการขีดฆ่าเวลาทุกนาที
+}
+tick(); setInterval(tick,1000);
+fullRender(null);
+
+// ===== MAP INIT — รอ Longdo พร้อม =====
+(function waitLongdo(){
+  if(window.longdo){ initMap(); }
+  else { setTimeout(waitLongdo, 300); }
+})();
 </script>
 </body>
 </html>
