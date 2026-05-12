@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <!-- Longdo Map -->
-<script src="https://api.longdo.com/map/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
+<script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 :root {
@@ -181,7 +181,7 @@ function initMap() {
   try {
     mapObj = new longdo.Map({
       placeholder: document.getElementById('map'),
-      language: longdo.Locale.TH,
+
       zoom: 10,
       location: { lon: 101.245, lat: 13.710 },
     });
