@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รถโดยสาร สนามชัย–ฉะเชิงเทรา</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --orange:#f97316; --orange-dk:#c2410c; --bg:#fafaf8; --card:#fff;
+  --text:#1c1917; --muted:#78716c; --border:#e7e5e4; --green:#16a34a;
+}
+body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+.topbar { background:var(--orange); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:200; box-shadow:0 2px 12px rgba(249,115,22,0.3); }
+.route-badge { background:rgba(0,0,0,0.2); border-radius:8px; padding:4px 12px; font-family:'Chakra Petch',sans-serif; font-size:20px; font-weight:700; color:#fff; }
+.route-name { color:#fff; font-size:13px; font-weight:500; text-align:center; line-height:1.3; }
+.route-name strong { font-size:15px; font-weight:700; display:block; }
+.live-pill { background:rgba(0,0,0,0.2); border-radius:20px; padding:5px 10px; display:flex; align-items:center; gap:5px; font-size:11px; color:#fff; font-weight:600; }
+.live-dot { width:7px;height:7px;background:#4ade80;border-radius:50%;animation:blink 1.2s infinite;box-shadow:0 0 5px #4ade80; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.clock-strip { background:var(--orange-dk); padding:7px 18px; display:flex; justify-content:space-between; align-items:center; }
+.clock-strip .time { font-family:'Chakra Petch',sans-serif; font-size:16px; color:#fed7aa; letter-spacing:2px; }
+.clock-strip .date { font-size:12px; color:#fdba74; }
+.main { padding:14px 16px; max-width:480px; margin:0 auto; }
+
+/* Status */
+.status-card { background:var(--card); border:1.5px solid #fed7aa; border-radius:12px; padding:12px 16px; display:flex; align-items:center; gap:12px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.status-icon { font-size:26px; }
+.status-text strong { display:block; font-size:15px; font-weight:700; color:var(--orange-dk); }
+.status-text span { font-size:12px; color:var(--muted); }
+.status-card.no-data { border-color:var(--border); }
+.status-card.no-data .status-text strong { color:var(--muted); }
+
+/* Map */
+#map { height:220px; border-radius:12px; margin-bottom:14px; border:1px solid var(--border); z-index:1; }
+
+/* Route strip */
+.route-card { background:var(--card); border-radius:14px; padding:18px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); margin-bottom:14px; border:1px solid var(--border); }
+.route-visual { display:flex; align-items:flex-start; }
+.stop-col { display:flex; flex-direction:column; align-items:center; flex:1; }
+.stop-dot-w { position:relative; width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+.stop-dot { width:20px;height:20px;border-radius:50%;background:#d6d3d1;border:3px solid #fff;box-shadow:0 0 0 2px #d6d3d1;transition:all 0.4s; z-index:2; }
+.stop-dot.active { background:var(--orange);box-shadow:0 0 0 3px rgba(249,115,22,0.25);transform:scale(1.2); }
+.stop-dot.passed { background:var(--orange);opacity:0.45; }
+.bus-anim { position:absolute;top:-22px;font-size:20px;animation:bob 1.5s infinite;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.line-seg { flex:1;height:4px;background:#d6d3d1;margin-top:16px;border-radius:2px;transition:background 0.4s; }
+.line-seg.passed { background:var(--orange);opacity:0.5; }
+.sn { font-size:11px;font-weight:600;color:var(--text);text-align:center;margin-top:7px;line-height:1.3; }
+.sn.active { color:var(--orange); }
+.st { font-size:10px;color:var(--muted);text-align:center;margin-top:1px; }
+
+/* Update bar */
+.update-bar { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 14px;font-size:12px;color:var(--green);display:flex;align-items:center;gap:8px;margin-bottom:14px; }
+
+/* Schedule */
+.sec-label { font-size:11px;font-weight:600;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px; }
+.sched-card { background:var(--card);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.05);margin-bottom:14px;border:1px solid var(--border); }
+.sched-head { background:var(--text);padding:11px 16px;display:grid;grid-template-columns:44px 1fr 1fr 1fr;gap:6px;font-size:11px;color:#d4d0cb;font-weight:600;letter-spacing:0.5px; }
+.trip-row { padding:12px 16px;display:grid;grid-template-columns:44px 1fr 1fr 1fr;gap:6px;align-items:center;border-bottom:1px solid var(--border); }
+.trip-row:last-child{border-bottom:none;}
+.trip-row.cur{background:#fff7ed;border-left:3px solid var(--orange);}
+.trip-n{font-family:'Chakra Petch',sans-serif;font-size:15px;font-weight:700;color:var(--orange);}
+.trip-row.cur .trip-n{color:var(--orange-dk);}
+.t-cell{font-size:13px;font-weight:500;}
+.done{color:var(--muted);text-decoration:line-through;}
+.now-b{display:inline-block;background:var(--orange);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;margin-left:3px;vertical-align:middle;}
+.footer{text-align:center;font-size:11px;color:var(--muted);padding:6px 0 22px;}
+.footer a{color:var(--orange);font-weight:600;text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="route-badge">สาย 1</div>
+  <div class="route-name"><strong>สนามชัย → ฉะเชิงเทรา</strong>รถโดยสารประจำทาง</div>
+  <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+</div>
+<div class="clock-strip">
+  <div class="time" id="clock">--:--:--</div>
+  <div class="date" id="dateText"></div>
+</div>
+
+<div class="main">
+  <div class="status-card no-data" id="statusCard">
+    <div class="status-icon">🚌</div>
+    <div class="status-text">
+      <strong id="statusTitle">กำลังโหลด...</strong>
+      <span id="statusSub">รอข้อมูลจากรถ</span>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- Route strip -->
+  <div class="route-card">
+    <div class="route-visual" id="routeVisual"></div>
+  </div>
+
+  <div class="update-bar">🟢 อัปเดตเรียลไทม์ — <span id="lastUpdate">รอข้อมูล</span></div>
+
+  <div class="sec-label">ตารางเวลาวันนี้</div>
+  <div class="sched-card">
+    <div class="sched-head"><div>เที่ยว</div><div>สนามชัย</div><div>พนมสารคาม</div><div>ฉะเชิงเทรา</div></div>
+    <div id="schedBody"></div>
+  </div>
+
+  <div class="footer">คนขับรถ? <a href="driver.html">เปิดหน้าคนขับ →</a></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
+  authDomain: "bus-line1-ba0ea.firebaseapp.com",
+  databaseURL: "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bus-line1-ba0ea",
+  storageBucket: "bus-line1-ba0ea.firebasestorage.app",
+  messagingSenderId: "511401517598",
+  appId: "1:511401517598:web:5605ee3777619dffe1c40f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const STOPS = ['สนามชัย','พนมสารคาม','ขนส่งฉะเชิงเทรา'];
+// พิกัดป้าย (lat, lng) — ปรับตามจริงได้
+const STOP_COORDS = [
+  [13.7390, 101.5168], // สนามชัย
+  [13.7500, 101.3500], // พนมสารคาม (ตัวอย่าง)
+  [13.6908, 101.0779], // ฉะเชิงเทรา
+];
+const TRIPS = [
+  ['06:00','06:45','07:15'],['07:00','07:45','08:15'],
+  ['08:00','08:45','09:15'],['09:00','09:45','10:15'],
+  ['10:30','11:15','11:45'],['12:00','12:45','13:15'],
+  ['13:30','14:15','14:45'],['15:00','15:45','16:15'],
+  ['16:30','17:15','17:45'],['17:30','18:15','18:45'],
+];
+
+// Init map
+const map = L.map('map').setView(STOP_COORDS[0], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OpenStreetMap', maxZoom:18
+}).addTo(map);
+
+// Draw route line
+L.polyline(STOP_COORDS,{color:'#f97316',weight:4,opacity:0.7}).addTo(map);
+
+// Stop markers
+STOP_COORDS.forEach((c,i)=>{
+  L.circleMarker(c,{radius:8,fillColor:'#f97316',color:'#fff',weight:2,fillOpacity:1})
+   .addTo(map).bindPopup(STOPS[i]);
+});
+
+// Bus marker
+const busIcon = L.divIcon({
+  html:'<div style="font-size:28px;line-height:1">🚌</div>',
+  className:'', iconAnchor:[14,14]
+});
+let busMarker = null;
+
+function toMin(hhmm){ const[h,m]=hhmm.split(':').map(Number); return h*60+m; }
+function nowMin(){ const n=new Date(); return n.getHours()*60+n.getMinutes(); }
+
+function findCurTrip(){
+  const now=nowMin(); let cur=null;
+  for(let i=0;i<TRIPS.length;i++){
+    const dep=toMin(TRIPS[i][0]), arr=toMin(TRIPS[i][2]);
+    if(now>=dep-5&&now<=arr+15){cur=i;break;}
+    if(now<dep){cur=i;break;}
+  }
+  return cur;
+}
+
+function renderMap(pos){
+  const stopIdx = pos?.stopIdx ?? null;
+  document.getElementById('routeVisual').innerHTML = STOPS.map((n,i)=>{
+    const isA = i===stopIdx;
+    const isP = stopIdx!==null && i<stopIdx;
+    return `<div class="stop-col">
+      <div class="stop-dot-w">
+        ${isA?'<div class="bus-anim">🚌</div>':''}
+        <div class="stop-dot ${isA?'active':isP?'passed':''}"></div>
+      </div>
+      <div class="sn ${isA?'active':''}">${n}</div>
+    </div>${i<STOPS.length-1?`<div class="line-seg ${isP?'passed':''}"></div>`:''}`;
+  }).join('');
+}
+
+function renderSched(curTrip){
+  const now=nowMin();
+  document.getElementById('schedBody').innerHTML = TRIPS.map((t,i)=>{
+    const done=now>toMin(t[2])+15;
+    const isCur=i===curTrip;
+    return `<div class="trip-row ${isCur?'cur':''}">
+      <div class="trip-n">${i+1}</div>
+      ${t.map(x=>`<div class="t-cell ${done?'done':''}">${x}${isCur&&!done?'<span class="now-b">วิ่ง</span>':''}</div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function renderStatus(pos){
+  const card=document.getElementById('statusCard');
+  const title=document.getElementById('statusTitle');
+  const sub=document.getElementById('statusSub');
+  if(!pos){
+    card.className='status-card no-data';
+    title.textContent='ยังไม่มีข้อมูลตำแหน่ง';
+    sub.textContent='รอคนขับเปิดหน้าคนขับ';
+    return;
+  }
+  card.className='status-card';
+  const elapsed=Math.round((Date.now()-pos.ts)/60000);
+  const stopName=STOPS[pos.stopIdx]||'?';
+  title.textContent = pos.status==='at' ? `🛑 จอดอยู่ที่ ${stopName}` : `🚌 กำลังมุ่งหน้า ${stopName}`;
+  sub.textContent = elapsed===0 ? 'อัปเดตเมื่อสักครู่' : `อัปเดตเมื่อ ${elapsed} นาทีที่แล้ว`;
+
+  // Map: use real GPS if available, else stop coords
+  if(pos.lat && pos.lng){
+    const latlng=[pos.lat,pos.lng];
+    if(!busMarker){ busMarker=L.marker(latlng,{icon:busIcon}).addTo(map).bindPopup('รถอยู่ที่นี่'); }
+    else busMarker.setLatLng(latlng);
+    map.setView(latlng,13);
+  } else {
+    const c=STOP_COORDS[pos.stopIdx];
+    if(c){
+      if(!busMarker){ busMarker=L.marker(c,{icon:busIcon}).addTo(map).bindPopup(STOPS[pos.stopIdx]); }
+      else busMarker.setLatLng(c);
+      map.setView(c,12);
+    }
+  }
+}
+
+function updateLastUpdate(pos){
+  const el=document.getElementById('lastUpdate');
+  if(!pos){el.textContent='ยังไม่มีข้อมูล';return;}
+  const d=new Date(pos.ts);
+  el.textContent=`เมื่อ ${d.toTimeString().slice(0,5)} น.`;
+}
+
+// ===== LISTEN FIREBASE REALTIME =====
+onValue(ref(db,'bus/car1'), snap=>{
+  const pos=snap.val();
+  const curTrip=findCurTrip();
+  renderStatus(pos);
+  renderMap(pos);
+  renderSched(curTrip);
+  updateLastUpdate(pos);
+});
+
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=`${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+}
+tick(); setInterval(tick,1000);
+
+// Initial render
+renderMap(null); renderSched(findCurTrip());
+</script>
+</body>
+</html>
