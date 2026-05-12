@@ -354,17 +354,26 @@ document.getElementById('tabBack').onclick = () => {
 };
 
 // ===== FIREBASE SYNC =====
-db.ref('bus_status').on('value', snap => {
+db.ref('bus/car1').on('value', snap => {
   const data = snap.val();
   if (!data) return;
   lastPos = data;
   
-  document.getElementById('statusTitle').innerText = data.status || 'กำลังวิ่ง';
-  document.getElementById('statusSub').innerText = data.subStatus || 'อัปเดตล่าสุดเมื่อสักครู่';
-  document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('th-TH');
+  const info = getStatusInfo(data); 
   
-  if (data.nextTime) document.getElementById('nextTime').innerText = data.nextTime;
-  if (data.nextDetail) document.getElementById('nextDetail').innerText = data.nextDetail;
+  document.getElementById('statusCard').className = `status-card ${info.cls}`;
+  document.getElementById('statusIcon').textContent = info.icon;
+  document.getElementById('statusTitle').innerText = info.title;
+  document.getElementById('statusSub').innerText = info.sub;
+  
+  const upTime = new Date(data.ts).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('lastUpdate').innerText = `เมื่อ ${upTime} น.`;
+  
+  renderNextBus(); 
+  updateBusOnMap(data);
+  renderRouteStrip(data); 
+});
+
   
   updateBusOnMap(data);
 });
