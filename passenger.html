@@ -327,7 +327,15 @@ function renderSchedule() {
     const row = document.createElement('div');
     row.className = 'trip-row';
     row.innerHTML = `<div><span class="queue-badge">คิว ${t.q}</span></div>` + 
-                    t.times.map(time => `<div class="t-cell">${time}</div>`).join('');
+                    t.times.map(time => {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [h, m] = time.split(':').map(Number);
+    const scheduleTime = h * 60 + m;
+    const isPassed = currentTime > scheduleTime;
+    return `<div class="t-cell ${isPassed ? 'done' : ''}">${time}</div>`;
+}).join('')
+
     body.appendChild(row);
   });
 }
