@@ -353,28 +353,34 @@ document.getElementById('tabBack').onclick = () => {
   render();
 };
 
-// ===== FIREBASE LISTENER =====
-db.ref('bus/car1').on('value', snap=>{
-  lastPos=snap.val(); fullRender(lastPos);
+// ===== FIREBASE LISTENER (Optimized & English-coded) =====
+// Refers to the original path 'bus/car1' as per the initial source
+db.ref('bus/car1').on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+
+    // Update global position variable
+    lastPos = data;
+
+    // Execute the main render function
+    // This handles status analysis, route visual, and next bus calculation
+    fullRender(lastPos);
 });
 
-// ===== CLOCK =====
-function tick(){
-  const n=new Date();
-  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
-  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
-  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  document.getElementById('dateText').textContent=`${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
-  renderNextBus();
+// Update the Clock logic to be more concise (Replacing the 'tick' function)
+function updateSystemClock() {
+    const now = new Date();
+    // Time format: HH:mm:ss
+    document.getElementById('clock').textContent = now.toTimeString().slice(0, 8);
+    
+    // Date formatting (International Standard or localized as needed)
+    const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+    document.getElementById('dateText').textContent = now.toLocaleDateString('en-GB', options);
+    
+    // Re-calculate the next bus countdown every minute
+    renderNextBus();
 }
-tick(); setInterval(tick,1000);
-fullRender(null);
 
-// ===== MAP INIT — รอ Longdo พร้อม =====
-(function waitLongdo(){
-  if(window.longdo){ initMap(); }
-  else { setTimeout(waitLongdo, 300); }
-})();
-</script>
-</body>
-</html>
+setInterval(updateSystemClock, 1000);
+updateSystemClock();
+
