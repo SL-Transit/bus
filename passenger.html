@@ -182,7 +182,7 @@ function initMap() {
       location: { lon: 101.245, lat: 13.710 },
     });
     
-    // --- ส่วนที่แก้ไข: ซ่อนปุ่มควบคุมตามความต้องการของผู้ใช้ ---
+    // ซ่อนปุ่มควบคุมตามความต้องการของผู้ใช้
     mapObj.Ui.LayerSelector.visible(false); // ซ่อน แผนที่, ดาวเทียม, จราจร
     mapObj.Ui.DPad.visible(false);          // ซ่อน ปุ่มทิศทางซ้ายมือ
     mapObj.Ui.Zoombar.visible(false);       // ซ่อน แถบซูมซ้ายมือ
