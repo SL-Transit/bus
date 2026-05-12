@@ -190,14 +190,8 @@ function initMap() {
     
     mapReady = true;
 
-        // 1. เปิดระบบ Geolocation
-    mapObj.Ui.Geolocation.visible(true); // เปิดปุ่มตำแหน่งปัจจุบัน (ไอคอนเป้าเล็ง) คืนมา
-    // 2. ใช้คำสั่งมาตรฐานของ Longdo ในการดึงตำแหน่ง (ปลอดภัยกว่าการสั่งคลิกปุ่ม)
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-            mapObj.location({ lon: pos.coords.longitude, lat: pos.coords.latitude }, true);
-            mapObj.zoom(14, true);
-        }, function(err) {
+    mapObj.Ui.Geolocation.visible(true);
+    mapObj.location(longdo.LocationMode.Pointer, true);
             console.log("Location error: " + err.message);
         }, { timeout: 5000 });
     }
