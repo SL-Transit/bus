@@ -176,10 +176,11 @@ let mapObj=null, busMarker=null, routeLine=null, mapReady=false;
 // ===== LONGDO MAP =====
 function initMap() {
   try {
-    mapObj = new longdo.Map({
+        mapObj = new longdo.Map({
       placeholder: document.getElementById('map'),
       zoom: 10,
       location: { lon: 101.245, lat: 13.710 },
+      ui: longdo.UiComponent.None // ปิด UI เริ่มต้นทั้งหมด
     });
     
     mapObj.Ui.LayerSelector.visible(false); // ซ่อน แผนที่, ดาวเทียม, จราจร
