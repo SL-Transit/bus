@@ -190,18 +190,15 @@ function initMap() {
     
     mapReady = true;
 
-    // --- ส่วนที่แก้ไข: เลื่อนแผนที่ไปตำแหน่งปัจจุบันของผู้ใช้อัตโนมัติ ---
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function(position) {
-        const userLoc = {
-          lon: position.coords.longitude,
-          lat: position.coords.latitude
-        };
-        mapObj.location(userLoc, true);
-        mapObj.zoom(14, true);
-      }, function(error) {
-        console.warn("Geolocation error:", error);
-      });
+    mapObj.Ui.Geolocation.visible(true);
+    
+    setTimeout(function() {
+        var geoBtn = document.querySelector('.ldmap_ui_geolocation');
+        if (geoBtn) {
+            geoBtn.click();
+        }
+    }, 1000);
+
     }
 
     // ป้ายจอด
