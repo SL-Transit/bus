@@ -291,7 +291,7 @@ function render() {
     
     const icon = document.createElement('div');
     icon.className = 'stop-icon';
-    icon.innerText = i===0 || i===stops.length-1 ? '🚏' : '🚏';
+    icon.innerText = i===0 || i===stops.length-1 ? '🏢' : '🚏';
     
     dotW.appendChild(icon);
     col.appendChild(dotW);
@@ -353,34 +353,27 @@ document.getElementById('tabBack').onclick = () => {
   render();
 };
 
-// ===== FIREBASE LISTENER (Optimized & English-coded) =====
-// Refers to the original path 'bus/car1' as per the initial source
-db.ref('bus/car1').on('value', snap => {
-    const data = snap.val();
-    if (!data) return;
-
-    // Update global position variable
-    lastPos = data;
-
-    // Execute the main render function
-    // This handles status analysis, route visual, and next bus calculation
-    fullRender(lastPos);
+// ===== FIREBASE SYNC =====
+db.ref('bus_status').on('value', snap => {
+  const data = snap.val();
+  if (!data) return;
+  lastPos = data;
+  
+  document.getElementById('statusTitle').innerText = data.status || 'กำลังวิ่ง';
+  document.getElementById('statusSub').innerText = data.subStatus || 'อัปเดตล่าสุดเมื่อสักครู่';
+  document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('th-TH');
+  
+  if (data.nextTime) document.getElementById('nextTime').innerText = data.nextTime;
+  if (data.nextDetail) document.getElementById('nextDetail').innerText = data.nextDetail;
+  
+  updateBusOnMap(data);
 });
 
-// Update the Clock logic to be more concise (Replacing the 'tick' function)
-function updateSystemClock() {
-    const now = new Date();
-    // Time format: HH:mm:ss
-    document.getElementById('clock').textContent = now.toTimeString().slice(0, 8);
-    
-    // Date formatting (International Standard or localized as needed)
-    const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
-    document.getElementById('dateText').textContent = now.toLocaleDateString('en-GB', options);
-    
-    // Re-calculate the next bus countdown every minute
-    renderNextBus();
-}
-
-setInterval(updateSystemClock, 1000);
-updateSystemClock();
+window.onload = () => {
+  initMap();
+  render();
+};
+</script>
+</body>
+>
 
