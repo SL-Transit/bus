@@ -56,11 +56,6 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 #map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
 #map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
 #map .ldmap-crosshair { display:none !important; }
-/* ซ่อนปุ่มภูเขา (layer selector) ที่ Longdo Map v3 ใช้ MapLibre */
-#map .maplibregl-ctrl-group { display:none !important; }
-#map .maplibregl-ctrl-zoom-in { display:none !important; }
-#map .maplibregl-ctrl-zoom-out { display:none !important; }
-#map .maplibregl-ctrl-compass { display:none !important; }
 
 /* ROUTE STRIP */
 .route-card { background:var(--card); border-radius:14px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); margin-bottom:14px; border:1px solid var(--border); }
@@ -330,8 +325,12 @@ function updateBusOnMap(pos) {
 
   // ใช้ Longdo Marker แบบ default (ไม่ custom icon) — รับรองขึ้นแน่นอน
   busMarker = new longdo.Marker(latlng, {
-    title: 'รถโดยสารอยู่ที่นี่'
-  });
+  title: 'รถโดยสาร',
+  icon: {
+    html: '<div style="font-size:26px;">🚐</div>',
+    offset: { x: 13, y: 13 }
+  }
+});
   mapObj.Overlays.add(busMarker);
 
   // เพิ่ม tag HTML กำกับตำแหน่ง
