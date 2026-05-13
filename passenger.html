@@ -5,10 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>รถโดยสาร สนามชัยเขต–ฉะเชิงเทรา</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- Firebase compat (ไม่ใช้ module เพื่อให้ Longdo ทำงานร่วมได้) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<!-- Longdo Map -->
 <script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -37,9 +35,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .status-text strong { display:block; font-size:15px; font-weight:700; color:var(--text); }
 .status-text span { font-size:12px; color:var(--muted); }
 
-/* MAP */
 #map { height:300px; border-radius:14px; margin-bottom:14px; border:1px solid var(--border); overflow:hidden; background:#e2e8f0; }
-.map-loading { height:300px; border-radius:14px; margin-bottom:14px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; background:#f1f5f9; color:var(--muted); font-size:14px; }
 
 .route-card { background:var(--card); border-radius:14px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); margin-bottom:14px; border:1px solid var(--border); }
 .route-label { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:1px; margin-bottom:12px; }
@@ -124,8 +120,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   </div>
 
   <div class="dir-tabs">
-    <button class="dir-tab active-go" id="tabGo"> สนามชัย→แปดริ้ว</button>
-    <button class="dir-tab" id="tabBack"> แปดริ้ว→สนามชัย</button>
+    <button class="dir-tab active-go" id="tabGo">▶ สนามชัย➡️แปดริ้ว</button>
+    <button class="dir-tab" id="tabBack">◀ แปดริ้ว➡️สนามชัย</button>
   </div>
 
   <div class="sec-label">ตารางเวลาทุกคิว</div>
@@ -133,6 +129,9 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
     <div class="sched-head" id="schedHead"></div>
     <div id="schedBody"></div>
   </div>
+
+  <div class="footer">คนขับรถ? <a href="driver.html">เปิดหน้าคนขับ →</a></div>
+</div>
 
 <script>
 // ===== Firebase =====
@@ -173,38 +172,30 @@ const TRIPS_BACK = [
 let viewDir='go', lastPos=null;
 let mapObj=null, busMarker=null, routeLine=null, mapReady=false;
 
+// ===== HELPERS =====
+function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
+function nowMin(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+function curTrips(){return viewDir==='go'?TRIPS_GO:TRIPS_BACK;}
+function curStops(){return viewDir==='go'?STOPS_GO:STOPS_BACK;}
+
 // ===== LONGDO MAP =====
 function initMap() {
   try {
     mapObj = new longdo.Map({
       placeholder: document.getElementById('map'),
       zoom: 10,
+      // กำหนดจุดกึ่งกลางเส้นทางเสมอ ไม่ใช่ตำแหน่งผู้โดยสาร
       location: { lon: 101.245, lat: 13.710 },
     });
-    
-    // ซ่อนปุ่มควบคุมตามความต้องการของผู้ใช้
-    mapObj.Ui.LayerSelector.visible(false); // ซ่อน แผนที่, ดาวเทียม, จราจร
-    mapObj.Ui.DPad.visible(false);          // ซ่อน ปุ่มทิศทางซ้ายมือ
-    mapObj.Ui.Zoombar.visible(false);       // ซ่อน แถบซูมซ้ายมือ
-    mapObj.Ui.Toolbar.visible(false);       // ซ่อน แถบเครื่องมือซ้ายมือ
-    
+
+    mapObj.Ui.LayerSelector.visible(false);
+    mapObj.Ui.DPad.visible(false);
+    mapObj.Ui.Zoombar.visible(false);
+    mapObj.Ui.Toolbar.visible(false);
+
     mapReady = true;
 
-    // เลื่อนแผนที่ไปตำแหน่งปัจจุบันของผู้ใช้อัตโนมัติ
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function(position) {
-        const userLoc = {
-          lon: position.coords.longitude,
-          lat: position.coords.latitude
-        };
-        mapObj.location(userLoc, true);
-        mapObj.zoom(14, true); // ซูมเข้าไปเพื่อให้เห็นตำแหน่งชัดเจนขึ้น
-      }, function(error) {
-        console.warn("Geolocation error:", error);
-      });
-    }
-
-    // ป้ายจอด
+    // วาดป้ายจอดทุกป้าย
     STOPS_GO.forEach((s,i) => {
       mapObj.Overlays.add(new longdo.Marker(
         { lon:s.lng, lat:s.lat },
@@ -215,9 +206,7 @@ function initMap() {
     drawRoute();
     if (lastPos) updateBusOnMap(lastPos);
   } catch(e) {
-    console.error('Map init error:', e);
-    document.getElementById('map').innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;font-size:14px">⚠️ แผนที่โหลดไม่ได้ กรุณา refresh</div>';
+    console.error('Map error:', e);
   }
 }
 
@@ -242,7 +231,7 @@ function drawRoute() {
     .catch(()=>{
       const pts = stops.map(s=>({lon:s.lng,lat:s.lat}));
       if (routeLine) mapObj.Overlays.remove(routeLine);
-      routeLine = new longdo.Polyline(pts, {lineColor:'#1e40af',lineWidth:4});
+      routeLine = new longdo.Polyline(pts,{lineColor:'#1e40af',lineWidth:4});
       mapObj.Overlays.add(routeLine);
     });
 }
@@ -251,129 +240,161 @@ function updateBusOnMap(pos) {
   if (!mapReady || !mapObj) return;
   const dir = pos.direction==='back' ? STOPS_BACK : STOPS_GO;
   let latlng = null;
-  if (pos.lat && pos.lng) { latlng={lon:pos.lng, lat:pos.lat}; }
-  else if (pos.stopIdx!==undefined && dir[pos.stopIdx]) { latlng={lon:dir[pos.stopIdx].lng, lat:dir[pos.stopIdx].lat}; }
-  
-  if (latlng) {
-    if (!busMarker) {
-      busMarker = new longdo.Marker(latlng, {
-        icon: { html:'<div style="font-size:32px">🚌</div>', offset:{x:-16,y:-16} }
-      });
-      mapObj.Overlays.add(busMarker);
-    } else {
-      busMarker.location(latlng);
-    }
+
+  // ใช้ GPS จริงถ้ามี ไม่งั้นใช้ตำแหน่งป้าย
+  if (pos.lat && pos.lng) {
+    latlng = { lon:pos.lng, lat:pos.lat };
+  } else if (pos.stopIdx !== undefined && dir[pos.stopIdx]) {
+    const s = dir[pos.stopIdx];
+    latlng = { lon:s.lng, lat:s.lat };
+  }
+  if (!latlng) return;
+
+  if (busMarker) {
+    mapObj.Overlays.remove(busMarker);
+  }
+  busMarker = new longdo.Marker(latlng, {
+    title:'ตำแหน่งรถ',
+    icon:{ html:'<div style="font-size:32px;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4))">🚌</div>', offset:{x:-16,y:-32} }
+  });
+  mapObj.Overlays.add(busMarker);
+
+  // เลื่อนแผนที่ไปหารถ แต่ไม่ซูมเข้าจนเกินไป
+  mapObj.location(latlng, true);
+  mapObj.zoom(12, true);
+}
+
+// ===== STATUS =====
+function getStatusInfo(pos) {
+  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
+  const elapsed=(Date.now()-pos.ts)/1000;
+  const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
+  const stopName=dir[pos.stopIdx]?.name||'?';
+  const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
+  const dirLabel=pos.direction==='back'?'↩ แปดริ้ว➡️สนามชัย':'↪ สนามชัย➡️แปดริ้ว';
+  const timeAgo=Math.round(elapsed/60);
+  const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
+
+  if (pos.status==='at' || elapsed>120) {
+    return {cls:'stopped',icon:'🛑',title:'จอดรอผู้โดยสาร ตามป้ายรถ',
+      sub:`${stopName} · ${dirLabel} คิว ${pos.queue||'?'} · ${timeStr}`};
+  } else if (pos.status==='towards' && nextStop) {
+    return {cls:'arriving',icon:'🚍',title:`กำลังใกล้จะถึง ${nextStop}`,
+      sub:`${dirLabel} คิว ${pos.queue||'?'} · ${timeStr}`};
+  } else {
+    return {cls:'running',icon:'🚌',title:'กำลังวิ่ง',
+      sub:`ออกจาก ${stopName} · ${dirLabel} คิว ${pos.queue||'?'} · ${timeStr}`};
   }
 }
 
-// ===== UI & CLOCK =====
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').innerText = now.toLocaleTimeString('th-TH');
-  const opt = { weekday:'short', day:'numeric', month:'short', year:'numeric' };
-  document.getElementById('dateText').innerText = now.toLocaleDateString('th-TH', opt);
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-// ===== RENDER LOGIC =====
-function render() {
-  const visual = document.getElementById('routeVisual');
-  visual.innerHTML = '';
-  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
-  
-  stops.forEach((s, i) => {
-    const col = document.createElement('div');
-    col.className = 'stop-col';
-    
-    const dotW = document.createElement('div');
-    dotW.className = 'stop-dot-w';
-    
-    const icon = document.createElement('div');
-    icon.className = 'stop-icon';
-    icon.innerText = i===0 || i===stops.length-1 ? '🚏' : '🚏';
-    
-    dotW.appendChild(icon);
-    col.appendChild(dotW);
-    
-    const name = document.createElement('div');
-    name.className = 'sn';
-    name.innerText = s.name;
-    col.appendChild(name);
-    
-    visual.appendChild(col);
-    
-    if (i < stops.length-1) {
-      const line = document.createElement('div');
-      line.className = 'line-seg';
-      visual.appendChild(line);
-    }
-  });
-  
-  renderSchedule();
-  drawRoute();
+// ===== RENDER =====
+function renderStatus(pos) {
+  const info=getStatusInfo(pos);
+  document.getElementById('statusCard').className=`status-card ${info.cls}`;
+  document.getElementById('statusIcon').textContent=info.icon;
+  document.getElementById('statusTitle').textContent=info.title;
+  document.getElementById('statusSub').textContent=info.sub;
 }
 
-function renderSchedule() {
-  const head = document.getElementById('schedHead');
-  const body = document.getElementById('schedBody');
-  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
-  const trips = viewDir==='go' ? TRIPS_GO : TRIPS_BACK;
-  
-  head.innerHTML = `<div>คิว</div>` + stops.map(s=>`<div>${s.name}</div>`).join('');
-  
-  body.innerHTML = '';
-  trips.forEach(t => {
-    const row = document.createElement('div');
-    row.className = 'trip-row';
-    row.innerHTML = `<div><span class="queue-badge">คิว ${t.q}</span></div>` + 
-                    t.times.map(time => {
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const [h, m] = time.split(':').map(Number);
-    const scheduleTime = h * 60 + m;
-    const isPassed = currentTime > scheduleTime;
-    return `<div class="t-cell ${isPassed ? 'done' : ''}">${time}</div>`;
-}).join('')
-
-    body.appendChild(row);
-  });
+function renderRouteStrip(pos) {
+  const stops=curStops();
+  const stopIdx=(pos && pos.direction===viewDir)?pos.stopIdx:null;
+  document.getElementById('routeVisual').innerHTML=stops.map((s,i)=>{
+    const isA=i===stopIdx, isP=stopIdx!==null&&i<stopIdx;
+    return `<div class="stop-col">
+      <div class="stop-dot-w">
+        ${isA?'<div class="bus-anim">🚌</div>':''}
+        <div class="stop-icon ${isA?'active':isP?'passed':''}">🚏</div>
+      </div>
+      <div class="sn ${isA?'active':''}">${s.name}</div>
+    </div>${i<stops.length-1?`<div class="line-seg ${isP?'passed':''}"></div>`:''}`;
+  }).join('');
 }
 
-document.getElementById('tabGo').onclick = () => {
+function renderNextBus() {
+  const trips=curTrips(), now=nowMin();
+  let next=null;
+  for(let i=0;i<trips.length;i++){if(toMin(trips[i].times[0])>now){next=i;break;}}
+  if(next===null){
+    document.getElementById('nextTime').textContent='--:--';
+    document.getElementById('nextDetail').textContent='ไม่มีรถแล้วในวันนี้';
+    return;
+  }
+  const dep=trips[next].times[0], diff=toMin(dep)-now;
+  document.getElementById('nextTime').textContent=dep+' น.';
+  document.getElementById('nextDetail').textContent=diff<=0?'กำลังจะออก!':`อีก ${diff} นาที · คิวที่ ${trips[next].q}`;
+}
+
+function renderSched() {
+  const trips=curTrips(), stops=curStops(), now=nowMin();
+  let cur=null;
+  for(let i=0;i<trips.length;i++){
+    if(now>=toMin(trips[i].times[0])-5&&now<=toMin(trips[i].times[2])+10){cur=i;break;}
+  }
+  document.getElementById('schedHead').innerHTML=
+    `<div>คิว</div>${stops.map(s=>`<div>${s.name.replace('ท่ารถ','').replace('ขนส่ง','')}</div>`).join('')}`;
+  document.getElementById('schedBody').innerHTML=trips.map((t,i)=>{
+    const done=now>toMin(t.times[2])+10, isCur=i===cur;
+    return `<div class="trip-row ${isCur?'cur':''} ${done&&!isCur?'done-row':''}">
+      <div><span class="queue-badge">คิว ${t.q}</span></div>
+      ${t.times.map((x,j)=>`<div class="t-cell ${done&&!isCur?'done':''}">${x}${isCur&&j===0?'<span class="now-b">วิ่งอยู่</span>':''}</div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function updateLastUpdate(pos) {
+  document.getElementById('lastUpdate').textContent=
+    pos?`เมื่อ ${new Date(pos.ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
+}
+
+function fullRender(pos) {
+  renderStatus(pos);
+  renderRouteStrip(pos);
+  renderSched();
+  renderNextBus();
+  updateLastUpdate(pos);
+  if (pos && mapReady) updateBusOnMap(pos);
+}
+
+// ===== TABS =====
+document.getElementById('tabGo').onclick=function(){
   viewDir='go';
-  document.getElementById('tabGo').className = 'dir-tab active-go';
-  document.getElementById('tabBack').className = 'dir-tab';
-  render();
+  this.className='dir-tab active-go';
+  document.getElementById('tabBack').className='dir-tab';
+  drawRoute(); fullRender(lastPos);
 };
-document.getElementById('tabBack').onclick = () => {
+document.getElementById('tabBack').onclick=function(){
   viewDir='back';
-  document.getElementById('tabGo').className = 'dir-tab';
-  document.getElementById('tabBack').className = 'dir-tab active-back';
-  render();
+  this.className='dir-tab active-back';
+  document.getElementById('tabGo').className='dir-tab';
+  drawRoute(); fullRender(lastPos);
 };
 
-// ===== FIREBASE SYNC =====
-db.ref('bus_status').on('value', snap => {
-  const data = snap.val();
-  if (!data) return;
-  lastPos = data;
-  
-  document.getElementById('statusTitle').innerText = data.status || 'กำลังวิ่ง';
-  document.getElementById('statusSub').innerText = data.subStatus || 'อัปเดตล่าสุดเมื่อสักครู่';
-  document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('th-TH');
-  
-  if (data.nextTime) document.getElementById('nextTime').innerText = data.nextTime;
-  if (data.nextDetail) document.getElementById('nextDetail').innerText = data.nextDetail;
-  
-  updateBusOnMap(data);
+// ===== FIREBASE — อ่านจาก bus/car1 ตรงกับที่คนขับส่ง =====
+db.ref('bus/car1').on('value', function(snap) {
+  lastPos = snap.val();
+  fullRender(lastPos);
 });
 
-window.onload = () => {
-  initMap();
-  render();
-};
+// ===== CLOCK =====
+function tick() {
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=
+    `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  renderNextBus();
+}
+tick(); setInterval(tick,1000);
+fullRender(null);
+
+// ===== MAP INIT — รอ Longdo โหลดเสร็จ =====
+(function waitLongdo(){
+  if(window.longdo){ initMap(); }
+  else { setTimeout(waitLongdo,300); }
+})();
 </script>
 </body>
->
+</html>
 
