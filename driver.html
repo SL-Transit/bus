@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>คนขับ – ส่งตำแหน่ง GPS</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Firebase compat — ใช้เวอร์ชันเดียวกับผู้โดยสาร -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:#0f172a; --card:#1e293b; --border:#334155;
+  --text:#f8fafc; --muted:#94a3b8;
+  --orange:#f97316; --green:#22c55e; --red:#ef4444; --blue:#3b82f6;
+}
+body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+
+.header {
+  background:linear-gradient(135deg,#1e3a8a,#dc2626);
+  padding:16px 20px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.header-title { font-family:'Chakra Petch',sans-serif; font-size:16px; font-weight:700; color:#fff; }
+.header-sub { font-size:11px; color:#bfdbfe; margin-top:2px; }
+
+.main { flex:1; padding:20px 16px; max-width:420px; margin:0 auto; width:100%; }
+
+/* CLOCK */
+.clock-card { background:var(--card); border-radius:16px; padding:16px 20px; margin-bottom:16px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.clock { font-family:'Chakra Petch',sans-serif; font-size:34px; font-weight:700; color:var(--orange); letter-spacing:3px; }
+.date-sm { font-size:12px; color:var(--muted); margin-top:2px; }
+
+/* GPS STATUS */
+.gps-card { background:var(--card); border-radius:16px; padding:16px 20px; margin-bottom:16px; border:1px solid var(--border); }
+.gps-label { font-size:11px; color:var(--muted); letter-spacing:1px; margin-bottom:10px; font-weight:600; }
+.gps-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.gps-dot { width:12px; height:12px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:all 0.3s; }
+.gps-dot.ok { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+.gps-dot.searching { background:var(--orange); animation:blink 1s infinite; }
+.gps-dot.error { background:var(--red); }
+@keyframes pulse{0%,100%{box-shadow:0 0 8px var(--green)}50%{box-shadow:0 0 16px var(--green)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.gps-text { font-size:14px; font-weight:600; }
+.gps-coords { font-family:'Chakra Petch',sans-serif; font-size:12px; color:var(--muted); margin-top:4px; }
+.gps-acc { font-size:12px; color:var(--muted); }
+
+/* QUEUE & DIRECTION */
+.select-card { background:var(--card); border-radius:16px; padding:16px 20px; margin-bottom:16px; border:1px solid var(--border); }
+.select-label { font-size:11px; color:var(--muted); letter-spacing:1px; margin-bottom:10px; font-weight:600; }
+.btn-grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
+.btn-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.sel-btn { padding:12px 6px; border-radius:10px; border:2px solid var(--border); background:transparent; color:var(--muted); font-family:'Kanit',sans-serif; font-size:13px; font-weight:600; cursor:pointer; text-align:center; transition:all 0.2s; }
+.sel-btn.active-orange { border-color:var(--orange); background:rgba(249,115,22,0.15); color:var(--orange); }
+.sel-btn.active-blue { border-color:var(--blue); background:rgba(59,130,246,0.12); color:var(--blue); }
+.sel-btn.active-red { border-color:var(--red); background:rgba(239,68,68,0.12); color:var(--red); }
+.sel-btn small { display:block; font-size:9px; margin-top:2px; font-weight:400; }
+
+/* SEND STATUS */
+.send-status { background:var(--card); border-radius:16px; padding:16px 20px; margin-bottom:16px; border:1px solid var(--border); }
+.send-label { font-size:11px; color:var(--muted); letter-spacing:1px; margin-bottom:8px; font-weight:600; }
+.send-value { font-size:16px; font-weight:700; color:var(--orange); }
+.send-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+.send-count { font-family:'Chakra Petch',sans-serif; font-size:11px; color:var(--muted); margin-top:6px; }
+
+/* MAIN BUTTON */
+.btn-start { width:100%; padding:18px; border-radius:16px; border:none; font-family:'Kanit',sans-serif; font-size:18px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-bottom:10px; }
+.btn-start.start { background:linear-gradient(135deg,var(--green),#16a34a); color:#fff; box-shadow:0 4px 20px rgba(34,197,94,0.3); }
+.btn-start.stop { background:linear-gradient(135deg,var(--red),#b91c1c); color:#fff; box-shadow:0 4px 20px rgba(239,68,68,0.3); }
+.btn-start:active { transform:scale(0.98); }
+
+.btn-send-now { width:100%; padding:14px; border-radius:12px; border:none; font-family:'Kanit',sans-serif; font-size:15px; font-weight:700; cursor:pointer; background:var(--card); color:var(--orange); border:2px solid var(--orange); transition:all 0.2s; }
+.btn-send-now:active { transform:scale(0.98); }
+.btn-send-now:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* FIREBASE STATUS */
+.fb-bar { display:flex; align-items:center; gap:8px; padding:8px 0; font-size:12px; color:var(--muted); }
+.fb-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+.fb-dot.ok { background:var(--green); }
+.fb-dot.spin { background:var(--orange); animation:blink 1s infinite; }
+
+/* TOAST */
+.toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(100px); background:var(--green); color:#fff; padding:12px 24px; border-radius:30px; font-size:14px; font-weight:700; transition:transform 0.3s; white-space:nowrap; z-index:999; box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+.toast.show { transform:translateX(-50%) translateY(0); }
+.toast.error-toast { background:var(--red); }
+
+/* PASSENGER LINK */
+.pass-link { text-align:center; padding:12px 0 24px; font-size:12px; color:var(--muted); }
+.pass-link a { color:var(--blue); font-weight:600; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">🚌 หน้าคนขับ</div>
+    <div class="header-sub">สนามชัยเขต – ฉะเชิงเทรา</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:11px;color:#bfdbfe">Firebase</div>
+    <div class="fb-bar" style="justify-content:flex-end">
+      <span id="fbText" style="color:#94a3b8">กำลังเชื่อม...</span>
+      <div class="fb-dot spin" id="fbDot"></div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Clock -->
+  <div class="clock-card">
+    <div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="date-sm" id="dateText"></div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:var(--muted)">ส่งไปแล้ว</div>
+      <div style="font-family:'Chakra Petch',sans-serif;font-size:22px;font-weight:700;color:var(--orange)" id="sendCount">0</div>
+      <div style="font-size:10px;color:var(--muted)">ครั้ง</div>
+    </div>
+  </div>
+
+  <!-- GPS -->
+  <div class="gps-card">
+    <div class="gps-label">📡 สัญญาณ GPS</div>
+    <div class="gps-row">
+      <div class="gps-dot searching" id="gpsDot"></div>
+      <div class="gps-text" id="gpsText">กำลังหาสัญญาณ...</div>
+    </div>
+    <div class="gps-coords" id="gpsCoords">--</div>
+    <div class="gps-acc" id="gpsAcc"></div>
+  </div>
+
+  <!-- Queue + Direction -->
+  <div class="select-card">
+    <div class="select-label">🚐 คุณเป็นรถคันไหน?</div>
+    <div class="btn-grid-4" id="queueBtns">
+      <button class="sel-btn active-orange" data-q="1">รถ 1<small>รถตู้</small></button>
+      <button class="sel-btn" data-q="2">รถ 2<small>รถตู้</small></button>
+      <button class="sel-btn" data-q="3">รถ 3<small>รถตู้</small></button>
+      <button class="sel-btn" data-q="4">รถ 4<small>รถตู้</small></button>
+    </div>
+    <div class="select-label">🧭 กำลังวิ่งไปทางไหน?</div>
+    <div class="btn-grid-2" id="dirBtns">
+      <button class="sel-btn active-blue" data-d="go">สนามชัย → แปดริ้ว</button>
+      <button class="sel-btn" data-d="back">แปดริ้ว → สนามชัย</button>
+    </div>
+  </div>
+
+  <!-- Send status -->
+  <div class="send-status">
+    <div class="send-label">📍 สถานะที่ผู้โดยสารเห็น</div>
+    <div class="send-value" id="sendValue">กด "เริ่มส่งตำแหน่ง" ด้านล่าง</div>
+    <div class="send-sub" id="sendSub">ระบบจะส่ง GPS ให้ผู้โดยสารทุก 10 วินาที</div>
+  </div>
+
+  <!-- Buttons -->
+  <button class="btn-start start" id="btnMain">▶ เริ่มส่งตำแหน่ง</button>
+  <button class="btn-send-now" id="btnNow" disabled>📡 ส่งตำแหน่งทันที</button>
+
+  <div class="pass-link">
+    <a href="passenger.html">← ดูหน้าผู้โดยสาร</a>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">✅ ส่งแล้ว!</div>
+
+<script>
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
+  authDomain: "bus-line1-ba0ea.firebaseapp.com",
+  databaseURL: "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bus-line1-ba0ea",
+  storageBucket: "bus-line1-ba0ea.firebasestorage.app",
+  messagingSenderId: "511401517598",
+  appId: "1:511401517598:web:5605ee3777619dffe1c40f"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const busRef = db.ref('bus/car1');
+
+// Firebase connected check
+db.ref('.info/connected').on('value', function(snap) {
+  if (snap.val()) {
+    document.getElementById('fbDot').className = 'fb-dot ok';
+    document.getElementById('fbText').textContent = 'เชื่อมต่อแล้ว ✓';
+    document.getElementById('fbText').style.color = '#22c55e';
+  } else {
+    document.getElementById('fbDot').className = 'fb-dot spin';
+    document.getElementById('fbText').textContent = 'กำลังเชื่อม...';
+    document.getElementById('fbText').style.color = '#94a3b8';
+  }
+});
+
+// ===== STATE =====
+let gps = null;
+let selQueue = 1;
+let selDir = 'go';
+let isTracking = false;
+let sendInterval = null;
+let watchId = null;
+let sendCount = 0;
+let lastMovement = Date.now();
+let lastLat = null, lastLng = null;
+
+// ===== QUEUE BUTTONS =====
+document.getElementById('queueBtns').querySelectorAll('.sel-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    selQueue = parseInt(this.dataset.q);
+    document.getElementById('queueBtns').querySelectorAll('.sel-btn')
+      .forEach(b => b.className = 'sel-btn');
+    this.className = 'sel-btn active-orange';
+    updateSendStatus();
+  });
+});
+
+// ===== DIRECTION BUTTONS =====
+document.getElementById('dirBtns').querySelectorAll('.sel-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    selDir = this.dataset.d;
+    document.getElementById('dirBtns').querySelectorAll('.sel-btn')
+      .forEach(b => b.className = 'sel-btn');
+    this.className = selDir === 'go' ? 'sel-btn active-blue' : 'sel-btn active-red';
+    updateSendStatus();
+  });
+});
+
+// ===== GPS =====
+function startGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById('gpsDot').className = 'gps-dot error';
+    document.getElementById('gpsText').textContent = 'เบราว์เซอร์นี้ไม่รองรับ GPS';
+    return;
+  }
+  document.getElementById('gpsDot').className = 'gps-dot searching';
+  document.getElementById('gpsText').textContent = 'กำลังหาสัญญาณ...';
+
+  watchId = navigator.geolocation.watchPosition(
+    function(pos) {
+      gps = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+
+      // ตรวจสอบการเคลื่อนที่
+      if (lastLat !== null) {
+        const dist = Math.sqrt(
+          Math.pow((gps.lat - lastLat) * 111000, 2) +
+          Math.pow((gps.lng - lastLng) * 111000 * Math.cos(gps.lat * Math.PI / 180), 2)
+        );
+        if (dist > 15) lastMovement = Date.now();
+      }
+      lastLat = gps.lat; lastLng = gps.lng;
+
+      document.getElementById('gpsDot').className = 'gps-dot ok';
+      document.getElementById('gpsText').textContent = 'GPS พร้อมแล้ว ✓';
+      document.getElementById('gpsCoords').textContent = gps.lat.toFixed(5) + ', ' + gps.lng.toFixed(5);
+      document.getElementById('gpsAcc').textContent = 'ความแม่นยำ ±' + gps.acc + ' เมตร';
+      document.getElementById('btnNow').disabled = false;
+      updateSendStatus();
+    },
+    function(err) {
+      document.getElementById('gpsDot').className = 'gps-dot error';
+      document.getElementById('gpsText').textContent = 'ไม่ได้รับสัญญาณ GPS — กด "ส่งตำแหน่งทันที" เองได้';
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+  );
+}
+
+// ===== SEND =====
+function getStatus() {
+  const stoppedSec = (Date.now() - lastMovement) / 1000;
+  if (stoppedSec > 120) return 'at';
+  return 'towards';
+}
+
+function sendPosition(showToast) {
+  const data = {
+    lat: gps ? gps.lat : null,
+    lng: gps ? gps.lng : null,
+    acc: gps ? gps.acc : null,
+    stopIdx: 0,
+    status: getStatus(),
+    direction: selDir,
+    queue: selQueue,
+    ts: Date.now()
+  };
+
+  busRef.set(data)
+    .then(function() {
+      sendCount++;
+      document.getElementById('sendCount').textContent = sendCount;
+      const t = new Date().toTimeString().slice(0, 5);
+      document.getElementById('sendSub').textContent = '✅ ส่งล่าสุดเมื่อ ' + t + ' น.';
+      if (showToast) showToastFn('✅ ส่งตำแหน่งแล้ว!', false);
+    })
+    .catch(function(err) {
+      document.getElementById('sendSub').textContent = '❌ ส่งไม่ได้ – ตรวจสอบอินเทอร์เน็ต';
+      if (showToast) showToastFn('❌ ส่งไม่ได้!', true);
+    });
+}
+
+function updateSendStatus() {
+  const dirLabel = selDir === 'go' ? 'สนามชัย → แปดริ้ว' : 'แปดริ้ว → สนามชัย';
+  const statusLabel = getStatus() === 'at' ? '🛑 จอดรอผู้โดยสาร' : '🚌 กำลังวิ่ง';
+  document.getElementById('sendValue').textContent = statusLabel + ' · รถ ' + selQueue;
+  if (!isTracking) {
+    document.getElementById('sendSub').textContent = 'ทิศทาง: ' + dirLabel + ' · กด "เริ่มส่งตำแหน่ง" เพื่อเริ่ม';
+  }
+}
+
+// ===== MAIN BUTTON =====
+document.getElementById('btnMain').addEventListener('click', function() {
+  if (!isTracking) {
+    // เริ่มส่ง
+    isTracking = true;
+    this.textContent = '⏹ หยุดส่งตำแหน่ง';
+    this.className = 'btn-start stop';
+    sendPosition(true);
+    sendInterval = setInterval(function() { sendPosition(false); }, 10000);
+  } else {
+    // หยุดส่ง
+    isTracking = false;
+    this.textContent = '▶ เริ่มส่งตำแหน่ง';
+    this.className = 'btn-start start';
+    clearInterval(sendInterval);
+    document.getElementById('sendSub').textContent = 'หยุดส่งแล้ว';
+  }
+});
+
+// ===== SEND NOW =====
+document.getElementById('btnNow').addEventListener('click', function() {
+  sendPosition(true);
+});
+
+// ===== TOAST =====
+function showToastFn(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'toast error-toast show' : 'toast show';
+  setTimeout(function() { t.className = t.className.replace(' show', ''); }, 2500);
+}
+
+// ===== CLOCK =====
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent = n.toTimeString().slice(0, 8);
+  const d = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent =
+    d[n.getDay()] + ' ' + n.getDate() + ' ' + m[n.getMonth()] + ' ' + (n.getFullYear() + 543);
+  updateSendStatus();
+}
+tick();
+setInterval(tick, 1000);
+
+// ===== START =====
+startGPS();
+</script>
+</body>
+</html>
