@@ -391,7 +391,7 @@ function goPage(p) {
     var phone = document.getElementById('pPhone').value.trim();
     if (!name) { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
     if (!phone) { alert('กรุณากรอกเบอร์โทรศัพท์'); return; }
-    if (!validatePhone()) { alert('กรุณากรอกเบอร์โทรให้ถูกต้อง\n(10 หลัก ขึ้นต้นด้วย 06, 08 หรือ 09)'); return; }
+    if (!validatePhone()) { alert('กรุณากรอกเบอร์โทรให้ถูกต้อง'); return; }
     document.getElementById('sumTotal2').textContent = '฿' + (PRICE * seats).toLocaleString() + ' บาท';
   }
   document.querySelectorAll('.page').forEach(function(el) { el.classList.remove('active'); });
