@@ -2,10 +2,12 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>รถตู้สนามชัยเขต-แปดริ้ว</title>
+  <title>ระบบบริการผู้โดยสารอัจฉริยะ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ตั้งค่าพื้นฐาน */
+    /* นำเข้าฟอนต์ Sarabun เพื่อความเป็นทางการและอ่านง่าย */
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -13,9 +15,9 @@
     }
 
     body {
-      font-family: 'Sarabun', Arial, sans-serif;
-      background-color: #e3f2fd; /* สีฟ้าอ่อนสบายตา */
-      color: #333;
+      font-family: 'Sarabun', sans-serif;
+      background-color: #f0f7ff; /* สีฟ้าอ่อนนุ่มนวล */
+      color: #2c3e50;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -26,112 +28,154 @@
 
     .container {
       width: 100%;
-      max-width: 500px;
-      background: white;
-      padding: 30px;
-      border-radius: 24px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+      max-width: 480px;
+      background: #ffffff;
+      padding: 40px 30px;
+      border-radius: 30px;
+      box-shadow: 0 15px 35px rgba(0, 50, 100, 0.08);
       text-align: center;
+      border: 1px solid rgba(0, 0, 0, 0.03);
+    }
+
+    .header-icon {
+      width: 80px;
+      height: 80px;
+      background: #e8f0fe;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 40px;
     }
 
     h1 {
-      font-size: 28px;
-      color: #0d47a1;
-      margin-bottom: 10px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a3a5f;
+      margin-bottom: 12px;
+      line-height: 1.4;
     }
 
     .subtitle {
       font-size: 18px;
-      color: #666;
-      margin-bottom: 30px;
+      color: #5d6d7e;
+      margin-bottom: 35px;
+      font-weight: 400;
     }
 
-    /* สไตล์ปุ่มขนาดใหญ่สำหรับผู้สูงอายุ */
+    /* สไตล์ปุ่มแบบทางการ โทนสีนุ่มนวล (Muted Colors) */
     .btn {
       display: flex;
       align-items: center;
-      justify-content: center;
       width: 100%;
-      padding: 25px;
-      margin-bottom: 20px;
-      font-size: 24px;
-      font-weight: bold;
+      padding: 22px 25px;
+      margin-bottom: 18px;
+      font-size: 22px;
+      font-weight: 600;
       color: white;
       text-decoration: none;
-      border-radius: 20px;
-      transition: transform 0.2s, box-shadow 0.2s;
+      border-radius: 18px;
+      transition: all 0.3s ease;
       border: none;
       cursor: pointer;
+      text-align: left;
     }
 
     .btn:active {
-      transform: scale(0.98);
+      transform: translateY(2px);
+      filter: brightness(0.9);
     }
 
-    /* ไล่สีโทนน้ำเงิน */
+    /* โทนน้ำเงินนุ่มนวล (Soft Navy/Blue) */
     .btn-blue {
-      background: linear-gradient(135deg, #1e88e5, #0d47a1);
-      box-shadow: 0 6px 15px rgba(13, 71, 161, 0.3);
+      background: linear-gradient(135deg, #4a90e2, #357abd);
+      box-shadow: 0 8px 20px rgba(74, 144, 226, 0.2);
     }
 
-    /* ไล่สีโทนแดง */
+    /* โทนแดงนุ่มนวล (Soft Crimson/Red) */
     .btn-red {
-      background: linear-gradient(135deg, #e53935, #b71c1c);
-      box-shadow: 0 6px 15px rgba(183, 28, 28, 0.3);
+      background: linear-gradient(135deg, #e67e22, #d35400); /* ปรับเป็นส้มแดงนุ่มนวลเพื่อลดความแสบตา */
+      box-shadow: 0 8px 20px rgba(230, 126, 34, 0.2);
+    }
+    
+    /* โทนน้ำเงินเข้มทางการ */
+    .btn-dark {
+      background: linear-gradient(135deg, #34495e, #2c3e50);
+      box-shadow: 0 8px 20px rgba(44, 62, 80, 0.2);
     }
 
-    /* ไล่สีน้ำเงินแดงผสม */
-    .btn-mixed {
-      background: linear-gradient(135deg, #1e88e5, #e53935);
-      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    .icon-box {
+      background: rgba(255, 255, 255, 0.2);
+      width: 45px;
+      height: 45px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 20px;
+      font-size: 24px;
     }
 
-    .icon {
-      font-size: 32px;
-      margin-right: 15px;
+    .btn-text {
+      flex: 1;
     }
 
-    .footer-note {
-      margin-top: 20px;
-      font-size: 16px;
-      color: #888;
+    .arrow {
+      font-size: 18px;
+      opacity: 0.7;
     }
 
-    /* ปรับขนาดตัวอักษรให้ใหญ่ขึ้นสำหรับหน้าจอเล็ก */
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+
+    .footer-text {
+      font-size: 14px;
+      color: #bdc3c7;
+      letter-spacing: 0.5px;
+    }
+
+    /* ปรับปรุงสำหรับมือถือ */
     @media (max-width: 400px) {
-      h1 { font-size: 24px; }
-      .btn { font-size: 20px; padding: 20px; }
-      .icon { font-size: 28px; }
+      .container { padding: 30px 20px; }
+      h1 { font-size: 22px; }
+      .btn { font-size: 19px; padding: 18px 20px; }
     }
   </style>
-  <!-- นำเข้าฟอนต์ Sarabun เพื่อความอ่านง่าย -->
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
 
   <div class="container">
-    <div style="font-size: 60px; margin-bottom: 10px;">🚍</div>
-    <h1>รถตู้สนามชัยเขต-แปดริ้ว</h1>
-    <p class="subtitle">ยินดีต้อนรับครับ กดเลือกรายการด้านล่างได้เลย</p>
+    <div class="header-icon">🚍</div>
+    <h1>ระบบบริการผู้โดยสารอัจฉริยะ</h1>
+    <p class="subtitle">ยินดีต้อนรับเข้าสู่ระบบบริการผู้โดยสารอัจฉริยะ</p>
 
     <a href="booking.html" class="btn btn-blue">
-      <span class="icon">🎟️</span> จองตั๋วออนไลน์
+      <div class="icon-box">🎟️</div>
+      <span class="btn-text">จองตั๋วออนไลน์</span>
+      <span class="arrow">❯</span>
     </a>
 
-    <a href="check_ticket.html" class="btn btn-mixed">
-      <span class="icon">🔍</span> ตรวจสอบตั๋ว
+    <a href="check_ticket.html" class="btn btn-dark">
+      <div class="icon-box">🔍</div>
+      <span class="btn-text">ตรวจสอบข้อมูลตั๋ว</span>
+      <span class="arrow">❯</span>
     </a>
 
     <a href="passenger.html" class="btn btn-red">
-      <span class="icon">🧍‍♂️</span> สำหรับผู้โดยสาร
+      <div class="icon-box">🧍‍♂️</div>
+      <span class="btn-text">ข้อมูลสำหรับผู้โดยสาร</span>
+      <span class="arrow">❯</span>
     </a>
 
-    <div class="footer-note">
-      ตัวหนังสือใหญ่ อ่านง่าย ใช้งานสะดวก
+    <div class="footer">
+      <p class="footer-text">SMART PASSENGER SERVICE SYSTEM</p>
     </div>
   </div>
 
 </body>
 </html>
-
