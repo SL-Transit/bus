@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตรวจสอบและจัดการตั๋ว</title>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="qrcode.min.js"></script>
+  <style>
+    :root {
+      --navy: #12355b;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --red: #dc2626;
+      --orange: #f97316;
+      --muted: #64748b;
+      --line: #dbeafe;
+      --soft: #f8fbff;
+      --card: #ffffff;
+      --ink: #0f172a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Kanit', sans-serif;
+      background: #eef6ff;
+      color: var(--ink);
+      padding: 18px;
+    }
+
+    .wrap { width: 100%; max-width: 760px; margin: 0 auto; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
+    .pill { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid rgba(37, 99, 235, .12);
+      border-radius: 18px;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, .08);
+      padding: 20px;
+      margin-bottom: 14px;
+    }
+
+    h1 { color: var(--navy); font-size: 26px; line-height: 1.25; margin-bottom: 8px; }
+    h2 { color: var(--navy); font-size: 19px; line-height: 1.3; margin-bottom: 12px; }
+    .lead { color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 18px; }
+
+    label { display: block; color: var(--navy); font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .search-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+    .field { min-width: 0; }
+
+    input, select, textarea {
+      width: 100%;
+      border: 2px solid var(--line);
+      border-radius: 13px;
+      font-family: 'Kanit', sans-serif;
+      font-size: 16px;
+      padding: 13px 14px;
+      color: var(--navy);
+      outline: none;
+      background: var(--soft);
+    }
+
+    input.code { font-family: 'Chakra Petch', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); background: #fff; box-shadow: 0 0 0 4px rgba(37, 99, 235, .08); }
+
+    button, .btn {
+      border: 0;
+      border-radius: 13px;
+      padding: 13px 16px;
+      color: #fff;
+      background: var(--blue);
+      font-family: 'Kanit', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 52px;
+      white-space: nowrap;
+    }
+
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-full { width: 100%; }
+    .btn-green { background: var(--green); }
+    .btn-red { background: var(--red); }
+    .btn-dark { background: #334155; }
+    .btn-orange { background: var(--orange); }
+
+    .hidden { display: none !important; }
+
+    .status {
+      border-radius: 13px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.55;
+      margin-top: 12px;
+    }
+
+    .status.info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .status.good { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .status.warn { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+    .status.bad { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .row { background: var(--soft); border: 1px solid #e2e8f0; border-radius: 13px; padding: 12px; }
+    .row .k { color: var(--muted); font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+    .row .v { color: var(--ink); font-size: 15px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+    .row.wide { grid-column: 1 / -1; }
+
+    .ticket-head {
+      background: var(--navy);
+      color: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .ticket-code { font-family: 'Chakra Petch', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 3px; }
+    .ticket-state { border-radius: 999px; padding: 7px 12px; background: rgba(255,255,255,.16); font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+    .qr-wrap { display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center; }
+    #qrCode { width: 180px; height: 180px; padding: 10px; border-radius: 14px; background: #fff; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; }
+    #qrCode img, #qrCode canvas { width: 160px !important; height: 160px !important; }
+    .small { color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric { border-radius: 14px; padding: 13px; background: var(--soft); border: 1px solid #e2e8f0; min-height: 88px; }
+    .metric .label { color: var(--muted); font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+    .metric .num { color: var(--navy); font-family: 'Chakra Petch', sans-serif; font-size: 24px; font-weight: 700; line-height: 1.2; }
+    .metric .unit { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+    .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .reason-box { display: grid; gap: 10px; margin-top: 12px; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .58);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 20;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 45px rgba(0,0,0,.2);
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 14px; }
+      .panel { padding: 16px; border-radius: 16px; }
+      .search-grid, .grid, .metric-grid, .qr-wrap, .actions { grid-template-columns: 1fr; }
+      #qrCode { margin: 0 auto; }
+      .ticket-head { align-items: flex-start; flex-direction: column; }
+      button, .btn { width: 100%; white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="topbar">
+      <a class="back" href="index.html">‹ กลับหน้าแรก</a>
+      <div class="pill">Ticket Center</div>
+    </div>
+
+    <section class="panel">
+      <h1>ตรวจสอบ / เช็คอิน / ยกเลิกตั๋ว</h1>
+      <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว ระบบจะแสดงเฉพาะข้อมูลการจองของผู้โดยสารคนนั้น</p>
+      <div class="search-grid">
+        <div class="field">
+          <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
+          <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
+        </div>
+        <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
+      </div>
+      <div id="lookupStatus" class="status info hidden"></div>
+    </section>
+
+    <section id="ticketPanel" class="panel hidden">
+      <div class="ticket-head">
+        <div>
+          <div class="small" style="color:rgba(255,255,255,.78)">รหัสตั๋ว</div>
+          <div id="showCode" class="ticket-code">-</div>
+        </div>
+        <div id="showStatus" class="ticket-state">ยืนยันแล้ว</div>
+      </div>
+
+      <h2>QR Code ตั๋ว</h2>
+      <div class="qr-wrap">
+        <div id="qrCode"></div>
+        <div>
+          <p class="small">QR นี้บันทึกข้อมูลตั๋วไว้ในตัวเอง ได้แก่ รหัสตั๋ว ชื่อ เส้นทาง วันเวลา และจำนวนที่นั่ง ไม่ได้เป็นเพียงลิงก์</p>
+          <button class="btn-full" type="button" onclick="downloadQR()">บันทึก QR ลงโทรศัพท์</button>
+          <div id="qrStatus" class="status warn hidden">โหลดตัวสร้าง QR ไม่สำเร็จ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วเปิดหน้านี้อีกครั้ง</div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:18px">รายละเอียดการจอง</h2>
+      <div class="grid">
+        <div class="row"><div class="k">ผู้โดยสาร</div><div id="showName" class="v">-</div></div>
+        <div class="row"><div class="k">เบอร์โทร</div><div id="showPhone" class="v">-</div></div>
+        <div class="row wide"><div class="k">Leg 1</div><div id="showLeg1" class="v">-</div></div>
+        <div id="leg2Row" class="row wide hidden"><div class="k">Leg 2</div><div id="showLeg2" class="v">-</div></div>
+        <div class="row"><div class="k">วันเดินทาง</div><div id="showDate" class="v">-</div></div>
+        <div class="row"><div class="k">เวลาออกเดินทาง</div><div id="showTime" class="v">-</div></div>
+        <div class="row"><div class="k">จำนวนที่นั่ง</div><div id="showSeats" class="v">-</div></div>
+        <div class="row"><div class="k">ยอดชำระ</div><div id="showPrice" class="v">-</div></div>
+        <div id="officialStatusRow" class="row wide hidden"><div class="k">สถานะอย่างเป็นทางการ</div><div id="officialStatus" class="v">-</div></div>
+      </div>
+    </section>
+
+    <section id="checkinPanel" class="panel hidden">
+      <h2>Smart Check-in</h2>
+      <p class="lead">ระบบใช้ GPS แบบ watchPosition และอัปเดตเฉพาะเมื่อเคลื่อนที่มากกว่า 10 เมตร</p>
+
+      <div class="metric-grid">
+        <div class="metric"><div class="label">ระยะห่างจากแปดริ้ว</div><div id="distanceText" class="num">--</div><div class="unit">กิโลเมตร</div></div>
+        <div class="metric"><div class="label">ความเร็วปัจจุบัน</div><div id="speedText" class="num">--</div><div class="unit">กม./ชม.</div></div>
+        <div class="metric"><div class="label">เวลาถึงโดยประมาณ</div><div id="etaText" class="num">--</div><div class="unit" id="etaUnit">นาที</div></div>
+      </div>
+
+      <div id="scheduleStatus" class="status info">กดเริ่มใช้ GPS เพื่อคำนวณการต่อรถที่แปดริ้ว</div>
+      <div id="checkinWindow" class="status warn hidden"></div>
+
+      <div class="actions">
+        <button id="btnGps" type="button" onclick="startGPS()">เริ่มใช้ GPS</button>
+        <button id="btnCheckin" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอิน</button>
+      </div>
+    </section>
+
+    <section id="flexPanel" class="panel hidden">
+      <h2>ตั๋ว Flexible</h2>
+      <p class="lead">ทุกตั๋วรองรับการเปลี่ยนเป็นเที่ยวถัดไปเมื่อเดินทางไม่ทัน เช่น อุบัติเหตุหรือรถล่าช้า</p>
+      <div id="flexStatus" class="status info">ระบบจะแนะนำเที่ยวถัดไปหลังคำนวณจาก GPS หรือสามารถเลือกสาเหตุแล้วเปลี่ยนเที่ยวได้เอง</div>
+      <div class="reason-box">
+        <label for="changeReason">สาเหตุการเปลี่ยนเที่ยว</label>
+        <select id="changeReason">
+          <option value="รถล่าช้า">รถล่าช้า</option>
+          <option value="อุบัติเหตุระหว่างทาง">อุบัติเหตุระหว่างทาง</option>
+          <option value="เดินทางไม่ทันเวลา">เดินทางไม่ทันเวลา</option>
+          <option value="เหตุจำเป็นส่วนตัว">เหตุจำเป็นส่วนตัว</option>
+        </select>
+        <button id="btnChangeTrip" class="btn-orange" type="button" onclick="changeToNextTrip()">เปลี่ยนเป็นเที่ยวถัดไป</button>
+      </div>
+    </section>
+
+    <section id="cancelPanel" class="panel hidden">
+      <h2>ยกเลิกตั๋ว</h2>
+      <div id="cancelStatus" class="status info">ยกเลิกได้เฉพาะก่อนรถออกอย่างน้อย 1 ชั่วโมง</div>
+      <button id="btnCancel" class="btn-red btn-full" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
+    </section>
+  </main>
+
+  <div id="cancelModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>ยืนยันการยกเลิกตั๋ว</h2>
+      <p class="lead">เมื่อตกลง ระบบจะอัปเดตสถานะใน Firebase และแจ้งท่าปลายทางทันที</p>
+      <div class="actions">
+        <button class="btn-red" type="button" onclick="confirmCancel()">ยืนยันยกเลิก</button>
+        <button class="btn-dark" type="button" onclick="closeCancelConfirm()">กลับไปก่อน</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
+      authDomain: "bus-line1-ba0ea.firebaseapp.com",
+      databaseURL: "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "bus-line1-ba0ea",
+      storageBucket: "bus-line1-ba0ea.firebasestorage.app",
+      messagingSenderId: "511401517598",
+      appId: "1:511401517598:web:5605ee3777619dffe1c40f"
+    });
+
+    var db = firebase.database();
+    var MAKE_WEBHOOK = 'https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
+    var TERMINAL = { lat: 13.692383, lng: 101.054183 };
+    var DESTINATION_TIMES = ['06:40','07:20','07:40','08:20','09:20','10:00','11:00','11:40','12:30','13:10','14:00','14:20','14:40','15:00','17:00','17:20','18:20','18:40'];
+    var ORIGIN_TIMES = ['06:20','08:00','09:00','09:30','10:40','11:30','12:10','13:00','13:40','14:00'];
+    var MAX_SEATS = 3;
+
+    var currentBooking = null;
+    var currentCode = null;
+    var lastPosition = null;
+    var watchId = null;
+    var enterFiveKmAt = null;
+    var currentDistanceKm = null;
+    var currentSpeedKmh = null;
+    var currentEtaMinutes = null;
+    var suggestedNextTrip = null;
+    var countdownTimer = null;
+
+    function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }
+    function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
+    function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
+    function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function lookupTicket() {
+      var value = normalizeLookup(document.getElementById('lookupValue').value);
+      var btn = document.getElementById('btnLookup');
+      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
+
+      if (!value) { setStatus('lookupStatus', 'bad', 'กรุณากรอกเบอร์โทรศัพท์หรือรหัสตั๋ว'); return; }
+      btn.disabled = true; btn.textContent = 'กำลังค้นหา...';
+      setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
+
+      var task;
+      if (/^BK\d{6}$/.test(value)) {
+        task = db.ref('bookings/' + value).once('value').then(function(snap) {
+          return snap.exists() ? { code: value, booking: snap.val() } : null;
+        });
+      } else if (/^0[689]\d{8}$/.test(value)) {
+        task = db.ref('bookings').orderByChild('phone').equalTo(value).limitToLast(1).once('value').then(function(snap) {
+          if (!snap.exists()) return null;
+          var found = null;
+          snap.forEach(function(child) { found = { code: child.key, booking: child.val() }; });
+          return found;
+        });
+      } else {
+        task = Promise.resolve(null);
+      }
+
+      task.then(function(found) {
+        if (!found) {
+          setStatus('lookupStatus', 'bad', 'ไม่พบข้อมูลการจอง กรุณาตรวจสอบรหัสตั๋วหรือเบอร์โทรอีกครั้ง');
+          return;
+        }
+        currentCode = found.code;
+        currentBooking = normalizeBooking(found.booking, found.code);
+        hideStatus('lookupStatus');
+        renderBooking();
+        startBookingListener(found.code);
+      }).catch(function(err) {
+        console.error(err);
+        setStatus('lookupStatus', 'bad', 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองใหม่');
+      }).finally(function() {
+        btn.disabled = false; btn.textContent = 'ค้นหาตั๋ว';
+      });
+    }
+
+    function normalizeBooking(booking, code) {
+      booking = booking || {};
+      booking.code = booking.code || code;
+      booking.status = booking.status || 'confirmed';
+      booking.seats = Math.min(Number(booking.seats || 1), MAX_SEATS);
+      return booking;
+    }
+
+    function startBookingListener(code) {
+      db.ref('bookings/' + code).off();
+      db.ref('bookings/' + code).on('value', function(snap) {
+        if (snap.exists() && currentCode === code) {
+          currentBooking = normalizeBooking(snap.val(), code);
+          renderBooking();
+        }
+      });
+    }
+
+    function renderBooking() {
+      show('ticketPanel', true); show('checkinPanel', true); show('flexPanel', true); show('cancelPanel', true);
+      document.getElementById('showCode').textContent = currentBooking.code;
+      document.getElementById('showStatus').textContent = statusLabel(currentBooking.status);
+      document.getElementById('showName').textContent = currentBooking.name || '-';
+      document.getElementById('showPhone').textContent = currentBooking.phone || '-';
+      document.getElementById('showDate').textContent = formatDate(currentBooking.date);
+      document.getElementById('showTime').textContent = (currentBooking.time || '-') + (currentBooking.time ? ' น.' : '');
+      document.getElementById('showSeats').textContent = currentBooking.seats + ' ที่นั่ง';
+      document.getElementById('showPrice').textContent = currentBooking.price ? '฿' + Number(currentBooking.price).toLocaleString() + ' บาท' : '-';
+
+      var legs = splitLegs(currentBooking.route || '');
+      document.getElementById('showLeg1').textContent = legs.leg1;
+      document.getElementById('showLeg2').textContent = legs.leg2 || '-';
+      show('leg2Row', !!legs.leg2);
+
+      if (currentBooking.officialStatus) {
+        document.getElementById('officialStatus').textContent = currentBooking.officialStatus;
+        show('officialStatusRow', true);
+      } else {
+        show('officialStatusRow', false);
+      }
+
+      renderQR();
+      updateCancelAvailability();
+      updateActionAvailability();
+    }
+
+    function splitLegs(route) {
+      var clean = route.replace(/\s+/g, ' ').trim();
+      var parts = clean.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
+      if (parts.length >= 3) return { leg1: parts[0] + ' → ' + parts[1], leg2: parts[1] + ' → ' + parts.slice(2).join(' → ') };
+      if (parts.length === 2 && parts[1] !== 'ฉะเชิงเทรา' && parts[1] !== 'ฉะเชิงเทรา (แปดริ้ว)' && parts[1] !== 'แปดริ้ว') {
+        return { leg1: parts[0] + ' → แปดริ้ว', leg2: 'แปดริ้ว → ' + parts[1] };
+      }
+      return { leg1: clean || '-', leg2: '' };
+    }
+
+    function statusLabel(status) {
+      var map = { confirmed: 'ยืนยันแล้ว', changed: 'เปลี่ยนเวลาแล้ว', cancelled: 'ยกเลิกแล้ว', checked_in: 'เช็คอินแล้ว' };
+      return map[status] || status || 'ยืนยันแล้ว';
+    }
+
+    function qrPayload() {
+      return JSON.stringify({
+        c: currentBooking.code,
+        n: currentBooking.name || '',
+        r: currentBooking.route || '',
+        d: currentBooking.date || '',
+        t: currentBooking.time || '',
+        s: currentBooking.seats || 1,
+        st: statusLabel(currentBooking.status)
+      });
+    }
+
+    function renderQR() {
+      var box = document.getElementById('qrCode');
+      box.innerHTML = '';
+      if (!window.QRCode) { show('qrStatus', true); return; }
+      show('qrStatus', false);
+      try {
+        new QRCode(box, { text: qrPayload(), width: 160, height: 160, correctLevel: QRCode.CorrectLevel.L });
+        show('qrStatus', false);
+      } catch (err) {
+        console.error(err);
+        show('qrStatus', !box.querySelector('canvas,img,svg,table'));
+      }
+    }
+
+    function downloadQR() {
+      var canvas = document.querySelector('#qrCode canvas');
+      var img = document.querySelector('#qrCode img');
+      var url = canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
+      if (!url) { alert('ยังไม่มี QR Code ให้บันทึก'); return; }
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = (currentBooking.code || 'ticket') + '-qr.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function startGPS() {
+      if (!navigator.geolocation) { setStatus('scheduleStatus', 'bad', 'อุปกรณ์นี้ไม่รองรับ GPS'); return; }
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      document.getElementById('btnGps').textContent = 'กำลังติดตาม GPS...';
+      watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000
+      });
+    }
+
+    function onPosition(pos) {
+      var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+      if (lastPosition && distanceKm(lastPosition.lat, lastPosition.lng, next.lat, next.lng) < 0.01) return;
+      lastPosition = next;
+      currentDistanceKm = distanceKm(next.lat, next.lng, TERMINAL.lat, TERMINAL.lng);
+      currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(pos) : pos.coords.speed * 3.6;
+
+      document.getElementById('distanceText').textContent = currentDistanceKm.toFixed(2);
+      document.getElementById('speedText').textContent = currentSpeedKmh < 1 ? '0' : currentSpeedKmh.toFixed(1);
+
+      if (currentSpeedKmh < 1) {
+        currentEtaMinutes = null;
+        document.getElementById('etaText').textContent = 'รถจอดอยู่';
+        document.getElementById('etaText').style.fontSize = '18px';
+        document.getElementById('etaUnit').textContent = '';
+      } else {
+        currentEtaMinutes = Math.round((currentDistanceKm / currentSpeedKmh) * 60);
+        document.getElementById('etaText').style.fontSize = '';
+        document.getElementById('etaText').textContent = String(currentEtaMinutes);
+        document.getElementById('etaUnit').textContent = 'นาที';
+      }
+
+      compareSchedule();
+      updateCheckinWindow();
+      db.ref('ticketLocations/' + currentBooking.code).set({
+        lat: next.lat,
+        lng: next.lng,
+        distanceKm: currentDistanceKm,
+        speedKmh: currentSpeedKmh,
+        etaMinutes: currentEtaMinutes,
+        ts: Date.now()
+      });
+    }
+
+    function estimateSpeedKmh() { return 0; }
+
+    function onPositionError(err) {
+      setStatus('scheduleStatus', 'bad', err.message || 'ไม่สามารถอ่านตำแหน่ง GPS ได้');
+      document.getElementById('btnGps').textContent = 'เริ่มใช้ GPS';
+    }
+
+    function compareSchedule() {
+      if (currentEtaMinutes === null) {
+        setStatus('scheduleStatus', 'warn', 'รถจอดอยู่ ระบบยังไม่คำนวณเวลาถึงแปดริ้ว');
+        return;
+      }
+      var arrival = new Date(Date.now() + currentEtaMinutes * 60000);
+      var arrivalMin = arrival.getHours() * 60 + arrival.getMinutes();
+      var bookedMin = toMin(currentBooking.time || '00:00');
+      var target = DESTINATION_TIMES.find(function(t) { return toMin(t) >= Math.max(arrivalMin, bookedMin); });
+      suggestedNextTrip = target || null;
+      if (target) {
+        setStatus('scheduleStatus', 'good', 'ทันรถเที่ยว ' + target + ' น.');
+      } else {
+        suggestedNextTrip = nextOriginTime(currentBooking.time);
+        setStatus('scheduleStatus', 'bad', 'ไม่ทันรถปลายทางวันนี้ แนะนำให้เปลี่ยนเป็นเที่ยวถัดไป' + (suggestedNextTrip ? ' ' + suggestedNextTrip + ' น.' : ''));
+      }
+      updateActionAvailability();
+    }
+
+    function updateCheckinWindow() {
+      if (currentDistanceKm === null) return;
+      if (currentDistanceKm <= 5 && !enterFiveKmAt) {
+        enterFiveKmAt = Date.now();
+        if (countdownTimer) clearInterval(countdownTimer);
+        countdownTimer = setInterval(updateCheckinWindow, 1000);
+      }
+      if (currentDistanceKm > 5) {
+        enterFiveKmAt = null;
+        show('checkinWindow', false);
+      } else if (enterFiveKmAt) {
+        var remain = Math.max(0, 60 * 60 * 1000 - (Date.now() - enterFiveKmAt));
+        setStatus('checkinWindow', remain ? 'warn' : 'bad', 'เข้าสู่รัศมี 5 กม. แล้ว เหลือเวลาเช็คอิน ' + formatDuration(remain));
+      }
+      updateActionAvailability();
+    }
+
+    function updateActionAvailability() {
+      var disabledByStatus = currentBooking && (currentBooking.status === 'cancelled' || currentBooking.status === 'checked_in');
+      var canCheck = currentDistanceKm !== null && currentDistanceKm <= 4 && enterFiveKmAt && Date.now() - enterFiveKmAt <= 60 * 60 * 1000 && !disabledByStatus;
+      document.getElementById('btnCheckin').disabled = !canCheck;
+      document.getElementById('btnChangeTrip').disabled = disabledByStatus || !suggestedNextTrip;
+    }
+
+    function checkIn() {
+      if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
+      var payload = {
+        status: 'checked_in',
+        checkedInAt: Date.now(),
+        checkin: {
+          lat: lastPosition ? lastPosition.lat : null,
+          lng: lastPosition ? lastPosition.lng : null,
+          distanceKm: currentDistanceKm,
+          speedKmh: currentSpeedKmh,
+          etaMinutes: currentEtaMinutes
+        },
+        officialStatus: 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
+      };
+      updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ แจ้งท่าปลายทางแล้ว');
+    }
+
+    function changeToNextTrip() {
+      if (!currentBooking || !suggestedNextTrip) return;
+      var reason = document.getElementById('changeReason').value;
+      var msg = 'ตั๋วของคุณถูกเปลี่ยนเป็นเที่ยว ' + suggestedNextTrip + ' น. เนื่องจาก ' + reason;
+      updateBookingAndNotify({
+        status: 'changed',
+        previousTime: currentBooking.time || '',
+        time: suggestedNextTrip,
+        changedAt: Date.now(),
+        changeReason: reason,
+        officialStatus: msg
+      }, 'change_trip', msg);
+    }
+
+    function updateCancelAvailability() {
+      if (!currentBooking) return;
+      var canCancel = canCancelTicket();
+      if (currentBooking.status === 'cancelled') {
+        setStatus('cancelStatus', 'bad', 'ตั๋วนี้ถูกยกเลิกแล้ว');
+        document.getElementById('btnCancel').disabled = true;
+      } else if (canCancel) {
+        setStatus('cancelStatus', 'info', 'ยังสามารถยกเลิกได้ เพราะเหลือเวลาก่อนรถออกอย่างน้อย 1 ชั่วโมง');
+        document.getElementById('btnCancel').disabled = false;
+      } else {
+        setStatus('cancelStatus', 'bad', 'ยกเลิกไม่ได้แล้ว เพราะเหลือเวลาก่อนรถออกน้อยกว่า 1 ชั่วโมง');
+        document.getElementById('btnCancel').disabled = true;
+      }
+    }
+
+    function canCancelTicket() {
+      var dep = departureDate();
+      if (!dep) return false;
+      return dep.getTime() - Date.now() >= 60 * 60000;
+    }
+
+    function openCancelConfirm() { if (canCancelTicket()) show('cancelModal', true); }
+    function closeCancelConfirm() { show('cancelModal', false); }
+
+    function confirmCancel() {
+      closeCancelConfirm();
+      updateBookingAndNotify({
+        status: 'cancelled',
+        cancelledAt: Date.now(),
+        officialStatus: 'ตั๋วของคุณถูกยกเลิกแล้ว'
+      }, 'cancel_ticket', 'ยกเลิกตั๋วสำเร็จ แจ้งท่าปลายทางแล้ว');
+    }
+
+    function updateBookingAndNotify(update, eventName, successText) {
+      var payload = Object.assign({}, update);
+      db.ref('bookings/' + currentBooking.code).update(payload)
+        .then(function() {
+          var nextStatus = update.status || currentBooking.status || 'confirmed';
+          var nextTime = update.time || currentBooking.time;
+          var lineMessage = buildLineMessage(eventName, nextStatus, nextTime, update.officialStatus || '', update.changeReason || '');
+          return fetch(MAKE_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: eventName,
+              source: 'check_ticket.html',
+              code: currentBooking.code,
+              name: currentBooking.name,
+              phone: currentBooking.phone,
+              route: currentBooking.route,
+              date: currentBooking.date,
+              time: nextTime,
+              seats: currentBooking.seats,
+              price: currentBooking.price || '',
+              ticketStatus: nextStatus,
+              status: update.status,
+              officialStatus: update.officialStatus || '',
+              reason: update.changeReason || '',
+              distanceKm: currentDistanceKm,
+              speedKmh: currentSpeedKmh,
+              etaMinutes: currentEtaMinutes,
+              lineMessage: lineMessage,
+              timestamp: new Date().toISOString()
+            })
+          });
+        })
+        .then(function() { setStatus('lookupStatus', 'good', successText); })
+        .catch(function(err) {
+          console.error(err);
+          setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลหรือแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
+        });
+    }
+
+    function buildLineMessage(eventName, status, time, officialStatus, reason) {
+      var eventTitle = {
+        checkin: 'ผู้โดยสารเช็คอินแล้ว',
+        change_trip: 'ผู้โดยสารเปลี่ยนเที่ยวรถ',
+        cancel_ticket: 'ผู้โดยสารยกเลิกตั๋ว'
+      }[eventName] || 'อัปเดตสถานะตั๋ว';
+
+      return eventTitle + '\n' +
+        'รหัส: ' + currentBooking.code + '\n' +
+        'ชื่อ: ' + (currentBooking.name || '-') + '\n' +
+        'โทร: ' + (currentBooking.phone || '-') + '\n' +
+        'เส้นทาง: ' + (currentBooking.route || '-') + '\n' +
+        'วันเวลา: ' + (currentBooking.date || '-') + ' ' + (time || '-') + ' น.\n' +
+        'ที่นั่ง: ' + (currentBooking.seats || 1) + '\n' +
+        'สถานะ: ' + statusLabel(status) +
+        (reason ? '\nสาเหตุ: ' + reason : '') +
+        (officialStatus ? '\nหมายเหตุ: ' + officialStatus : '');
+    }
+
+    function departureDate() {
+      if (!currentBooking || !currentBooking.date || !currentBooking.time) return null;
+      var d = new Date(currentBooking.date + 'T' + currentBooking.time + ':00');
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function nextOriginTime(time) {
+      var now = toMin(time || '00:00');
+      return ORIGIN_TIMES.find(function(t) { return toMin(t) > now; }) || null;
+    }
+
+    function toMin(t) {
+      var p = String(t || '00:00').split(':');
+      return Number(p[0] || 0) * 60 + Number(p[1] || 0);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      var d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      var days = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+      var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+    }
+
+    function formatDuration(ms) {
+      var total = Math.ceil(ms / 1000);
+      var m = Math.floor(total / 60);
+      var s = total % 60;
+      return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function distanceKm(lat1, lng1, lat2, lng2) {
+      var R = 6371;
+      var dLat = (lat2 - lat1) * Math.PI / 180;
+      var dLng = (lng2 - lng1) * Math.PI / 180;
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    document.getElementById('lookupValue').addEventListener('input', function(e) {
+      e.target.value = normalizeLookup(e.target.value);
+    });
+    document.getElementById('lookupValue').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') lookupTicket();
+    });
+
+    var params = new URLSearchParams(location.search);
+    var initial = params.get('code') || params.get('phone');
+    if (initial) {
+      document.getElementById('lookupValue').value = normalizeLookup(initial);
+      lookupTicket();
+    }
+  </script>
+</body>
+</html>
