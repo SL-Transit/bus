@@ -1,65 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
   <meta charset="UTF-8">
   <title>รถตู้สนามชัยเขต-แปดริ้ว</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #f4f6f8;
+    /* ตั้งค่าพื้นฐาน */
+    * {
+      box-sizing: border-box;
       margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Sarabun', Arial, sans-serif;
+      background-color: #e3f2fd; /* สีฟ้าอ่อนสบายตา */
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
       padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: white;
+      padding: 30px;
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+      text-align: center;
     }
 
     h1 {
-      font-size: 26px;
-      margin-bottom: 40px;
+      font-size: 28px;
+      color: #0d47a1;
+      margin-bottom: 10px;
     }
 
+    .subtitle {
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    /* สไตล์ปุ่มขนาดใหญ่สำหรับผู้สูงอายุ */
     .btn {
-      display: block;
-      width: 90%;
-      max-width: 400px;
-      margin: 20px auto;
-      padding: 20px;
-      font-size: 22px;
-      background-color: #007bff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 25px;
+      margin-bottom: 20px;
+      font-size: 24px;
+      font-weight: bold;
       color: white;
       text-decoration: none;
-      border-radius: 12px;
-      font-weight: bold;
+      border-radius: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
     }
 
     .btn:active {
-      background-color: #0056b3;
+      transform: scale(0.98);
     }
 
-    .note {
-      font-size: 18px;
-      color: #555;
-      margin-top: 30px;
+    /* ไล่สีโทนน้ำเงิน */
+    .btn-blue {
+      background: linear-gradient(135deg, #1e88e5, #0d47a1);
+      box-shadow: 0 6px 15px rgba(13, 71, 161, 0.3);
+    }
+
+    /* ไล่สีโทนแดง */
+    .btn-red {
+      background: linear-gradient(135deg, #e53935, #b71c1c);
+      box-shadow: 0 6px 15px rgba(183, 28, 28, 0.3);
+    }
+
+    /* ไล่สีน้ำเงินแดงผสม */
+    .btn-mixed {
+      background: linear-gradient(135deg, #1e88e5, #e53935);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .icon {
+      font-size: 32px;
+      margin-right: 15px;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #888;
+    }
+
+    /* ปรับขนาดตัวอักษรให้ใหญ่ขึ้นสำหรับหน้าจอเล็ก */
+    @media (max-width: 400px) {
+      h1 { font-size: 24px; }
+      .btn { font-size: 20px; padding: 20px; }
+      .icon { font-size: 28px; }
     }
   </style>
+  <!-- นำเข้าฟอนต์ Sarabun เพื่อความอ่านง่าย -->
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
 
-  <h1>🚍 รถตู้สนามชัยเขต-แปดริ้ว</h1>
+  <div class="container">
+    <div style="font-size: 60px; margin-bottom: 10px;">🚍</div>
+    <h1>รถตู้สนามชัยเขต-แปดริ้ว</h1>
+    <p class="subtitle">ยินดีต้อนรับครับ กดเลือกรายการด้านล่างได้เลย</p>
 
-  <a class="btn" href="passenger.html">
-  🧍‍♂️ สำหรับผู้โดยสาร
-</a>
+    <a href="booking.html" class="btn btn-blue">
+      <span class="icon">🎟️</span> จองตั๋วออนไลน์
+    </a>
 
-<a class="btn" href="booking.html">
-  🚍 จองตั๋วออนไลน์ 🎟️
-</a>
+    <a href="check_ticket.html" class="btn btn-mixed">
+      <span class="icon">🔍</span> ตรวจสอบตั๋ว
+    </a>
 
-  <div class="note">
-    กรุณาเลือกหน้าที่ต้องการใช้งาน
+    <a href="passenger.html" class="btn btn-red">
+      <span class="icon">🧍‍♂️</span> สำหรับผู้โดยสาร
+    </a>
+
+    <div class="footer-note">
+      ตัวหนังสือใหญ่ อ่านง่าย ใช้งานสะดวก
+    </div>
   </div>
 
 </body>
 </html>
+
