@@ -64,7 +64,7 @@
       font-weight: 400;
     }
 
-    /* สไตล์ปุ่มแบบทางการ โทนสีนุ่มนวล (Muted Colors) */
+    /* สไตล์ปุ่มแบบทางการ โทนสีนุ่มนวล (Muted Colors) ตามที่คุณต้องการ */
     .btn {
       display: flex;
       align-items: center;
@@ -87,22 +87,22 @@
       filter: brightness(0.9);
     }
 
-    /* โทนน้ำเงินนุ่มนวล (Soft Navy/Blue) */
+    /* โทนน้ำเงินนุ่มนวล (Soft Blue) */
     .btn-blue {
-      background: linear-gradient(135deg, #4a90e2, #357abd);
-      box-shadow: 0 8px 20px rgba(74, 144, 226, 0.2);
+      background: linear-gradient(135deg, #5c9ce6, #4a80c4);
+      box-shadow: 0 8px 20px rgba(92, 156, 230, 0.2);
     }
 
-    /* โทนแดงนุ่มนวล (Soft Crimson/Red) */
+    /* โทนแดงนุ่มนวล (Soft Red) */
     .btn-red {
-      background: linear-gradient(135deg, #e67e22, #d35400); /* ปรับเป็นส้มแดงนุ่มนวลเพื่อลดความแสบตา */
-      box-shadow: 0 8px 20px rgba(230, 126, 34, 0.2);
+      background: linear-gradient(135deg, #e86c6c, #c94c4c);
+      box-shadow: 0 8px 20px rgba(232, 108, 108, 0.2);
     }
     
-    /* โทนน้ำเงินเข้มทางการ */
+    /* โทนน้ำเงินเข้มทางการ (Dark Slate) */
     .btn-dark {
-      background: linear-gradient(135deg, #34495e, #2c3e50);
-      box-shadow: 0 8px 20px rgba(44, 62, 80, 0.2);
+      background: linear-gradient(135deg, #546e7a, #37474f);
+      box-shadow: 0 8px 20px rgba(55, 71, 79, 0.2);
     }
 
     .icon-box {
@@ -154,21 +154,24 @@
     <h1>ระบบบริการผู้โดยสารอัจฉริยะ</h1>
     <p class="subtitle">เริ่มต้นการเดินทางที่สมาร์ทไปกับเรา</p>
 
-    <a href="booking.html" class="btn btn-blue">
+    <!-- ลำดับที่ 1: ข้อมูลเที่ยวรถ/สถานะบริการ (ย้ายขึ้นมาตามที่ปรึกษา) -->
+    <a href="passenger.html" class="btn btn-blue">
+      <div class="icon-box">📋</div>
+      <span class="btn-text">ข้อมูลเที่ยวรถ/สถานะบริการ</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <!-- ลำดับที่ 2: จองตั๋วออนไลน์ -->
+    <a href="booking.html" class="btn btn-red">
       <div class="icon-box">🎟️</div>
       <span class="btn-text">จองตั๋วออนไลน์</span>
       <span class="arrow">❯</span>
     </a>
 
+    <!-- ลำดับที่ 3: ตรวจสอบข้อมูลตั๋ว -->
     <a href="check_ticket.html" class="btn btn-dark">
       <div class="icon-box">🔍</div>
       <span class="btn-text">ตรวจสอบข้อมูลตั๋ว</span>
-      <span class="arrow">❯</span>
-    </a>
-
-    <a href="passenger.html" class="btn btn-red">
-      <div class="icon-box">🧍‍♂️</div>
-      <span class="btn-text">ข้อมูลเที่ยวรถและสถานะบริการ</span>
       <span class="arrow">❯</span>
     </a>
 
@@ -179,3 +182,4 @@
 
 </body>
 </html>
+
