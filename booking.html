@@ -395,17 +395,17 @@ var db = firebase.database();
 var ORIGIN_PRICE = {
   'chachoengsao': 0,
   'sanamchai':    55,
-  'tatakiab':     55,
-  'nongkhok':     90,
-  'klonghat':     180,
+  'tatakiab':     100,
+  'nongkhok':     100,
+  'klonghat':     160,
   'phanom':       55,
-  'thoengkabintr':55,
-  'phaijit':      55,
-  'nongruea':     55
+  'thoengkabintr':150,
+  'phaijit':      140,
+  'nongruea':     140
 };
 // ===== ราคาตามเส้นทาง =====
 var ROUTE_PRICE = {
-  'sanamchai': 55, 'phanom': 55, 'nongkhok': 90, 'klonghat': 180, 'tatakiab': 90
+  'sanamchai': 55, 'phanom': 55, 'nongkhok': 100, 'klonghat': 160, 'tatakiab': 100
 };
 var PRICE = 55;
 
@@ -446,9 +446,9 @@ var LEG2_DEST = {
   'chachoengsao': {label:'ฉะเชิงเทรา (แปดริ้ว)', price:55,  leg2:false},
   'sanamchai':    {label:'ท่ารถสนามชัยเขต',       price:55,  leg2:false},
   'phanom':       {label:'พนมสารคาม',             price:55,  leg2:false},
-  'nongkhok':     {label:'หนองคอก',               price:90,  leg2:false},
-  'klonghat':     {label:'คลองหาด',               price:180, leg2:false},
-  'tatakiab':     {label:'ท่าตะเกียบ',            price:90,  leg2:false},
+  'nongkhok':     {label:'หนองคอก',               price:100,  leg2:false},
+  'klonghat':     {label:'คลองหาด',               price:160, leg2:false},
+  'tatakiab':     {label:'ท่าตะเกียบ',            price:100,  leg2:false},
   'pattaya':      {label:'พัทยา',                  price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON},
   'rayong':       {label:'ระยอง',                  price:180, leg2:true, buffer:45, times:LEG2_TIMES_COMMON},
   'km10':         {label:'กม.10',                  price:160, leg2:true, buffer:35, times:LEG2_TIMES_COMMON},
@@ -860,7 +860,7 @@ function submitBooking() {
       return db.ref('bookings/' + code).set(booking).then(function(){ return booking; });
     })
     .then(function(booking) {
-      btn.textContent = 'กำลังแจ้งนายท่า...';
+      btn.textContent = 'กรุณารอสักครู่...';
       return fetch(MAKE_WEBHOOK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
