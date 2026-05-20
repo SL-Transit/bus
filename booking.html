@@ -176,6 +176,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
             <option value="nongruea">หนองเรือ</option>
             <option value="phaijit">ไพจิตร</option>
             <option value="thoengkabintr">ทุ่งกบินทร์</option>
+            <option value="siyaekkhonom">สี่แยกโคนม</option>
             <option value="klonghat">คลองหาด</option>
           </select>
         </div>
@@ -192,6 +193,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
               <option value="nongruea">หนองเรือ</option>
               <option value="phaijit">ไพจิตร</option>
               <option value="thoengkabintr">ทุ่งกบินทร์</option>
+              <option value="siyaekkhonom">สี่แยกโคนม</option>
               <option value="klonghat">คลองหาด</option>
             </optgroup>
             <optgroup label="— ตั๋ว 2 ขา (ต่อรถที่แปดริ้ว) —">
@@ -421,6 +423,7 @@ var ORIGIN_TIMES = {
   'tatakiab':     {label:'ท่าตะเกียบ',            times:['06:35','09:45','13:15']},
   'thoengkabintr':{label:'ทุ่งกบินทร์',           times:['08:20','12:10']},
   'phaijit':      {label:'ไพจิตร',                times:['08:30','12:10']},
+  'siyaekkhonom': {label:'สี่แยกโคนม',             times:['08:10','12:00']},
   'nongruea':     {label:'หนองเรือ',              times:['08:40','12:20']}
 };
 
@@ -431,6 +434,7 @@ var CHACHOENGSAO_TIMES = {
   'nongkhok':      ['11:20','14:00','17:20'],
   'tatakiab':      ['11:20','14:00','17:20'],
   'thoengkabintr': ['11:20','14:00'],
+  'siyaekkhonom':  ['11:20','14:00'],
   'phaijit':       ['11:20','14:00'],
   'nongruea':      ['11:20','14:00'],
   'phanom':        ['09:40','11:20','12:20','14:00','15:20','16:20','17:20']
@@ -444,6 +448,7 @@ var PHANOM_TIMES = {
   'nongkhok':      {times:['12:00','14:40','18:00'], price:0},
   'klonghat':      {times:['12:00','14:40'], price:0},
   'thoengkabintr': {times:['12:00','14:40'], price:0},
+  'siyaekkhonom':  {times:['12:00','14:40'], price:0},
   'phaijit':       {times:['12:00','14:40'], price:0},
   'nongruea':      {times:['12:00','14:40'], price:0}
 };
@@ -455,6 +460,7 @@ var SANAMCHAI_DEST_TIMES = {
   'nongkhok':      {times:['12:20','15:00','18:20'], price:0},
   'klonghat':      {times:['12:20','15:00'], price:0},
   'thoengkabintr': {times:['12:20','15:00'], price:0},
+  'siyaekkhonom':  {times:['12:00','14:40'], price:0},
   'phaijit':       {times:['12:20','15:00'], price:0},
   'nongruea':      {times:['12:20','15:00'], price:0}
 };
@@ -467,6 +473,7 @@ var LEG2_DEST = {
   'nongkhok':     {label:'หนองคอก',               price:100,  leg2:false},
   'klonghat':     {label:'คลองหาด',               price:160, leg2:false},
   'tatakiab':     {label:'ท่าตะเกียบ',            price:100,  leg2:false},
+  'siyaekkhonom': {label:'ท่าตะเกียบ',            price:150,  leg2:false},
   'pattaya':      {label:'พัทยา',                  price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON},
   'rayong':       {label:'ระยอง',                  price:180, leg2:true, buffer:45, times:LEG2_TIMES_COMMON},
   'km10':         {label:'กม.10',                  price:160, leg2:true, buffer:35, times:LEG2_TIMES_COMMON},
