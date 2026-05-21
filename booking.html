@@ -668,6 +668,18 @@ function renderTimes() {
     times = PHANOM_TIMES[selDest].times;
   } else if (selOrigin === 'sanamchai' && SANAMCHAI_DEST_TIMES[selDest]) {
     times = SANAMCHAI_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'tatakiab' && TATAKIAB_DEST_TIMES[selDest]) {
+    times = TATAKIAB_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'nongkhok' && NONGKHOK_DEST_TIMES[selDest]) {
+    times = NONGKHOK_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'nongruea' && NONGRUEA_DEST_TIMES[selDest]) {
+    times = NONGRUEA_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'phaijit' && PHAIJIT_DEST_TIMES[selDest]) {
+    times = PHAIJIT_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'thoengkabintr' && THORNGKABINTR_DEST_TIMES[selDest]) {
+    times = THORNGKABINTR_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'siyaekkhonom' && SIYAEKKHONOM_DEST_TIMES[selDest]) {
+    times = SIYAEKKHONOM_DEST_TIMES[selDest].times;
   } else {
     times = (ORIGIN_TIMES[selOrigin] || ORIGIN_TIMES['chachoengsao']).times;
   }
