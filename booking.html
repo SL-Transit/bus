@@ -496,7 +496,6 @@ var CHACHOENGSAO_TIMES = {
 };
 
 // ตารางเวลาจาก พนมสารคาม ไปแต่ละปลายทาง
-// ราคา 0 = ใช้ราคาหลักจาก ROUTE_PRICE
 var PHANOM_TIMES = {
   'sanamchai':     {times:['10:20','11:40','12:00','12:30','13:00','14:30','14:40','15:00','16:00','17:00','18:00'], price:0},
   'tatakiab':      {times:['12:00','14:40','18:00'], price:0},
@@ -509,15 +508,59 @@ var PHANOM_TIMES = {
 };
 
 // ตารางเวลาจาก สนามชัย ไปแต่ละปลายทาง
-// ราคา 0 = ใช้ราคาหลักจาก ROUTE_PRICE
 var SANAMCHAI_DEST_TIMES = {
   'tatakiab':      {times:['12:20','15:00','18:20'], price:0},
   'nongkhok':      {times:['12:20','15:00','18:20'], price:0},
   'klonghat':      {times:['12:20','15:00'], price:0},
   'thoengkabintr': {times:['12:20','15:00'], price:0},
-  'siyaekkhonom':  {times:['12:00','14:40'], price:0},
+  'siyaekkhonom':  {times:['12:20','15:00'], price:0},
   'phaijit':       {times:['12:20','15:00'], price:0},
   'nongruea':      {times:['12:20','15:00'], price:0}
+};
+
+// ตารางเวลาจาก ท่าตะเกียบ ไปแต่ละปลายทาง
+var TATAKIAB_TIMES = {
+  'nongkhok':      {times:['12:50','15:30','18:50'], price:0},
+  'klonghat':      {times:['12:50','15:30'], price:0},
+  'thoengkabintr': {times:['12:50','15:30'], price:0},
+  'siyaekkhonom':  {times:['12:50','15:30'], price:0},
+  'phaijit':       {times:['12:50','15:30'], price:0},
+  'nongruea':      {times:['12:50','15:30'], price:0}
+};
+
+// ตารางเวลาจาก หนองคอก ไปแต่ละปลายทาง
+var NONGKHOK_TIMES = {
+  'klonghat':      {times:['13:05','15:45'], price:0},
+  'thoengkabintr': {times:['13:05','15:45'], price:0},
+  'siyaekkhonom':  {times:['13:05','15:45'], price:0},
+  'phaijit':       {times:['13:05','15:45'], price:0},
+  'nongruea':      {times:['13:05','15:45'], price:0}
+};
+
+// ตารางเวลาจาก หนองเรือ ไปแต่ละปลายทาง
+var NONGRUEA_TIMES = {
+  'klonghat':      {times:['13:35','16:15'], price:0},
+  'thoengkabintr': {times:['13:35','16:15'], price:0},
+  'siyaekkhonom':  {times:['13:35','16:15'], price:0},
+  'phaijit':       {times:['13:35','16:15'], price:0}
+};
+
+// ตารางเวลาจาก ไพจิตร ไปแต่ละปลายทาง
+var PHAIJIT_TIMES = {
+  'klonghat':      {times:['13:37','16:17'], price:0},
+  'thoengkabintr': {times:['13:37','16:17'], price:0},
+  'siyaekkhonom':  {times:['13:37','16:17'], price:0}
+};
+
+// ตารางเวลาจาก ทุ่งกบินทร์ ไปแต่ละปลายทาง
+var THORNGKABINTR_TIMES = {
+  'klonghat':      {times:['13:43','16:23'], price:0},
+  'siyaekkhonom':  {times:['13:43','16:23'], price:0}
+};
+
+  // ตารางเวลาจาก สี่แยกโคนม ไปแต่ละปลายทาง
+var SIYAEKKHONOM_TIMES = {
+  'klonghat':      {times:['13:53','16:33'], price:0}
 };
 
 // ปลายทาง Leg 2
