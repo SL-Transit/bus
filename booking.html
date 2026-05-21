@@ -395,6 +395,7 @@ var ORIGIN_PRICE = {
   'tatakiab':     100,
   'nongkhok':     100,
   'klonghat':     160,
+  'siyaekkhonom': 150,
   'phanom':       55,
   'thoengkabintr':150,
   'phaijit':      140,
@@ -418,6 +419,7 @@ var SEGMENT_PRICE = {
     'nongruea':      4,   // พนมฯ → หนองเรือ
     'phaijit':       5,   // พนมฯ → ไพจิตร
     'thoengkabintr': 6,   // พนมฯ → ทุ่งกบินทร์
+    'siyaekkhonom':  8,    // พนมฯ → สี่แยกโคนม
     'klonghat':      7    // พนมฯ → คลองหาด (ไม่มีสี่แยกโคนม ในระบบ)
   },
   // จาก ท่ารถสนามชัยเขต ไป ...
@@ -427,6 +429,7 @@ var SEGMENT_PRICE = {
     'nongruea':      12,  // สนามชัย → หนองเรือ
     'phaijit':       13,  // สนามชัย → ไพจิตร
     'thoengkabintr': 14,  // สนามชัย → ทุ่งกบินทร์
+    'siyaekkhonom':  16,   // สนามชัย → สี่แยกโคนม
     'klonghat':      15   // สนามชัย → คลองหาด
   },
   // จาก ท่าตะเกียบ ไป ...
@@ -435,6 +438,7 @@ var SEGMENT_PRICE = {
     'nongruea':      21,  // ท่าตะเกียบ → หนองเรือ
     'phaijit':       22,  // ท่าตะเกียบ → ไพจิตร
     'thoengkabintr': 23,  // ท่าตะเกียบ → ทุ่งกบินทร์
+    'siyaekkhonom':  25,  // ท่าตะเกียบ → สี่แยกโคนม
     'klonghat':      24   // ท่าตะเกียบ → คลองหาด
   },
   // จาก หนองคอก ไป ...
@@ -442,21 +446,25 @@ var SEGMENT_PRICE = {
     'nongruea':      30,  // หนองคอก → หนองเรือ
     'phaijit':       31,  // หนองคอก → ไพจิตร
     'thoengkabintr': 32,  // หนองคอก → ทุ่งกบินทร์
+    'siyaekkhonom':  34,  // หนองคอก → สี่แยกโคนม
     'klonghat':      33   // หนองคอก → คลองหาด
   },
   // จาก หนองเรือ ไป ...
   'nongruea': {
     'phaijit':       40,  // หนองเรือ → ไพจิตร
     'thoengkabintr': 41,  // หนองเรือ → ทุ่งกบินทร์
+    'siyaekkhonom':  43,   // หนองเรือ → สี่แยกโคนม
     'klonghat':      42   // หนองเรือ → คลองหาด
   },
   // จาก ไพจิตร ไป ...
   'phaijit': {
     'thoengkabintr': 50,  // ไพจิตร → ทุ่งกบินทร์
+    'siyaekkhonom':  52,   // ไพจิตร → สี่แยกโคนม
     'klonghat':      51   // ไพจิตร → คลองหาด
   },
   // จาก ทุ่งกบินทร์ ไป ...
   'thoengkabintr': {
+    'siyaekkhonom':  60   // ทุ่งกบินทร์ → สี่แยกโคนม
     'klonghat':      60   // ทุ่งกบินทร์ → คลองหาด
   }
 };
@@ -617,7 +625,9 @@ function updateRoute() {
   // คำนวณราคา
   var originPrice = ORIGIN_PRICE[selOrigin] || 0;
   var destInfo = LEG2_DEST[selDest];
-  if (selOrigin === 'phanom' && PHANOM_TIMES[selDest] && PHANOM_TIMES[selDest].price === 0) {
+  if ((SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) || (SEGMENT_PRICE[selDest] && SEGMENT_PRICE[selDest][selOrigin] !== undefined)) {
+    PRICE = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest]) || SEGMENT_PRICE[selDest][selOrigin];
+  } else if (selOrigin === 'phanom' && PHANOM_TIMES[selDest] && PHANOM_TIMES[selDest].price === 0) {
     PRICE = originPrice || ROUTE_PRICE[selDest] || 55;
   } else if (selOrigin === 'sanamchai' && SANAMCHAI_DEST_TIMES[selDest] && SANAMCHAI_DEST_TIMES[selDest].price === 0) {
     PRICE = originPrice || ROUTE_PRICE[selDest] || 55;
