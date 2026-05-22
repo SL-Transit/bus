@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบบริการผู้โดยสารอัจฉริยะ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background-color: #cce5ff;
+      color: #2c3e50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: #ffffff;
+      padding: 40px 30px;
+      border-radius: 30px;
+      box-shadow: 0 15px 35px rgba(0,50,130,0.14);
+      text-align: center;
+      border: 1px solid rgba(0,0,0,0.03);
+    }
+
+    .header-icon {
+      width: 80px; height: 80px;
+      background: #c0d8fd;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 40px;
+    }
+
+    h1 { font-size: 24px; font-weight: 700; color: #0d2a50; margin-bottom: 12px; line-height: 1.4; }
+    .subtitle { font-size: 18px; color: #3d5368; margin-bottom: 35px; font-weight: 400; }
+
+    .btn {
+      display: flex; align-items: center;
+      width: 100%; padding: 22px 25px; margin-bottom: 18px;
+      font-size: 22px; font-weight: 600; color: white;
+      text-decoration: none; border-radius: 18px;
+      transition: all 0.3s ease; border: none; cursor: pointer; text-align: left;
+    }
+    .btn:active { transform: translateY(2px); filter: brightness(0.9); }
+
+    .btn-blue { background: linear-gradient(135deg, #2e85e8, #1a63c0); box-shadow: 0 8px 24px rgba(30,100,220,0.35); }
+    .btn-red  { background: linear-gradient(135deg, #f03030, #d01818); box-shadow: 0 8px 24px rgba(210,20,20,0.35); }
+    .btn-dark { background: linear-gradient(135deg, #2e6080, #1c3a4a); box-shadow: 0 8px 24px rgba(20,55,75,0.35); }
+
+    /* ปุ่มถูก disable เมื่ออยู่ใน LINE browser */
+    .btn.blocked {
+      pointer-events: none;
+      filter: grayscale(60%) opacity(0.45);
+      cursor: not-allowed;
+    }
+
+    .icon-box {
+      background: rgba(255,255,255,0.2); width: 45px; height: 45px;
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      margin-right: 20px; font-size: 24px;
+    }
+    .btn-text { flex: 1; }
+    .arrow { font-size: 18px; opacity: 0.7; }
+
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+    .footer-text { font-size: 14px; color: #8fa0ad; letter-spacing: 0.5px; }
+
+    @media (max-width: 400px) {
+      .container { padding: 30px 20px; }
+      h1 { font-size: 22px; }
+      .btn { font-size: 19px; padding: 18px 20px; }
+    }
+
+    /* ══════════════════════════════════════
+       LINE Warning Overlay
+    ══════════════════════════════════════ */
+    #line-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 9999;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #line-overlay.show { display: flex; }
+
+    .warn-card {
+      background: #fff;
+      border-radius: 28px;
+      padding: 36px 26px 30px;
+      max-width: 390px; width: 100%;
+      text-align: center;
+      box-shadow: 0 32px 64px rgba(0,0,0,0.35);
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.88) translateY(30px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0); }
+    }
+
+    /* ไอคอนกระพริบ */
+    .warn-icon-wrap {
+      width: 84px; height: 84px;
+      background: linear-gradient(135deg, #ff4e4e, #c0000a);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 40px;
+      box-shadow: 0 0 0 0 rgba(192,0,10,0.5);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(192,0,10,0.50); }
+      60%  { box-shadow: 0 0 0 18px rgba(192,0,10,0); }
+      100% { box-shadow: 0 0 0 0   rgba(192,0,10,0); }
+    }
+
+    .warn-title {
+      font-size: 19px; font-weight: 700; color: #0d2a50;
+      margin-bottom: 8px; line-height: 1.5;
+    }
+    .warn-sub {
+      font-size: 14px; color: #5d6d7e;
+      line-height: 1.75; margin-bottom: 18px;
+    }
+    .warn-sub strong { color: #c0000a; }
+
+    /* แถบขั้นตอน */
+    .steps-box {
+      background: #f5f8ff;
+      border: 1px solid #dce8ff;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .step-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 8px; font-size: 13px; color: #3d5368; line-height: 1.55;
+    }
+    .step-row:last-child { margin-bottom: 0; }
+    .step-num {
+      background: #2e85e8; color: #fff;
+      font-size: 11px; font-weight: 700;
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ปุ่มหลัก */
+    .btn-open-ext {
+      display: block; width: 100%; padding: 16px;
+      background: linear-gradient(135deg, #2e85e8, #1a63c0);
+      color: #fff;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 17px; font-weight: 700;
+      border: none; border-radius: 16px; cursor: pointer;
+      margin-bottom: 10px;
+      box-shadow: 0 6px 20px rgba(30,100,220,0.40);
+      transition: filter 0.2s, transform 0.15s;
+    }
+    .btn-open-ext:active { filter: brightness(0.88); transform: scale(0.98); }
+
+    .btn-copy-url {
+      display: block; width: 100%; padding: 13px;
+      background: #eef3fb;
+      color: #2e6cb0;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 14px; font-weight: 600;
+      border: 2px solid #c6d8f5; border-radius: 14px; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-copy-url:active { background: #d8e8f8; }
+
+    .copy-ok {
+      font-size: 13px; color: #1a9c4e; font-weight: 600;
+      min-height: 22px; margin-top: 10px;
+    }
+
+    /* แถบด้านล่างบอกว่าใช้งานไม่ได้ */
+    .blocked-notice {
+      display: none;
+      margin-top: 18px;
+      background: #fff3f3;
+      border: 1px solid #f5c0c0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px; color: #a00; line-height: 1.6;
+    }
+    .blocked-notice.show { display: block; }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══ LINE Warning Overlay (แสดงทันทีถ้าอยู่ใน LINE browser) ══ -->
+  <div id="line-overlay">
+    <div class="warn-card">
+
+      <div class="warn-icon-wrap">⚠️</div>
+      <div class="warn-title">ไม่สามารถใช้งานใน<br>LINE Browser ได้</div>
+      <p class="warn-sub">
+        ตรวจพบการเข้าใช้งานผ่าน <strong>LINE In-App Browser</strong><br>
+        กรุณาเปิดผ่าน Browser หลักของเครื่อง<br>
+        เพื่อทำธุรกรรมได้อย่างสมบูรณ์และปลอดภัย
+      </p>
+
+      <div class="steps-box">
+        <div class="step-row"><span class="step-num">1</span>กดปุ่ม <b>"เปิดใน Browser ภายนอก"</b> ด้านล่าง</div>
+        <div class="step-row"><span class="step-num">2</span>หรือแตะ <b>⋯ / ···</b> มุมขวาบน แล้วเลือก <b>"เปิดใน Browser ภายนอก"</b></div>
+        <div class="step-row"><span class="step-num">3</span>หากยังไม่ได้ผล กด <b>"คัดลอก URL"</b> แล้วนำไปวางใน Chrome หรือ Safari</div>
+      </div>
+
+      <button class="btn-open-ext" onclick="doOpenExternal()">🌐 เปิดใน Browser ภายนอก</button>
+      <button class="btn-copy-url" onclick="doCopyUrl()">📋 คัดลอก URL</button>
+      <div class="copy-ok" id="copy-ok"></div>
+
+      <div class="blocked-notice show">
+        🔒 หน้านี้ถูกล็อกไว้ชั่วคราว — กรุณาเปิดผ่าน Browser หลักก่อนจึงจะสามารถใช้งานระบบได้
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ เนื้อหาหลัก ══ -->
+  <div class="container">
+    <div class="header-icon">🚍</div>
+    <h1>ระบบบริการผู้โดยสารอัจฉริยะ</h1>
+    <p class="subtitle">เริ่มต้นการเดินทางที่สมาร์ทไปกับเรา</p>
+
+    <a href="passenger.html" class="btn btn-blue" id="btn1">
+      <div class="icon-box">📋</div>
+      <span class="btn-text">ข้อมูลเที่ยวรถ/สถานะบริการ</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <a href="booking.html" class="btn btn-red" id="btn2">
+      <div class="icon-box">🎟️</div>
+      <span class="btn-text">จองตั๋วออนไลน์</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <a href="check_ticket.html" class="btn btn-dark" id="btn3">
+      <div class="icon-box">🔍</div>
+      <span class="btn-text">ตรวจสอบข้อมูลตั๋ว</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <div class="footer">
+      <p class="footer-text">SMART PASSENGER SERVICE SYSTEM</p>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ══ ตรวจ userAgent ทุกครั้งที่โหลดหน้า ไม่ง้อ flag ใดๆ ══ */
+    var ua = navigator.userAgent || '';
+    var isInApp = /\bLine\b/i.test(ua) || /FBAN|FBAV|FB_IAB/i.test(ua);
+
+    if (isInApp) {
+      /* 1. แสดง overlay ทันที (ก่อน DOMContentLoaded ก็ได้) */
+      document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('line-overlay').classList.add('show');
+
+        /* 2. บล็อกปุ่มทุกปุ่ม ไม่ให้นำทางออก */
+        ['btn1','btn2','btn3'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.classList.add('blocked');
+          el.addEventListener('click', function (e) { e.preventDefault(); }, true);
+        });
+      });
+
+      /* 3. ลอง redirect อัตโนมัติทันที (ป้องกัน loop ด้วย hash) */
+      if (location.hash !== '#noredir') {
+        var url = location.href.split('#')[0] + '#noredir';
+
+        if (/Android/i.test(ua)) {
+          location.href = 'intent://' +
+            url.replace(/^https?:\/\//, '') +
+            '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
+            ';package=com.android.chrome' +
+            ';S.browser_fallback_url=' + encodeURIComponent(url) +
+            ';end';
+        } else if (/iPhone|iPad|iPod/i.test(ua)) {
+          /* ลอง Chrome iOS ก่อน */
+          location.href = url.replace(/^https?/, 'googlechromes');
+          /* fallback Safari */
+          setTimeout(function () { location.href = 'x-safari-' + url; }, 700);
+        }
+      }
+    }
+
+    /* ══ ปุ่ม "เปิดใน Browser ภายนอก" ══ */
+    window.doOpenExternal = function () {
+      var url = location.href.split('#')[0];
+      if (/Android/i.test(ua)) {
+        location.href = 'intent://' +
+          url.replace(/^https?:\/\//, '') +
+          '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
+          ';package=com.android.chrome' +
+          ';S.browser_fallback_url=' + encodeURIComponent(url) +
+          ';end';
+      } else if (/iPhone|iPad|iPod/i.test(ua)) {
+        location.href = url.replace(/^https?/, 'googlechromes');
+        setTimeout(function () { location.href = 'x-safari-' + url; }, 800);
+      } else {
+        window.open(url, '_blank');
+      }
+    };
+
+    /* ══ ปุ่ม "คัดลอก URL" ══ */
+    window.doCopyUrl = function () {
+      var url = location.href.split('#')[0];
+      var ok  = document.getElementById('copy-ok');
+      function showOK() { ok.textContent = '✅ คัดลอกแล้ว! นำไปวางใน Chrome / Safari ได้เลย'; }
+      function fallback() {
+        try {
+          var t = document.createElement('textarea');
+          t.value = url;
+          t.style.cssText = 'position:fixed;opacity:0';
+          document.body.appendChild(t);
+          t.focus(); t.select();
+          document.execCommand('copy');
+          document.body.removeChild(t);
+          showOK();
+        } catch (e) { ok.textContent = '⚠️ กรุณาคัดลอก URL ด้วยตนเอง'; }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(showOK).catch(fallback);
+      } else { fallback(); }
+    };
+
+  })();
+  </script>
+
+</body>
+</html>
