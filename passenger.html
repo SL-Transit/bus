@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Transit — ระบบขนส่งมวลชนอัจฉริยะ</title>
+<title>ตารางเวลาและบริการเส้นรถประจำทาง – Smart Transit</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -11,102 +11,67 @@
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 :root {
-  --bg:#f0f4fa;
+  --bg:#f0f4f8;
   --card:#ffffff;
-  --text:#0f172a;
-  --muted:#64748b;
-  --border:#cbd5e1;
-  --border-light:#e2e8f0;
-  --green:#15803d;
+  --text:#1a2332;
+  --muted:#5a6a7e;
+  --border:#d1dbe8;
   --blue:#1d4ed8;
   --blue-dark:#1e3a8a;
-  --blue-mid:#2563eb;
   --blue-light:#eff6ff;
+  --green:#15803d;
   --red:#b91c1c;
-  --amber:#b45309;
 }
-body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:16px; }
 
 /* ===== HEADER ===== */
 .topbar {
   background:var(--blue-dark);
-  padding:18px 20px 16px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:4px;
+  padding:18px 20px 15px;
+  text-align:center;
+  border-bottom:3px solid #2563eb;
 }
 .header-main {
-  font-family:'Chakra Petch',sans-serif;
-  font-size:22px;
-  font-weight:700;
-  color:#ffffff;
-  letter-spacing:1px;
+  font-size:18px; font-weight:700; color:#ffffff;
+  letter-spacing:0.2px; line-height:1.35;
 }
 .header-sub {
-  font-size:13px;
-  font-weight:400;
-  color:#93c5fd;
-  letter-spacing:0.5px;
+  font-size:11px; color:#93c5fd; font-weight:400;
+  margin-top:4px; letter-spacing:1.2px; text-transform:uppercase;
 }
 
 /* ===== INFO STRIP ===== */
 .info-strip {
-  background:#1e40af;
-  padding:9px 20px;
+  background:#1d4ed8;
+  padding:9px 18px;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
-.info-strip .left { display:flex; flex-direction:column; align-items:flex-start; gap:1px; }
-.info-strip .time {
-  font-family:'Chakra Petch',sans-serif;
-  font-size:18px;
-  color:#ffffff;
-  letter-spacing:3px;
-  font-weight:700;
-  line-height:1;
-}
-.info-strip .date { font-size:12px; color:#93c5fd; font-weight:500; }
-.info-strip .right { font-size:12px; color:#86efac; font-weight:600; text-align:right; }
-.live-dot {
-  display:inline-block; width:8px; height:8px;
-  background:#4ade80; border-radius:50%;
-  margin-right:5px; animation:blink 1.4s infinite;
-}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+.info-strip .time { font-family:'Chakra Petch',sans-serif; font-size:18px; color:#ffffff; letter-spacing:2px; font-weight:700; }
+.info-strip .date { font-size:11px; color:#bfdbfe; font-weight:500; margin-top:2px; }
+.info-strip .right { font-size:11px; color:#bbf7d0; font-weight:600; text-align:right; }
+.live-dot { display:inline-block; width:7px; height:7px; background:#4ade80; border-radius:50%; margin-right:5px; animation:blink 1.4s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
-.main { padding:16px 16px; max-width:520px; margin:0 auto; }
+.main { padding:16px 16px; max-width:480px; margin:0 auto; }
 
 /* ===== STATUS CARD ===== */
 .status-card {
-  background:var(--card);
-  border-radius:12px;
-  padding:16px 18px;
-  display:flex;
-  align-items:flex-start;
-  gap:14px;
-  margin-bottom:16px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.07);
-  border-left:5px solid #cbd5e1;
+  background:var(--card); border-radius:12px;
+  padding:16px 18px; display:flex; align-items:center; gap:14px;
+  margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,0.07);
+  border-left:4px solid #d1dbe8;
 }
 .status-card.stopped  { border-left-color:#d97706; background:#fffbeb; }
-.status-card.arriving { border-left-color:#16a34a; background:#f0fdf4; }
-.status-card.running  { border-left-color:#2563eb; background:#eff6ff; }
-.status-icon { font-size:26px; line-height:1; padding-top:2px; }
-.status-text strong { display:block; font-size:16px; font-weight:700; color:var(--text); margin-bottom:3px; }
-.status-text span { font-size:13px; color:var(--muted); }
+.status-card.arriving { border-left-color:#15803d; background:#f0fdf4; }
+.status-card.running  { border-left-color:#1d4ed8; background:#eff6ff; }
+.status-icon { font-size:28px; flex-shrink:0; }
+.status-text strong { display:block; font-size:16px; font-weight:700; color:var(--text); }
+.status-text span { font-size:13px; color:var(--muted); margin-top:3px; display:block; }
 
 /* ===== MAP ===== */
-#map {
-  height:280px;
-  border-radius:12px;
-  margin-bottom:16px;
-  border:1px solid var(--border);
-  overflow:hidden;
-  background:#dde5ef;
-}
+#map { height:280px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); overflow:hidden; background:#e8edf3; }
 #map .ldc-widget:not(.ldc-geolocation),
 #map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
 #map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
@@ -114,343 +79,171 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 
 /* ===== ROUTE STRIP ===== */
 .route-card {
-  background:var(--card);
-  border-radius:12px;
-  padding:16px 18px;
-  box-shadow:0 1px 5px rgba(0,0,0,0.06);
-  margin-bottom:16px;
-  border:1px solid var(--border-light);
+  background:var(--card); border-radius:12px; padding:16px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06); margin-bottom:12px;
+  border:1px solid var(--border);
 }
-.route-label {
-  font-size:11px;
-  color:var(--muted);
-  font-weight:600;
-  letter-spacing:1.5px;
-  text-transform:uppercase;
-  margin-bottom:4px;
+.route-card-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:12px;
 }
-.route-direction {
-  font-size:16px;
-  font-weight:700;
-  color:var(--blue-dark);
-  margin-bottom:10px;
+.route-label { font-size:12px; color:var(--muted); font-weight:600; letter-spacing:0.8px; text-transform:uppercase; }
+.route-dir-badge {
+  font-size:12px; font-weight:700; color:#1d4ed8;
+  background:#eff6ff; border:1px solid #bfdbfe;
+  padding:4px 11px; border-radius:20px;
 }
+.route-visual { display:flex; align-items:flex-start; }
+.stop-col { display:flex; flex-direction:column; align-items:center; flex:1; }
+.stop-dot-w { position:relative; width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+.stop-dot { width:14px; height:14px; border-radius:50%; background:#d1dbe8; border:2px solid #94a3b8; transition:all 0.3s; }
+.stop-dot.active { background:#1d4ed8; border-color:#1d4ed8; box-shadow:0 0 0 5px rgba(29,78,216,0.15); width:18px; height:18px; }
+.stop-dot.passed { background:#93c5fd; border-color:#3b82f6; }
+.bus-anim { position:absolute; top:-22px; font-size:20px; animation:bob 1.8s ease-in-out infinite; }
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.line-seg { flex:1; height:3px; background:#e2e8f0; margin-top:16px; border-radius:2px; }
+.line-seg.passed { background:#3b82f6; }
+.sn { font-size:11px; font-weight:600; text-align:center; margin-top:6px; line-height:1.3; color:var(--muted); }
+.sn.active { color:#1d4ed8; font-weight:700; }
 
 /* ===== NEXT BUS ===== */
 .next-bus {
-  background:var(--blue-dark);
-  border-radius:12px;
-  padding:16px 20px;
-  margin-bottom:16px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
+  background:var(--card); border:1px solid var(--border);
+  border-left:4px solid #1d4ed8;
+  border-radius:12px; padding:16px 18px; margin-bottom:12px;
+  display:flex; align-items:center; gap:16px;
 }
-.next-left {}
-.next-label { font-size:12px; color:#93c5fd; font-weight:600; letter-spacing:1px; margin-bottom:4px; text-transform:uppercase; }
-.next-time {
-  font-family:'Chakra Petch',sans-serif;
-  font-size:32px;
-  font-weight:700;
-  color:#ffffff;
-  letter-spacing:2px;
-  line-height:1;
-}
-.next-detail { font-size:13px; color:#93c5fd; margin-top:5px; }
-
-/* ===== SECTION LABEL ===== */
-.sec-label {
-  font-size:12px;
-  font-weight:700;
-  color:var(--muted);
-  letter-spacing:2px;
-  text-transform:uppercase;
-  margin-bottom:12px;
-  padding-left:2px;
-}
+.next-bus-left { flex:1; }
+.next-label { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+.next-time { font-family:'Chakra Petch',sans-serif; font-size:36px; font-weight:700; color:#1e3a8a; letter-spacing:2px; line-height:1; }
+.next-detail { font-size:13px; color:var(--muted); margin-top:5px; }
+.next-icon { font-size:32px; flex-shrink:0; opacity:0.7; }
 
 /* ===== ROUTE SELECTOR ===== */
 .route-select-card {
-  background:var(--card);
-  border-radius:12px;
-  padding:16px 18px;
-  margin-bottom:16px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.07);
-  border:1px solid var(--border-light);
+  background:var(--card); border-radius:12px; padding:16px;
+  margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  border:1px solid var(--border);
 }
 .rs-title {
-  font-size:12px;
-  font-weight:700;
-  color:var(--muted);
-  letter-spacing:2px;
-  text-transform:uppercase;
-  margin-bottom:14px;
+  font-size:11px; font-weight:700; color:var(--muted);
+  letter-spacing:1px; text-transform:uppercase; margin-bottom:12px;
 }
 .rs-row { display:flex; align-items:flex-end; gap:10px; }
-.rs-group { flex:1; display:flex; flex-direction:column; gap:6px; }
-.rs-label { font-size:12px; font-weight:600; color:var(--blue-dark); }
+.rs-group { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
+.rs-label { font-size:12px; font-weight:600; color:var(--muted); }
 .rs-select {
-  width:100%;
-  padding:12px 14px;
-  border-radius:8px;
-  border:2px solid var(--border);
-  font-family:'Kanit',sans-serif;
-  font-size:15px;
-  font-weight:600;
-  color:var(--text);
-  background:#fff;
-  cursor:pointer;
-  outline:none;
-  appearance:none;
-  -webkit-appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%2364748b' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:right 10px center;
-  transition:border-color 0.2s;
+  width:100%; padding:12px 12px; border-radius:8px;
+  border:1.5px solid var(--border); font-family:'Kanit',sans-serif;
+  font-size:15px; font-weight:600; color:var(--text);
+  background:#ffffff; cursor:pointer; outline:none;
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%235a6a7e' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center;
 }
-.rs-select:focus { border-color:var(--blue-mid); background-color:#fff; }
-.rs-arrow {
-  font-size:22px;
-  color:var(--blue-mid);
-  padding-bottom:12px;
-  flex-shrink:0;
-  font-weight:700;
+.rs-select:focus { border-color:#1d4ed8; }
+.rs-arrow { font-size:20px; font-weight:700; color:#1d4ed8; padding-bottom:12px; flex-shrink:0; }
+
+/* ===== SECTION LABEL ===== */
+.sec-label {
+  font-size:11px; font-weight:700; color:var(--muted);
+  letter-spacing:1.5px; text-transform:uppercase;
+  margin-bottom:10px; padding-left:2px;
 }
 
-/* ===== SCHEDULE CARDS ===== */
-
-/* Standalone (direct route) */
-.sched-card-wrap { margin-bottom:16px; }
+/* ===== SCHEDULE — DIRECT ROUTE ===== */
 .sched-card {
-  background:var(--card);
-  border-radius:12px;
-  overflow:hidden;
-  box-shadow:0 2px 8px rgba(0,0,0,0.07);
-  border:1px solid var(--border-light);
+  background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  margin-bottom:14px; border:1px solid var(--border);
+}
+.sched-route-header {
+  background:var(--blue-dark); padding:14px 18px;
+}
+.sched-route-from { font-size:11px; color:#93c5fd; font-weight:500; margin-bottom:3px; letter-spacing:0.5px; text-transform:uppercase; }
+.sched-route-name { font-size:17px; font-weight:700; color:#ffffff; }
+
+/* กริด 3 คอลัมน์ — เวลาใหญ่ อ่านง่าย */
+.time-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+.time-cell {
+  padding:18px 10px; text-align:center;
+  border-right:1px solid var(--border); border-bottom:1px solid var(--border);
+  font-family:'Chakra Petch',sans-serif; font-size:22px;
+  font-weight:700; color:var(--text); letter-spacing:1px;
+}
+.time-cell:nth-child(3n) { border-right:none; }
+/* ลบ border bottom แถวสุดท้าย */
+.time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+1),
+.time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+2),
+.time-grid .time-cell:nth-last-child(1),
+.time-grid .time-cell:nth-last-child(2),
+.time-grid .time-cell:nth-last-child(3) { border-bottom:none; }
+.time-cell.now-cell { background:#eff6ff; color:#1d4ed8; }
+.now-badge {
+  display:block; font-family:'Kanit',sans-serif;
+  font-size:9px; font-weight:700; color:#1d4ed8;
+  letter-spacing:0.5px; margin-top:4px;
 }
 
-.sched-head {
-  background:var(--blue-dark);
-  padding:14px 18px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+/* ===== SCHEDULE — LEG2 (2 columns) ===== */
+.leg2-card {
+  background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  margin-bottom:14px; border:1px solid var(--border);
 }
-.sched-head-route { font-size:16px; font-weight:700; color:#ffffff; }
-.sched-head-label { font-size:11px; color:#93c5fd; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+.leg2-header {
+  background:var(--blue-dark); padding:14px 18px;
+}
+.leg2-header-top { font-size:11px; color:#93c5fd; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+.leg2-header-route { font-size:17px; font-weight:700; color:#ffffff; }
 
-.trip-row {
-  padding:14px 18px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  border-bottom:1px solid var(--border-light);
-}
-.trip-row:last-child { border-bottom:none; }
-.trip-row.cur { background:#eff6ff; border-left:4px solid #2563eb; padding-left:14px; }
-.t-origin { font-size:14px; font-weight:500; color:var(--muted); }
-.t-time {
-  font-family:'Chakra Petch',sans-serif;
-  font-size:20px;
-  font-weight:700;
-  color:var(--text);
-  letter-spacing:1px;
-}
-.trip-row.cur .t-time { color:#1d4ed8; }
-.now-b {
-  display:inline-block;
-  background:#1d4ed8;
-  color:#fff;
-  font-size:10px;
-  font-weight:700;
-  padding:2px 7px;
-  border-radius:20px;
-  margin-left:6px;
-  vertical-align:middle;
-  font-family:'Kanit',sans-serif;
-}
-
-/* ===== LEG2 TWO-COLUMN ===== */
-.leg2-wrapper {
-  margin-bottom:16px;
-}
-.leg2-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:12px;
-}
-@media (max-width:360px) {
-  .leg2-grid { grid-template-columns:1fr; }
-}
-
-.leg2-col {
-  background:var(--card);
-  border-radius:12px;
-  overflow:hidden;
-  box-shadow:0 2px 8px rgba(0,0,0,0.07);
-  border:1px solid var(--border-light);
-}
+/* Column headers */
+.leg2-cols { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(255,255,255,0.12); }
 .leg2-col-head {
-  padding:12px 14px;
-  background:var(--blue-dark);
+  padding:10px 14px;
+  border-right:1px solid rgba(255,255,255,0.12);
 }
-.leg2-trip-label {
-  font-size:10px;
-  color:#93c5fd;
-  font-weight:600;
-  letter-spacing:1px;
-  text-transform:uppercase;
-  margin-bottom:3px;
-}
-.leg2-route {
-  font-size:14px;
-  font-weight:700;
-  color:#ffffff;
-  line-height:1.3;
-}
-.leg2-platform {
-  font-size:11px;
-  color:#bfdbfe;
-  margin-top:3px;
-  font-weight:500;
-}
+.leg2-col-head:last-child { border-right:none; }
+.leg2-col-sub { font-size:10px; color:#93c5fd; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
+.leg2-col-name { font-size:13px; font-weight:700; color:#ffffff; margin-top:2px; }
+.leg2-col-note { font-size:10px; color:#bfdbfe; margin-top:2px; }
 
-.leg2-col2 .leg2-col-head { background:linear-gradient(135deg,#4c1d95,#6d28d9); }
-.leg2-col2 .leg2-trip-label { color:#c4b5fd; }
-.leg2-col2 .leg2-platform { color:#ddd6fe; }
-
-.leg2-times { padding:10px 0; }
-.leg2-time-row {
-  padding:9px 14px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  border-bottom:1px solid var(--border-light);
+/* Time rows side-by-side */
+.leg2-times { display:grid; grid-template-columns:1fr 1fr; }
+.leg2-time-col { border-right:1px solid var(--border); }
+.leg2-time-col:last-child { border-right:none; }
+.leg2-time-item {
+  padding:16px 12px; border-bottom:1px solid var(--border);
+  font-family:'Chakra Petch',sans-serif; font-size:22px;
+  font-weight:700; color:var(--text); letter-spacing:1px;
+  text-align:center;
 }
-.leg2-time-row:last-child { border-bottom:none; }
-.leg2-time-row.cur { background:#eff6ff; border-left:3px solid #2563eb; padding-left:11px; }
-.leg2-col2 .leg2-time-row.cur { background:#f5f3ff; border-left-color:#6d28d9; }
-.leg2-t {
-  font-family:'Chakra Petch',sans-serif;
-  font-size:17px;
-  font-weight:700;
-  color:var(--text);
-  letter-spacing:0.5px;
-}
-.leg2-time-row.cur .leg2-t { color:#1d4ed8; }
-.leg2-col2 .leg2-time-row.cur .leg2-t { color:#5b21b6; }
+.leg2-time-item:last-child { border-bottom:none; }
+.leg2-time-item.now-cell { background:#eff6ff; color:#1d4ed8; }
+.leg2-time-item.empty { background:#fafbfc; min-height:58px; }
 
 /* ===== FOOTER ===== */
 .footer {
-  text-align:center;
-  font-size:12px;
-  color:var(--muted);
-  padding:10px 16px 28px;
-  line-height:1.7;
+  text-align:center; font-size:12px; color:var(--muted);
+  padding:12px 16px 32px; line-height:1.8;
+  border-top:1px solid var(--border); margin-top:4px;
 }
 .footer .note-title { color:var(--red); font-weight:700; }
 
-/* ===== 2-COLUMN TIME GRID (direct route) ===== */
-.sched-time-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:0;
+/* ===== RESPONSIVE ===== */
+@media (max-width:360px) {
+  .rs-row { flex-direction:column; }
+  .rs-arrow { padding-bottom:0; align-self:center; transform:rotate(90deg); }
+  .time-cell { font-size:19px; padding:15px 6px; }
+  .leg2-time-item { font-size:19px; padding:14px 8px; }
 }
-.sched-time-col { display:flex; flex-direction:column; }
-.sched-time-col:first-child { border-right:1px solid var(--border-light); }
-.time-cell {
-  padding:13px 16px;
-  border-bottom:1px solid var(--border-light);
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.time-cell:last-child { border-bottom:none; }
-.sched-time-col:last-child .time-cell:last-child { border-bottom:none; }
-.time-cell.cur { background:#eff6ff; border-left:4px solid #2563eb; padding-left:12px; }
-.tc-time {
-  font-family:'Chakra Petch',sans-serif;
-  font-size:22px;
-  font-weight:700;
-  color:var(--text);
-  letter-spacing:1px;
-  line-height:1;
-}
-.time-cell.cur .tc-time { color:#1d4ed8; }
-
-/* ===== STOP CHIPS (route strip) ===== */
-.stop-chips-bar {
-  display:flex;
-  gap:8px;
-  overflow-x:auto;
-  padding:2px 0 8px;
-  scrollbar-width:none;
-  -ms-overflow-style:none;
-}
-.stop-chips-bar::-webkit-scrollbar { display:none; }
-.stop-chip {
-  flex-shrink:0;
-  padding:7px 14px;
-  border-radius:20px;
-  font-size:13px;
-  font-weight:600;
-  background:#f1f5f9;
-  color:var(--muted);
-  border:1.5px solid var(--border-light);
-  white-space:nowrap;
-  cursor:default;
-  transition:all 0.2s;
-}
-.stop-chip.active {
-  background:var(--blue-dark);
-  color:#ffffff;
-  border-color:var(--blue-dark);
-}
-.stop-chip.passed {
-  background:#e0e7ff;
-  color:#3730a3;
-  border-color:#c7d2fe;
-}
-.chip-bus-tag {
-  display:inline-block;
-  background:#f97316;
-  color:#fff;
-  font-size:9px;
-  font-weight:700;
-  padding:1px 5px;
-  border-radius:10px;
-  margin-left:4px;
-  vertical-align:middle;
-  font-family:'Kanit',sans-serif;
-}
-
-/* ===== VISIBILITY TOGGLE ===== */
-.realtime-section { transition:opacity 0.3s; }
-.realtime-section.hidden { display:none; }
-
-/* ===== PROMPT CARD (before route selected) ===== */
-.prompt-card {
-  background:#f8faff;
-  border:2px dashed var(--border);
-  border-radius:12px;
-  padding:24px 20px;
-  text-align:center;
-  margin-bottom:16px;
-}
-.prompt-icon { font-size:32px; margin-bottom:8px; }
-.prompt-text { font-size:15px; font-weight:600; color:var(--muted); }
-.prompt-sub { font-size:13px; color:#94a3b8; margin-top:4px; }
-
-/* แผนที่ใหญ่ขึ้น */
-#map { height:340px; }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="header-main">Smart Transit</div>
-  <div class="header-sub">ระบบขนส่งมวลชนอัจฉริยะ</div>
+  <div class="header-main">ตารางเวลาและบริการเส้นรถประจำทาง</div>
+  <div class="header-sub">Smart Transit · ระบบขนส่งมวลชนอัจฉริยะ</div>
 </div>
 
 <!-- ข้อ 5: วันเวลาซ้าย / อัปเดตขวา -->
@@ -466,38 +259,31 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 </div>
 
 <div class="main">
-  <!-- Realtime section: ซ่อนจนกว่าจะเลือกเส้นทาง -->
-  <div id="realtimeSection" class="realtime-section hidden">
-    <div class="status-card" id="statusCard">
-      <div class="status-icon" id="statusIcon">🚌</div>
-      <div class="status-text">
-        <strong id="statusTitle">กำลังโหลด...</strong>
-        <span id="statusSub">รอข้อมูลจากรถ</span>
-      </div>
-    </div>
-
-    <div id="map"></div>
-
-    <div class="route-card">
-      <div class="route-label">ตำแหน่งรถสนามชัย</div>
-      <div class="route-direction" id="routeDirection">—</div>
-      <div class="stop-chips-bar" id="stopChipsBar"></div>
-    </div>
-
-    <div class="next-bus">
-      <div class="next-left">
-        <div class="next-label">รถคันถัดไป</div>
-        <div class="next-time" id="nextTime">--:--</div>
-        <div class="next-detail" id="nextDetail">กำลังคำนวณ...</div>
-      </div>
+  <div class="status-card" id="statusCard">
+    <div class="status-icon" id="statusIcon">🚌</div>
+    <div class="status-text">
+      <strong id="statusTitle">กำลังโหลด...</strong>
+      <span id="statusSub">รอข้อมูลจากรถ</span>
     </div>
   </div>
 
-  <!-- Prompt: แสดงก่อนเลือกเส้นทาง -->
-  <div id="promptCard" class="prompt-card">
-    <div class="prompt-icon">🗺</div>
-    <div class="prompt-text">เลือกเส้นทางเพื่อดูข้อมูล</div>
-    <div class="prompt-sub">เลือกต้นทางและปลายทางด้านล่าง</div>
+  <div id="map"></div>
+
+  <div class="route-card">
+    <div class="route-card-header">
+      <div class="route-label">ตำแหน่งรถปัจจุบัน</div>
+      <div class="route-dir-badge" id="routeDirBadge">—</div>
+    </div>
+    <div class="route-visual" id="routeVisual"></div>
+  </div>
+
+  <div class="next-bus">
+    <div class="next-bus-left">
+      <div class="next-label">รถเที่ยวถัดไป</div>
+      <div class="next-time" id="nextTime">--:--</div>
+      <div class="next-detail" id="nextDetail">กำลังคำนวณ...</div>
+    </div>
+    <div class="next-icon">🕐</div>
   </div>
 
   <!-- ระบบเลือกต้นทาง–ปลายทาง -->
@@ -516,7 +302,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
     </div>
   </div>
 
-  <div class="sec-label">ตารางเวลาเดินรถ</div>
+  <div class="sec-label">ตารางเวลา</div>
   <div id="schedWrapper"></div>
 
   <div class="footer">
@@ -846,55 +632,21 @@ function renderStatus(pos) {
   document.getElementById('statusSub').textContent=info.sub;
 }
 
-// ===== STOP LIST สำหรับ chip bar =====
-const ALL_STOPS_GO = [
-  { name:'ขนส่งฉะเชิงเทรา', lat:13.692862, lng:101.054563 },
-  { name:'พนมสารคาม',        lat:13.745154, lng:101.356073 },
-  { name:'ท่ารถสนามชัยเขต', lat:13.74527, lng:101.35662 },
-  { name:'ท่าตะเกียบ',       lat:13.442932, lng:101.610944 },
-  { name:'หนองคอก',          lat:13.381591, lng:101.708018 },
-  { name:'หนองเรือ',         lat:13.420584, lng:101.995267 },
-  { name:'ไพจิตร',           lat:13.416324, lng:102.020776 },
-  { name:'ทุ่งกบินทร์',      lat:13.439884, lng:102.083012 },
-  { name:'สี่แยกโคนม',       lat:13.436717, lng:102.199988 },
-  { name:'คลองหาด',          lat:13.453577, lng:102.29929 },
-];
-
 function renderRouteStrip(pos) {
-  // อัปเดตทิศทางรถ
-  const dirEl = document.getElementById('routeDirection');
-  if (dirEl) {
-    if (pos) {
-      const dirLabel = pos.direction==='back'
-        ? 'ฉะเชิงเทรา → ท่ารถสนามชัยเขต'
-        : 'ท่ารถสนามชัยเขต → ฉะเชิงเทรา';
-      dirEl.textContent = dirLabel;
-    } else {
-      dirEl.textContent = '—';
-    }
-  }
-
-  // Chip bar — ใช้ STOPS_GO เป็นหลัก + เพิ่มจุดอื่น
-  const chipsBar = document.getElementById('stopChipsBar');
-  if (!chipsBar) return;
-
-  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
-  const stopIdx = (pos && pos.direction===viewDir) ? pos.stopIdx : null;
-
-  // สร้าง chip จาก ALL_STOPS_GO (เรียงตามเส้นทาง)
-  // active = stopIdx ตรงกับชื่อ stop ใน STOPS_GO
-  const activeStopName = stopIdx!==null && stops[stopIdx] ? stops[stopIdx].name : null;
-  // หา index ใน ALL_STOPS_GO ที่ผ่านไปแล้ว (ก่อน active)
-  const activeAllIdx = activeStopName
-    ? ALL_STOPS_GO.findIndex(s=>s.name===activeStopName)
-    : -1;
-
-  chipsBar.innerHTML = ALL_STOPS_GO.map((s, i) => {
-    const isActive = s.name === activeStopName;
-    const isPassed = activeAllIdx >= 0 && i < activeAllIdx;
-    return `<div class="stop-chip ${isActive?'active':isPassed?'passed':''}">
-      ${s.name}${isActive?'<span class="chip-bus-tag">รถอยู่</span>':''}
-    </div>`;
+  const stops=curStops();
+  const stopIdx=(pos&&pos.direction===viewDir)?pos.stopIdx:null;
+  const dirLabel=pos&&pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+  const badge=document.getElementById('routeDirBadge');
+  if(badge) badge.textContent=pos?dirLabel:'—';
+  document.getElementById('routeVisual').innerHTML=stops.map((s,i)=>{
+    const isA=i===stopIdx, isP=stopIdx!==null&&i<stopIdx;
+    return `<div class="stop-col">
+      <div class="stop-dot-w">
+        ${isA?'<div class="bus-anim">🚌</div>':''}
+        <div class="stop-dot ${isA?'active':isP?'passed':''}"></div>
+      </div>
+      <div class="sn ${isA?'active':''}">${s.name}</div>
+    </div>${i<stops.length-1?`<div class="line-seg ${isP?'passed':''}"></div>`:''}`;
   }).join('');
 }
 
@@ -915,115 +667,83 @@ function renderNextBus() {
     diff<=0?'กำลังจะออก!':`อีก ${diff} นาที`;
 }
 
-function buildTimeTable(times, fromLabel, toLabel) {
+function buildTimeGrid(times) {
+  // แสดงเวลาทั้งหมด ไม่มีขีดฆ่า ไม่มี fade
   const now = nowMin();
-  const headHtml = `<div class="sched-head">
-    <div class="sched-head-route">${fromLabel} → ${toLabel}</div>
-    <div class="sched-head-label">เวลาออก</div>
-  </div>`;
-
-  // แบ่ง 2 column: ซ้ายมากกว่า 1 ถ้าเลขคี่
-  const half = Math.ceil(times.length / 2);
-  const leftTimes  = times.slice(0, half);
-  const rightTimes = times.slice(half);
-
-  function makeCell(t) {
-    if (!t) return `<div class="time-cell empty" style="border-bottom:none;"></div>`;
-    const m = toMin(t);
-    const isCur = now>=m-5&&now<=m+10;
-    return `<div class="time-cell ${isCur?'cur':''}">
-      <span class="tc-time">${t}</span>
-      ${isCur?'<span class="now-b">วิ่งอยู่</span>':''}
-    </div>`;
-  }
-
-  // ถ้ามีไม่เกิน 4 เวลา ใช้ 1 column (ไม่ต้องแบ่ง)
-  if (times.length <= 4) {
-    const rows = times.map(t => {
-      const m = toMin(t);
-      const isCur = now>=m-5&&now<=m+10;
-      return `<div class="trip-row ${isCur?'cur':''}">
-        <div class="t-origin">${fromLabel}</div>
-        <div class="t-time">${t} น.${isCur?'<span class="now-b">วิ่งอยู่</span>':''}</div>
-      </div>`;
-    }).join('');
-    return headHtml + rows;
-  }
-
-  // 2-column grid
-  const maxRows = Math.max(leftTimes.length, rightTimes.length);
-  let leftCells = '', rightCells = '';
-  for (let i=0; i<leftTimes.length; i++) leftCells += makeCell(leftTimes[i]);
-  for (let i=0; i<rightTimes.length; i++) rightCells += makeCell(rightTimes[i]);
-  // เติม empty cell ถ้าขวาสั้นกว่า
-  if (rightTimes.length < leftTimes.length) rightCells += makeCell(null);
-
-  return headHtml + `<div class="sched-time-grid">
-    <div class="sched-time-col">${leftCells}</div>
-    <div class="sched-time-col">${rightCells}</div>
-  </div>`;
+  return times.map(t => {
+    const isNow = now >= toMin(t)-5 && now <= toMin(t)+15;
+    return `<div class="time-cell${isNow?' now-cell':''}">${t}${isNow?'<span class="now-badge">กำลังวิ่ง</span>':''}</div>`;
+  }).join('');
 }
 
 function renderSched() {
   const wrapper = document.getElementById('schedWrapper');
-  const now = nowMin();
   const origin = selOrigin, dest = selDest;
 
-  // ตรวจว่าต้นทางจากแปดริ้วและปลายทาง LEG2 → ซ่อน realtime
-  const isFromBaetrio = origin === 'ฉะเชิงเทรา (แปดริ้ว)';
-  const isLeg2 = isLeg2Dest(dest);
-  const hideRealtime = isFromBaetrio && isLeg2;
-
-  const realtimeSection = document.getElementById('realtimeSection');
-  if (realtimeSection) {
-    realtimeSection.classList.toggle('hidden', hideRealtime);
-  }
-
-  if(isLeg2){
+  if(isLeg2Dest(dest)){
     const leg1Times = getLeg1Times();
     const leg2Times = LEG2_DESTINATIONS[dest].leg2Times;
+    const now = nowMin();
 
-    const leg1Rows = leg1Times.map(t=>{
-      const m = toMin(t), isCur = now>=m-5&&now<=m+10;
-      return `<div class="leg2-time-row ${isCur?'cur':''}">
-        <div class="leg2-t">${t}</div>
-        ${isCur?'<span class="now-b">วิ่งอยู่</span>':''}
-      </div>`;
+    // สร้างแถวคู่ leg1+leg2 เรียงกัน
+    const maxRows = Math.max(leg1Times.length, leg2Times.length);
+    let rowsHtml = '';
+    for(let i=0; i<maxRows; i++){
+      const t1 = leg1Times[i] || null;
+      const t2 = leg2Times[i] || null;
+      const now1 = t1 && now>=toMin(t1)-5&&now<=toMin(t1)+15;
+      const now2 = t2 && now>=toMin(t2)-5&&now<=toMin(t2)+15;
+      const c1 = t1 ? `<div class="leg2-time-item${now1?' now-cell':''}">${t1}${now1?'<span class="now-badge">วิ่งอยู่</span>':''}</div>`
+                    : `<div class="leg2-time-item empty"></div>`;
+      const c2 = t2 ? `<div class="leg2-time-item${now2?' now-cell':''}">${t2}${now2?'<span class="now-badge">วิ่งอยู่</span>':''}</div>`
+                    : `<div class="leg2-time-item empty"></div>`;
+      rowsHtml += `<div class="leg2-time-col">${c1}</div>`;
+      if(i===0) rowsHtml = ''; // reset — we'll build cols separately
+    }
+
+    // สร้างคอลัมน์แยก แล้วจัดวาง side-by-side
+    const col1 = leg1Times.map((t,i)=>{
+      const isNow = now>=toMin(t)-5&&now<=toMin(t)+15;
+      return `<div class="leg2-time-item${isNow?' now-cell':''}">${t}${isNow?'<span class="now-badge">วิ่งอยู่</span>':''}</div>`;
     }).join('');
-
-    const leg2Rows = leg2Times.map(t=>{
-      const m = toMin(t), isCur = now>=m-5&&now<=m+10;
-      return `<div class="leg2-time-row ${isCur?'cur':''}">
-        <div class="leg2-t">${t}</div>
-        ${isCur?'<span class="now-b">วิ่งอยู่</span>':''}
-      </div>`;
+    const col2 = leg2Times.map((t,i)=>{
+      const isNow = now>=toMin(t)-5&&now<=toMin(t)+15;
+      return `<div class="leg2-time-item${isNow?' now-cell':''}">${t}${isNow?'<span class="now-badge">วิ่งอยู่</span>':''}</div>`;
     }).join('');
 
     wrapper.innerHTML = `
-      <div class="leg2-wrapper">
-        <div class="leg2-grid">
-          <div class="leg2-col leg2-col1">
-            <div class="leg2-col-head">
-              <div class="leg2-trip-label">เที่ยวที่ 1</div>
-              <div class="leg2-route">${origin} → ฉะเชิงเทรา</div>
-              <div class="leg2-platform">แปดริ้ว</div>
-            </div>
-            <div class="leg2-times">${leg1Rows}</div>
+      <div class="leg2-card">
+        <div class="leg2-header">
+          <div class="sched-route-from" style="color:#93c5fd;font-size:11px;">เส้นทางต่อรถ · ต่อรถที่ชานชาลา 6</div>
+          <div class="sched-route-name" style="font-size:15px;">${origin} → ${dest}</div>
+        </div>
+        <div class="leg2-cols">
+          <div class="leg2-col-head">
+            <div class="leg2-col-sub">เที่ยวที่ 1</div>
+            <div class="leg2-col-name">${origin}</div>
+            <div class="leg2-col-note">→ ฉะเชิงเทรา (แปดริ้ว)</div>
           </div>
-          <div class="leg2-col leg2-col2">
-            <div class="leg2-col-head">
-              <div class="leg2-trip-label">เที่ยวที่ 2</div>
-              <div class="leg2-route">แปดริ้ว → ${dest}</div>
-              <div class="leg2-platform">ต่อรถชานชาลา 6</div>
-            </div>
-            <div class="leg2-times">${leg2Rows}</div>
+          <div class="leg2-col-head">
+            <div class="leg2-col-sub">เที่ยวที่ 2</div>
+            <div class="leg2-col-name">ฉะเชิงเทรา</div>
+            <div class="leg2-col-note">→ ${dest} · ชานชาลา 6</div>
           </div>
+        </div>
+        <div class="leg2-times">
+          <div class="leg2-time-col">${col1}</div>
+          <div class="leg2-time-col">${col2}</div>
         </div>
       </div>`;
   } else {
     const times = getLeg1Times();
-    const html = buildTimeTable(times, origin, dest);
-    wrapper.innerHTML = `<div class="sched-card-wrap"><div class="sched-card">${html}</div></div>`;
+    wrapper.innerHTML = `
+      <div class="sched-card">
+        <div class="sched-route-header">
+          <div class="sched-route-from">เส้นทาง</div>
+          <div class="sched-route-name">${origin} → ${dest}</div>
+        </div>
+        <div class="time-grid">${buildTimeGrid(times)}</div>
+      </div>`;
   }
 }
 
@@ -1039,24 +759,6 @@ function fullRender(pos) {
   renderNextBus();
   updateLastUpdate(pos);
   if (pos && mapReady) updateBusOnMap(pos);
-}
-
-// ===== VISIBILITY LOGIC =====
-// ตอนเปิดหน้าแรก selOrigin และ selDest ยังไม่ถูก "เลือก" โดยผู้ใช้
-let routeSelected = false;
-
-function showRealtimeIfNeeded() {
-  const isFromBaetrio = selOrigin === 'ฉะเชิงเทรา (แปดริ้ว)';
-  const isLeg2 = isLeg2Dest(selDest);
-  const hideRealtime = isFromBaetrio && isLeg2;
-
-  const realtimeSection = document.getElementById('realtimeSection');
-  const promptCard = document.getElementById('promptCard');
-
-  if (!routeSelected) return; // ยังไม่เลือก ยังซ่อนอยู่
-
-  if (realtimeSection) realtimeSection.classList.toggle('hidden', hideRealtime);
-  if (promptCard) promptCard.style.display = 'none';
 }
 
 // ===== DROPDOWN INIT =====
@@ -1099,16 +801,13 @@ function buildDropdowns(){
 
   originSel.addEventListener('change', function(){
     selOrigin = this.value;
+    // ถ้าต้นทาง = ปลายทาง ให้เปลี่ยนปลายทาง
     if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
     buildDestOptions();
-    routeSelected = true;
-    showRealtimeIfNeeded();
     renderSched(); renderNextBus();
   });
   destSel.addEventListener('change', function(){
     selDest = this.value;
-    routeSelected = true;
-    showRealtimeIfNeeded();
     renderSched(); renderNextBus();
   });
 }
