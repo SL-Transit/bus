@@ -238,6 +238,16 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
               <option value="rayong">ระยอง</option>
               <option value="minburi">ตลาดมีนบุรี</option>
             </optgroup>
+            <optgroup label="— ตั๋ว 2 ขา (ต่อรถที่แปดริ้ว) —">
+              <option value="bts_jatujak">BTS จตุจักร</option>
+              <option value="lat_phrao_intersection">แยกลาดพร้าว</option>
+              <option value="ekamai">เอกมัย</option>
+              <option value="homepro">โฮมโปร</option>
+              <option value="bangna">บางนา</option>
+              <option value="bts_bangchak">BTS บางจาก</option>
+              <option value="bts_phra_khanong">BTS พระโขนง</option>
+              <option value="bts_onnut">BTS อ่อนนุช</option>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -529,9 +539,6 @@ var ROUTE_PRICE = {
 };
 var PRICE_RAW = 55; // internal only — use _PRICE_VALUE via PRICE getter
 
-  // ===== ราคาระหว่างสถานี (segment price) =====
-// รูปแบบ: SEGMENT_PRICE['ต้นทาง']['ปลายทาง'] = ราคา
-// แก้ไขราคาได้ที่นี่
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
   'phanom': {
@@ -628,51 +635,51 @@ var CHACHOENGSAO_TIMES = {
 // ตารางเวลาจาก พนมสารคาม ไปแต่ละปลายทาง
 var PHANOM_DEST_TIMES = {
   'sanamchai':     {times:['10:20','11:40','12:00','12:30','13:00','14:30','14:40','15:00','16:00','17:00','18:00'], price:0},
-  'tatakiab':      {times:['12:00','14:40','18:00'], price:0},
-  'nongkhok':      {times:['12:00','14:40','18:00'], price:0},
-  'klonghat':      {times:['12:00','14:40'], price:0},
-  'thoengkabintr': {times:['12:00','14:40'], price:0},
-  'siyaekkhonom':  {times:['12:00','14:40'], price:0},
-  'phaijit':       {times:['12:00','14:40'], price:0},
-  'nongruea':      {times:['12:00','14:40'], price:0}
+  'tatakiab':      {times:['12:00','14:40','18:00'],
+  'nongkhok':      {times:['12:00','14:40','18:00'],
+  'klonghat':      {times:['12:00','14:40'],
+  'thoengkabintr': {times:['12:00','14:40'],
+  'siyaekkhonom':  {times:['12:00','14:40'],
+  'phaijit':       {times:['12:00','14:40'],
+  'nongruea':      {times:['12:00','14:40'],
 };
 
 // ตารางเวลาจาก สนามชัย ไปแต่ละปลายทาง
 var SANAMCHAI_DEST_TIMES = {
-  'tatakiab':      {times:['12:20','15:00','18:20'], price:0},
-  'nongkhok':      {times:['12:20','15:00','18:20'], price:0},
-  'klonghat':      {times:['12:20','15:00'], price:0},
-  'thoengkabintr': {times:['12:20','15:00'], price:0},
-  'siyaekkhonom':  {times:['12:20','15:00'], price:0},
-  'phaijit':       {times:['12:20','15:00'], price:0},
-  'nongruea':      {times:['12:20','15:00'], price:0}
+  'tatakiab':      {times:['12:20','15:00','18:20'],
+  'nongkhok':      {times:['12:20','15:00','18:20'],
+  'klonghat':      {times:['12:20','15:00'],
+  'thoengkabintr': {times:['12:20','15:00'],
+  'siyaekkhonom':  {times:['12:20','15:00'],
+  'phaijit':       {times:['12:20','15:00'],
+  'nongruea':      {times:['12:20','15:00'],
 };
 
 // ตารางเวลาจาก ท่าตะเกียบ ไปแต่ละปลายทาง
 var TATAKIAB_DEST_TIMES = {
-  'nongkhok':      {times:['12:50','15:30','18:50'], price:0},
-  'klonghat':      {times:['12:50','15:30'], price:0},
-  'thoengkabintr': {times:['12:50','15:30'], price:0},
-  'siyaekkhonom':  {times:['12:50','15:30'], price:0},
-  'phaijit':       {times:['12:50','15:30'], price:0},
-  'nongruea':      {times:['12:50','15:30'], price:0}
+  'nongkhok':      {times:['12:50','15:30','18:50'],
+  'klonghat':      {times:['12:50','15:30'],
+  'thoengkabintr': {times:['12:50','15:30'],
+  'siyaekkhonom':  {times:['12:50','15:30'],
+  'phaijit':       {times:['12:50','15:30'],
+  'nongruea':      {times:['12:50','15:30'],
 };
 
 // ตารางเวลาจาก หนองคอก ไปแต่ละปลายทาง
 var NONGKHOK_DEST_TIMES = {
-  'klonghat':      {times:['13:05','15:45'], price:0},
-  'thoengkabintr': {times:['13:05','15:45'], price:0},
-  'siyaekkhonom':  {times:['13:05','15:45'], price:0},
-  'phaijit':       {times:['13:05','15:45'], price:0},
-  'nongruea':      {times:['13:05','15:45'], price:0}
+  'klonghat':      {times:['13:05','15:45'],
+  'thoengkabintr': {times:['13:05','15:45'],
+  'siyaekkhonom':  {times:['13:05','15:45'],
+  'phaijit':       {times:['13:05','15:45'],
+  'nongruea':      {times:['13:05','15:45'],
 };
 
 // ตารางเวลาจาก หนองเรือ ไปแต่ละปลายทาง
 var NONGRUEA_DEST_TIMES = {
-  'klonghat':      {times:['13:35','16:15'], price:0},
-  'thoengkabintr': {times:['13:35','16:15'], price:0},
-  'siyaekkhonom':  {times:['13:35','16:15'], price:0},
-  'phaijit':       {times:['13:35','16:15'], price:0}
+  'klonghat':      {times:['13:35','16:15'],
+  'thoengkabintr': {times:['13:35','16:15'],
+  'siyaekkhonom':  {times:['13:35','16:15'],
+  'phaijit':       {times:['13:35','16:15'],
 };
 
 // ตารางเวลาจาก ไพจิตร ไปแต่ละปลายทาง
