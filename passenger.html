@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Transit — ระบบขนส่งมวลชนอัจฉริยะ</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:#f0f4fa;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --border:#cbd5e1;
+  --border-light:#e2e8f0;
+  --green:#15803d;
+  --blue:#1d4ed8;
+  --blue-dark:#1e3a8a;
+  --blue-mid:#2563eb;
+  --blue-light:#eff6ff;
+  --red:#b91c1c;
+  --amber:#b45309;
+}
+body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+/* ===== HEADER ===== */
+.topbar {
+  background:var(--blue-dark);
+  padding:18px 20px 16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+}
+.header-main {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:22px;
+  font-weight:700;
+  color:#ffffff;
+  letter-spacing:1px;
+}
+.header-sub {
+  font-size:13px;
+  font-weight:400;
+  color:#93c5fd;
+  letter-spacing:0.5px;
+}
+
+/* ===== INFO STRIP ===== */
+.info-strip {
+  background:#1e40af;
+  padding:9px 20px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.info-strip .left { display:flex; flex-direction:column; align-items:flex-start; gap:1px; }
+.info-strip .time {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:18px;
+  color:#ffffff;
+  letter-spacing:3px;
+  font-weight:700;
+  line-height:1;
+}
+.info-strip .date { font-size:12px; color:#93c5fd; font-weight:500; }
+.info-strip .right { font-size:12px; color:#86efac; font-weight:600; text-align:right; }
+.live-dot {
+  display:inline-block; width:8px; height:8px;
+  background:#4ade80; border-radius:50%;
+  margin-right:5px; animation:blink 1.4s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+
+.main { padding:16px 16px; max-width:520px; margin:0 auto; }
+
+/* ===== STATUS CARD ===== */
+.status-card {
+  background:var(--card);
+  border-radius:12px;
+  padding:16px 18px;
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.07);
+  border-left:5px solid #cbd5e1;
+}
+.status-card.stopped  { border-left-color:#d97706; background:#fffbeb; }
+.status-card.arriving { border-left-color:#16a34a; background:#f0fdf4; }
+.status-card.running  { border-left-color:#2563eb; background:#eff6ff; }
+.status-icon { font-size:26px; line-height:1; padding-top:2px; }
+.status-text strong { display:block; font-size:16px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.status-text span { font-size:13px; color:var(--muted); }
+
+/* ===== MAP ===== */
+#map {
+  height:280px;
+  border-radius:12px;
+  margin-bottom:16px;
+  border:1px solid var(--border);
+  overflow:hidden;
+  background:#dde5ef;
+}
+#map .ldc-widget:not(.ldc-geolocation),
+#map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
+#map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
+#map .ldmap-crosshair { display:none !important; }
+
+/* ===== ROUTE STRIP ===== */
+.route-card {
+  background:var(--card);
+  border-radius:12px;
+  padding:16px 18px;
+  box-shadow:0 1px 5px rgba(0,0,0,0.06);
+  margin-bottom:16px;
+  border:1px solid var(--border-light);
+}
+.route-label {
+  font-size:11px;
+  color:var(--muted);
+  font-weight:600;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+.route-direction {
+  font-size:16px;
+  font-weight:700;
+  color:var(--blue-dark);
+  margin-bottom:10px;
+}
+
+/* ===== NEXT BUS ===== */
+.next-bus {
+  background:var(--blue-dark);
+  border-radius:12px;
+  padding:16px 20px;
+  margin-bottom:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.next-left {}
+.next-label { font-size:12px; color:#93c5fd; font-weight:600; letter-spacing:1px; margin-bottom:4px; text-transform:uppercase; }
+.next-time {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:32px;
+  font-weight:700;
+  color:#ffffff;
+  letter-spacing:2px;
+  line-height:1;
+}
+.next-detail { font-size:13px; color:#93c5fd; margin-top:5px; }
+
+/* ===== SECTION LABEL ===== */
+.sec-label {
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:12px;
+  padding-left:2px;
+}
+
+/* ===== ROUTE SELECTOR ===== */
+.route-select-card {
+  background:var(--card);
+  border-radius:12px;
+  padding:16px 18px;
+  margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.07);
+  border:1px solid var(--border-light);
+}
+.rs-title {
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+.rs-row { display:flex; align-items:flex-end; gap:10px; }
+.rs-group { flex:1; display:flex; flex-direction:column; gap:6px; }
+.rs-label { font-size:12px; font-weight:600; color:var(--blue-dark); }
+.rs-select {
+  width:100%;
+  padding:12px 14px;
+  border-radius:8px;
+  border:2px solid var(--border);
+  font-family:'Kanit',sans-serif;
+  font-size:15px;
+  font-weight:600;
+  color:var(--text);
+  background:#fff;
+  cursor:pointer;
+  outline:none;
+  appearance:none;
+  -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%2364748b' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  transition:border-color 0.2s;
+}
+.rs-select:focus { border-color:var(--blue-mid); background-color:#fff; }
+.rs-arrow {
+  font-size:22px;
+  color:var(--blue-mid);
+  padding-bottom:12px;
+  flex-shrink:0;
+  font-weight:700;
+}
+
+/* ===== SCHEDULE CARDS ===== */
+
+/* Standalone (direct route) */
+.sched-card-wrap { margin-bottom:16px; }
+.sched-card {
+  background:var(--card);
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,0.07);
+  border:1px solid var(--border-light);
+}
+
+.sched-head {
+  background:var(--blue-dark);
+  padding:14px 18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.sched-head-route { font-size:16px; font-weight:700; color:#ffffff; }
+.sched-head-label { font-size:11px; color:#93c5fd; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+
+.trip-row {
+  padding:14px 18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid var(--border-light);
+}
+.trip-row:last-child { border-bottom:none; }
+.trip-row.cur { background:#eff6ff; border-left:4px solid #2563eb; padding-left:14px; }
+.t-origin { font-size:14px; font-weight:500; color:var(--muted); }
+.t-time {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:20px;
+  font-weight:700;
+  color:var(--text);
+  letter-spacing:1px;
+}
+.trip-row.cur .t-time { color:#1d4ed8; }
+.now-b {
+  display:inline-block;
+  background:#1d4ed8;
+  color:#fff;
+  font-size:10px;
+  font-weight:700;
+  padding:2px 7px;
+  border-radius:20px;
+  margin-left:6px;
+  vertical-align:middle;
+  font-family:'Kanit',sans-serif;
+}
+
+/* ===== LEG2 TWO-COLUMN ===== */
+.leg2-wrapper {
+  margin-bottom:16px;
+}
+.leg2-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+@media (max-width:360px) {
+  .leg2-grid { grid-template-columns:1fr; }
+}
+
+.leg2-col {
+  background:var(--card);
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,0.07);
+  border:1px solid var(--border-light);
+}
+.leg2-col-head {
+  padding:12px 14px;
+  background:var(--blue-dark);
+}
+.leg2-trip-label {
+  font-size:10px;
+  color:#93c5fd;
+  font-weight:600;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  margin-bottom:3px;
+}
+.leg2-route {
+  font-size:14px;
+  font-weight:700;
+  color:#ffffff;
+  line-height:1.3;
+}
+.leg2-platform {
+  font-size:11px;
+  color:#bfdbfe;
+  margin-top:3px;
+  font-weight:500;
+}
+
+.leg2-col2 .leg2-col-head { background:linear-gradient(135deg,#4c1d95,#6d28d9); }
+.leg2-col2 .leg2-trip-label { color:#c4b5fd; }
+.leg2-col2 .leg2-platform { color:#ddd6fe; }
+
+.leg2-times { padding:10px 0; }
+.leg2-time-row {
+  padding:9px 14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid var(--border-light);
+}
+.leg2-time-row:last-child { border-bottom:none; }
+.leg2-time-row.cur { background:#eff6ff; border-left:3px solid #2563eb; padding-left:11px; }
+.leg2-col2 .leg2-time-row.cur { background:#f5f3ff; border-left-color:#6d28d9; }
+.leg2-t {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:17px;
+  font-weight:700;
+  color:var(--text);
+  letter-spacing:0.5px;
+}
+.leg2-time-row.cur .leg2-t { color:#1d4ed8; }
+.leg2-col2 .leg2-time-row.cur .leg2-t { color:#5b21b6; }
+
+/* ===== FOOTER ===== */
+.footer {
+  text-align:center;
+  font-size:12px;
+  color:var(--muted);
+  padding:10px 16px 28px;
+  line-height:1.7;
+}
+.footer .note-title { color:var(--red); font-weight:700; }
+
+/* ===== 2-COLUMN TIME GRID (direct route) ===== */
+.sched-time-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+}
+.sched-time-col { display:flex; flex-direction:column; }
+.sched-time-col:first-child { border-right:1px solid var(--border-light); }
+.time-cell {
+  padding:13px 16px;
+  border-bottom:1px solid var(--border-light);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.time-cell:last-child { border-bottom:none; }
+.sched-time-col:last-child .time-cell:last-child { border-bottom:none; }
+.time-cell.cur { background:#eff6ff; border-left:4px solid #2563eb; padding-left:12px; }
+.tc-time {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:22px;
+  font-weight:700;
+  color:var(--text);
+  letter-spacing:1px;
+  line-height:1;
+}
+.time-cell.cur .tc-time { color:#1d4ed8; }
+
+/* ===== STOP CHIPS (route strip) ===== */
+.stop-chips-bar {
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:2px 0 8px;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.stop-chips-bar::-webkit-scrollbar { display:none; }
+.stop-chip {
+  flex-shrink:0;
+  padding:7px 14px;
+  border-radius:20px;
+  font-size:13px;
+  font-weight:600;
+  background:#f1f5f9;
+  color:var(--muted);
+  border:1.5px solid var(--border-light);
+  white-space:nowrap;
+  cursor:default;
+  transition:all 0.2s;
+}
+.stop-chip.active {
+  background:var(--blue-dark);
+  color:#ffffff;
+  border-color:var(--blue-dark);
+}
+.stop-chip.passed {
+  background:#e0e7ff;
+  color:#3730a3;
+  border-color:#c7d2fe;
+}
+.chip-bus-tag {
+  display:inline-block;
+  background:#f97316;
+  color:#fff;
+  font-size:9px;
+  font-weight:700;
+  padding:1px 5px;
+  border-radius:10px;
+  margin-left:4px;
+  vertical-align:middle;
+  font-family:'Kanit',sans-serif;
+}
+
+/* ===== VISIBILITY TOGGLE ===== */
+.realtime-section { transition:opacity 0.3s; }
+.realtime-section.hidden { display:none; }
+
+/* ===== PROMPT CARD (before route selected) ===== */
+.prompt-card {
+  background:#f8faff;
+  border:2px dashed var(--border);
+  border-radius:12px;
+  padding:24px 20px;
+  text-align:center;
+  margin-bottom:16px;
+}
+.prompt-icon { font-size:32px; margin-bottom:8px; }
+.prompt-text { font-size:15px; font-weight:600; color:var(--muted); }
+.prompt-sub { font-size:13px; color:#94a3b8; margin-top:4px; }
+
+/* แผนที่ใหญ่ขึ้น */
+#map { height:340px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="header-main">Smart Transit</div>
+  <div class="header-sub">ระบบขนส่งมวลชนอัจฉริยะ</div>
+</div>
+
+<!-- ข้อ 5: วันเวลาซ้าย / อัปเดตขวา -->
+<div class="info-strip">
+  <div class="left">
+    <div class="time" id="clock">--:--:--</div>
+    <div class="date" id="dateText"></div>
+  </div>
+  <div class="right">
+    <span class="live-dot"></span>อัปเดตเรียลไทม์<br>
+    <span id="lastUpdate" style="font-weight:400;color:var(--muted)">รอข้อมูล</span>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Realtime section: ซ่อนจนกว่าจะเลือกเส้นทาง -->
+  <div id="realtimeSection" class="realtime-section hidden">
+    <div class="status-card" id="statusCard">
+      <div class="status-icon" id="statusIcon">🚌</div>
+      <div class="status-text">
+        <strong id="statusTitle">กำลังโหลด...</strong>
+        <span id="statusSub">รอข้อมูลจากรถ</span>
+      </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="route-card">
+      <div class="route-label">ตำแหน่งรถสนามชัย</div>
+      <div class="route-direction" id="routeDirection">—</div>
+      <div class="stop-chips-bar" id="stopChipsBar"></div>
+    </div>
+
+    <div class="next-bus">
+      <div class="next-left">
+        <div class="next-label">รถคันถัดไป</div>
+        <div class="next-time" id="nextTime">--:--</div>
+        <div class="next-detail" id="nextDetail">กำลังคำนวณ...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prompt: แสดงก่อนเลือกเส้นทาง -->
+  <div id="promptCard" class="prompt-card">
+    <div class="prompt-icon">🗺</div>
+    <div class="prompt-text">เลือกเส้นทางเพื่อดูข้อมูล</div>
+    <div class="prompt-sub">เลือกต้นทางและปลายทางด้านล่าง</div>
+  </div>
+
+  <!-- ระบบเลือกต้นทาง–ปลายทาง -->
+  <div class="route-select-card">
+    <div class="rs-title">เลือกเส้นทาง</div>
+    <div class="rs-row">
+      <div class="rs-group">
+        <div class="rs-label">ต้นทาง</div>
+        <select id="selOrigin" class="rs-select"></select>
+      </div>
+      <div class="rs-arrow">→</div>
+      <div class="rs-group">
+        <div class="rs-label">ปลายทาง</div>
+        <select id="selDest" class="rs-select"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-label">ตารางเวลาเดินรถ</div>
+  <div id="schedWrapper"></div>
+
+  <div class="footer">
+    <span class="note-title">หมายเหตุ :</span><br>
+    ตารางเวลาเดินรถอาจมีการคลาดเคลื่อนจากสภาพการจราจร สภาพอากาศ หรือเหตุสุดวิสัย บริษัทฯ ขออภัยในความไม่สะดวกมา ณ โอกาสนี้
+  </div>
+</div>
+
+<script>
+// ===== Firebase =====
+const firebaseConfig = {
+  apiKey: "AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
+  authDomain: "bus-line1-ba0ea.firebaseapp.com",
+  databaseURL: "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bus-line1-ba0ea",
+  storageBucket: "bus-line1-ba0ea.firebasestorage.app",
+  messagingSenderId: "511401517598",
+  appId: "1:511401517598:web:5605ee3777619dffe1c40f"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ===== DATA (คงไว้สำหรับ GPS/Map/Status) =====
+const STOPS_GO = [
+  { name:'ท่ารถสนามชัยเขต', lat:13.659022, lng:101.437482 },
+  { name:'พนมสารคาม',        lat:13.745082, lng:101.355993 },
+  { name:'ขนส่งฉะเชิงเทรา', lat:13.692477, lng:101.054105 },
+];
+const STOPS_BACK = [
+  { name:'ขนส่งฉะเชิงเทรา', lat:13.692477, lng:101.054105 },
+  { name:'พนมสารคาม',        lat:13.745259, lng:101.356835 },
+  { name:'ท่ารถสนามชัยเขต', lat:13.659022, lng:101.437482 },
+];
+
+// ===== ROUTES DATA — แยกข้อมูลจาก UI =====
+// เวลาออกจากสนามชัยเขต (ต้นทางหลัก)
+const ROUTES = {
+  'ท่ารถสนามชัยเขต': { times: ['06:20','09:00','10:40','12:10','13:40','14:00'] },
+  'พนมสารคาม':        { times: ['06:40','07:40','09:20','11:40','12:30','14:30','15:00'] },
+  'คลองหาด':          { times: ['08:00','11:30'] },
+  'หนองคอก':          { times: ['06:20','09:30','13:00'] },
+  'ท่าตะเกียบ':       { times: ['06:35','09:45','13:15'] },
+  'ทุ่งกบินทร์':      { times: ['08:20','12:10'] },
+  'ไพจิตร':           { times: ['08:30','12:10'] },
+  'หนองเรือ':         { times: ['08:40','12:20'] },
+  'ฉะเชิงเทรา (แปดริ้ว)': { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
+  'สี่แยกโคนม':       { times: ['07:30','11:00','14:30'] },
+};
+
+// LEG2: เส้นทางต่อรถ ผ่านฉะเชิงเทรา (แปดริ้ว)
+const LEG2_TIMES = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
+const LEG2_MINBURI_TIMES = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
+
+const LEG2_DESTINATIONS = {
+  'พัทยา':          { leg2Times: LEG2_TIMES },
+  'ระยอง':           { leg2Times: LEG2_TIMES },
+  'กม.10':           { leg2Times: LEG2_TIMES },
+  'ตลาดหนองมน':      { leg2Times: LEG2_TIMES },
+  'บางแสน':          { leg2Times: LEG2_TIMES },
+  'อ่าวอุดม':        { leg2Times: LEG2_TIMES },
+  'ศรีราชา':         { leg2Times: LEG2_TIMES },
+  'ม.เกษตร':         { leg2Times: LEG2_TIMES },
+  'บ้านฉาง':         { leg2Times: LEG2_TIMES },
+  'แหลมฉบัง':        { leg2Times: LEG2_TIMES },
+  'ตลาดมีนบุรี':     { leg2Times: LEG2_MINBURI_TIMES },
+};
+
+// ต้นทางและปลายทาง
+const ORIGIN_LIST = [
+  'ฉะเชิงเทรา (แปดริ้ว)',
+  'พนมสารคาม',
+  'ท่ารถสนามชัยเขต',
+  'ท่าตะเกียบ',
+  'หนองคอก',
+  'หนองเรือ',
+  'ไพจิตร',
+  'ทุ่งกบินทร์',
+  'สี่แยกโคนม',
+  'คลองหาด',
+];
+
+const DEST_NORMAL = [
+  'ฉะเชิงเทรา (แปดริ้ว)',
+  'พนมสารคาม',
+  'ท่ารถสนามชัยเขต',
+  'ท่าตะเกียบ',
+  'หนองคอก',
+  'หนองเรือ',
+  'ไพจิตร',
+  'ทุ่งกบินทร์',
+  'สี่แยกโคนม',
+  'คลองหาด',
+];
+
+const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
+
+let lastPos=null;
+// คง viewDir ไว้สำหรับ GPS/Map
+let viewDir='go';
+let mapObj=null, busMarker=null, routeLine=null, mapReady=false;
+let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
+
+// ===== HELPERS =====
+function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
+function nowMin(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+function curStops(){return viewDir==='go'?STOPS_GO:STOPS_BACK;}
+
+// ===== ROUTE SELECTION STATE =====
+let selOrigin = 'ท่ารถสนามชัยเขต';
+let selDest   = 'ฉะเชิงเทรา (แปดริ้ว)';
+
+function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
+
+function getLeg1Times(){
+  if(ROUTES[selOrigin]) return ROUTES[selOrigin].times;
+  return [];
+}
+
+// ===== LONGDO MAP =====
+function initMap() {
+  try {
+    mapObj = new longdo.Map({
+      placeholder: document.getElementById('map'),
+      zoom: 10,
+      location: { lon:101.245, lat:13.710 },
+    });
+
+    mapReady = true;
+
+    // ซ่อน UI ทุกตัว เหลือแค่ Geolocation
+    setTimeout(function(){
+      try { mapObj.Ui.DPad.visible(false); } catch(e){}
+      try { mapObj.Ui.Zoombar.visible(false); } catch(e){}
+      try { mapObj.Ui.Toolbar.visible(false); } catch(e){}
+      try { mapObj.Ui.LayerSelector.visible(false); } catch(e){}
+      try { mapObj.Ui.Fullscreen.visible(false); } catch(e){}
+      try { mapObj.Ui.Scale.visible(false); } catch(e){}
+      try { mapObj.Ui.Crosshair.visible(false); } catch(e){}
+      try { mapObj.Ui.Geolocation.visible(true); } catch(e){}
+    }, 1000);
+
+    // วาดป้ายจอดครบ 3 จุด
+    STOPS_GO.forEach(function(s, i) {
+      try {
+        var m = new longdo.Marker({ lon: s.lng, lat: s.lat }, {
+          icon: {
+            html: '<div style="font-size:24px;line-height:1">🚏</div>',
+            offset: { x: 12, y: 12 }
+          }
+        });
+        mapObj.Overlays.add(m);
+      } catch(e) {
+        console.warn('Stop marker error:', e);
+      }
+      // label ชื่อป้าย ใช้ Marker แบบ HTML เพื่อรองรับ Longdo Map API รุ่นปัจจุบัน
+      try {
+        var label = new longdo.Marker({ lon: s.lng, lat: s.lat }, {
+          icon: {
+            html: '<div style="background:rgba(30,58,138,0.85);color:#fff;font-size:10px;font-weight:600;padding:3px 7px;border-radius:10px;white-space:nowrap;margin-top:2px">' + s.name + '</div>',
+            offset: { x: 10, y: -10 }
+          }
+        });
+        mapObj.Overlays.add(label);
+      } catch(e) {
+        console.warn('Stop label error:', e);
+      }
+    });
+
+    drawRoute();
+    startPassengerLocation();
+    // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
+    if (lastPos) {
+      updateBusOnMap(lastPos);
+    }
+  } catch(e) {
+    console.error('Map error:', e);
+  }
+}
+
+function startPassengerLocation() {
+  if (!navigator.geolocation || passengerWatchId !== null) return;
+
+  passengerWatchId = navigator.geolocation.watchPosition(function(pos) {
+    var next = {
+      lon: pos.coords.longitude,
+      lat: pos.coords.latitude
+    };
+
+    if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
+      return;
+    }
+
+    passengerPos = next;
+    updatePassengerOnMap(next);
+  }, function(err) {
+    console.warn('Passenger location error:', err && err.message ? err.message : err);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 5000
+  });
+}
+
+function updatePassengerOnMap(latlng) {
+  if (!mapReady || !mapObj || !latlng) return;
+
+  try { if (passengerMarker) mapObj.Overlays.remove(passengerMarker); } catch(e){}
+
+  passengerMarker = new longdo.Marker(latlng, {
+    title: 'ตำแหน่งของคุณ',
+    icon: {
+      html: '<div style="width:20px;height:20px;border-radius:50%;background:#2563eb;border:4px solid #fff;box-shadow:0 0 0 4px rgba(37,99,235,.22),0 2px 8px rgba(0,0,0,.28)"></div>',
+      offset: { x: 10, y: 10 }
+    }
+  });
+  mapObj.Overlays.add(passengerMarker);
+
+  if (!passengerCentered) {
+    mapObj.location(latlng, true);
+    mapObj.zoom(15, true);
+    passengerCentered = true;
+  }
+}
+
+// ข้อ 4: เส้นทางตามถนน
+function drawRoute() {
+  if (!mapReady) return;
+  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
+  const coords = stops.map(s=>`${s.lng},${s.lat}`).join(';');
+
+  fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+    .then(r=>r.json())
+    .then(data=>{
+      if (data.routes?.[0]) {
+        const pts = data.routes[0].geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}));
+        if (routeLine) mapObj.Overlays.remove(routeLine);
+        routeLine = new longdo.Polyline(pts, {
+          lineColor: viewDir==='go'?'#1e40af':'#dc2626',
+          lineWidth:5, lineOpacity:0.8
+        });
+        mapObj.Overlays.add(routeLine);
+      }
+    })
+    .catch(()=>{
+      const pts = stops.map(s=>({lon:s.lng, lat:s.lat}));
+      if (routeLine) mapObj.Overlays.remove(routeLine);
+      routeLine = new longdo.Polyline(pts,{lineColor:'#1e40af',lineWidth:4});
+      mapObj.Overlays.add(routeLine);
+    });
+}
+
+function updateBusOnMap(pos) {
+  if (!mapReady || !mapObj) return;
+  var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
+  var latlng = null;
+
+  if (pos.lat && pos.lng && pos.lat !== 0 && pos.lng !== 0) {
+    latlng = { lon: pos.lng, lat: pos.lat };
+  } else if (pos.stopIdx !== undefined && dir[pos.stopIdx]) {
+    var s = dir[pos.stopIdx];
+    latlng = { lon: s.lng, lat: s.lat };
+  }
+  if (!latlng) return;
+
+  // ลบ marker เดิม
+  try { if (busMarker) mapObj.Overlays.remove(busMarker); } catch(e){}
+
+  // ใช้ Longdo Marker แบบ default (ไม่ custom icon) — รับรองขึ้นแน่นอน
+  busMarker = new longdo.Marker(latlng, {
+  title: 'รถโดยสาร',
+  icon: {
+    html: '<div style="font-size:26px;">🚐</div>',
+    offset: { x: 13, y: 13 }
+  }
+});
+  mapObj.Overlays.add(busMarker);
+
+  // เพิ่ม tag HTML กำกับตำแหน่ง
+  var tag = new longdo.Marker(latlng, {
+    icon: {
+      html: '<div style="background:#f97316;color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:16px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚌 รถอยู่ที่นี่</div>',
+      offset: { x: 10, y: -20 }
+    }
+  });
+  mapObj.Overlays.add(tag);
+
+  // ไม่เลื่อนแผนที่ไปหารถอัตโนมัติ เพราะผู้โดยสารต้องเห็นตำแหน่งตัวเองก่อน
+  if (!passengerCentered) {
+    mapObj.location(latlng, true);
+    mapObj.zoom(12, true);
+  }
+}
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ===== STATUS =====
+function getStatusInfo(pos) {
+  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
+  const elapsed=(Date.now()-pos.ts)/1000;
+  const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
+  const stopName=dir[pos.stopIdx]?.name||'?';
+  const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
+  const dirLabel=pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+  const timeAgo=Math.round(elapsed/60);
+  const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
+  if (pos.status==='at'||elapsed>120)
+    return {cls:'stopped',icon:'🛑',title:'จอดรอผู้โดยสาร ตามป้ายรถ',sub:`${stopName} · ${dirLabel} · ${timeStr}`};
+  if (pos.status==='towards'&&nextStop)
+    return {cls:'arriving',icon:'🚍',title:`กำลังใกล้จะถึง ${nextStop}`,sub:`${dirLabel} · ${timeStr}`};
+  return {cls:'running',icon:'🚌',title:'กำลังวิ่ง',sub:`ออกจาก ${stopName} · ${dirLabel} · ${timeStr}`};
+}
+
+// ===== RENDER =====
+function renderStatus(pos) {
+  const info=getStatusInfo(pos);
+  document.getElementById('statusCard').className=`status-card ${info.cls}`;
+  document.getElementById('statusIcon').textContent=info.icon;
+  document.getElementById('statusTitle').textContent=info.title;
+  document.getElementById('statusSub').textContent=info.sub;
+}
+
+// ===== STOP LIST สำหรับ chip bar =====
+const ALL_STOPS_GO = [
+  { name:'ท่ารถสนามชัยเขต', lat:13.659022, lng:101.437482 },
+  { name:'ท่าตะเกียบ',       lat:13.653000, lng:101.410000 },
+  { name:'หนองคอก',          lat:13.648000, lng:101.390000 },
+  { name:'สี่แยกโคนม',       lat:13.700000, lng:101.340000 },
+  { name:'ไพจิตร',           lat:13.720000, lng:101.310000 },
+  { name:'หนองเรือ',         lat:13.730000, lng:101.290000 },
+  { name:'ทุ่งกบินทร์',      lat:13.735000, lng:101.270000 },
+  { name:'คลองหาด',          lat:13.740000, lng:101.250000 },
+  { name:'พนมสารคาม',        lat:13.745082, lng:101.355993 },
+  { name:'ขนส่งฉะเชิงเทรา', lat:13.692477, lng:101.054105 },
+];
+
+function renderRouteStrip(pos) {
+  // อัปเดตทิศทางรถ
+  const dirEl = document.getElementById('routeDirection');
+  if (dirEl) {
+    if (pos) {
+      const dirLabel = pos.direction==='back'
+        ? 'ฉะเชิงเทรา → ท่ารถสนามชัยเขต'
+        : 'ท่ารถสนามชัยเขต → ฉะเชิงเทรา';
+      dirEl.textContent = dirLabel;
+    } else {
+      dirEl.textContent = '—';
+    }
+  }
+
+  // Chip bar — ใช้ STOPS_GO เป็นหลัก + เพิ่มจุดอื่น
+  const chipsBar = document.getElementById('stopChipsBar');
+  if (!chipsBar) return;
+
+  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
+  const stopIdx = (pos && pos.direction===viewDir) ? pos.stopIdx : null;
+
+  // สร้าง chip จาก ALL_STOPS_GO (เรียงตามเส้นทาง)
+  // active = stopIdx ตรงกับชื่อ stop ใน STOPS_GO
+  const activeStopName = stopIdx!==null && stops[stopIdx] ? stops[stopIdx].name : null;
+  // หา index ใน ALL_STOPS_GO ที่ผ่านไปแล้ว (ก่อน active)
+  const activeAllIdx = activeStopName
+    ? ALL_STOPS_GO.findIndex(s=>s.name===activeStopName)
+    : -1;
+
+  chipsBar.innerHTML = ALL_STOPS_GO.map((s, i) => {
+    const isActive = s.name === activeStopName;
+    const isPassed = activeAllIdx >= 0 && i < activeAllIdx;
+    return `<div class="stop-chip ${isActive?'active':isPassed?'passed':''}">
+      ${s.name}${isActive?'<span class="chip-bus-tag">รถอยู่</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function renderNextBus() {
+  const times = getLeg1Times(), now = nowMin();
+  let nextTime = null;
+  for(let i=0;i<times.length;i++){
+    if(toMin(times[i])>now){ nextTime=times[i]; break; }
+  }
+  if(!nextTime){
+    document.getElementById('nextTime').textContent='--:--';
+    document.getElementById('nextDetail').textContent='ไม่มีรถแล้วในวันนี้';
+    return;
+  }
+  const diff = toMin(nextTime)-now;
+  document.getElementById('nextTime').textContent=nextTime+' น.';
+  document.getElementById('nextDetail').textContent=
+    diff<=0?'กำลังจะออก!':`อีก ${diff} นาที`;
+}
+
+function buildTimeTable(times, fromLabel, toLabel) {
+  const now = nowMin();
+  const headHtml = `<div class="sched-head">
+    <div class="sched-head-route">${fromLabel} → ${toLabel}</div>
+    <div class="sched-head-label">เวลาออก</div>
+  </div>`;
+
+  // แบ่ง 2 column: ซ้ายมากกว่า 1 ถ้าเลขคี่
+  const half = Math.ceil(times.length / 2);
+  const leftTimes  = times.slice(0, half);
+  const rightTimes = times.slice(half);
+
+  function makeCell(t) {
+    if (!t) return `<div class="time-cell empty" style="border-bottom:none;"></div>`;
+    const m = toMin(t);
+    const isCur = now>=m-5&&now<=m+10;
+    return `<div class="time-cell ${isCur?'cur':''}">
+      <span class="tc-time">${t}</span>
+      ${isCur?'<span class="now-b">วิ่งอยู่</span>':''}
+    </div>`;
+  }
+
+  // ถ้ามีไม่เกิน 4 เวลา ใช้ 1 column (ไม่ต้องแบ่ง)
+  if (times.length <= 4) {
+    const rows = times.map(t => {
+      const m = toMin(t);
+      const isCur = now>=m-5&&now<=m+10;
+      return `<div class="trip-row ${isCur?'cur':''}">
+        <div class="t-origin">${fromLabel}</div>
+        <div class="t-time">${t} น.${isCur?'<span class="now-b">วิ่งอยู่</span>':''}</div>
+      </div>`;
+    }).join('');
+    return headHtml + rows;
+  }
+
+  // 2-column grid
+  const maxRows = Math.max(leftTimes.length, rightTimes.length);
+  let leftCells = '', rightCells = '';
+  for (let i=0; i<leftTimes.length; i++) leftCells += makeCell(leftTimes[i]);
+  for (let i=0; i<rightTimes.length; i++) rightCells += makeCell(rightTimes[i]);
+  // เติม empty cell ถ้าขวาสั้นกว่า
+  if (rightTimes.length < leftTimes.length) rightCells += makeCell(null);
+
+  return headHtml + `<div class="sched-time-grid">
+    <div class="sched-time-col">${leftCells}</div>
+    <div class="sched-time-col">${rightCells}</div>
+  </div>`;
+}
+
+function renderSched() {
+  const wrapper = document.getElementById('schedWrapper');
+  const now = nowMin();
+  const origin = selOrigin, dest = selDest;
+
+  // ตรวจว่าต้นทางจากแปดริ้วและปลายทาง LEG2 → ซ่อน realtime
+  const isFromBaetrio = origin === 'ฉะเชิงเทรา (แปดริ้ว)';
+  const isLeg2 = isLeg2Dest(dest);
+  const hideRealtime = isFromBaetrio && isLeg2;
+
+  const realtimeSection = document.getElementById('realtimeSection');
+  if (realtimeSection) {
+    realtimeSection.classList.toggle('hidden', hideRealtime);
+  }
+
+  if(isLeg2){
+    const leg1Times = getLeg1Times();
+    const leg2Times = LEG2_DESTINATIONS[dest].leg2Times;
+
+    const leg1Rows = leg1Times.map(t=>{
+      const m = toMin(t), isCur = now>=m-5&&now<=m+10;
+      return `<div class="leg2-time-row ${isCur?'cur':''}">
+        <div class="leg2-t">${t}</div>
+        ${isCur?'<span class="now-b">วิ่งอยู่</span>':''}
+      </div>`;
+    }).join('');
+
+    const leg2Rows = leg2Times.map(t=>{
+      const m = toMin(t), isCur = now>=m-5&&now<=m+10;
+      return `<div class="leg2-time-row ${isCur?'cur':''}">
+        <div class="leg2-t">${t}</div>
+        ${isCur?'<span class="now-b">วิ่งอยู่</span>':''}
+      </div>`;
+    }).join('');
+
+    wrapper.innerHTML = `
+      <div class="leg2-wrapper">
+        <div class="leg2-grid">
+          <div class="leg2-col leg2-col1">
+            <div class="leg2-col-head">
+              <div class="leg2-trip-label">เที่ยวที่ 1</div>
+              <div class="leg2-route">${origin} → ฉะเชิงเทรา</div>
+              <div class="leg2-platform">แปดริ้ว</div>
+            </div>
+            <div class="leg2-times">${leg1Rows}</div>
+          </div>
+          <div class="leg2-col leg2-col2">
+            <div class="leg2-col-head">
+              <div class="leg2-trip-label">เที่ยวที่ 2</div>
+              <div class="leg2-route">แปดริ้ว → ${dest}</div>
+              <div class="leg2-platform">ต่อรถชานชาลา 6</div>
+            </div>
+            <div class="leg2-times">${leg2Rows}</div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    const times = getLeg1Times();
+    const html = buildTimeTable(times, origin, dest);
+    wrapper.innerHTML = `<div class="sched-card-wrap"><div class="sched-card">${html}</div></div>`;
+  }
+}
+
+function updateLastUpdate(pos) {
+  document.getElementById('lastUpdate').textContent=
+    pos?`เมื่อ ${new Date(pos.ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
+}
+
+function fullRender(pos) {
+  renderStatus(pos);
+  renderRouteStrip(pos);
+  renderSched();
+  renderNextBus();
+  updateLastUpdate(pos);
+  if (pos && mapReady) updateBusOnMap(pos);
+}
+
+// ===== VISIBILITY LOGIC =====
+// ตอนเปิดหน้าแรก selOrigin และ selDest ยังไม่ถูก "เลือก" โดยผู้ใช้
+let routeSelected = false;
+
+function showRealtimeIfNeeded() {
+  const isFromBaetrio = selOrigin === 'ฉะเชิงเทรา (แปดริ้ว)';
+  const isLeg2 = isLeg2Dest(selDest);
+  const hideRealtime = isFromBaetrio && isLeg2;
+
+  const realtimeSection = document.getElementById('realtimeSection');
+  const promptCard = document.getElementById('promptCard');
+
+  if (!routeSelected) return; // ยังไม่เลือก ยังซ่อนอยู่
+
+  if (realtimeSection) realtimeSection.classList.toggle('hidden', hideRealtime);
+  if (promptCard) promptCard.style.display = 'none';
+}
+
+// ===== DROPDOWN INIT =====
+function buildDropdowns(){
+  const originSel = document.getElementById('selOrigin');
+  const destSel   = document.getElementById('selDest');
+
+  // ต้นทาง
+  ORIGIN_LIST.forEach(o=>{
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o;
+    if(o===selOrigin) opt.selected=true;
+    originSel.appendChild(opt);
+  });
+
+  // ปลายทาง
+  function buildDestOptions(){
+    destSel.innerHTML = '';
+    const optgroup1 = document.createElement('optgroup');
+    optgroup1.label = '— เส้นทางตรง —';
+    DEST_NORMAL.forEach(d=>{
+      if(d===selOrigin) return; // ไม่แสดงต้นทางเป็นปลายทาง
+      const opt = document.createElement('option');
+      opt.value=d; opt.textContent=d;
+      if(d===selDest) opt.selected=true;
+      optgroup1.appendChild(opt);
+    });
+    const optgroup2 = document.createElement('optgroup');
+    optgroup2.label = '— ต่อรถผ่านแปดริ้ว —';
+    DEST_LEG2.forEach(d=>{
+      const opt = document.createElement('option');
+      opt.value=d; opt.textContent=d+'  (ต่อรถ)';
+      if(d===selDest) opt.selected=true;
+      optgroup2.appendChild(opt);
+    });
+    destSel.appendChild(optgroup1);
+    destSel.appendChild(optgroup2);
+  }
+  buildDestOptions();
+
+  originSel.addEventListener('change', function(){
+    selOrigin = this.value;
+    if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
+    buildDestOptions();
+    routeSelected = true;
+    showRealtimeIfNeeded();
+    renderSched(); renderNextBus();
+  });
+  destSel.addEventListener('change', function(){
+    selDest = this.value;
+    routeSelected = true;
+    showRealtimeIfNeeded();
+    renderSched(); renderNextBus();
+  });
+}
+buildDropdowns();
+
+// Firebase — bus/car1
+// รับข้อมูลจากคนขับ เก็บไว้ก่อน ถ้า map ยังไม่พร้อม
+db.ref('bus/car1').on('value', function(snap){
+  lastPos = snap.val();
+  console.log('Firebase data received:', lastPos);
+  renderStatus(lastPos);
+  renderRouteStrip(lastPos);
+  renderSched();
+  renderNextBus();
+  updateLastUpdate(lastPos);
+  if (mapReady && lastPos) {
+    updateBusOnMap(lastPos);
+  } else {
+    console.log('Map not ready yet, will retry. mapReady:', mapReady);
+  }
+});
+
+// Clock
+function tick() {
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=
+    `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  renderNextBus();
+}
+tick(); setInterval(tick,1000);
+fullRender(null);
+
+// Map init — รอ Longdo พร้อม แล้ว retry แสดงตำแหน่งรถ
+(function waitLongdo(){
+  if(window.longdo){
+    initMap();
+    // หลัง map init เสร็จ retry แสดงรถทุก 2 วินาที (กรณี Firebase เร็วกว่า map)
+    var retryCount = 0;
+    var retryTimer = setInterval(function(){
+      retryCount++;
+      if (mapReady && lastPos) {
+        updateBusOnMap(lastPos);
+        clearInterval(retryTimer);
+      }
+      if (retryCount > 15) clearInterval(retryTimer); // หยุดหลัง 30 วินาที
+    }, 2000);
+  }
+  else { setTimeout(waitLongdo,300); }
+})();
+</script>
+</body>
+</html>
