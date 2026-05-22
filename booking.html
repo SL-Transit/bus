@@ -828,10 +828,11 @@ function renderTimes() {
     times = THORNGKABINTR_DEST_TIMES[selDest].times;
   } else if (selOrigin === 'siyaekkhonom' && SIYAEKKHONOM_DEST_TIMES[selDest]) {
     times = SIYAEKKHONOM_DEST_TIMES[selDest].times;
-  } else if (LEG2_DEST[selDest] && LEG2_DEST[selDest].leg2 && LEG2_DEST[selDest].times) {
-    // เส้นทาง leg2 (เอกมัย/หมอชิต/BTS/พัทยา ฯลฯ) — ใช้เวลาออกจากแปดริ้ว
+  } else if (selOrigin === 'chachoengsao' && LEG2_DEST[selDest] && LEG2_DEST[selDest].leg2 && LEG2_DEST[selDest].times) {
+    // ต้นทางแปดริ้ว → ปลายทาง leg2 — ใช้เวลาออกจากแปดริ้วของสายนั้น
     times = LEG2_DEST[selDest].times;
   } else {
+    // ต้นทางอื่น (สนามชัย/คลองหาด ฯลฯ) → ใช้เวลาออกจากต้นทาง
     times = (ORIGIN_TIMES[selOrigin] || ORIGIN_TIMES['chachoengsao']).times;
   }
   var dateStr = document.getElementById('travelDate').value;
