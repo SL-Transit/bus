@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบบริการผู้โดยสารอัจฉริยะ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* นำเข้าฟอนต์ Sarabun เพื่อความเป็นทางการและอ่านง่าย */
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background-color: #cce5ff; /* สีฟ้าอ่อนนุ่มนวล */
+      color: #2c3e50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: #ffffff;
+      padding: 40px 30px;
+      border-radius: 30px;
+      box-shadow: 0 15px 35px rgba(0,50,130,0.14);
+      text-align: center;
+      border: 1px solid rgba(0, 0, 0, 0.03);
+    }
+
+    .header-icon {
+      width: 80px;
+      height: 80px;
+      background: #c0d8fd;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 40px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0d2a50;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: #3d5368;
+      margin-bottom: 35px;
+      font-weight: 400;
+    }
+
+    /* สไตล์ปุ่มแบบทางการ โทนสีนุ่มนวล (Muted Colors) ตามที่คุณต้องการ */
+    .btn {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 22px 25px;
+      margin-bottom: 18px;
+      font-size: 22px;
+      font-weight: 600;
+      color: white;
+      text-decoration: none;
+      border-radius: 18px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .btn:active {
+      transform: translateY(2px);
+      filter: brightness(0.9);
+    }
+
+    /* โทนน้ำเงินนุ่มนวล (Soft Blue) */
+    .btn-blue {
+      background: linear-gradient(135deg, #2e85e8, #1a63c0);
+      box-shadow: 0 8px 24px rgba(30,100,220,0.35);
+    }
+
+    /* โทนแดงนุ่มนวล (Soft Red) */
+    .btn-red {
+      background: linear-gradient(135deg, #f03030, #d01818);
+      box-shadow: 0 8px 24px rgba(210,20,20,0.35);
+    }
+    
+    /* โทนน้ำเงินเข้มทางการ (Dark Slate) */
+    .btn-dark {
+      background: linear-gradient(135deg, #2e6080, #1c3a4a);
+      box-shadow: 0 8px 24px rgba(20,55,75,0.35);
+    }
+
+    .icon-box {
+      background: rgba(255, 255, 255, 0.2);
+      width: 45px;
+      height: 45px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 20px;
+      font-size: 24px;
+    }
+
+    .btn-text {
+      flex: 1;
+    }
+
+    .arrow {
+      font-size: 18px;
+      opacity: 0.7;
+    }
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+
+    .footer-text {
+      font-size: 14px;
+      color: #8fa0ad;
+      letter-spacing: 0.5px;
+    }
+
+    /* ปรับปรุงสำหรับมือถือ */
+    @media (max-width: 400px) {
+      .container { padding: 30px 20px; }
+      h1 { font-size: 22px; }
+      .btn { font-size: 19px; padding: 18px 20px; }
+    }
+  </style>
+  <style>
+    /* LINE Browser Warning Overlay */
+    #line-warning-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    #line-warning-overlay.show {
+      display: flex;
+    }
+
+    .line-warning-card {
+      background: #ffffff;
+      border-radius: 28px;
+      padding: 36px 28px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+      animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(40px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .line-icon-wrap {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 38px;
+      box-shadow: 0 8px 24px rgba(238,90,36,0.35);
+    }
+
+    .line-warning-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0d2a50;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .line-warning-msg {
+      font-size: 15px;
+      color: #3d5368;
+      line-height: 1.7;
+      margin-bottom: 10px;
+    }
+
+    .line-warning-hint {
+      font-size: 13px;
+      color: #aab4be;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    .line-open-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #2e85e8, #1a63c0);
+      color: white;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      margin-bottom: 12px;
+      box-shadow: 0 6px 18px rgba(74,128,196,0.35);
+      transition: filter 0.2s, transform 0.15s;
+    }
+
+    .line-open-btn:active {
+      filter: brightness(0.9);
+      transform: scale(0.98);
+    }
+
+    .line-copy-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: #f0f4f8;
+      color: #4a6fa5;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      border: 2px solid #d0dcec;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .line-copy-btn:active { background: #dce7f5; }
+
+    .line-steps {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .line-steps p {
+      font-size: 13px;
+      color: #3d5368;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    .line-steps p:last-child { margin-bottom: 0; }
+
+    .step-dot {
+      background: #5c9ce6;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+
+    .copied-feedback {
+      font-size: 13px;
+      color: #27ae60;
+      margin-top: 10px;
+      min-height: 20px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LINE In-App Browser Warning Overlay -->
+  <div id="line-warning-overlay">
+    <div class="line-warning-card">
+      <div class="line-icon-wrap">⚠️</div>
+      <div class="line-warning-title">กรุณาเปิดผ่าน Browser หลัก<br>เพื่อใช้งานระบบได้สมบูรณ์</div>
+      <p class="line-warning-msg">ตรวจพบว่าคุณกำลังใช้งานผ่าน<br><strong>LINE In-App Browser</strong> ซึ่งอาจทำให้<br>ระบบทำงานไม่ครบถ้วน</p>
+
+      <div class="line-steps">
+        <p><span class="step-dot">1</span>กดปุ่ม "เปิดใน Browser" ด้านล่าง</p>
+        <p><span class="step-dot">2</span>หากไม่เปิดอัตโนมัติ ให้กด "คัดลอก URL" แล้วนำไปวางใน Chrome / Safari</p>
+        <p><span class="step-dot">3</span>หรือแตะจุด ⋯ มุมขวาบน แล้วเลือก "เปิดใน Browser ภายนอก"</p>
+      </div>
+
+      <button class="line-open-btn" onclick="tryOpenExternal()">🌐 เปิดใน Browser ภายนอก</button>
+      <button class="line-copy-btn" onclick="copyUrl()">📋 คัดลอก URL</button>
+      <div class="copied-feedback" id="copy-feedback"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header-icon">🚍</div>
+    <h1>ระบบบริการผู้โดยสารอัจฉริยะ</h1>
+    <p class="subtitle">เริ่มต้นการเดินทางที่สมาร์ทไปกับเรา</p>
+
+    <!-- ลำดับที่ 1: ข้อมูลเที่ยวรถ/สถานะบริการ (ย้ายขึ้นมาตามที่ปรึกษา) -->
+    <a href="passenger.html" class="btn btn-blue">
+      <div class="icon-box">📋</div>
+      <span class="btn-text">ข้อมูลเที่ยวรถ/สถานะบริการ</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <!-- ลำดับที่ 2: จองตั๋วออนไลน์ -->
+    <a href="booking.html" class="btn btn-red">
+      <div class="icon-box">🎟️</div>
+      <span class="btn-text">จองตั๋วออนไลน์</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <!-- ลำดับที่ 3: ตรวจสอบข้อมูลตั๋ว -->
+    <a href="check_ticket.html" class="btn btn-dark">
+      <div class="icon-box">🔍</div>
+      <span class="btn-text">ตรวจสอบข้อมูลตั๋ว</span>
+      <span class="arrow">❯</span>
+    </a>
+
+    <div class="footer">
+      <p class="footer-text">SMART PASSENGER SERVICE SYSTEM</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ── 1. ตรวจสอบ userAgent ── */
+      var ua = navigator.userAgent || '';
+      var isLine = /\bLine\b/i.test(ua);
+      var isFB   = /FBAN|FBAV|FB_IAB/i.test(ua);
+      var isInApp = isLine || isFB;
+
+      /* ── 2. ป้องกัน redirect loop ด้วย localStorage (คงอยู่แม้ย้อนกลับ) ── */
+      /* ใช้ timestamp เพื่อ expire หลัง 30 วินาที (กันกรณี loop จริง) */
+      var REDIRECT_KEY = 'ext_browser_ts';
+      var lastTs = parseInt(localStorage.getItem(REDIRECT_KEY) || '0', 10);
+      var now = Date.now();
+      var recentlyRedirected = (now - lastTs) < 3000; /* 3 วินาที (กันกรณี loop เท่านั้น) */
+
+      /* ── 3. ถ้าอยู่ใน In-App Browser → แสดง overlay เสมอ ── */
+      if (isInApp) {
+        /* ── 4. ลอง redirect อัตโนมัติ ครั้งแรก หรือหลังจาก 30 วิ ── */
+        if (!recentlyRedirected) {
+          localStorage.setItem(REDIRECT_KEY, String(now));
+
+          var currentUrl = location.href;
+
+          /* Android – intent:// scheme */
+          function tryAndroidIntent() {
+            try {
+              var intentUrl = 'intent://' +
+                currentUrl.replace(/^https?:\/\//, '') +
+                '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
+                ';package=com.android.chrome' +
+                ';S.browser_fallback_url=' + encodeURIComponent(currentUrl) +
+                ';end';
+              location.href = intentUrl;
+              return true;
+            } catch (e) { return false; }
+          }
+
+          /* iOS – Chrome / Safari scheme */
+          function tryIOSScheme() {
+            if (!/iPhone|iPad|iPod/i.test(ua)) return false;
+            try {
+              var chromeUrl = currentUrl.replace(/^https?/, 'googlechromes');
+              var tmp = window.open(chromeUrl, '_blank');
+              if (tmp) tmp.close();
+              setTimeout(function () {
+                location.href = 'x-safari-' + currentUrl;
+              }, 600);
+              return true;
+            } catch (e) { return false; }
+          }
+
+          if (/Android/i.test(ua)) tryAndroidIntent();
+          else if (/iPhone|iPad|iPod/i.test(ua)) tryIOSScheme();
+        }
+
+        /* ── 5. แสดง Overlay ทุกครั้งที่อยู่ใน In-App Browser ── */
+        document.addEventListener('DOMContentLoaded', function () {
+          var overlay = document.getElementById('line-warning-overlay');
+          if (overlay) overlay.classList.add('show');
+        });
+      }
+
+      /* ── ปุ่ม "เปิดใน Browser ภายนอก" ── */
+      window.tryOpenExternal = function () {
+        var url = location.href;
+        var ua2 = navigator.userAgent;
+        if (/Android/i.test(ua2)) {
+          location.href = 'intent://' +
+            url.replace(/^https?:\/\//, '') +
+            '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
+            ';package=com.android.chrome' +
+            ';S.browser_fallback_url=' + encodeURIComponent(url) +
+            ';end';
+        } else if (/iPhone|iPad|iPod/i.test(ua2)) {
+          location.href = url.replace(/^https?/, 'googlechromes');
+          setTimeout(function () { location.href = 'x-safari-' + url; }, 800);
+        } else {
+          window.open(url, '_blank');
+        }
+      };
+
+      /* ── ปุ่ม "คัดลอก URL" ── */
+      window.copyUrl = function () {
+        var url = location.href;
+        var feedback = document.getElementById('copy-feedback');
+        function showOK() { feedback.textContent = '✅ คัดลอก URL แล้ว! นำไปวางใน Browser ได้เลย'; }
+        function fallbackCopy() {
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+            document.body.appendChild(ta);
+            ta.focus(); ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showOK();
+          } catch (e) {
+            feedback.textContent = '⚠️ กรุณาคัดลอก URL ด้วยตนเอง';
+          }
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(showOK).catch(fallbackCopy);
+        } else {
+          fallbackCopy();
+        }
+      };
+
+    })();
+  </script>
+
+</body>
+</html>
+
