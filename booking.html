@@ -225,16 +225,18 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
               <option value="siyaekkhonom">สี่แยกโคนม</option>
               <option value="klonghat">คลองหาด</option>
             </optgroup>
-            <optgroup label="— ตั๋ว 2 ขา (ต่อรถที่แปดริ้ว) —">
+            <optgroup label="— พัทยา-ระยอง-มีนบุรี —">
               <option value="nongmon">ตลาดหนองมน</option>
               <option value="bangsaen">บางแสน</option>
-              <option value="aoudom">อ่าวอุดม</option>
               <option value="sriracha">ศรีราชา</option>
               <option value="kaset">ม.เกษตร</option>
-              <option value="banchan">บ้านฉาง</option>
+              <option value="aoudom">อ่าวอุดม</option>
               <option value="laemchabang">แหลมฉบัง</option>
               <option value="pattaya">พัทยา</option>
+              <option value="yakaiyakan">แยกอัยการ</option>
+              <option value="sattahip">สัตหีบ</option>
               <option value="km10">กม.10</option>
+              <option value="banchan">บ้านฉาง</option>
               <option value="rayong">ระยอง</option>
               <option value="minburi">ตลาดมีนบุรี</option>
             </optgroup>
@@ -600,7 +602,7 @@ var SEGMENT_PRICE = {
 };
   
 // เส้นทางที่ต้องรอ ชานชาลา 6
-var PLATFORM6_DESTS = ['pattaya','rayong','km10','nongmon','bangsaen','aoudom','sriracha','kaset','banchan','laemchabang'];
+var PLATFORM6_DESTS = ['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
  
 // สายกรุงเทพ (เอกมัย / หมอชิต / BTS)
 var EKKAMAI_DESTS = ['ekkamai', 'mochit', 'bangna', 'bts_bangchak',  'homepro', 'bts_phrakhanong', 'bts_onnut'];
@@ -703,13 +705,15 @@ var SIYAEKKHONOM_DEST_TIMES = {
 var LEG2_DEST = {
   'chachoengsao':    {label:'ฉะเชิงเทรา (แปดริ้ว)',    price:55,  leg2:false},
   'sanamchai':       {label:'ท่ารถสนามชัยเขต',       price:55,  leg2:false},
-  'phanom':          {label:'พนมสารคาม',             price:55,  leg2:false},
-  'nongkhok':        {label:'หนองคอก',               price:100,  leg2:false},
-  'klonghat':        {label:'คลองหาด',               price:160, leg2:false},
+  'phanom':          {label:'พนมสารคาม',           price:55,  leg2:false},
+  'nongkhok':        {label:'หนองคอก',             price:100,  leg2:false},
+  'klonghat':        {label:'คลองหาด',             price:160, leg2:false},
   'tatakiab':        {label:'ท่าตะเกียบ',            price:100,  leg2:false},
   'siyaekkhonom':    {label:'สี่แยกโคนม',            price:150,  leg2:false},
-  'pattaya':         {label:'พัทยา',                  price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON},
-  'rayong':          {label:'ระยอง',                  price:180, leg2:true, buffer:45, times:LEG2_TIMES_COMMON},
+  'pattaya':         {label:'พัทยา',                price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON},
+  'yakaiyakan':      {label:'แยกอัยการ',            price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON},
+  'sattahip':        {label:'สัตหีบ',                price:150, leg2:true, buffer:40, times:LEG2_TIMES_COMMON},
+  'rayong':          {label:'ระยอง',                price:150, leg2:true, buffer:45, times:LEG2_TIMES_COMMON},
   'km10':            {label:'กม.10',                  price:160, leg2:true, buffer:35, times:LEG2_TIMES_COMMON},
   'nongmon':         {label:'ตลาดหนองมน',             price:90,  leg2:true, buffer:30, times:LEG2_TIMES_COMMON},
   'bangsaen':        {label:'บางแสน',                 price:90,  leg2:true, buffer:35, times:LEG2_TIMES_COMMON},
