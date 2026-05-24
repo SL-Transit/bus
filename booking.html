@@ -851,7 +851,7 @@ var NONGRUEA_DEST_TIMES = {
   'phaijit':       {times:['13:35','16:15'], price:0},
 };
 
-var KHLONGTAKIEN _DEST_TIMES = {
+var KHLONGTAKIEN_DEST_TIMES = {
   'klonghat':      {times:['13:35','16:15'], price:0},
   'khlongtakien':  {times:['12:00','14:40'], price:0},
   'thoengkabintr': {times:['13:35','16:15'], price:0},
@@ -944,6 +944,8 @@ function updateRoute() {
   if ((SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) || (SEGMENT_PRICE[selDest] && SEGMENT_PRICE[selDest][selOrigin] !== undefined)) {
     computedPrice = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest]) || SEGMENT_PRICE[selDest][selOrigin];
   } else if (selOrigin === 'phanom' && PHANOM_DEST_TIMES[selDest] && PHANOM_DEST_TIMES[selDest].price === 0) {
+    computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
+  } else if (selOrigin === 'khlongtakien' && KHLONGTAKIEN_DEST_TIMES[selDest] && KHLONGTAKIEN_DEST_TIMES[selDest].price === 0) {
     computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
   } else if (selOrigin === 'sanamchai' && SANAMCHAI_DEST_TIMES[selDest] && SANAMCHAI_DEST_TIMES[selDest].price === 0) {
     computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
