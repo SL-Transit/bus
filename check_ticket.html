@@ -374,21 +374,6 @@
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
 
-    function findSessionBooking(value) {
-      try {
-        var raw = sessionStorage.getItem('latestBooking');
-        if (!raw) return null;
-        var booking = JSON.parse(raw);
-        if (!booking || !booking.code) return null;
-        var code = normalizeLookup(booking.code);
-        var phone = String(booking.phone || '').replace(/[^0-9]/g, '');
-        if (value === code || value === phone) return { code: code, booking: booking };
-      } catch (err) {
-        console.warn('Cannot read booking session', err);
-      }
-      return null;
-    }
-
     function lookupTicket() {
       var value = normalizeLookup(document.getElementById('lookupValue').value);
       var btn = document.getElementById('btnLookup');
@@ -399,16 +384,6 @@
       btn.disabled = true; btn.textContent = 'กำลังค้นหา...';
       setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
-      var sessionFound = findSessionBooking(value);
-      if (sessionFound) {
-        currentCode = sessionFound.code;
-        currentBooking = normalizeBooking(sessionFound.booking, sessionFound.code);
-        setStatus('lookupStatus', 'warn', 'กำลังแสดงข้อมูลตั๋วล่าสุดจากเครื่องนี้ หากต้องการเช็คจากเครื่องอื่น กรุณาใช้รหัสตั๋วหรือติดต่อเจ้าหน้าที่');
-        renderBooking();
-        btn.disabled = false; btn.textContent = 'ค้นหาตั๋ว';
-        return;
-      }
-
       var task = authReady.then(function() {
         if (/^BK\d{6}$/.test(value)) {
           return db.ref('bookings/' + value).once('value').then(function(snap) {
@@ -416,34 +391,76 @@
           });
         }
         if (/^0[689]\d{8}$/.test(value)) {
-          throw { code: 'PASSENGER_PHONE_LOOKUP_RESTRICTED' };
+          return findLatestBookingByPhone(value);
         }
         return null;
       });
 
       task.then(function(found) {
         if (!found) {
-          setStatus('lookupStatus', 'bad', 'ไม่พบข้อมูลการจอง กรุณาตรวจสอบรหัสตั๋วหรือเบอร์โทรอีกครั้ง');
+          setStatus('lookupStatus', 'bad', 'ไม่พบข้อมูลการจอง');
           return;
         }
         currentCode = found.code;
         currentBooking = normalizeBooking(found.booking, found.code);
-        hideStatus('lookupStatus');
+        if (found.matchCount && found.matchCount > 1) {
+          setStatus('lookupStatus', 'info', 'พบหลายรายการในเบอร์นี้ กำลังแสดงรายการล่าสุด');
+        } else {
+          hideStatus('lookupStatus');
+        }
         renderBooking();
         startBookingListener(found.code);
       }).catch(function(err) {
         console.error(err);
         var message = err && err.code === 'auth/operation-not-allowed'
           ? 'ระบบยังไม่ได้เปิด Anonymous Sign-in ใน Firebase Authentication กรุณาเปิดใช้งานก่อนตรวจตั๋ว'
-          : err && err.code === 'PASSENGER_PHONE_LOOKUP_RESTRICTED'
-          ? 'เพื่อความปลอดภัย กรุณาตรวจตั๋วด้วยรหัสตั๋ว หรือเปิดจากปุ่มดูตั๋วหลังจองสำเร็จ'
           : err && err.code === 'PERMISSION_DENIED'
-          ? 'ยังไม่สามารถดึงข้อมูลตั๋วนี้ได้ กรุณาเปิดจากเครื่องที่จอง หรือให้เจ้าหน้าที่ตรวจสอบ'
+          ? 'ยังไม่สามารถค้นหาด้วยเบอร์โทรศัพท์ได้ กรุณาตรวจสอบสิทธิ์การอ่านข้อมูลใน Firebase'
           : 'ไม่สามารถดึงข้อมูลตั๋วได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
         setStatus('lookupStatus', 'bad', message);
       }).finally(function() {
         btn.disabled = false; btn.textContent = 'ค้นหาตั๋ว';
       });
+    }
+
+    function findLatestBookingByPhone(phone) {
+      return db.ref('bookings').orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
+        if (!snap.exists()) return null;
+        var matches = [];
+        snap.forEach(function(child) {
+          var booking = child.val() || {};
+          if (String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
+            matches.push({ code: child.key, booking: booking });
+          }
+        });
+        matches.sort(function(a, b) {
+          return bookingSortTime(b.booking) - bookingSortTime(a.booking);
+        });
+        if (!matches[0]) return null;
+        matches[0].matchCount = matches.length;
+        return matches[0];
+      });
+    }
+
+    function bookingSortTime(booking) {
+      var candidates = [
+        booking.ts,
+        booking.createdAt,
+        booking.updatedAt,
+        booking.lineNotifyAt,
+        booking.checkedInAt,
+        booking.changedAt,
+        booking.cancelledAt
+      ];
+      for (var i = 0; i < candidates.length; i++) {
+        var n = Number(candidates[i]);
+        if (!isNaN(n) && n > 0) return n;
+      }
+      if (booking.date && booking.time) {
+        var d = new Date(booking.date + 'T' + booking.time + ':00');
+        if (!isNaN(d.getTime())) return d.getTime();
+      }
+      return 0;
     }
 
     function normalizeBooking(booking, code) {
