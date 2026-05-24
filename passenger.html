@@ -529,6 +529,7 @@ function addLocateButton() {
   passengerLocateButton.className = 'map-locate-btn';
   passengerLocateButton.innerHTML = '⌖ ตำแหน่งฉัน';
   passengerLocateButton.addEventListener('click', function(){
+    if (triggerLongdoGeolocation(true)) return;
     if (passengerPos) {
       updatePassengerOnMap(passengerPos, true);
       return;
@@ -536,6 +537,36 @@ function addLocateButton() {
     requestPassengerCurrentLocation(true, true);
   });
   mapEl.appendChild(passengerLocateButton);
+}
+
+function triggerLongdoGeolocation(showBusy) {
+  var mapEl = document.getElementById('map');
+  if (!mapEl) return false;
+  var selectors = [
+    '.ldc-geolocation button',
+    '.ldc-geolocation',
+    '[class*="geolocation"] button',
+    '[class*="geolocation"]'
+  ];
+  for (var i = 0; i < selectors.length; i++) {
+    var btn = mapEl.querySelector(selectors[i]);
+    if (!btn || btn === passengerLocateButton) continue;
+    var box = btn.getBoundingClientRect();
+    if (box.width === 0 || box.height === 0) continue;
+    if (showBusy) setLocateButtonBusy(true);
+    btn.click();
+    setTimeout(function(){ setLocateButtonBusy(false); }, 2500);
+    return true;
+  }
+  return false;
+}
+
+function scheduleLongdoGeolocationClick() {
+  setTimeout(function(){
+    if (!passengerCentered && !triggerLongdoGeolocation(false)) {
+      requestPassengerCurrentLocation(true, false);
+    }
+  }, 5000);
 }
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
@@ -630,6 +661,7 @@ function initMap() {
     drawRoute();
     focusSelectedOrigin();
     startPassengerLocation();
+    scheduleLongdoGeolocationClick();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
     if (lastPos) {
       updateBusOnMap(lastPos);
