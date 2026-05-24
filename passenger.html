@@ -76,8 +76,6 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 #map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
 #map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
 #map .ldmap-crosshair { display:none !important; }
-.map-locate-btn { position:absolute; right:12px; top:12px; z-index:20; border:1px solid rgba(37,99,235,.25); background:#fff; color:#1d4ed8; border-radius:10px; height:36px; padding:0 12px; display:flex; align-items:center; gap:6px; font-family:'Kanit',sans-serif; font-weight:700; font-size:13px; box-shadow:0 4px 12px rgba(15,23,42,.16); cursor:pointer; }
-.map-locate-btn:active { transform:translateY(1px); }
 
 /* ===== ROUTE STRIP ===== */
 .route-card {
@@ -482,7 +480,6 @@ let lastPos=null;
 let viewDir='go';
 let mapObj=null, busMarker=null, busTagMarker=null, routeLine=null, mapReady=false;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
-let passengerLocateButton=null;
 
 // ===== HELPERS =====
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
@@ -514,32 +511,7 @@ function focusSelectedOrigin() {
   if (stop) focusMap(normalizeMapPoint(stop), 14);
 }
 
-function setLocateButtonBusy(isBusy) {
-  if (!passengerLocateButton) return;
-  passengerLocateButton.disabled = !!isBusy;
-  passengerLocateButton.style.opacity = isBusy ? '.75' : '1';
-  passengerLocateButton.innerHTML = isBusy ? '⌖ กำลังหา...' : '⌖ ตำแหน่งฉัน';
-}
-
-function addLocateButton() {
-  var mapEl = document.getElementById('map');
-  if (!mapEl || passengerLocateButton) return;
-  passengerLocateButton = document.createElement('button');
-  passengerLocateButton.type = 'button';
-  passengerLocateButton.className = 'map-locate-btn';
-  passengerLocateButton.innerHTML = '⌖ ตำแหน่งฉัน';
-  passengerLocateButton.addEventListener('click', function(){
-    if (triggerLongdoGeolocation(true)) return;
-    if (passengerPos) {
-      updatePassengerOnMap(passengerPos, true);
-      return;
-    }
-    requestPassengerCurrentLocation(true, true);
-  });
-  mapEl.appendChild(passengerLocateButton);
-}
-
-function triggerLongdoGeolocation(showBusy) {
+function triggerLongdoGeolocation() {
   var mapEl = document.getElementById('map');
   if (!mapEl) return false;
   var selectors = [
@@ -550,12 +522,10 @@ function triggerLongdoGeolocation(showBusy) {
   ];
   for (var i = 0; i < selectors.length; i++) {
     var btn = mapEl.querySelector(selectors[i]);
-    if (!btn || btn === passengerLocateButton) continue;
+    if (!btn) continue;
     var box = btn.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) continue;
-    if (showBusy) setLocateButtonBusy(true);
     btn.click();
-    setTimeout(function(){ setLocateButtonBusy(false); }, 2500);
     return true;
   }
   return false;
@@ -563,7 +533,7 @@ function triggerLongdoGeolocation(showBusy) {
 
 function scheduleLongdoGeolocationClick() {
   setTimeout(function(){
-    if (!passengerCentered && !triggerLongdoGeolocation(false)) {
+    if (!passengerCentered && !triggerLongdoGeolocation()) {
       requestPassengerCurrentLocation(true, false);
     }
   }, 5000);
@@ -571,11 +541,9 @@ function scheduleLongdoGeolocationClick() {
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
   if (!navigator.geolocation) {
-    if (passengerLocateButton) passengerLocateButton.innerHTML = 'ใช้จุดต้นทาง';
     focusSelectedOrigin();
     return;
   }
-  if (showBusy) setLocateButtonBusy(true);
   navigator.geolocation.getCurrentPosition(function(pos) {
     var current = normalizeMapPoint({
       lon: pos.coords.longitude,
@@ -583,12 +551,9 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
     });
     passengerPos = current;
     updatePassengerOnMap(current, forceCenter);
-    setLocateButtonBusy(false);
   }, function(err) {
     console.warn('Passenger current location error:', err && err.message ? err.message : err);
     focusSelectedOrigin();
-    if (passengerLocateButton) passengerLocateButton.innerHTML = 'เปิดตำแหน่ง';
-    setTimeout(function(){ setLocateButtonBusy(false); }, 1800);
   }, {
     enableHighAccuracy: true,
     timeout: 8000,
@@ -617,7 +582,6 @@ function initMap() {
     });
 
     mapReady = true;
-    addLocateButton();
 
     // ซ่อน UI ทุกตัว เหลือแค่ Geolocation
     setTimeout(function(){
@@ -660,7 +624,6 @@ function initMap() {
 
     drawRoute();
     focusSelectedOrigin();
-    startPassengerLocation();
     scheduleLongdoGeolocationClick();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
     if (lastPos) {
