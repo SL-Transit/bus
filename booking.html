@@ -523,7 +523,7 @@ firebase.initializeApp({
 });
 var db = firebase.database();
  
-// ===== ราคาต้นทาง (ค่ารถ Q-เฮง ถึงแปดริ้ว) =====
+// ===== ราคาต้นทาง (default — อัปเดตจาก Firebase โดย loadAllSettingsFromFirebase) =====
 var ORIGIN_PRICE = {
   'chachoengsao': 0,
   'sanamchai':    55,
@@ -536,7 +536,7 @@ var ORIGIN_PRICE = {
   'phaijit':      140,
   'nongruea':     140
 };
-// ===== ราคาตามเส้นทาง =====
+// ===== ราคาตามเส้นทาง (default — อัปเดตจาก Firebase) =====
 var ROUTE_PRICE = {
   'sanamchai': 55, 'phanom': 55, 'nongkhok': 100, 'klonghat': 160, 'tatakiab': 100, 'siyaekkhonom': 150, 'thoengkabintr': 150, 'nongruea': 140, 'phaijit': 140
 };
@@ -601,10 +601,11 @@ var SEGMENT_PRICE = {
   }
 };
   
-// เส้นทางที่ต้องรอ ชานชาลา 6
+// เส้นทางที่ต้องรอ ชานชาลา (default — อัปเดตจาก settings/platformGroups ใน Firebase)
 var PLATFORM6_DESTS = ['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
+var PLATFORM1_DESTS = ['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak'];
  
-// สายกรุงเทพ (เอกมัย / หมอชิต / BTS)
+// สายกรุงเทพ (เอกมัย / หมอชิต / BTS) — ใช้ร่วมกับ PLATFORM1_DESTS
 var EKKAMAI_DESTS = ['ekkamai', 'mochit', 'bangna', 'bts_bangchak',  'homepro', 'bts_phrakhanong', 'bts_onnut'];
  
 var MOCHIT_DESTS = ['yaeklatphrao', 'mochit','bts_jatujak'];
@@ -615,7 +616,7 @@ var LEG2_TIMES_MINBURI = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00
 var LEG2_TIMES_EKKAMAI = ['06:30','08:30','10:30','15:30','17:30'];
 var LEG2_TIMES_MOCHIT = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
  
-// ===== ต้นทางและตารางเวลา =====
+// ===== ต้นทางและตารางเวลา (default — อัปเดตจาก Firebase) =====
 var ORIGIN_TIMES = {
   'chachoengsao': {label:'ฉะเชิงเทรา (แปดริ้ว)', times:['09:40','11:20','12:20','14:00','15:20','16:20','17:20']},
   'sanamchai':    {label:'ท่ารถสนามชัยเขต',       times:['06:20','07:20','09:00','10:40','12:10','13:40','14:00']},
@@ -640,6 +641,124 @@ var CHACHOENGSAO_TIMES = {
   'nongruea':      ['11:20','14:00'],
   'phanom':        ['09:40','11:20','12:20','14:00','15:20','16:20','17:20']
 };
+ 
+// ===== map: label ภาษาไทย → key ที่ใช้ใน booking =====
+var LABEL_TO_KEY = {
+  'ฉะเชิงเทรา (แปดริ้ว)': 'chachoengsao',
+  'ท่ารถสนามชัยเขต':       'sanamchai',
+  'คลองหาด':               'klonghat',
+  'หนองคอก':               'nongkhok',
+  'พนมสารคาม':             'phanom',
+  'ท่าตะเกียบ':            'tatakiab',
+  'ทุ่งกบินทร์':           'thoengkabintr',
+  'ไพจิตร':                'phaijit',
+  'สี่แยกโคนม':            'siyaekkhonom',
+  'หนองเรือ':              'nongruea',
+  // leg2 destinations
+  'พัทยา':'pattaya','แยกอัยการ':'yakaiyakan','สัตหีบ':'sattahip',
+  'ระยอง':'rayong','กม.10':'km10','ตลาดหนองมน':'nongmon',
+  'บางแสน':'bangsaen','อ่าวอุดม':'aoudom','ศรีราชา':'sriracha',
+  'ม.เกษตร':'kaset','บ้านฉาง':'banchan','แหลมฉบัง':'laemchabang',
+  'หมอชิต':'mochit','แยกลาดพร้าว':'yaeklatphrao','BTS จตุจักร':'bts_jatujak',
+  'เอกมัย':'ekkamai','โฮมโปร':'homepro','บางนา':'bangna',
+  'BTS บางจาก':'bts_bangchak','BTS พระโขนง':'bts_phrakhanong',
+  'BTS อ่อนนุช':'bts_onnut','ตลาดมีนบุรี':'minburi'
+};
+ 
+// ===== โหลดทุก settings จาก Firebase แล้ว merge =====
+// โหลด: settings/routes (เวลา+ราคา) + settings/platformGroups (ชานชาลา)
+function loadAllSettingsFromFirebase(callback) {
+  Promise.all([
+    db.ref('settings/routes').once('value'),
+    db.ref('settings/platformGroups').once('value')
+  ]).then(function(snaps) {
+    var routesData    = snaps[0].val();
+    var platformData  = snaps[1].val();
+ 
+    // ── อัปเดตเวลา + ราคา จาก settings/routes ──────────────────
+    if (routesData) {
+      Object.values(routesData).forEach(function(group) {
+        (group.routes || []).forEach(function(r) {
+          var fromKey = LABEL_TO_KEY[r.from];
+          var toKey   = LABEL_TO_KEY[r.to];
+          var times   = (r.times || []).slice().sort();
+          var price   = Number(r.price) || 0;
+          if (!fromKey || !toKey) return;
+ 
+          // — เวลาออกจากแปดริ้ว → ปลายทางเส้นทางหลัก —
+          if (fromKey === 'chachoengsao' && CHACHOENGSAO_TIMES.hasOwnProperty(toKey) && times.length) {
+            CHACHOENGSAO_TIMES[toKey] = times;
+          }
+          // — เวลาออกจากต้นทาง → แปดริ้ว —
+          if (toKey === 'chachoengsao' && ORIGIN_TIMES.hasOwnProperty(fromKey) && times.length) {
+            ORIGIN_TIMES[fromKey].times = times;
+          }
+          // — เวลาออกจากแปดริ้ว (ใช้ sanamchai เป็น reference) —
+          if (fromKey === 'chachoengsao' && toKey === 'sanamchai' && times.length) {
+            ORIGIN_TIMES['chachoengsao'].times = times;
+          }
+          // — เวลา leg2 (coastal/bangkok) —
+          if (fromKey === 'chachoengsao' && LEG2_DEST[toKey] && LEG2_DEST[toKey].leg2 && times.length) {
+            LEG2_DEST[toKey].times = times;
+          }
+          // — ราคา leg2 (coastal/bangkok) —
+          if (fromKey === 'chachoengsao' && LEG2_DEST[toKey] && LEG2_DEST[toKey].leg2 && price > 0) {
+            LEG2_DEST[toKey].price = price;
+          }
+          // — ราคาเส้นทางหลัก (ROUTE_PRICE + ORIGIN_PRICE) —
+          if (fromKey === 'chachoengsao' && !LEG2_DEST[toKey]) {
+            // ปลายทางในเส้นทางหลัก เช่น sanamchai, klonghat
+            if (price > 0) {
+              ROUTE_PRICE[toKey]   = price;
+              ORIGIN_PRICE[toKey]  = price; // ราคาจาก sanamchai → chachoengsao = sanamchai origin_price
+            }
+          }
+          if (toKey === 'chachoengsao' && price > 0) {
+            // ต้นทางอื่น → แปดริ้ว (ORIGIN_PRICE)
+            ORIGIN_PRICE[fromKey] = price;
+          }
+          // — ราคา LEG2_DEST สำหรับเส้นทางหลัก (leg2:false) —
+          if (fromKey === 'chachoengsao' && LEG2_DEST[toKey] && !LEG2_DEST[toKey].leg2 && price > 0) {
+            LEG2_DEST[toKey].price = price;
+          }
+        });
+      });
+    }
+ 
+    // ── อัปเดตชานชาลา จาก settings/platformGroups ──────────────
+    if (platformData) {
+      // รีเซ็ตก่อน แล้วสร้างใหม่จาก Firebase
+      PLATFORM6_DESTS = [];
+      PLATFORM1_DESTS = [];
+      EKKAMAI_DESTS   = [];
+      MOCHIT_DESTS    = [];
+ 
+      Object.values(platformData).forEach(function(g) {
+        var keys = (g.keys || '').split(',').map(function(k){ return k.trim(); }).filter(Boolean);
+        var label = (g.label || '').toLowerCase();
+        if (label.indexOf('6') !== -1) {
+          // ชานชาลา 6 — พัทยา/ระยอง/มีนบุรี
+          PLATFORM6_DESTS = keys;
+        } else if (label.indexOf('1') !== -1) {
+          // ชานชาลา 1 — เอกมัย/หมอชิต/BTS
+          PLATFORM1_DESTS = keys;
+          // แยก ekkamai vs mochit จาก key ที่มีอยู่
+          EKKAMAI_DESTS = keys.filter(function(k){
+            return ['ekkamai','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut'].indexOf(k) !== -1;
+          });
+          MOCHIT_DESTS = keys.filter(function(k){
+            return ['yaeklatphrao','mochit','bts_jatujak'].indexOf(k) !== -1;
+          });
+        }
+      });
+    }
+ 
+    if (callback) callback();
+  }).catch(function(err) {
+    console.warn('[Q-เฮง] Firebase settings โหลดไม่ได้ ใช้ default แทน', err);
+    if (callback) callback();
+  });
+}
  
 var PHANOM_DEST_TIMES = {
   'sanamchai':     {times:['10:20','11:40','12:00','12:30','13:00','14:30','14:40','15:00','16:00','17:00','18:00'], price:0},
@@ -933,26 +1052,26 @@ function goPage(p) {
     if (name.length < 3) { alert('ชื่อ-นามสกุลต้องมีอย่างน้อย 3 ตัวอักษร'); return; }
     if (!phone) { alert('กรุณากรอกเบอร์โทรศัพท์'); return; }
     if (!validatePhone()) { alert('กรุณาใส่เบอร์โทรให้ถูกต้อง'); return; }
-
+ 
     // --- ตรวจซ้ำจาก Firebase แบบ async ก่อนเปลี่ยนหน้า ---
     var dateVal2 = document.getElementById('travelDate').value;
     var dupKey2  = selOrigin + '_' + selDest + '_' + dateVal2 + '_' + selTime;
     var nextBtn  = document.querySelector('#page2 .btn-submit');
-
+ 
     function normalizeName(str) {
       return (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
     }
-
+ 
     if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = '⏳ กำลังตรวจสอบ...'; }
-
+ 
     var checkSameTrip = db.ref('bookings').orderByChild('dupKey').equalTo(dupKey2).once('value');
     var checkSameDay  = db.ref('bookings').orderByChild('date').equalTo(dateVal2).once('value');
-
+ 
     Promise.all([checkSameTrip, checkSameDay])
       .then(function(results) {
         var normName  = normalizeName(name);
         var normPhone = phone.trim();
-
+ 
         // ระดับ 1: ชื่อหรือเบอร์ซ้ำในเที่ยวเดียวกัน
         var sameTripData = results[0].val();
         if (sameTripData) {
@@ -974,7 +1093,7 @@ function goPage(p) {
             return;
           }
         }
-
+ 
         // ระดับ 2: เบอร์ซ้ำข้ามเที่ยวในวันเดียวกัน เกินขีดจำกัด
         var MAX_BOOKINGS_PER_DAY = 3;
         var sameDayData = results[1].val();
@@ -992,7 +1111,7 @@ function goPage(p) {
             return;
           }
         }
-
+ 
         // ผ่านทุกการตรวจ → ไปหน้า 3
         document.getElementById('sumTotal2').textContent = '฿' + (PRICE * seats).toLocaleString() + ' บาท';
         if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'ถัดไป →'; }
@@ -1006,7 +1125,7 @@ function goPage(p) {
   }
   _navigatePage(p);
 }
-
+ 
 function _navigatePage(p) {
   document.querySelectorAll('.page').forEach(function(el) { el.classList.remove('active'); });
   document.getElementById('page' + p).classList.add('active');
@@ -1278,7 +1397,7 @@ function submitBooking() {
  
   // [Feature 1] ตรวจสอบการจองซ้ำทำที่หน้า 2 แล้ว — ที่นี่แค่ lock กันกด submit ซ้ำ
   var dupKey = selOrigin + '_' + selDest + '_' + dateVal + '_' + selTime;
-
+ 
   // [Feature 4] นับลำดับคิวสำหรับ origin+dest+date+time นี้
   db.ref('queues/' + dupKey).transaction(function(current) {
     return (current || 0) + seats;
@@ -1313,7 +1432,7 @@ function submitBooking() {
       } else if (PLATFORM6_DESTS.indexOf(selDest) !== -1) {
         platformNum = 6;
       }
-
+ 
       var booking = {
         code:        code,
         name:        safeName,
@@ -1598,10 +1717,12 @@ function newBooking() {
   goPage(1);
 }
  
-// อัปเดตสถานะเวลาทุก 1 นาที
-renderTimes();
-renderLeg2Info();
-setInterval(renderTimes, 60000);
+// โหลด settings ทั้งหมดจาก Firebase (routes + platformGroups) แล้วค่อย render
+loadAllSettingsFromFirebase(function() {
+  renderTimes();
+  renderLeg2Info();
+  setInterval(renderTimes, 60000);
+});
 document.getElementById('travelDate').addEventListener('change', function() {
   selTime = null;
   renderTimes();
@@ -1609,4 +1730,5 @@ document.getElementById('travelDate').addEventListener('change', function() {
 </script>
 </body>
 </html>
+
  
