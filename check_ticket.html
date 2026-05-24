@@ -326,7 +326,17 @@
     });
     // LINE OA notification is sent by Firebase Function when /bookings/{code} is updated.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
-    var DESTINATION_TIMES = ['06:40','07:20','07:40','08:20','09:20','10:00','11:00','11:20','11:40','12:20','12:30','13:10','14:00','14:20','14:40','15:00','17:00','17:20','18:20','18:40'];
+    // ตาราง Leg 2 ดึงชุดเดียวกับ booking.html / passenger.html
+    var LEG2_TIMES_COMMON = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
+    var LEG2_TIMES_MINBURI = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
+    var LEG2_TIMES_EKKAMAI = ['06:30','08:30','10:30','15:30','17:30'];
+    var LEG2_TIMES_MOCHIT = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
+    var LEG2_DEST_SCHEDULES = [
+      { keywords: ['พัทยา','แยกอัยการ','สัตหีบ','ระยอง','กม.10','ตลาดหนองมน','หนองมน','บางแสน','อ่าวอุดม','ศรีราชา','ม.เกษตร','บ้านฉาง','แหลมฉบัง'], times: LEG2_TIMES_COMMON, group: 'พัทยา-ระยอง-ชายทะเล' },
+      { keywords: ['ตลาดมีนบุรี','มีนบุรี','มันบุรี'], times: LEG2_TIMES_MINBURI, group: 'มีนบุรี' },
+      { keywords: ['เอกมัย','โฮมโปร','บางนา','BTS บางจาก','บางจาก','BTS พระโขนง','พระโขนง','BTS อ่อนนุช','อ่อนนุช'], times: LEG2_TIMES_EKKAMAI, group: 'เอกมัย-BTS' },
+      { keywords: ['หมอชิต','BTS จตุจักร','จตุจักร','แยกลาดพร้าว','ลาดพร้าว'], times: LEG2_TIMES_MOCHIT, group: 'หมอชิต-จตุจักร' }
+    ];
     var ORIGIN_TIMES = ['06:20','08:00','09:00','09:30','10:40','11:30','12:10','13:00','13:40','14:00'];
     var TRANSFER_BUFFER_MINUTES = [
       { keywords: ['พนม'], minutes: 50 },
@@ -512,7 +522,7 @@
       var source = getRouteOrigin(booking, legs);
       var buffer = getTransferBufferMinutes(source);
       if (buffer !== null && leg1Time) {
-        return nextDestinationTimeAfter(addMinutesToTime(leg1Time, buffer)) || '';
+        return nextDestinationTimeAfter(addMinutesToTime(leg1Time, buffer), booking, legs) || '';
       }
       if (booking.leg2Time) return booking.leg2Time;
       if (booking.transferTime) return booking.transferTime;
@@ -520,7 +530,7 @@
       if (booking.destinationTime) return booking.destinationTime;
       if (booking.secondaryTime) return booking.secondaryTime;
       if (booking.nextTripTime) return booking.nextTripTime;
-      return nextDestinationTimeAfter(leg1Time || booking.time || '00:00') || '';
+      return nextDestinationTimeAfter(leg1Time || booking.time || '00:00', booking, legs) || '';
     }
 
     function formatTimeText(time) {
@@ -560,19 +570,40 @@
       return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
-    function nextDestinationTimeAfter(time) {
-      var min = toMin(time || '00:00');
-      return DESTINATION_TIMES.find(function(t) { return toMin(t) > min; }) || '';
+    function getLeg2TimesForBooking(booking, legs) {
+      var destination = '';
+      if (legs && legs.leg2) {
+        var parts = String(legs.leg2).split('→').map(function(x) { return x.trim(); }).filter(Boolean);
+        destination = parts.length ? parts[parts.length - 1] : '';
+      }
+      if (!destination) destination = connectionRouteInfo(booking.route).destination;
+      var clean = String(destination || booking.destination || booking.to || '').replace(/\s+/g, '').toLowerCase();
+      for (var i = 0; i < LEG2_DEST_SCHEDULES.length; i++) {
+        var schedule = LEG2_DEST_SCHEDULES[i];
+        for (var j = 0; j < schedule.keywords.length; j++) {
+          if (clean.indexOf(schedule.keywords[j].replace(/\s+/g, '').toLowerCase()) !== -1) {
+            return schedule.times;
+          }
+        }
+      }
+      return LEG2_TIMES_COMMON;
     }
 
-    function getDestinationTimePairAfter(time) {
+    function nextDestinationTimeAfter(time, booking, legs) {
+      var times = getLeg2TimesForBooking(booking || currentBooking || {}, legs);
+      var min = toMin(time || '00:00');
+      return times.find(function(t) { return toMin(t) > min; }) || '';
+    }
+
+    function getDestinationTimePairAfter(time, booking, legs) {
+      var times = getLeg2TimesForBooking(booking || currentBooking || {}, legs);
       var min = toMin(time || '00:00');
       var first = '';
       var backup = '';
-      for (var i = 0; i < DESTINATION_TIMES.length; i++) {
-        if (toMin(DESTINATION_TIMES[i]) > min) {
-          if (!first) first = DESTINATION_TIMES[i];
-          else { backup = DESTINATION_TIMES[i]; break; }
+      for (var i = 0; i < times.length; i++) {
+        if (toMin(times[i]) > min) {
+          if (!first) first = times[i];
+          else { backup = times[i]; break; }
         }
       }
       return { first: first, backup: backup };
@@ -685,7 +716,7 @@
       var arrival = new Date(Date.now() + currentEtaMinutes * 60000);
       var arrivalMin = arrival.getHours() * 60 + arrival.getMinutes();
       var bookedMin = toMin(currentBooking.time || '00:00');
-      var target = DESTINATION_TIMES.find(function(t) { return toMin(t) >= Math.max(arrivalMin, bookedMin); });
+      var target = getLeg2TimesForBooking(currentBooking).find(function(t) { return toMin(t) >= Math.max(arrivalMin, bookedMin); });
       suggestedNextTrip = target || null;
       if (target) {
         setStatus('scheduleStatus', 'good', 'ทันรถเที่ยว ' + target + ' น.');
@@ -817,7 +848,7 @@
       if (routeInfo.type !== 'secondary_connection' || (!nearTransferPoint && !etaNearTransfer)) return null;
 
       var checkinTime = timeFromTimestamp(checkedInAt);
-      var pair = getDestinationTimePairAfter(checkinTime);
+      var pair = getDestinationTimePairAfter(checkinTime, currentBooking);
       if (!pair.first) return null;
       return {
         adjustedLeg2Time: pair.first,
