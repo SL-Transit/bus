@@ -480,6 +480,7 @@ let lastPos=null;
 let viewDir='go';
 let mapObj=null, busMarker=null, busTagMarker=null, routeLine=null, mapReady=false;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
+let busFollowMode=true, busCentered=false;
 
 // ===== HELPERS =====
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
@@ -509,34 +510,6 @@ function getStopByName(name) {
 function focusSelectedOrigin() {
   var stop = getStopByName(selOrigin);
   if (stop) focusMap(normalizeMapPoint(stop), 14);
-}
-
-function triggerLongdoGeolocation() {
-  var mapEl = document.getElementById('map');
-  if (!mapEl) return false;
-  var selectors = [
-    '.ldc-geolocation button',
-    '.ldc-geolocation',
-    '[class*="geolocation"] button',
-    '[class*="geolocation"]'
-  ];
-  for (var i = 0; i < selectors.length; i++) {
-    var btn = mapEl.querySelector(selectors[i]);
-    if (!btn) continue;
-    var box = btn.getBoundingClientRect();
-    if (box.width === 0 || box.height === 0) continue;
-    btn.click();
-    return true;
-  }
-  return false;
-}
-
-function scheduleLongdoGeolocationClick() {
-  setTimeout(function(){
-    if (!passengerCentered && !triggerLongdoGeolocation()) {
-      requestPassengerCurrentLocation(true, false);
-    }
-  }, 5000);
 }
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
@@ -624,7 +597,6 @@ function initMap() {
 
     drawRoute();
     focusSelectedOrigin();
-    scheduleLongdoGeolocationClick();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
     if (lastPos) {
       updateBusOnMap(lastPos);
@@ -743,7 +715,11 @@ function updateBusOnMap(pos) {
   });
   mapObj.Overlays.add(busTagMarker);
 
-  // รถอัปเดต marker เท่านั้น ไม่แย่งการเลื่อนแผนที่จากตำแหน่งผู้โดยสาร
+  // หน้าผู้โดยสารต้องเห็นรถเรียลไทม์เป็นหลัก แม้ตำแหน่งผู้ใช้จะใช้ไม่ได้
+  if (busFollowMode || !busCentered) {
+    focusMap(latlng, 14);
+    busCentered = true;
+  }
 }
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
