@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data:; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.firebaseio.com https://*.googleapis.com https://hook.eu1.make.com wss://*.firebaseio.com; img-src 'self' data: https:;">
+<title>ST Transit — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<style>
+:root{--navy:#12355b;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--orange:#f97316;--muted:#64748b;--line:#dbeafe;--soft:#f8fbff;--ink:#0f172a;--topnav:54px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Kanit',sans-serif;background:#eef6ff;color:var(--ink);min-height:100vh;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0f2550,#1e3a8a);}
+.lcard{background:#fff;border-radius:22px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.28);}
+.lbrand{text-align:center;margin-bottom:22px;}
+.lbrand .b1{font-family:'Chakra Petch',sans-serif;font-size:28px;font-weight:700;color:var(--navy);}
+.lbrand .b2{color:var(--muted);font-size:13px;margin-top:3px;}
+.lf{margin-bottom:14px;}
+.lf label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.lf input{width:100%;border:2px solid var(--line);border-radius:10px;padding:12px 13px;font-family:'Kanit',sans-serif;font-size:15px;outline:none;background:#f8fbff;}
+.lf input:focus{border-color:var(--blue);}
+.btn-login{width:100%;background:var(--blue);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Kanit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;}
+.btn-login:hover{background:#1d4ed8;}
+#loginError{color:var(--red);font-size:12px;text-align:center;margin-top:8px;min-height:18px;}
+.login-note{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e;margin-top:14px;line-height:1.6;}
+#appShell{display:none;}
+.topnav{position:fixed;top:0;left:0;right:0;height:var(--topnav);background:var(--navy);z-index:200;display:flex;align-items:center;padding:0 10px;gap:4px;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+.topnav .logo{font-family:'Chakra Petch',sans-serif;font-size:17px;font-weight:700;color:#fff;white-space:nowrap;margin-right:6px;}
+.topnav .logo span{color:#60a5fa;}
+.nav-tabs{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.ntab{display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap;border:none;background:none;transition:all .15s;position:relative;font-family:'Kanit',sans-serif;}
+.ntab:hover{background:rgba(255,255,255,.1);color:#fff;}
+.ntab.active{background:rgba(255,255,255,.18);color:#fff;}
+.ntab .nbadge{position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border-radius:999px;padding:1px 4px;font-size:10px;font-weight:700;}
+.booking-wrap{display:flex;align-items:center;gap:5px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;}
+.tog{position:relative;width:36px;height:20px;cursor:pointer;}
+.tog input{opacity:0;width:0;height:0;}
+.tog-sl{position:absolute;inset:0;background:#475569;border-radius:999px;transition:.3s;}
+.tog-sl:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s;}
+.tog input:checked+.tog-sl{background:#22c55e;}
+.tog input:checked+.tog-sl:before{transform:translateX(16px);}
+.menu-btn{background:none;border:none;color:#fff;cursor:pointer;padding:7px 6px;border-radius:8px;display:flex;flex-direction:column;gap:4px;margin-left:4px;}
+.menu-btn span{display:block;width:18px;height:2px;background:#fff;border-radius:2px;}
+.menu-btn:hover{background:rgba(255,255,255,.12);}
+.hpop{position:fixed;top:var(--topnav);right:0;background:var(--navy);border-radius:0 0 0 14px;box-shadow:-4px 4px 20px rgba(0,0,0,.3);padding:6px;min-width:190px;z-index:300;display:none;}
+.hpop.open{display:block;}
+.hpop-item{display:flex;align-items:center;gap:8px;padding:10px 13px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,.85);font-size:13px;font-weight:600;}
+.hpop-item:hover{background:rgba(255,255,255,.1);}
+.hpop-divider{border:none;border-top:1px solid rgba(255,255,255,.12);margin:4px 8px;}
+.hpop-user{padding:10px 13px;font-size:12px;color:rgba(255,255,255,.55);border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:4px;}
+.main{margin-top:var(--topnav);padding:16px;min-height:calc(100vh - var(--topnav));}
+.page-section{display:none;}
+.page-section.active{display:block;}
+.card{background:#fff;border:1px solid rgba(37,99,235,.1);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 4px 16px rgba(15,23,42,.06);}
+.card h2{color:var(--navy);font-size:15px;margin-bottom:11px;display:flex;align-items:center;gap:6px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:12px;}
+.stat{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;}
+.stat .sl{color:var(--muted);font-size:11px;font-weight:700;margin-bottom:4px;}
+.stat .sn{font-family:'Chakra Petch',sans-serif;font-size:24px;font-weight:700;color:var(--navy);line-height:1.1;}
+.stat .ss{color:var(--muted);font-size:11px;margin-top:3px;}
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid #e2e8f0;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:#f8fafc;}
+th{padding:8px 10px;text-align:left;font-weight:700;color:var(--muted);white-space:nowrap;border-bottom:1px solid #e2e8f0;}
+td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f8fbff;}
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;}
+.badge-confirmed{background:#dcfce7;color:#166534;}
+.badge-cancelled{background:#fee2e2;color:#991b1b;}
+.badge-checked_in{background:#dbeafe;color:#1e40af;}
+.badge-changed{background:#ffedd5;color:#9a3412;}
+.filter-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:flex-end;}
+.filter-row label{font-size:11px;font-weight:700;color:var(--navy);display:block;margin-bottom:4px;}
+.filter-row input,.filter-row select{border:2px solid var(--line);border-radius:8px;padding:7px 10px;font-family:'Kanit',sans-serif;font-size:13px;color:var(--navy);background:#f8fbff;outline:none;}
+.filter-row input:focus,.filter-row select:focus{border-color:var(--blue);}
+.btn{border:none;border-radius:8px;padding:8px 14px;font-family:'Kanit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-primary:hover{background:#1d4ed8;}
+.btn-success{background:var(--green);color:#fff;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-dark{background:#334155;color:#fff;}
+.btn-ghost{background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;}
+.btn-sm{padding:5px 9px;font-size:11px;border-radius:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:14px;z-index:500;}
+.modal.hidden{display:none;}
+.modal-card{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;}
+.modal-card h3{color:var(--navy);font-size:16px;margin-bottom:12px;}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap;}
+.fg{margin-bottom:11px;}
+.fg label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.fg input,.fg select,.fg textarea{width:100%;border:2px solid var(--line);border-radius:8px;padding:9px 11px;font-family:'Kanit',sans-serif;font-size:13px;color:var(--navy);background:#f8fbff;outline:none;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue);}
+.fg textarea{resize:vertical;min-height:64px;}
+.alert{border-radius:9px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:11px;line-height:1.55;}
+.alert-info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
+.alert-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+.alert-warn{background:#ffedd5;color:#9a3412;border:1px solid #fed7aa;}
+.alert-danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+.rgroup{border:2px solid #e2e8f0;border-radius:12px;margin-bottom:10px;overflow:hidden;}
+.rgroup-header{display:flex;align-items:center;gap:8px;padding:11px 14px;background:#f8fafc;cursor:pointer;user-select:none;}
+.rgroup-header .rg-title{font-size:14px;font-weight:700;color:var(--navy);flex:1;}
+.rgroup-header .rg-count{font-size:11px;color:var(--muted);}
+.rgroup-body{padding:12px 14px;display:none;}
+.rgroup-body.open{display:block;}
+.route-row{padding:10px;background:#f8fbff;border-radius:8px;margin-bottom:8px;border:1px solid #e2e8f0;}
+.route-row .rr-fields{display:grid;grid-template-columns:1fr 1fr 100px;gap:8px;margin-bottom:8px;}
+.route-row input{border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;outline:none;width:100%;}
+.route-row input:focus{border-color:var(--blue);}
+.time-chips{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;}
+.chip{display:inline-flex;align-items:center;gap:3px;background:#dbeafe;color:#1e40af;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;}
+.chip .cx{cursor:pointer;color:#64748b;font-size:13px;line-height:1;}
+.chip .cx:hover{color:var(--red);}
+.add-chip-row{display:flex;gap:6px;align-items:center;}
+.add-chip-row input[type=time]{border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;width:110px;}
+.rev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.rev-card{background:#f8fbff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;}
+.rev-card .rc-t{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:7px;}
+.rev-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px;}
+.rev-row:last-child{border-bottom:none;}
+.rev-row.net{font-weight:700;color:var(--green);font-size:14px;border-top:2px solid #e2e8f0;padding-top:7px;margin-top:3px;}
+.ann-item{border:1px solid #e2e8f0;border-radius:10px;padding:11px;margin-bottom:7px;background:#f8fbff;}
+.ann-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.ann-title{font-weight:700;color:var(--navy);font-size:13px;}
+.ann-time{font-size:11px;color:var(--muted);}
+.user-row{display:flex;align-items:center;gap:9px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;background:#f8fbff;}
+.uavatar{width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
+.uinfo{flex:1;}
+.uinfo .un{font-weight:700;color:var(--navy);font-size:13px;}
+.uinfo .ue{color:var(--muted);font-size:11px;}
+.rbadge{border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;}
+.role-superadmin{background:#fef3c7;color:#92400e;}
+.role-admin{background:#dbeafe;color:#1e40af;}
+.role-staff{background:#dcfce7;color:#166534;}
+.log-item{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;}
+.log-item:last-child{border-bottom:none;}
+.log-ico{width:26px;height:26px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.reset-zone{border:2px dashed #fca5a5;border-radius:12px;padding:16px;background:#fff5f5;}
+.reset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:7px;margin-bottom:12px;}
+.reset-item{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #fca5a5;border-radius:7px;padding:8px;}
+.reset-item label{font-size:12px;color:#991b1b;font-weight:600;cursor:pointer;}
+.overlay2{display:none;position:fixed;inset:0;z-index:299;}
+.overlay2.open{display:block;}
+@media(max-width:640px){
+  .topnav{padding:0 6px;gap:2px;}
+  .topnav .logo{font-size:14px;}
+  .ntab{padding:5px 7px;font-size:11px;}
+  .main{padding:10px;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+  .rev-grid{grid-template-columns:1fr;}
+  .route-row .rr-fields{grid-template-columns:1fr 1fr;}
+  .modal-actions{flex-direction:column;}
+  .filter-row>*{width:100%;}
+  .nt-label{display:none;}
+}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="lcard">
+    <div class="lbrand"><div class="b1">ST <span style="color:var(--blue)">Transit</span></div><div class="b2">ระบบจัดการหลังบ้าน</div></div>
+    <div class="lf"><label>อีเมล</label><input id="lEmail" type="email" placeholder="admin@example.com" autocomplete="email"></div>
+    <div class="lf"><label>รหัสผ่าน</label><input id="lPass" type="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" autocomplete="current-password"></div>
+    <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div id="loginError"></div>
+    <div class="login-note">&#x1F512; ระบบนี้สำหรับเจ้าหน้าที่เท่านั้น</div>
+  </div>
+</div>
+<div id="appShell">
+  <div class="overlay2" id="ov2" onclick="closeHpop()"></div>
+  <nav class="topnav">
+    <div class="logo">ST <span>Transit</span></div>
+    <div class="nav-tabs" id="navTabs">
+      <button class="ntab active" onclick="showPage('dashboard')" data-page="dashboard"><span>&#x1F4CA;</span><span class="nt-label"> แดชบอร์ด</span></button>
+      <button class="ntab" onclick="showPage('bookings')" data-page="bookings"><span>&#x1F3AB;</span><span class="nt-label"> จอง</span><span class="nbadge" id="nb" style="display:none">0</span></button>
+      <button class="ntab" onclick="showPage('refunds')" data-page="refunds" id="nt-refunds" style="display:none"><span>&#x1F4B8;</span><span class="nt-label"> คืนเงิน</span></button>
+      <button class="ntab" onclick="showPage('revenue')" data-page="revenue" id="nt-revenue" style="display:none"><span>&#x1F4B0;</span><span class="nt-label"> รายได้</span></button>
+      <button class="ntab" onclick="showPage('routes')" data-page="routes" id="nt-routes" style="display:none"><span>&#x1F5FA;&#xFE0F;</span><span class="nt-label"> เส้นทาง</span></button>
+      <button class="ntab" onclick="showPage('announce')" data-page="announce"><span>&#x1F4E2;</span><span class="nt-label"> ประกาศ</span></button>
+      <button class="ntab" onclick="showPage('logs')" data-page="logs" id="nt-logs" style="display:none"><span>&#x1F4CB;</span><span class="nt-label"> Log</span></button>
+    </div>
+    <div class="booking-wrap" id="bkToggleWrap" style="display:none">
+      <span id="bkToggleLabel" style="font-size:11px">รับจอง</span>
+      <label class="tog"><input type="checkbox" id="bkToggle" onchange="toggleBooking(this.checked)"><span class="tog-sl"></span></label>
+    </div>
+    <button class="menu-btn" onclick="toggleHpop()" title="เมนู"><span></span><span></span><span></span></button>
+  </nav>
+  <div class="hpop" id="hpop">
+    <div class="hpop-user" id="hpopUser">-</div>
+    <div class="hpop-item" id="hpopUsers" style="display:none" onclick="closeHpop();showPage('users')">&#x1F465; ผู้ใช้งาน</div>
+    <div class="hpop-item" id="hpopReset" style="display:none" onclick="closeHpop();showPage('reset')">&#x26A0;&#xFE0F; รีเซ็ตข้อมูล</div>
+    <hr class="hpop-divider">
+    <div class="hpop-item" onclick="doLogout()">&#x1F44B; ออกจากระบบ</div>
+  </div>
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page-section active" id="sec-dashboard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h1 style="color:var(--navy);font-size:19px">แดชบอร์ด</h1>
+        <span id="dashDate" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+      <div class="stat-grid" id="dashStats"></div>
+      <div class="card" id="dashRevCard" style="display:none"><h2>&#x1F4B0; สรุปรายได้วันนี้</h2><div class="rev-grid" id="dashRevGrid"></div></div>
+      <div class="card"><h2>&#x1F4CB; จองล่าสุด</h2>
+        <div class="tbl-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>เส้นทาง</th><th>เวลา</th><th>สถานะ</th></tr></thead><tbody id="dashRecent"></tbody></table></div>
+      </div>
+      <div id="dashAnnounce"></div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div class="page-section" id="sec-bookings">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">รายการจอง</h1>
+      <div class="card">
+        <div class="filter-row">
+          <div><label>ค้นหา</label><input id="bkQ" type="text" placeholder="ชื่อ / เบอร์ / รหัส" oninput="filterBk()"></div>
+          <div><label>วันที่</label><input id="bkDate" type="date" onchange="filterBk()"></div>
+          <div><label>สถานะ</label><select id="bkSt" onchange="filterBk()"><option value="">ทั้งหมด</option><option value="confirmed">ยืนยันแล้ว</option><option value="checked_in">เช็คอินแล้ว</option><option value="changed">เปลี่ยนเวลา</option><option value="cancelled">ยกเลิกแล้ว</option></select></div>
+          <div><label>หมวด</label><select id="bkCat" onchange="filterBk()"><option value="">ทั้งหมด</option><option value="main">เส้นทางหลัก</option><option value="coastal">พัทยา-ระยอง</option><option value="bangkok">หมอชิต-เอกมัย</option><option value="other">อื่นๆ</option></select></div>
+          <div style="display:flex;gap:6px;align-self:flex-end"><button class="btn btn-primary" onclick="filterBk()">&#x1F50D;</button><button class="btn btn-dark" onclick="exportCSV()">&#x2B07;&#xFE0F; CSV</button></div>
+        </div>
+        <div class="tbl-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>เบอร์</th><th>เส้นทาง</th><th>หมวด</th><th>วันที่</th><th>เวลา</th><th>ที่นั่ง</th><th>ยอด</th><th>คิว</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="bkBody"></tbody></table></div>
+        <div id="bkPager" style="text-align:center;padding:10px;color:var(--muted);font-size:12px"></div>
+      </div>
+    </div>
+
+    <!-- REFUNDS -->
+    <div class="page-section" id="sec-refunds">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">รอคืนเงิน</h1>
+      <div class="card"><div class="alert alert-warn">รายการที่ถูกยกเลิกและรอโอนคืนเงิน</div>
+        <div class="tbl-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>เบอร์</th><th>ยอด</th><th>ยกเลิกเมื่อ</th><th>เหตุผล</th><th>จัดการ</th></tr></thead><tbody id="refBody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- REVENUE -->
+    <div class="page-section" id="sec-revenue">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">รายงานรายได้</h1>
+      <div class="card">
+        <div class="filter-row">
+          <div><label>ช่วงเวลา</label><select id="revPeriod" onchange="switchRevPeriod()"><option value="day">รายวัน</option><option value="month" selected>รายเดือน</option><option value="year">รายปี</option></select></div>
+          <div><label>เลือกช่วง</label><input id="revDate" type="month"></div>
+          <button class="btn btn-primary" onclick="loadRevenue()" style="align-self:flex-end">&#x1F4CA; คำนวณ</button>
+        </div>
+        <div class="stat-grid" id="revStats"></div>
+        <div class="rev-grid" id="revGrid"></div>
+        <div style="margin-top:10px;padding:9px;background:#f8fbff;border-radius:8px;font-size:12px;color:var(--muted)">
+          &#x1F4A1; ค่าบริการ: <b id="svcFeeLabel">฿5</b>/รายการ | ค่านายหน้า: <b id="agentFeeLabel">฿5</b>/รายการ (เฉพาะพัทยา-ระยอง, หมอชิต-เอกมัย)
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUTES -->
+    <div class="page-section" id="sec-routes">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">จัดการเส้นทาง / ราคา / เวลา</h1>
+      <div class="alert alert-warn">&#x26A1; การเปลี่ยนแปลงจะมีผลทันทีกับหน้าจองของผู้โดยสาร</div>
+      <div class="card"><h2>&#x1F4B3; ค่าธรรมเนียมระบบ</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fg"><label>ค่าบริการ (฿) — คิดทุกรายการ</label><input type="number" id="feeService" min="0" step="1" value="5"></div>
+          <div class="fg"><label>ค่านายหน้า (฿) — พัทยา/หมอชิต</label><input type="number" id="feeAgent" min="0" step="1" value="5"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียม</button>
+      </div>
+      <div class="card"><h2>&#x1F6CF;&#xFE0F; กลุ่มชานชาลา</h2>
+        <div id="pgWrap"></div>
+        <div style="margin-top:8px;display:flex;gap:7px">
+          <button class="btn btn-dark btn-sm" onclick="addPlatformGroup()">+ กลุ่มใหม่</button>
+          <button class="btn btn-primary btn-sm" onclick="savePlatformGroups()">&#x1F4BE; บันทึก</button>
+        </div>
+      </div>
+      <div class="card"><h2>&#x1F5FA;&#xFE0F; กลุ่มเส้นทาง</h2>
+        <div id="routeGroupsWrap"></div>
+        <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-dark btn-sm" onclick="addRouteGroup()">+ กลุ่มเส้นทางใหม่</button>
+          <button class="btn btn-primary" onclick="saveRoutes()">&#x1F4BE; บันทึกทั้งหมด</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANNOUNCE -->
+    <div class="page-section" id="sec-announce">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">ประกาศ</h1>
+      <div class="card"><h2>&#x2795; เพิ่มประกาศ</h2>
+        <div class="fg"><label>หัวข้อ</label><input id="annT" type="text" placeholder="เช่น รถสาย 09:00 ล่าช้า 20 นาที"></div>
+        <div class="fg"><label>ข้อความ</label><textarea id="annB" placeholder="รายละเอียด..."></textarea></div>
+        <div class="fg"><label>ประเภท</label><select id="annType"><option value="info">&#x1F4E2; ทั่วไป</option><option value="warn">&#x26A0;&#xFE0F; แจ้งเตือน</option><option value="danger">&#x1F6A8; ด่วน</option></select></div>
+        <button class="btn btn-primary" onclick="postAnn()">&#x1F4E2; เผยแพร่</button>
+      </div>
+      <div class="card"><h2>&#x1F4CB; ประกาศที่ใช้งานอยู่</h2><div id="annList"></div></div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page-section" id="sec-users">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">ผู้ใช้งาน</h1>
+      <div class="card"><h2>&#x2795; เพิ่มผู้ใช้งาน</h2>
+        <div class="filter-row">
+          <div><label>อีเมล</label><input id="nuEmail" type="email" placeholder="user@example.com"></div>
+          <div><label>รหัสผ่าน</label><input id="nuPass" type="password" placeholder="อย่างน้อย 6 ตัว"></div>
+          <div><label>ชื่อ</label><input id="nuName" type="text" placeholder="ชื่อ-นามสกุล"></div>
+          <div><label>Role</label><select id="nuRole"><option value="staff">Staff</option><option value="admin">Admin</option><option value="superadmin">Super Admin</option></select></div>
+          <button class="btn btn-primary" onclick="addUser()" style="align-self:flex-end">&#x2795; เพิ่ม</button>
+        </div>
+        <div id="nuStatus" style="margin-top:6px"></div>
+      </div>
+      <div class="card"><h2>&#x1F465; รายชื่อผู้ใช้งาน</h2><div id="userList"></div></div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="page-section" id="sec-logs">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">Log การใช้งาน</h1>
+      <div class="card">
+        <div class="filter-row">
+          <div><label>วันที่</label><input id="logDate" type="date" onchange="loadLogs()"></div>
+          <button class="btn btn-primary" onclick="loadLogs()" style="align-self:flex-end">&#x1F50D; โหลด</button>
+        </div>
+        <div id="logList"></div>
+      </div>
+    </div>
+
+    <!-- RESET -->
+    <div class="page-section" id="sec-reset">
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">&#x26A0;&#xFE0F; รีเซ็ตข้อมูล</h1>
+      <div class="card"><div class="reset-zone">
+        <div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:8px">&#x26A0;&#xFE0F; โซนอันตราย</div>
+        <div class="alert alert-danger">การรีเซ็ตจะลบข้อมูลที่เลือกอย่างถาวร ไม่สามารถกู้คืนได้</div>
+        <div class="reset-grid">
+          <div class="reset-item"><input type="checkbox" id="rBk" style="width:auto"><label for="rBk">&#x1F4E6; bookings</label></div>
+          <div class="reset-item"><input type="checkbox" id="rQu" style="width:auto"><label for="rQu">&#x1F522; queues</label></div>
+          <div class="reset-item"><input type="checkbox" id="rLi" style="width:auto"><label for="rLi">&#x1F4F1; line_sent</label></div>
+          <div class="reset-item"><input type="checkbox" id="rTi" style="width:auto"><label for="rTi">&#x1F4CD; ticketLocations</label></div>
+          <div class="reset-item"><input type="checkbox" id="rAl" style="width:auto"><label for="rAl">&#x1F4CB; adminLogs</label></div>
+          <div class="reset-item"><input type="checkbox" id="rAn" style="width:auto"><label for="rAn">&#x1F4E2; announcements</label></div>
+        </div>
+        <div class="fg"><label>พิมพ์ "RESET" เพื่อยืนยัน</label><input id="resetConfirm" type="text" placeholder="RESET"></div>
+        <button class="btn btn-danger" onclick="doReset()">&#x1F5D1;&#xFE0F; รีเซ็ตข้อมูลที่เลือก</button>
+      </div></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- CANCEL MODAL -->
+<div class="modal hidden" id="cancelModal">
+  <div class="modal-card"><h3>&#x1F6AB; ยกเลิกตั๋ว</h3>
+    <div id="cancelInfo" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;margin-bottom:11px;font-size:13px;line-height:1.9;color:#991b1b"></div>
+    <div class="fg"><label>เหตุผล</label><select id="cancelReason"><option>ผู้โดยสารขอยกเลิก</option><option>รถยกเลิกเที่ยว</option><option>จองซ้ำ</option><option>ข้อมูลไม่ถูกต้อง</option><option>อื่นๆ</option></select></div>
+    <div class="fg"><label>หมายเหตุ</label><textarea id="cancelNote" placeholder="ระบุเพิ่มเติม..."></textarea></div>
+    <div class="fg"><label><input type="checkbox" id="cancelRefund" style="width:auto;margin-right:6px">ต้องคืนเงินผู้โดยสาร</label></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">ยกเลิก</button>
+      <button class="btn btn-danger" onclick="confirmCancel()">&#x2705; ยืนยันยกเลิกตั๋ว</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal hidden" id="detailModal">
+  <div class="modal-card"><h3>&#x1F3AB; รายละเอียดการจอง</h3>
+    <div id="detailBody" style="font-size:13px;line-height:2"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('detailModal')">ปิด</button>
+      <a id="slipLink" href="#" target="_blank" class="btn btn-primary" style="display:none">&#x1F5BC;&#xFE0F; ดูสลิป</a>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE MODAL -->
+<div class="modal hidden" id="delModal">
+  <div class="modal-card"><h3>&#x1F5D1;&#xFE0F; ยืนยันการดำเนินการ</h3>
+    <div id="delMsg" style="font-size:14px;color:#334155;margin-bottom:14px;line-height:1.7"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('delModal')">ยกเลิก</button>
+      <button class="btn btn-danger" id="delConfirmBtn">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
+  authDomain:"bus-line1-ba0ea.firebaseapp.com",
+  databaseURL:"https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"bus-line1-ba0ea",storageBucket:"bus-line1-ba0ea.firebasestorage.app",
+  messagingSenderId:"511401517598",appId:"1:511401517598:web:5605ee3777619dffe1c40f"
+});
+var db=firebase.database(),auth=firebase.auth();
+var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
+var FEE_SVC=5,FEE_AGENT=5;
+var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
+var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={};
+var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
+setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
+document.addEventListener('click',function(){_lastActivity=Date.now();});
+
+function doLogin(){
+  if(_loginLock){document.getElementById('loginError').textContent='ล็อคชั่วคราว รอ 1 นาที';return;}
+  var email=document.getElementById('lEmail').value.trim();
+  var pass=document.getElementById('lPass').value;
+  if(!email||!pass){document.getElementById('loginError').textContent='กรุณากรอกข้อมูลให้ครบ';return;}
+  document.getElementById('loginError').textContent='';
+  auth.signInWithEmailAndPassword(email,pass).catch(function(){
+    _loginAttempts++;
+    if(_loginAttempts>=5){_loginLock=true;setTimeout(function(){_loginLock=false;_loginAttempts=0;},60000);}
+    document.getElementById('loginError').textContent='อีเมลหรือรหัสผ่านไม่ถูกต้อง ('+_loginAttempts+'/5)';
+  });
+}
+document.getElementById('lPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+document.getElementById('lEmail').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+function doLogout(){writeLog('logout','ออกจากระบบ');auth.signOut();}
+auth.onAuthStateChanged(function(user){
+  if(user){
+    db.ref('adminUsers/'+user.uid).once('value').then(function(snap){
+      var d=snap.val()||{};
+      CU={uid:user.uid,email:user.email,name:d.name||user.email};
+      CR=d.role||'staff';
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('appShell').style.display='block';
+      document.getElementById('hpopUser').textContent=CU.name+' \u00b7 '+roleTH(CR);
+      applyRole();initApp();writeLog('login','เข้าสู่ระบบ');_loginAttempts=0;
+    });
+  } else {
+    CU=null;CR=null;
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('appShell').style.display='none';
+  }
+});
+function roleTH(r){return{superadmin:'Super Admin',admin:'Admin',staff:'Staff'}[r]||r;}
+function isAdmin(){return CR==='admin'||CR==='superadmin';}
+function isSA(){return CR==='superadmin';}
+function applyRole(){
+  if(isAdmin()){show('nt-refunds');show('nt-revenue');show('nt-routes');document.getElementById('bkToggleWrap').style.display='flex';}
+  if(isSA()){show('nt-logs');document.getElementById('hpopUsers').style.display='';document.getElementById('hpopReset').style.display='';}
+}
+function show(id){var e=document.getElementById(id);if(e)e.style.display='';}
+function toggleHpop(){var h=document.getElementById('hpop'),o=document.getElementById('ov2');h.classList.toggle('open');o.classList.toggle('open');}
+function closeHpop(){document.getElementById('hpop').classList.remove('open');document.getElementById('ov2').classList.remove('open');}
+function showPage(p){
+  document.querySelectorAll('.page-section').forEach(function(s){s.classList.remove('active');});
+  document.querySelectorAll('.ntab').forEach(function(n){n.classList.remove('active');});
+  var s=document.getElementById('sec-'+p);if(s)s.classList.add('active');
+  var t=document.querySelector('[data-page="'+p+'"]');if(t)t.classList.add('active');
+}
+function initApp(){
+  var today=new Date().toISOString().split('T')[0];
+  document.getElementById('dashDate').textContent=new Date().toLocaleDateString('th-TH',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('bkDate').value=today;
+  document.getElementById('logDate').value=today;
+  document.getElementById('revDate').value=today.slice(0,7);
+  loadFees();loadDashboard();loadAllBookings();loadAnnouncements();loadBookingToggle();loadRouteData();loadPlatformGroups();
+  if(isAdmin()){loadRefunds();loadRevenue();loadUsers();}
+  if(isSA())loadLogs();
+}
+function loadFees(){
+  db.ref('settings/fees').once('value').then(function(snap){
+    var d=snap.val()||{};
+    FEE_SVC=d.service||5;FEE_AGENT=d.agent||5;
+    document.getElementById('feeService').value=FEE_SVC;
+    document.getElementById('feeAgent').value=FEE_AGENT;
+    document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
+    document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
+  });
+}
+function saveFees(){
+  if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
+  FEE_SVC=Number(document.getElementById('feeService').value)||5;
+  FEE_AGENT=Number(document.getElementById('feeAgent').value)||5;
+  db.ref('settings/fees').set({service:FEE_SVC,agent:FEE_AGENT}).then(function(){
+    document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
+    document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
+    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT);
+    alert('\u2705 บันทึกสำเร็จ');
+  });
+}
+function loadBookingToggle(){
+  db.ref('settings/bookingOpen').on('value',function(snap){
+    var open=snap.val()!==false;
+    document.getElementById('bkToggle').checked=open;
+    document.getElementById('bkToggleLabel').textContent=open?'\ud83d\udfe2 รับจอง':'\ud83d\udd34 ปิดจอง';
+  });
+}
+function toggleBooking(open){db.ref('settings/bookingOpen').set(open);writeLog('setting',(open?'เปิด':'ปิด')+'ระบบรับจอง');}
+function loadDashboard(){
+  var today=new Date().toISOString().split('T')[0];
+  db.ref('bookings').orderByChild('date').equalTo(today).once('value').then(function(snap){
+    var arr=Object.values(snap.val()||{});
+    var active=arr.filter(function(b){return b.status!=='cancelled';});
+    var rev=active.reduce(function(s,b){return s+(Number(b.price)||0);},0);
+    document.getElementById('dashStats').innerHTML=
+      stat('\ud83c\udfab','จองวันนี้',arr.length,'รายการ')+
+      stat('\u2705','ยืนยัน',active.length,'รายการ')+
+      stat('\ud83d\udeab','ยกเลิก',arr.filter(function(b){return b.status==='cancelled';}).length,'รายการ')+
+      stat('\ud83d\udcb0','รายได้','\u0e3f'+rev.toLocaleString(),'บาท');
+    if(isAdmin()){
+      var m=calcNet(active.filter(function(b){return bkCat(b)==='main';}),false);
+      var c=calcNet(active.filter(function(b){return bkCat(b)==='coastal';}),true);
+      var bk=calcNet(active.filter(function(b){return bkCat(b)==='bangkok';}),true);
+      var o=calcNet(active.filter(function(b){return bkCat(b)==='other';}),false);
+      document.getElementById('dashRevCard').style.display='';
+      document.getElementById('dashRevGrid').innerHTML=revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
+    }
+    var sorted=arr.slice().sort(function(a,b){return(b.ts||0)-(a.ts||0);}).slice(0,8);
+    document.getElementById('dashRecent').innerHTML=sorted.map(function(b){
+      return'<tr><td><code style="font-size:11px">'+esc(b.code||'')+'</code></td><td>'+esc(b.name||'-')+'</td><td style="font-size:11px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(b.route||'-')+'</td><td>'+esc(b.time||'-')+'</td><td>'+stBadge(b.status)+'</td></tr>';
+    }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">ไม่มีข้อมูลวันนี้</td></tr>';
+  });
+}
+function stat(i,l,n,u){return'<div class="stat"><div class="sl">'+i+' '+l+'</div><div class="sn">'+n+'</div><div class="ss">'+u+'</div></div>';}
+function calcNet(list,hasAg){var gross=list.reduce(function(s,b){return s+(Number(b.price)||0);},0);var svc=list.length*FEE_SVC,ag=hasAg?list.length*FEE_AGENT:0;return{count:list.length,gross:gross,svc:svc,ag:ag,net:gross-svc-ag};}
+function revCard(title,r,hasAg){
+  return'<div class="rev-card"><div class="rc-t">'+title+'</div>'+
+    '<div class="rev-row"><span>รายการ</span><span>'+r.count+'</span></div>'+
+    '<div class="rev-row"><span>รายรับ</span><span>\u0e3f'+r.gross.toLocaleString()+'</span></div>'+
+    '<div class="rev-row"><span>ค่าบริการ(\u00d7'+r.count+')</span><span style="color:var(--red)">-\u0e3f'+r.svc.toLocaleString()+'</span></div>'+
+    (hasAg?'<div class="rev-row"><span>ค่านายหน้า(\u00d7'+r.count+')</span><span style="color:var(--red)">-\u0e3f'+r.ag.toLocaleString()+'</span></div>':'')+
+    '<div class="rev-row net"><span>สุทธิ</span><span>\u0e3f'+r.net.toLocaleString()+'</span></div></div>';
+}
+function loadAllBookings(){
+  db.ref('bookings').on('value',function(snap){
+    var d=snap.val()||{};
+    allBk=Object.entries(d).map(function(e){var b=e[1];b.code=b.code||e[0];return b;});
+    filterBk();loadRefunds();
+    var p=allBk.filter(function(b){return b.status==='confirmed';}).length;
+    var nb=document.getElementById('nb');
+    if(p>0){nb.textContent=p;nb.style.display='';}else{nb.style.display='none';}
+  });
+}
+function bkCat(b){var dest=destFromRoute(b.route||'');if(COASTAL.indexOf(dest)!==-1)return'coastal';if(BANGKOK.indexOf(dest)!==-1)return'bangkok';return'main';}
+function catLabel(c){return{main:'\ud83d\ude8c เส้นทางหลัก',coastal:'\ud83c\udf0a พัทยา-ระยอง',bangkok:'\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',other:'\ud83d\udd00 อื่นๆ'}[c]||c;}
+function destFromRoute(r){var p=r.split('\u2192');return p.length>1?routeKey(p[p.length-1].trim()):routeKey(r);}
+function routeKey(label){var map={'\u0e1e\u0e31\u0e17\u0e22\u0e32':'pattaya','\u0e23\u0e30\u0e22\u0e2d\u0e07':'rayong','\u0e01\u0e21.10':'km10','\u0e15\u0e25\u0e32\u0e14\u0e2b\u0e19\u0e2d\u0e07\u0e21\u0e19':'nongmon','\u0e1a\u0e32\u0e07\u0e41\u0e2a\u0e19':'bangsaen','\u0e2a\u0e31\u0e15\u0e2b\u0e35\u0e1a':'sattahip','\u0e2d\u0e48\u0e32\u0e27\u0e2d\u0e38\u0e14\u0e21':'aoudom','\u0e28\u0e23\u0e35\u0e23\u0e32\u0e0a\u0e32':'sriracha','\u0e21.\u0e40\u0e01\u0e29\u0e15\u0e23':'kaset','\u0e1a\u0e49\u0e32\u0e19\u0e09\u0e32\u0e07':'banchan','\u0e41\u0e2b\u0e25\u0e21\u0e09\u0e1a\u0e31\u0e07':'laemchabang','\u0e41\u0e22\u0e01\u0e2d\u0e31\u0e22\u0e01\u0e32\u0e23':'yakaiyakan','\u0e2b\u0e21\u0e2d\u0e0a\u0e34\u0e15':'mochit','\u0e41\u0e22\u0e01\u0e25\u0e32\u0e14\u0e1e\u0e23\u0e49\u0e32\u0e27':'yaeklatphrao','\u0e40\u0e2d\u0e01\u0e21\u0e31\u0e22':'ekkamai','\u0e42\u0e2e\u0e21\u0e42\u0e1b\u0e23':'homepro','\u0e1a\u0e32\u0e07\u0e19\u0e32':'bangna','\u0e15\u0e25\u0e32\u0e14\u0e21\u0e35\u0e19\u0e1a\u0e38\u0e23\u0e35':'minburi'};for(var k in map){if(label.indexOf(k)!==-1)return map[k];}return label.toLowerCase();}
+function filterBk(){
+  var q=(document.getElementById('bkQ').value||'').toLowerCase();
+  var dt=document.getElementById('bkDate').value;
+  var st=document.getElementById('bkSt').value;
+  var cat=document.getElementById('bkCat').value;
+  filtBk=allBk.filter(function(b){
+    if(q&&!(esc(b.name||'').toLowerCase().includes(q)||(b.phone||'').includes(q)||(b.code||'').toLowerCase().includes(q)))return false;
+    if(dt&&b.date!==dt)return false;
+    if(st&&b.status!==st)return false;
+    if(cat&&bkCat(b)!==cat)return false;
+    return true;
+  }).sort(function(a,b){return(b.ts||0)-(a.ts||0);});
+  curPage=1;renderBkTable();
+}
+function renderBkTable(){
+  var start=(curPage-1)*PAGE,page=filtBk.slice(start,start+PAGE);
+  var html=page.map(function(b){
+    var c=bkCat(b);
+    return'<tr><td><code style="font-size:11px">'+esc(b.code||'')+'</code></td><td>'+esc(b.name||'-')+'</td><td>'+esc(b.phone||'-')+'</td>'+
+      '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(b.route||'-')+'</td>'+
+      '<td style="font-size:10px">'+catLabel(c)+'</td><td>'+esc(b.date||'-')+'</td><td>'+esc(b.time||'-')+'</td>'+
+      '<td style="text-align:center">'+esc(b.seats||1)+'</td><td>\u0e3f'+Number(b.price||0).toLocaleString()+'</td>'+
+      '<td style="text-align:center">'+esc(b.queueNumber||'-')+'</td><td>'+stBadge(b.status)+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn btn-primary btn-sm" onclick="openDetail(\''+esc(b.code||'')+'\')">ดู</button>'+
+      (isAdmin()&&b.status!=='cancelled'?' <button class="btn btn-danger btn-sm" onclick="openCancelModal(\''+esc(b.code||'')+'\')">ยกเลิก</button>':'')+
+      '</td></tr>';
+  }).join('');
+  document.getElementById('bkBody').innerHTML=html||'<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:18px">ไม่พบข้อมูล</td></tr>';
+  var total=filtBk.length,pages=Math.ceil(total/PAGE);
+  document.getElementById('bkPager').innerHTML=total>PAGE?'หน้า '+curPage+'/'+pages+' ('+total+' รายการ) '+(curPage>1?'<button class="btn btn-ghost btn-sm" onclick="chPage(-1)">\u25c4</button> ':'')+(curPage<pages?'<button class="btn btn-primary btn-sm" onclick="chPage(1)">\u25ba</button>':''):'ทั้งหมด '+total+' รายการ';
+}
+function chPage(d){curPage+=d;renderBkTable();}
+function openDetail(code){
+  var b=allBk.find(function(x){return x.code===code;});if(!b)return;
+  document.getElementById('detailBody').innerHTML='<b>รหัส:</b> '+esc(b.code||'')+'<br><b>ชื่อ:</b> '+esc(b.name||'-')+'<br><b>เบอร์:</b> '+esc(b.phone||'-')+'<br><b>เส้นทาง:</b> '+esc(b.route||'-')+'<br><b>วันที่:</b> '+esc(b.date||'-')+'<br><b>เวลา:</b> '+esc(b.time||'-')+'<br><b>ที่นั่ง:</b> '+esc(b.seats||1)+'<br><b>ยอดชำระ:</b> \u0e3f'+Number(b.price||0).toLocaleString()+'<br><b>ลำดับคิว:</b> '+esc(b.queueNumber||'-')+'<br><b>ชานชาลา:</b> '+(b.platform?'ชานชาลาที่ '+b.platform:'-')+'<br><b>สถานะ:</b> '+stBadge(b.status)+'<br>'+(b.cancelReason?'<b>เหตุผลยกเลิก:</b> '+esc(b.cancelReason)+'<br>':'')+(b.ts?'<b>เวลาจอง:</b> '+new Date(b.ts).toLocaleString('th-TH')+'<br>':'');
+  var sl=document.getElementById('slipLink');
+  if(b.slip){sl.href=b.slip;sl.style.display='';}else{sl.style.display='none';}
+  openModal('detailModal');
+}
+function openCancelModal(code){
+  var b=allBk.find(function(x){return x.code===code;});if(!b)return;
+  cancelCode=code;
+  document.getElementById('cancelInfo').innerHTML='\ud83c\udfab รหัส: <b>'+esc(b.code)+'</b><br>\ud83d\udc64 '+esc(b.name||'-')+'<br>\ud83d\udcc5 '+esc(b.date||'-')+' '+esc(b.time||'-')+' น.<br>\ud83d\udcba '+esc(b.seats||1)+' ที่นั่ง | \u0e3f'+Number(b.price||0).toLocaleString();
+  document.getElementById('cancelNote').value='';document.getElementById('cancelRefund').checked=false;
+  openModal('cancelModal');
+}
+function confirmCancel(){
+  if(!cancelCode)return;
+  var reason=document.getElementById('cancelReason').value;
+  var note=document.getElementById('cancelNote').value;
+  var refund=document.getElementById('cancelRefund').checked;
+  var b=allBk.find(function(x){return x.code===cancelCode;});if(!b)return;
+  var upd={status:'cancelled',cancelledAt:Date.now(),cancelledBy:CU.email,cancelReason:reason+(note?' \u2014 '+note:''),needRefund:refund,refundStatus:refund?'pending':'none'};
+  db.ref('bookings/'+cancelCode).update(upd).then(function(){
+    notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
+    writeLog('cancel','ยกเลิกตั๋ว '+cancelCode+' เหตุผล: '+reason);
+    closeModal('cancelModal');
+  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
+}
+function loadRefunds(){
+  var pending=allBk.filter(function(b){return b.needRefund&&b.refundStatus==='pending';});
+  var html=pending.map(function(b){
+    return'<tr><td><code>'+esc(b.code||'')+'</code></td><td>'+esc(b.name||'-')+'</td><td>'+esc(b.phone||'-')+'</td>'+
+      '<td>\u0e3f'+Number(b.price||0).toLocaleString()+'</td><td>'+fmtTs(b.cancelledAt)+'</td><td style="font-size:11px">'+esc(b.cancelReason||'-')+'</td>'+
+      '<td><button class="btn btn-success btn-sm" onclick="confirmDel(\'\u2705 ยืนยันว่าโอนเงินคืนตั๋ว '+esc(b.code)+' แล้ว?\',function(){markRefunded(\''+esc(b.code)+'\')})">โอนคืนแล้ว</button></td></tr>';
+  }).join('');
+  var el=document.getElementById('refBody');
+  if(el)el.innerHTML=html||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">ไม่มีรายการรอคืนเงิน</td></tr>';
+}
+function markRefunded(code){db.ref('bookings/'+code).update({refundStatus:'completed',refundedAt:Date.now(),refundedBy:CU.email});writeLog('refund','โอนเงินคืน '+code);}
+function switchRevPeriod(){var p=document.getElementById('revPeriod').value;var inp=document.getElementById('revDate');inp.type=p==='day'?'date':p==='month'?'month':'number';if(p==='year')inp.value=new Date().getFullYear();}
+function loadRevenue(){
+  var p=document.getElementById('revPeriod').value,v=document.getElementById('revDate').value,s,e;
+  if(p==='day'){s=e=v;}else if(p==='month'){s=v+'-01';e=v+'-31';}else{s=v+'-01-01';e=v+'-12-31';}
+  db.ref('bookings').orderByChild('date').startAt(s).endAt(e).once('value').then(function(snap){
+    var arr=Object.values(snap.val()||{}).filter(function(b){return b.status!=='cancelled';});
+    var m=calcNet(arr.filter(function(b){return bkCat(b)==='main';}),false);
+    var c=calcNet(arr.filter(function(b){return bkCat(b)==='coastal';}),true);
+    var bk=calcNet(arr.filter(function(b){return bkCat(b)==='bangkok';}),true);
+    var o=calcNet(arr.filter(function(b){return bkCat(b)==='other';}),false);
+    var all={count:arr.length,gross:m.gross+c.gross+bk.gross+o.gross,svc:m.svc+c.svc+bk.svc+o.svc,ag:m.ag+c.ag+bk.ag+o.ag,net:m.net+c.net+bk.net+o.net};
+    document.getElementById('revStats').innerHTML=stat('\ud83c\udfab','รายการ',all.count,'รายการ')+stat('\ud83d\udcb5','รายรับรวม','\u0e3f'+all.gross.toLocaleString(),'บาท')+stat('\ud83d\udcc9','รวมหัก','\u0e3f'+(all.svc+all.ag).toLocaleString(),'บาท')+stat('\ud83d\udcb0','สุทธิ','\u0e3f'+all.net.toLocaleString(),'บาท');
+    document.getElementById('revGrid').innerHTML=revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
+  });
+}
+function loadRouteData(){
+  db.ref('settings/routes').once('value').then(function(snap){
+    routeData=snap.val()||getDefaultRoutes();renderRouteGroups();
+  });
+}
+function getDefaultRoutes(){
+  return{'\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07\u0e2b\u0e25\u0e31\u0e01':{id:'main',routes:[{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e17\u0e48\u0e32\u0e23\u0e16\u0e2a\u0e19\u0e32\u0e21\u0e0a\u0e31\u0e22\u0e40\u0e02\u0e15',price:55,times:['09:40','11:20','12:20','14:00','15:20','16:20','17:20']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e04\u0e25\u0e2d\u0e07\u0e2b\u0e32\u0e14',price:160,times:['11:20','14:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e2b\u0e19\u0e2d\u0e07\u0e04\u0e2d\u0e01',price:100,times:['11:20','14:00','17:20']}]},'\u0e01\u0e25\u0e38\u0e48\u0e21\u0e1e\u0e31\u0e17\u0e22\u0e32-\u0e23\u0e30\u0e22\u0e2d\u0e07-\u0e21\u0e35\u0e19\u0e1a\u0e38\u0e23\u0e35':{id:'coastal',routes:[{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e1e\u0e31\u0e17\u0e22\u0e32',price:140,times:['05:40','07:00','09:00','12:00','14:00','16:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e23\u0e30\u0e22\u0e2d\u0e07',price:150,times:['05:40','07:00','09:00','12:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e15\u0e25\u0e32\u0e14\u0e21\u0e35\u0e19\u0e1a\u0e38\u0e23\u0e35',price:70,times:['04:00','06:00','09:00','12:00']}]},'\u0e01\u0e25\u0e38\u0e48\u0e21\u0e2b\u0e21\u0e2d\u0e0a\u0e34\u0e15-\u0e40\u0e2d\u0e01\u0e21\u0e31\u0e22-BTS':{id:'bangkok',routes:[{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e2b\u0e21\u0e2d\u0e0a\u0e34\u0e15',price:120,times:['06:00','08:00','11:00','13:00','15:00','17:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e40\u0e2d\u0e01\u0e21\u0e31\u0e22',price:120,times:['06:30','08:30','10:30','15:30','17:30']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e1a\u0e32\u0e07\u0e19\u0e32',price:120,times:['06:30','08:30','10:30','15:30','17:30']}]}};
+}
+function renderRouteGroups(){
+  var html='';
+  Object.entries(routeData).forEach(function(entry,gi){
+    var gname=entry[0],gdata=entry[1];
+    if(!gdata.routes)gdata.routes=[];
+    html+='<div class="rgroup"><div class="rgroup-header" onclick="toggleRG('+gi+')">';
+    html+='<span class="rg-title">'+esc(gname)+'</span><span class="rg-count">'+gdata.routes.length+' เส้นทาง</span>';
+    html+='<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDel(\'ลบกลุ่มเส้นทาง &ldquo;'+esc(gname)+'&rdquo;?\',function(){deleteRouteGroup(\''+esc(gname)+'\')})">\ud83d\uddd1\ufe0f ลบกลุ่ม</button>';
+    html+='</div><div class="rgroup-body" id="rgb_'+gi+'">';
+    gdata.routes.forEach(function(r,ri){
+      html+='<div class="route-row"><div class="rr-fields">';
+      html+='<div><label style="font-size:11px;color:var(--muted)">ต้นทาง</label><input type="text" value="'+esc(r.from||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'from\',this.value)"></div>';
+      html+='<div><label style="font-size:11px;color:var(--muted)">ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
+      html+='<div><label style="font-size:11px;color:var(--muted)">ราคา (\u0e3f)</label><input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></div>';
+      html+='</div><div><label style="font-size:11px;color:var(--muted)">ตารางเวลา</label>';
+      html+='<div class="time-chips">'+(r.times||[]).map(function(t){return'<span class="chip">'+esc(t)+' <span class="cx" onclick="removeTime(\''+esc(gname)+'\','+ri+',\''+t+'\')">&#x00D7;</span></span>';}).join('')+'</div>';
+      html+='<div class="add-chip-row"><input type="time" id="tc_'+gi+'_'+ri+'"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่ม</button>';
+      html+='<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">\ud83d\uddd1\ufe0f ลบ</button></div>';
+      html+='</div></div>';
+    });
+    html+='<div style="margin-top:8px"><button class="btn btn-dark btn-sm" onclick="addRoute(\''+esc(gname)+'\')">+ เพิ่มเส้นทาง</button></div>';
+    html+='</div></div>';
+  });
+  document.getElementById('routeGroupsWrap').innerHTML=html;
+}
+function toggleRG(i){var b=document.getElementById('rgb_'+i);b.classList.toggle('open');}
+function updateRoute(gname,ri,field,val){if(routeData[gname]&&routeData[gname].routes[ri])routeData[gname].routes[ri][field]=val;}
+function addTime(gname,ri,inputId){
+  var t=document.getElementById(inputId).value;if(!t)return;
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var times=routeData[gname].routes[ri].times||[];
+  if(times.indexOf(t)!==-1){alert('เวลานี้มีอยู่แล้ว');return;}
+  times.push(t);times.sort();routeData[gname].routes[ri].times=times;
+  document.getElementById(inputId).value='';renderRouteGroups();
+}
+function removeTime(gname,ri,t){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  routeData[gname].routes[ri].times=(routeData[gname].routes[ri].times||[]).filter(function(x){return x!==t;});
+  renderRouteGroups();
+}
+function addRoute(gname){if(!routeData[gname])return;routeData[gname].routes.push({from:'',to:'',price:0,times:[]});renderRouteGroups();}
+function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].routes.splice(ri,1);renderRouteGroups();}
+function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
+function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
+function saveRoutes(){
+  if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
+  db.ref('settings/routes').set(routeData).then(function(){writeLog('edit_routes','บันทึกข้อมูลเส้นทาง');alert('\u2705 บันทึกสำเร็จ');}).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
+}
+function loadPlatformGroups(){
+  db.ref('settings/platformGroups').once('value').then(function(snap){
+    platformGroups=snap.val()||{platform1:{label:'\u0e0a\u0e32\u0e19\u0e0a\u0e32\u0e25\u0e32 1 \u2014 \u0e40\u0e2d\u0e01\u0e21\u0e31\u0e22/\u0e2b\u0e21\u0e2d\u0e0a\u0e34\u0e15/BTS',keys:'ekkamai,mochit,bangna,bts_bangchak,homepro,bts_phrakhanong,bts_onnut,yaeklatphrao,bts_jatujak'},platform6:{label:'\u0e0a\u0e32\u0e19\u0e0a\u0e32\u0e25\u0e32 6 \u2014 \u0e1e\u0e31\u0e17\u0e22\u0e32/\u0e23\u0e30\u0e22\u0e2d\u0e07/\u0e21\u0e35\u0e19\u0e1a\u0e38\u0e23\u0e35',keys:'pattaya,rayong,km10,nongmon,bangsaen,sattahip,aoudom,sriracha,kaset,banchan,yakaiyakan,laemchabang'}};
+    renderPlatformGroups();
+  });
+}
+function renderPlatformGroups(){
+  var html=Object.entries(platformGroups).map(function(e){
+    var id=e[0],g=e[1];
+    return'<div style="border:1px solid #e2e8f0;border-radius:9px;padding:10px;margin-bottom:7px">'+
+      '<div style="display:flex;gap:7px;align-items:center;margin-bottom:7px">'+
+        '<input type="text" value="'+esc(g.label)+'" onchange="platformGroups[\''+id+'\'].label=this.value" style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:13px;font-family:Kanit,sans-serif">'+
+        '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบกลุ่มชานชาลานี้?\',function(){deletePG(\''+id+'\')})">\ud83d\uddd1\ufe0f</button>'+
+      '</div>'+
+      '<div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px">Destination Keys (คั่น comma):</div>'+
+      '<input type="text" value="'+esc(g.keys)+'" onchange="platformGroups[\''+id+'\'].keys=this.value" style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:12px;font-family:monospace">'+
+    '</div>';
+  }).join('');
+  document.getElementById('pgWrap').innerHTML=html;
+}
+function addPlatformGroup(){platformGroups['pg_'+Date.now()]={label:'กลุ่มใหม่',keys:''};renderPlatformGroups();}
+function deletePG(id){delete platformGroups[id];renderPlatformGroups();}
+function savePlatformGroups(){db.ref('settings/platformGroups').set(platformGroups).then(function(){writeLog('edit_platform','บันทึกกลุ่มชานชาลา');alert('\u2705 บันทึกสำเร็จ');});}
+function loadAnnouncements(){
+  db.ref('announcements').orderByChild('ts').limitToLast(20).on('value',function(snap){
+    var arr=Object.entries(snap.val()||{}).map(function(e){return Object.assign({id:e[0]},e[1]);}).reverse();
+    var active=arr.filter(function(a){return a.active!==false;});
+    var dw=document.getElementById('dashAnnounce');
+    if(dw)dw.innerHTML=active.length?'<div class="card"><h2>\ud83d\udce2 ประกาศ ('+active.length+')</h2>'+active.slice(0,3).map(function(a){return annItem(a,false);}).join('')+'</div>':'';
+    var al=document.getElementById('annList');
+    if(al)al.innerHTML=arr.length?arr.map(function(a){return annItem(a,true);}).join(''):'<div style="color:var(--muted);text-align:center;padding:14px">ไม่มีประกาศ</div>';
+  });
+}
+function annItem(a,actions){
+  var tcls={info:'alert-info',warn:'alert-warn',danger:'alert-danger'}[a.type]||'alert-info';
+  return'<div class="ann-item"><div class="ann-head"><span class="ann-title">'+esc(a.title||'')+'</span><span class="ann-time">'+fmtTs(a.ts)+'</span></div>'+
+    '<div class="alert '+tcls+'" style="margin:0;padding:7px 11px;font-size:12px">'+esc(a.body||'')+'</div>'+
+    (actions?'<div style="margin-top:7px;display:flex;gap:5px">'+
+      (a.active!==false?'<button class="btn btn-dark btn-sm" onclick="confirmDel(\'ซ่อนประกาศนี้?\',function(){toggleAnn(\''+a.id+'\',false)})">ซ่อน</button>':'<button class="btn btn-success btn-sm" onclick="toggleAnn(\''+a.id+'\',true)">แสดง</button>')+
+      '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบประกาศนี้?\',function(){deleteAnn(\''+a.id+'\')})">\ud83d\uddd1\ufe0f ลบ</button></div>':'')+'</div>';
+}
+function postAnn(){
+  var t=document.getElementById('annT').value.trim(),b=document.getElementById('annB').value.trim(),type=document.getElementById('annType').value;
+  if(!t||!b){alert('กรุณากรอกหัวข้อและข้อความ');return;}
+  db.ref('announcements').push({title:esc(t),body:esc(b),type:type,active:true,ts:Date.now(),by:CU.email});
+  document.getElementById('annT').value='';document.getElementById('annB').value='';
+  writeLog('announce','โพสต์ประกาศ: '+t);
+}
+function toggleAnn(id,active){db.ref('announcements/'+id).update({active:active});}
+function deleteAnn(id){db.ref('announcements/'+id).remove();}
+function loadUsers(){
+  db.ref('adminUsers').on('value',function(snap){
+    var html=Object.entries(snap.val()||{}).map(function(e){
+      var uid=e[0],u=e[1];
+      return'<div class="user-row"><div class="uavatar">'+esc((u.name||u.email||'?')[0].toUpperCase())+'</div>'+
+        '<div class="uinfo"><div class="un">'+esc(u.name||'-')+'</div><div class="ue">'+esc(u.email||'-')+'</div></div>'+
+        '<span class="rbadge role-'+esc(u.role||'staff')+'">'+roleTH(u.role||'staff')+'</span>'+
+        (isSA()&&uid!==CU.uid?'<select onchange="changeRole(\''+uid+'\',this.value)" style="border:1px solid #e2e8f0;border-radius:6px;padding:4px;font-size:12px;font-family:Kanit,sans-serif">'+['staff','admin','superadmin'].map(function(r){return'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+roleTH(r)+'</option>';}).join('')+'</select>':'')+'</div>';
+    }).join('');
+    var el=document.getElementById('userList');if(el)el.innerHTML=html||'<div style="color:var(--muted);text-align:center;padding:14px">ไม่มีผู้ใช้งาน</div>';
+  });
+}
+function addUser(){
+  var email=document.getElementById('nuEmail').value.trim(),pass=document.getElementById('nuPass').value,name=document.getElementById('nuName').value.trim(),role=document.getElementById('nuRole').value;
+  var st=document.getElementById('nuStatus');
+  if(!email||!pass||!name){st.innerHTML='<div class="alert alert-warn">กรุณากรอกข้อมูลให้ครบ</div>';return;}
+  if(pass.length<6){st.innerHTML='<div class="alert alert-warn">รหัสผ่านต้องมีอย่างน้อย 6 ตัว</div>';return;}
+  var sec=firebase.initializeApp(firebase.app().options,'sec_'+Date.now());
+  sec.auth().createUserWithEmailAndPassword(email,pass).then(function(cred){
+    return db.ref('adminUsers/'+cred.user.uid).set({email:email,name:name,role:role,createdAt:Date.now(),createdBy:CU.email});
+  }).then(function(){
+    st.innerHTML='<div class="alert alert-success">\u2705 เพิ่ม '+esc(name)+' สำเร็จ</div>';
+    document.getElementById('nuEmail').value='';document.getElementById('nuPass').value='';document.getElementById('nuName').value='';
+    writeLog('add_user','เพิ่มผู้ใช้ '+email+' role: '+role);sec.delete();
+  }).catch(function(e){st.innerHTML='<div class="alert alert-danger">'+esc(e.message)+'</div>';sec.delete();});
+}
+function changeRole(uid,role){db.ref('adminUsers/'+uid).update({role:role});writeLog('change_role','เปลี่ยน role '+uid+' \u2192 '+role);}
+function loadLogs(){
+  var date=document.getElementById('logDate').value;
+  var s=new Date(date+'T00:00:00').getTime(),e=new Date(date+'T23:59:59').getTime();
+  db.ref('adminLogs').orderByChild('ts').startAt(s).endAt(e).once('value').then(function(snap){
+    var arr=Object.values(snap.val()||{}).sort(function(a,b){return b.ts-a.ts;});
+    var icons={login:'\ud83d\udd11',logout:'\ud83d\udc4b',cancel:'\ud83d\udeab',refund:'\ud83d\udcb8',edit_routes:'\ud83d\uddfa\ufe0f',edit_fees:'\ud83d\udcb3',edit_platform:'\ud83d\udef0\ufe0f',announce:'\ud83d\udce2',add_user:'\ud83d\udc64',change_role:'\ud83d\udd10',setting:'\u2699\ufe0f',export:'\u2b07\ufe0f',reset:'\u26a0\ufe0f'};
+    var html=arr.map(function(l){return'<div class="log-item"><div class="log-ico">'+(icons[l.action]||'\ud83d\udccb')+'</div><div style="flex:1"><span style="font-weight:700;color:var(--navy)">'+esc(l.by||'-')+'</span> '+esc(l.detail||'')+'<div style="font-size:11px;color:var(--muted)">'+new Date(l.ts).toLocaleString('th-TH')+'</div></div></div>';}).join('');
+    document.getElementById('logList').innerHTML=html||'<div style="color:var(--muted);text-align:center;padding:14px">ไม่มี log วันนี้</div>';
+  });
+}
+function writeLog(action,detail){if(!CU)return;db.ref('adminLogs').push({action:action,detail:detail,by:CU.email,name:CU.name,ts:Date.now()});}
+function doReset(){
+  if(!isSA()){alert('\u0e40\u0e09\u0e1e\u0e32\u0e30 Super Admin \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19');return;}
+  if(document.getElementById('resetConfirm').value!=='RESET'){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e1e\u0e34\u0e21\u0e1e\u0e4c "RESET" \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19');return;}
+  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements'};
+  var targets=Object.entries(map).filter(function(e){return document.getElementById(e[0]).checked;}).map(function(e){return e[1];});
+  if(!targets.length){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e17\u0e35\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15');return;}
+  if(!window.confirm('\u26a0\ufe0f \u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e25\u0e1a: '+targets.join(', ')+'\n\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e30\u0e2b\u0e32\u0e22\u0e16\u0e32\u0e27\u0e23!'))return;
+  Promise.all(targets.map(function(t){return db.ref(t).remove();})).then(function(){
+    writeLog('reset','\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15: '+targets.join(', '));
+    alert('\u2705 \u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+    document.getElementById('resetConfirm').value='';
+  }).catch(function(e){alert('\u0e40\u0e01\u0e34\u0e14\u0e02\u0e49\u0e2d\u0e1c\u0e34\u0e14\u0e1e\u0e25\u0e32\u0e14: '+e.message);});
+}
+function confirmDel(msg,cb){document.getElementById('delMsg').innerHTML=msg;document.getElementById('delConfirmBtn').onclick=function(){closeModal('delModal');cb();};openModal('delModal');}
+function notifyLine(code,b,msg){
+  fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'admin_action',code:code,name:b.name||'',phone:b.phone||'',route:b.route||'',lineMessage:'[Admin] '+msg+'\n\u0e23\u0e2b\u0e31\u0e2a: '+code,timestamp:new Date().toISOString()})}).catch(function(){});
+}
+function exportCSV(){
+  var rows=[['\u0e23\u0e2b\u0e31\u0e2a','\u0e0a\u0e37\u0e48\u0e2d','\u0e40\u0e1a\u0e2d\u0e23\u0e4c','\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07','\u0e2b\u0e21\u0e27\u0e14','\u0e27\u0e31\u0e19\u0e17\u0e35\u0e48','\u0e40\u0e27\u0e25\u0e32','\u0e17\u0e35\u0e48\u0e19\u0e31\u0e48\u0e07','\u0e22\u0e2d\u0e14','\u0e04\u0e34\u0e27','\u0e2a\u0e16\u0e32\u0e19\u0e30']];
+  filtBk.forEach(function(b){rows.push([b.code||'',b.name||'',b.phone||'',b.route||'',bkCat(b),b.date||'',b.time||'',b.seats||1,b.price||0,b.queueNumber||'',b.status||'']);});
+  var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='bookings_'+new Date().toISOString().split('T')[0]+'.csv';a.click();URL.revokeObjectURL(url);
+  writeLog('export','\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14 CSV '+filtBk.length+' \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23');
+}
+function openModal(id){document.getElementById(id).classList.remove('hidden');}
+function closeModal(id){document.getElementById(id).classList.add('hidden');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function stBadge(s){var m={confirmed:'\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e41\u0e25\u0e49\u0e27',checked_in:'\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e41\u0e25\u0e49\u0e27',changed:'\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e40\u0e27\u0e25\u0e32',cancelled:'\u0e22\u0e01\u0e40\u0e25\u0e34\u0e01\u0e41\u0e25\u0e49\u0e27'};return'<span class="badge badge-'+(s||'confirmed')+'">'+esc(m[s]||s||'\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e41\u0e25\u0e49\u0e27')+'</span>';}
+function fmtTs(ts){if(!ts)return'-';return new Date(ts).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});}
+</script>
+</body>
+</html>
