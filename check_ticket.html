@@ -471,6 +471,12 @@
       return booking;
     }
 
+    function displayPassengerName(name) {
+      var clean = String(name || '').trim();
+      if (!clean) return '-';
+      return clean.indexOf('คุณ') === 0 ? clean : 'คุณ' + clean;
+    }
+
     function startBookingListener(code) {
       db.ref('bookings/' + code).off();
       db.ref('bookings/' + code).on('value', function(snap) {
@@ -485,7 +491,7 @@
       show('ticketPanel', true); show('checkinPanel', true); show('cancelPanel', true);
       document.getElementById('showCode').textContent = currentBooking.code;
       document.getElementById('showStatus').textContent = statusLabel(currentBooking.status);
-      document.getElementById('showName').textContent = currentBooking.name || '-';
+      document.getElementById('showName').textContent = displayPassengerName(currentBooking.name);
       document.getElementById('showPhone').textContent = currentBooking.phone || '-';
       document.getElementById('showDate').textContent = formatDate(currentBooking.date);
       document.getElementById('showSeats').textContent = currentBooking.seats + ' ที่นั่ง';
@@ -942,7 +948,7 @@
         var cancelLegs = escapeHtml(buildScheduleMessage(getLegSchedule(currentBooking))).replace(/\n/g, '<br>');
         detail.innerHTML =
           '🎫 รหัส: <strong>' + currentBooking.code + '</strong><br>' +
-          '👤 ชื่อ: ' + (currentBooking.name || '-') + '<br>' +
+          '👤 ชื่อ: ' + escapeHtml(displayPassengerName(currentBooking.name)) + '<br>' +
           '🛣️ เส้นทาง: ' + (currentBooking.route || '-') + '<br>' +
           '📅 วันที่: ' + formatDate(currentBooking.date) + '<br>' +
           '🕐 ' + cancelLegs +
