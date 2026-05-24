@@ -298,11 +298,12 @@
     });
 
     var db = firebase.database();
-    var MAKE_WEBHOOK = 'https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
+    // LINE OA notification is sent by Firebase Function when /bookings/{code} is updated.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
     var DESTINATION_TIMES = ['06:40','07:20','07:40','08:20','09:20','10:00','11:00','11:40','12:30','13:10','14:00','14:20','14:40','15:00','17:00','17:20','18:20','18:40'];
     var ORIGIN_TIMES = ['06:20','08:00','09:00','09:30','10:40','11:30','12:10','13:00','13:40','14:00'];
     var MAX_SEATS = 3;
+    var CHECKIN_RADIUS_KM = 1.5;
 
     var currentBooking = null;
     var currentCode = null;
@@ -319,6 +320,21 @@
     function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function findSessionBooking(value) {
+      try {
+        var raw = sessionStorage.getItem('latestBooking');
+        if (!raw) return null;
+        var booking = JSON.parse(raw);
+        if (!booking || !booking.code) return null;
+        var code = normalizeLookup(booking.code);
+        var phone = String(booking.phone || '').replace(/[^0-9]/g, '');
+        if (value === code || value === phone) return { code: code, booking: booking };
+      } catch (err) {
+        console.warn('Cannot read booking session', err);
+      }
+      return null;
+    }
 
     function lookupTicket() {
       var value = normalizeLookup(document.getElementById('lookupValue').value);
@@ -357,7 +373,18 @@
         startBookingListener(found.code);
       }).catch(function(err) {
         console.error(err);
-        setStatus('lookupStatus', 'bad', 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองใหม่');
+        var sessionFound = findSessionBooking(value);
+        if (sessionFound) {
+          currentCode = sessionFound.code;
+          currentBooking = normalizeBooking(sessionFound.booking, sessionFound.code);
+          setStatus('lookupStatus', 'warn', 'กำลังแสดงข้อมูลตั๋วล่าสุดจากเครื่องนี้ เนื่องจากฐานข้อมูลไม่อนุญาตให้อ่านข้อมูลโดยตรง');
+          renderBooking();
+          return;
+        }
+        var message = err && err.code === 'PERMISSION_DENIED'
+          ? 'ฐานข้อมูลยังไม่อนุญาตให้หน้าเช็คตั๋วอ่านข้อมูล กรุณาตรวจสอบ Firebase Rules'
+          : 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองใหม่';
+        setStatus('lookupStatus', 'bad', message);
       }).finally(function() {
         btn.disabled = false; btn.textContent = 'ค้นหาตั๋ว';
       });
@@ -416,6 +443,21 @@
         return { leg1: parts[0] + ' → แปดริ้ว', leg2: 'แปดริ้ว → ' + parts[1] };
       }
       return { leg1: clean || '-', leg2: '' };
+    }
+
+    function connectionRouteInfo(route) {
+      var clean = String(route || '').replace(/\s+/g, ' ').trim();
+      var parts = clean.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
+      var destination = parts.length ? parts[parts.length - 1] : '';
+      var mainDestinations = ['ฉะเชิงเทรา', 'ฉะเชิงเทรา (แปดริ้ว)', 'แปดริ้ว', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'];
+      var secondaryKeywords = ['ระยอง', 'พัทยา', 'บางแสน', 'หนองมน', 'ศรีราชา', 'มีนบุรี', 'มันบุรี', 'เอกมัย', 'หมอชิต', 'BTS', 'จตุจักร', 'ลาดพร้าว', 'พระโขนง', 'อ่อนนุช'];
+      var isSecondary = secondaryKeywords.some(function(word) { return clean.indexOf(word) !== -1; }) ||
+        (destination && mainDestinations.indexOf(destination) === -1);
+      return {
+        type: isSecondary ? 'secondary_connection' : 'main_route',
+        destination: destination || '-',
+        label: isSecondary ? 'เส้นทางรอง / ต่อรถกลุ่มอื่น' : 'เส้นทางหลัก'
+      };
     }
 
     function statusLabel(status) {
@@ -497,43 +539,45 @@
 
     function updateCheckinWindow() {
       if (currentDistanceKm === null) return;
-      if (currentDistanceKm <= 5 && !enterFiveKmAt) {
+      if (currentDistanceKm <= CHECKIN_RADIUS_KM && !enterFiveKmAt) {
         enterFiveKmAt = Date.now();
         if (countdownTimer) clearInterval(countdownTimer);
         countdownTimer = setInterval(updateCheckinWindow, 1000);
       }
-      if (currentDistanceKm > 5) {
+      if (currentDistanceKm > CHECKIN_RADIUS_KM) {
         enterFiveKmAt = null;
         show('checkinWindow', false);
       } else if (enterFiveKmAt) {
         var remain = Math.max(0, 60 * 60 * 1000 - (Date.now() - enterFiveKmAt));
-        setStatus('checkinWindow', remain ? 'warn' : 'bad', 'เข้าสู่รัศมี 5 กม. แล้ว เหลือเวลาเช็คอิน ' + formatDuration(remain));
+        setStatus('checkinWindow', remain ? 'warn' : 'bad', 'เข้าสู่รัศมี ' + CHECKIN_RADIUS_KM + ' กม. แล้ว เหลือเวลาเช็คอิน ' + formatDuration(remain));
       }
       updateActionAvailability();
     }
 
     function updateActionAvailability() {
       var disabledByStatus = currentBooking && (currentBooking.status === 'cancelled' || currentBooking.status === 'checked_in');
-      var canCheck = currentDistanceKm !== null && currentDistanceKm <= 4 && enterFiveKmAt && Date.now() - enterFiveKmAt <= 60 * 60 * 1000 && !disabledByStatus;
+      var canCheck = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM && enterFiveKmAt && Date.now() - enterFiveKmAt <= 60 * 60 * 1000 && !disabledByStatus;
       document.getElementById('btnCheckin').disabled = !canCheck;
       document.getElementById('btnChangeTrip').disabled = disabledByStatus || !suggestedNextTrip;
     }
 
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
+      var checkedInAt = Date.now();
       var payload = {
         status: 'checked_in',
-        checkedInAt: Date.now(),
+        checkedInAt: checkedInAt,
         checkin: {
           lat: lastPosition ? lastPosition.lat : null,
           lng: lastPosition ? lastPosition.lng : null,
           distanceKm: currentDistanceKm,
           speedKmh: currentSpeedKmh,
-          etaMinutes: currentEtaMinutes
+          etaMinutes: currentEtaMinutes,
+          checkedInAt: checkedInAt
         },
         officialStatus: 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
       };
-      updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ แจ้งท่าปลายทางแล้ว');
+      updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว');
     }
 
     function changeToNextTrip() {
@@ -598,62 +642,128 @@
     }
 
     function updateBookingAndNotify(update, eventName, successText) {
-      var payload = Object.assign({}, update);
+      var nextStatus = update.status || currentBooking.status || 'confirmed';
+      var nextTime = update.time || currentBooking.time;
+      var eventAt = update.checkedInAt || update.changedAt || update.cancelledAt || Date.now();
+      var checkin = update.checkin || {};
+      var lat = checkin.lat !== undefined ? checkin.lat : (lastPosition ? lastPosition.lat : null);
+      var lng = checkin.lng !== undefined ? checkin.lng : (lastPosition ? lastPosition.lng : null);
+      var distanceKm = checkin.distanceKm !== undefined ? checkin.distanceKm : currentDistanceKm;
+      var speedKmh = checkin.speedKmh !== undefined ? checkin.speedKmh : currentSpeedKmh;
+      var etaMinutes = checkin.etaMinutes !== undefined ? checkin.etaMinutes : currentEtaMinutes;
+      var mapUrl = lat !== null && lng !== null ? 'https://maps.google.com/?q=' + lat + ',' + lng : '';
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      var shouldBatchCheckin = eventName === 'checkin' && routeInfo.type === 'secondary_connection';
+      var linePayload = {
+        event: eventName,
+        source: 'check_ticket.html',
+        target: 'passenger_booking_group',
+        notifyMode: shouldBatchCheckin ? 'batch' : 'single',
+        batchKey: shouldBatchCheckin ? 'checkin_secondary_connection' : '',
+        batchWindowMs: shouldBatchCheckin ? 30000 : 0,
+        routeType: routeInfo.type,
+        routeGroup: routeInfo.label,
+        connectionDestination: routeInfo.destination,
+        code: currentBooking.code,
+        name: currentBooking.name || '',
+        phone: currentBooking.phone || '',
+        route: currentBooking.route || '',
+        date: currentBooking.date || '',
+        time: nextTime || '',
+        seats: currentBooking.seats || 1,
+        price: currentBooking.price || '',
+        ticketStatus: nextStatus,
+        status: update.status || nextStatus,
+        officialStatus: update.officialStatus || '',
+        reason: update.changeReason || '',
+        checkedInAt: update.checkedInAt || '',
+        lat: lat,
+        lng: lng,
+        mapUrl: mapUrl,
+        distanceKm: distanceKm,
+        speedKmh: speedKmh,
+        etaMinutes: etaMinutes,
+        timestamp: new Date(eventAt).toISOString()
+      };
+      linePayload.message = buildLineMessage({
+        eventName: eventName,
+        status: nextStatus,
+        time: nextTime,
+        officialStatus: update.officialStatus || '',
+        reason: update.changeReason || '',
+        eventAt: eventAt,
+        routeInfo: routeInfo,
+        lat: lat,
+        lng: lng,
+        distanceKm: distanceKm,
+        speedKmh: speedKmh,
+        etaMinutes: etaMinutes
+      });
+
+      var payload = Object.assign({}, update, {
+        lineEvent: eventName,
+        lineMessage: linePayload.message,
+        linePayload: linePayload,
+        lineNotifyMode: linePayload.notifyMode,
+        lineBatchKey: linePayload.batchKey,
+        lineBatchWindowMs: linePayload.batchWindowMs,
+        lineNotifyAt: firebase.database.ServerValue.TIMESTAMP,
+        lineNotifyStatus: 'pending'
+      });
+
       db.ref('bookings/' + currentBooking.code).update(payload)
-        .then(function() {
-          var nextStatus = update.status || currentBooking.status || 'confirmed';
-          var nextTime = update.time || currentBooking.time;
-          var lineMessage = buildLineMessage(eventName, nextStatus, nextTime, update.officialStatus || '', update.changeReason || '');
-          return fetch(MAKE_WEBHOOK, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: eventName,
-              source: 'check_ticket.html',
-              code: currentBooking.code,
-              name: currentBooking.name,
-              phone: currentBooking.phone,
-              route: currentBooking.route,
-              date: currentBooking.date,
-              time: nextTime,
-              seats: currentBooking.seats,
-              price: currentBooking.price || '',
-              ticketStatus: nextStatus,
-              status: update.status,
-              officialStatus: update.officialStatus || '',
-              reason: update.changeReason || '',
-              distanceKm: currentDistanceKm,
-              speedKmh: currentSpeedKmh,
-              etaMinutes: currentEtaMinutes,
-              lineMessage: lineMessage,
-              timestamp: new Date().toISOString()
-            })
-          });
-        })
         .then(function() { setStatus('lookupStatus', 'good', successText); })
         .catch(function(err) {
           console.error(err);
-          setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลหรือแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
+          setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลเพื่อแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
         });
     }
 
-    function buildLineMessage(eventName, status, time, officialStatus, reason) {
+    function buildLineMessage(data) {
       var eventTitle = {
         checkin: 'ผู้โดยสารเช็คอินแล้ว',
         change_trip: 'ผู้โดยสารเปลี่ยนเที่ยวรถ',
         cancel_ticket: 'ผู้โดยสารยกเลิกตั๋ว'
-      }[eventName] || 'อัปเดตสถานะตั๋ว';
-
-      return eventTitle + '\n' +
+      }[data.eventName] || 'อัปเดตสถานะตั๋ว';
+      if (data.eventName === 'checkin' && data.routeInfo && data.routeInfo.type === 'secondary_connection') {
+        eventTitle = 'แจ้งข้อมูลผู้โดยสารต่อรถเส้นทางรอง';
+      }
+      var message = eventTitle + '\n' +
+        (data.eventName === 'checkin' && data.routeInfo && data.routeInfo.type === 'secondary_connection'
+          ? 'มีผู้โดยสารที่จะต่อรถไปยังเส้นทางอื่นนอกเส้นทางหลัก โปรดตรวจสอบและประสานงานรถต่อให้เรียบร้อย\n'
+          : '') +
         'รหัส: ' + currentBooking.code + '\n' +
         'ชื่อ: ' + (currentBooking.name || '-') + '\n' +
         'โทร: ' + (currentBooking.phone || '-') + '\n' +
         'เส้นทาง: ' + (currentBooking.route || '-') + '\n' +
-        'วันเวลา: ' + (currentBooking.date || '-') + ' ' + (time || '-') + ' น.\n' +
+        (data.routeInfo ? 'กลุ่มเส้นทาง: ' + data.routeInfo.label + '\nปลายทางต่อรถ: ' + data.routeInfo.destination + '\n' : '') +
+        'วันเวลาเดินทาง: ' + formatDate(currentBooking.date) + ' ' + (data.time || '-') + ' น.\n' +
         'ที่นั่ง: ' + (currentBooking.seats || 1) + '\n' +
-        'สถานะ: ' + statusLabel(status) +
-        (reason ? '\nสาเหตุ: ' + reason : '') +
-        (officialStatus ? '\nหมายเหตุ: ' + officialStatus : '');
+        'สถานะ: ' + statusLabel(data.status);
+
+      if (data.eventName === 'checkin') {
+        message += '\nเวลาเช็คอิน: ' + formatDateTime(data.eventAt) +
+          '\nระยะจากแปดริ้ว: ' + formatNumber(data.distanceKm, 2) + ' กม.' +
+          '\nความเร็ว: ' + formatNumber(data.speedKmh, 1) + ' กม./ชม.' +
+          '\nETA: ' + (data.etaMinutes === null || data.etaMinutes === undefined ? '-' : data.etaMinutes + ' นาที');
+        if (data.lat !== null && data.lng !== null) {
+          message += '\nพิกัด: ' + data.lat + ', ' + data.lng +
+            '\nแผนที่: https://maps.google.com/?q=' + data.lat + ',' + data.lng;
+        }
+      }
+
+      message += (data.reason ? '\nสาเหตุ: ' + data.reason : '') +
+        (data.officialStatus ? '\nหมายเหตุ: ' + data.officialStatus : '');
+      return message;
+    }
+
+    function formatNumber(value, digits) {
+      return value === null || value === undefined || isNaN(Number(value)) ? '-' : Number(value).toFixed(digits);
+    }
+
+    function formatDateTime(ts) {
+      var d = new Date(ts || Date.now());
+      return d.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'medium' });
     }
 
     function departureDate() {

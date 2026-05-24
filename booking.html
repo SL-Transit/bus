@@ -1567,6 +1567,13 @@ async function downloadTicketImage() {
 function goCheckin() {
   var code = document.getElementById('bookingCode').textContent;
   var phone = document.getElementById('pPhone').value.trim();
+  if (lastBooking && lastBooking.code === code) {
+    try {
+      sessionStorage.setItem('latestBooking', JSON.stringify(lastBooking));
+    } catch (err) {
+      console.warn('Cannot save booking session', err);
+    }
+  }
   window.location.href = 'check_ticket.html?code=' + code + '&phone=' + phone;
 }
  
