@@ -154,8 +154,16 @@
     .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .reason-box { display: grid; gap: 12px; margin-top: 12px; }
 
-    .schedule-line { display: block; }
-    .schedule-time { display: block; color: var(--blue); margin-top: 4px; }
+    .schedule-route { min-height: 74px; }
+    .schedule-time-box { min-height: 74px; border-left: 4px solid var(--blue); }
+    .schedule-time-box .v { color: var(--blue); font-family: 'Chakra Petch', sans-serif; font-size: 25px; }
+    .ticket-notice {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      font-size: 17px;
+      line-height: 1.8;
+    }
 
     .modal {
       position: fixed;
@@ -185,6 +193,7 @@
       .search-grid, .grid, .metric-grid, .actions { grid-template-columns: 1fr; }
       #qrCode { margin: 0 auto; }
       .ticket-head { align-items: flex-start; flex-direction: column; }
+      .schedule-time-box { border-left: 0; border-top: 4px solid var(--blue); }
       button, .btn { width: 100%; white-space: normal; }
     }
   </style>
@@ -222,8 +231,13 @@
       <div class="grid">
         <div class="row"><div class="k">ผู้โดยสาร</div><div id="showName" class="v">-</div></div>
         <div class="row"><div class="k">เบอร์โทร</div><div id="showPhone" class="v">-</div></div>
-        <div class="row wide"><div class="k">Leg 1</div><div id="showLeg1" class="v">-</div></div>
-        <div id="leg2Row" class="row wide hidden"><div class="k">Leg 2</div><div id="showLeg2" class="v">-</div></div>
+        <div class="row schedule-route"><div class="k">Leg 1</div><div id="showLeg1Route" class="v">-</div></div>
+        <div class="row schedule-time-box"><div class="k">เวลาออก</div><div id="showLeg1Time" class="v">-</div></div>
+        <div id="leg2RouteRow" class="row schedule-route hidden"><div class="k">Leg 2</div><div id="showLeg2Route" class="v">-</div></div>
+        <div id="leg2TimeRow" class="row schedule-time-box hidden"><div class="k">เวลาต่อรถ</div><div id="showLeg2Time" class="v">-</div></div>
+        <div id="transferNoticeRow" class="row wide ticket-notice hidden">
+          เวลารถต่อที่แสดงในตั๋วเป็นเวลาตามตารางเดินรถเบื้องต้น และอาจมีการปรับเปลี่ยนตามสภาพการเดินรถจริงของท่ารถ ระบบจะคำนวณและแจ้งเวลาที่เหมาะสมอีกครั้งเมื่อผู้โดยสารเช็คอินใกล้ถึงจุดต่อรถ
+        </div>
         <div class="row"><div class="k">วันเดินทาง</div><div id="showDate" class="v">-</div></div>
         <div class="row"><div class="k">จำนวนที่นั่ง</div><div id="showSeats" class="v">-</div></div>
         <div class="row"><div class="k">ยอดชำระ</div><div id="showPrice" class="v">-</div></div>
@@ -312,10 +326,23 @@
     });
     // LINE OA notification is sent by Firebase Function when /bookings/{code} is updated.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
-    var DESTINATION_TIMES = ['06:40','07:20','07:40','08:20','09:20','10:00','11:00','11:40','12:30','13:10','14:00','14:20','14:40','15:00','17:00','17:20','18:20','18:40'];
+    var DESTINATION_TIMES = ['06:40','07:20','07:40','08:20','09:20','10:00','11:00','11:20','11:40','12:20','12:30','13:10','14:00','14:20','14:40','15:00','17:00','17:20','18:20','18:40'];
     var ORIGIN_TIMES = ['06:20','08:00','09:00','09:30','10:40','11:30','12:10','13:00','13:40','14:00'];
+    var TRANSFER_BUFFER_MINUTES = [
+      { keywords: ['พนม'], minutes: 50 },
+      { keywords: ['สนามชัย', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'], minutes: 70 },
+      { keywords: ['ท่าตะเกียบ'], minutes: 115 },
+      { keywords: ['หนองคอก'], minutes: 135 },
+      { keywords: ['คลองตะเคียน'], minutes: 150 },
+      { keywords: ['หนองเรือ'], minutes: 165 },
+      { keywords: ['ไพจิตร'], minutes: 170 },
+      { keywords: ['ทุ่งกบินทร์'], minutes: 185 },
+      { keywords: ['สี่แยกโคนม'], minutes: 190 },
+      { keywords: ['คลองหาด'], minutes: 200 }
+    ];
     var MAX_SEATS = 3;
     var CHECKIN_RADIUS_KM = 1.5;
+    var CHECKIN_ETA_MINUTES = 5;
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
 
@@ -438,9 +465,13 @@
       document.getElementById('showPrice').textContent = currentBooking.price ? '฿' + Number(currentBooking.price).toLocaleString() + ' บาท' : '-';
 
       var legs = getLegSchedule(currentBooking);
-      document.getElementById('showLeg1').innerHTML = formatLegHtml(legs.leg1, 'เวลาออก', legs.leg1Time);
-      document.getElementById('showLeg2').innerHTML = legs.leg2 ? formatLegHtml(legs.leg2, 'เวลาต่อรถ', legs.leg2Time) : '-';
-      show('leg2Row', !!legs.leg2);
+      document.getElementById('showLeg1Route').textContent = legs.leg1;
+      document.getElementById('showLeg1Time').textContent = formatTimeText(legs.leg1Time);
+      document.getElementById('showLeg2Route').textContent = legs.leg2 || '-';
+      document.getElementById('showLeg2Time').textContent = formatTimeText(legs.leg2Time);
+      show('leg2RouteRow', !!legs.leg2);
+      show('leg2TimeRow', !!legs.leg2);
+      show('transferNoticeRow', !!legs.leg2);
 
       if (currentBooking.officialStatus) {
         document.getElementById('officialStatus').textContent = currentBooking.officialStatus;
@@ -467,7 +498,7 @@
     function getLegSchedule(booking, overrideTime) {
       var legs = splitLegs(booking.route || '');
       var leg1Time = overrideTime || booking.time || '';
-      var leg2Time = legs.leg2 ? inferConnectionTime(booking, leg1Time) : '';
+      var leg2Time = legs.leg2 ? inferConnectionTime(booking, leg1Time, legs) : '';
       return {
         leg1: legs.leg1,
         leg2: legs.leg2,
@@ -476,25 +507,75 @@
       };
     }
 
-    function inferConnectionTime(booking, leg1Time) {
-      var directFields = [
-        booking.leg2Time,
-        booking.transferTime,
-        booking.connectionTime,
-        booking.destinationTime,
-        booking.secondaryTime,
-        booking.nextTripTime
-      ];
-      for (var i = 0; i < directFields.length; i++) {
-        if (directFields[i]) return directFields[i];
+    function inferConnectionTime(booking, leg1Time, legs) {
+      if (booking.adjustedLeg2Time) return booking.adjustedLeg2Time;
+      var source = getRouteOrigin(booking, legs);
+      var buffer = getTransferBufferMinutes(source);
+      if (buffer !== null && leg1Time) {
+        return nextDestinationTimeAfter(addMinutesToTime(leg1Time, buffer)) || '';
       }
-      var min = toMin(leg1Time || booking.time || '00:00');
-      return DESTINATION_TIMES.find(function(t) { return toMin(t) >= min; }) || '';
+      if (booking.leg2Time) return booking.leg2Time;
+      if (booking.transferTime) return booking.transferTime;
+      if (booking.connectionTime) return booking.connectionTime;
+      if (booking.destinationTime) return booking.destinationTime;
+      if (booking.secondaryTime) return booking.secondaryTime;
+      if (booking.nextTripTime) return booking.nextTripTime;
+      return nextDestinationTimeAfter(leg1Time || booking.time || '00:00') || '';
     }
 
-    function formatLegHtml(route, label, time) {
-      return '<span class="schedule-line">' + escapeHtml(route || '-') + '</span>' +
-        '<span class="schedule-time">' + label + ': ' + (time ? escapeHtml(time) + ' น.' : '-') + '</span>';
+    function formatTimeText(time) {
+      return time ? time + ' น.' : '-';
+    }
+
+    function getRouteOrigin(booking, legs) {
+      var direct = booking.origin || booking.from || booking.pickup || booking.pickupPoint || booking.startStation || '';
+      if (direct) return String(direct);
+      var route = String(booking.route || '');
+      var parts = route.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
+      if (parts.length) return parts[0];
+      if (legs && legs.leg1) return String(legs.leg1).split('→')[0].trim();
+      return '';
+    }
+
+    function getTransferBufferMinutes(origin) {
+      var clean = String(origin || '').replace(/\s+/g, '');
+      for (var i = 0; i < TRANSFER_BUFFER_MINUTES.length; i++) {
+        var item = TRANSFER_BUFFER_MINUTES[i];
+        for (var j = 0; j < item.keywords.length; j++) {
+          if (clean.indexOf(item.keywords[j].replace(/\s+/g, '')) !== -1) return item.minutes;
+        }
+      }
+      return null;
+    }
+
+    function addMinutesToTime(time, minutes) {
+      var total = toMin(time || '00:00') + Number(minutes || 0);
+      var h = Math.floor(total / 60) % 24;
+      var m = total % 60;
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+
+    function timeFromTimestamp(ts) {
+      var d = new Date(ts || Date.now());
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function nextDestinationTimeAfter(time) {
+      var min = toMin(time || '00:00');
+      return DESTINATION_TIMES.find(function(t) { return toMin(t) > min; }) || '';
+    }
+
+    function getDestinationTimePairAfter(time) {
+      var min = toMin(time || '00:00');
+      var first = '';
+      var backup = '';
+      for (var i = 0; i < DESTINATION_TIMES.length; i++) {
+        if (toMin(DESTINATION_TIMES[i]) > min) {
+          if (!first) first = DESTINATION_TIMES[i];
+          else { backup = DESTINATION_TIMES[i]; break; }
+        }
+      }
+      return { first: first, backup: backup };
     }
 
     function escapeHtml(value) {
@@ -663,7 +744,9 @@
         currentBooking.status === 'waiting_admin_approval' ||
         currentBooking.status === 'pending_admin_approval'
       );
-      var canCheck = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM && enterFiveKmAt && Date.now() - enterFiveKmAt <= 60 * 60 * 1000 && !disabledByStatus;
+      var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
+      var etaNearTransfer = currentEtaMinutes !== null && currentEtaMinutes !== undefined && currentEtaMinutes <= CHECKIN_ETA_MINUTES;
+      var canCheck = (nearTransferPoint || etaNearTransfer) && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000) && !disabledByStatus;
       document.getElementById('btnCheckin').disabled = !canCheck;
       updateFlexiblePanel();
     }
@@ -705,6 +788,7 @@
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
       var checkedInAt = Date.now();
+      var transferAdjustment = calculateCheckinTransferAdjustment(checkedInAt);
       var payload = {
         status: 'checked_in',
         checkedInAt: checkedInAt,
@@ -718,7 +802,39 @@
         },
         officialStatus: 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
       };
+      if (transferAdjustment) {
+        Object.assign(payload, transferAdjustment);
+        payload.officialStatus += ' / รอบรถต่อที่ปรับได้เร็วที่สุด: ' + transferAdjustment.adjustedLeg2Time + ' น.' +
+          (transferAdjustment.backupLeg2Time ? ' / รอบถัดไปสำรอง: ' + transferAdjustment.backupLeg2Time + ' น.' : '');
+      }
       updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว');
+    }
+
+    function calculateCheckinTransferAdjustment(checkedInAt) {
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
+      var etaNearTransfer = currentEtaMinutes !== null && currentEtaMinutes !== undefined && currentEtaMinutes <= CHECKIN_ETA_MINUTES;
+      if (routeInfo.type !== 'secondary_connection' || (!nearTransferPoint && !etaNearTransfer)) return null;
+
+      var checkinTime = timeFromTimestamp(checkedInAt);
+      var pair = getDestinationTimePairAfter(checkinTime);
+      if (!pair.first) return null;
+      return {
+        adjustedLeg2Time: pair.first,
+        leg2Time: pair.first,
+        backupLeg2Time: pair.backup,
+        transferAdjustedAt: checkedInAt,
+        transferAdjustmentReason: nearTransferPoint ? 'checkin_within_radius' : 'eta_within_5_minutes',
+        transferAdjustment: {
+          status: 'adjusted_on_checkin',
+          checkinTime: checkinTime,
+          fastestTime: pair.first,
+          backupTime: pair.backup,
+          distanceKm: currentDistanceKm,
+          etaMinutes: currentEtaMinutes,
+          adjustedAt: checkedInAt
+        }
+      };
     }
 
     function requestTripChangeApproval() {
@@ -809,7 +925,8 @@
       var etaMinutes = checkin.etaMinutes !== undefined ? checkin.etaMinutes : currentEtaMinutes;
       var mapUrl = lat !== null && lng !== null ? 'https://maps.google.com/?q=' + lat + ',' + lng : '';
       var routeInfo = connectionRouteInfo(currentBooking.route);
-      var legSchedule = getLegSchedule(currentBooking, nextTime);
+      var bookingForSchedule = Object.assign({}, currentBooking, update);
+      var legSchedule = getLegSchedule(bookingForSchedule, nextTime);
       var shouldBatchCheckin = eventName === 'checkin' && routeInfo.type === 'secondary_connection';
       var linePayload = {
         event: eventName,
@@ -837,6 +954,9 @@
         status: update.status || nextStatus,
         approvalStatus: update.approvalStatus || '',
         requestedTime: update.requestedTime || '',
+        adjustedLeg2Time: update.adjustedLeg2Time || '',
+        backupLeg2Time: update.backupLeg2Time || '',
+        transferAdjustedAt: update.transferAdjustedAt || '',
         officialStatus: update.officialStatus || '',
         reason: update.changeReason || '',
         checkedInAt: update.checkedInAt || '',
@@ -859,6 +979,8 @@
         eventAt: eventAt,
         routeInfo: routeInfo,
         legSchedule: legSchedule,
+        adjustedLeg2Time: update.adjustedLeg2Time || '',
+        backupLeg2Time: update.backupLeg2Time || '',
         lat: lat,
         lng: lng,
         distanceKm: distanceKm,
@@ -920,6 +1042,10 @@
           '\nระยะจากแปดริ้ว: ' + formatNumber(data.distanceKm, 2) + ' กม.' +
           '\nความเร็ว: ' + formatNumber(data.speedKmh, 1) + ' กม./ชม.' +
           '\nETA: ' + (data.etaMinutes === null || data.etaMinutes === undefined ? '-' : data.etaMinutes + ' นาที');
+        if (data.adjustedLeg2Time) {
+          message += '\nรอบที่ปรับได้เร็วที่สุด: ' + data.adjustedLeg2Time + ' น.' +
+            '\nรอบถัดไปสำรอง: ' + (data.backupLeg2Time || '-') + (data.backupLeg2Time ? ' น.' : '');
+        }
         if (data.lat !== null && data.lng !== null) {
           message += '\nพิกัด: ' + data.lat + ', ' + data.lng +
             '\nแผนที่: https://maps.google.com/?q=' + data.lat + ',' + data.lng;
