@@ -478,13 +478,29 @@ const DEST_NORMAL = [
 let lastPos=null;
 // คง viewDir ไว้สำหรับ GPS/Map
 let viewDir='go';
-let mapObj=null, busMarker=null, routeLine=null, mapReady=false;
+let mapObj=null, busMarker=null, busTagMarker=null, routeLine=null, mapReady=false;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
 
 // ===== HELPERS =====
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
 function nowMin(){const n=new Date();return n.getHours()*60+n.getMinutes();}
 function curStops(){return viewDir==='go'?STOPS_GO:STOPS_BACK;}
+
+function normalizeMapPoint(point) {
+  if (!point) return null;
+  var lat = Number(point.lat ?? point.latitude);
+  var lon = Number(point.lon ?? point.lng ?? point.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null;
+  return { lon: lon, lat: lat };
+}
+
+function focusMap(point, zoomLevel) {
+  if (!mapObj || !point) return;
+  mapObj.location(point, true);
+  if (zoomLevel) {
+    setTimeout(function(){ mapObj.zoom(zoomLevel, true); }, 80);
+  }
+}
 
 // ===== ROUTE SELECTION STATE =====
 let selOrigin = 'ท่ารถสนามชัยเขต';
@@ -561,11 +577,27 @@ function initMap() {
 function startPassengerLocation() {
   if (!navigator.geolocation || passengerWatchId !== null) return;
 
-  passengerWatchId = navigator.geolocation.watchPosition(function(pos) {
-    var next = {
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var current = normalizeMapPoint({
       lon: pos.coords.longitude,
       lat: pos.coords.latitude
-    };
+    });
+    passengerPos = current;
+    updatePassengerOnMap(current, true);
+  }, function(err) {
+    console.warn('Passenger current location error:', err && err.message ? err.message : err);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 0
+  });
+
+  passengerWatchId = navigator.geolocation.watchPosition(function(pos) {
+    var next = normalizeMapPoint({
+      lon: pos.coords.longitude,
+      lat: pos.coords.latitude
+    });
+    if (!next) return;
 
     if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
       return;
@@ -582,7 +614,8 @@ function startPassengerLocation() {
   });
 }
 
-function updatePassengerOnMap(latlng) {
+function updatePassengerOnMap(latlng, forceCenter) {
+  latlng = normalizeMapPoint(latlng);
   if (!mapReady || !mapObj || !latlng) return;
 
   try { if (passengerMarker) mapObj.Overlays.remove(passengerMarker); } catch(e){}
@@ -596,9 +629,8 @@ function updatePassengerOnMap(latlng) {
   });
   mapObj.Overlays.add(passengerMarker);
 
-  if (!passengerCentered) {
-    mapObj.location(latlng, true);
-    mapObj.zoom(15, true);
+  if (forceCenter || !passengerCentered) {
+    focusMap(latlng, 15);
     passengerCentered = true;
   }
 }
@@ -635,40 +667,38 @@ function updateBusOnMap(pos) {
   var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
   var latlng = null;
 
-  if (pos.lat && pos.lng && pos.lat !== 0 && pos.lng !== 0) {
-    latlng = { lon: pos.lng, lat: pos.lat };
-  } else if (pos.stopIdx !== undefined && dir[pos.stopIdx]) {
+  latlng = normalizeMapPoint(pos);
+  if (!latlng && pos.stopIdx !== undefined && dir[pos.stopIdx]) {
     var s = dir[pos.stopIdx];
-    latlng = { lon: s.lng, lat: s.lat };
+    latlng = normalizeMapPoint(s);
   }
   if (!latlng) return;
 
   // ลบ marker เดิม
   try { if (busMarker) mapObj.Overlays.remove(busMarker); } catch(e){}
+  try { if (busTagMarker) mapObj.Overlays.remove(busTagMarker); } catch(e){}
 
-  // ใช้ Longdo Marker แบบ default (ไม่ custom icon) — รับรองขึ้นแน่นอน
   busMarker = new longdo.Marker(latlng, {
   title: 'รถโดยสาร',
   icon: {
-    html: '<div style="font-size:26px;">🚐</div>',
-    offset: { x: 13, y: 13 }
+    html: '<div style="width:34px;height:34px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;line-height:1">🚌</div>',
+    offset: { x: 17, y: 17 }
   }
 });
   mapObj.Overlays.add(busMarker);
 
   // เพิ่ม tag HTML กำกับตำแหน่ง
-  var tag = new longdo.Marker(latlng, {
+  busTagMarker = new longdo.Marker(latlng, {
     icon: {
       html: '<div style="background:#f97316;color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:16px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚌 รถอยู่ที่นี่</div>',
       offset: { x: 10, y: -20 }
     }
   });
-  mapObj.Overlays.add(tag);
+  mapObj.Overlays.add(busTagMarker);
 
   // ไม่เลื่อนแผนที่ไปหารถอัตโนมัติ เพราะผู้โดยสารต้องเห็นตำแหน่งตัวเองก่อน
   if (!passengerCentered) {
-    mapObj.location(latlng, true);
-    mapObj.zoom(12, true);
+    focusMap(latlng, 12);
   }
 }
 
