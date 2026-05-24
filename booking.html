@@ -217,6 +217,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
             <option value="sanamchai">ท่ารถสนามชัยเขต</option>
             <option value="tatakiab">ท่าตะเกียบ</option>
             <option value="nongkhok">หนองคอก</option>
+            <option value="khlongtakien">คลองตะเคียน</option>
             <option value="nongruea">หนองเรือ</option>
             <option value="phaijit">ไพจิตร</option>
             <option value="thoengkabintr">ทุ่งกบินทร์</option>
@@ -234,6 +235,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
               <option value="sanamchai">ท่ารถสนามชัยเขต</option>
               <option value="tatakiab">ท่าตะเกียบ</option>
               <option value="nongkhok">หนองคอก</option>
+              <option value="khlongtakien">คลองตะเคียน</option>
               <option value="nongruea">หนองเรือ</option>
               <option value="phaijit">ไพจิตร</option>
               <option value="thoengkabintr">ทุ่งกบินทร์</option>
@@ -672,6 +674,7 @@ var ORIGIN_PRICE = {
   'sanamchai':    55,
   'tatakiab':     100,
   'nongkhok':     100,
+  'khlongtakien': 120,
   'klonghat':     160,
   'siyaekkhonom': 150,
   'phanom':       55,
@@ -681,7 +684,7 @@ var ORIGIN_PRICE = {
 };
 // ===== ราคาตามเส้นทาง =====
 var ROUTE_PRICE = {
-  'sanamchai': 55, 'phanom': 55, 'nongkhok': 100, 'klonghat': 160, 'tatakiab': 100, 'siyaekkhonom': 150, 'thoengkabintr': 150, 'nongruea': 140, 'phaijit': 140
+  'sanamchai': 55, 'phanom': 55, 'nongkhok': 100, 'klonghat': 160, 'tatakiab': 100,'khlongtakien': 120, 'siyaekkhonom': 150, 'thoengkabintr': 150, 'nongruea': 140, 'phaijit': 140
 };
 var PRICE_RAW = 55; // internal only — use _PRICE_VALUE via PRICE getter
  
@@ -691,6 +694,7 @@ var SEGMENT_PRICE = {
     'sanamchai':     1,   // พนมฯ → สนามชัย
     'tatakiab':      2,   // พนมฯ → ท่าตะเกียบ
     'nongkhok':      3,   // พนมฯ → หนองคอก
+    'khlongtakien':  9,   // พนมฯ → คลองตะเคียน
     'nongruea':      4,   // พนมฯ → หนองเรือ
     'phaijit':       5,   // พนมฯ → ไพจิตร
     'thoengkabintr': 6,   // พนมฯ → ทุ่งกบินทร์
@@ -701,6 +705,7 @@ var SEGMENT_PRICE = {
   'sanamchai': {
     'tatakiab':      10,  // สนามชัย → ท่าตะเกียบ
     'nongkhok':      11,  // สนามชัย → หนองคอก
+    'khlongtakien':  17,  // สนามชัย → คลองตะเคียน
     'nongruea':      12,  // สนามชัย → หนองเรือ
     'phaijit':       13,  // สนามชัย → ไพจิตร
     'thoengkabintr': 14,  // สนามชัย → ทุ่งกบินทร์
@@ -710,6 +715,7 @@ var SEGMENT_PRICE = {
   // จาก ท่าตะเกียบ ไป ...
   'tatakiab': {
     'nongkhok':      20,  // ท่าตะเกียบ → หนองคอก
+    'khlongtakien':  26,  // ท่าตะเกียบ → คลองตะเคียน
     'nongruea':      21,  // ท่าตะเกียบ → หนองเรือ
     'phaijit':       22,  // ท่าตะเกียบ → ไพจิตร
     'thoengkabintr': 23,  // ท่าตะเกียบ → ทุ่งกบินทร์
@@ -718,6 +724,7 @@ var SEGMENT_PRICE = {
   },
   // จาก หนองคอก ไป ...
   'nongkhok': {
+    'khlongtakien':  26,  // หนองคอก → คลองตะเคียน
     'nongruea':      30,  // หนองคอก → หนองเรือ
     'phaijit':       31,  // หนองคอก → ไพจิตร
     'thoengkabintr': 32,  // หนองคอก → ทุ่งกบินทร์
