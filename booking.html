@@ -116,6 +116,15 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
 .booking-code{font-family:'Chakra Petch',sans-serif;font-size:28px;font-weight:700;color:var(--navy);background:#fff;border-radius:12px;padding:12px 24px;margin:14px auto;display:inline-block;border:2px solid #86efac;letter-spacing:4px;}
 .success-detail{font-size:14px;color:#166534;line-height:1.8;margin-top:8px;}
 .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.6;}
+.transfer-note{font-size:12px;color:var(--red);line-height:1.7;margin-top:10px;padding:10px 12px;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;}
+.service-fee-row{display:none;}
+.success-info-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
+.success-info-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;}
+.success-info-row:last-child{border-bottom:none;}
+.success-info-row span:first-child{color:var(--muted);font-weight:600;flex-shrink:0;}
+.success-info-row span:last-child{font-weight:700;color:var(--text);text-align:right;}
+.success-transfer-box{display:none;background:#f8faff;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:13px;line-height:1.8;margin-bottom:12px;}
+.checkin-notice{margin-top:8px;padding-top:8px;border-top:1px solid #bbf7d0;}
  
 /* UPLOAD */
 .upload-area{border:2px dashed var(--border);border-radius:12px;padding:16px 14px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbff;position:relative;min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
@@ -335,6 +344,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
         <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📋 สรุปการเดินทาง</div>
         <div id="leg2SummaryDetail" style="font-size:13px;color:var(--text);line-height:2"></div>
       </div>
+      <div class="summary-row service-fee-row" id="serviceFeeRow"><span>ค่าบริการ</span><span class="val" id="sumServiceFee">-</span></div>
       <div class="summary-row total"><span>ราคา</span><span class="val" id="sumTotal">-</span></div>
     </div>
  
@@ -346,17 +356,17 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
  
   <!-- PAGE 3 -->
   <div class="page" id="page3">
-    <div class="slip-info">
+    <div class="slip-info" id="paymentInfo">
       <h4>💳 วิธีชำระเงิน</h4>
-      <p>โอนเงินมาที่บัญชีด้านล่าง แล้วถ่ายรูปสลิป และแนบรูปในช่องด้านล่างได้เลย</p>
-      <div class="bank-box">
+      <p id="paymentDescription">โอนเงินมาที่บัญชีด้านล่าง แล้วถ่ายรูปสลิป และแนบรูปในช่องด้านล่างได้เลย</p>
+      <div class="bank-box" id="bankBox">
         <div class="bank-name">🏦 ธนาคารกสิกรไทย (KBank)</div>
         <div class="bank-acc">xxx-x-xxxxx-x</div>
         <div class="bank-owner">ชื่อเจ้าของบัญชี</div>
       </div>
     </div>
  
-    <div class="card">
+    <div class="card" id="slipUploadCard">
       <div class="card-title">📷 แนบรูปสลิปการโอนเงิน</div>
       <div class="upload-area" id="uploadArea">
         <input type="file" id="slipFile" accept="image/*" onchange="onFileSelect(this)">
@@ -381,7 +391,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
       <button class="btn-back" onclick="goPage(2)">← ย้อนกลับ</button>
       <button class="btn-submit" id="btnConfirm" onclick="submitBooking()">✅ ยืนยันการจอง</button>
     </div>
-    <p class="note">เมื่อกดยืนยัน รูปสลิปและข้อมูลจะถูกส่งให้นายท่าทันที</p>
+    <p class="note" id="confirmNote">เมื่อกดยืนยัน รูปสลิปและข้อมูลจะถูกส่งให้นายท่าทันที</p>
   </div>
  
   <!-- PAGE 4 -->
@@ -399,21 +409,13 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
         <div style="flex:1;border-top:2px dashed #dde3f0;margin:0 8px"></div>
         <div style="width:18px;height:18px;background:#f0f4ff;border-radius:50%;border:2px solid #dde3f0;flex-shrink:0;margin-right:-9px"></div>
       </div>
-      <!-- ตั๋วย่อ + รายละเอียด -->
+      <!-- รายละเอียดตั๋ว -->
       <div style="padding:18px;">
-        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;">
-          <div style="flex-shrink:0;text-align:center;">
-            <div id="successTicketPreview" style="width:120px;min-height:120px;background:linear-gradient(135deg,#eff6ff,#ffffff);border:2px solid #bfdbfe;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center;">
-              <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:8px;">ตั๋วโดยสาร</div>
-              <div id="successTicketCode" style="font-family:'Chakra Petch',sans-serif;font-size:21px;color:#0f2557;font-weight:700;letter-spacing:2px;line-height:1.1;">-</div>
-              <div id="successTicketRoute" style="font-size:10px;color:#475569;margin-top:8px;line-height:1.35;">สนามชัยเขต - ฉะเชิงเทรา</div>
-            </div>
-            <div style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.4">บันทึกเป็นรูปได้</div>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:8px;">รายละเอียดเที่ยวรถ</div>
-            <div id="successDetail" style="font-size:13px;color:#0f172a;line-height:2;"></div>
-          </div>
+        <div style="font-size:14px;color:var(--navy);font-weight:700;margin-bottom:10px;">ตั๋วโดยสาร</div>
+        <div class="success-info-grid" id="successDetail"></div>
+        <div class="success-transfer-box" id="successTransferBox">
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">ตารางเวลาปลายทาง</div>
+          <div id="successTransferDetail"></div>
         </div>
         <div id="platform6Notice" style="display:none;background:#1e3a8a;border-radius:12px;padding:14px;font-size:15px;color:#fff;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:0.5px;">🚏 กรุณารอขึ้นรถ ณ <span id="platformNumberLabel" style="font-size:20px;font-family:'Chakra Petch',sans-serif">ชานชาลาหมายเลข 6</span></div>
         <div id="queueDisplay" style="display:none;text-align:center;margin-bottom:12px;">
@@ -421,9 +423,9 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
           <div style="font-size:12px;color:var(--muted);">ในเที่ยวนี้ (ต้นทาง + ปลายทาง + เวลา)</div>
         </div>
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;font-size:13px;color:#166534;line-height:1.8;margin-bottom:12px;">
-          ✅ นายท่าได้รับข้อมูลการจองแล้ว<br>
+          ✅ ข้อมูลการจองครบถ้วนเรียบร้อยแล้ว<br>
           📱 แสดงรูปตั๋วหรือรหัสเมื่อขึ้นรถ<br>
-          🎟️ <strong>Flexible Ticket</strong> — ใช้เที่ยวถัดไปได้หากพลาดรถ
+          <div class="checkin-notice">ก่อนถึงจุดเปลี่ยนรถฉะเชิงเทรา กรุณาเช็คอินผ่านระบบ เพื่อให้ระบบคำนวณเวลารถต่อที่เหมาะสม และแจ้งข้อมูลให้นายท่ารับทราบล่วงหน้า</div>
         </div>
         <button onclick="downloadTicketImage()" style="width:100%;padding:13px;border-radius:12px;border:2px solid #2563eb;background:#fff;color:#2563eb;font-family:'Kanit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">💾 บันทึกตั๋วเป็นรูปภาพ</button>
         <button class="btn-submit" style="background:linear-gradient(135deg,#059669,#10b981)" id="btnCheckin" onclick="goCheckin()">🎫 ดูตั๋ว / เช็คอิน</button>
@@ -565,8 +567,17 @@ function _applySettings(snap) {
   // --- ค่าธรรมเนียม ---
   if (data.fees) {
     // ใช้ค่าบริการจาก admin ได้เลย (อ่านใน computePriceServerSide อยู่แล้ว)
-    window._FEE_SERVICE = Number(data.fees.service) || 5;
+    window._FEE_SERVICE = Number(data.fees.service) || SERVICE_FEE_AMOUNT;
     window._FEE_AGENT   = Number(data.fees.agent)   || 5;
+    SERVICE_FEE_AMOUNT  = window._FEE_SERVICE;
+    SERVICE_FEE_ENABLED = data.fees.serviceEnabled === true;
+    SERVICE_FEE_VISIBLE = data.fees.serviceVisible === true;
+  }
+
+  if (data.payment && data.payment.mode) {
+    PAYMENT_MODE = data.payment.mode === 'transfer' ? 'transfer' : 'onsite';
+  } else if (data.payments && data.payments.mode) {
+    PAYMENT_MODE = data.payments.mode === 'transfer' ? 'transfer' : 'onsite';
   }
 
   // --- ราคาตามเส้นทาง (LEG2_DEST) ---
@@ -664,6 +675,9 @@ db.ref('settings').on('value', function(snap) {
     if (typeof buildTimeSlots === 'function') {
       try { buildTimeSlots(); } catch(e) {}
     }
+    if (typeof applyPaymentModeUI === 'function') {
+      try { applyPaymentModeUI(); } catch(e) {}
+    }
     _hideUpdateOverlay();
   }, 1200);
 });
@@ -687,6 +701,10 @@ var ROUTE_PRICE = {
   'sanamchai': 55, 'phanom': 55, 'nongkhok': 100, 'klonghat': 160, 'tatakiab': 100,'khlongtakien': 120, 'siyaekkhonom': 150, 'thoengkabintr': 150, 'nongruea': 140, 'phaijit': 140
 };
 var PRICE_RAW = 55; // internal only — use _PRICE_VALUE via PRICE getter
+var SERVICE_FEE_AMOUNT = 5;
+var SERVICE_FEE_ENABLED = false; // เตรียมไว้ก่อน ช่วงทดลองยังไม่บวกเงินจริง
+var SERVICE_FEE_VISIBLE = false;  // ซ่อนค่าบริการจนกว่าจะเปิดจาก admin/settings
+var PAYMENT_MODE = 'onsite';      // onsite = จ่ายหน้างาน, transfer = โอนเงินและแนบสลิป
  
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
@@ -919,6 +937,85 @@ var seats     = 1;
 // Default date = today
 document.getElementById('travelDate').value = new Date().toISOString().split('T')[0];
  
+function isTransferPayment() {
+  return PAYMENT_MODE === 'transfer';
+}
+
+function getServiceFeeTotal(seatCount) {
+  return SERVICE_FEE_ENABLED ? SERVICE_FEE_AMOUNT * seatCount : 0;
+}
+
+function getBookingTotal(basePrice, seatCount) {
+  return (basePrice * seatCount) + getServiceFeeTotal(seatCount);
+}
+
+function toMinutes(timeStr) {
+  var parts = String(timeStr || '00:00').split(':');
+  return (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0);
+}
+
+function getPlatformLabel(destKey) {
+  if (EKKAMAI_DESTS.indexOf(destKey) !== -1 || MOCHIT_DESTS.indexOf(destKey) !== -1) return 'ชานชาลาหมายเลข 1';
+  if (PLATFORM6_DESTS.indexOf(destKey) !== -1 || destKey === 'minburi') return 'ชานชาลาหมายเลข 6';
+  return '-';
+}
+
+function getTransferGroupLabel(destKey) {
+  if (['pattaya','nongmon','bangsaen','sriracha','kaset','aoudom','laemchabang','yakaiyakan','sattahip','km10','banchan'].indexOf(destKey) !== -1) return 'กลุ่มพัทยา';
+  if (destKey === 'rayong') return 'กลุ่มระยอง';
+  if (EKKAMAI_DESTS.indexOf(destKey) !== -1) return 'กลุ่มเอกมัย';
+  if (MOCHIT_DESTS.indexOf(destKey) !== -1) return 'กลุ่มหมอชิต';
+  return 'กลุ่มอื่นๆ';
+}
+
+function getTransferInfo(origin, dest, mainTime) {
+  var destObj = LEG2_DEST[dest];
+  if (!destObj || !destObj.leg2 || !destObj.times || !destObj.times.length) return null;
+  var times = destObj.times.slice();
+  var transferTime = mainTime;
+  if (origin !== 'chachoengsao') {
+    var target = toMinutes(mainTime) + (destObj.buffer || 40);
+    transferTime = times.find(function(t) { return toMinutes(t) >= target; }) || times[0];
+  }
+  return {
+    label: destObj.label,
+    group: getTransferGroupLabel(dest),
+    platform: getPlatformLabel(dest),
+    transferTime: transferTime,
+    times: times
+  };
+}
+
+function formatTransferSchedule(times) {
+  return (times || []).map(function(t) { return t + ' น.'; }).join(', ');
+}
+
+function transferScheduleNotice() {
+  return 'เวลารถต่อที่แสดงในตั๋วเป็นเวลาตามตารางเดินรถเบื้องต้น และอาจมีการปรับเปลี่ยนตามสภาพการเดินรถจริงของท่ารถ ระบบจะคำนวณและแจ้งเวลาที่เหมาะสมอีกครั้งเมื่อผู้โดยสารเช็คอินใกล้ถึงจุดต่อรถ';
+}
+
+function applyPaymentModeUI() {
+  var transfer = isTransferPayment();
+  var paymentTitle = document.querySelector('#paymentInfo h4');
+  var paymentDesc = document.getElementById('paymentDescription');
+  var bankBox = document.getElementById('bankBox');
+  var slipCard = document.getElementById('slipUploadCard');
+  var confirmNote = document.getElementById('confirmNote');
+  if (paymentTitle) paymentTitle.textContent = transfer ? '💳 วิธีชำระเงิน' : '💳 จ่ายเงินตามหน้างานแต่ละท่ารถ';
+  if (paymentDesc) {
+    paymentDesc.textContent = transfer
+      ? 'โอนเงินมาที่บัญชีด้านล่าง แล้วถ่ายรูปสลิป และแนบรูปในช่องด้านล่างได้เลย'
+      : 'สำหรับช่วงทดลองระบบ ผู้โดยสารสามารถยืนยันการจองผ่านระบบได้ทันที และจ่ายเงินตามหน้างานแต่ละท่ารถในวันเดินทาง';
+  }
+  if (bankBox) bankBox.style.display = transfer ? 'block' : 'none';
+  if (slipCard) slipCard.style.display = transfer ? 'block' : 'none';
+  if (confirmNote) {
+    confirmNote.textContent = transfer
+      ? 'เมื่อกดยืนยัน รูปสลิปและข้อมูลจะถูกส่งให้นายท่าทันที'
+      : 'เมื่อกดยืนยัน ข้อมูลการจองจะถูกส่งให้นายท่าทันที โดยยังไม่ต้องแนบหลักฐานการโอนเงิน';
+  }
+}
+
 // ===== ROUTE DROPDOWN =====
 function updateRoute() {
   selOrigin = document.getElementById('routeFrom').value;
@@ -1170,13 +1267,15 @@ function goPage(p) {
         }
 
         // ผ่านทุกการตรวจ → ไปหน้า 3
-        document.getElementById('sumTotal2').textContent = '฿' + (PRICE * seats).toLocaleString() + ' บาท';
+        document.getElementById('sumTotal2').textContent = '฿' + getBookingTotal(PRICE, seats).toLocaleString() + ' บาท';
+        applyPaymentModeUI();
         if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'ถัดไป →'; }
         _navigatePage(3);
       })
       .catch(function(err) {
         console.warn('Duplicate booking check skipped:', err);
-        document.getElementById('sumTotal2').textContent = '฿' + (PRICE * seats).toLocaleString() + ' บาท';
+        document.getElementById('sumTotal2').textContent = '฿' + getBookingTotal(PRICE, seats).toLocaleString() + ' บาท';
+        applyPaymentModeUI();
         if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'ถัดไป →'; }
         _navigatePage(3);
       });
@@ -1216,29 +1315,42 @@ function updateSummary() {
   var destObj  = LEG2_DEST[selDest];
   // PRICE ครอบคลุมราคาทั้งหมดแล้ว (ไม่บวก Leg2 ซ้ำ)
   var totalPrice = PRICE;
+  var totalWithFee = getBookingTotal(totalPrice, seats);
+  var transferInfo = getTransferInfo(selOrigin, selDest, selTime);
   // ราคาคำนวณจาก server-side function เสมอ
  
   var leg2Card = document.getElementById('leg2SummaryCard');
   var leg2Detail = document.getElementById('leg2SummaryDetail');
-  if (destObj && destObj.leg2) {
-    document.getElementById('sumRoute').textContent = fromName + ' → แปดริ้ว';
+  if (destObj && destObj.leg2 && transferInfo) {
+    document.getElementById('sumRoute').textContent = selOrigin === 'chachoengsao' ? (fromName + ' → ' + toName) : (fromName + ' → แปดริ้ว');
     if (leg2Card && leg2Detail) {
       leg2Card.style.display = 'block';
+      var legText = selOrigin === 'chachoengsao'
+        ? 'เที่ยวรถ: <strong>ฉะเชิงเทรา (แปดริ้ว) → ' + toName + '</strong> (' + transferInfo.group + ')<br>'
+        : 'เที่ยวที่ 1: <strong>' + fromName + ' → ฉะเชิงเทรา (แปดริ้ว)</strong><br>'
+          + 'เที่ยวที่ 2: <strong>ฉะเชิงเทรา (แปดริ้ว) → ' + toName + '</strong> (' + transferInfo.group + ')<br>';
       leg2Detail.innerHTML =
-        'เที่ยวที่ 1: <strong>' + fromName + ' → ฉะเชิงเทรา (แปดริ้ว)</strong><br>'
-        + 'เที่ยวที่ 2: <strong>ฉะเชิงเทรา (แปดริ้ว) → ' + toName + '</strong><br>'
-        + 'จุดเปลี่ยนรถ: <strong>ชานชาลาหมายเลข ' + ((EKKAMAI_DESTS.indexOf(selDest) !== -1 || MOCHIT_DESTS.indexOf(selDest) !== -1) ? '1' : '6') + '</strong><br>'
+        legText
+        + 'เวลารถต่อโดยประมาณ: <strong>' + transferInfo.transferTime + ' น.</strong><br>'
+        + 'ตารางเวลาปลายทาง: <strong>' + formatTransferSchedule(transferInfo.times) + '</strong><br>'
+        + 'จุดเปลี่ยนรถ: <strong>' + transferInfo.platform + '</strong><br>'
         + 'เวลารอต่อรถ: <strong>ประมาณ ' + (destObj.buffer||40) + ' นาที</strong><br>'
-        + 'ราคารวม: <strong style="color:var(--accent)">฿' + (totalPrice * seats).toLocaleString() + ' บาท</strong>';
+        + 'ราคารวม: <strong style="color:var(--accent)">฿' + totalWithFee.toLocaleString() + ' บาท</strong>'
+        + '<div class="transfer-note">' + transferScheduleNotice() + '</div>';
     }
   } else {
     document.getElementById('sumRoute').textContent = fromName + ' → ' + toName;
     if (leg2Card) leg2Card.style.display = 'none';
   }
   document.getElementById('sumDate').textContent = dateStr;
-  document.getElementById('sumTime').textContent = selTime + ' น.';
+  document.getElementById('sumTime').innerHTML = transferInfo
+    ? selTime + ' น.<br><span style="font-size:12px;color:var(--muted);font-weight:500">รถต่อ ' + transferInfo.label + ': ' + transferInfo.transferTime + ' น.</span>'
+    : selTime + ' น.';
   document.getElementById('sumSeat').textContent = seats + ' ที่นั่ง';
-  document.getElementById('sumTotal').textContent = '฿' + (totalPrice * seats).toLocaleString() + ' บาท';
+  var feeRow = document.getElementById('serviceFeeRow');
+  if (feeRow) feeRow.style.display = SERVICE_FEE_VISIBLE ? 'flex' : 'none';
+  document.getElementById('sumServiceFee').textContent = '฿' + getServiceFeeTotal(seats).toLocaleString() + ' บาท';
+  document.getElementById('sumTotal').textContent = '฿' + totalWithFee.toLocaleString() + ' บาท';
 }
  
 // ===== CLOUDINARY CONFIG =====
@@ -1369,18 +1481,32 @@ function showSuccess(booking) {
   lastBooking = booking;
   grantTicketAccess(booking.code);
   document.getElementById('bookingCode').textContent = booking.code;
-  document.getElementById('successTicketCode').textContent = booking.code;
-  document.getElementById('successTicketRoute').textContent = booking.route || 'สนามชัยเขต - ฉะเชิงเทรา';
+  var transferInfo = booking.transfer || getTransferInfo(selOrigin, selDest, booking.time);
   var queueLine = booking.queueNumber
-    ? '🎫 ลำดับคิว: <strong style="color:var(--accent);font-size:16px">' + booking.queueNumber + '</strong><br>'
+    ? '<div class="success-info-row"><span>ลำดับคิว</span><span>' + booking.queueNumber + '</span></div>'
     : '';
   document.getElementById('successDetail').innerHTML =
-    '👤 <strong>' + sanitizeText(booking.name) + '</strong><br>' +
-    '📞 ' + sanitizeText(booking.phone) + '<br>' +
-    '🛣️ ' + sanitizeText(booking.route) + '<br>' +
-    '📅 ' + booking.date + ' เวลา ' + booking.time + ' น.<br>' +
-    '💺 ' + booking.seats + ' ที่นั่ง · ฿' + Number(booking.price).toLocaleString() + ' บาท<br>' +
+    '<div class="success-info-row"><span>ผู้โดยสาร</span><span>คุณ ' + sanitizeText(booking.name) + '</span></div>' +
+    '<div class="success-info-row"><span>โทรศัพท์</span><span>' + sanitizeText(booking.phone) + '</span></div>' +
+    '<div class="success-info-row"><span>เส้นทาง</span><span>' + sanitizeText(booking.route) + '</span></div>' +
+    '<div class="success-info-row"><span>วันเดินทาง</span><span>' + booking.date + '</span></div>' +
+    '<div class="success-info-row"><span>เวลาออก</span><span>' + booking.time + ' น.' + (transferInfo ? '<br><small style="color:var(--muted)">รถต่อ ' + sanitizeText(transferInfo.label) + ': ' + transferInfo.transferTime + ' น.</small>' : '') + '</span></div>' +
+    '<div class="success-info-row"><span>จำนวนที่นั่ง</span><span>' + booking.seats + ' ที่นั่ง</span></div>' +
+    '<div class="success-info-row"><span>ยอดชำระ</span><span>฿' + Number(booking.price).toLocaleString() + ' บาท</span></div>' +
     queueLine;
+
+  var transferBox = document.getElementById('successTransferBox');
+  var transferDetail = document.getElementById('successTransferDetail');
+  if (transferBox && transferDetail && transferInfo) {
+    transferBox.style.display = 'block';
+    transferDetail.innerHTML =
+      'ปลายทาง: <strong>' + sanitizeText(transferInfo.label) + '</strong> (' + sanitizeText(transferInfo.group) + ')<br>' +
+      'เวลาออกโดยประมาณ: <strong>' + transferInfo.transferTime + ' น.</strong><br>' +
+      'ตารางเวลา: <strong>' + formatTransferSchedule(transferInfo.times) + '</strong>' +
+      '<div class="transfer-note">' + transferScheduleNotice() + '</div>';
+  } else if (transferBox) {
+    transferBox.style.display = 'none';
+  }
  
   // แสดง badge ลำดับคิว
   if (booking.queueNumber) {
@@ -1395,7 +1521,7 @@ function showSuccess(booking) {
   var platformLabel = document.getElementById('platformNumberLabel');
   if (platform6El) {
     var isEkkamai = EKKAMAI_DESTS.indexOf(selDest) !== -1 || MOCHIT_DESTS.indexOf(selDest) !== -1;
-    var isPlatform6 = PLATFORM6_DESTS.indexOf(selDest) !== -1;
+    var isPlatform6 = PLATFORM6_DESTS.indexOf(selDest) !== -1 || selDest === 'minburi';
     if (isEkkamai) {
       if (platformLabel) platformLabel.textContent = 'ชานชาลาหมายเลข 1';
       platform6El.style.display = 'block';
@@ -1423,7 +1549,7 @@ function submitBooking() {
     return;
   }
  
-  if (!slipFileObj) { alert('กรุณาแนบรูปสลิปการโอนเงิน'); return; }
+  if (isTransferPayment() && !slipFileObj) { alert('กรุณาแนบรูปสลิปการโอนเงิน'); return; }
  
   // [Security] sanitize + validate ข้อมูลอีกรอบก่อนส่ง
   var rawName  = document.getElementById('pName').value;
@@ -1444,6 +1570,8 @@ function submitBooking() {
   // คำนวณราคา server-side (อีกรอบ ไม่ใช่จาก PRICE global ที่อาจถูกแก้)
   var serverPrice = computePriceServerSide(selOrigin, selDest);
   if (!serverPrice || serverPrice <= 0) { alert('ไม่สามารถคำนวณราคาได้ กรุณาลองใหม่'); return; }
+  var serviceFeeTotal = getServiceFeeTotal(seats);
+  var bookingTotal = getBookingTotal(serverPrice, seats);
  
   var btn = document.getElementById('btnConfirm');
   _submitLock = true;
@@ -1469,6 +1597,9 @@ function submitBooking() {
       var queueEnd = txResult.snapshot.val();
       var queueStart = queueEnd - seats + 1;
  
+      if (!isTransferPayment()) {
+        return { imageUrl: '', queueStart: queueStart, queueEnd: queueEnd };
+      }
       btn.textContent = '⏳ กำลังอัปโหลดสลิป...';
       return uploadToCloudinary(slipFileObj).then(function(imageUrl) {
         return { imageUrl: imageUrl, queueStart: queueStart, queueEnd: queueEnd };
@@ -1489,9 +1620,10 @@ function submitBooking() {
       var platformNum = null;
       if (EKKAMAI_DESTS.indexOf(selDest) !== -1 || MOCHIT_DESTS.indexOf(selDest) !== -1) {
         platformNum = 1;
-      } else if (PLATFORM6_DESTS.indexOf(selDest) !== -1) {
+      } else if (PLATFORM6_DESTS.indexOf(selDest) !== -1 || selDest === 'minburi') {
         platformNum = 6;
       }
+      var transferInfo = getTransferInfo(selOrigin, selDest, selTime);
 
       var booking = {
         code:        code,
@@ -1501,10 +1633,16 @@ function submitBooking() {
         date:        dateVal,
         time:        selTime,
         seats:       seats,
-        price:       serverPrice * seats, // ราคาจาก server เท่านั้น
+        price:       bookingTotal, // ราคาจาก server เท่านั้น + ค่าบริการเมื่อเปิดใช้งาน
+        fare:        serverPrice * seats,
+        serviceFee:  serviceFeeTotal,
+        serviceFeeEnabled: SERVICE_FEE_ENABLED,
+        paymentMode: PAYMENT_MODE,
         slip:        imageUrl,
         dupKey:      dupKey,
         queueNumber: queueNum,
+        lineQueueText: 'ลำดับคิว: ' + queueNum,
+        transfer:    transferInfo,
         platform:    platformNum,          // ชานชาลา (1, 6, หรือ null) → Firebase Function ส่งใน LINE
         ts:          firebase.database.ServerValue.TIMESTAMP // server timestamp เสมอ
       };
@@ -1622,6 +1760,7 @@ async function downloadTicketImage() {
   var ctx = canvas.getContext('2d');
   var isPlatform6   = PLATFORM6_DESTS.indexOf(selDest) !== -1;
   var isEkkamaiDest = EKKAMAI_DESTS.indexOf(selDest) !== -1 || MOCHIT_DESTS.indexOf(selDest) !== -1;
+  var transferInfo  = booking.transfer || getTransferInfo(selOrigin, selDest, booking.time);
  
   ctx.fillStyle = '#f0f4ff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1672,13 +1811,16 @@ async function downloadTicketImage() {
  
   var y = 475;
   var rows = [
-    ['ผู้โดยสาร', booking.name || '-'],
+    ['ผู้โดยสาร', 'คุณ ' + (booking.name || '-')],
     ['โทรศัพท์', booking.phone || '-'],
     ['เส้นทาง', booking.route || '-'],
     ['วันเดินทาง', (booking.date || '-') + ' เวลา ' + (booking.time || '-') + ' น.'],
     ['จำนวนที่นั่ง', (booking.seats || 1) + ' ที่นั่ง'],
     ['ยอดชำระ', '฿' + Number(booking.price || 0).toLocaleString() + ' บาท'],
   ];
+  if (transferInfo) {
+    rows.splice(4, 0, ['รถต่อ', transferInfo.label + ' เวลา ' + transferInfo.transferTime + ' น.']);
+  }
  
   rows.forEach(function(row) {
     ctx.fillStyle = '#64748b';
@@ -1712,6 +1854,22 @@ async function downloadTicketImage() {
     y += 120;
     ctx.textAlign = 'left';
   }
+
+  if (transferInfo) {
+    ctx.fillStyle = '#fff1f2';
+    drawRoundRect(ctx, 120, y + 5, 660, 120, 18);
+    ctx.fill();
+    ctx.strokeStyle = '#fecdd3';
+    ctx.lineWidth = 2;
+    drawRoundRect(ctx, 120, y + 5, 660, 120, 18);
+    ctx.stroke();
+    ctx.fillStyle = '#991b1b';
+    ctx.font = '600 21px Kanit, sans-serif';
+    ctx.fillText('ตารางเวลาปลายทาง: ' + formatTransferSchedule(transferInfo.times), 150, y + 46);
+    ctx.font = '500 18px Kanit, sans-serif';
+    drawWrappedText(ctx, transferScheduleNotice(), 150, y + 78, 600, 26);
+    y += 150;
+  }
  
   ctx.fillStyle = '#f0fdf4';
   drawRoundRect(ctx, 120, y + 5, 660, 150, 18);
@@ -1723,9 +1881,10 @@ async function downloadTicketImage() {
  
   ctx.fillStyle = '#166534';
   ctx.font = '600 24px Kanit, sans-serif';
-  ctx.fillText('นายท่าได้รับข้อมูลการจองแล้ว', 155, y + 52);
+  ctx.fillText('ข้อมูลการจองครบถ้วนเรียบร้อยแล้ว', 155, y + 52);
   ctx.fillText('แสดงรูปตั๋วหรือรหัสเมื่อขึ้นรถ', 155, y + 92);
-  ctx.fillText('Flexible Ticket ใช้เที่ยวถัดไปได้หากพลาดรถ', 155, y + 132);
+  ctx.font = '500 18px Kanit, sans-serif';
+  drawWrappedText(ctx, 'ก่อนถึงจุดเปลี่ยนรถฉะเชิงเทรา กรุณาเช็คอินผ่านระบบ เพื่อให้ระบบคำนวณเวลารถต่อที่เหมาะสม และแจ้งข้อมูลให้นายท่ารับทราบล่วงหน้า', 155, y + 126, 590, 24);
  
   ctx.textAlign = 'center';
   ctx.fillStyle = '#64748b';
@@ -1792,6 +1951,7 @@ function newBooking() {
   document.getElementById('btnConfirm').textContent = '✅ ยืนยันการจอง';
   document.getElementById('routeFrom').value = 'chachoengsao';
   document.getElementById('routeTo').value = 'sanamchai';
+  applyPaymentModeUI();
   renderTimes();
   goPage(1);
 }
@@ -1799,6 +1959,7 @@ function newBooking() {
 // อัปเดตสถานะเวลาทุก 1 นาที
 renderTimes();
 renderLeg2Info();
+applyPaymentModeUI();
 setInterval(renderTimes, 60000);
 document.getElementById('travelDate').addEventListener('change', function() {
   selTime = null;
