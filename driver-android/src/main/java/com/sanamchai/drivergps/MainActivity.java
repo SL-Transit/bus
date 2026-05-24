@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -18,25 +20,45 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
     static final String PREFS = "driver_gps";
     static final String KEY_ENABLED = "tracking_enabled";
+    static final String KEY_LAST_STATUS = "last_status";
+    static final String KEY_LAST_SENT = "last_sent";
+    static final String KEY_LAST_COORDS = "last_coords";
+    static final String KEY_LAST_ERROR = "last_error";
 
     private SharedPreferences prefs;
     private TextView statusText;
     private Button mainButton;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable uiTick = new Runnable() {
+        @Override public void run() {
+            refreshUi();
+            uiHandler.postDelayed(this, 1000);
+        }
+    };
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         buildUi();
         requestPermissionsThenStart();
+        uiHandler.post(uiTick);
+    }
+
+    @Override protected void onDestroy() {
+        uiHandler.removeCallbacks(uiTick);
+        super.onDestroy();
     }
 
     private void buildUi() {
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Color.rgb(15, 23, 42));
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setPadding(32, 48, 32, 48);
         root.setBackgroundColor(Color.rgb(15, 23, 42));
+        root.setMinimumHeight(getResources().getDisplayMetrics().heightPixels);
         scroll.addView(root);
 
         ImageView cover = new ImageView(this);
@@ -155,7 +177,20 @@ public class MainActivity extends Activity {
             mainButton.setBackgroundColor(Color.rgb(249, 115, 22));
             return;
         }
-        statusText.setText(enabled ? "กำลังส่ง GPS ไป bus/car1 ทุก 20 วินาที" : "หยุดส่งตำแหน่งอยู่");
+        if (enabled) {
+            long sent = prefs.getLong(KEY_LAST_SENT, 0);
+            String coords = prefs.getString(KEY_LAST_COORDS, "--");
+            String status = prefs.getString(KEY_LAST_STATUS, "กำลังรอ GPS...");
+            String error = prefs.getString(KEY_LAST_ERROR, "");
+            String time = sent > 0 ? new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date(sent)) : "--:--:--";
+            statusText.setText("กำลังส่ง GPS ไป bus/car1 ทุก 20 วินาที\n" +
+                    "สถานะ: " + status + "\n" +
+                    "พิกัดล่าสุด: " + coords + "\n" +
+                    "ส่งล่าสุด: " + time +
+                    (error.isEmpty() ? "" : "\nข้อผิดพลาด: " + error));
+        } else {
+            statusText.setText("หยุดส่งตำแหน่งอยู่");
+        }
         mainButton.setText(enabled ? "หยุดส่งตำแหน่ง" : "เริ่มส่งตำแหน่ง");
         mainButton.setBackgroundColor(enabled ? Color.rgb(220, 38, 38) : Color.rgb(22, 163, 74));
     }

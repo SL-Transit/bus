@@ -16,25 +16,21 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-
-import java.util.HashMap;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.Map;
 
 public class GpsService extends Service {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
     static final String ACTION_STOP = "com.sanamchai.drivergps.STOP";
 
     private static final String CHANNEL_ID = "gps_sender";
-    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app/bus/car1.json";
 
     private SharedPreferences prefs;
     private LocationManager locationManager;
-    private DatabaseReference busRef;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Location latestLocation;
     private boolean running = false;
@@ -42,6 +38,7 @@ public class GpsService extends Service {
     private final Runnable periodicSend = new Runnable() {
         @Override public void run() {
             if (!running) return;
+            refreshLastKnownLocation();
             sendLatest();
             handler.postDelayed(this, 20000);
         }
@@ -50,6 +47,7 @@ public class GpsService extends Service {
     private final LocationListener listener = new LocationListener() {
         @Override public void onLocationChanged(Location location) {
             latestLocation = location;
+            saveCoords(location);
         }
     };
 
@@ -57,7 +55,6 @@ public class GpsService extends Service {
         super.onCreate();
         prefs = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        initFirebase();
         createChannel();
     }
 
@@ -71,50 +68,39 @@ public class GpsService extends Service {
         return START_STICKY;
     }
 
-    private void initFirebase() {
-        if (FirebaseApp.getApps(this).isEmpty()) {
-            FirebaseOptions options = new FirebaseOptions.Builder()
-                    .setApiKey("AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI")
-                    .setApplicationId("1:511401517598:web:5605ee3777619dffe1c40f")
-                    .setDatabaseUrl(DB_URL)
-                    .setProjectId("bus-line1-ba0ea")
-                    .build();
-            FirebaseApp.initializeApp(this, options);
-        }
-        busRef = FirebaseDatabase.getInstance(DB_URL).getReference("bus/car1");
-    }
-
     private void startTracking() {
         if (running) return;
         running = true;
-        prefs.edit().putBoolean(MainActivity.KEY_ENABLED, true).apply();
+        prefs.edit()
+                .putBoolean(MainActivity.KEY_ENABLED, true)
+                .putString(MainActivity.KEY_LAST_STATUS, "เริ่มระบบแล้ว กำลังรอ GPS")
+                .putString(MainActivity.KEY_LAST_ERROR, "")
+                .apply();
         startForeground(1, buildNotification("กำลังหาตำแหน่ง..."));
         if (!hasLocationPermission()) {
-            updateNotification("ยังไม่ได้อนุญาตตำแหน่ง");
+            recordError("ยังไม่ได้อนุญาตตำแหน่ง");
             return;
         }
         try {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 0, listener);
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, listener);
-            Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            if (last == null) last = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-            latestLocation = last;
-        } catch (SecurityException ignored) {}
+        } catch (SecurityException e) {
+            recordError(e.getMessage());
+        }
+        refreshLastKnownLocation();
         handler.removeCallbacks(periodicSend);
         handler.post(periodicSend);
     }
 
     private void stopTracking() {
         running = false;
-        prefs.edit().putBoolean(MainActivity.KEY_ENABLED, false).apply();
+        prefs.edit()
+                .putBoolean(MainActivity.KEY_ENABLED, false)
+                .putString(MainActivity.KEY_LAST_STATUS, "หยุดส่งแล้ว")
+                .apply();
         handler.removeCallbacks(periodicSend);
         try { locationManager.removeUpdates(listener); } catch (Exception ignored) {}
-        if (busRef != null) {
-            Map<String, Object> offline = new HashMap<>();
-            offline.put("online", false);
-            offline.put("ts", System.currentTimeMillis());
-            busRef.updateChildren(offline);
-        }
+        markOffline();
         stopForeground(true);
         stopSelf();
     }
@@ -125,29 +111,88 @@ public class GpsService extends Service {
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    private void refreshLastKnownLocation() {
+        if (!hasLocationPermission()) return;
+        try {
+            Location gps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            Location network = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            Location best = gps != null ? gps : network;
+            if (network != null && gps != null && network.getTime() > gps.getTime()) best = network;
+            if (best != null) {
+                latestLocation = best;
+                saveCoords(best);
+            }
+        } catch (SecurityException ignored) {}
+    }
+
     private void sendLatest() {
-        if (latestLocation == null || busRef == null) {
+        if (latestLocation == null) {
+            recordStatus("รอสัญญาณ GPS");
             updateNotification("รอสัญญาณ GPS...");
             return;
         }
-        Location loc = latestLocation;
+        final Location loc = latestLocation;
+        final String json = buildJson(loc, true);
+        new Thread(() -> {
+            try {
+                putJson(json);
+                prefs.edit()
+                        .putLong(MainActivity.KEY_LAST_SENT, System.currentTimeMillis())
+                        .putString(MainActivity.KEY_LAST_STATUS, "ส่งสำเร็จ")
+                        .putString(MainActivity.KEY_LAST_ERROR, "")
+                        .apply();
+                updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
+            } catch (Exception e) {
+                recordError(e.getMessage());
+            }
+        }).start();
+    }
+
+    private void markOffline() {
+        final String json = "{\"online\":false,\"ts\":" + System.currentTimeMillis() + "}";
+        new Thread(() -> {
+            try { putJson(json); } catch (Exception ignored) {}
+        }).start();
+    }
+
+    private String buildJson(Location loc, boolean online) {
         Integer speedKmh = loc.hasSpeed() ? Math.round(loc.getSpeed() * 3.6f) : null;
-        Map<String, Object> data = new HashMap<>();
-        data.put("lat", loc.getLatitude());
-        data.put("lng", loc.getLongitude());
-        data.put("lon", loc.getLongitude());
-        data.put("acc", Math.round(loc.getAccuracy()));
-        data.put("speed", speedKmh);
-        data.put("heading", loc.hasBearing() ? loc.getBearing() : null);
-        data.put("direction", "go");
-        data.put("queue", 1);
-        data.put("stopIdx", nearestStopIndex(loc.getLatitude(), loc.getLongitude()));
-        data.put("status", speedKmh != null && speedKmh < 3 ? "at" : "towards");
-        data.put("online", true);
-        data.put("source", "android-apk");
-        data.put("ts", System.currentTimeMillis());
-        busRef.setValue(data);
-        updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
+        Float heading = loc.hasBearing() ? loc.getBearing() : null;
+        return "{" +
+                "\"lat\":" + loc.getLatitude() + "," +
+                "\"lng\":" + loc.getLongitude() + "," +
+                "\"lon\":" + loc.getLongitude() + "," +
+                "\"acc\":" + Math.round(loc.getAccuracy()) + "," +
+                "\"speed\":" + (speedKmh == null ? "null" : speedKmh) + "," +
+                "\"heading\":" + (heading == null ? "null" : heading) + "," +
+                "\"direction\":\"go\"," +
+                "\"queue\":1," +
+                "\"stopIdx\":" + nearestStopIndex(loc.getLatitude(), loc.getLongitude()) + "," +
+                "\"status\":\"towards\"," +
+                "\"online\":" + online + "," +
+                "\"source\":\"gps-transit-apk\"," +
+                "\"ts\":" + System.currentTimeMillis() +
+                "}";
+    }
+
+    private void putJson(String json) throws Exception {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(DB_URL);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("PUT");
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setConnectTimeout(12000);
+            conn.setReadTimeout(12000);
+            conn.setDoOutput(true);
+            OutputStream os = conn.getOutputStream();
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+            os.close();
+            int code = conn.getResponseCode();
+            if (code < 200 || code >= 300) throw new RuntimeException("Firebase HTTP " + code);
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
     }
 
     private int nearestStopIndex(double lat, double lng) {
@@ -173,9 +218,26 @@ public class GpsService extends Service {
         return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    private void saveCoords(Location loc) {
+        prefs.edit().putString(MainActivity.KEY_LAST_COORDS,
+                String.format(Locale.US, "%.6f, %.6f", loc.getLatitude(), loc.getLongitude())).apply();
+    }
+
+    private void recordStatus(String status) {
+        prefs.edit().putString(MainActivity.KEY_LAST_STATUS, status).apply();
+    }
+
+    private void recordError(String error) {
+        prefs.edit()
+                .putString(MainActivity.KEY_LAST_STATUS, "ส่งไม่ได้")
+                .putString(MainActivity.KEY_LAST_ERROR, error == null ? "unknown" : error)
+                .apply();
+        updateNotification("ส่งไม่ได้: " + (error == null ? "unknown" : error));
+    }
+
     private void createChannel() {
         if (Build.VERSION.SDK_INT < 26) return;
-        NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "ส่ง GPS รถ", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "GPS Transit", NotificationManager.IMPORTANCE_LOW);
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         nm.createNotificationChannel(ch);
     }
