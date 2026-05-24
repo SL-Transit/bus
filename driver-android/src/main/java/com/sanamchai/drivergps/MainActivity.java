@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -38,15 +39,24 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.rgb(15, 23, 42));
         scroll.addView(root);
 
+        ImageView cover = new ImageView(this);
+        cover.setImageResource(getResources().getIdentifier("app_cover", "drawable", getPackageName()));
+        cover.setAdjustViewBounds(true);
+        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams(260, 260);
+        coverLp.setMargins(0, 0, 0, 26);
+        root.addView(cover, coverLp);
+
         TextView title = new TextView(this);
-        title.setText("ส่งตำแหน่งรถโดยสาร");
+        title.setText("GPS Transit");
         title.setTextColor(Color.WHITE);
         title.setTextSize(28);
         title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("แอพนี้มีหน้าที่ส่ง GPS เข้า passenger.html ทุก 20 วินาที");
+        sub.setText("ส่งตำแหน่งรถโดยสารเข้า passenger.html ทุก 20 วินาที");
         sub.setTextColor(Color.rgb(203, 213, 225));
         sub.setTextSize(16);
         sub.setGravity(Gravity.CENTER);

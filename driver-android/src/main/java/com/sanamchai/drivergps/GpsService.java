@@ -182,7 +182,7 @@ public class GpsService extends Service {
 
     private Notification buildNotification(String text) {
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
-        return b.setContentTitle("กำลังส่ง GPS ไป passenger.html")
+        return b.setContentTitle("GPS Transit กำลังส่งตำแหน่ง")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setOngoing(true)
