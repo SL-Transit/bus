@@ -6,6 +6,7 @@
 <title>Smart Ticket – ระบบจองตั๋วรถเดินทางออนไลน์</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -522,6 +523,10 @@ firebase.initializeApp({
   messagingSenderId:"511401517598",appId:"1:511401517598:web:5605ee3777619dffe1c40f"
 });
 var db = firebase.database();
+var authReady = firebase.auth().signInAnonymously().catch(function(err) {
+  console.warn('Anonymous auth is not ready', err);
+  return null;
+});
  
 // ===== ราคาต้นทาง (ค่ารถ Q-เฮง ถึงแปดริ้ว) =====
 var ORIGIN_PRICE = {
@@ -1191,6 +1196,7 @@ function uploadToCloudinary(file) {
  
 function showSuccess(booking) {
   lastBooking = booking;
+  grantTicketAccess(booking.code);
   document.getElementById('bookingCode').textContent = booking.code;
   document.getElementById('successTicketCode').textContent = booking.code;
   document.getElementById('successTicketRoute').textContent = booking.route || 'สนามชัยเขต - ฉะเชิงเทรา';
@@ -1562,6 +1568,16 @@ async function downloadTicketImage() {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+function grantTicketAccess(code) {
+  authReady.then(function(cred) {
+    var user = cred && cred.user ? cred.user : firebase.auth().currentUser;
+    if (!user || !code) return;
+    return db.ref('ticketAccess/' + user.uid + '/' + code).set(true);
+  }).catch(function(err) {
+    console.warn('Cannot grant ticket access', err);
+  });
 }
  
 function goCheckin() {
