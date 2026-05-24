@@ -6,6 +6,7 @@ on:
     paths:
       - "driver-android/**"
       - "build.gradle"
+      - "gradle.properties"
       - "settings.gradle"
       - ".github/workflows/build-driver-apk.yml"
 
