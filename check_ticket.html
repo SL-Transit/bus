@@ -474,7 +474,10 @@
     function displayPassengerName(name) {
       var clean = String(name || '').trim();
       if (!clean) return '-';
-      return clean.indexOf('คุณ') === 0 ? clean : 'คุณ' + clean;
+      if (clean.indexOf('คุณ') === 0) {
+        return 'คุณ ' + clean.replace(/^คุณ\s*/, '');
+      }
+      return 'คุณ ' + clean;
     }
 
     function startBookingListener(code) {
