@@ -71,11 +71,13 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .status-text span { font-size:13px; color:var(--muted); margin-top:3px; display:block; }
 
 /* ===== MAP ===== */
-#map { height:280px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); overflow:hidden; background:#e8edf3; }
+#map { height:280px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); overflow:hidden; background:#e8edf3; position:relative; }
 #map .ldc-widget:not(.ldc-geolocation),
 #map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
 #map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
 #map .ldmap-crosshair { display:none !important; }
+.map-locate-btn { position:absolute; right:12px; top:12px; z-index:20; border:1px solid rgba(37,99,235,.25); background:#fff; color:#1d4ed8; border-radius:10px; height:36px; padding:0 12px; display:flex; align-items:center; gap:6px; font-family:'Kanit',sans-serif; font-weight:700; font-size:13px; box-shadow:0 4px 12px rgba(15,23,42,.16); cursor:pointer; }
+.map-locate-btn:active { transform:translateY(1px); }
 
 /* ===== ROUTE STRIP ===== */
 .route-card {
@@ -480,6 +482,7 @@ let lastPos=null;
 let viewDir='go';
 let mapObj=null, busMarker=null, busTagMarker=null, routeLine=null, mapReady=false;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
+let passengerLocateButton=null;
 
 // ===== HELPERS =====
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
@@ -500,6 +503,51 @@ function focusMap(point, zoomLevel) {
   if (zoomLevel) {
     setTimeout(function(){ mapObj.zoom(zoomLevel, true); }, 80);
   }
+}
+
+function setLocateButtonBusy(isBusy) {
+  if (!passengerLocateButton) return;
+  passengerLocateButton.disabled = !!isBusy;
+  passengerLocateButton.style.opacity = isBusy ? '.75' : '1';
+  passengerLocateButton.innerHTML = isBusy ? '⌖ กำลังหา...' : '⌖ ตำแหน่งฉัน';
+}
+
+function addLocateButton() {
+  var mapEl = document.getElementById('map');
+  if (!mapEl || passengerLocateButton) return;
+  passengerLocateButton = document.createElement('button');
+  passengerLocateButton.type = 'button';
+  passengerLocateButton.className = 'map-locate-btn';
+  passengerLocateButton.innerHTML = '⌖ ตำแหน่งฉัน';
+  passengerLocateButton.addEventListener('click', function(){
+    requestPassengerCurrentLocation(true, true);
+  });
+  mapEl.appendChild(passengerLocateButton);
+}
+
+function requestPassengerCurrentLocation(forceCenter, showBusy) {
+  if (!navigator.geolocation) {
+    if (passengerLocateButton) passengerLocateButton.innerHTML = 'เปิดตำแหน่งไม่ได้';
+    return;
+  }
+  if (showBusy) setLocateButtonBusy(true);
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var current = normalizeMapPoint({
+      lon: pos.coords.longitude,
+      lat: pos.coords.latitude
+    });
+    passengerPos = current;
+    updatePassengerOnMap(current, forceCenter);
+    setLocateButtonBusy(false);
+  }, function(err) {
+    console.warn('Passenger current location error:', err && err.message ? err.message : err);
+    if (passengerLocateButton) passengerLocateButton.innerHTML = 'อนุญาตตำแหน่ง';
+    setTimeout(function(){ setLocateButtonBusy(false); }, 1800);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 20000,
+    maximumAge: 0
+  });
 }
 
 // ===== ROUTE SELECTION STATE =====
@@ -523,6 +571,7 @@ function initMap() {
     });
 
     mapReady = true;
+    addLocateButton();
 
     // ซ่อน UI ทุกตัว เหลือแค่ Geolocation
     setTimeout(function(){
@@ -577,20 +626,7 @@ function initMap() {
 function startPassengerLocation() {
   if (!navigator.geolocation || passengerWatchId !== null) return;
 
-  navigator.geolocation.getCurrentPosition(function(pos) {
-    var current = normalizeMapPoint({
-      lon: pos.coords.longitude,
-      lat: pos.coords.latitude
-    });
-    passengerPos = current;
-    updatePassengerOnMap(current, true);
-  }, function(err) {
-    console.warn('Passenger current location error:', err && err.message ? err.message : err);
-  }, {
-    enableHighAccuracy: true,
-    timeout: 15000,
-    maximumAge: 0
-  });
+  requestPassengerCurrentLocation(true, false);
 
   passengerWatchId = navigator.geolocation.watchPosition(function(pos) {
     var next = normalizeMapPoint({
@@ -696,10 +732,7 @@ function updateBusOnMap(pos) {
   });
   mapObj.Overlays.add(busTagMarker);
 
-  // ไม่เลื่อนแผนที่ไปหารถอัตโนมัติ เพราะผู้โดยสารต้องเห็นตำแหน่งตัวเองก่อน
-  if (!passengerCentered) {
-    focusMap(latlng, 12);
-  }
+  // รถอัปเดต marker เท่านั้น ไม่แย่งการเลื่อนแผนที่จากตำแหน่งผู้โดยสาร
 }
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
