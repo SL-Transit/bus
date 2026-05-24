@@ -505,6 +505,15 @@ function focusMap(point, zoomLevel) {
   }
 }
 
+function getStopByName(name) {
+  return STOPS_GO.concat(STOPS_BACK).find(function(s){ return s.name === name; }) || null;
+}
+
+function focusSelectedOrigin() {
+  var stop = getStopByName(selOrigin);
+  if (stop) focusMap(normalizeMapPoint(stop), 14);
+}
+
 function setLocateButtonBusy(isBusy) {
   if (!passengerLocateButton) return;
   passengerLocateButton.disabled = !!isBusy;
@@ -520,6 +529,10 @@ function addLocateButton() {
   passengerLocateButton.className = 'map-locate-btn';
   passengerLocateButton.innerHTML = '⌖ ตำแหน่งฉัน';
   passengerLocateButton.addEventListener('click', function(){
+    if (passengerPos) {
+      updatePassengerOnMap(passengerPos, true);
+      return;
+    }
     requestPassengerCurrentLocation(true, true);
   });
   mapEl.appendChild(passengerLocateButton);
@@ -527,7 +540,8 @@ function addLocateButton() {
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
   if (!navigator.geolocation) {
-    if (passengerLocateButton) passengerLocateButton.innerHTML = 'เปิดตำแหน่งไม่ได้';
+    if (passengerLocateButton) passengerLocateButton.innerHTML = 'ใช้จุดต้นทาง';
+    focusSelectedOrigin();
     return;
   }
   if (showBusy) setLocateButtonBusy(true);
@@ -541,11 +555,12 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
     setLocateButtonBusy(false);
   }, function(err) {
     console.warn('Passenger current location error:', err && err.message ? err.message : err);
-    if (passengerLocateButton) passengerLocateButton.innerHTML = 'อนุญาตตำแหน่ง';
+    focusSelectedOrigin();
+    if (passengerLocateButton) passengerLocateButton.innerHTML = 'เปิดตำแหน่ง';
     setTimeout(function(){ setLocateButtonBusy(false); }, 1800);
   }, {
     enableHighAccuracy: true,
-    timeout: 20000,
+    timeout: 8000,
     maximumAge: 0
   });
 }
@@ -613,6 +628,7 @@ function initMap() {
     });
 
     drawRoute();
+    focusSelectedOrigin();
     startPassengerLocation();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
     if (lastPos) {
@@ -1005,6 +1021,7 @@ function buildDropdowns(){
     if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
     buildDestOptions();
     renderSched(); renderNextBus();
+    if (mapReady && !passengerCentered) focusSelectedOrigin();
   });
   destSel.addEventListener('change', function(){
     selDest = this.value;
