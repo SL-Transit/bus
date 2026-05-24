@@ -6,6 +6,7 @@
   <title>ตรวจสอบและจัดการตั๋ว</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <style>
     :root {
@@ -298,6 +299,10 @@
     });
 
     var db = firebase.database();
+    var authReady = firebase.auth().signInAnonymously().catch(function(err) {
+      console.error(err);
+      throw err;
+    });
     // LINE OA notification is sent by Firebase Function when /bookings/{code} is updated.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
     var DESTINATION_TIMES = ['06:40','07:20','07:40','08:20','09:20','10:00','11:00','11:40','12:30','13:10','14:00','14:20','14:40','15:00','17:00','17:20','18:20','18:40'];
@@ -345,21 +350,21 @@
       btn.disabled = true; btn.textContent = 'กำลังค้นหา...';
       setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
-      var task;
-      if (/^BK\d{6}$/.test(value)) {
-        task = db.ref('bookings/' + value).once('value').then(function(snap) {
-          return snap.exists() ? { code: value, booking: snap.val() } : null;
-        });
-      } else if (/^0[689]\d{8}$/.test(value)) {
-        task = db.ref('bookings').orderByChild('phone').equalTo(value).limitToLast(1).once('value').then(function(snap) {
-          if (!snap.exists()) return null;
-          var found = null;
-          snap.forEach(function(child) { found = { code: child.key, booking: child.val() }; });
-          return found;
-        });
-      } else {
-        task = Promise.resolve(null);
-      }
+      var task = authReady.then(function() {
+        if (/^BK\d{6}$/.test(value)) {
+          return db.ref('bookings/' + value).once('value').then(function(snap) {
+            return snap.exists() ? { code: value, booking: snap.val() } : null;
+          });
+        } else if (/^0[689]\d{8}$/.test(value)) {
+          return db.ref('bookings').orderByChild('phone').equalTo(value).limitToLast(1).once('value').then(function(snap) {
+            if (!snap.exists()) return null;
+            var found = null;
+            snap.forEach(function(child) { found = { code: child.key, booking: child.val() }; });
+            return found;
+          });
+        }
+        return null;
+      });
 
       task.then(function(found) {
         if (!found) {
@@ -381,7 +386,9 @@
           renderBooking();
           return;
         }
-        var message = err && err.code === 'PERMISSION_DENIED'
+        var message = err && err.code === 'auth/operation-not-allowed'
+          ? 'ระบบยังไม่ได้เปิด Anonymous Sign-in ใน Firebase Authentication กรุณาเปิดใช้งานก่อนตรวจตั๋ว'
+          : err && err.code === 'PERMISSION_DENIED'
           ? 'ยังไม่สามารถดึงข้อมูลตั๋วจากฐานข้อมูลได้ กรุณาใช้ตั๋วล่าสุดจากเครื่องที่จอง หรือติดต่อเจ้าหน้าที่'
           : 'ไม่สามารถดึงข้อมูลตั๋วได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
         setStatus('lookupStatus', 'bad', message);
