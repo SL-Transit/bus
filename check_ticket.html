@@ -377,13 +377,13 @@
         if (sessionFound) {
           currentCode = sessionFound.code;
           currentBooking = normalizeBooking(sessionFound.booking, sessionFound.code);
-          setStatus('lookupStatus', 'warn', 'กำลังแสดงข้อมูลตั๋วล่าสุดจากเครื่องนี้ เนื่องจากฐานข้อมูลไม่อนุญาตให้อ่านข้อมูลโดยตรง');
+          setStatus('lookupStatus', 'warn', 'กำลังแสดงข้อมูลตั๋วล่าสุดจากเครื่องนี้ หากต้องการเช็คจากเครื่องอื่น กรุณาใช้รหัสตั๋วหรือติดต่อเจ้าหน้าที่');
           renderBooking();
           return;
         }
         var message = err && err.code === 'PERMISSION_DENIED'
-          ? 'ฐานข้อมูลยังไม่อนุญาตให้หน้าเช็คตั๋วอ่านข้อมูล กรุณาตรวจสอบ Firebase Rules'
-          : 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองใหม่';
+          ? 'ยังไม่สามารถดึงข้อมูลตั๋วจากฐานข้อมูลได้ กรุณาใช้ตั๋วล่าสุดจากเครื่องที่จอง หรือติดต่อเจ้าหน้าที่'
+          : 'ไม่สามารถดึงข้อมูลตั๋วได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
         setStatus('lookupStatus', 'bad', message);
       }).finally(function() {
         btn.disabled = false; btn.textContent = 'ค้นหาตั๋ว';
