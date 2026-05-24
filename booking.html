@@ -1574,7 +1574,9 @@ function goCheckin() {
       console.warn('Cannot save booking session', err);
     }
   }
-  window.location.href = 'check_ticket.html?code=' + code + '&phone=' + phone;
+  window.location.href = 'check_ticket.html?code=' + encodeURIComponent(code) +
+    '&phone=' + encodeURIComponent(phone) +
+    '&v=' + Date.now();
 }
  
 function newBooking() {
