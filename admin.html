@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data:; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.firebaseio.com https://*.googleapis.com https://hook.eu1.make.com wss://*.firebaseio.com; img-src 'self' data: https:;">
+ 
 <title>ST Transit — Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -198,7 +198,7 @@ tr:hover td{background:#f8fbff;}
     <div class="hpop-item" onclick="doLogout()">&#x1F44B; ออกจากระบบ</div>
   </div>
   <main class="main">
-
+ 
     <!-- DASHBOARD -->
     <div class="page-section active" id="sec-dashboard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -212,7 +212,7 @@ tr:hover td{background:#f8fbff;}
       </div>
       <div id="dashAnnounce"></div>
     </div>
-
+ 
     <!-- BOOKINGS -->
     <div class="page-section" id="sec-bookings">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">รายการจอง</h1>
@@ -228,7 +228,7 @@ tr:hover td{background:#f8fbff;}
         <div id="bkPager" style="text-align:center;padding:10px;color:var(--muted);font-size:12px"></div>
       </div>
     </div>
-
+ 
     <!-- REFUNDS -->
     <div class="page-section" id="sec-refunds">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">รอคืนเงิน</h1>
@@ -236,7 +236,7 @@ tr:hover td{background:#f8fbff;}
         <div class="tbl-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>เบอร์</th><th>ยอด</th><th>ยกเลิกเมื่อ</th><th>เหตุผล</th><th>จัดการ</th></tr></thead><tbody id="refBody"></tbody></table></div>
       </div>
     </div>
-
+ 
     <!-- REVENUE -->
     <div class="page-section" id="sec-revenue">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">รายงานรายได้</h1>
@@ -253,7 +253,7 @@ tr:hover td{background:#f8fbff;}
         </div>
       </div>
     </div>
-
+ 
     <!-- ROUTES -->
     <div class="page-section" id="sec-routes">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">จัดการเส้นทาง / ราคา / เวลา</h1>
@@ -280,7 +280,7 @@ tr:hover td{background:#f8fbff;}
         </div>
       </div>
     </div>
-
+ 
     <!-- ANNOUNCE -->
     <div class="page-section" id="sec-announce">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">ประกาศ</h1>
@@ -292,7 +292,7 @@ tr:hover td{background:#f8fbff;}
       </div>
       <div class="card"><h2>&#x1F4CB; ประกาศที่ใช้งานอยู่</h2><div id="annList"></div></div>
     </div>
-
+ 
     <!-- USERS -->
     <div class="page-section" id="sec-users">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">ผู้ใช้งาน</h1>
@@ -308,7 +308,7 @@ tr:hover td{background:#f8fbff;}
       </div>
       <div class="card"><h2>&#x1F465; รายชื่อผู้ใช้งาน</h2><div id="userList"></div></div>
     </div>
-
+ 
     <!-- LOGS -->
     <div class="page-section" id="sec-logs">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">Log การใช้งาน</h1>
@@ -320,7 +320,7 @@ tr:hover td{background:#f8fbff;}
         <div id="logList"></div>
       </div>
     </div>
-
+ 
     <!-- RESET -->
     <div class="page-section" id="sec-reset">
       <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">&#x26A0;&#xFE0F; รีเซ็ตข้อมูล</h1>
@@ -339,10 +339,10 @@ tr:hover td{background:#f8fbff;}
         <button class="btn btn-danger" onclick="doReset()">&#x1F5D1;&#xFE0F; รีเซ็ตข้อมูลที่เลือก</button>
       </div></div>
     </div>
-
+ 
   </main>
 </div>
-
+ 
 <!-- CANCEL MODAL -->
 <div class="modal hidden" id="cancelModal">
   <div class="modal-card"><h3>&#x1F6AB; ยกเลิกตั๋ว</h3>
@@ -356,7 +356,7 @@ tr:hover td{background:#f8fbff;}
     </div>
   </div>
 </div>
-
+ 
 <!-- DETAIL MODAL -->
 <div class="modal hidden" id="detailModal">
   <div class="modal-card"><h3>&#x1F3AB; รายละเอียดการจอง</h3>
@@ -367,7 +367,7 @@ tr:hover td{background:#f8fbff;}
     </div>
   </div>
 </div>
-
+ 
 <!-- CONFIRM DELETE MODAL -->
 <div class="modal hidden" id="delModal">
   <div class="modal-card"><h3>&#x1F5D1;&#xFE0F; ยืนยันการดำเนินการ</h3>
@@ -378,7 +378,7 @@ tr:hover td{background:#f8fbff;}
     </div>
   </div>
 </div>
-
+ 
 <script>
 firebase.initializeApp({
   apiKey:"AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
@@ -396,7 +396,7 @@ var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeDa
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
-
+ 
 function doLogin(){
   if(_loginLock){document.getElementById('loginError').textContent='ล็อคชั่วคราว รอ 1 นาที';return;}
   var email=document.getElementById('lEmail').value.trim();
