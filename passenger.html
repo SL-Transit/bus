@@ -476,9 +476,10 @@ const DEST_NORMAL = [
 ];
 
 let lastPos=null;
+let allBusPositions={};
 // คง viewDir ไว้สำหรับ GPS/Map
 let viewDir='go';
-let mapObj=null, busMarker=null, busTagMarker=null, routeLine=null, mapReady=false;
+let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
 let busFollowMode=true, busCentered=false;
 
@@ -510,6 +511,18 @@ function getStopByName(name) {
 function focusSelectedOrigin() {
   var stop = getStopByName(selOrigin);
   if (stop) focusMap(normalizeMapPoint(stop), 14);
+}
+
+function choosePrimaryBus(buses) {
+  var best = null;
+  Object.keys(buses || {}).forEach(function(id) {
+    var pos = buses[id];
+    if (!pos) return;
+    if (!best || Number(pos.ts || 0) > Number(best.ts || 0)) {
+      best = Object.assign({ carId: id }, pos);
+    }
+  });
+  return best;
 }
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
@@ -598,8 +611,8 @@ function initMap() {
     drawRoute();
     focusSelectedOrigin();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
-    if (lastPos) {
-      updateBusOnMap(lastPos);
+    if (Object.keys(allBusPositions).length) {
+      updateAllBusesOnMap(allBusPositions);
     }
   } catch(e) {
     console.error('Map error:', e);
@@ -681,10 +694,26 @@ function drawRoute() {
     });
 }
 
-function updateBusOnMap(pos) {
+function updateAllBusesOnMap(buses) {
+  if (!mapReady || !mapObj) return;
+  Object.keys(buses || {}).forEach(function(id) {
+    updateBusOnMap(buses[id], id, false);
+  });
+  var primary = choosePrimaryBus(buses);
+  if (primary && (busFollowMode || !busCentered)) {
+    var point = normalizeMapPoint(primary);
+    if (point) {
+      focusMap(point, 14);
+      busCentered = true;
+    }
+  }
+}
+
+function updateBusOnMap(pos, carId, shouldFocus) {
   if (!mapReady || !mapObj) return;
   var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
   var latlng = null;
+  carId = carId || pos.carId || 'car1';
 
   latlng = normalizeMapPoint(pos);
   if (!latlng && pos.stopIdx !== undefined && dir[pos.stopIdx]) {
@@ -694,29 +723,30 @@ function updateBusOnMap(pos) {
   if (!latlng) return;
 
   // ลบ marker เดิม
-  try { if (busMarker) mapObj.Overlays.remove(busMarker); } catch(e){}
-  try { if (busTagMarker) mapObj.Overlays.remove(busTagMarker); } catch(e){}
+  try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e){}
+  try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e){}
 
-  busMarker = new longdo.Marker(latlng, {
-  title: 'รถโดยสาร',
+  var label = String(carId).replace(/^car/i, 'รถ ');
+  busMarkers[carId] = new longdo.Marker(latlng, {
+  title: 'รถโดยสาร ' + label,
   icon: {
     html: '<div style="width:34px;height:34px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;line-height:1">🚌</div>',
     offset: { x: 17, y: 17 }
   }
 });
-  mapObj.Overlays.add(busMarker);
+  mapObj.Overlays.add(busMarkers[carId]);
 
   // เพิ่ม tag HTML กำกับตำแหน่ง
-  busTagMarker = new longdo.Marker(latlng, {
+  busTagMarkers[carId] = new longdo.Marker(latlng, {
     icon: {
-      html: '<div style="background:#f97316;color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:16px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚌 รถอยู่ที่นี่</div>',
+      html: '<div style="background:#f97316;color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:16px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚌 ' + label + '</div>',
       offset: { x: 10, y: -20 }
     }
   });
-  mapObj.Overlays.add(busTagMarker);
+  mapObj.Overlays.add(busTagMarkers[carId]);
 
   // หน้าผู้โดยสารต้องเห็นรถเรียลไทม์เป็นหลัก แม้ตำแหน่งผู้ใช้จะใช้ไม่ได้
-  if (busFollowMode || !busCentered) {
+  if (shouldFocus && (busFollowMode || !busCentered)) {
     focusMap(latlng, 14);
     busCentered = true;
   }
@@ -771,18 +801,21 @@ function renderRouteStrip(pos) {
   // Bus list — รองรับหลายคัน (ขณะนี้ใช้ car1 ต่อไปจะ loop จาก allCars)
   const busListWrapper=document.getElementById('busListWrapper');
   if(busListWrapper){
-    if(pos){
-      const stopName=pos.direction==='back'
-        ? (STOPS_BACK[pos.stopIdx]?.name||'?')
-        : (STOPS_GO[pos.stopIdx]?.name||'?');
-      const dir=pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
-      busListWrapper.innerHTML=`<div class="bus-list">
-        <div class="bus-list-item">
-          <span class="bus-list-id">รถคันที่ 1</span>
-          <span class="bus-list-loc">${stopName}</span>
-          <span class="bus-list-dir">${dir}</span>
-        </div>
+    const busRows = Object.keys(allBusPositions || {}).map(function(id){
+      const p = allBusPositions[id] || {};
+      const stopName=p.direction==='back'
+        ? (STOPS_BACK[p.stopIdx]?.name||'?')
+        : (STOPS_GO[p.stopIdx]?.name||'?');
+      const dir=p.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+      const label=String(id).replace(/^car/i,'รถคันที่ ');
+      return `<div class="bus-list-item">
+        <span class="bus-list-id">${label}</span>
+        <span class="bus-list-loc">${stopName}</span>
+        <span class="bus-list-dir">${dir}</span>
       </div>`;
+    }).join('');
+    if(busRows){
+      busListWrapper.innerHTML=`<div class="bus-list">${busRows}</div>`;
     } else {
       busListWrapper.innerHTML='';
     }
@@ -934,7 +967,7 @@ function fullRender(pos) {
   renderSched();
   renderNextBus();
   updateLastUpdate(pos);
-  if (pos && mapReady) updateBusOnMap(pos);
+  if (Object.keys(allBusPositions).length && mapReady) updateAllBusesOnMap(allBusPositions);
 }
 
 // ===== DROPDOWN INIT =====
@@ -1001,18 +1034,18 @@ function buildDropdowns(){
 }
 buildDropdowns();
 
-// Firebase — bus/car1
-// รับข้อมูลจากคนขับ เก็บไว้ก่อน ถ้า map ยังไม่พร้อม
-db.ref('bus/car1').on('value', function(snap){
-  lastPos = snap.val();
-  console.log('Firebase data received:', lastPos);
+// Firebase — bus/car1, bus/car2, ... รองรับรถหลายคันจากแอพคนขับ
+db.ref('bus').on('value', function(snap){
+  allBusPositions = snap.val() || {};
+  lastPos = choosePrimaryBus(allBusPositions);
+  console.log('Firebase bus data received:', allBusPositions);
   renderStatus(lastPos);
   renderRouteStrip(lastPos);
   renderSched();
   renderNextBus();
   updateLastUpdate(lastPos);
-  if (mapReady && lastPos) {
-    updateBusOnMap(lastPos);
+  if (mapReady && Object.keys(allBusPositions).length) {
+    updateAllBusesOnMap(allBusPositions);
   } else {
     console.log('Map not ready yet, will retry. mapReady:', mapReady);
   }
@@ -1039,8 +1072,8 @@ fullRender(null);
     var retryCount = 0;
     var retryTimer = setInterval(function(){
       retryCount++;
-      if (mapReady && lastPos) {
-        updateBusOnMap(lastPos);
+      if (mapReady && Object.keys(allBusPositions).length) {
+        updateAllBusesOnMap(allBusPositions);
         clearInterval(retryTimer);
       }
       if (retryCount > 15) clearInterval(retryTimer); // หยุดหลัง 30 วินาที
