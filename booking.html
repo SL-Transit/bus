@@ -945,8 +945,6 @@ function updateRoute() {
     computedPrice = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest]) || SEGMENT_PRICE[selDest][selOrigin];
   } else if (selOrigin === 'phanom' && PHANOM_DEST_TIMES[selDest] && PHANOM_DEST_TIMES[selDest].price === 0) {
     computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
-  } else if (selOrigin === 'khlongtakien' && KHLONGTAKIEN_DEST_TIMES[selDest] && KHLONGTAKIEN_DEST_TIMES[selDest].price === 0) {
-    computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
   } else if (selOrigin === 'sanamchai' && SANAMCHAI_DEST_TIMES[selDest] && SANAMCHAI_DEST_TIMES[selDest].price === 0) {
     computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
   } else if (destInfo) {
@@ -1000,6 +998,8 @@ function renderTimes() {
     times = TATAKIAB_DEST_TIMES[selDest].times;
   } else if (selOrigin === 'nongkhok' && NONGKHOK_DEST_TIMES[selDest]) {
     times = NONGKHOK_DEST_TIMES[selDest].times;
+  } else if (selOrigin === 'khlongtakien' && KHLONGTAKIEN_DEST_TIMES[selDest]) {
+    times = KHLONGTAKIEN_DEST_TIMES[selDest].times;
   } else if (selOrigin === 'nongruea' && NONGRUEA_DEST_TIMES[selDest]) {
     times = NONGRUEA_DEST_TIMES[selDest].times;
   } else if (selOrigin === 'phaijit' && PHAIJIT_DEST_TIMES[selDest]) {
