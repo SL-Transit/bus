@@ -177,6 +177,11 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
 .line-browser-desc{font-size:14px;color:var(--text);line-height:1.8;margin-bottom:18px;}
 .line-browser-steps{background:#f0f4ff;border-radius:12px;padding:14px;text-align:left;font-size:13px;color:var(--navy);line-height:2;margin-bottom:18px;}
 .line-browser-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;}
+.booking-closed-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:9998;align-items:center;justify-content:center;padding:20px;}
+.booking-closed-box{width:100%;max-width:380px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:26px 22px;text-align:center;box-shadow:0 24px 70px rgba(15,23,42,.35);}
+.booking-closed-icon{width:58px;height:58px;border-radius:50%;background:#fef2f2;color:var(--red);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:30px;}
+.booking-closed-title{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.booking-closed-desc{font-size:14px;color:var(--muted);line-height:1.8;}
  
 /* QUEUE NUMBER */
 .queue-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:8px 18px;border-radius:30px;font-size:15px;font-weight:700;margin-bottom:10px;}
@@ -214,6 +219,14 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 </div>
  
+<div class="booking-closed-overlay" id="bookingClosedOverlay">
+  <div class="booking-closed-box">
+    <div class="booking-closed-icon">⏸</div>
+    <div class="booking-closed-title">ปิดรับจองชั่วคราว</div>
+    <div class="booking-closed-desc">ขณะนี้เจ้าหน้าที่ปิดระบบรับจองออนไลน์ไว้ชั่วคราว กรุณากลับมาใหม่ภายหลังหรือติดต่อท่ารถโดยตรง</div>
+  </div>
+</div>
+
 <div class="header" style="position:relative">
   <div class="header-title-wrap">
     <strong>Smart Ticket</strong>
@@ -594,6 +607,12 @@ var authReady = firebase.auth().signInAnonymously().catch(function(err) {
 var _settingsLoaded = false;
 var _settingsSnap   = null;
 
+function _settingsPrerequisitesReady() {
+  return typeof SERVICE_FEE_AMOUNT !== 'undefined' &&
+    typeof LEG2_DEST !== 'undefined' &&
+    typeof ORIGIN_TIMES !== 'undefined' &&
+    typeof SEGMENT_PRICE !== 'undefined';
+}
 function _showUpdateOverlay() {
   var el = document.getElementById('_updateOverlay');
   if (el) el.style.display = 'flex';
@@ -605,8 +624,14 @@ function _hideUpdateOverlay() {
 
 // ดึงค่าจาก Firebase แล้ว override ตัวแปร hard-code เดิม (ไม่แตะ function อื่น)
 function _applySettings(snap) {
-  var data = snap.val();
-  if (!data) return;
+  if (!_settingsPrerequisitesReady()) {
+    setTimeout(function(){ _applySettings(snap); }, 0);
+    return;
+  }
+  var data = snap.val() || {};
+
+  BOOKING_OPEN = data.bookingOpen !== false;
+  applyBookingAvailability();
 
   // --- ค่าธรรมเนียม ---
   if (data.fees) {
@@ -623,6 +648,7 @@ function _applySettings(snap) {
   } else if (data.payments && data.payments.mode) {
     PAYMENT_MODE = data.payments.mode === 'transfer' ? 'transfer' : 'onsite';
   }
+  applyPaymentModeUI();
 
   // --- ราคาตามเส้นทาง (LEG2_DEST) ---
   if (data.routes) {
@@ -694,6 +720,13 @@ function _applySettings(snap) {
   _syncRouteOptionLabels();
 }
 
+function applyBookingAvailability() {
+  var overlay = document.getElementById('bookingClosedOverlay');
+  if (overlay) overlay.style.display = BOOKING_OPEN ? 'none' : 'flex';
+  var btn = document.getElementById('btnConfirm');
+  if (btn) btn.disabled = !BOOKING_OPEN;
+}
+
 // map label → key (เทียบจาก LEG2_DEST และ ORIGIN_TIMES)
 function _labelToKey(label) {
   if (!label) return null;
@@ -729,6 +762,12 @@ db.ref('settings').on('value', function(snap) {
     _applySettings(snap);
     _settingsLoaded = true;
     _settingsSnap = snap;
+    if (typeof updateRoute === 'function') {
+      try { updateRoute(); } catch(e) {}
+    }
+    if (typeof renderTimes === 'function') {
+      try { renderTimes(); } catch(e) {}
+    }
     return;
   }
   // ครั้งต่อไป: มีการอัพเดทจาก admin
@@ -773,6 +812,7 @@ var SERVICE_FEE_AMOUNT = 5;
 var SERVICE_FEE_ENABLED = false; // เตรียมไว้ก่อน ช่วงทดลองยังไม่บวกเงินจริง
 var SERVICE_FEE_VISIBLE = false;  // ซ่อนค่าบริการจนกว่าจะเปิดจาก admin/settings
 var PAYMENT_MODE = 'onsite';      // onsite = จ่ายหน้างาน, transfer = โอนเงินและแนบสลิป
+var BOOKING_OPEN = true;
  
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
@@ -1306,6 +1346,7 @@ function isValidThaiPhone(val) {
  
 // ===== PAGE NAVIGATION =====
 function goPage(p) {
+  if (!BOOKING_OPEN) { alert('ขณะนี้ปิดรับจองชั่วคราว'); return; }
   if (p === 2) {
     if (!selTime) { alert('กรุณาเลือกเวลาออกเดินทาง'); return; }
     var dateVal = document.getElementById('travelDate').value;
@@ -1665,6 +1706,7 @@ function closeTicketSavePopup() {
  
 // ===== SUBMIT =====
 function submitBooking() {
+  if (!BOOKING_OPEN) { alert('ขณะนี้ปิดรับจองชั่วคราว'); return; }
   // [Security] Anti-spam: ป้องกัน submit ซ้ำภายใน 30 วินาที
   var now = Date.now();
   if (_submitLock) {
@@ -2105,6 +2147,7 @@ function newBooking() {
   document.getElementById('routeFrom').value = 'chachoengsao';
   document.getElementById('routeTo').value = 'sanamchai';
   applyPaymentModeUI();
+  applyBookingAvailability();
   renderTimes();
   goPage(1);
 }

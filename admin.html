@@ -42,6 +42,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--ink);min-he
 .header-logo{font-family:'Chakra Petch',sans-serif;font-size:17px;font-weight:700;color:var(--navy);flex:1;letter-spacing:.3px;}
 .header-logo span{color:var(--blue);}
 .booking-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:600;}
+.header-control-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;}
 .tog{position:relative;width:34px;height:19px;cursor:pointer;flex-shrink:0;}
 .tog input{opacity:0;width:0;height:0;}
 .tog-sl{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s;}
@@ -161,6 +162,11 @@ tr:hover td{background:#fafafa;}
 .chip .cx:hover{color:var(--red);}
 .add-chip-row{display:flex;gap:6px;align-items:center;}
 .add-chip-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;width:110px;font-family:'Kanit',sans-serif;}
+.control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;}
+.control-card{border:1px solid var(--border);border-radius:8px;background:#f8fbff;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:74px;}
+.control-card strong{display:block;color:var(--navy);font-size:13px;margin-bottom:3px;}
+.control-card span{display:block;color:var(--muted);font-size:11px;line-height:1.45;}
+.control-card select{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;color:var(--ink);outline:none;min-width:132px;}
 
 /* ── REVENUE ── */
 .rev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -221,6 +227,9 @@ tr:hover td{background:#fafafa;}
   .filter-row>*{width:100%;}
   .ntab{padding:0 11px;font-size:12px;}
   .nt-label{display:none;}
+  .header-control-group{gap:7px;}
+  .booking-wrap span{display:none;}
+  .control-grid{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -241,9 +250,15 @@ tr:hover td{background:#fafafa;}
   <!-- HEADER แถวบน -->
   <div class="header-top">
     <div class="header-logo">ST <span>Transit</span></div>
-    <div class="booking-wrap" id="bkToggleWrap" style="display:none">
-      <span id="bkToggleLabel">รับจอง</span>
-      <label class="tog"><input type="checkbox" id="bkToggle" onchange="toggleBooking(this.checked)"><span class="tog-sl"></span></label>
+    <div class="header-control-group">
+      <div class="booking-wrap" id="bkToggleWrap" style="display:none">
+        <span id="bkToggleLabel">รับจอง</span>
+        <label class="tog"><input type="checkbox" id="bkToggle" onchange="toggleBooking(this.checked)"><span class="tog-sl"></span></label>
+      </div>
+      <div class="booking-wrap" id="payToggleWrap" style="display:none">
+        <span id="payToggleLabel">ชำระเงิน</span>
+        <label class="tog"><input type="checkbox" id="payToggle" onchange="togglePayment(this.checked)"><span class="tog-sl"></span></label>
+      </div>
     </div>
     <button class="menu-btn" onclick="toggleHpop()" title="เมนู"><span></span><span></span><span></span></button>
   </div>
@@ -332,7 +347,24 @@ tr:hover td{background:#fafafa;}
           <div class="fg"><label>ค่าบริการ (฿) — คิดทุกรายการ</label><input type="number" id="feeService" min="0" step="1" value="5"></div>
           <div class="fg"><label>ค่านายหน้า (฿) — พัทยา/หมอชิต</label><input type="number" id="feeAgent" min="0" step="1" value="5"></div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียม</button>
+        <div class="control-grid">
+          <div class="control-card">
+            <div><strong>คิดค่าบริการ</strong><span>บวกค่าบริการเข้ายอดจองจริงใน booking.html</span></div>
+            <label class="tog"><input type="checkbox" id="feeEnabled"><span class="tog-sl"></span></label>
+          </div>
+          <div class="control-card">
+            <div><strong>แสดงค่าบริการ</strong><span>แสดงแถวค่าบริการในหน้าสรุปการจอง</span></div>
+            <label class="tog"><input type="checkbox" id="feeVisible"><span class="tog-sl"></span></label>
+          </div>
+          <div class="control-card">
+            <div><strong>หน้าชำระเงิน</strong><span>เปิดโอนเงินและแนบสลิป หรือปิดเป็นจ่ายหน้างาน</span></div>
+            <select id="paymentMode">
+              <option value="onsite">ปิดชำระออนไลน์</option>
+              <option value="transfer">เปิดชำระออนไลน์</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียมและการชำระเงิน</button>
       </div>
       <div class="card"><h2>&#x1F6CF;&#xFE0F; กลุ่มชานชาลา</h2>
         <div id="pgWrap"></div>
@@ -465,7 +497,7 @@ firebase.initializeApp({
 });
 var db=firebase.database(),auth=firebase.auth();
 var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
-var FEE_SVC=5,FEE_AGENT=5;
+var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite';
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
 var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={};
@@ -509,7 +541,7 @@ function roleTH(r){return{superadmin:'Super Admin',admin:'Admin',staff:'Staff'}[
 function isAdmin(){return CR==='admin'||CR==='superadmin';}
 function isSA(){return CR==='superadmin';}
 function applyRole(){
-  if(isAdmin()){show('nt-refunds');show('nt-revenue');show('nt-routes');document.getElementById('bkToggleWrap').style.display='flex';}
+  if(isAdmin()){show('nt-refunds');show('nt-revenue');show('nt-routes');document.getElementById('bkToggleWrap').style.display='flex';document.getElementById('payToggleWrap').style.display='flex';}
   if(isSA()){show('nt-users');document.getElementById('hpopReset').style.display='';}
 }
 function show(id){var e=document.getElementById(id);if(e)e.style.display='';}
@@ -540,11 +572,20 @@ function initApp(){
   if(isSA())loadLogs();
 }
 function loadFees(){
-  db.ref('settings/fees').once('value').then(function(snap){
-    var d=snap.val()||{};
-    FEE_SVC=d.service||5;FEE_AGENT=d.agent||5;
+  db.ref('settings').on('value',function(snap){
+    var settings=snap.val()||{};
+    var d=settings.fees||{};
+    FEE_SVC=Number(d.service)||5;FEE_AGENT=Number(d.agent)||5;
+    FEE_ENABLED=d.serviceEnabled===true;
+    FEE_VISIBLE=d.serviceVisible===true;
+    PAYMENT_MODE=(settings.payment&&settings.payment.mode)==='transfer'?'transfer':'onsite';
     document.getElementById('feeService').value=FEE_SVC;
     document.getElementById('feeAgent').value=FEE_AGENT;
+    document.getElementById('feeEnabled').checked=FEE_ENABLED;
+    document.getElementById('feeVisible').checked=FEE_VISIBLE;
+    document.getElementById('paymentMode').value=PAYMENT_MODE;
+    document.getElementById('payToggle').checked=PAYMENT_MODE==='transfer';
+    document.getElementById('payToggleLabel').textContent=PAYMENT_MODE==='transfer'?'🟢 ชำระออนไลน์':'🔴 จ่ายหน้างาน';
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
   });
@@ -553,10 +594,16 @@ function saveFees(){
   if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
   FEE_SVC=Number(document.getElementById('feeService').value)||5;
   FEE_AGENT=Number(document.getElementById('feeAgent').value)||5;
-  db.ref('settings/fees').set({service:FEE_SVC,agent:FEE_AGENT}).then(function(){
+  FEE_ENABLED=document.getElementById('feeEnabled').checked;
+  FEE_VISIBLE=document.getElementById('feeVisible').checked;
+  PAYMENT_MODE=document.getElementById('paymentMode').value==='transfer'?'transfer':'onsite';
+  db.ref('settings').update({
+    fees:{service:FEE_SVC,agent:FEE_AGENT,serviceEnabled:FEE_ENABLED,serviceVisible:FEE_VISIBLE},
+    payment:{mode:PAYMENT_MODE}
+  }).then(function(){
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
-    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT);
+    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE);
     alert('\u2705 บันทึกสำเร็จ');
   });
 }
@@ -568,6 +615,13 @@ function loadBookingToggle(){
   });
 }
 function toggleBooking(open){db.ref('settings/bookingOpen').set(open);writeLog('setting',(open?'เปิด':'ปิด')+'ระบบรับจอง');}
+function togglePayment(open){
+  if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
+  var mode=open?'transfer':'onsite';
+  db.ref('settings/payment').set({mode:mode}).then(function(){
+    writeLog('setting',(open?'เปิด':'ปิด')+'หน้าชำระเงิน');
+  });
+}
 function loadDashboard(){
   var today=new Date().toISOString().split('T')[0];
   db.ref('bookings').orderByChild('date').equalTo(today).once('value').then(function(snap){
