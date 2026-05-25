@@ -427,6 +427,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
           <div class="label">ลำดับคิว</div>
           <div class="num" id="ticketQueuePrizeNum">-</div>
         </div>
+        <div class="success-info-grid" id="successDetail"></div>
         <div class="ticket-lines">
           <div class="ticket-line"><div class="k">เส้นทางแรก</div><div class="v" id="ticketLeg1">-</div></div>
           <div class="ticket-line" id="ticketLeg2Wrap" style="display:none"><div class="k">เส้นทางที่สอง</div><div class="v" id="ticketLeg2">-</div></div>
@@ -435,7 +436,6 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
           <div class="ticket-mini"><div class="k">เวลาออก</div><div class="v" id="ticketMainTime">-</div></div>
           <div class="ticket-mini" id="ticketLeg2TimeWrap" style="display:none"><div class="k">เวลาต่อรถ</div><div class="v" id="ticketLeg2Time">-</div></div>
         </div>
-        <div class="success-info-grid" id="successDetail"></div>
         <div id="platform6Notice" style="display:none;background:#1e3a8a;border-radius:12px;padding:14px;font-size:15px;color:#fff;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:0.5px;">🚏 กรุณารอขึ้นรถ ณ <span id="platformNumberLabel" style="font-size:20px;font-family:'Chakra Petch',sans-serif">ชานชาลาหมายเลข 6</span></div>
         <div id="queueDisplay" style="display:none;text-align:center;margin-bottom:12px;">
           <div class="queue-badge">🎫 ลำดับที่ของคุณ <span class="queue-number" id="queueNumber">-</span></div>
@@ -1935,12 +1935,13 @@ async function downloadTicketImage() {
  
   var rows = [
     ['ผู้โดยสาร', 'คุณ ' + (booking.name || '-')],
-    ['เส้นทางแรก', legSchedule.leg1 || '-'],
+    ['วันเดินทาง', booking.date || '-'],
     ['จำนวนที่นั่ง', (booking.seats || 1) + ' ที่นั่ง'],
     ['ยอดชำระ', '฿' + Number(booking.price || 0).toLocaleString() + ' บาท'],
+    ['เส้นทางแรก', legSchedule.leg1 || '-'],
   ];
   if (legSchedule.leg2) {
-    rows.splice(2, 0, ['เส้นทางที่สอง', legSchedule.leg2]);
+    rows.push(['เส้นทางที่สอง', legSchedule.leg2]);
   }
  
   rows.forEach(function(row) {
@@ -1952,12 +1953,13 @@ async function downloadTicketImage() {
     y = drawWrappedText(ctx, row[1], 300, y, 480, 34) + 28;
   });
  
+  var timeBoxHeight = legSchedule.leg2 ? 94 : 62;
   ctx.fillStyle = '#f8fafc';
-  drawRoundRect(ctx, 120, y + 4, 660, 94, 18);
+  drawRoundRect(ctx, 120, y + 4, 660, timeBoxHeight, 18);
   ctx.fill();
   ctx.strokeStyle = '#dde3f0';
   ctx.lineWidth = 2;
-  drawRoundRect(ctx, 120, y + 4, 660, 94, 18);
+  drawRoundRect(ctx, 120, y + 4, 660, timeBoxHeight, 18);
   ctx.stroke();
   ctx.fillStyle = '#64748b';
   ctx.font = '600 20px Kanit, sans-serif';
@@ -1973,7 +1975,7 @@ async function downloadTicketImage() {
     ctx.font = '700 24px Chakra Petch, Kanit, sans-serif';
     ctx.fillText((legSchedule.leg2Time || '-') + (legSchedule.leg2Time ? ' น.' : ''), 300, y + 78);
   }
-  y += 120;
+  y += timeBoxHeight + 26;
  
   if (isEkkamaiDest || isPlatform6) {
     var platformLabel = isEkkamaiDest ? 'ชานชาลาหมายเลข 1' : 'ชานชาลาหมายเลข 6';
