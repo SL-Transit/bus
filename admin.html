@@ -325,8 +325,8 @@ tr:hover td{background:#fafafa;}
 
     <!-- ROUTES -->
     <div class="page-section" id="sec-routes">
-      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">จัดการเส้นทาง / ราคา / เวลา</h1>
-      <div class="alert alert-warn">&#x26A1; การเปลี่ยนแปลงจะมีผลทันทีกับหน้าจองของผู้โดยสาร</div>
+      <h1 style="color:var(--navy);font-size:19px;margin-bottom:12px">จัดการเส้นทาง / สถานที่ / ราคา / เวลา</h1>
+      <div class="alert alert-warn">&#x26A1; การเปลี่ยนแปลงต้นทาง ปลายทาง ราคา และตารางเวลา จะมีผลกับหน้าจอง หน้าสำเร็จ และตั๋วโดยสารของผู้โดยสาร</div>
       <div class="card"><h2>&#x1F4B3; ค่าธรรมเนียมระบบ</h2>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="fg"><label>ค่าบริการ (฿) — คิดทุกรายการ</label><input type="number" id="feeService" min="0" step="1" value="5"></div>
@@ -721,8 +721,8 @@ function renderRouteGroups(){
     html+='</div><div class="rgroup-body" id="rgb_'+gi+'">';
     gdata.routes.forEach(function(r,ri){
       html+='<div class="route-row"><div class="rr-fields">';
-      html+='<div><label style="font-size:11px;color:var(--muted)">ต้นทาง</label><input type="text" value="'+esc(r.from||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'from\',this.value)"></div>';
-      html+='<div><label style="font-size:11px;color:var(--muted)">ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
+      html+='<div><label style="font-size:11px;color:var(--muted)">สถานที่ต้นทาง</label><input type="text" value="'+esc(r.from||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'from\',this.value)"></div>';
+      html+='<div><label style="font-size:11px;color:var(--muted)">สถานที่ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
       html+='<div><label style="font-size:11px;color:var(--muted)">ราคา (\u0e3f)</label><input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></div>';
       html+='</div><div><label style="font-size:11px;color:var(--muted)">ตารางเวลา</label>';
       html+='<div class="time-chips">'+(r.times||[]).map(function(t){return'<span class="chip">'+esc(t)+' <span class="cx" onclick="removeTime(\''+esc(gname)+'\','+ri+',\''+t+'\')">&#x00D7;</span></span>';}).join('')+'</div>';
