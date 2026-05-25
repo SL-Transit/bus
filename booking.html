@@ -118,25 +118,35 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
 .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.6;}
 .transfer-note{font-size:12px;color:var(--red);line-height:1.7;margin-top:10px;padding:10px 12px;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;}
 .service-fee-row{display:none;}
-.success-info-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
-.success-info-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;}
-.success-info-row:last-child{border-bottom:none;}
+.success-info-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:16px;}
+.success-info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.5;}
 .success-info-row span:first-child{color:var(--muted);font-weight:600;flex-shrink:0;}
 .success-info-row span:last-child{font-weight:700;color:var(--text);text-align:right;}
 .success-transfer-box{display:none;background:#f8faff;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:13px;line-height:1.8;margin-bottom:12px;}
 .checkin-notice{margin-top:8px;padding-top:8px;border-top:1px solid #bbf7d0;}
-.ticket-body{padding:16px 18px 18px;}
-.ticket-queue-prize{text-align:center;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:10px 14px;margin-bottom:12px;}
+.ticket-body{padding:18px 18px 20px;background:linear-gradient(180deg,#ffffff,#fbfdff);}
+.ticket-queue-prize{text-align:center;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:11px 14px;margin-bottom:14px;box-shadow:0 2px 8px rgba(154,52,18,.08);}
 .ticket-queue-prize .label{font-size:11px;font-weight:700;color:#c2410c;letter-spacing:.5px;}
 .ticket-queue-prize .num{font-family:'Chakra Petch',sans-serif;font-size:34px;font-weight:700;line-height:1.05;color:#0f2557;}
-.ticket-lines{display:grid;gap:8px;margin-bottom:12px;}
-.ticket-line{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.ticket-lines{display:grid;gap:10px;margin-bottom:14px;}
+.ticket-line{background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:11px 12px;}
 .ticket-line .k{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px;}
 .ticket-line .v{font-size:15px;color:var(--navy);font-weight:700;line-height:1.45;}
-.ticket-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
-.ticket-mini{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 10px;text-align:center;}
+.ticket-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+.ticket-mini{background:#fff;border:1px solid var(--border);border-radius:12px;padding:11px 10px;text-align:center;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .ticket-mini .k{font-size:11px;color:var(--muted);font-weight:700;}
-.ticket-mini .v{font-family:'Chakra Petch',sans-serif;font-size:20px;color:var(--navy);font-weight:700;}
+.ticket-mini .v{font-family:'Chakra Petch',sans-serif;font-size:21px;color:var(--navy);font-weight:700;line-height:1.25;margin-top:3px;}
+.ticket-save-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:10000;align-items:center;justify-content:center;padding:20px;}
+.ticket-save-modal.show{display:flex;}
+.ticket-save-box{width:100%;max-width:360px;background:#fff;border-radius:18px;padding:24px 20px;text-align:center;box-shadow:0 24px 70px rgba(15,23,42,.32);border:1px solid var(--border);}
+.ticket-save-icon{width:54px;height:54px;border-radius:50%;background:#eff6ff;color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;}
+.ticket-save-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.ticket-save-desc{font-size:13px;color:var(--text);line-height:1.75;margin-bottom:18px;}
+.ticket-save-actions{display:flex;gap:10px;}
+.ticket-save-actions button{flex:1;border:none;border-radius:12px;padding:12px 10px;font-family:'Kanit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.ticket-save-primary{background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;}
+.ticket-save-secondary{background:#f1f5f9;color:#334155;}
+@media(max-width:360px){.ticket-mini-grid{grid-template-columns:1fr;}.ticket-save-actions{flex-direction:column;}}
  
 /* UPLOAD */
 .upload-area{border:2px dashed var(--border);border-radius:12px;padding:16px 14px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbff;position:relative;min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
@@ -453,6 +463,21 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
   </div>
  
+</div>
+
+<div class="ticket-save-modal" id="ticketSaveModal">
+  <div class="ticket-save-box">
+    <div class="ticket-save-icon">🎫</div>
+    <div class="ticket-save-title">กรุณาบันทึกตั๋วโดยสารของท่าน</div>
+    <div class="ticket-save-desc">
+      เพื่อใช้แสดงต่อเจ้าหน้าที่ ณ จุดขึ้นรถ<br>
+      โปรดบันทึกภาพหน้าตั๋วหรือจดรหัสตั๋วไว้เพื่อความสะดวกในการตรวจสอบ
+    </div>
+    <div class="ticket-save-actions">
+      <button class="ticket-save-primary" type="button" onclick="downloadTicketImage()">บันทึกตั๋ว</button>
+      <button class="ticket-save-secondary" type="button" onclick="closeTicketSavePopup()">ปิด</button>
+    </div>
+  </div>
 </div>
  
 <script>
@@ -1625,6 +1650,17 @@ function showSuccess(booking) {
   }
  
   goPage(4);
+  showTicketSavePopup();
+}
+
+function showTicketSavePopup() {
+  var modal = document.getElementById('ticketSaveModal');
+  if (modal) modal.classList.add('show');
+}
+
+function closeTicketSavePopup() {
+  var modal = document.getElementById('ticketSaveModal');
+  if (modal) modal.classList.remove('show');
 }
  
 // ===== SUBMIT =====
@@ -1852,6 +1888,7 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
 }
  
 async function downloadTicketImage() {
+  closeTicketSavePopup();
   var booking = lastBooking;
   if (!booking || !booking.code) {
     alert('ยังไม่มีข้อมูลตั๋ว');
@@ -1863,7 +1900,7 @@ async function downloadTicketImage() {
  
   var canvas = document.createElement('canvas');
   canvas.width = 900;
-  canvas.height = 1040;
+  canvas.height = 1280;
   var ctx = canvas.getContext('2d');
   var isPlatform6   = PLATFORM6_DESTS.indexOf(selDest) !== -1;
   var isEkkamaiDest = EKKAMAI_DESTS.indexOf(selDest) !== -1 || MOCHIT_DESTS.indexOf(selDest) !== -1;
@@ -1877,7 +1914,7 @@ async function downloadTicketImage() {
   ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 10;
   ctx.fillStyle = '#ffffff';
-  drawRoundRect(ctx, 70, 70, 760, 880, 28);
+  drawRoundRect(ctx, 70, 70, 760, 1120, 28);
   ctx.fill();
   ctx.shadowColor = 'transparent';
  
@@ -1953,43 +1990,42 @@ async function downloadTicketImage() {
     y = drawWrappedText(ctx, row[1], 300, y, 480, 34) + 28;
   });
  
-  var timeBoxHeight = legSchedule.leg2 ? 94 : 62;
+  y += 8;
+  var timeCardY = y;
+  var timeCardW = legSchedule.leg2 ? 315 : 660;
+  var timeCardH = 104;
   ctx.fillStyle = '#f8fafc';
-  drawRoundRect(ctx, 120, y + 4, 660, timeBoxHeight, 18);
+  drawRoundRect(ctx, 120, timeCardY, timeCardW, timeCardH, 18);
   ctx.fill();
   ctx.strokeStyle = '#dde3f0';
   ctx.lineWidth = 2;
-  drawRoundRect(ctx, 120, y + 4, 660, timeBoxHeight, 18);
+  drawRoundRect(ctx, 120, timeCardY, timeCardW, timeCardH, 18);
   ctx.stroke();
+  ctx.textAlign = 'center';
   ctx.fillStyle = '#64748b';
-  ctx.font = '600 20px Kanit, sans-serif';
-  ctx.fillText('เวลาออก', 165, y + 42);
+  ctx.font = '700 20px Kanit, sans-serif';
+  ctx.fillText('เวลาออก', 120 + timeCardW / 2, timeCardY + 36);
   ctx.fillStyle = '#0f2557';
-  ctx.font = '700 34px Chakra Petch, Kanit, sans-serif';
-  ctx.fillText((booking.time || '-') + (booking.time ? ' น.' : ''), 300, y + 44);
+  ctx.font = '700 36px Chakra Petch, Kanit, sans-serif';
+  ctx.fillText((booking.time || '-') + (booking.time ? ' น.' : ''), 120 + timeCardW / 2, timeCardY + 78);
   if (legSchedule.leg2) {
-    ctx.fillStyle = '#64748b';
-    ctx.font = '600 18px Kanit, sans-serif';
-    ctx.fillText('เวลาต่อรถ', 165, y + 76);
-    ctx.fillStyle = '#0f2557';
-    ctx.font = '700 24px Chakra Petch, Kanit, sans-serif';
-    ctx.fillText((legSchedule.leg2Time || '-') + (legSchedule.leg2Time ? ' น.' : ''), 300, y + 78);
-  }
-  y += timeBoxHeight + 26;
- 
-  if (isEkkamaiDest || isPlatform6) {
-    var platformLabel = isEkkamaiDest ? 'ชานชาลาหมายเลข 1' : 'ชานชาลาหมายเลข 6';
-    ctx.fillStyle = '#1e3a8a';
-    drawRoundRect(ctx, 120, y + 5, 660, 86, 18);
+    ctx.fillStyle = '#f8fafc';
+    drawRoundRect(ctx, 465, timeCardY, 315, timeCardH, 18);
     ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.font = '700 28px Kanit, sans-serif';
-    ctx.fillText('กรุณารอขึ้นรถ ณ ' + platformLabel, 450, y + 58);
-    y += 120;
-    ctx.textAlign = 'left';
+    ctx.strokeStyle = '#dde3f0';
+    ctx.lineWidth = 2;
+    drawRoundRect(ctx, 465, timeCardY, 315, timeCardH, 18);
+    ctx.stroke();
+    ctx.fillStyle = '#64748b';
+    ctx.font = '700 20px Kanit, sans-serif';
+    ctx.fillText('เวลาต่อรถ', 622.5, timeCardY + 36);
+    ctx.fillStyle = '#0f2557';
+    ctx.font = '700 36px Chakra Petch, Kanit, sans-serif';
+    ctx.fillText((legSchedule.leg2Time || '-') + (legSchedule.leg2Time ? ' น.' : ''), 622.5, timeCardY + 78);
   }
-
+  y = timeCardY + timeCardH + 28;
+  ctx.textAlign = 'left';
+ 
   ctx.fillStyle = '#f0fdf4';
   drawRoundRect(ctx, 120, y + 5, 660, 116, 18);
   ctx.fill();
@@ -2006,8 +2042,8 @@ async function downloadTicketImage() {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#64748b';
   ctx.font = '500 20px Kanit, sans-serif';
-  ctx.fillText('บันทึกจากระบบจองคิวออนไลน์', 450, 970);
-  ctx.fillText('Smart Ticket', 450, 1000);
+  ctx.fillText('บันทึกจากระบบจองคิวออนไลน์', 450, 1210);
+  ctx.fillText('Smart Ticket', 450, 1244);
  
   var a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
