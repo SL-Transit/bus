@@ -857,7 +857,7 @@
         currentBooking.status === 'pending_admin_approval'
       );
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var canCheck = nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000) && !disabledByStatus && !checkinSubmitLock;
+      var canCheck = (NOTIFICATION_TEST_MODE || (nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000))) && !disabledByStatus && !checkinSubmitLock;
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
       if (currentBooking && currentBooking.status === 'checked_in' && !NOTIFICATION_TEST_MODE) btn.textContent = 'เช็คอินแล้ว';
@@ -908,7 +908,7 @@
         updateActionAvailability();
         return;
       }
-      if (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM) {
+      if (!NOTIFICATION_TEST_MODE && (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM)) {
         setStatus('lookupStatus', 'bad', 'ยังอยู่นอกรัศมีเช็คอิน ' + CHECKIN_RADIUS_KM + ' กม.');
         updateActionAvailability();
         return;
@@ -928,7 +928,7 @@
           etaMinutes: currentEtaMinutes,
           checkedInAt: checkedInAt
         },
-        officialStatus: 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
+        officialStatus: NOTIFICATION_TEST_MODE && currentDistanceKm === null ? 'ทดสอบแจ้งเตือนเช็คอิน โดยไม่ตรวจรัศมี GPS' : 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
       };
       if (transferAdjustment) {
         Object.assign(payload, transferAdjustment);
