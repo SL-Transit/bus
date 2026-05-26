@@ -8,6 +8,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
   <style>
     :root {
       --navy: #17324d;
@@ -360,6 +361,7 @@
     var TEST_MODE = false;
     var NOTIFICATION_TEST_MODE = false;
     var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
+    var LONGDO_MAP_KEY = 'e817a8a0a0e83c4f2c32c7b1db12424e';
     var DISTANCE_MODE = 'road';
     var ROAD_DISTANCE_FACTOR = 1.335;
     var ROAD_DISTANCE_CACHE = {};
@@ -800,7 +802,10 @@
     function refreshRoadDistance(position) {
       if (DISTANCE_MODE !== 'road') return;
       var seq = ++roadDistanceRequestSeq;
-      requestRoadDistanceKm(position).then(function(roadKm) {
+      requestLongdoRoadDistanceKm(position)
+        .catch(function() { return requestOsrmRoadDistanceKm(position); })
+        .then(function(road) {
+        var roadKm = road && road.km;
         if (seq !== roadDistanceRequestSeq || roadKm === null || isNaN(roadKm)) return;
         currentDistanceKm = roadKm;
         renderDistanceState();
@@ -808,21 +813,49 @@
           db.ref('ticketLocations/' + currentBooking.code).update({
             distanceKm: currentDistanceKm,
             etaMinutes: currentEtaMinutes,
-            distanceSource: 'osrm_road',
+            distanceSource: road.source,
             ts: Date.now()
           }).catch(function(){});
         }
       }).catch(function(){});
     }
 
-    function requestRoadDistanceKm(position) {
-      var key = [
+    function roadDistanceCacheKey(prefix, position) {
+      return [
+        prefix,
         position.lat.toFixed(5),
         position.lng.toFixed(5),
         TERMINAL.lat.toFixed(5),
         TERMINAL.lng.toFixed(5)
       ].join(',');
-      if (ROAD_DISTANCE_CACHE[key] !== undefined) return Promise.resolve(ROAD_DISTANCE_CACHE[key]);
+    }
+
+    function requestLongdoRoadDistanceKm(position) {
+      var key = roadDistanceCacheKey('longdo', position);
+      if (ROAD_DISTANCE_CACHE[key] !== undefined) return Promise.resolve({ km: ROAD_DISTANCE_CACHE[key], source: 'longdo_road' });
+
+      var url = 'https://api.longdo.com/RouteService/json/route/guide?' +
+        'flon=' + encodeURIComponent(position.lng) +
+        '&flat=' + encodeURIComponent(position.lat) +
+        '&tlon=' + encodeURIComponent(TERMINAL.lng) +
+        '&tlat=' + encodeURIComponent(TERMINAL.lat) +
+        '&mode=t&type=25&locale=th&key=' + encodeURIComponent(LONGDO_MAP_KEY);
+
+      return fetch(url).then(function(res) {
+        if (!res.ok) throw new Error('Longdo ' + res.status);
+        return res.json();
+      }).then(function(data) {
+        var route = data && data.data && data.data[0];
+        if (!route || !route.distance) throw new Error('Longdo route not found');
+        var km = route.distance / 1000;
+        ROAD_DISTANCE_CACHE[key] = km;
+        return { km: km, source: 'longdo_road' };
+      });
+    }
+
+    function requestOsrmRoadDistanceKm(position) {
+      var key = roadDistanceCacheKey('osrm', position);
+      if (ROAD_DISTANCE_CACHE[key] !== undefined) return Promise.resolve({ km: ROAD_DISTANCE_CACHE[key], source: 'osrm_road' });
 
       var url = 'https://router.project-osrm.org/route/v1/driving/' +
         position.lng + ',' + position.lat + ';' + TERMINAL.lng + ',' + TERMINAL.lat +
@@ -833,10 +866,10 @@
         return res.json();
       }).then(function(data) {
         var route = data && data.routes && data.routes[0];
-        if (!route || !route.distance) return null;
+        if (!route || !route.distance) throw new Error('OSRM route not found');
         var km = route.distance / 1000;
         ROAD_DISTANCE_CACHE[key] = km;
-        return km;
+        return { km: km, source: 'osrm_road' };
       });
     }
 
