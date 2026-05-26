@@ -160,6 +160,11 @@ tr:hover td{background:#fafafa;}
 .chip{display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;}
 .chip .cx{cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;font-weight:400;}
 .chip .cx:hover{color:var(--red);}
+.time-edit-list{display:grid;gap:6px;margin-bottom:8px;}
+.time-edit-row{display:grid;grid-template-columns:110px 1fr auto;gap:6px;align-items:center;}
+.time-edit-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;font-family:'Kanit',sans-serif;}
+.blocked-input{font-size:12px;}
+.blocked-hint{font-size:10px;color:var(--muted);margin-top:3px;}
 .add-chip-row{display:flex;gap:6px;align-items:center;}
 .add-chip-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;width:110px;font-family:'Kanit',sans-serif;}
 .control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;}
@@ -772,11 +777,76 @@ function loadRevenue(){
 }
 function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
-    routeData=snap.val()||getDefaultRoutes();renderRouteGroups();
+    routeData=mergeDefaultRoutes(snap.val()||{});renderRouteGroups();
   });
 }
+function mergeDefaultRoutes(saved){
+  var defs=getDefaultRoutes();
+  if(!saved||!Object.keys(saved).length)return defs;
+  Object.entries(defs).forEach(function(entry){
+    var gname=entry[0],gdata=entry[1];
+    if(!saved[gname])saved[gname]={id:gdata.id,routes:[]};
+    if(!saved[gname].routes)saved[gname].routes=[];
+    (gdata.routes||[]).forEach(function(dr){
+      var found=null;
+      Object.values(saved).some(function(sg){
+        found=(sg.routes||[]).find(function(r){return r.from===dr.from&&r.to===dr.to;});
+        return !!found;
+      });
+      if(!found){saved[gname].routes.push(dr);return;}
+      if((!found.times||!found.times.length)&&dr.times)found.times=dr.times.slice();
+      if((found.price===undefined||found.price===null||found.price==='')&&dr.price!==undefined)found.price=dr.price;
+      if(dr.closedStops&&!found.closedStops)found.closedStops=JSON.parse(JSON.stringify(dr.closedStops));
+    });
+  });
+  return saved;
+}
 function getDefaultRoutes(){
-  return{'\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07\u0e2b\u0e25\u0e31\u0e01':{id:'main',routes:[{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e17\u0e48\u0e32\u0e23\u0e16\u0e2a\u0e19\u0e32\u0e21\u0e0a\u0e31\u0e22\u0e40\u0e02\u0e15',price:55,times:['09:40','11:20','12:20','14:00','15:20','16:20','17:20']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e04\u0e25\u0e2d\u0e07\u0e2b\u0e32\u0e14',price:160,times:['11:20','14:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e2b\u0e19\u0e2d\u0e07\u0e04\u0e2d\u0e01',price:100,times:['11:20','14:00','17:20']}]},'\u0e01\u0e25\u0e38\u0e48\u0e21\u0e1e\u0e31\u0e17\u0e22\u0e32-\u0e23\u0e30\u0e22\u0e2d\u0e07-\u0e21\u0e35\u0e19\u0e1a\u0e38\u0e23\u0e35':{id:'coastal',routes:[{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e1e\u0e31\u0e17\u0e22\u0e32',price:140,times:['05:40','07:00','09:00','12:00','14:00','16:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e23\u0e30\u0e22\u0e2d\u0e07',price:150,times:['05:40','07:00','09:00','12:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e15\u0e25\u0e32\u0e14\u0e21\u0e35\u0e19\u0e1a\u0e38\u0e23\u0e35',price:70,times:['04:00','06:00','09:00','12:00']}]},'\u0e01\u0e25\u0e38\u0e48\u0e21\u0e2b\u0e21\u0e2d\u0e0a\u0e34\u0e15-\u0e40\u0e2d\u0e01\u0e21\u0e31\u0e22-BTS':{id:'bangkok',routes:[{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e2b\u0e21\u0e2d\u0e0a\u0e34\u0e15',price:120,times:['06:00','08:00','11:00','13:00','15:00','17:00']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e40\u0e2d\u0e01\u0e21\u0e31\u0e22',price:120,times:['06:30','08:30','10:30','15:30','17:30']},{from:'\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',to:'\u0e1a\u0e32\u0e07\u0e19\u0e32',price:120,times:['06:30','08:30','10:30','15:30','17:30']}]}};
+  var east=['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
+  var minburi=['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
+  var ekkamai=['06:30','08:30','10:30','15:30','17:30'];
+  var mochit=['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
+  return{
+    'เส้นทางหลัก':{id:'main',routes:[
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ท่ารถสนามชัยเขต',price:55,times:['09:40','11:20','12:20','14:00','15:20','16:20','17:20'],closedStops:{'11:20':['พนมสารคาม','ท่ารถสนามชัยเขต']}},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'พนมสารคาม',price:55,times:['09:40','11:20','12:20','14:00','15:20','16:20','17:20'],closedStops:{'11:20':['พนมสารคาม','ท่ารถสนามชัยเขต']}},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'คลองหาด',price:160,times:['11:20','14:00']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'หนองคอก',price:100,times:['11:20','14:00','17:20']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ท่าตะเกียบ',price:100,times:['11:20','14:00','17:20']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ทุ่งกบินทร์',price:150,times:['11:20','14:00']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ไพจิตร',price:140,times:['11:20','14:00']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'หนองเรือ',price:140,times:['11:20','14:00']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'คลองตะเคียน',price:120,times:['11:20','14:00']},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'สี่แยกโคนม',price:150,times:['11:20','14:00']}
+    ]},
+    'ต้นทางตาม passenger.html':{id:'origins',routes:[
+      {from:'ท่ารถสนามชัยเขต',to:'ฉะเชิงเทรา (แปดริ้ว)',price:55,times:['06:20','07:20','09:00','10:40','12:10','13:40','14:00']},
+      {from:'พนมสารคาม',to:'ฉะเชิงเทรา (แปดริ้ว)',price:55,times:['06:40','07:40','09:20','11:40','12:30','14:30','15:00']},
+      {from:'คลองหาด',to:'ฉะเชิงเทรา (แปดริ้ว)',price:160,times:['08:00','11:30']},
+      {from:'หนองคอก',to:'ฉะเชิงเทรา (แปดริ้ว)',price:100,times:['06:20','09:30','13:00']},
+      {from:'ท่าตะเกียบ',to:'ฉะเชิงเทรา (แปดริ้ว)',price:100,times:['06:35','09:45','13:15']},
+      {from:'ทุ่งกบินทร์',to:'ฉะเชิงเทรา (แปดริ้ว)',price:150,times:['08:20','12:10']},
+      {from:'ไพจิตร',to:'ฉะเชิงเทรา (แปดริ้ว)',price:140,times:['08:30','12:10']},
+      {from:'หนองเรือ',to:'ฉะเชิงเทรา (แปดริ้ว)',price:140,times:['08:40','12:20']},
+      {from:'คลองตะเคียน',to:'ฉะเชิงเทรา (แปดริ้ว)',price:120,times:['09:20','12:40']},
+      {from:'สี่แยกโคนม',to:'ฉะเชิงเทรา (แปดริ้ว)',price:150,times:['07:30','11:00','14:30']}
+    ]},
+    'กลุ่มพัทยา-ระยอง-มีนบุรี':{id:'coastal',routes:[
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'พัทยา',price:140,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ระยอง',price:150,times:east},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'กม.10',price:160,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ตลาดหนองมน',price:90,times:east},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'บางแสน',price:90,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'อ่าวอุดม',price:120,times:east},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ศรีราชา',price:100,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ม.เกษตร',price:120,times:east},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'บ้านฉาง',price:160,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'แหลมฉบัง',price:120,times:east},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ตลาดมีนบุรี',price:70,times:minburi}
+    ]},
+    'กลุ่มหมอชิต-เอกมัย-BTS':{id:'bangkok',routes:[
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'หมอชิต',price:120,times:mochit},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'BTS จตุจักร',price:120,times:mochit},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'แยกลาดพร้าว',price:120,times:mochit},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'เอกมัย',price:120,times:ekkamai},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'โฮมโปร',price:120,times:ekkamai},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'บางนา',price:120,times:ekkamai},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'BTS บางฉาง',price:120,times:ekkamai},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'BTS พระโขนง',price:120,times:ekkamai},
+      {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'BTS อ่อนนุช',price:120,times:ekkamai}
+    ]}
+  };
 }
 function renderRouteGroups(){
   var html='';
@@ -793,7 +863,13 @@ function renderRouteGroups(){
       html+='<div><label style="font-size:11px;color:var(--muted)">สถานที่ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
       html+='<div><label style="font-size:11px;color:var(--muted)">ราคา (\u0e3f)</label><input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></div>';
       html+='</div><div><label style="font-size:11px;color:var(--muted)">ตารางเวลา</label>';
-      html+='<div class="time-chips">'+(r.times||[]).map(function(t){return'<span class="chip">'+esc(t)+' <span class="cx" onclick="removeTime(\''+esc(gname)+'\','+ri+',\''+t+'\')">&#x00D7;</span></span>';}).join('')+'</div>';
+      html+='<div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
+        var blocked=((r.closedStops||{})[t]||[]).join(', ');
+        return'<div class="time-edit-row"><input type="time" value="'+esc(t)+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
+          '<div><input class="blocked-input" type="text" placeholder="ปิดจองเฉพาะป้าย เช่น พนมสารคาม, ท่ารถสนามชัยเขต" value="'+esc(blocked)+'" oninput="updateClosedStops(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.value)">'+
+          '<div class="blocked-hint">เว้นว่าง = ป้ายนั้นยังจองได้ตามปกติ</div></div>'+
+          '<button class="btn btn-danger btn-sm" onclick="removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')">&#x00D7;</button></div>';
+      }).join('')+'</div>';
       html+='<div class="add-chip-row"><input type="time" id="tc_'+gi+'_'+ri+'"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่ม</button>';
       html+='<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">\ud83d\uddd1\ufe0f ลบ</button></div>';
       html+='</div></div>';
@@ -805,6 +881,23 @@ function renderRouteGroups(){
 }
 function toggleRG(i){var b=document.getElementById('rgb_'+i);b.classList.toggle('open');}
 function updateRoute(gname,ri,field,val){if(routeData[gname]&&routeData[gname].routes[ri])routeData[gname].routes[ri][field]=val;}
+function csvStops(v){return String(v||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
+function updateClosedStops(gname,ri,t,val){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var r=routeData[gname].routes[ri];
+  if(!r.closedStops)r.closedStops={};
+  var stops=csvStops(val);
+  if(stops.length)r.closedStops[t]=stops;else delete r.closedStops[t];
+}
+function updateTime(gname,ri,ti,val){
+  if(!val||!routeData[gname]||!routeData[gname].routes[ri])return;
+  var r=routeData[gname].routes[ri],times=r.times||[],old=times[ti];
+  if(old===val)return;
+  if(times.indexOf(val)!==-1){alert('เวลานี้มีอยู่แล้ว');renderRouteGroups();return;}
+  times[ti]=val;times.sort();r.times=times;
+  if(r.closedStops&&r.closedStops[old]){r.closedStops[val]=r.closedStops[old];delete r.closedStops[old];}
+  renderRouteGroups();
+}
 function addTime(gname,ri,inputId){
   var t=document.getElementById(inputId).value;if(!t)return;
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
@@ -815,7 +908,9 @@ function addTime(gname,ri,inputId){
 }
 function removeTime(gname,ri,t){
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
-  routeData[gname].routes[ri].times=(routeData[gname].routes[ri].times||[]).filter(function(x){return x!==t;});
+  var r=routeData[gname].routes[ri];
+  r.times=(r.times||[]).filter(function(x){return x!==t;});
+  if(r.closedStops)delete r.closedStops[t];
   renderRouteGroups();
 }
 function addRoute(gname){if(!routeData[gname])return;routeData[gname].routes.push({from:'',to:'',price:0,times:[]});renderRouteGroups();}
