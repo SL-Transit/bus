@@ -326,7 +326,7 @@
       console.error(err);
       throw err;
     });
-    // LINE OA notification is sent by Firebase Function when /bookings/{code} is updated.
+    // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
     // ตาราง Leg 2 ดึงชุดเดียวกับ booking.html / passenger.html
     var LEG2_TIMES_COMMON = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
@@ -469,7 +469,7 @@
         var matches = [];
         snap.forEach(function(child) {
           var booking = child.val() || {};
-          if (String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
+          if (!booking.notificationOnly && String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
             matches.push({ code: child.key, booking: booking });
           }
         });
@@ -487,7 +487,7 @@
         booking.ts,
         booking.createdAt,
         booking.updatedAt,
-        booking.lineNotifyAt,
+        booking.lineMessagingAt,
         booking.checkedInAt,
         booking.changedAt,
         booking.cancelledAt
@@ -1123,12 +1123,12 @@
         lineEvent: eventName,
         lineMessage: linePayload.message,
         linePayload: linePayload,
-        lineNotifyMode: linePayload.notifyMode,
-        lineBatchKey: linePayload.batchKey,
-        lineBatchWindowMs: linePayload.batchWindowMs,
-        lineNotifyAt: firebase.database.ServerValue.TIMESTAMP,
-        lineNotifyStatus: (TEST_MODE && !NOTIFICATION_TEST_MODE) ? 'mocked' : 'pending',
-        lineNotifyAttemptId: linePayload.notificationTestRunId,
+        lineMessagingMode: linePayload.notifyMode,
+        lineMessagingBatchKey: linePayload.batchKey,
+        lineMessagingBatchWindowMs: linePayload.batchWindowMs,
+        lineMessagingAt: firebase.database.ServerValue.TIMESTAMP,
+        lineMessagingStatus: (TEST_MODE && !NOTIFICATION_TEST_MODE) ? 'mocked' : 'pending',
+        lineMessagingAttemptId: linePayload.notificationTestRunId,
         notificationTestMode: NOTIFICATION_TEST_MODE,
         testMode: TEST_MODE || currentBooking.testMode === true
       });
@@ -1145,8 +1145,9 @@
         }
         currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
         if (NOTIFICATION_TEST_MODE || (!TEST_MODE && currentBooking.testMode !== true)) {
-          setStatus('lookupStatus', 'good', successText);
-          return;
+          return createLineMessagingTrigger(linePayload, payload, eventName).then(function(){
+            setStatus('lookupStatus', 'good', successText);
+          });
         }
         return db.ref('mockLogs').push({
           source:'check_ticket.html',
@@ -1165,6 +1166,47 @@
           setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลเพื่อแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
           throw err;
         });
+    }
+
+    function createLineMessagingTrigger(linePayload, updatePayload, eventName) {
+      if (TEST_MODE && !NOTIFICATION_TEST_MODE) return Promise.resolve();
+      var triggerCode = 'CI' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+      var trigger = {
+        code: triggerCode,
+        originalCode: currentBooking.code,
+        notificationOnly: true,
+        notificationType: eventName,
+        source: 'check_ticket.html',
+        lineEvent: eventName,
+        lineMessage: linePayload.message,
+        linePayload: linePayload,
+        lineMessagingMode: linePayload.notifyMode,
+        lineMessagingBatchKey: linePayload.batchKey,
+        lineMessagingBatchWindowMs: linePayload.batchWindowMs,
+        lineMessagingStatus: 'pending',
+        lineMessagingAttemptId: linePayload.notificationTestRunId,
+        notificationTestMode: NOTIFICATION_TEST_MODE,
+        name: currentBooking.name || '',
+        phone: currentBooking.phone || '',
+        route: currentBooking.route || '',
+        origin: currentBooking.origin || '',
+        destination: currentBooking.destination || '',
+        date: currentBooking.date || '',
+        time: currentBooking.time || '',
+        leg1Route: linePayload.leg1Route || '',
+        leg1Time: linePayload.leg1Time || '',
+        leg2Route: linePayload.leg2Route || '',
+        leg2Time: linePayload.leg2Time || '',
+        legSchedule: linePayload.legSchedule || {},
+        seats: currentBooking.seats || 1,
+        price: currentBooking.price || '',
+        status: updatePayload.status || currentBooking.status || 'checked_in',
+        checkedInAt: updatePayload.checkedInAt || Date.now(),
+        officialStatus: updatePayload.officialStatus || '',
+        checkin: updatePayload.checkin || {},
+        ts: firebase.database.ServerValue.TIMESTAMP
+      };
+      return db.ref('bookings/' + triggerCode).set(trigger);
     }
 
     function buildLineMessage(data) {

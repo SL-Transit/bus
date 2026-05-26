@@ -674,7 +674,7 @@ function revCard(title,r,hasAg){
 function loadAllBookings(){
   db.ref('bookings').on('value',function(snap){
     var d=snap.val()||{};
-    allBk=Object.entries(d).map(function(e){var b=e[1];b.code=b.code||e[0];return b;});
+    allBk=Object.entries(d).map(function(e){var b=e[1];b.code=b.code||e[0];return b;}).filter(function(b){return !b.notificationOnly;});
     filterBk();loadRefunds();
     var p=allBk.filter(function(b){return b.status==='confirmed';}).length;
     var nb=document.getElementById('nb');
