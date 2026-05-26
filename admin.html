@@ -393,6 +393,10 @@ tr:hover td{background:#fafafa;}
             <div><strong>Test Mode</strong><span>ทดสอบโหลด/จองคิวโดยไม่ส่ง LINE จริงและไม่สร้างธุรกรรมจริง</span></div>
             <label class="tog"><input type="checkbox" id="testModeToggle"><span class="tog-sl"></span></label>
           </div>
+          <div class="control-card">
+            <div><strong>ปิดจองเฉพาะเส้นทาง</strong><span>ให้ booking.html บล็อกเส้นทาง/รอบที่ตั้งไว้ในตารางเวลา</span></div>
+            <label class="tog"><input type="checkbox" id="routeCloseToggle" onchange="toggleRouteClose(this.checked)"><span class="tog-sl"></span></label>
+          </div>
         </div>
         <div class="test-mode-banner" id="testModeBanner">TEST MODE เปิดอยู่: ระบบจะใช้ข้อมูลจำลองและบันทึก mock logs เท่านั้น</div>
         <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียมและการชำระเงิน</button>
@@ -531,7 +535,7 @@ firebase.initializeApp({
 });
 var db=firebase.database(),auth=firebase.auth();
 var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
-var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
+var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false,ROUTE_CLOSE_ENABLED=true;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
 var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}};
@@ -617,12 +621,14 @@ function loadFees(){
     FEE_VISIBLE=d.serviceVisible===true;
     PAYMENT_MODE=(settings.payment&&settings.payment.mode)==='transfer'?'transfer':'onsite';
     TEST_MODE=settings.testMode===true;
+    ROUTE_CLOSE_ENABLED=settings.routeCloseEnabled!==false;
     document.getElementById('feeService').value=FEE_SVC;
     document.getElementById('feeAgent').value=FEE_AGENT;
     document.getElementById('feeEnabled').checked=FEE_ENABLED;
     document.getElementById('feeVisible').checked=FEE_VISIBLE;
     document.getElementById('paymentMode').value=PAYMENT_MODE;
     document.getElementById('testModeToggle').checked=TEST_MODE;
+    document.getElementById('routeCloseToggle').checked=ROUTE_CLOSE_ENABLED;
     document.getElementById('testModeBanner').style.display=TEST_MODE?'block':'none';
     document.getElementById('payToggle').checked=PAYMENT_MODE==='transfer';
     document.getElementById('payToggleLabel').textContent=PAYMENT_MODE==='transfer'?'🟢 ชำระออนไลน์':'🔴 จ่ายหน้างาน';
@@ -638,15 +644,24 @@ function saveFees(){
   FEE_VISIBLE=document.getElementById('feeVisible').checked;
   PAYMENT_MODE=document.getElementById('paymentMode').value==='transfer'?'transfer':'onsite';
   TEST_MODE=document.getElementById('testModeToggle').checked;
+  ROUTE_CLOSE_ENABLED=document.getElementById('routeCloseToggle').checked;
   db.ref('settings').update({
     fees:{service:FEE_SVC,agent:FEE_AGENT,serviceEnabled:FEE_ENABLED,serviceVisible:FEE_VISIBLE},
     payment:{mode:PAYMENT_MODE},
-    testMode:TEST_MODE
+    testMode:TEST_MODE,
+    routeCloseEnabled:ROUTE_CLOSE_ENABLED
   }).then(function(){
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
-    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE+' testMode='+TEST_MODE);
+    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE+' testMode='+TEST_MODE+' routeClose='+ROUTE_CLOSE_ENABLED);
     alert('\u2705 บันทึกสำเร็จ');
+  });
+}
+function toggleRouteClose(open){
+  if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
+  ROUTE_CLOSE_ENABLED=open;
+  db.ref('settings/routeCloseEnabled').set(open).then(function(){
+    writeLog('setting',(open?'เปิด':'ปิด')+'ปิดจองเฉพาะเส้นทาง');
   });
 }
 function loadBookingToggle(){
