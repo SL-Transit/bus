@@ -358,9 +358,12 @@
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
     var TEST_MODE = false;
-    var NOTIFICATION_TEST_MODE = true;
+    var NOTIFICATION_TEST_MODE = false;
     var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
-    var DISTANCE_MODE = 'haversine';
+    var DISTANCE_MODE = 'road';
+    var ROAD_DISTANCE_FACTOR = 1.335;
+    var ROAD_DISTANCE_CACHE = {};
+    var roadDistanceRequestSeq = 0;
     var ADMIN_DEST_SCHEDULES = [];
 
     var currentBooking = null;
@@ -381,7 +384,9 @@
       var settings = snap.val() || {};
       TEST_MODE = settings.testMode === true;
       if (settings.checkin && settings.checkin.radiusKm !== undefined) CHECKIN_RADIUS_KM = Number(settings.checkin.radiusKm) || 1.5;
-      if (settings.checkin && settings.checkin.distanceMode) DISTANCE_MODE = settings.checkin.distanceMode;
+      if (settings.checkin && settings.checkin.distanceMode) {
+        DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
+      }
       ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
       applyTestModeUI();
       updateActionAvailability();
@@ -738,6 +743,27 @@
       currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(previous, next) : pos.coords.speed * 3.6;
       updateStationaryTracking(next);
 
+      renderDistanceState();
+      refreshRoadDistance(next);
+
+      var movedEnough = !previous || distanceKm(previous.lat, previous.lng, next.lat, next.lng) >= 0.01;
+      if (movedEnough) {
+        db.ref('ticketLocations/' + currentBooking.code).set({
+          lat: next.lat,
+          lng: next.lng,
+          distanceKm: currentDistanceKm,
+          distanceSource: DISTANCE_MODE === 'road' ? 'road_fallback' : 'straight_line',
+          speedKmh: currentSpeedKmh,
+          etaMinutes: currentEtaMinutes,
+          stationarySince: stationarySince || '',
+          stationaryMinutes: stationarySince ? Math.floor((Date.now() - stationarySince) / 60000) : 0,
+          ts: Date.now()
+        });
+      }
+    }
+
+    function renderDistanceState() {
+      if (currentDistanceKm === null || isNaN(currentDistanceKm)) return;
       document.getElementById('distanceText').textContent = currentDistanceKm.toFixed(2);
       document.getElementById('speedText').textContent = currentSpeedKmh < 1 ? '0' : currentSpeedKmh.toFixed(1);
 
@@ -756,20 +782,6 @@
       compareSchedule();
       updateCheckinWindow();
       updateFlexiblePanel();
-
-      var movedEnough = !previous || distanceKm(previous.lat, previous.lng, next.lat, next.lng) >= 0.01;
-      if (movedEnough) {
-        db.ref('ticketLocations/' + currentBooking.code).set({
-          lat: next.lat,
-          lng: next.lng,
-          distanceKm: currentDistanceKm,
-          speedKmh: currentSpeedKmh,
-          etaMinutes: currentEtaMinutes,
-          stationarySince: stationarySince || '',
-          stationaryMinutes: stationarySince ? Math.floor((Date.now() - stationarySince) / 60000) : 0,
-          ts: Date.now()
-        });
-      }
     }
 
     function estimateSpeedKmh(previous, next) {
@@ -781,7 +793,51 @@
     function getCheckinDistanceKm(position) {
       var roadKm = currentBooking && currentBooking.routeProgress && Number(currentBooking.routeProgress.remainingRoadKm);
       if (DISTANCE_MODE === 'road' && !isNaN(roadKm) && roadKm >= 0) return roadKm;
-      return distanceKm(position.lat, position.lng, TERMINAL.lat, TERMINAL.lng);
+      var straightKm = distanceKm(position.lat, position.lng, TERMINAL.lat, TERMINAL.lng);
+      return DISTANCE_MODE === 'road' ? straightKm * ROAD_DISTANCE_FACTOR : straightKm;
+    }
+
+    function refreshRoadDistance(position) {
+      if (DISTANCE_MODE !== 'road') return;
+      var seq = ++roadDistanceRequestSeq;
+      requestRoadDistanceKm(position).then(function(roadKm) {
+        if (seq !== roadDistanceRequestSeq || roadKm === null || isNaN(roadKm)) return;
+        currentDistanceKm = roadKm;
+        renderDistanceState();
+        if (currentBooking) {
+          db.ref('ticketLocations/' + currentBooking.code).update({
+            distanceKm: currentDistanceKm,
+            etaMinutes: currentEtaMinutes,
+            distanceSource: 'osrm_road',
+            ts: Date.now()
+          }).catch(function(){});
+        }
+      }).catch(function(){});
+    }
+
+    function requestRoadDistanceKm(position) {
+      var key = [
+        position.lat.toFixed(5),
+        position.lng.toFixed(5),
+        TERMINAL.lat.toFixed(5),
+        TERMINAL.lng.toFixed(5)
+      ].join(',');
+      if (ROAD_DISTANCE_CACHE[key] !== undefined) return Promise.resolve(ROAD_DISTANCE_CACHE[key]);
+
+      var url = 'https://router.project-osrm.org/route/v1/driving/' +
+        position.lng + ',' + position.lat + ';' + TERMINAL.lng + ',' + TERMINAL.lat +
+        '?overview=false&alternatives=false&steps=false';
+
+      return fetch(url).then(function(res) {
+        if (!res.ok) throw new Error('OSRM ' + res.status);
+        return res.json();
+      }).then(function(data) {
+        var route = data && data.routes && data.routes[0];
+        if (!route || !route.distance) return null;
+        var km = route.distance / 1000;
+        ROAD_DISTANCE_CACHE[key] = km;
+        return km;
+      });
     }
 
     function onPositionError(err) {
