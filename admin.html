@@ -89,18 +89,20 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--ink);min-he
 .stat .sl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
 .stat .sn{font-family:'Chakra Petch',sans-serif;font-size:24px;font-weight:700;color:var(--navy);}
 .stat .ss{font-size:11px;color:var(--muted);margin-top:2px;}
-.chart-panel{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;}
-.chart-title{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;}
-.bar-chart{height:190px;display:flex;align-items:flex-end;gap:12px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 10px 18px;}
-.bar-stack{flex:1;display:flex;flex-direction:column;justify-content:flex-end;min-width:22px;height:100%;position:relative;background:#f8fafc;border-radius:5px 5px 0 0;overflow:hidden;}
+.chart-panel{background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;}
+.chart-title{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.chart-sub{font-size:10px;color:var(--muted);font-weight:500;}
+.bar-chart{height:132px;display:flex;align-items:flex-end;gap:10px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 8px 18px;background:linear-gradient(#fff,#fff),repeating-linear-gradient(to top,transparent 0,transparent 31px,#eef2f7 32px);background-blend-mode:normal;}
+.bar-stack{flex:1;display:flex;flex-direction:column-reverse;justify-content:flex-start;min-width:22px;height:100%;position:relative;background:#f8fafc;border-radius:5px 5px 0 0;overflow:visible;}
 .bar-seg{width:100%;min-height:2px;}
 .bar-gross{background:#1d9bf0;}
 .bar-fee{background:#f59e0b;}
 .bar-label{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);white-space:nowrap;}
-.donut-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px;}
-.donut-card{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:10px;background:#f8fbff;}
-.donut{width:58px;height:58px;border-radius:50%;background:conic-gradient(var(--blue) 0deg,var(--blue) 240deg,#f59e0b 240deg,#f59e0b 360deg);display:grid;place-items:center;flex-shrink:0;}
-.donut span{width:36px;height:36px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--navy);text-align:center;line-height:1.1;}
+.dash-insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;}
+.insight-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;}
+.insight-card .il{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.35px;margin-bottom:5px;}
+.insight-card .iv{font-size:18px;font-weight:700;color:var(--navy);line-height:1.25;}
+.insight-card .is{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px;}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;}
 
@@ -313,7 +315,8 @@ tr:hover td{background:#fafafa;}
         <span id="dashDate" style="font-size:11px;color:var(--muted)"></span>
       </div>
       <div class="stat-grid" id="dashStats"></div>
-      <div class="card" id="dashRevCard" style="display:none"><h2>&#x1F4B0; สรุปรายได้วันนี้</h2><div class="rev-grid" id="dashRevGrid"></div></div>
+      <div class="dash-insights" id="dashInsights"></div>
+      <div class="card" id="dashRevCard" style="display:none"><h2>&#x1F4B0; สรุปรายได้และค่าบริการวันนี้</h2><div id="dashRevGrid"></div></div>
       <div class="card"><h2>&#x1F4CB; จองล่าสุด</h2>
         <div class="tbl-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>เส้นทาง</th><th>เวลา</th><th>สถานะ</th></tr></thead><tbody id="dashRecent"></tbody></table></div>
       </div>
@@ -663,22 +666,36 @@ function togglePayment(open){
 }
 function loadDashboard(){
   var today=new Date().toISOString().split('T')[0];
-  db.ref('bookings').orderByChild('date').equalTo(today).once('value').then(function(snap){
+  Promise.all([
+    db.ref('bookings').orderByChild('date').equalTo(today).once('value'),
+    db.ref('analytics/mainWeb/'+today).once('value').catch(function(){return null;})
+  ]).then(function(results){
+    var snap=results[0],visitSnap=results[1];
     var arr=Object.values(snap.val()||{}).map(function(b){b._path='bookings';return b;});
     var active=arr.filter(function(b){return b.status!=='cancelled';});
     var rev=active.reduce(function(s,b){return s+(Number(b.price)||0);},0);
+    var cancelled=arr.filter(function(b){return b.status==='cancelled';});
+    var full=active.filter(function(b){return Number(b.seats||1)>=10||/เต็ม/.test(String(b.status||''));}).length;
+    var topTrip=topBy(active,function(b){return (b.date||today)+' '+(b.time||'-');});
+    var topRoute=topBy(active,function(b){return b.route||'-';});
+    var visits=visitSnap&&visitSnap.exists()?Number(visitSnap.val().count||visitSnap.val()||0):0;
     document.getElementById('dashStats').innerHTML=
-      stat('\ud83c\udfab','จองวันนี้',arr.length,'รายการ')+
-      stat('\u2705','ยืนยัน',active.length,'รายการ')+
-      stat('\ud83d\udeab','ยกเลิก',arr.filter(function(b){return b.status==='cancelled';}).length,'รายการ')+
-      stat('\ud83d\udcb0','รายได้','\u0e3f'+rev.toLocaleString(),'บาท');
+      stat('\ud83c\udfab','ยอดจองวันนี้',active.length,'รายการ')+
+      stat('\ud83d\udcb0','รายได้วันนี้','\u0e3f'+rev.toLocaleString(),'บาท')+
+      stat('\ud83d\ude8c','คิวเต็ม',full,'รอบ')+
+      stat('\ud83d\udd25','รอบยอดนิยม',topTrip.count,topTrip.label);
+    document.getElementById('dashInsights').innerHTML=
+      insight('จองกี่คน',sumSeats(active).toLocaleString()+' คน','นับเฉพาะรายการที่ยังไม่ยกเลิก')+
+      insight('ยกเลิกกี่คน',sumSeats(cancelled).toLocaleString()+' คน',cancelled.length+' รายการ')+
+      insight('เข้าชมเว็บหลัก',visits.toLocaleString()+' คน','วันนี้')+
+      insight('เส้นทางยอดนิยม',topRoute.label,topRoute.count+' รายการ');
     if(isAdmin()){
       var m=calcNet(active.filter(function(b){return bkCat(b)==='main';}),false);
       var c=calcNet(active.filter(function(b){return bkCat(b)==='coastal';}),true);
       var bk=calcNet(active.filter(function(b){return bkCat(b)==='bangkok';}),true);
       var o=calcNet(active.filter(function(b){return bkCat(b)==='other';}),false);
       document.getElementById('dashRevCard').style.display='';
-      document.getElementById('dashRevGrid').innerHTML=renderRevenueCharts([m,c,bk,o],['หลัก','พัทยา','กทม.','อื่นๆ'])+revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
+      document.getElementById('dashRevGrid').innerHTML=renderRevenueCharts([m,c,bk,o],['หลัก','พัทยา','กทม.','อื่นๆ'])+'<div class="rev-grid">'+revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false)+'</div>';
     }
     var sorted=arr.slice().sort(function(a,b){return(b.ts||0)-(a.ts||0);}).slice(0,8);
     document.getElementById('dashRecent').innerHTML=sorted.map(function(b){
@@ -687,18 +704,21 @@ function loadDashboard(){
   });
 }
 function stat(i,l,n,u){return'<div class="stat"><div class="sl">'+i+' '+l+'</div><div class="sn">'+n+'</div><div class="ss">'+u+'</div></div>';}
+function insight(l,v,s){return'<div class="insight-card"><div class="il">'+esc(l)+'</div><div class="iv">'+esc(v)+'</div><div class="is">'+esc(s||'')+'</div></div>';}
+function sumSeats(list){return list.reduce(function(s,b){return s+(Number(b.seats)||1);},0);}
+function topBy(list,fn){
+  var map={};list.forEach(function(b){var k=fn(b)||'-';map[k]=(map[k]||0)+1;});
+  var best=Object.entries(map).sort(function(a,b){return b[1]-a[1];})[0];
+  return best?{label:best[0],count:best[1]}:{label:'-',count:0};
+}
 function calcNet(list,hasAg){var gross=list.reduce(function(s,b){return s+(Number(b.price)||0);},0);var svc=list.length*FEE_SVC,ag=hasAg?list.length*FEE_AGENT:0;return{count:list.length,gross:gross,svc:svc,ag:ag,net:gross-svc-ag};}
 function renderRevenueCharts(items,labels){
   var max=Math.max.apply(null,items.map(function(r){return Math.max(1,r.gross);}));
   var bars=items.map(function(r,i){
     var totalH=Math.max(4,Math.round((r.gross/max)*100)),feeH=Math.min(totalH,Math.round(((r.svc+r.ag)/Math.max(1,r.gross))*totalH));
-    return'<div class="bar-stack" title="'+labels[i]+' ฿'+r.gross.toLocaleString()+'"><div class="bar-seg bar-fee" style="height:'+feeH+'%"></div><div class="bar-seg bar-gross" style="height:'+(totalH-feeH)+'%"></div><span class="bar-label">'+labels[i]+'</span></div>';
+    return'<div class="bar-stack" title="'+labels[i]+' ฿'+r.gross.toLocaleString()+'"><div class="bar-seg bar-gross" style="height:'+(totalH-feeH)+'%"></div><div class="bar-seg bar-fee" style="height:'+feeH+'%"></div><span class="bar-label">'+labels[i]+'</span></div>';
   }).join('');
-  var donuts=items.map(function(r,i){
-    var fee=r.svc+r.ag,deg=Math.round((r.net/Math.max(1,r.gross))*360);
-    return'<div class="donut-card"><div class="donut" style="background:conic-gradient(var(--blue) 0deg,var(--blue) '+deg+'deg,#f59e0b '+deg+'deg,#f59e0b 360deg)"><span>'+labels[i]+'<br>'+r.count+'</span></div><div><b>฿'+r.net.toLocaleString()+'</b><br><span style="font-size:11px;color:var(--muted)">หัก ฿'+fee.toLocaleString()+'</span></div></div>';
-  }).join('');
-  return'<div class="chart-panel" style="grid-column:1/-1"><div class="chart-title">กราฟรายได้และค่าบริการ</div><div class="bar-chart">'+bars+'</div><div class="legend"><span><i style="background:#1d9bf0"></i>รายได้สุทธิ</span><span><i style="background:#f59e0b"></i>ค่าบริการ/นายหน้า</span></div><div class="donut-row">'+donuts+'</div></div>';
+  return'<div class="chart-panel"><div class="chart-title"><span>รายได้แยกหมวด</span><span class="chart-sub">วันนี้</span></div><div class="bar-chart">'+bars+'</div><div class="legend"><span><i style="background:#1d9bf0"></i>รายได้หลังหัก</span><span><i style="background:#f59e0b"></i>ค่าบริการ/นายหน้า</span></div></div>';
 }
 function revCard(title,r,hasAg){
   return'<div class="rev-card"><div class="rc-t">'+title+'</div>'+
