@@ -679,7 +679,6 @@ function _applySettings(snap) {
 
   // --- ตารางเวลา (ORIGIN_TIMES + LEG2 times) ---
   ROUTE_CLOSED_STOPS = {};
-  ADMIN_ROUTE_TIMES = {};
   if (data.routes) {
     Object.values(data.routes).forEach(function(group) {
       if (!group.routes) return;
@@ -699,10 +698,6 @@ function _applySettings(snap) {
         if (toKey && LEG2_DEST[toKey]) {
           LEG2_DEST[toKey].times = times;
           LEG2_DEST[toKey].label = r.to;
-        }
-        if (fromKey && toKey) {
-          if (!ADMIN_ROUTE_TIMES[fromKey]) ADMIN_ROUTE_TIMES[fromKey] = {};
-          ADMIN_ROUTE_TIMES[fromKey][toKey] = {times: times, price: Number(r.price) || 0};
         }
         if (isMainGroup && fromKey && toKey && r.closedStops) {
           if (!ROUTE_CLOSED_STOPS[fromKey]) ROUTE_CLOSED_STOPS[fromKey] = {};
@@ -838,7 +833,6 @@ var PAYMENT_MODE = 'onsite';      // onsite = จ่ายหน้างาน,
 var BOOKING_OPEN = true;
 var TEST_MODE = false;
 var ROUTE_CLOSED_STOPS = {};
-var ADMIN_ROUTE_TIMES = {};
  
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
@@ -1279,9 +1273,7 @@ function getStatusBadge(dateStr, timeStr) {
  
 function renderTimes() {
   var times;
-  if (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) {
-    times = ADMIN_ROUTE_TIMES[selOrigin][selDest].times;
-  } else if (selOrigin === 'chachoengsao' && CHACHOENGSAO_TIMES[selDest]) {
+  if (selOrigin === 'chachoengsao' && CHACHOENGSAO_TIMES[selDest]) {
     times = CHACHOENGSAO_TIMES[selDest];
   } else if (selOrigin === 'phanom' && PHANOM_DEST_TIMES[selDest]) {
     times = PHANOM_DEST_TIMES[selDest].times;
