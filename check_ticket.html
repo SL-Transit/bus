@@ -47,6 +47,7 @@
 
     .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
     .pill { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
+    .test-mode-strip { display:none; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; border-radius:8px; padding:10px 14px; font-size:14px; font-weight:700; margin-bottom:14px; text-align:center; }
 
     .panel {
       background: var(--card);
@@ -200,6 +201,7 @@
 </head>
 <body>
   <main class="wrap">
+    <div class="test-mode-strip" id="testModeStrip">TEST MODE: เช็คอินและ LINE เป็น mock ไม่ส่งข้อมูลจริง</div>
     <div class="topbar">
       <a class="back" href="index.html">‹ กลับหน้าแรก</a>
       <div class="pill">Ticket Center</div>
@@ -355,6 +357,9 @@
     var CHECKIN_ETA_MINUTES = 5;
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
+    var TEST_MODE = false;
+    var DISTANCE_MODE = 'haversine';
+    var ADMIN_DEST_SCHEDULES = [];
 
     var currentBooking = null;
     var currentCode = null;
@@ -368,11 +373,44 @@
     var currentEtaMinutes = null;
     var suggestedNextTrip = null;
     var countdownTimer = null;
+    var checkinSubmitLock = false;
+
+    db.ref('settings').on('value', function(snap) {
+      var settings = snap.val() || {};
+      TEST_MODE = settings.testMode === true;
+      if (settings.checkin && settings.checkin.radiusKm !== undefined) CHECKIN_RADIUS_KM = Number(settings.checkin.radiusKm) || 1.5;
+      if (settings.checkin && settings.checkin.distanceMode) DISTANCE_MODE = settings.checkin.distanceMode;
+      ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
+      applyTestModeUI();
+      updateActionAvailability();
+    });
 
     function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }
     function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
+    function applyTestModeUI() {
+      var strip = document.getElementById('testModeStrip');
+      if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
+    }
+    function bookingPathForCode(code, booking) {
+      return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
+    }
+    function buildAdminDestinationSchedules(routes) {
+      var list = [];
+      if (!routes) return list;
+      Object.values(routes).forEach(function(group) {
+        (group.routes || []).forEach(function(route) {
+          if (!route.to || !route.times || !route.times.length) return;
+          list.push({
+            keywords: [String(route.to)],
+            times: route.times.slice().sort(),
+            group: group.id || ''
+          });
+        });
+      });
+      return list;
+    }
 
     function lookupTicket() {
       var value = normalizeLookup(document.getElementById('lookupValue').value);
@@ -385,8 +423,8 @@
       setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
       var task = authReady.then(function() {
-        if (/^BK\d{6}$/.test(value)) {
-          return db.ref('bookings/' + value).once('value').then(function(snap) {
+        if (/^(BK|TB)\d{6}$/.test(value)) {
+          return db.ref(bookingPathForCode(value) + value).once('value').then(function(snap) {
             return snap.exists() ? { code: value, booking: snap.val() } : null;
           });
         }
@@ -424,7 +462,8 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      return db.ref('bookings').orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
+      var path = TEST_MODE ? 'testBookings' : 'bookings';
+      return db.ref(path).orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
         if (!snap.exists()) return null;
         var matches = [];
         snap.forEach(function(child) {
@@ -481,8 +520,9 @@
     }
 
     function startBookingListener(code) {
-      db.ref('bookings/' + code).off();
-      db.ref('bookings/' + code).on('value', function(snap) {
+      var ref = db.ref(bookingPathForCode(code, currentBooking) + code);
+      ref.off();
+      ref.on('value', function(snap) {
         if (snap.exists() && currentCode === code) {
           currentBooking = normalizeBooking(snap.val(), code);
           renderBooking();
@@ -604,6 +644,14 @@
       }
       if (!destination) destination = connectionRouteInfo(booking.route).destination;
       var clean = String(destination || booking.destination || booking.to || '').replace(/\s+/g, '').toLowerCase();
+      for (var a = 0; a < ADMIN_DEST_SCHEDULES.length; a++) {
+        var adminSchedule = ADMIN_DEST_SCHEDULES[a];
+        for (var b = 0; b < adminSchedule.keywords.length; b++) {
+          if (clean.indexOf(adminSchedule.keywords[b].replace(/\s+/g, '').toLowerCase()) !== -1) {
+            return adminSchedule.times;
+          }
+        }
+      }
       for (var i = 0; i < LEG2_DEST_SCHEDULES.length; i++) {
         var schedule = LEG2_DEST_SCHEDULES[i];
         for (var j = 0; j < schedule.keywords.length; j++) {
@@ -684,7 +732,7 @@
       var previous = lastPosition;
       var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
       lastPosition = next;
-      currentDistanceKm = distanceKm(next.lat, next.lng, TERMINAL.lat, TERMINAL.lng);
+      currentDistanceKm = getCheckinDistanceKm(next);
       currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(previous, next) : pos.coords.speed * 3.6;
       updateStationaryTracking(next);
 
@@ -726,6 +774,12 @@
       if (!previous || !next || !previous.ts || !next.ts || next.ts <= previous.ts) return 0;
       var hours = (next.ts - previous.ts) / 3600000;
       return hours > 0 ? distanceKm(previous.lat, previous.lng, next.lat, next.lng) / hours : 0;
+    }
+
+    function getCheckinDistanceKm(position) {
+      var roadKm = currentBooking && currentBooking.routeProgress && Number(currentBooking.routeProgress.remainingRoadKm);
+      if (DISTANCE_MODE === 'road' && !isNaN(roadKm) && roadKm >= 0) return roadKm;
+      return distanceKm(position.lat, position.lng, TERMINAL.lat, TERMINAL.lng);
     }
 
     function onPositionError(err) {
@@ -802,9 +856,12 @@
         currentBooking.status === 'pending_admin_approval'
       );
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var etaNearTransfer = currentEtaMinutes !== null && currentEtaMinutes !== undefined && currentEtaMinutes <= CHECKIN_ETA_MINUTES;
-      var canCheck = (nearTransferPoint || etaNearTransfer) && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000) && !disabledByStatus;
-      document.getElementById('btnCheckin').disabled = !canCheck;
+      var canCheck = nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000) && !disabledByStatus && !checkinSubmitLock;
+      var btn = document.getElementById('btnCheckin');
+      btn.disabled = !canCheck;
+      if (currentBooking && currentBooking.status === 'checked_in') btn.textContent = 'เช็คอินแล้ว';
+      else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
+      else btn.textContent = 'เช็คอินถึงจุดต่อรถ';
       updateFlexiblePanel();
     }
 
@@ -844,6 +901,18 @@
 
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
+      if (checkinSubmitLock || currentBooking.status === 'checked_in') {
+        setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
+        updateActionAvailability();
+        return;
+      }
+      if (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM) {
+        setStatus('lookupStatus', 'bad', 'ยังอยู่นอกรัศมีเช็คอิน ' + CHECKIN_RADIUS_KM + ' กม.');
+        updateActionAvailability();
+        return;
+      }
+      checkinSubmitLock = true;
+      updateActionAvailability();
       var checkedInAt = Date.now();
       var transferAdjustment = calculateCheckinTransferAdjustment(checkedInAt);
       var payload = {
@@ -864,14 +933,15 @@
         payload.officialStatus += ' / รอบรถต่อที่ปรับได้เร็วที่สุด: ' + transferAdjustment.adjustedLeg2Time + ' น.' +
           (transferAdjustment.backupLeg2Time ? ' / รอบถัดไปสำรอง: ' + transferAdjustment.backupLeg2Time + ' น.' : '');
       }
-      updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว');
+      updateBookingAndNotify(payload, 'checkin', TEST_MODE ? 'เช็คอินสำเร็จ (mock LINE)' : 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
+        .then(function(){ checkinSubmitLock = false; updateActionAvailability(); })
+        .catch(function(){ checkinSubmitLock = false; updateActionAvailability(); });
     }
 
     function calculateCheckinTransferAdjustment(checkedInAt) {
       var routeInfo = connectionRouteInfo(currentBooking.route);
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var etaNearTransfer = currentEtaMinutes !== null && currentEtaMinutes !== undefined && currentEtaMinutes <= CHECKIN_ETA_MINUTES;
-      if (routeInfo.type !== 'secondary_connection' || (!nearTransferPoint && !etaNearTransfer)) return null;
+      if (routeInfo.type !== 'secondary_connection' || !nearTransferPoint) return null;
 
       var checkinTime = timeFromTimestamp(checkedInAt);
       var pair = getDestinationTimePairAfter(checkinTime, currentBooking);
@@ -881,7 +951,7 @@
         leg2Time: pair.first,
         backupLeg2Time: pair.backup,
         transferAdjustedAt: checkedInAt,
-        transferAdjustmentReason: nearTransferPoint ? 'checkin_within_radius' : 'eta_within_5_minutes',
+        transferAdjustmentReason: 'checkin_within_radius',
         transferAdjustment: {
           status: 'adjusted_on_checkin',
           checkinTime: checkinTime,
@@ -1053,14 +1123,41 @@
         lineBatchKey: linePayload.batchKey,
         lineBatchWindowMs: linePayload.batchWindowMs,
         lineNotifyAt: firebase.database.ServerValue.TIMESTAMP,
-        lineNotifyStatus: 'pending'
+        lineNotifyStatus: TEST_MODE ? 'mocked' : 'pending',
+        testMode: TEST_MODE || currentBooking.testMode === true
       });
 
-      db.ref('bookings/' + currentBooking.code).update(payload)
-        .then(function() { setStatus('lookupStatus', 'good', successText); })
+      var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
+      return ref.transaction(function(existing) {
+        if (!existing) return;
+        if (eventName === 'checkin' && existing.status === 'checked_in') return;
+        return Object.assign({}, existing, payload);
+      }).then(function(result) {
+        if (!result.committed) {
+          setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
+          return Promise.reject(new Error('DUPLICATE_CHECKIN'));
+        }
+        currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
+        if (!TEST_MODE && currentBooking.testMode !== true) {
+          setStatus('lookupStatus', 'good', successText);
+          return;
+        }
+        return db.ref('mockLogs').push({
+          source:'check_ticket.html',
+          event:eventName,
+          code:currentBooking.code,
+          linePayload:linePayload,
+          update:payload,
+          ts:firebase.database.ServerValue.TIMESTAMP
+        }).then(function(){
+          setStatus('lookupStatus', 'good', successText);
+        });
+      })
         .catch(function(err) {
           console.error(err);
+          if (err && err.message === 'DUPLICATE_CHECKIN') throw err;
           setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลเพื่อแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
+          throw err;
         });
     }
 

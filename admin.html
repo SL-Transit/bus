@@ -167,6 +167,7 @@ tr:hover td{background:#fafafa;}
 .control-card strong{display:block;color:var(--navy);font-size:13px;margin-bottom:3px;}
 .control-card span{display:block;color:var(--muted);font-size:11px;line-height:1.45;}
 .control-card select{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;color:var(--ink);outline:none;min-width:132px;}
+.test-mode-banner{display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:12px;}
 
 /* ── REVENUE ── */
 .rev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -363,7 +364,12 @@ tr:hover td{background:#fafafa;}
               <option value="transfer">เปิดชำระออนไลน์</option>
             </select>
           </div>
+          <div class="control-card">
+            <div><strong>Test Mode</strong><span>ทดสอบโหลด/จองคิวโดยไม่ส่ง LINE จริงและไม่สร้างธุรกรรมจริง</span></div>
+            <label class="tog"><input type="checkbox" id="testModeToggle"><span class="tog-sl"></span></label>
+          </div>
         </div>
+        <div class="test-mode-banner" id="testModeBanner">TEST MODE เปิดอยู่: ระบบจะใช้ข้อมูลจำลองและบันทึก mock logs เท่านั้น</div>
         <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียมและการชำระเงิน</button>
       </div>
       <div class="card"><h2>&#x1F6CF;&#xFE0F; กลุ่มชานชาลา</h2>
@@ -442,6 +448,9 @@ tr:hover td{background:#fafafa;}
           <div class="reset-item"><input type="checkbox" id="rTi" style="width:auto"><label for="rTi">&#x1F4CD; ticketLocations</label></div>
           <div class="reset-item"><input type="checkbox" id="rAl" style="width:auto"><label for="rAl">&#x1F4CB; adminLogs</label></div>
           <div class="reset-item"><input type="checkbox" id="rAn" style="width:auto"><label for="rAn">&#x1F4E2; announcements</label></div>
+          <div class="reset-item"><input type="checkbox" id="rTb" style="width:auto"><label for="rTb">testBookings</label></div>
+          <div class="reset-item"><input type="checkbox" id="rTq" style="width:auto"><label for="rTq">testQueues</label></div>
+          <div class="reset-item"><input type="checkbox" id="rMl" style="width:auto"><label for="rMl">mockLogs</label></div>
         </div>
         <div class="fg"><label>พิมพ์ "RESET" เพื่อยืนยัน</label><input id="resetConfirm" type="text" placeholder="RESET"></div>
         <button class="btn btn-danger" onclick="doReset()">&#x1F5D1;&#xFE0F; รีเซ็ตข้อมูลที่เลือก</button>
@@ -497,7 +506,7 @@ firebase.initializeApp({
 });
 var db=firebase.database(),auth=firebase.auth();
 var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
-var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite';
+var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
 var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={};
@@ -579,11 +588,14 @@ function loadFees(){
     FEE_ENABLED=d.serviceEnabled===true;
     FEE_VISIBLE=d.serviceVisible===true;
     PAYMENT_MODE=(settings.payment&&settings.payment.mode)==='transfer'?'transfer':'onsite';
+    TEST_MODE=settings.testMode===true;
     document.getElementById('feeService').value=FEE_SVC;
     document.getElementById('feeAgent').value=FEE_AGENT;
     document.getElementById('feeEnabled').checked=FEE_ENABLED;
     document.getElementById('feeVisible').checked=FEE_VISIBLE;
     document.getElementById('paymentMode').value=PAYMENT_MODE;
+    document.getElementById('testModeToggle').checked=TEST_MODE;
+    document.getElementById('testModeBanner').style.display=TEST_MODE?'block':'none';
     document.getElementById('payToggle').checked=PAYMENT_MODE==='transfer';
     document.getElementById('payToggleLabel').textContent=PAYMENT_MODE==='transfer'?'🟢 ชำระออนไลน์':'🔴 จ่ายหน้างาน';
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
@@ -597,13 +609,15 @@ function saveFees(){
   FEE_ENABLED=document.getElementById('feeEnabled').checked;
   FEE_VISIBLE=document.getElementById('feeVisible').checked;
   PAYMENT_MODE=document.getElementById('paymentMode').value==='transfer'?'transfer':'onsite';
+  TEST_MODE=document.getElementById('testModeToggle').checked;
   db.ref('settings').update({
     fees:{service:FEE_SVC,agent:FEE_AGENT,serviceEnabled:FEE_ENABLED,serviceVisible:FEE_VISIBLE},
-    payment:{mode:PAYMENT_MODE}
+    payment:{mode:PAYMENT_MODE},
+    testMode:TEST_MODE
   }).then(function(){
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
-    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE);
+    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE+' testMode='+TEST_MODE);
     alert('\u2705 บันทึกสำเร็จ');
   });
 }
@@ -903,7 +917,7 @@ function writeLog(action,detail){if(!CU)return;db.ref('adminLogs').push({action:
 function doReset(){
   if(!isSA()){alert('\u0e40\u0e09\u0e1e\u0e32\u0e30 Super Admin \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19');return;}
   if(document.getElementById('resetConfirm').value!=='RESET'){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e1e\u0e34\u0e21\u0e1e\u0e4c "RESET" \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19');return;}
-  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements'};
+  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements',rTb:'testBookings',rTq:'testQueues',rMl:'mockLogs'};
   var targets=Object.entries(map).filter(function(e){return document.getElementById(e[0]).checked;}).map(function(e){return e[1];});
   if(!targets.length){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e17\u0e35\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15');return;}
   if(!window.confirm('\u26a0\ufe0f \u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e25\u0e1a: '+targets.join(', ')+'\n\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e30\u0e2b\u0e32\u0e22\u0e16\u0e32\u0e27\u0e23!'))return;
