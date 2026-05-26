@@ -516,7 +516,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={};
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{},testBookings:{}};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -648,8 +648,9 @@ function togglePayment(open){
 }
 function loadDashboard(){
   var today=new Date().toISOString().split('T')[0];
-  db.ref('bookings').orderByChild('date').equalTo(today).once('value').then(function(snap){
-    var arr=Object.values(snap.val()||{});
+  Promise.all(['bookings','testBookings'].map(function(path){return db.ref(path).orderByChild('date').equalTo(today).once('value');})).then(function(snaps){
+    var arr=[];
+    snaps.forEach(function(snap,i){Object.values(snap.val()||{}).forEach(function(b){b._path=i?'testBookings':'bookings';b._isTest=!!i;arr.push(b);});});
     var active=arr.filter(function(b){return b.status!=='cancelled';});
     var rev=active.reduce(function(s,b){return s+(Number(b.price)||0);},0);
     document.getElementById('dashStats').innerHTML=
@@ -682,14 +683,29 @@ function revCard(title,r,hasAg){
     '<div class="rev-row net"><span>สุทธิ</span><span>\u0e3f'+r.net.toLocaleString()+'</span></div></div>';
 }
 function loadAllBookings(){
-  db.ref('bookings').on('value',function(snap){
-    var d=snap.val()||{};
-    allBk=Object.entries(d).map(function(e){var b=e[1];b.code=b.code||e[0];return b;}).filter(function(b){return !b.notificationOnly;});
-    filterBk();loadRefunds();
-    var p=allBk.filter(function(b){return b.status==='confirmed';}).length;
-    var nb=document.getElementById('nb');
-    if(p>0){nb.textContent=p;nb.style.display='';}else{nb.style.display='none';}
+  ['bookings','testBookings'].forEach(function(path){
+    db.ref(path).on('value',function(snap){
+      bookingStore[path]=snap.val()||{};
+      refreshBookingList();
+    },function(err){
+      var el=document.getElementById('bkBody');
+      if(el)el.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--red);padding:18px">อ่านข้อมูล '+path+' ไม่ได้: '+esc(err.message)+'</td></tr>';
+    });
   });
+}
+function refreshBookingList(){
+  allBk=[];
+  Object.entries(bookingStore).forEach(function(store){
+    var path=store[0],data=store[1]||{};
+    Object.entries(data).forEach(function(e){
+      var b=e[1]||{};b.code=b.code||e[0];b._path=path;b._isTest=path==='testBookings';allBk.push(b);
+    });
+  });
+  allBk=allBk.filter(function(b){return !b.notificationOnly;});
+  filterBk();loadRefunds();
+  var p=allBk.filter(function(b){return b.status==='confirmed';}).length;
+  var nb=document.getElementById('nb');
+  if(p>0){nb.textContent=p;nb.style.display='';}else{nb.style.display='none';}
 }
 function bkCat(b){var dest=destFromRoute(b.route||'');if(COASTAL.indexOf(dest)!==-1)return'coastal';if(BANGKOK.indexOf(dest)!==-1)return'bangkok';return'main';}
 function catLabel(c){return{main:'\ud83d\ude8c เส้นทางหลัก',coastal:'\ud83c\udf0a พัทยา-ระยอง',bangkok:'\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',other:'\ud83d\udd00 อื่นๆ'}[c]||c;}
@@ -715,7 +731,7 @@ function renderBkTable(){
     var c=bkCat(b);
     return'<tr><td><code style="font-size:11px">'+esc(b.code||'')+'</code></td><td>'+esc(b.name||'-')+'</td><td>'+esc(b.phone||'-')+'</td>'+
       '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(b.route||'-')+'</td>'+
-      '<td style="font-size:10px">'+catLabel(c)+'</td><td>'+esc(b.date||'-')+'</td><td>'+esc(b.time||'-')+'</td>'+
+      '<td style="font-size:10px">'+catLabel(c)+(b._isTest?' <span class="badge badge-changed">TEST</span>':'')+'</td><td>'+esc(b.date||'-')+'</td><td>'+esc(b.time||'-')+'</td>'+
       '<td style="text-align:center">'+esc(b.seats||1)+'</td><td>\u0e3f'+Number(b.price||0).toLocaleString()+'</td>'+
       '<td style="text-align:center">'+esc(b.queueNumber||'-')+'</td><td>'+stBadge(b.status)+'</td>'+
       '<td style="white-space:nowrap"><button class="btn btn-primary btn-sm" onclick="openDetail(\''+esc(b.code||'')+'\')">ดู</button>'+
@@ -729,7 +745,7 @@ function renderBkTable(){
 function chPage(d){curPage+=d;renderBkTable();}
 function openDetail(code){
   var b=allBk.find(function(x){return x.code===code;});if(!b)return;
-  document.getElementById('detailBody').innerHTML='<b>รหัส:</b> '+esc(b.code||'')+'<br><b>ชื่อ:</b> '+esc(b.name||'-')+'<br><b>เบอร์:</b> '+esc(b.phone||'-')+'<br><b>เส้นทาง:</b> '+esc(b.route||'-')+'<br><b>วันที่:</b> '+esc(b.date||'-')+'<br><b>เวลา:</b> '+esc(b.time||'-')+'<br><b>ที่นั่ง:</b> '+esc(b.seats||1)+'<br><b>ยอดชำระ:</b> \u0e3f'+Number(b.price||0).toLocaleString()+'<br><b>ลำดับคิว:</b> '+esc(b.queueNumber||'-')+'<br><b>ชานชาลา:</b> '+(b.platform?'ชานชาลาที่ '+b.platform:'-')+'<br><b>สถานะ:</b> '+stBadge(b.status)+'<br>'+(b.cancelReason?'<b>เหตุผลยกเลิก:</b> '+esc(b.cancelReason)+'<br>':'')+(b.ts?'<b>เวลาจอง:</b> '+new Date(b.ts).toLocaleString('th-TH')+'<br>':'');
+  document.getElementById('detailBody').innerHTML='<b>รหัส:</b> '+esc(b.code||'')+'<br><b>แหล่งข้อมูล:</b> '+esc(b._path||'bookings')+'<br><b>ชื่อ:</b> '+esc(b.name||'-')+'<br><b>เบอร์:</b> '+esc(b.phone||'-')+'<br><b>เส้นทาง:</b> '+esc(b.route||'-')+'<br><b>วันที่:</b> '+esc(b.date||'-')+'<br><b>เวลา:</b> '+esc(b.time||'-')+'<br><b>ที่นั่ง:</b> '+esc(b.seats||1)+'<br><b>ยอดชำระ:</b> \u0e3f'+Number(b.price||0).toLocaleString()+'<br><b>ลำดับคิว:</b> '+esc(b.queueNumber||'-')+'<br><b>ชานชาลา:</b> '+(b.platform?'ชานชาลาที่ '+b.platform:'-')+'<br><b>สถานะ:</b> '+stBadge(b.status)+'<br>'+(b.cancelReason?'<b>เหตุผลยกเลิก:</b> '+esc(b.cancelReason)+'<br>':'')+(b.ts?'<b>เวลาจอง:</b> '+new Date(b.ts).toLocaleString('th-TH')+'<br>':'');
   var sl=document.getElementById('slipLink');
   if(b.slip){sl.href=b.slip;sl.style.display='';}else{sl.style.display='none';}
   openModal('detailModal');
@@ -748,8 +764,8 @@ function confirmCancel(){
   var refund=document.getElementById('cancelRefund').checked;
   var b=allBk.find(function(x){return x.code===cancelCode;});if(!b)return;
   var upd={status:'cancelled',cancelledAt:Date.now(),cancelledBy:CU.email,cancelReason:reason+(note?' \u2014 '+note:''),needRefund:refund,refundStatus:refund?'pending':'none'};
-  db.ref('bookings/'+cancelCode).update(upd).then(function(){
-    notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
+  db.ref((b._path||'bookings')+'/'+cancelCode).update(upd).then(function(){
+    if(!b._isTest)notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
     writeLog('cancel','ยกเลิกตั๋ว '+cancelCode+' เหตุผล: '+reason);
     closeModal('cancelModal');
   }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
@@ -764,13 +780,15 @@ function loadRefunds(){
   var el=document.getElementById('refBody');
   if(el)el.innerHTML=html||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">ไม่มีรายการรอคืนเงิน</td></tr>';
 }
-function markRefunded(code){db.ref('bookings/'+code).update({refundStatus:'completed',refundedAt:Date.now(),refundedBy:CU.email});writeLog('refund','โอนเงินคืน '+code);}
+function markRefunded(code){var b=allBk.find(function(x){return x.code===code;})||{};db.ref((b._path||'bookings')+'/'+code).update({refundStatus:'completed',refundedAt:Date.now(),refundedBy:CU.email});writeLog('refund','โอนเงินคืน '+code);}
 function switchRevPeriod(){var p=document.getElementById('revPeriod').value;var inp=document.getElementById('revDate');inp.type=p==='day'?'date':p==='month'?'month':'number';if(p==='year')inp.value=new Date().getFullYear();}
 function loadRevenue(){
   var p=document.getElementById('revPeriod').value,v=document.getElementById('revDate').value,s,e;
   if(p==='day'){s=e=v;}else if(p==='month'){s=v+'-01';e=v+'-31';}else{s=v+'-01-01';e=v+'-12-31';}
-  db.ref('bookings').orderByChild('date').startAt(s).endAt(e).once('value').then(function(snap){
-    var arr=Object.values(snap.val()||{}).filter(function(b){return b.status!=='cancelled';});
+  Promise.all(['bookings','testBookings'].map(function(path){return db.ref(path).orderByChild('date').startAt(s).endAt(e).once('value');})).then(function(snaps){
+    var arr=[];
+    snaps.forEach(function(snap,i){Object.values(snap.val()||{}).forEach(function(b){b._path=i?'testBookings':'bookings';b._isTest=!!i;arr.push(b);});});
+    arr=arr.filter(function(b){return b.status!=='cancelled';});
     var m=calcNet(arr.filter(function(b){return bkCat(b)==='main';}),false);
     var c=calcNet(arr.filter(function(b){return bkCat(b)==='coastal';}),true);
     var bk=calcNet(arr.filter(function(b){return bkCat(b)==='bangkok';}),true);
@@ -811,6 +829,32 @@ function getDefaultRoutes(){
   var minburi=['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
   var ekkamai=['06:30','08:30','10:30','15:30','17:30'];
   var mochit=['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
+  var localRoutes=[
+    {from:'พนมสารคาม',to:'ท่ารถสนามชัยเขต',price:35,times:['10:20','11:40','12:00','12:30','13:00','14:30','14:40','15:00','16:00','17:00','18:00']},
+    {from:'พนมสารคาม',to:'ท่าตะเกียบ',price:90,times:['12:00','14:40','18:00']},{from:'พนมสารคาม',to:'หนองคอก',price:90,times:['12:00','14:40','18:00']},
+    {from:'พนมสารคาม',to:'คลองตะเคียน',price:110,times:['12:00','14:40']},{from:'พนมสารคาม',to:'หนองเรือ',price:120,times:['12:00','14:40']},
+    {from:'พนมสารคาม',to:'ไพจิตร',price:130,times:['12:00','14:40']},{from:'พนมสารคาม',to:'ทุ่งกบินทร์',price:140,times:['12:00','14:40']},
+    {from:'พนมสารคาม',to:'สี่แยกโคนม',price:140,times:['12:00','14:40']},{from:'พนมสารคาม',to:'คลองหาด',price:150,times:['12:00','14:40']},
+    {from:'ท่ารถสนามชัยเขต',to:'ท่าตะเกียบ',price:10,times:['12:20','15:00','18:20']},{from:'ท่ารถสนามชัยเขต',to:'หนองคอก',price:11,times:['12:20','15:00','18:20']},
+    {from:'ท่ารถสนามชัยเขต',to:'คลองตะเคียน',price:17,times:['12:00','14:40']},{from:'ท่ารถสนามชัยเขต',to:'หนองเรือ',price:12,times:['12:20','15:00']},
+    {from:'ท่ารถสนามชัยเขต',to:'ไพจิตร',price:13,times:['12:20','15:00']},{from:'ท่ารถสนามชัยเขต',to:'ทุ่งกบินทร์',price:14,times:['12:20','15:00']},
+    {from:'ท่ารถสนามชัยเขต',to:'สี่แยกโคนม',price:16,times:['12:20','15:00']},{from:'ท่ารถสนามชัยเขต',to:'คลองหาด',price:15,times:['12:20','15:00']},
+    {from:'ท่าตะเกียบ',to:'หนองคอก',price:20,times:['12:50','15:30','18:50']},{from:'ท่าตะเกียบ',to:'คลองตะเคียน',price:26,times:['12:00','14:40']},
+    {from:'ท่าตะเกียบ',to:'หนองเรือ',price:21,times:['12:50','15:30']},{from:'ท่าตะเกียบ',to:'ไพจิตร',price:22,times:['12:50','15:30']},
+    {from:'ท่าตะเกียบ',to:'ทุ่งกบินทร์',price:23,times:['12:50','15:30']},{from:'ท่าตะเกียบ',to:'สี่แยกโคนม',price:25,times:['12:50','15:30']},
+    {from:'ท่าตะเกียบ',to:'คลองหาด',price:24,times:['12:50','15:30']},
+    {from:'หนองคอก',to:'คลองตะเคียน',price:35,times:['12:00','14:40']},{from:'หนองคอก',to:'หนองเรือ',price:30,times:['13:05','15:45']},
+    {from:'หนองคอก',to:'ไพจิตร',price:31,times:['13:05','15:45']},{from:'หนองคอก',to:'ทุ่งกบินทร์',price:32,times:['13:05','15:45']},
+    {from:'หนองคอก',to:'สี่แยกโคนม',price:34,times:['13:05','15:45']},{from:'หนองคอก',to:'คลองหาด',price:33,times:['13:05','15:45']},
+    {from:'คลองตะเคียน',to:'หนองเรือ',price:30,times:['13:35','16:15']},{from:'คลองตะเคียน',to:'ไพจิตร',price:31,times:['13:35','16:15']},
+    {from:'คลองตะเคียน',to:'ทุ่งกบินทร์',price:32,times:['13:35','16:15']},{from:'คลองตะเคียน',to:'สี่แยกโคนม',price:34,times:['13:35','16:15']},
+    {from:'คลองตะเคียน',to:'คลองหาด',price:33,times:['13:35','16:15']},
+    {from:'หนองเรือ',to:'ไพจิตร',price:40,times:['13:35','16:15']},{from:'หนองเรือ',to:'ทุ่งกบินทร์',price:41,times:['13:35','16:15']},
+    {from:'หนองเรือ',to:'สี่แยกโคนม',price:43,times:['13:35','16:15']},{from:'หนองเรือ',to:'คลองหาด',price:42,times:['13:35','16:15']},
+    {from:'ไพจิตร',to:'ทุ่งกบินทร์',price:50,times:['13:37','16:17']},{from:'ไพจิตร',to:'สี่แยกโคนม',price:52,times:['13:37','16:17']},
+    {from:'ไพจิตร',to:'คลองหาด',price:51,times:['13:37','16:17']},{from:'ทุ่งกบินทร์',to:'สี่แยกโคนม',price:60,times:['13:43','16:23']},
+    {from:'ทุ่งกบินทร์',to:'คลองหาด',price:61,times:['13:43','16:23']},{from:'สี่แยกโคนม',to:'คลองหาด',price:70,times:['13:53','16:33']}
+  ];
   return{
     'เส้นทางหลัก':{id:'main',routes:[
       {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ท่ารถสนามชัยเขต',price:55,times:['09:40','11:20','12:20','14:00','15:20','16:20','17:20'],closedStops:{'11:20':['พนมสารคาม','ท่ารถสนามชัยเขต']}},
@@ -836,6 +880,7 @@ function getDefaultRoutes(){
       {from:'คลองตะเคียน',to:'ฉะเชิงเทรา (แปดริ้ว)',price:120,times:['09:20','12:40']},
       {from:'สี่แยกโคนม',to:'ฉะเชิงเทรา (แปดริ้ว)',price:150,times:['07:30','11:00','14:30']}
     ]},
+    'เส้นทางย่อยทั้งหมด':{id:'local',routes:localRoutes},
     'กลุ่มพัทยา-ระยอง-มีนบุรี':{id:'coastal',routes:[
       {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'พัทยา',price:140,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ระยอง',price:150,times:east},
       {from:'ฉะเชิงเทรา (แปดริ้ว)',to:'กม.10',price:160,times:east},{from:'ฉะเชิงเทรา (แปดริ้ว)',to:'ตลาดหนองมน',price:90,times:east},
