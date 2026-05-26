@@ -1223,6 +1223,19 @@
     }
 
     function buildLineMessage(data) {
+      if (data.eventName === 'checkin') {
+        return [
+          'ผู้โดยสารเช็คอินใกล้ถึงจุดหมาย',
+          '',
+          'ชื่อ: ' + (currentBooking.name || '-'),
+          'เบอร์โทร: ' + (currentBooking.phone || '-'),
+          'เส้นทาง: ' + (currentBooking.route || '-'),
+          'วันเวลา: ' + (currentBooking.date || '-') + ' ' + (data.time || currentBooking.time || '-'),
+          'จำนวน: ' + (currentBooking.seats || 1),
+          'ใกล้ถึงจุดหมายอีก 3 นาที'
+        ].join('\n');
+      }
+
       var eventTitle = {
         checkin: 'ผู้โดยสารเช็คอินแล้ว',
         change_trip: 'ผู้โดยสารเปลี่ยนเที่ยวรถ',
