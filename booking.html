@@ -682,6 +682,7 @@ function _applySettings(snap) {
   if (data.routes) {
     Object.values(data.routes).forEach(function(group) {
       if (!group.routes) return;
+      var isMainGroup = group.id === 'main';
       group.routes.forEach(function(r) {
         if (!r.from || !r.times || !r.times.length) return;
         var fromKey = _labelToKey(r.from);
@@ -698,7 +699,7 @@ function _applySettings(snap) {
           LEG2_DEST[toKey].times = times;
           LEG2_DEST[toKey].label = r.to;
         }
-        if (fromKey && toKey && r.closedStops) {
+        if (isMainGroup && fromKey && toKey && r.closedStops) {
           if (!ROUTE_CLOSED_STOPS[fromKey]) ROUTE_CLOSED_STOPS[fromKey] = {};
           if (!ROUTE_CLOSED_STOPS[fromKey][toKey]) ROUTE_CLOSED_STOPS[fromKey][toKey] = {};
           Object.keys(r.closedStops).forEach(function(timeKey) {
