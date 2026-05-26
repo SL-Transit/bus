@@ -48,8 +48,6 @@
 
     .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
     .pill { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
-    .test-mode-strip { display:none; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; border-radius:8px; padding:10px 14px; font-size:14px; font-weight:700; margin-bottom:14px; text-align:center; }
-
     .panel {
       background: var(--card);
       border: 1px solid var(--border);
@@ -202,7 +200,6 @@
 </head>
 <body>
   <main class="wrap">
-    <div class="test-mode-strip" id="testModeStrip">โหมดทดสอบการแจ้งเตือน: กดเช็คอินซ้ำได้ และส่ง LINE จริงทุกครั้ง</div>
     <div class="topbar">
       <a class="back" href="index.html">‹ กลับหน้าแรก</a>
       <div class="pill">Ticket Center</div>
@@ -358,8 +355,6 @@
     var CHECKIN_ETA_MINUTES = 5;
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
-    var TEST_MODE = false;
-    var NOTIFICATION_TEST_MODE = false;
     var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
     var LONGDO_MAP_KEY = 'e817a8a0a0e83c4f2c32c7b1db12424e';
     var DISTANCE_MODE = 'road';
@@ -384,13 +379,11 @@
 
     db.ref('settings').on('value', function(snap) {
       var settings = snap.val() || {};
-      TEST_MODE = settings.testMode === true;
       if (settings.checkin && settings.checkin.radiusKm !== undefined) CHECKIN_RADIUS_KM = Number(settings.checkin.radiusKm) || 1.5;
       if (settings.checkin && settings.checkin.distanceMode) {
         DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
       }
       ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
-      applyTestModeUI();
       updateActionAvailability();
     });
 
@@ -398,10 +391,6 @@
     function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
-    function applyTestModeUI() {
-      var strip = document.getElementById('testModeStrip');
-      if (strip) strip.style.display = (TEST_MODE || NOTIFICATION_TEST_MODE) ? 'block' : 'none';
-    }
     function bookingPathForCode(code, booking) {
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
@@ -471,7 +460,7 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      var path = (TEST_MODE && !NOTIFICATION_TEST_MODE) ? 'testBookings' : 'bookings';
+      var path = 'bookings';
       return db.ref(path).orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
         if (!snap.exists()) return null;
         var matches = [];
@@ -942,16 +931,15 @@
     function updateActionAvailability() {
       var disabledByStatus = currentBooking && (
         currentBooking.status === 'cancelled' ||
-        (currentBooking.status === 'checked_in' && !NOTIFICATION_TEST_MODE) ||
+        currentBooking.status === 'checked_in' ||
         currentBooking.status === 'waiting_admin_approval' ||
         currentBooking.status === 'pending_admin_approval'
       );
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var canCheck = (NOTIFICATION_TEST_MODE || (nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000))) && !disabledByStatus && !checkinSubmitLock;
+      var canCheck = nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000) && !disabledByStatus && !checkinSubmitLock;
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
-      if (currentBooking && currentBooking.status === 'checked_in' && !NOTIFICATION_TEST_MODE) btn.textContent = 'เช็คอินแล้ว';
-      else if (currentBooking && currentBooking.status === 'checked_in' && NOTIFICATION_TEST_MODE) btn.textContent = 'ทดสอบส่ง LINE อีกครั้ง';
+      if (currentBooking && currentBooking.status === 'checked_in') btn.textContent = 'เช็คอินแล้ว';
       else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
       else btn.textContent = 'เช็คอินถึงจุดต่อรถ';
       updateFlexiblePanel();
@@ -993,12 +981,12 @@
 
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
-      if (checkinSubmitLock || (currentBooking.status === 'checked_in' && !NOTIFICATION_TEST_MODE)) {
+      if (checkinSubmitLock || currentBooking.status === 'checked_in') {
         setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
         updateActionAvailability();
         return;
       }
-      if (!NOTIFICATION_TEST_MODE && (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM)) {
+      if (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM) {
         setStatus('lookupStatus', 'bad', 'ยังอยู่นอกรัศมีเช็คอิน ' + CHECKIN_RADIUS_KM + ' กม.');
         updateActionAvailability();
         return;
@@ -1018,14 +1006,14 @@
           etaMinutes: currentEtaMinutes,
           checkedInAt: checkedInAt
         },
-        officialStatus: NOTIFICATION_TEST_MODE && currentDistanceKm === null ? 'ทดสอบแจ้งเตือนเช็คอิน โดยไม่ตรวจรัศมี GPS' : 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
+        officialStatus: 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
       };
       if (transferAdjustment) {
         Object.assign(payload, transferAdjustment);
         payload.officialStatus += ' / รอบรถต่อที่ปรับได้เร็วที่สุด: ' + transferAdjustment.adjustedLeg2Time + ' น.' +
           (transferAdjustment.backupLeg2Time ? ' / รอบถัดไปสำรอง: ' + transferAdjustment.backupLeg2Time + ' น.' : '');
       }
-      updateBookingAndNotify(payload, 'checkin', (TEST_MODE && !NOTIFICATION_TEST_MODE) ? 'เช็คอินสำเร็จ (mock LINE)' : (NOTIFICATION_TEST_MODE ? 'ทดสอบส่งแจ้งเตือน LINE สำเร็จ' : 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว'))
+      updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
         .then(function(){ checkinSubmitLock = false; updateActionAvailability(); })
         .catch(function(){ checkinSubmitLock = false; updateActionAvailability(); });
     }
@@ -1147,11 +1135,11 @@
       var bookingForSchedule = Object.assign({}, currentBooking, update);
       var legSchedule = getLegSchedule(bookingForSchedule, nextTime);
       var shouldBatchCheckin = eventName === 'checkin' && routeInfo.type === 'secondary_connection';
+      var lineAttemptId = eventName + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       var linePayload = {
         event: eventName,
         source: 'check_ticket.html',
-        notificationTestMode: NOTIFICATION_TEST_MODE,
-        notificationTestRunId: eventName + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+        lineMessagingAttemptId: lineAttemptId,
         target: 'checkin_line_group',
         groupId: CHECKIN_LINE_GROUP_ID,
         to: CHECKIN_LINE_GROUP_ID,
@@ -1225,16 +1213,14 @@
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
         lineMessagingAt: firebase.database.ServerValue.TIMESTAMP,
-        lineMessagingStatus: (TEST_MODE && !NOTIFICATION_TEST_MODE) ? 'mocked' : 'pending',
-        lineMessagingAttemptId: linePayload.notificationTestRunId,
-        notificationTestMode: NOTIFICATION_TEST_MODE,
-        testMode: TEST_MODE || currentBooking.testMode === true
+        lineMessagingStatus: 'pending',
+        lineMessagingAttemptId: linePayload.lineMessagingAttemptId
       });
 
       var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
       return ref.transaction(function(existing) {
         if (!existing) return;
-        if (eventName === 'checkin' && existing.status === 'checked_in' && !NOTIFICATION_TEST_MODE) return;
+        if (eventName === 'checkin' && existing.status === 'checked_in') return;
         return Object.assign({}, existing, payload);
       }).then(function(result) {
         if (!result.committed) {
@@ -1242,19 +1228,7 @@
           return Promise.reject(new Error('DUPLICATE_CHECKIN'));
         }
         currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
-        if (NOTIFICATION_TEST_MODE || (!TEST_MODE && currentBooking.testMode !== true)) {
-          return createLineMessagingTrigger(linePayload, payload, eventName).then(function(){
-            setStatus('lookupStatus', 'good', successText);
-          });
-        }
-        return db.ref('mockLogs').push({
-          source:'check_ticket.html',
-          event:eventName,
-          code:currentBooking.code,
-          linePayload:linePayload,
-          update:payload,
-          ts:firebase.database.ServerValue.TIMESTAMP
-        }).then(function(){
+        return createLineMessagingTrigger(linePayload, payload, eventName).then(function(){
           setStatus('lookupStatus', 'good', successText);
         });
       })
@@ -1267,7 +1241,6 @@
     }
 
     function createLineMessagingTrigger(linePayload, updatePayload, eventName) {
-      if (TEST_MODE && !NOTIFICATION_TEST_MODE) return Promise.resolve();
       var triggerCode = 'CI' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
       var trigger = {
         code: triggerCode,
@@ -1286,8 +1259,7 @@
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
         lineMessagingStatus: 'pending',
-        lineMessagingAttemptId: linePayload.notificationTestRunId,
-        notificationTestMode: NOTIFICATION_TEST_MODE,
+        lineMessagingAttemptId: linePayload.lineMessagingAttemptId,
         name: currentBooking.name || '',
         phone: currentBooking.phone || '',
         route: currentBooking.route || '',
