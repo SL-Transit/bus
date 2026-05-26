@@ -359,6 +359,7 @@
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
     var TEST_MODE = false;
     var NOTIFICATION_TEST_MODE = true;
+    var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
     var DISTANCE_MODE = 'haversine';
     var ADMIN_DEST_SCHEDULES = [];
 
@@ -1062,7 +1063,11 @@
         source: 'check_ticket.html',
         notificationTestMode: NOTIFICATION_TEST_MODE,
         notificationTestRunId: eventName + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-        target: 'passenger_booking_group',
+        target: 'checkin_line_group',
+        groupId: CHECKIN_LINE_GROUP_ID,
+        to: CHECKIN_LINE_GROUP_ID,
+        lineTo: CHECKIN_LINE_GROUP_ID,
+        destinationId: CHECKIN_LINE_GROUP_ID,
         notifyMode: shouldBatchCheckin ? 'batch' : 'single',
         batchKey: shouldBatchCheckin ? 'checkin_secondary_connection' : '',
         batchWindowMs: shouldBatchCheckin ? 30000 : 0,
@@ -1123,6 +1128,10 @@
         lineEvent: eventName,
         lineMessage: linePayload.message,
         linePayload: linePayload,
+        groupId: CHECKIN_LINE_GROUP_ID,
+        to: CHECKIN_LINE_GROUP_ID,
+        lineTo: CHECKIN_LINE_GROUP_ID,
+        destinationId: CHECKIN_LINE_GROUP_ID,
         lineMessagingMode: linePayload.notifyMode,
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
@@ -1180,6 +1189,10 @@
         lineEvent: eventName,
         lineMessage: linePayload.message,
         linePayload: linePayload,
+        groupId: CHECKIN_LINE_GROUP_ID,
+        to: CHECKIN_LINE_GROUP_ID,
+        lineTo: CHECKIN_LINE_GROUP_ID,
+        destinationId: CHECKIN_LINE_GROUP_ID,
         lineMessagingMode: linePayload.notifyMode,
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
