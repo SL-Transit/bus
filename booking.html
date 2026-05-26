@@ -1431,6 +1431,7 @@ function goPage(p) {
           var dupCode = null;
           Object.keys(sameTripData).forEach(function(k) {
             var b = sameTripData[k];
+            if (b.status === 'cancelled') return;
             if (normalizeName(b.name) === normName || b.phone === normPhone) {
               dupCode = b.code || k;
             }
@@ -1453,7 +1454,7 @@ function goPage(p) {
         if (sameDayData) {
           var phoneCount = 0;
           Object.keys(sameDayData).forEach(function(k) {
-            if (sameDayData[k].phone === normPhone) phoneCount++;
+            if (sameDayData[k].status !== 'cancelled' && sameDayData[k].phone === normPhone) phoneCount++;
           });
           if (phoneCount >= MAX_BOOKINGS_PER_DAY) {
             alert(

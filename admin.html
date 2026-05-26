@@ -89,6 +89,20 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--ink);min-he
 .stat .sl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
 .stat .sn{font-family:'Chakra Petch',sans-serif;font-size:24px;font-weight:700;color:var(--navy);}
 .stat .ss{font-size:11px;color:var(--muted);margin-top:2px;}
+.chart-panel{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;}
+.chart-title{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;}
+.bar-chart{height:190px;display:flex;align-items:flex-end;gap:12px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 10px 18px;}
+.bar-stack{flex:1;display:flex;flex-direction:column;justify-content:flex-end;min-width:22px;height:100%;position:relative;background:#f8fafc;border-radius:5px 5px 0 0;overflow:hidden;}
+.bar-seg{width:100%;min-height:2px;}
+.bar-gross{background:#1d9bf0;}
+.bar-fee{background:#f59e0b;}
+.bar-label{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);white-space:nowrap;}
+.donut-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px;}
+.donut-card{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:10px;background:#f8fbff;}
+.donut{width:58px;height:58px;border-radius:50%;background:conic-gradient(var(--blue) 0deg,var(--blue) 240deg,#f59e0b 240deg,#f59e0b 360deg);display:grid;place-items:center;flex-shrink:0;}
+.donut span{width:36px;height:36px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--navy);text-align:center;line-height:1.1;}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px;}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;}
 
 /* ── TABLE ── */
 .tbl-wrap{overflow-x:auto;border-radius:6px;border:1px solid var(--border);}
@@ -234,10 +248,11 @@ tr:hover td{background:#fafafa;}
   .modal-actions{flex-direction:column;}
   .filter-row>*{width:100%;}
   .ntab{padding:0 11px;font-size:12px;}
-  .nt-label{display:none;}
+  .nt-label{display:inline;}
   .header-control-group{gap:7px;}
   .booking-wrap span{display:none;}
   .control-grid{grid-template-columns:1fr;}
+  .bar-chart{gap:7px;padding-left:8px;padding-right:8px;}
 }
 </style>
 </head>
@@ -279,12 +294,12 @@ tr:hover td{background:#fafafa;}
     <button class="ntab" onclick="showPage('revenue')" data-page="revenue" id="nt-revenue" style="display:none"><span>&#x1F4B0;</span><span class="nt-label"> รายได้</span></button>
     <button class="ntab" onclick="showPage('routes')" data-page="routes" id="nt-routes" style="display:none"><span>&#x1F5FA;&#xFE0F;</span><span class="nt-label"> เส้นทาง</span></button>
     <button class="ntab" onclick="showPage('announce')" data-page="announce"><span>&#x1F4E2;</span><span class="nt-label"> ประกาศ</span></button>
-    <button class="ntab" onclick="showPage('users')" data-page="users" id="nt-users" style="display:none"><span>&#x1F465;</span><span class="nt-label"> ผู้ใช้งาน</span></button>
   </nav>
 
   <!-- HAMBURGER POPUP -->
   <div class="hpop" id="hpop">
     <div class="hpop-user" id="hpopUser"><strong>-</strong></div>
+    <div class="hpop-item" id="hpopUsers" style="display:none" onclick="closeHpop();showPage('users')">&#x1F465; ผู้ใช้งาน</div>
     <div class="hpop-item" id="hpopReset" style="display:none" onclick="closeHpop();showPage('reset')">&#x26A0;&#xFE0F; รีเซ็ตข้อมูล</div>
     <hr class="hpop-divider">
     <div class="hpop-item danger" onclick="doLogout()">&#x2192; ออกจากระบบ</div>
@@ -558,7 +573,7 @@ function isAdmin(){return CR==='admin'||CR==='superadmin';}
 function isSA(){return CR==='superadmin';}
 function applyRole(){
   if(isAdmin()){show('nt-refunds');show('nt-revenue');show('nt-routes');document.getElementById('bkToggleWrap').style.display='flex';document.getElementById('payToggleWrap').style.display='flex';}
-  if(isSA()){show('nt-users');document.getElementById('hpopReset').style.display='';}
+  if(isSA()){show('hpopUsers');document.getElementById('hpopReset').style.display='';}
 }
 function show(id){var e=document.getElementById(id);if(e)e.style.display='';}
 function toggleHpop(){var h=document.getElementById('hpop'),o=document.getElementById('ov2');h.classList.toggle('open');o.classList.toggle('open');}
@@ -663,7 +678,7 @@ function loadDashboard(){
       var bk=calcNet(active.filter(function(b){return bkCat(b)==='bangkok';}),true);
       var o=calcNet(active.filter(function(b){return bkCat(b)==='other';}),false);
       document.getElementById('dashRevCard').style.display='';
-      document.getElementById('dashRevGrid').innerHTML=revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
+      document.getElementById('dashRevGrid').innerHTML=renderRevenueCharts([m,c,bk,o],['หลัก','พัทยา','กทม.','อื่นๆ'])+revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
     }
     var sorted=arr.slice().sort(function(a,b){return(b.ts||0)-(a.ts||0);}).slice(0,8);
     document.getElementById('dashRecent').innerHTML=sorted.map(function(b){
@@ -673,6 +688,18 @@ function loadDashboard(){
 }
 function stat(i,l,n,u){return'<div class="stat"><div class="sl">'+i+' '+l+'</div><div class="sn">'+n+'</div><div class="ss">'+u+'</div></div>';}
 function calcNet(list,hasAg){var gross=list.reduce(function(s,b){return s+(Number(b.price)||0);},0);var svc=list.length*FEE_SVC,ag=hasAg?list.length*FEE_AGENT:0;return{count:list.length,gross:gross,svc:svc,ag:ag,net:gross-svc-ag};}
+function renderRevenueCharts(items,labels){
+  var max=Math.max.apply(null,items.map(function(r){return Math.max(1,r.gross);}));
+  var bars=items.map(function(r,i){
+    var totalH=Math.max(4,Math.round((r.gross/max)*100)),feeH=Math.min(totalH,Math.round(((r.svc+r.ag)/Math.max(1,r.gross))*totalH));
+    return'<div class="bar-stack" title="'+labels[i]+' ฿'+r.gross.toLocaleString()+'"><div class="bar-seg bar-fee" style="height:'+feeH+'%"></div><div class="bar-seg bar-gross" style="height:'+(totalH-feeH)+'%"></div><span class="bar-label">'+labels[i]+'</span></div>';
+  }).join('');
+  var donuts=items.map(function(r,i){
+    var fee=r.svc+r.ag,deg=Math.round((r.net/Math.max(1,r.gross))*360);
+    return'<div class="donut-card"><div class="donut" style="background:conic-gradient(var(--blue) 0deg,var(--blue) '+deg+'deg,#f59e0b '+deg+'deg,#f59e0b 360deg)"><span>'+labels[i]+'<br>'+r.count+'</span></div><div><b>฿'+r.net.toLocaleString()+'</b><br><span style="font-size:11px;color:var(--muted)">หัก ฿'+fee.toLocaleString()+'</span></div></div>';
+  }).join('');
+  return'<div class="chart-panel" style="grid-column:1/-1"><div class="chart-title">กราฟรายได้และค่าบริการ</div><div class="bar-chart">'+bars+'</div><div class="legend"><span><i style="background:#1d9bf0"></i>รายได้สุทธิ</span><span><i style="background:#f59e0b"></i>ค่าบริการ/นายหน้า</span></div><div class="donut-row">'+donuts+'</div></div>';
+}
 function revCard(title,r,hasAg){
   return'<div class="rev-card"><div class="rc-t">'+title+'</div>'+
     '<div class="rev-row"><span>รายการ</span><span>'+r.count+'</span></div>'+
@@ -760,8 +787,12 @@ function confirmCancel(){
   var note=document.getElementById('cancelNote').value;
   var refund=document.getElementById('cancelRefund').checked;
   var b=allBk.find(function(x){return x.code===cancelCode;});if(!b)return;
-  var upd={status:'cancelled',cancelledAt:Date.now(),cancelledBy:CU.email,cancelReason:reason+(note?' \u2014 '+note:''),needRefund:refund,refundStatus:refund?'pending':'none'};
+  var oldDupKey=b.dupKey||null;
+  var upd={status:'cancelled',cancelledAt:Date.now(),cancelledBy:CU.email,cancelReason:reason+(note?' \u2014 '+note:''),needRefund:refund,refundStatus:refund?'pending':'none',cancelledDupKey:oldDupKey,dupKey:null};
   db.ref((b._path||'bookings')+'/'+cancelCode).update(upd).then(function(){
+    if(oldDupKey){
+      db.ref('queues/'+oldDupKey).transaction(function(current){return Math.max(0,(Number(current)||0)-(Number(b.seats)||1));});
+    }
     notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
     writeLog('cancel','ยกเลิกตั๋ว '+cancelCode+' เหตุผล: '+reason);
     closeModal('cancelModal');
@@ -790,7 +821,7 @@ function loadRevenue(){
     var o=calcNet(arr.filter(function(b){return bkCat(b)==='other';}),false);
     var all={count:arr.length,gross:m.gross+c.gross+bk.gross+o.gross,svc:m.svc+c.svc+bk.svc+o.svc,ag:m.ag+c.ag+bk.ag+o.ag,net:m.net+c.net+bk.net+o.net};
     document.getElementById('revStats').innerHTML=stat('\ud83c\udfab','รายการ',all.count,'รายการ')+stat('\ud83d\udcb5','รายรับรวม','\u0e3f'+all.gross.toLocaleString(),'บาท')+stat('\ud83d\udcc9','รวมหัก','\u0e3f'+(all.svc+all.ag).toLocaleString(),'บาท')+stat('\ud83d\udcb0','สุทธิ','\u0e3f'+all.net.toLocaleString(),'บาท');
-    document.getElementById('revGrid').innerHTML=revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
+    document.getElementById('revGrid').innerHTML=renderRevenueCharts([m,c,bk,o],['หลัก','พัทยา','กทม.','อื่นๆ'])+revCard('\ud83d\ude8c เส้นทางหลัก',m,false)+revCard('\ud83c\udf0a พัทยา-ระยอง',c,true)+revCard('\ud83c\udfd9\ufe0f หมอชิต-เอกมัย',bk,true)+revCard('\ud83d\udd00 อื่นๆ',o,false);
   });
 }
 function loadRouteData(){
@@ -921,7 +952,7 @@ function renderRouteGroups(){
       html+='<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">\ud83d\uddd1\ufe0f ลบ</button></div>';
       html+='</div></div>';
     });
-    html+='<div style="margin-top:8px"><button class="btn btn-dark btn-sm" onclick="addRoute(\''+esc(gname)+'\')">+ เพิ่มเส้นทาง</button></div>';
+    html+='<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-dark btn-sm" onclick="addRoute(\''+esc(gname)+'\')">+ เพิ่มเส้นทาง</button><button class="btn btn-primary btn-sm" onclick="addPlaceToGroup(\''+esc(gname)+'\')">+ เพิ่มสถานที่ในกลุ่ม</button></div>';
     html+='</div></div>';
   });
   document.getElementById('routeGroupsWrap').innerHTML=html;
@@ -962,6 +993,19 @@ function removeTime(gname,ri,t){
   renderRouteGroups();
 }
 function addRoute(gname){if(!routeData[gname])return;routeData[gname].routes.push({from:'',to:'',price:0,times:[]});renderRouteGroups();}
+function addPlaceToGroup(gname){
+  if(!routeData[gname])return;
+  var routes=routeData[gname].routes||[];
+  var from=prompt('ต้นทาง:',(routes[0]&&routes[0].from)||'');
+  if(!from||!from.trim())return;
+  var to=prompt('สถานที่/ปลายทางใหม่:','');
+  if(!to||!to.trim())return;
+  var price=Number(prompt('ราคา:',(routes[0]&&routes[0].price)||0)||0);
+  var times=csvStops(prompt('เวลา (คั่นด้วย comma เช่น 09:00, 11:20):',''));
+  routes.push({from:from.trim(),to:to.trim(),price:price,times:times});
+  routeData[gname].routes=routes;
+  renderRouteGroups();
+}
 function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].routes.splice(ri,1);renderRouteGroups();}
 function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
 function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
