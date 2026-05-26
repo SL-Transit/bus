@@ -516,7 +516,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{},testBookings:{}};
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -648,9 +648,8 @@ function togglePayment(open){
 }
 function loadDashboard(){
   var today=new Date().toISOString().split('T')[0];
-  Promise.all(['bookings','testBookings'].map(function(path){return db.ref(path).orderByChild('date').equalTo(today).once('value');})).then(function(snaps){
-    var arr=[];
-    snaps.forEach(function(snap,i){Object.values(snap.val()||{}).forEach(function(b){b._path=i?'testBookings':'bookings';b._isTest=!!i;arr.push(b);});});
+  db.ref('bookings').orderByChild('date').equalTo(today).once('value').then(function(snap){
+    var arr=Object.values(snap.val()||{}).map(function(b){b._path='bookings';return b;});
     var active=arr.filter(function(b){return b.status!=='cancelled';});
     var rev=active.reduce(function(s,b){return s+(Number(b.price)||0);},0);
     document.getElementById('dashStats').innerHTML=
@@ -683,14 +682,12 @@ function revCard(title,r,hasAg){
     '<div class="rev-row net"><span>สุทธิ</span><span>\u0e3f'+r.net.toLocaleString()+'</span></div></div>';
 }
 function loadAllBookings(){
-  ['bookings','testBookings'].forEach(function(path){
-    db.ref(path).on('value',function(snap){
-      bookingStore[path]=snap.val()||{};
-      refreshBookingList();
-    },function(err){
-      var el=document.getElementById('bkBody');
-      if(el)el.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--red);padding:18px">อ่านข้อมูล '+path+' ไม่ได้: '+esc(err.message)+'</td></tr>';
-    });
+  db.ref('bookings').on('value',function(snap){
+    bookingStore.bookings=snap.val()||{};
+    refreshBookingList();
+  },function(err){
+    var el=document.getElementById('bkBody');
+    if(el)el.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--red);padding:18px">อ่านข้อมูล bookings ไม่ได้: '+esc(err.message)+'</td></tr>';
   });
 }
 function refreshBookingList(){
@@ -698,7 +695,7 @@ function refreshBookingList(){
   Object.entries(bookingStore).forEach(function(store){
     var path=store[0],data=store[1]||{};
     Object.entries(data).forEach(function(e){
-      var b=e[1]||{};b.code=b.code||e[0];b._path=path;b._isTest=path==='testBookings';allBk.push(b);
+      var b=e[1]||{};b.code=b.code||e[0];b._path=path;allBk.push(b);
     });
   });
   allBk=allBk.filter(function(b){return !b.notificationOnly;});
@@ -731,7 +728,7 @@ function renderBkTable(){
     var c=bkCat(b);
     return'<tr><td><code style="font-size:11px">'+esc(b.code||'')+'</code></td><td>'+esc(b.name||'-')+'</td><td>'+esc(b.phone||'-')+'</td>'+
       '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(b.route||'-')+'</td>'+
-      '<td style="font-size:10px">'+catLabel(c)+(b._isTest?' <span class="badge badge-changed">TEST</span>':'')+'</td><td>'+esc(b.date||'-')+'</td><td>'+esc(b.time||'-')+'</td>'+
+      '<td style="font-size:10px">'+catLabel(c)+'</td><td>'+esc(b.date||'-')+'</td><td>'+esc(b.time||'-')+'</td>'+
       '<td style="text-align:center">'+esc(b.seats||1)+'</td><td>\u0e3f'+Number(b.price||0).toLocaleString()+'</td>'+
       '<td style="text-align:center">'+esc(b.queueNumber||'-')+'</td><td>'+stBadge(b.status)+'</td>'+
       '<td style="white-space:nowrap"><button class="btn btn-primary btn-sm" onclick="openDetail(\''+esc(b.code||'')+'\')">ดู</button>'+
@@ -765,7 +762,7 @@ function confirmCancel(){
   var b=allBk.find(function(x){return x.code===cancelCode;});if(!b)return;
   var upd={status:'cancelled',cancelledAt:Date.now(),cancelledBy:CU.email,cancelReason:reason+(note?' \u2014 '+note:''),needRefund:refund,refundStatus:refund?'pending':'none'};
   db.ref((b._path||'bookings')+'/'+cancelCode).update(upd).then(function(){
-    if(!b._isTest)notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
+    notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
     writeLog('cancel','ยกเลิกตั๋ว '+cancelCode+' เหตุผล: '+reason);
     closeModal('cancelModal');
   }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
@@ -785,10 +782,8 @@ function switchRevPeriod(){var p=document.getElementById('revPeriod').value;var 
 function loadRevenue(){
   var p=document.getElementById('revPeriod').value,v=document.getElementById('revDate').value,s,e;
   if(p==='day'){s=e=v;}else if(p==='month'){s=v+'-01';e=v+'-31';}else{s=v+'-01-01';e=v+'-12-31';}
-  Promise.all(['bookings','testBookings'].map(function(path){return db.ref(path).orderByChild('date').startAt(s).endAt(e).once('value');})).then(function(snaps){
-    var arr=[];
-    snaps.forEach(function(snap,i){Object.values(snap.val()||{}).forEach(function(b){b._path=i?'testBookings':'bookings';b._isTest=!!i;arr.push(b);});});
-    arr=arr.filter(function(b){return b.status!=='cancelled';});
+  db.ref('bookings').orderByChild('date').startAt(s).endAt(e).once('value').then(function(snap){
+    var arr=Object.values(snap.val()||{}).filter(function(b){return b.status!=='cancelled';});
     var m=calcNet(arr.filter(function(b){return bkCat(b)==='main';}),false);
     var c=calcNet(arr.filter(function(b){return bkCat(b)==='coastal';}),true);
     var bk=calcNet(arr.filter(function(b){return bkCat(b)==='bangkok';}),true);
