@@ -993,9 +993,7 @@ function toggleClosedStopMode(gname,ri,t,on){
     delete r.closedStops[t];
   }
   renderRouteGroups();
-  db.ref('settings/routes').set(routeData).then(function(){
-    writeLog('edit_routes',(on?'งดรับจอง ':'เปิดจอง ')+(r.from||'')+' → '+(r.to||'')+' '+t);
-  }).catch(function(e){alert('บันทึกสถานะไม่สำเร็จ: '+e.message);});
+  saveRouteSettings('บันทึกสำเร็จ', (on?'งดรับจอง ':'เปิดจอง ')+(r.from||'')+' → '+(r.to||'')+' '+t);
 }
 function updateTime(gname,ri,ti,val){
   if(!val||!routeData[gname]||!routeData[gname].routes[ri])return;
@@ -1038,12 +1036,24 @@ function addPlaceToGroup(gname){
 function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].routes.splice(ri,1);renderRouteGroups();}
 function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
 function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
-function saveRoutes(){
+function prepareRouteDataForSave(){
   Object.entries(routeData).forEach(function(entry){
     var gname=entry[0],gdata=entry[1],isMain=gdata.id==='main'||gname==='เส้นทางหลัก';
     if(!isMain)(gdata.routes||[]).forEach(function(r){delete r.closedStops;});
   });
-  db.ref('settings/routes').set(routeData).then(function(){writeLog('edit_routes','บันทึกข้อมูลเส้นทาง');alert('\u2705 บันทึกสำเร็จ');}).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
+}
+function saveRouteSettings(successMsg,logDetail){
+  prepareRouteDataForSave();
+  db.ref('settings/routes').set(routeData).then(function(){
+    return db.ref('settings/routes').once('value');
+  }).then(function(snap){
+    if(!snap.exists())throw new Error('อ่านกลับจาก settings/routes แล้วไม่พบข้อมูลที่บันทึก');
+    writeLog('edit_routes',logDetail||'บันทึกข้อมูลเส้นทาง');
+    alert('\u2705 '+(successMsg||'บันทึกสำเร็จ'));
+  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message+' (path: settings/routes)');});
+}
+function saveRoutes(){
+  saveRouteSettings('บันทึกสำเร็จ','บันทึกข้อมูลเส้นทาง');
 }
 function loadPlatformGroups(){
   db.ref('settings/platformGroups').once('value').then(function(snap){
