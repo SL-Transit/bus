@@ -181,6 +181,10 @@ tr:hover td{background:#fafafa;}
 .time-edit-row{display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:8px;}
 .time-edit-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;font-family:'Kanit',sans-serif;}
 .blocked-input{font-size:12px;}
+.blocked-input:disabled{background:#f1f5f9;color:#94a3b8;}
+.stop-close-control{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;font-weight:700;color:var(--navy);}
+.stop-close-control input{width:auto;}
+.stop-close-control span{font-size:11px;font-weight:600;color:var(--muted);}
 .blocked-hint{font-size:10px;color:var(--muted);margin-top:3px;}
 .add-chip-row{display:flex;gap:6px;align-items:center;}
 .add-chip-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;width:110px;font-family:'Kanit',sans-serif;}
@@ -963,9 +967,10 @@ function renderRouteGroups(){
       html+='</div><div><div class="route-section-label">ตารางเวลา</div>';
       html+='<div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
         var blocked=((r.closedStops||{})[t]||[]).join(', ');
+        var blockOn=!!blocked;
         return'<div class="time-edit-row"><input type="time" value="'+esc(t)+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
-          (canBlockStops?'<div><input class="blocked-input" type="text" placeholder="ปิดจองเฉพาะป้าย เช่น พนมสารคาม, ท่ารถสนามชัยเขต" value="'+esc(blocked)+'" oninput="updateClosedStops(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.value)">'+
-          '<div class="blocked-hint">ใช้เฉพาะเส้นทางหลัก เว้นว่าง = เปิดจองทุกป้าย</div></div>':'<div class="blocked-hint">กลุ่มนี้เปิด/ปิดตามเวลาปกติ ไม่มีปิดเฉพาะป้าย</div>')+
+          (canBlockStops?'<div><label class="stop-close-control"><input type="checkbox" '+(blockOn?'checked':'')+' onchange="toggleClosedStopMode(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> งดรับจอง <span>ปิดจองเฉพาะป้าย</span></label><input class="blocked-input" type="text" '+(blockOn?'':'disabled')+' placeholder="เช่น พนมสารคาม, ท่ารถสนามชัยเขต" value="'+esc(blocked)+'" oninput="updateClosedStops(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.value)">'+
+          '<div class="blocked-hint">'+(blockOn?'เปิดโหมดงดรับจองแล้ว: ป้ายที่ระบุจะจองรอบนี้ไม่ได้':'ปิดโหมดอยู่: รอบนี้เปิดจองทุกป้าย')+'</div></div>':'<div class="blocked-hint">กลุ่มนี้เปิด/ปิดตามเวลาปกติ ไม่มีปิดเฉพาะป้าย</div>')+
           '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(t)+' น.?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
       }).join('')+'</div>';
       html+='<div class="add-chip-row"><input type="time" id="tc_'+gi+'_'+ri+'"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่ม</button>';
@@ -987,6 +992,18 @@ function updateClosedStops(gname,ri,t,val){
   if(!r.closedStops)r.closedStops={};
   var stops=csvStops(val);
   if(stops.length)r.closedStops[t]=stops;else delete r.closedStops[t];
+}
+function toggleClosedStopMode(gname,ri,t,on){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  if(routeData[gname].id!=='main'&&gname!=='เส้นทางหลัก')return;
+  var r=routeData[gname].routes[ri];
+  if(!r.closedStops)r.closedStops={};
+  if(on){
+    if(!r.closedStops[t]||!r.closedStops[t].length)r.closedStops[t]=[r.to||''];
+  }else{
+    delete r.closedStops[t];
+  }
+  renderRouteGroups();
 }
 function updateTime(gname,ri,ti,val){
   if(!val||!routeData[gname]||!routeData[gname].routes[ri])return;
