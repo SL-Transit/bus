@@ -393,7 +393,7 @@ tr:hover td{background:#fafafa;}
           </div>
           <div class="control-card">
             <div><strong>Test Mode</strong><span>ทดสอบโหลด/จองคิวโดยไม่ส่ง LINE จริงและไม่สร้างธุรกรรมจริง</span></div>
-            <label class="tog"><input type="checkbox" id="testModeToggle"><span class="tog-sl"></span></label>
+            <label class="tog"><input type="checkbox" id="testModeToggle" onchange="toggleTestMode(this.checked)"><span class="tog-sl"></span></label>
           </div>
         </div>
         <div class="test-mode-banner" id="testModeBanner">TEST MODE เปิดอยู่: ระบบจะใช้ข้อมูลจำลองและบันทึก mock logs เท่านั้น</div>
@@ -633,7 +633,7 @@ function loadFees(){
   });
 }
 function saveFees(){
-  if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
+  if(!CU){alert('กรุณาเข้าสู่ระบบ');return;}
   FEE_SVC=Number(document.getElementById('feeService').value)||5;
   FEE_AGENT=Number(document.getElementById('feeAgent').value)||5;
   FEE_ENABLED=document.getElementById('feeEnabled').checked;
@@ -649,6 +649,20 @@ function saveFees(){
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
     writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE+' testMode='+TEST_MODE);
     alert('\u2705 บันทึกสำเร็จ');
+  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message+' (path: settings)');});
+}
+function toggleTestMode(on){
+  if(!CU){alert('กรุณาเข้าสู่ระบบ');document.getElementById('testModeToggle').checked=TEST_MODE;return;}
+  var prev=TEST_MODE;
+  db.ref('settings/testMode').set(on).then(function(){
+    TEST_MODE=on;
+    document.getElementById('testModeToggle').checked=on;
+    document.getElementById('testModeBanner').style.display=on?'block':'none';
+    writeLog('setting',(on?'เปิด':'ปิด')+' Test Mode');
+    alert('\u2705 บันทึกสำเร็จ');
+  }).catch(function(e){
+    document.getElementById('testModeToggle').checked=prev;
+    alert('บันทึก Test Mode ไม่สำเร็จ: '+e.message+' (path: settings/testMode)');
   });
 }
 function loadBookingToggle(){
