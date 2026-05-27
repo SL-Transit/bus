@@ -477,6 +477,7 @@ tr:hover td{background:#fafafa;}
           <div class="reset-item"><input type="checkbox" id="rAn" style="width:auto"><label for="rAn">&#x1F4E2; announcements</label></div>
           <div class="reset-item"><input type="checkbox" id="rTb" style="width:auto"><label for="rTb">testBookings</label></div>
           <div class="reset-item"><input type="checkbox" id="rTq" style="width:auto"><label for="rTq">testQueues</label></div>
+          <div class="reset-item"><input type="checkbox" id="rTtl" style="width:auto"><label for="rTtl">testTicketLocations</label></div>
           <div class="reset-item"><input type="checkbox" id="rMl" style="width:auto"><label for="rMl">mockLogs</label></div>
         </div>
         <div class="fg"><label>พิมพ์ "RESET" เพื่อยืนยัน</label><input id="resetConfirm" type="text" placeholder="RESET"></div>
@@ -643,7 +644,8 @@ function saveFees(){
   db.ref('settings').update({
     fees:{service:FEE_SVC,agent:FEE_AGENT,serviceEnabled:FEE_ENABLED,serviceVisible:FEE_VISIBLE},
     payment:{mode:PAYMENT_MODE},
-    testMode:TEST_MODE
+    testMode:TEST_MODE,
+    testPaths:{checkTicket:{bookings:'testBookings',ticketLocations:'testTicketLocations',notifications:'mockLogs/checkTicketNotifications'}}
   }).then(function(){
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
@@ -654,7 +656,7 @@ function saveFees(){
 function toggleTestMode(on){
   if(!CU){alert('กรุณาเข้าสู่ระบบ');document.getElementById('testModeToggle').checked=TEST_MODE;return;}
   var prev=TEST_MODE;
-  db.ref('settings/testMode').set(on).then(function(){
+  db.ref('settings').update({testMode:on,testPaths:{checkTicket:{bookings:'testBookings',ticketLocations:'testTicketLocations',notifications:'mockLogs/checkTicketNotifications'}}}).then(function(){
     TEST_MODE=on;
     document.getElementById('testModeToggle').checked=on;
     document.getElementById('testModeBanner').style.display=on?'block':'none';
@@ -1190,7 +1192,7 @@ function writeLog(action,detail){if(!CU)return;db.ref('adminLogs').push({action:
 function doReset(){
   if(!isSA()){alert('\u0e40\u0e09\u0e1e\u0e32\u0e30 Super Admin \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19');return;}
   if(document.getElementById('resetConfirm').value!=='RESET'){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e1e\u0e34\u0e21\u0e1e\u0e4c "RESET" \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19');return;}
-  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements',rTb:'testBookings',rTq:'testQueues',rMl:'mockLogs'};
+  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements',rTb:'testBookings',rTq:'testQueues',rTtl:'testTicketLocations',rMl:'mockLogs'};
   var targets=Object.entries(map).filter(function(e){return document.getElementById(e[0]).checked;}).map(function(e){return e[1];});
   if(!targets.length){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e17\u0e35\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15');return;}
   confirmDel('\u26a0\ufe0f ยืนยันลบข้อมูลถาวร: <b>'+esc(targets.join(', '))+'</b><br>เมื่อกดยืนยันแล้วไม่สามารถกู้คืนได้',function(){

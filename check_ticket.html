@@ -120,6 +120,18 @@
     .status.good { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     .status.warn { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
     .status.bad { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .test-mode-status {
+      display: none;
+      background: #fff7ed;
+      border: 2px solid #fb923c;
+      color: #9a3412;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }
 
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     .row { background: var(--soft); border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
@@ -204,6 +216,7 @@
       <a class="back" href="index.html">‹ กลับหน้าแรก</a>
       <div class="pill">Ticket Center</div>
     </div>
+    <div id="testModeStatus" class="test-mode-status">TEST MODE: k6 load testing is active. Reads/writes use test paths only. LINE Messaging API is skipped.</div>
 
     <section class="panel">
       <h1>ตรวจสอบ / เช็คอิน / ยกเลิกตั๋ว</h1>
@@ -376,9 +389,17 @@
     var suggestedNextTrip = null;
     var countdownTimer = null;
     var checkinSubmitLock = false;
+    var TEST_MODE = false;
+    var TEST_PATHS = {
+      bookings: 'testBookings/',
+      ticketLocations: 'testTicketLocations/',
+      notifications: 'mockLogs/checkTicketNotifications/'
+    };
 
     db.ref('settings').on('value', function(snap) {
       var settings = snap.val() || {};
+      TEST_MODE = settings.testMode === true;
+      renderTestModeStatus();
       if (settings.checkin && settings.checkin.radiusKm !== undefined) CHECKIN_RADIUS_KM = Number(settings.checkin.radiusKm) || 2.5;
       if (settings.checkin && settings.checkin.distanceMode) {
         DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
@@ -391,7 +412,12 @@
     function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
+    function renderTestModeStatus() {
+      var el = document.getElementById('testModeStatus');
+      if (el) el.style.display = TEST_MODE ? 'block' : 'none';
+    }
     function bookingPathForCode(code, booking) {
+      if (TEST_MODE) return TEST_PATHS.bookings;
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
     function buildAdminDestinationSchedules(routes) {
@@ -460,7 +486,7 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      var path = 'bookings';
+      var path = TEST_MODE ? TEST_PATHS.bookings.replace(/\/$/, '') : 'bookings';
       return db.ref(path).orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
         if (!snap.exists()) return null;
         var matches = [];
@@ -739,7 +765,7 @@
 
       var movedEnough = !previous || distanceKm(previous.lat, previous.lng, next.lat, next.lng) >= 0.01;
       if (movedEnough) {
-        db.ref('ticketLocations/' + currentBooking.code).set({
+        db.ref((TEST_MODE ? TEST_PATHS.ticketLocations : 'ticketLocations/') + currentBooking.code).set({
           lat: next.lat,
           lng: next.lng,
           distanceKm: currentDistanceKm,
@@ -799,7 +825,7 @@
         currentDistanceKm = roadKm;
         renderDistanceState();
         if (currentBooking) {
-          db.ref('ticketLocations/' + currentBooking.code).update({
+          db.ref((TEST_MODE ? TEST_PATHS.ticketLocations : 'ticketLocations/') + currentBooking.code).update({
             distanceKm: currentDistanceKm,
             etaMinutes: currentEtaMinutes,
             distanceSource: road.source,
@@ -1202,6 +1228,7 @@
       });
 
       var payload = Object.assign({}, update, {
+        testMode: TEST_MODE,
         lineEvent: eventName,
         lineMessage: linePayload.message,
         linePayload: linePayload,
@@ -1213,7 +1240,7 @@
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
         lineMessagingAt: firebase.database.ServerValue.TIMESTAMP,
-        lineMessagingStatus: 'pending',
+        lineMessagingStatus: TEST_MODE ? 'mock_skipped' : 'pending',
         lineMessagingAttemptId: linePayload.lineMessagingAttemptId
       });
 
@@ -1229,7 +1256,7 @@
         }
         currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
         return createLineMessagingTrigger(linePayload, payload, eventName).then(function(){
-          setStatus('lookupStatus', 'good', successText);
+          setStatus('lookupStatus', 'good', TEST_MODE ? 'TEST MODE: saved to test paths; LINE Messaging API skipped' : successText);
         });
       })
         .catch(function(err) {
@@ -1258,8 +1285,10 @@
         lineMessagingMode: linePayload.notifyMode,
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
-        lineMessagingStatus: 'pending',
+        lineMessagingStatus: TEST_MODE ? 'mock_skipped' : 'pending',
         lineMessagingAttemptId: linePayload.lineMessagingAttemptId,
+        testMode: TEST_MODE,
+        mockOnly: TEST_MODE,
         name: currentBooking.name || '',
         phone: currentBooking.phone || '',
         route: currentBooking.route || '',
@@ -1280,7 +1309,7 @@
         checkin: updatePayload.checkin || {},
         ts: firebase.database.ServerValue.TIMESTAMP
       };
-      return db.ref('bookings/' + triggerCode).set(trigger);
+      return db.ref((TEST_MODE ? TEST_PATHS.notifications : 'bookings/') + triggerCode).set(trigger);
     }
 
     function buildLineMessage(data) {
