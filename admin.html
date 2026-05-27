@@ -479,6 +479,8 @@ tr:hover td{background:#fafafa;}
           <div class="reset-item"><input type="checkbox" id="rTq" style="width:auto"><label for="rTq">testQueues</label></div>
           <div class="reset-item"><input type="checkbox" id="rTtl" style="width:auto"><label for="rTtl">testTicketLocations</label></div>
           <div class="reset-item"><input type="checkbox" id="rMl" style="width:auto"><label for="rMl">mockLogs</label></div>
+          <div class="reset-item"><input type="checkbox" id="rTbl" style="width:auto"><label for="rTbl">test_booking_logs</label></div>
+          <div class="reset-item"><input type="checkbox" id="rTll" style="width:auto"><label for="rTll">test_line_logs</label></div>
         </div>
         <div class="fg"><label>พิมพ์ "RESET" เพื่อยืนยัน</label><input id="resetConfirm" type="text" placeholder="RESET"></div>
         <button class="btn btn-danger" onclick="doReset()">&#x1F5D1;&#xFE0F; รีเซ็ตข้อมูลที่เลือก</button>
@@ -1192,15 +1194,23 @@ function writeLog(action,detail){if(!CU)return;db.ref('adminLogs').push({action:
 function doReset(){
   if(!isSA()){alert('\u0e40\u0e09\u0e1e\u0e32\u0e30 Super Admin \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19');return;}
   if(document.getElementById('resetConfirm').value!=='RESET'){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e1e\u0e34\u0e21\u0e1e\u0e4c "RESET" \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19');return;}
-  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements',rTb:'testBookings',rTq:'testQueues',rTtl:'testTicketLocations',rMl:'mockLogs'};
+  var map={rBk:'bookings',rQu:'queues',rLi:'line_sent',rTi:'ticketLocations',rAl:'adminLogs',rAn:'announcements',rTb:'testBookings',rTq:'testQueues',rTtl:'testTicketLocations',rMl:'mockLogs',rTbl:'test_booking_logs',rTll:'test_line_logs'};
   var targets=Object.entries(map).filter(function(e){return document.getElementById(e[0]).checked;}).map(function(e){return e[1];});
   if(!targets.length){alert('\u0e01\u0e23\u0e38\u0e13\u0e32\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e17\u0e35\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15');return;}
   confirmDel('\u26a0\ufe0f ยืนยันลบข้อมูลถาวร: <b>'+esc(targets.join(', '))+'</b><br>เมื่อกดยืนยันแล้วไม่สามารถกู้คืนได้',function(){
-    Promise.all(targets.map(function(t){return db.ref(t).remove();})).then(function(){
-      writeLog('reset','\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15: '+targets.join(', '));
-      alert('\u2705 \u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+    Promise.all(targets.map(function(t){
+      return db.ref(t).remove().then(function(){return{path:t,ok:true};}).catch(function(e){return{path:t,ok:false,error:e.message||String(e)};});
+    })).then(function(results){
+      var ok=results.filter(function(r){return r.ok;}).map(function(r){return r.path;});
+      var fail=results.filter(function(r){return !r.ok;});
+      if(ok.length)writeLog('reset','\u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15: '+ok.join(', '));
       document.getElementById('resetConfirm').value='';
-    }).catch(function(e){alert('\u0e40\u0e01\u0e34\u0e14\u0e02\u0e49\u0e2d\u0e1c\u0e34\u0e14\u0e1e\u0e25\u0e32\u0e14: '+e.message);});
+      if(fail.length){
+        alert('\u26a0\ufe0f ลบบางรายการสำเร็จ\nสำเร็จ: '+(ok.join(', ')||'-')+'\nไม่มีสิทธิ์/ล้มเหลว: '+fail.map(function(r){return r.path+' ('+r.error+')';}).join(', '));
+      }else{
+        alert('\u2705 \u0e23\u0e35\u0e40\u0e0b\u0e47\u0e15\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+      }
+    });
   });
 }
 function confirmDel(msg,cb){document.getElementById('delMsg').innerHTML=msg;document.getElementById('delConfirmBtn').onclick=function(){closeModal('delModal');cb();};openModal('delModal');}
