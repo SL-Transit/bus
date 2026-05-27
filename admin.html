@@ -1039,7 +1039,6 @@ function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].rout
 function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
 function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
 function saveRoutes(){
-  if(!isAdmin()){alert('ไม่มีสิทธิ์');return;}
   Object.entries(routeData).forEach(function(entry){
     var gname=entry[0],gdata=entry[1],isMain=gdata.id==='main'||gname==='เส้นทางหลัก';
     if(!isMain)(gdata.routes||[]).forEach(function(r){delete r.closedStops;});
