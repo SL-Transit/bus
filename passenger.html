@@ -149,6 +149,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   appearance:none; -webkit-appearance:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%235a6a7e' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 10px center;
+  padding-right:34px; min-height:46px; line-height:1.35;
 }
 .rs-select:focus { border-color:#1d4ed8; }
 .rs-arrow { font-size:20px; font-weight:700; color:#1d4ed8; padding-bottom:12px; flex-shrink:0; }
@@ -178,7 +179,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   padding:18px 10px; text-align:center;
   border-right:1px solid var(--border); border-bottom:1px solid var(--border);
   font-family:'Chakra Petch',sans-serif; font-size:22px;
-  font-weight:700; color:var(--text); letter-spacing:1px;
+  font-weight:700; color:var(--text); letter-spacing:0;
+  min-width:0;
 }
 .time-cell:nth-child(3n) { border-right:none; }
 /* ลบ border bottom แถวสุดท้าย */
@@ -224,8 +226,9 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .leg2-time-item {
   padding:16px 12px; border-bottom:1px solid var(--border);
   font-family:'Chakra Petch',sans-serif; font-size:22px;
-  font-weight:700; color:var(--text); letter-spacing:1px;
+  font-weight:700; color:var(--text); letter-spacing:0;
   text-align:center;
+  min-width:0;
 }
 .leg2-time-item:last-child { border-bottom:none; }
 .leg2-time-item.now-cell { background:#eff6ff; color:#1d4ed8; }
@@ -272,11 +275,81 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .time-grid-2col .time-cell:nth-last-child(-n+2) { border-bottom:none; }
 
 /* ===== RESPONSIVE ===== */
+@media (max-width:414px) {
+  body { font-size:15px; }
+  .topbar { padding:14px 14px 12px; }
+  .header-main { font-size:16px; }
+  .main { padding:12px 10px; max-width:none; }
+  .info-strip { padding:8px 12px; }
+  .route-select-card,
+  .sched-card,
+  .leg2-card,
+  .route-card,
+  .next-bus,
+  .status-card { border-radius:10px; }
+
+  .rs-row { display:grid; grid-template-columns:1fr; gap:9px; }
+  .rs-group { width:100%; }
+  .rs-select { font-size:15px; min-height:48px; padding:12px 34px 12px 12px; }
+  .rs-arrow {
+    width:34px; height:24px; padding:0; line-height:24px;
+    justify-self:center; align-self:center; text-align:center;
+    transform:rotate(90deg);
+  }
+
+  .sched-route-header,
+  .leg2-header { padding:12px 14px; }
+  .sched-route-name,
+  .leg2-header-route { font-size:15px; line-height:1.35; }
+
+  .time-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .time-cell {
+    font-size:20px; padding:14px 8px;
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+  }
+  .time-cell:nth-child(3n) { border-right:1px solid var(--border); }
+  .time-cell:nth-child(2n) { border-right:none; }
+  .time-grid .time-cell:nth-last-child(-n+3),
+  .time-grid .time-cell:nth-last-child(1),
+  .time-grid .time-cell:nth-last-child(2),
+  .time-grid .time-cell:nth-last-child(3) { border-bottom:1px solid var(--border); }
+  .time-grid .time-cell:nth-last-child(-n+2) { border-bottom:none; }
+
+  .leg2-cols { grid-template-columns:1fr; }
+  .leg2-col-head { padding:10px 12px; border-right:none; }
+  .leg2-col-head + .leg2-col-head { display:none; }
+  .leg2-col-name { font-size:12px; line-height:1.35; }
+  .leg2-times { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .leg2-time-item { font-size:20px; padding:14px 8px; }
+  .leg2-time-item.empty { min-height:52px; }
+
+  .time-grid-2col { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width:360px) {
-  .rs-row { flex-direction:column; }
-  .rs-arrow { padding-bottom:0; align-self:center; transform:rotate(90deg); }
-  .time-cell { font-size:19px; padding:15px 6px; }
-  .leg2-time-item { font-size:19px; padding:14px 8px; }
+  .main { padding:10px 8px; }
+  .route-select-card { padding:12px; }
+  .route-card { padding:12px; }
+  #map { height:240px; }
+  .time-grid,
+  .time-grid-2col,
+  .leg2-times { grid-template-columns:1fr; }
+
+  .time-cell,
+  .time-grid-2col .time-cell,
+  .leg2-time-item {
+    font-size:19px; padding:13px 10px;
+    border-right:none !important;
+    border-bottom:1px solid var(--border) !important;
+  }
+  .time-grid .time-cell:last-child,
+  .time-grid-2col .time-cell:last-child,
+  .leg2-time-item:last-child { border-bottom:none !important; }
+  .leg2-time-item.empty { display:none; }
+  .next-time { font-size:32px; }
+  .bus-list-item { align-items:flex-start; flex-wrap:wrap; gap:6px 8px; }
+  .bus-list-dir { width:100%; margin-left:0; }
 }
 </style>
 </head>
