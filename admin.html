@@ -849,8 +849,28 @@ function loadRevenue(){
 function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
     console.log('[ADMIN ROUTE DEBUG] read path=settings/routes',snap.val());
-    routeData=mergeDefaultRoutes(snap.val()||{});renderRouteGroups();
+    routeData=mergeDefaultRoutes(decodeRouteGroups(snap.val()||{}));renderRouteGroups();
   });
+}
+function safeRouteGroupKey(gname,gdata,i){
+  var id=(gdata&&gdata.id)?String(gdata.id):'group_'+i;
+  return id.replace(/[.#$/\[\]]/g,'_')||('group_'+i);
+}
+function encodeRouteGroups(data){
+  var out={};
+  Object.entries(data||{}).forEach(function(entry,i){
+    var gname=entry[0],gdata=entry[1]||{},key=safeRouteGroupKey(gname,gdata,i);
+    out[key]=Object.assign({},gdata,{name:gname});
+  });
+  return out;
+}
+function decodeRouteGroups(saved){
+  var out={};
+  Object.entries(saved||{}).forEach(function(entry){
+    var key=entry[0],gdata=entry[1]||{},name=gdata.name||key;
+    out[name]=gdata;
+  });
+  return out;
 }
 function mergeDefaultRoutes(saved){
   var defs=getDefaultRoutes();
@@ -1051,8 +1071,9 @@ function prepareRouteDataForSave(){
 }
 function saveRouteSettings(successMsg,logDetail){
   prepareRouteDataForSave();
-  console.log('[ADMIN ROUTE DEBUG] write path=settings/routes',routeData);
-  db.ref('settings/routes').set(routeData).then(function(){
+  var payload=encodeRouteGroups(routeData);
+  console.log('[ADMIN ROUTE DEBUG] write path=settings/routes',payload);
+  db.ref('settings/routes').set(payload).then(function(){
     return db.ref('settings/routes').once('value');
   }).then(function(snap){
     if(!snap.exists())throw new Error('อ่านกลับจาก settings/routes แล้วไม่พบข้อมูลที่บันทึก');
