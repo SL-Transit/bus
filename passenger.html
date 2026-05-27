@@ -1122,7 +1122,8 @@ function renderSched() {
   const origin = selOrigin, dest = selDest;
 
   if(isLeg2Dest(dest)){
-    const leg1Times = getLeg1Times();
+    const startsAtTransferHub = origin === 'ฉะเชิงเทรา (แปดริ้ว)';
+    const leg1Times = startsAtTransferHub ? [] : getLeg1Times();
     const leg2Times = getPairTimes('ฉะเชิงเทรา (แปดริ้ว)', dest) || LEG2_DESTINATIONS[dest].leg2Times;
 
     // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
@@ -1139,8 +1140,7 @@ function renderSched() {
       return html;
     }
 
-    // leg1 section
-    const leg1Html = `
+    const leg1Html = startsAtTransferHub ? '' : `
       <div class="leg2-cols" style="background:#f8faff;">
         <div class="leg2-col-head" style="background:#f0f6ff;">
           <div class="leg2-col-sub">เที่ยวที่ 1</div>
@@ -1175,7 +1175,7 @@ function renderSched() {
           <div class="leg2-header-route">${origin} → ${dest}</div>
         </div>
         ${leg1Html}
-        <div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>
+        ${startsAtTransferHub ? '' : '<div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>'}
         ${leg2Html}
       </div>`;
   } else {
