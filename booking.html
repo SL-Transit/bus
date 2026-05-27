@@ -680,6 +680,7 @@ function _applySettings(snap) {
   // --- ตารางเวลา (ORIGIN_TIMES + LEG2 times) ---
   ROUTE_CLOSED_STOPS = {};
   ADMIN_ROUTE_TIMES = {};
+  console.log('[BOOKING ROUTE DEBUG] loaded settings/routes',data.routes||null);
   if (data.routes) {
     Object.entries(data.routes).forEach(function(entry) {
       var groupName = entry[0];
@@ -714,10 +715,12 @@ function _applySettings(snap) {
               return stop === '__route__' || stop === '*' ? stop : _labelToKey(stop);
             }).filter(Boolean);
           });
+          console.log('[BOOKING ROUTE DEBUG] registered closure',{group:groupName,fromKey:fromKey,toKey:toKey,closedStops:ROUTE_CLOSED_STOPS[fromKey][toKey]});
         }
       });
     });
   }
+  console.log('[BOOKING ROUTE DEBUG] effective ROUTE_CLOSED_STOPS',ROUTE_CLOSED_STOPS);
 
   // --- กลุ่มชานชาลา ---
   if (data.platformGroups) {
@@ -1266,7 +1269,9 @@ function canBook(dateStr, timeStr) {
 function isClosedByAdmin(timeStr) {
   var routeClosed = ROUTE_CLOSED_STOPS[selOrigin] && ROUTE_CLOSED_STOPS[selOrigin][selDest];
   var stops = routeClosed && routeClosed[timeStr];
-  return Array.isArray(stops) && (stops.indexOf(selDest) !== -1 || stops.indexOf('__route__') !== -1 || stops.indexOf('*') !== -1);
+  var closed=Array.isArray(stops) && (stops.indexOf(selDest) !== -1 || stops.indexOf('__route__') !== -1 || stops.indexOf('*') !== -1);
+  console.log('[BOOKING ROUTE DEBUG] closure check',{origin:selOrigin,dest:selDest,time:timeStr,routeClosed:routeClosed||null,stops:stops||null,closed:closed,reason:closed?'matched closedStops':'no matching closedStops for route/time'});
+  return closed;
 }
  
 function getStatusBadge(dateStr, timeStr) {

@@ -536,7 +536,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}};
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -848,6 +848,7 @@ function loadRevenue(){
 }
 function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
+    console.log('[ADMIN ROUTE DEBUG] read path=settings/routes',snap.val());
     routeData=mergeDefaultRoutes(snap.val()||{});renderRouteGroups();
   });
 }
@@ -955,7 +956,7 @@ function renderRouteGroups(){
     html+='<div class="rgroup"><div class="rgroup-header" onclick="toggleRG('+gi+')">';
     html+='<span class="rg-title">'+esc(gname)+'</span><span class="rg-count">'+gdata.routes.length+' เส้นทาง</span>';
     html+='<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDel(\'ลบกลุ่มเส้นทาง &ldquo;'+esc(gname)+'&rdquo;?\',function(){deleteRouteGroup(\''+esc(gname)+'\')})">\ud83d\uddd1\ufe0f ลบกลุ่ม</button>';
-    html+='</div><div class="rgroup-body" id="rgb_'+gi+'">';
+    html+='</div><div class="rgroup-body '+(openRouteGroups[gname]?'open':'')+'" id="rgb_'+gi+'">';
     gdata.routes.forEach(function(r,ri){
       var canBlockStops=gdata.id==='main'||gname==='เส้นทางหลัก';
       html+='<div class="route-row"><div class="rr-fields">';
@@ -979,19 +980,25 @@ function renderRouteGroups(){
   });
   document.getElementById('routeGroupsWrap').innerHTML=html;
 }
-function toggleRG(i){var b=document.getElementById('rgb_'+i);b.classList.toggle('open');}
+function toggleRG(i){
+  var entry=Object.entries(routeData)[i];
+  var b=document.getElementById('rgb_'+i);b.classList.toggle('open');
+  if(entry)openRouteGroups[entry[0]]=b.classList.contains('open');
+}
 function updateRoute(gname,ri,field,val){if(routeData[gname]&&routeData[gname].routes[ri])routeData[gname].routes[ri][field]=val;}
 function csvStops(v){return String(v||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
 function toggleClosedStopMode(gname,ri,t,on){
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
   if(routeData[gname].id!=='main'&&gname!=='เส้นทางหลัก')return;
   var r=routeData[gname].routes[ri];
+  openRouteGroups[gname]=true;
   if(!r.closedStops)r.closedStops={};
   if(on){
     if(!r.closedStops[t]||!r.closedStops[t].length)r.closedStops[t]=[r.to||'__route__'];
   }else{
     delete r.closedStops[t];
   }
+  console.log('[ADMIN ROUTE DEBUG] toggle closed stop',{path:'settings/routes',group:gname,routeIndex:ri,time:t,on:on,route:{from:r.from,to:r.to,closedStops:r.closedStops}});
   renderRouteGroups();
   saveRouteSettings('บันทึกสำเร็จ', (on?'งดรับจอง ':'เปิดจอง ')+(r.from||'')+' → '+(r.to||'')+' '+t);
 }
@@ -1044,10 +1051,12 @@ function prepareRouteDataForSave(){
 }
 function saveRouteSettings(successMsg,logDetail){
   prepareRouteDataForSave();
+  console.log('[ADMIN ROUTE DEBUG] write path=settings/routes',routeData);
   db.ref('settings/routes').set(routeData).then(function(){
     return db.ref('settings/routes').once('value');
   }).then(function(snap){
     if(!snap.exists())throw new Error('อ่านกลับจาก settings/routes แล้วไม่พบข้อมูลที่บันทึก');
+    console.log('[ADMIN ROUTE DEBUG] readback path=settings/routes',snap.val());
     writeLog('edit_routes',logDetail||'บันทึกข้อมูลเส้นทาง');
     alert('\u2705 '+(successMsg||'บันทึกสำเร็จ'));
   }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message+' (path: settings/routes)');});
