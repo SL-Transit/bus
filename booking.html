@@ -708,7 +708,9 @@ function _applySettings(snap) {
           if (!ROUTE_CLOSED_STOPS[fromKey]) ROUTE_CLOSED_STOPS[fromKey] = {};
           if (!ROUTE_CLOSED_STOPS[fromKey][toKey]) ROUTE_CLOSED_STOPS[fromKey][toKey] = {};
           Object.keys(r.closedStops).forEach(function(timeKey) {
-            ROUTE_CLOSED_STOPS[fromKey][toKey][timeKey] = (r.closedStops[timeKey] || []).map(_labelToKey).filter(Boolean);
+            ROUTE_CLOSED_STOPS[fromKey][toKey][timeKey] = (r.closedStops[timeKey] || []).map(function(stop){
+              return stop === '__route__' || stop === '*' ? stop : _labelToKey(stop);
+            }).filter(Boolean);
           });
         }
       });
@@ -1262,7 +1264,7 @@ function canBook(dateStr, timeStr) {
 function isClosedByAdmin(timeStr) {
   var routeClosed = ROUTE_CLOSED_STOPS[selOrigin] && ROUTE_CLOSED_STOPS[selOrigin][selDest];
   var stops = routeClosed && routeClosed[timeStr];
-  return Array.isArray(stops) && stops.indexOf(selDest) !== -1;
+  return Array.isArray(stops) && (stops.indexOf(selDest) !== -1 || stops.indexOf('__route__') !== -1 || stops.indexOf('*') !== -1);
 }
  
 function getStatusBadge(dateStr, timeStr) {

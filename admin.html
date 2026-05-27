@@ -988,11 +988,14 @@ function toggleClosedStopMode(gname,ri,t,on){
   var r=routeData[gname].routes[ri];
   if(!r.closedStops)r.closedStops={};
   if(on){
-    if(!r.closedStops[t]||!r.closedStops[t].length)r.closedStops[t]=[r.to||''];
+    if(!r.closedStops[t]||!r.closedStops[t].length)r.closedStops[t]=[r.to||'__route__'];
   }else{
     delete r.closedStops[t];
   }
   renderRouteGroups();
+  db.ref('settings/routes').set(routeData).then(function(){
+    writeLog('edit_routes',(on?'งดรับจอง ':'เปิดจอง ')+(r.from||'')+' → '+(r.to||'')+' '+t);
+  }).catch(function(e){alert('บันทึกสถานะไม่สำเร็จ: '+e.message);});
 }
 function updateTime(gname,ri,ti,val){
   if(!val||!routeData[gname]||!routeData[gname].routes[ri])return;
