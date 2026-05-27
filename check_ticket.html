@@ -48,6 +48,7 @@
 
     .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
     .pill { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
+    .test-mode-strip { display: none; margin-bottom: 14px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 8px; padding: 11px 14px; font-size: 15px; font-weight: 700; text-align: center; }
     .panel {
       background: var(--card);
       border: 1px solid var(--border);
@@ -216,7 +217,7 @@
       <a class="back" href="index.html">‹ กลับหน้าแรก</a>
       <div class="pill">Ticket Center</div>
     </div>
-    <div id="testModeStatus" class="test-mode-status">TEST MODE: k6 load testing is active. Reads/writes use test paths only. LINE Messaging API is skipped.</div>
+    <div id="testModeStatus" class="test-mode-status">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และอ่าน/เขียนเฉพาะข้อมูลทดสอบ</div>
 
     <section class="panel">
       <h1>ตรวจสอบ / เช็คอิน / ยกเลิกตั๋ว</h1>
@@ -375,6 +376,7 @@
     var ROAD_DISTANCE_CACHE = {};
     var roadDistanceRequestSeq = 0;
     var ADMIN_DEST_SCHEDULES = [];
+    var TEST_MODE = false;
 
     var currentBooking = null;
     var currentCode = null;
@@ -389,7 +391,6 @@
     var suggestedNextTrip = null;
     var countdownTimer = null;
     var checkinSubmitLock = false;
-    var TEST_MODE = false;
     var TEST_PATHS = {
       bookings: 'testBookings/',
       ticketLocations: 'testTicketLocations/',
@@ -448,6 +449,9 @@
 
       var task = authReady.then(function() {
         if (/^(BK|TB)\d{6}$/.test(value)) {
+          if (TEST_MODE && /^BK\d{6}$/.test(value)) {
+            throw new Error('TEST_MODE_PRODUCTION_CODE');
+          }
           return db.ref(bookingPathForCode(value) + value).once('value').then(function(snap) {
             return snap.exists() ? { code: value, booking: snap.val() } : null;
           });
@@ -476,6 +480,8 @@
         console.error(err);
         var message = err && err.code === 'auth/operation-not-allowed'
           ? 'ระบบยังไม่ได้เปิด Anonymous Sign-in ใน Firebase Authentication กรุณาเปิดใช้งานก่อนตรวจตั๋ว'
+          : err && err.message === 'TEST_MODE_PRODUCTION_CODE'
+          ? 'TEST MODE เปิดอยู่ กรุณาใช้รหัสทดสอบ TB หรือค้นหาข้อมูลจากชุดทดสอบเท่านั้น'
           : err && err.code === 'PERMISSION_DENIED'
           ? 'ยังไม่สามารถค้นหาด้วยเบอร์โทรศัพท์ได้ กรุณาตรวจสอบสิทธิ์การอ่านข้อมูลใน Firebase'
           : 'ไม่สามารถดึงข้อมูลตั๋วได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
@@ -1255,8 +1261,8 @@
           return Promise.reject(new Error('DUPLICATE_CHECKIN'));
         }
         currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
-        return createLineMessagingTrigger(linePayload, payload, eventName).then(function(){
-          setStatus('lookupStatus', 'good', TEST_MODE ? 'TEST MODE: saved to test paths; LINE Messaging API skipped' : successText);
+        return sendLineMessage(linePayload, payload, eventName).then(function(result){
+          setStatus('lookupStatus', 'good', result && result.mock ? 'TEST MODE: บันทึกสำเร็จ Mock LINE สำเร็จ' : successText);
         });
       })
         .catch(function(err) {
@@ -1267,7 +1273,46 @@
         });
     }
 
+    function isEffectiveTestMode() {
+      return TEST_MODE === true || (currentBooking && currentBooking.testMode === true) || /^TB\d{6}$/.test(currentBooking && currentBooking.code || '');
+    }
+
+    function mockLineSend(linePayload, updatePayload, eventName) {
+      console.log('[TEST MODE] Mock LINE sent', linePayload);
+      return db.ref('test_line_logs').push({
+        booking_id: currentBooking.code || '',
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        passenger_name: currentBooking.name || '',
+        route: currentBooking.route || '',
+        round_time: linePayload.time || currentBooking.time || '',
+        test_mode: true,
+        line_mock_status: 'success',
+        event: eventName || linePayload.event || '',
+        original_payload: linePayload,
+        update_payload: updatePayload || {}
+      }).then(function() {
+        return { success: true, mock: true };
+      });
+    }
+
+    function realLineSend(linePayload, updatePayload, eventName) {
+      if (isEffectiveTestMode()) {
+        return mockLineSend(linePayload, updatePayload, eventName);
+      }
+      return createLineMessagingTrigger(linePayload, updatePayload, eventName);
+    }
+
+    function sendLineMessage(linePayload, updatePayload, eventName) {
+      if (isEffectiveTestMode()) {
+        return mockLineSend(linePayload, updatePayload, eventName);
+      }
+      return realLineSend(linePayload, updatePayload, eventName);
+    }
+
     function createLineMessagingTrigger(linePayload, updatePayload, eventName) {
+      if (isEffectiveTestMode()) {
+        return mockLineSend(linePayload, updatePayload, eventName);
+      }
       var triggerCode = 'CI' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
       var trigger = {
         code: triggerCode,

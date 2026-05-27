@@ -235,7 +235,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
   <a href="check_ticket.html" style="position:absolute;right:16px;font-size:12px;font-weight:600;color:var(--accent);text-decoration:none">🎫 ตรวจตั๋ว</a>
 </div>
-<div class="test-mode-strip" id="testModeStrip">TEST MODE: ระบบจองนี้เป็นข้อมูลทดสอบ ไม่ส่ง LINE จริง และไม่สร้างธุรกรรมจริง</div>
+<div class="test-mode-strip" id="testModeStrip">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และข้อมูลจองจะอยู่ในชุดทดสอบ</div>
  
 <div class="main">
  
@@ -755,6 +755,51 @@ function applyBookingAvailability() {
 function applyTestModeUI() {
   var strip = document.getElementById('testModeStrip');
   if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
+}
+
+function buildBookingLinePayload(booking) {
+  return {
+    event: 'booking_created',
+    source: 'booking.html',
+    booking_id: booking.code,
+    passenger_name: booking.name || '',
+    route: booking.route || '',
+    round_time: booking.time || '',
+    date: booking.date || '',
+    seats: booking.seats || 1,
+    price: booking.price || 0,
+    original_payload: booking
+  };
+}
+
+function mockLineSend(payload) {
+  console.log('[TEST MODE] Mock LINE sent', payload);
+  return db.ref('test_line_logs').push({
+    booking_id: payload.booking_id || payload.code || '',
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+    passenger_name: payload.passenger_name || payload.name || '',
+    route: payload.route || '',
+    round_time: payload.round_time || payload.time || '',
+    test_mode: true,
+    line_mock_status: 'success',
+    original_payload: payload
+  }).then(function() {
+    return { success: true, mock: true };
+  });
+}
+
+function realLineSend(payload) {
+  if (TEST_MODE === true || (payload && payload.test_mode === true)) {
+    return mockLineSend(payload);
+  }
+  return Promise.resolve({ success: true, mock: false, server_trigger: 'bookings/{code}' });
+}
+
+function sendLineMessage(payload) {
+  if (TEST_MODE === true || (payload && payload.test_mode === true)) {
+    return mockLineSend(payload);
+  }
+  return realLineSend(payload);
 }
 
 // map label → key (เทียบจาก LEG2_DEST และ ORIGIN_TIMES)
@@ -1892,13 +1937,21 @@ function submitBooking() {
       // ============================================================
       return db.ref(bookingPath + code).set(booking).then(function() {
         if (!TEST_MODE) return booking;
-        return db.ref('mockLogs').push({
-          source:'booking.html',
-          event:'mock_booking_created',
-          code:code,
-          payload:{route:booking.route,date:booking.date,time:booking.time,seats:booking.seats,price:booking.price},
-          ts:firebase.database.ServerValue.TIMESTAMP
-        }).then(function(){ return booking; });
+        var linePayload = buildBookingLinePayload(booking);
+        linePayload.test_mode = true;
+        return Promise.all([
+          db.ref('test_booking_logs').push({
+            booking_id: code,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            passenger_name: booking.name || '',
+            route: booking.route || '',
+            round_time: booking.time || '',
+            test_mode: true,
+            line_mock_status: 'success',
+            original_payload: booking
+          }),
+          sendLineMessage(linePayload)
+        ]).then(function(){ return booking; });
       });
     })
     .then(function(booking) {
