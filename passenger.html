@@ -1147,6 +1147,8 @@ db.ref('bus').on('value', function(snap){
   } else {
     console.log('Map not ready yet, will retry. mapReady:', mapReady);
   }
+}, function(error) {
+  console.error('Firebase bus listener error:', error && error.message ? error.message : error);
 });
 
 // Clock

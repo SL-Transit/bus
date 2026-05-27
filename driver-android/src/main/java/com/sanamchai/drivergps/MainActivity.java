@@ -50,23 +50,28 @@ public class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        int padX = dp(24);
+        int padY = dp(28);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Color.rgb(15, 23, 42));
+        scroll.setClipToPadding(false);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(32, 48, 32, 48);
+        root.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
+        root.setPadding(padX, padY, padX, padY);
         root.setBackgroundColor(Color.rgb(15, 23, 42));
-        root.setMinimumHeight(getResources().getDisplayMetrics().heightPixels);
-        scroll.addView(root);
+        root.setMinimumHeight(getResources().getDisplayMetrics().heightPixels - dp(96));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
 
         ImageView cover = new ImageView(this);
         cover.setImageResource(getResources().getIdentifier("app_cover", "drawable", getPackageName()));
         cover.setAdjustViewBounds(true);
-        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams(260, 260);
-        coverLp.setMargins(0, 0, 0, 26);
+        cover.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams(dp(112), dp(112));
+        coverLp.setMargins(0, 0, 0, dp(22));
         root.addView(cover, coverLp);
 
         TextView title = new TextView(this);
@@ -114,8 +119,20 @@ public class MainActivity extends Activity {
         note.setPadding(0, 28, 0, 0);
         root.addView(note);
 
+        TextView version = new TextView(this);
+        version.setText("v1.2");
+        version.setTextColor(Color.rgb(71, 85, 105));
+        version.setTextSize(12);
+        version.setGravity(Gravity.CENTER);
+        version.setPadding(0, 16, 0, 0);
+        root.addView(version);
+
         setContentView(scroll);
         refreshUi();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void requestPermissionsThenStart() {

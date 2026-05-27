@@ -16,21 +16,28 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class GpsService extends Service {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
     static final String ACTION_STOP = "com.sanamchai.drivergps.STOP";
 
     private static final String CHANNEL_ID = "gps_sender";
-    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app/bus/car1.json";
+    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     private SharedPreferences prefs;
     private LocationManager locationManager;
+    private FirebaseAuth auth;
+    private DatabaseReference busRef;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Location latestLocation;
     private boolean running = false;
@@ -55,7 +62,22 @@ public class GpsService extends Service {
         super.onCreate();
         prefs = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        initFirebase();
         createChannel();
+    }
+
+    private void initFirebase() {
+        if (FirebaseApp.getApps(this).isEmpty()) {
+            FirebaseOptions options = new FirebaseOptions.Builder()
+                    .setApiKey("AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI")
+                    .setApplicationId("1:511401517598:web:5605ee3777619dffe1c40f")
+                    .setDatabaseUrl(DB_URL)
+                    .setProjectId("bus-line1-ba0ea")
+                    .build();
+            FirebaseApp.initializeApp(this, options);
+        }
+        auth = FirebaseAuth.getInstance();
+        busRef = FirebaseDatabase.getInstance().getReference("bus/car1");
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -132,67 +154,61 @@ public class GpsService extends Service {
             return;
         }
         final Location loc = latestLocation;
-        final String json = buildJson(loc, true);
-        new Thread(() -> {
-            try {
-                putJson(json);
+        writeData(buildData(loc, true), loc);
+    }
+
+    private void writeData(Map<String, Object> data, Location loc) {
+        if (auth.getCurrentUser() != null) {
+            writeAuthedData(data, loc);
+            return;
+        }
+        auth.signInAnonymously()
+                .addOnSuccessListener(result -> writeAuthedData(data, loc))
+                .addOnFailureListener(e -> recordError("Firebase Auth: " + e.getMessage()));
+    }
+
+    private void writeAuthedData(Map<String, Object> data, Location loc) {
+        busRef.setValue(data, (DatabaseError error, DatabaseReference ref) -> {
+            if (error != null) {
+                recordError("Firebase " + error.getCode() + ": " + error.getMessage());
+                return;
+            }
+            if (loc != null) {
                 prefs.edit()
                         .putLong(MainActivity.KEY_LAST_SENT, System.currentTimeMillis())
                         .putString(MainActivity.KEY_LAST_STATUS, "ส่งสำเร็จ")
                         .putString(MainActivity.KEY_LAST_ERROR, "")
                         .apply();
                 updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
-            } catch (Exception e) {
-                recordError(e.getMessage());
             }
-        }).start();
+        });
     }
 
     private void markOffline() {
-        final String json = "{\"online\":false,\"ts\":" + System.currentTimeMillis() + "}";
-        new Thread(() -> {
-            try { putJson(json); } catch (Exception ignored) {}
-        }).start();
+        Map<String, Object> data = new HashMap<>();
+        data.put("online", false);
+        data.put("ts", System.currentTimeMillis());
+        writeData(data, null);
     }
 
-    private String buildJson(Location loc, boolean online) {
+    private Map<String, Object> buildData(Location loc, boolean online) {
         Integer speedKmh = loc.hasSpeed() ? Math.round(loc.getSpeed() * 3.6f) : null;
         Float heading = loc.hasBearing() ? loc.getBearing() : null;
-        return "{" +
-                "\"lat\":" + loc.getLatitude() + "," +
-                "\"lng\":" + loc.getLongitude() + "," +
-                "\"lon\":" + loc.getLongitude() + "," +
-                "\"acc\":" + Math.round(loc.getAccuracy()) + "," +
-                "\"speed\":" + (speedKmh == null ? "null" : speedKmh) + "," +
-                "\"heading\":" + (heading == null ? "null" : heading) + "," +
-                "\"direction\":\"go\"," +
-                "\"queue\":1," +
-                "\"stopIdx\":" + nearestStopIndex(loc.getLatitude(), loc.getLongitude()) + "," +
-                "\"status\":\"towards\"," +
-                "\"online\":" + online + "," +
-                "\"source\":\"gps-transit-apk\"," +
-                "\"ts\":" + System.currentTimeMillis() +
-                "}";
-    }
-
-    private void putJson(String json) throws Exception {
-        HttpURLConnection conn = null;
-        try {
-            URL url = new URL(DB_URL);
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("PUT");
-            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setConnectTimeout(12000);
-            conn.setReadTimeout(12000);
-            conn.setDoOutput(true);
-            OutputStream os = conn.getOutputStream();
-            os.write(json.getBytes(StandardCharsets.UTF_8));
-            os.close();
-            int code = conn.getResponseCode();
-            if (code < 200 || code >= 300) throw new RuntimeException("Firebase HTTP " + code);
-        } finally {
-            if (conn != null) conn.disconnect();
-        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("lat", loc.getLatitude());
+        data.put("lng", loc.getLongitude());
+        data.put("lon", loc.getLongitude());
+        data.put("acc", Math.round(loc.getAccuracy()));
+        data.put("speed", speedKmh);
+        data.put("heading", heading);
+        data.put("direction", "go");
+        data.put("queue", 1);
+        data.put("stopIdx", nearestStopIndex(loc.getLatitude(), loc.getLongitude()));
+        data.put("status", "towards");
+        data.put("online", online);
+        data.put("source", "gps-transit-apk");
+        data.put("ts", System.currentTimeMillis());
+        return data;
     }
 
     private int nearestStopIndex(double lat, double lng) {
@@ -261,9 +277,9 @@ public class GpsService extends Service {
     }
 
     private static final double[][] STOPS_GO = {
-            {13.510000, 101.100000}, {13.530000, 101.160000}, {13.549000, 101.215000},
-            {13.565000, 101.270000}, {13.580000, 101.310000}, {13.600000, 101.380000},
-            {13.620000, 101.460000}, {13.659022, 101.437482}, {13.745082, 101.355993},
-            {13.692477, 101.054105}
+            {13.453565, 102.299330}, {13.436666, 102.200895}, {13.439877, 102.083043},
+            {13.416310, 102.020767}, {13.420494, 101.995365}, {13.420264, 101.765445},
+            {13.381579, 101.708016}, {13.443342, 101.610222}, {13.659022, 101.437482},
+            {13.745082, 101.355993}, {13.692477, 101.054105}
     };
 }
