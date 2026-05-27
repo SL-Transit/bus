@@ -681,9 +681,11 @@ function _applySettings(snap) {
   ROUTE_CLOSED_STOPS = {};
   ADMIN_ROUTE_TIMES = {};
   if (data.routes) {
-    Object.values(data.routes).forEach(function(group) {
+    Object.entries(data.routes).forEach(function(entry) {
+      var groupName = entry[0];
+      var group = entry[1];
       if (!group.routes) return;
-      var isMainGroup = group.id === 'main';
+      var isMainGroup = group.id === 'main' || groupName === 'เส้นทางหลัก';
       group.routes.forEach(function(r) {
         if (!r.from || !r.times || !r.times.length) return;
         var fromKey = _labelToKey(r.from);
