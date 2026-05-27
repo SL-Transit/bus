@@ -275,19 +275,21 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .time-grid-2col .time-cell:nth-last-child(-n+2) { border-bottom:none; }
 
 /* ===== RESPONSIVE ===== */
-@media (max-width:414px) {
+@media (max-width:360px) {
   body { font-size:15px; }
   .topbar { padding:14px 14px 12px; }
   .header-main { font-size:16px; }
-  .main { padding:12px 10px; max-width:none; }
+  .main { padding:10px 8px; }
   .info-strip { padding:8px 12px; }
+  .route-select-card { padding:12px; }
+  .route-card { padding:12px; }
+  #map { height:240px; }
   .route-select-card,
   .sched-card,
   .leg2-card,
   .route-card,
   .next-bus,
   .status-card { border-radius:10px; }
-
   .rs-row { display:grid; grid-template-columns:1fr; gap:9px; }
   .rs-group { width:100%; }
   .rs-select { font-size:15px; min-height:48px; padding:12px 34px 12px 12px; }
@@ -296,42 +298,14 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
     justify-self:center; align-self:center; text-align:center;
     transform:rotate(90deg);
   }
-
   .sched-route-header,
   .leg2-header { padding:12px 14px; }
   .sched-route-name,
   .leg2-header-route { font-size:15px; line-height:1.35; }
-
-  .time-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-  .time-cell {
-    font-size:20px; padding:14px 8px;
-    border-right:1px solid var(--border);
-    border-bottom:1px solid var(--border);
-  }
-  .time-cell:nth-child(3n) { border-right:1px solid var(--border); }
-  .time-cell:nth-child(2n) { border-right:none; }
-  .time-grid .time-cell:nth-last-child(-n+3),
-  .time-grid .time-cell:nth-last-child(1),
-  .time-grid .time-cell:nth-last-child(2),
-  .time-grid .time-cell:nth-last-child(3) { border-bottom:1px solid var(--border); }
-  .time-grid .time-cell:nth-last-child(-n+2) { border-bottom:none; }
-
   .leg2-cols { grid-template-columns:1fr; }
   .leg2-col-head { padding:10px 12px; border-right:none; }
   .leg2-col-head + .leg2-col-head { display:none; }
   .leg2-col-name { font-size:12px; line-height:1.35; }
-  .leg2-times { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-  .leg2-time-item { font-size:20px; padding:14px 8px; }
-  .leg2-time-item.empty { min-height:52px; }
-
-  .time-grid-2col { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width:360px) {
-  .main { padding:10px 8px; }
-  .route-select-card { padding:12px; }
-  .route-card { padding:12px; }
-  #map { height:240px; }
   .time-grid,
   .time-grid-2col,
   .leg2-times { grid-template-columns:1fr; }
@@ -493,9 +467,9 @@ const ROUTES = {
   'ทุ่งกบินทร์':              { times: ['08:20','12:10'] },
   'ไพจิตร':                { times: ['08:30','12:10'] },
   'หนองเรือ':              { times: ['08:40','12:20'] },
-  'คลองตะเคียน':           { times: ['09:20','12:40'] },
+  'คลองตะเคียน':           { times: ['09:10','12:40'] },
   'ฉะเชิงเทรา (แปดริ้ว)':     { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
-  'สี่แยกโคนม':             { times: ['07:30','11:00','14:30'] },
+  'สี่แยกโคนม':             { times: ['08:10','12:00'] },
 };
 
 // LEG2: เส้นทางต่อรถผ่านฉะเชิงเทรา (แปดริ้ว)
@@ -507,34 +481,109 @@ const LEG2_TIMES_EKAMAI   = ['06:30','08:30','10:30','15:30','17:30'];
 const LEG2_TIMES_MOCHIT   = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
 
 const LEG2_DESTINATIONS = {
-  // กลุ่มตะวันออก / ชายทะเล
-  'พัทยา':        { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'ระยอง':         { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'กม.10':         { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'ตลาดหนองมน':    { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'บางแสน':        { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'อ่าวอุดม':      { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'ศรีราชา':       { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'ม.เกษตร':       { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'บ้านฉาง':       { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  'แหลมฉบัง':      { leg2Times: LEG2_TIMES_EAST,    group: 'ตะวันออก / ชายทะเล' },
-  // กรุงเทพฯ ฝั่งตะวันออก
-  'ตลาดมีนบุรี':   { leg2Times: LEG2_TIMES_MINBURI, group: 'กรุงเทพฯ' },
-  // เส้นเอกมัย-BTS
+  'ตลาดหนองมน':    { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'บางแสน':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ศรีราชา':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ม.เกษตร':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'อ่าวอุดม':      { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'แหลมฉบัง':      { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'พัทยา':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'แยกอัยการ':     { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'สัตหีบ':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'กม.10':         { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'บ้านฉาง':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ระยอง':         { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ตลาดมีนบุรี':   { leg2Times: LEG2_TIMES_MINBURI, group: 'พัทยา-ระยอง-มีนบุรี' },
+  'BTS จตุจักร':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'แยกลาดพร้าว':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
   'เอกมัย':        { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
   'โฮมโปร':        { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
   'บางนา':         { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
-  'BTS บางฉาง':    { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'หมอชิต':        { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS บางจาก':    { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
   'BTS พระโขนง':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
   'BTS อ่อนนุช':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
-  // เส้นหมอชิต
-  'หมอชิต':        { leg2Times: LEG2_TIMES_MOCHIT,  group: 'หมอชิต-จตุจักร' },
-  'BTS จตุจักร':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'หมอชิต-จตุจักร' },
-  'แยกลาดพร้าว':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'หมอชิต-จตุจักร' },
 };
 
 const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
 const ADMIN_ROUTE_TIMES = {};
+const BOOKING_ROUTE_TIMES = {
+  'ฉะเชิงเทรา (แปดริ้ว)': {
+    'ท่ารถสนามชัยเขต': ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'],
+    'คลองหาด': ['11:20','14:00'],
+    'หนองคอก': ['11:20','14:00','17:20'],
+    'ท่าตะเกียบ': ['11:20','14:00','17:20'],
+    'ทุ่งกบินทร์': ['11:20','14:00'],
+    'สี่แยกโคนม': ['11:20','14:00'],
+    'คลองตะเคียน': ['11:20','14:00'],
+    'ไพจิตร': ['11:20','14:00'],
+    'หนองเรือ': ['11:20','14:00'],
+    'พนมสารคาม': ['09:40','11:20','12:20','14:00','15:20','16:20','17:20']
+  },
+  'พนมสารคาม': {
+    'ท่ารถสนามชัยเขต': ['10:20','11:40','12:00','12:30','13:00','14:30','14:40','15:00','16:00','17:00','18:00'],
+    'ท่าตะเกียบ': ['12:00','14:40','18:00'],
+    'หนองคอก': ['12:00','14:40','18:00'],
+    'คลองหาด': ['12:00','14:40'],
+    'ทุ่งกบินทร์': ['12:00','14:40'],
+    'สี่แยกโคนม': ['12:00','14:40'],
+    'ไพจิตร': ['12:00','14:40'],
+    'คลองตะเคียน': ['12:00','14:40'],
+    'หนองเรือ': ['12:00','14:40']
+  },
+  'ท่ารถสนามชัยเขต': {
+    'ท่าตะเกียบ': ['12:20','15:00','18:20'],
+    'หนองคอก': ['12:20','15:00','18:20'],
+    'คลองหาด': ['12:20','15:00'],
+    'ทุ่งกบินทร์': ['12:20','15:00'],
+    'สี่แยกโคนม': ['12:20','15:00'],
+    'ไพจิตร': ['12:20','15:00'],
+    'คลองตะเคียน': ['12:00','14:40'],
+    'หนองเรือ': ['12:20','15:00']
+  },
+  'ท่าตะเกียบ': {
+    'หนองคอก': ['12:50','15:30','18:50'],
+    'คลองหาด': ['12:50','15:30'],
+    'ทุ่งกบินทร์': ['12:50','15:30'],
+    'สี่แยกโคนม': ['12:50','15:30'],
+    'ไพจิตร': ['12:50','15:30'],
+    'คลองตะเคียน': ['12:00','14:40'],
+    'หนองเรือ': ['12:50','15:30']
+  },
+  'หนองคอก': {
+    'คลองหาด': ['13:05','15:45'],
+    'ทุ่งกบินทร์': ['13:05','15:45'],
+    'สี่แยกโคนม': ['13:05','15:45'],
+    'ไพจิตร': ['13:05','15:45'],
+    'คลองตะเคียน': ['12:00','14:40'],
+    'หนองเรือ': ['13:05','15:45']
+  },
+  'หนองเรือ': {
+    'คลองหาด': ['13:35','16:15'],
+    'คลองตะเคียน': ['12:00','14:40'],
+    'ทุ่งกบินทร์': ['13:35','16:15'],
+    'สี่แยกโคนม': ['13:35','16:15'],
+    'ไพจิตร': ['13:35','16:15']
+  },
+  'คลองตะเคียน': {
+    'คลองหาด': ['13:35','16:15'],
+    'ทุ่งกบินทร์': ['13:35','16:15'],
+    'สี่แยกโคนม': ['13:35','16:15'],
+    'ไพจิตร': ['13:35','16:15']
+  },
+  'ไพจิตร': {
+    'คลองหาด': ['13:37','16:17'],
+    'ทุ่งกบินทร์': ['13:37','16:17'],
+    'สี่แยกโคนม': ['13:37','16:17']
+  },
+  'ทุ่งกบินทร์': {
+    'คลองหาด': ['13:43','16:23'],
+    'สี่แยกโคนม': ['13:43','16:23']
+  },
+  'สี่แยกโคนม': {
+    'คลองหาด': ['13:53','16:33']
+  }
+};
 
 // ต้นทางและปลายทางตรง
 const ORIGIN_LIST = [
@@ -647,7 +696,18 @@ function cleanRouteLabel(label) {
   return String(label || '').replace(/\s+/g, '').toLowerCase();
 }
 
+function normalizeRouteAlias(label) {
+  const clean = cleanRouteLabel(label);
+  if (!clean) return '';
+  if (clean.indexOf('ขนส่งฉะเชิงเทรา') >= 0 || clean.indexOf('ฉะเชิงเทรา') >= 0 || clean.indexOf('แปดริ้ว') >= 0) return 'ฉะเชิงเทรา (แปดริ้ว)';
+  if (clean.indexOf('สนามชัย') >= 0) return 'ท่ารถสนามชัยเขต';
+  if (clean.indexOf('btsบางฉาง') >= 0 || clean.indexOf('บางฉาง') >= 0) return 'BTS บางจาก';
+  return '';
+}
+
 function findKnownRouteLabel(label, collections) {
+  const alias = normalizeRouteAlias(label);
+  if (alias) return alias;
   const clean = cleanRouteLabel(label);
   if (!clean) return '';
   for (const collection of collections) {
@@ -664,8 +724,14 @@ function addUnique(list, value) {
   if (value && list.indexOf(value) === -1) list.push(value);
 }
 
+function isMainRouteLabel(label) {
+  return ORIGIN_LIST.indexOf(label) !== -1 || DEST_NORMAL.indexOf(label) !== -1;
+}
+
 function getPairTimes(from, to) {
-  return ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to] ? ADMIN_ROUTE_TIMES[from][to] : null;
+  if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to];
+  if (BOOKING_ROUTE_TIMES[from] && BOOKING_ROUTE_TIMES[from][to]) return BOOKING_ROUTE_TIMES[from][to];
+  return null;
 }
 
 function getLeg1Times(){
@@ -694,17 +760,21 @@ function applyPassengerRouteSettings(data) {
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
       ADMIN_ROUTE_TIMES[from][to] = times;
 
-      if (!ROUTES[from]) ROUTES[from] = { times: times.slice() };
-      addUnique(ORIGIN_LIST, from);
-      addUnique(DEST_NORMAL, from);
+      if (isMainRouteLabel(from)) {
+        if (!ROUTES[from]) ROUTES[from] = { times: times.slice() };
+        addUnique(ORIGIN_LIST, from);
+        addUnique(DEST_NORMAL, from);
+      }
 
       if (LEG2_DESTINATIONS[to]) {
         LEG2_DESTINATIONS[to].leg2Times = times.slice();
         addUnique(DEST_LEG2, to);
       } else {
-        if (!ROUTES[to]) ROUTES[to] = { times: [] };
-        addUnique(ORIGIN_LIST, to);
-        addUnique(DEST_NORMAL, to);
+        if (isMainRouteLabel(to)) {
+          if (!ROUTES[to]) ROUTES[to] = { times: [] };
+          addUnique(ORIGIN_LIST, to);
+          addUnique(DEST_NORMAL, to);
+        }
       }
 
       if (to === 'ฉะเชิงเทรา (แปดริ้ว)') {
@@ -1156,7 +1226,7 @@ function buildDropdowns(){
 
     // เส้นทางตรง
     const grp0 = document.createElement('optgroup');
-    grp0.label = '— เส้นทางตรง —';
+    grp0.label = '— เส้นทางหลัก —';
     DEST_NORMAL.forEach(d=>{
       if(d===selOrigin) return;
       const opt = document.createElement('option');
@@ -1175,7 +1245,7 @@ function buildDropdowns(){
     });
     Object.keys(groups).forEach(gLabel=>{
       const grp = document.createElement('optgroup');
-      grp.label = `— ต่อรถ: ${gLabel} —`;
+      grp.label = `— ${gLabel} —`;
       groups[gLabel].forEach(d=>{
         const opt = document.createElement('option');
         opt.value=d; opt.textContent=d;
