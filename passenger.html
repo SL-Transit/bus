@@ -457,6 +457,7 @@ const LEG2_DESTINATIONS = {
 };
 
 const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
+const ADMIN_ROUTE_TIMES = {};
 
 // ต้นทางและปลายทางตรง
 const ORIGIN_LIST = [
@@ -565,9 +566,80 @@ let selDest   = 'ฉะเชิงเทรา (แปดริ้ว)';
 
 function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
 
+function cleanRouteLabel(label) {
+  return String(label || '').replace(/\s+/g, '').toLowerCase();
+}
+
+function findKnownRouteLabel(label, collections) {
+  const clean = cleanRouteLabel(label);
+  if (!clean) return '';
+  for (const collection of collections) {
+    const match = Object.keys(collection).find(function(key) {
+      const keyClean = cleanRouteLabel(key);
+      return keyClean === clean || keyClean.indexOf(clean) >= 0 || clean.indexOf(keyClean) >= 0;
+    });
+    if (match) return match;
+  }
+  return String(label || '').trim();
+}
+
+function addUnique(list, value) {
+  if (value && list.indexOf(value) === -1) list.push(value);
+}
+
+function getPairTimes(from, to) {
+  return ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to] ? ADMIN_ROUTE_TIMES[from][to] : null;
+}
+
 function getLeg1Times(){
+  const pairTimes = getPairTimes(selOrigin, selDest);
+  if (pairTimes) return pairTimes;
   if(ROUTES[selOrigin]) return ROUTES[selOrigin].times;
   return [];
+}
+
+function applyPassengerRouteSettings(data) {
+  const routesData = data && data.routes ? data.routes : null;
+  if (!routesData) return;
+
+  Object.keys(ADMIN_ROUTE_TIMES).forEach(function(key){ delete ADMIN_ROUTE_TIMES[key]; });
+
+  Object.values(routesData).forEach(function(group) {
+    if (!group || !Array.isArray(group.routes)) return;
+    group.routes.forEach(function(route) {
+      if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
+
+      const from = findKnownRouteLabel(route.from, [ROUTES, LEG2_DESTINATIONS]);
+      const to = findKnownRouteLabel(route.to, [ROUTES, LEG2_DESTINATIONS]);
+      const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
+      if (!from || !to || !times.length) return;
+
+      if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
+      ADMIN_ROUTE_TIMES[from][to] = times;
+
+      if (!ROUTES[from]) ROUTES[from] = { times: times.slice() };
+      addUnique(ORIGIN_LIST, from);
+      addUnique(DEST_NORMAL, from);
+
+      if (LEG2_DESTINATIONS[to]) {
+        LEG2_DESTINATIONS[to].leg2Times = times.slice();
+        addUnique(DEST_LEG2, to);
+      } else {
+        if (!ROUTES[to]) ROUTES[to] = { times: [] };
+        addUnique(ORIGIN_LIST, to);
+        addUnique(DEST_NORMAL, to);
+      }
+
+      if (to === 'ฉะเชิงเทรา (แปดริ้ว)') {
+        ROUTES[from].times = times.slice();
+      }
+    });
+  });
+
+  console.log('[PASSENGER ROUTE DEBUG] loaded settings/routes', routesData);
+  buildDropdowns();
+  renderSched();
+  renderNextBus();
 }
 
 // ===== LONGDO MAP =====
@@ -851,7 +923,7 @@ function renderNextBus() {
 
   // ถ้าต้นทางเป็น ฉะเชิงเทรา และปลายทางเป็น LEG2 ให้ใช้เวลา LEG2
   if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
-    times = LEG2_DESTINATIONS[selDest].leg2Times;
+    times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
     label = `→ ${selDest}`;
   } else {
     times = getLeg1Times();
@@ -899,7 +971,7 @@ function renderSched() {
 
   if(isLeg2Dest(dest)){
     const leg1Times = getLeg1Times();
-    const leg2Times = LEG2_DESTINATIONS[dest].leg2Times;
+    const leg2Times = getPairTimes('ฉะเชิงเทรา (แปดริ้ว)', dest) || LEG2_DESTINATIONS[dest].leg2Times;
 
     // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
     const [l1a, l1b] = splitBalanced(leg1Times);
@@ -986,6 +1058,7 @@ function fullRender(pos) {
 function buildDropdowns(){
   const originSel = document.getElementById('selOrigin');
   const destSel   = document.getElementById('selDest');
+  originSel.innerHTML = '';
 
   // ต้นทาง
   ORIGIN_LIST.forEach(o=>{
@@ -1032,19 +1105,32 @@ function buildDropdowns(){
   }
   buildDestOptions();
 
-  originSel.addEventListener('change', function(){
-    selOrigin = this.value;
-    if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
-    buildDestOptions();
-    renderSched(); renderNextBus();
-    if (mapReady && !passengerCentered) focusSelectedOrigin();
-  });
-  destSel.addEventListener('change', function(){
-    selDest = this.value;
-    renderSched(); renderNextBus();
-  });
+  if (originSel.dataset.bound !== '1') {
+    originSel.addEventListener('change', function(){
+      selOrigin = this.value;
+      if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
+      buildDestOptions();
+      renderSched(); renderNextBus();
+      if (mapReady && !passengerCentered) focusSelectedOrigin();
+    });
+    originSel.dataset.bound = '1';
+  }
+
+  if (destSel.dataset.bound !== '1') {
+    destSel.addEventListener('change', function(){
+      selDest = this.value;
+      renderSched(); renderNextBus();
+    });
+    destSel.dataset.bound = '1';
+  }
 }
 buildDropdowns();
+
+db.ref('settings').on('value', function(snap) {
+  applyPassengerRouteSettings(snap.val() || {});
+}, function(err) {
+  console.error('Passenger settings load failed:', err && err.message ? err.message : err);
+});
 
 // Firebase — bus/car1, bus/car2, ... รองรับรถหลายคันจากแอพคนขับ
 db.ref('bus').on('value', function(snap){
