@@ -868,9 +868,116 @@ function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
     console.log('[ADMIN ROUTE DEBUG] read path=settings/routes',snap.val());
     var saved=decodeRouteGroups(snap.val()||{});
-    routeData=Object.keys(saved).length?saved:getDefaultRoutes();
+    routeData=normalizeRouteGroups(Object.keys(saved).length?mergeDefaultRoutes(saved):getDefaultRoutes());
     renderRouteGroups();
   });
+}
+var STANDARD_ROUTE_GROUPS=[
+  {name:'เส้นทางหลัก',id:'main'},
+  {name:'กลุ่มหมอชิต-เอกมัย-BTS',id:'bangkok'},
+  {name:'กลุ่มพัทยา-ระยอง-มีนบุรี',id:'coastal'}
+];
+var STANDARD_ROUTE_GROUP_NAMES=STANDARD_ROUTE_GROUPS.map(function(g){return g.name;});
+function cloneRoute(route){
+  return JSON.parse(JSON.stringify(route||{}));
+}
+function routeText(route){
+  return String((route&&route.from)||'')+' '+String((route&&route.to)||'');
+}
+function routeMatches(text,terms){
+  text=String(text||'').toLowerCase();
+  return terms.some(function(term){return text.indexOf(term.toLowerCase())!==-1;});
+}
+function routeIdentity(route){
+  return String((route&&route.from)||'').trim()+' → '+String((route&&route.to)||'').trim();
+}
+function findStandardGroupByNameOrId(value){
+  value=String(value||'').trim();
+  return STANDARD_ROUTE_GROUPS.find(function(g){return g.name===value||g.id===value;})||null;
+}
+function getGroupActive(data,std){
+  var active=true;
+  Object.entries(data||{}).some(function(entry){
+    var name=entry[0],group=entry[1]||{};
+    if(name===std.name||group.id===std.id){
+      active=group.isActive!==false;
+      return true;
+    }
+    return false;
+  });
+  return active;
+}
+function getStandardGroupOrder(data){
+  var entries=Object.entries(data||{});
+  var hasOnlyStandard=entries.length===STANDARD_ROUTE_GROUPS.length&&entries.every(function(entry){
+    var group=entry[1]||{};
+    return !!findStandardGroupByNameOrId(entry[0])||!!findStandardGroupByNameOrId(group.id);
+  });
+  if(!hasOnlyStandard)return STANDARD_ROUTE_GROUPS;
+  return entries.slice().sort(function(a,b){
+    var ai=(a[1]&&a[1].sortOrder!==undefined)?Number(a[1].sortOrder):entries.indexOf(a);
+    var bi=(b[1]&&b[1].sortOrder!==undefined)?Number(b[1].sortOrder):entries.indexOf(b);
+    return ai-bi;
+  }).map(function(entry){
+    var group=entry[1]||{};
+    return findStandardGroupByNameOrId(entry[0])||findStandardGroupByNameOrId(group.id);
+  }).filter(Boolean);
+}
+function classifyRouteGroup(gname,gdata,route){
+  var labelText=routeText(route);
+  var groupText=String(gname||'')+' '+String((gdata&&gdata.id)||'')+' '+String((gdata&&gdata.name)||'');
+  var bangkokTerms=['หมอชิต','เอกมัย','bts','กรุงเทพ','บางนา','ลาดพร้าว','จตุจักร','โฮมโปร','พระโขนง','อ่อนนุช','บางจาก'];
+  var coastalTerms=['พัทยา','ระยอง','มีนบุรี','ตลาดมีนบุรี','กม.10','หนองมน','บางแสน','ศรีราชา','ม.เกษตร','อ่าวอุดม','แหลมฉบัง','สัตหีบ','แยกอัยการ','บ้านฉาง'];
+  if(routeMatches(labelText,bangkokTerms))return'กลุ่มหมอชิต-เอกมัย-BTS';
+  if(routeMatches(labelText,coastalTerms))return'กลุ่มพัทยา-ระยอง-มีนบุรี';
+  if(routeMatches(groupText,bangkokTerms))return'กลุ่มหมอชิต-เอกมัย-BTS';
+  if(routeMatches(groupText,coastalTerms))return'กลุ่มพัทยา-ระยอง-มีนบุรี';
+  return'เส้นทางหลัก';
+}
+function mergeRouteIntoGroup(group,route){
+  if(!group.routes)group.routes=[];
+  if(!group._seen)group._seen={};
+  var key=routeIdentity(route);
+  var existingIndex=group._seen[key];
+  if(existingIndex!==undefined){
+    var existing=group.routes[existingIndex];
+    if((!existing.times||!existing.times.length)&&route.times)existing.times=route.times.slice();
+    if((existing.price===undefined||existing.price===null||existing.price==='')&&route.price!==undefined)existing.price=route.price;
+    if(route.closedStops&&!existing.closedStops)existing.closedStops=cloneRoute(route.closedStops);
+    if(existing.isActive===undefined&&route.isActive!==undefined)existing.isActive=route.isActive;
+    return;
+  }
+  group._seen[key]=group.routes.length;
+  group.routes.push(route);
+}
+function normalizeRouteGroups(data){
+  var normalized={};
+  STANDARD_ROUTE_GROUPS.forEach(function(std,i){
+    normalized[std.name]={id:std.id,name:std.name,sortOrder:i,isActive:getGroupActive(data,std),routes:[],_seen:{}};
+  });
+  Object.entries(data||{}).forEach(function(entry){
+    var gname=entry[0],gdata=entry[1]||{},routes=Array.isArray(gdata.routes)?gdata.routes:[];
+    routes.forEach(function(route){
+      if(!route)return;
+      var copy=cloneRoute(route);
+      if(gdata.isActive===false&&copy.isActive!==false)copy.isActive=false;
+      mergeRouteIntoGroup(normalized[classifyRouteGroup(gname,gdata,copy)],copy);
+    });
+  });
+  STANDARD_ROUTE_GROUPS.forEach(function(std){
+    delete normalized[std.name]._seen;
+  });
+  var ordered={};
+  getStandardGroupOrder(data).forEach(function(std,i){
+    if(normalized[std.name]){
+      normalized[std.name].sortOrder=i;
+      ordered[std.name]=normalized[std.name];
+    }
+  });
+  STANDARD_ROUTE_GROUPS.forEach(function(std){
+    if(!ordered[std.name])ordered[std.name]=normalized[std.name];
+  });
+  return ordered;
 }
 function safeRouteGroupKey(gname,gdata,i){
   var id=(gdata&&gdata.id)?String(gdata.id):'group_'+i;
@@ -989,6 +1096,7 @@ function getDefaultRoutes(){
   };
 }
 function renderRouteGroups(){
+  routeData=normalizeRouteGroups(routeData);
   var html='';
   Object.entries(routeData).forEach(function(entry,gi){
     var gname=entry[0],gdata=entry[1];
@@ -1010,7 +1118,8 @@ function renderRouteGroups(){
       html+='<div><label class="rr-label">แสดง</label><label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label></div>';
       html+='</div><div><div class="route-section-label">ตารางเวลา</div>';
       html+='<div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
-        var blocked=((r.closedStops||{})[t]||[]).join(', ');
+        var blockedRaw=(r.closedStops||{})[t];
+        var blocked=Array.isArray(blockedRaw)?blockedRaw.join(', '):(blockedRaw||'');
         var blockOn=!!blocked;
         return'<div class="time-edit-row"><input type="time" value="'+esc(t)+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
           (canBlockStops?'<div><label class="stop-close-control"><input type="checkbox" '+(blockOn?'checked':'')+' onchange="toggleClosedStopMode(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> งดรับจอง <span>'+(blockOn?'ปิดอยู่':'เปิดจอง')+'</span></label></div>':'<div class="blocked-hint">กลุ่มนี้เปิด/ปิดตามเวลาปกติ ไม่มีปิดเฉพาะป้าย</div>')+
@@ -1041,6 +1150,10 @@ function moveRouteGroup(i,dir){
 }
 function renameRouteGroup(gname){
   if(!routeData[gname])return;
+  if(STANDARD_ROUTE_GROUP_NAMES.indexOf(gname)!==-1){
+    alert('ระบบใช้กลุ่มหลัก 3 กลุ่มตาม booking.html/passenger.html จึงไม่เปลี่ยนชื่อกลุ่มนี้');
+    return;
+  }
   var name=prompt('ชื่อกลุ่มใหม่:',gname);
   if(!name||!name.trim()||name.trim()===gname)return;
   var entries=Object.entries(routeData),next={};
@@ -1053,7 +1166,8 @@ function moveRoute(gname,ri,dir){
   var tmp=routes[ri];routes[ri]=routes[j];routes[j]=tmp;renderRouteGroups();
 }
 function moveRouteToGroup(gname,ri){
-  var names=Object.keys(routeData).filter(function(n){return n!==gname;});
+  routeData=normalizeRouteGroups(routeData);
+  var names=STANDARD_ROUTE_GROUP_NAMES.filter(function(n){return n!==gname;});
   if(!names.length)return alert('ยังไม่มีกลุ่มอื่นให้ย้าย');
   var target=prompt('ย้ายไปกลุ่มไหน?\n'+names.join('\n'),names[0]);
   if(!target||!routeData[target]||!routeData[gname]||!routeData[gname].routes[ri])return;
@@ -1116,9 +1230,27 @@ function addPlaceToGroup(gname){
   renderRouteGroups();
 }
 function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].routes.splice(ri,1);renderRouteGroups();}
-function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
-function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
+function addRouteGroup(){
+  var target=prompt('ระบบใช้ 3 กลุ่มหลักเท่านั้น\nต้องการเพิ่มเส้นทางในกลุ่มไหน?\n'+STANDARD_ROUTE_GROUP_NAMES.join('\n'),STANDARD_ROUTE_GROUP_NAMES[0]);
+  if(!target||!target.trim())return;
+  var std=findStandardGroupByNameOrId(target)||{name:classifyRouteGroup(target,{name:target,id:target},{from:'',to:target})};
+  if(!routeData[std.name])routeData=normalizeRouteGroups(routeData);
+  openRouteGroups[std.name]=true;
+  addRoute(std.name);
+}
+function deleteRouteGroup(gname){
+  routeData=normalizeRouteGroups(routeData);
+  if(STANDARD_ROUTE_GROUP_NAMES.indexOf(gname)!==-1){
+    routeData[gname].isActive=false;
+    openRouteGroups[gname]=false;
+    alert('ปิดใช้งานกลุ่มแล้ว แต่ยังเก็บเส้นทางทั้งหมดไว้เพื่อไม่ให้ข้อมูลปลายทางหาย');
+    renderRouteGroups();
+    return;
+  }
+  delete routeData[gname];renderRouteGroups();
+}
 function prepareRouteDataForSave(){
+  routeData=normalizeRouteGroups(routeData);
   Object.entries(routeData).forEach(function(entry,gi){
     var gname=entry[0],gdata=entry[1],isMain=gdata.id==='main'||gname==='เส้นทางหลัก';
     if(!gdata.id)gdata.id='custom_'+Date.now()+'_'+gi;
