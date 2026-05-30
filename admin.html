@@ -176,6 +176,12 @@ tr:hover td{background:#fafafa;}
 .route-price-inline input{max-width:96px;text-align:right;}
 .route-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
 .route-schedule-panel{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
+.route-subgroup{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:#fbfdff;overflow:hidden;}
+.route-subgroup-header{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#eef6ff;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.route-subgroup-title{font-size:13px;font-weight:800;color:var(--navy);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.route-subgroup-count{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:999px;padding:1px 8px;}
+.route-subgroup-body{padding:10px;display:none;}
+.route-subgroup-body.open{display:block;}
 .rr-fields{display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;margin-bottom:12px;}
 .rr-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
 .route-row input{border:1px solid var(--border);border-radius:5px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;outline:none;width:100%;}
@@ -548,7 +554,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={};
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -1118,36 +1124,75 @@ function renderRouteGroups(){
     html+='<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();renameRouteGroup(\''+esc(gname)+'\')">แก้ชื่อ</button>';
     html+='<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDel(\'ลบกลุ่มเส้นทาง &ldquo;'+esc(gname)+'&rdquo;?\',function(){deleteRouteGroup(\''+esc(gname)+'\')})">\ud83d\uddd1\ufe0f ลบกลุ่ม</button>';
     html+='</div><div class="rgroup-body '+(openRouteGroups[gname]?'open':'')+'" id="rgb_'+gi+'">';
-    gdata.routes.forEach(function(r,ri){
-      var canBlockStops=gdata.id==='main'||gname==='เส้นทางหลัก';
-      var scheduleKey=routeScheduleKey(gname,r);
-      var scheduleOpen=!!openRouteSchedules[scheduleKey];
-      html+='<div class="route-row"><div class="route-line">';
-      html+='<div class="route-main-text"><div class="route-dest-name">'+esc(r.to||'ยังไม่ระบุปลายทาง')+'</div><div class="route-origin-name">'+esc(r.from||'ยังไม่ระบุต้นทาง')+' → '+esc(r.to||'')+'</div></div>';
-      html+='<label class="route-price-inline">ราคา <input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"> บาท</label>';
-      html+='<div class="route-actions">';
-      html+='<label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label>';
-      html+='<button class="btn btn-primary btn-sm" onclick="toggleRouteSchedule(\''+esc(gname)+'\','+ri+')">ตารางเวลา '+(scheduleOpen?'▲':'▼')+'</button>';
-      html+='<button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">▲</button><button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">▼</button>';
-      html+='<button class="btn btn-dark btn-sm" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">แก้ไข</button>';
-      html+='<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">ลบ</button>';
-      html+='</div></div>';
-      if(scheduleOpen){
-        html+='<div class="route-schedule-panel"><div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
-          var bookingOn=isTimeBookingEnabled(r,t);
-          return'<div class="time-edit-row"><input class="time-display-input" type="text" value="'+esc(formatTimeForDisplay(t))+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
-            '<label class="stop-close-control"><input type="checkbox" '+(bookingOn?'checked':'')+' onchange="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> เปิด/ปิดเวลาจอง <span>'+(bookingOn?'เปิดจอง':'ปิดจอง')+'</span></label>'+
-            '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
-        }).join('')+'</div>';
-        html+='<div class="add-chip-row"><input type="text" id="tc_'+gi+'_'+ri+'" placeholder="10:20 AM"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่มเวลา</button>';
-        html+='<button class="btn btn-dark btn-sm" onclick="moveRouteToGroup(\''+esc(gname)+'\','+ri+')">ย้ายกลุ่ม</button></div></div>';
-      }
-      html+='</div>';
-    });
+    if(isMainRouteGroup(gname,gdata)){
+      groupMainRoutesByOrigin(gdata.routes).forEach(function(subgroup,si){
+        var subgroupKey=mainSubgroupKey(subgroup.name);
+        var subgroupOpen=openMainSubgroups[subgroupKey]!==false;
+        html+='<div class="route-subgroup"><div class="route-subgroup-header" onclick="toggleMainSubgroup(\''+esc(subgroupKey)+'\')">';
+        html+='<span class="route-subgroup-title">'+esc(subgroup.name)+'</span><span class="route-subgroup-count">'+subgroup.routes.length+' เส้นทาง</span><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleMainSubgroup(\''+esc(subgroupKey)+'\')">'+(subgroupOpen?'▲':'▼')+'</button>';
+        html+='</div><div class="route-subgroup-body '+(subgroupOpen?'open':'')+'">';
+        subgroup.routes.forEach(function(item){html+=renderRouteRow(gname,gdata,item.route,item.index,gi);});
+        html+='</div></div>';
+      });
+    }else{
+      gdata.routes.forEach(function(r,ri){html+=renderRouteRow(gname,gdata,r,ri,gi);});
+    }
     html+='<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-dark btn-sm" onclick="addRoute(\''+esc(gname)+'\')">+ เพิ่มเส้นทาง</button><button class="btn btn-primary btn-sm" onclick="addPlaceToGroup(\''+esc(gname)+'\')">+ เพิ่มสถานที่ในกลุ่ม</button></div>';
     html+='</div></div>';
   });
   document.getElementById('routeGroupsWrap').innerHTML=html;
+}
+function isMainRouteGroup(gname,gdata){return (gdata&&gdata.id)==='main'||gname==='เส้นทางหลัก';}
+var MAIN_ROUTE_ORDER=['แปดริ้ว','ฉะเชิงเทรา','พนมสารคาม','ท่ารถสนามชัยเขต','ท่าตะเกียบ','หนองคอก','คลองตะเคียน','หนองเรือ','ไพจิตร','ทุ่งกบินทร์','สี่แยกโคนม','สี่แยกโจนม','คลองหาด'];
+function mainRouteOrderIndex(label){
+  var text=String(label||'').replace(/\s+/g,'');
+  if(!text)return MAIN_ROUTE_ORDER.length+1;
+  for(var i=0;i<MAIN_ROUTE_ORDER.length;i++){
+    if(text.indexOf(MAIN_ROUTE_ORDER[i].replace(/\s+/g,''))!==-1)return i;
+  }
+  return MAIN_ROUTE_ORDER.length;
+}
+function mainSubgroupKey(name){return String(name||'อื่น ๆ').replace(/[.#$/\[\]]/g,'_');}
+function groupMainRoutesByOrigin(routes){
+  var grouped={};
+  (routes||[]).forEach(function(route,index){
+    var origin=String((route&&route.from)||'').trim()||'อื่น ๆ';
+    if(!grouped[origin])grouped[origin]={name:origin,routes:[],order:mainRouteOrderIndex(origin),firstIndex:index};
+    grouped[origin].routes.push({route:route,index:index});
+  });
+  return Object.values(grouped).sort(function(a,b){
+    if(a.order!==b.order)return a.order-b.order;
+    return a.firstIndex-b.firstIndex;
+  });
+}
+function toggleMainSubgroup(key){
+  openMainSubgroups[key]=openMainSubgroups[key]===false;
+  renderRouteGroups();
+}
+function renderRouteRow(gname,gdata,r,ri,gi){
+  var scheduleKey=routeScheduleKey(gname,r);
+  var scheduleOpen=!!openRouteSchedules[scheduleKey];
+  var html='<div class="route-row"><div class="route-line">';
+  html+='<div class="route-main-text"><div class="route-dest-name">'+esc(r.to||'ยังไม่ระบุปลายทาง')+'</div><div class="route-origin-name">'+esc(r.from||'ยังไม่ระบุต้นทาง')+' → '+esc(r.to||'')+'</div></div>';
+  html+='<label class="route-price-inline">ราคา <input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"> บาท</label>';
+  html+='<div class="route-actions">';
+  html+='<label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label>';
+  html+='<button class="btn btn-primary btn-sm" onclick="toggleRouteSchedule(\''+esc(gname)+'\','+ri+')">ตารางเวลา '+(scheduleOpen?'▲':'▼')+'</button>';
+  html+='<button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">▲</button><button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">▼</button>';
+  html+='<button class="btn btn-dark btn-sm" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">แก้ไข</button>';
+  html+='<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">ลบ</button>';
+  html+='</div></div>';
+  if(scheduleOpen){
+    html+='<div class="route-schedule-panel"><div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
+      var bookingOn=isTimeBookingEnabled(r,t);
+      return'<div class="time-edit-row"><input class="time-display-input" type="text" value="'+esc(formatTimeForDisplay(t))+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
+        '<label class="stop-close-control"><input type="checkbox" '+(bookingOn?'checked':'')+' onchange="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> เปิด/ปิดเวลาจอง <span>'+(bookingOn?'เปิดจอง':'ปิดจอง')+'</span></label>'+
+        '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
+    }).join('')+'</div>';
+    html+='<div class="add-chip-row"><input type="text" id="tc_'+gi+'_'+ri+'" placeholder="10:20 AM"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่มเวลา</button>';
+    html+='<button class="btn btn-dark btn-sm" onclick="moveRouteToGroup(\''+esc(gname)+'\','+ri+')">ย้ายกลุ่ม</button></div></div>';
+  }
+  return html+'</div>';
 }
 function toggleRG(i){
   var entry=Object.entries(routeData)[i];
@@ -1183,7 +1228,15 @@ function renameRouteGroup(gname){
 }
 function moveRoute(gname,ri,dir){
   var routes=routeData[gname]&&routeData[gname].routes;if(!routes)return;
-  var j=ri+dir;if(j<0||j>=routes.length)return;
+  var j=ri+dir;
+  if(isMainRouteGroup(gname,routeData[gname])){
+    var origin=String((routes[ri]&&routes[ri].from)||'');
+    var sameOrigin=routes.map(function(r,i){return String((r&&r.from)||'')===origin?i:null;}).filter(function(i){return i!==null;});
+    var pos=sameOrigin.indexOf(ri),nextPos=pos+dir;
+    if(pos===-1||nextPos<0||nextPos>=sameOrigin.length)return;
+    j=sameOrigin[nextPos];
+  }
+  if(j<0||j>=routes.length)return;
   var tmp=routes[ri];routes[ri]=routes[j];routes[j]=tmp;renderRouteGroups();
 }
 function editRouteNames(gname,ri){
