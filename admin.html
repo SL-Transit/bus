@@ -995,6 +995,10 @@ function renderRouteGroups(){
     if(!gdata.routes)gdata.routes=[];
     html+='<div class="rgroup"><div class="rgroup-header" onclick="toggleRG('+gi+')">';
     html+='<span class="rg-title">'+esc(gname)+'</span><span class="rg-count">'+gdata.routes.length+' เส้นทาง</span>';
+    html+='<label class="stop-close-control" onclick="event.stopPropagation()"><input type="checkbox" '+(gdata.isActive===false?'':'checked')+' onchange="setRouteGroupActive(\''+esc(gname)+'\',this.checked)"> ใช้งานกลุ่ม</label>';
+    html+='<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveRouteGroup('+gi+',-1)">▲</button>';
+    html+='<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveRouteGroup('+gi+',1)">▼</button>';
+    html+='<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();renameRouteGroup(\''+esc(gname)+'\')">แก้ชื่อ</button>';
     html+='<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDel(\'ลบกลุ่มเส้นทาง &ldquo;'+esc(gname)+'&rdquo;?\',function(){deleteRouteGroup(\''+esc(gname)+'\')})">\ud83d\uddd1\ufe0f ลบกลุ่ม</button>';
     html+='</div><div class="rgroup-body '+(openRouteGroups[gname]?'open':'')+'" id="rgb_'+gi+'">';
     gdata.routes.forEach(function(r,ri){
@@ -1003,6 +1007,7 @@ function renderRouteGroups(){
       html+='<div><label class="rr-label">ต้นทาง</label><input type="text" value="'+esc(r.from||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'from\',this.value)"></div>';
       html+='<div><label class="rr-label">ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
       html+='<div><label class="rr-label">ราคา (บาท)</label><input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></div>';
+      html+='<div><label class="rr-label">แสดง</label><label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label></div>';
       html+='</div><div><div class="route-section-label">ตารางเวลา</div>';
       html+='<div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
         var blocked=((r.closedStops||{})[t]||[]).join(', ');
@@ -1012,6 +1017,8 @@ function renderRouteGroups(){
           '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(t)+' น.?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
       }).join('')+'</div>';
       html+='<div class="add-chip-row"><input type="time" id="tc_'+gi+'_'+ri+'"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่ม</button>';
+      html+='<button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">▲</button><button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">▼</button>';
+      html+='<button class="btn btn-dark btn-sm" onclick="moveRouteToGroup(\''+esc(gname)+'\','+ri+')">ย้ายกลุ่ม</button>';
       html+='<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">\ud83d\uddd1\ufe0f ลบ</button></div>';
       html+='</div></div>';
     });
@@ -1026,6 +1033,34 @@ function toggleRG(i){
   if(entry)openRouteGroups[entry[0]]=b.classList.contains('open');
 }
 function updateRoute(gname,ri,field,val){if(routeData[gname]&&routeData[gname].routes[ri])routeData[gname].routes[ri][field]=val;}
+function setRouteGroupActive(gname,on){if(routeData[gname])routeData[gname].isActive=on;}
+function reorderObjectByEntries(entries){var next={};entries.forEach(function(e){next[e[0]]=e[1];});routeData=next;}
+function moveRouteGroup(i,dir){
+  var entries=Object.entries(routeData),j=i+dir;if(j<0||j>=entries.length)return;
+  var tmp=entries[i];entries[i]=entries[j];entries[j]=tmp;reorderObjectByEntries(entries);renderRouteGroups();
+}
+function renameRouteGroup(gname){
+  if(!routeData[gname])return;
+  var name=prompt('ชื่อกลุ่มใหม่:',gname);
+  if(!name||!name.trim()||name.trim()===gname)return;
+  var entries=Object.entries(routeData),next={};
+  entries.forEach(function(e){next[e[0]===gname?name.trim():e[0]]=e[1];});
+  routeData=next;openRouteGroups[name.trim()]=openRouteGroups[gname];delete openRouteGroups[gname];renderRouteGroups();
+}
+function moveRoute(gname,ri,dir){
+  var routes=routeData[gname]&&routeData[gname].routes;if(!routes)return;
+  var j=ri+dir;if(j<0||j>=routes.length)return;
+  var tmp=routes[ri];routes[ri]=routes[j];routes[j]=tmp;renderRouteGroups();
+}
+function moveRouteToGroup(gname,ri){
+  var names=Object.keys(routeData).filter(function(n){return n!==gname;});
+  if(!names.length)return alert('ยังไม่มีกลุ่มอื่นให้ย้าย');
+  var target=prompt('ย้ายไปกลุ่มไหน?\n'+names.join('\n'),names[0]);
+  if(!target||!routeData[target]||!routeData[gname]||!routeData[gname].routes[ri])return;
+  var item=routeData[gname].routes.splice(ri,1)[0];
+  if(!routeData[target].routes)routeData[target].routes=[];
+  routeData[target].routes.push(item);openRouteGroups[target]=true;renderRouteGroups();
+}
 function csvStops(v){return String(v||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
 function toggleClosedStopMode(gname,ri,t,on){
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
@@ -1084,9 +1119,19 @@ function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].rout
 function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
 function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
 function prepareRouteDataForSave(){
-  Object.entries(routeData).forEach(function(entry){
+  Object.entries(routeData).forEach(function(entry,gi){
     var gname=entry[0],gdata=entry[1],isMain=gdata.id==='main'||gname==='เส้นทางหลัก';
-    if(!isMain)(gdata.routes||[]).forEach(function(r){delete r.closedStops;});
+    if(!gdata.id)gdata.id='custom_'+Date.now()+'_'+gi;
+    gdata.name=gname;
+    gdata.sortOrder=gi;
+    if(gdata.isActive===undefined)gdata.isActive=true;
+    (gdata.routes||[]).forEach(function(r,ri){
+      r.groupId=gdata.id;
+      r.groupName=gname;
+      r.sortOrder=ri;
+      if(r.isActive===undefined)r.isActive=true;
+      if(!isMain)delete r.closedStops;
+    });
   });
 }
 function saveRouteSettings(successMsg,logDetail){

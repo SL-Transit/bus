@@ -664,18 +664,30 @@ function _applySettings(snap) {
     ROUTE_PRICE = {};
     ROUTE_CLOSED_STOPS = {};
     ADMIN_ROUTE_TIMES = {};
-    Object.entries(data.routes).forEach(function(entry) {
+    ADMIN_ROUTE_GROUPS = [];
+    Object.entries(data.routes).sort(function(a,b){
+      return _routeSortValue(a[1], 0) - _routeSortValue(b[1], 0);
+    }).forEach(function(entry, groupIndex) {
       var groupName = entry[0];
       var group = entry[1];
-      if (!group.routes) return;
+      if (!group.routes || group.isActive===false) return;
       var isMainGroup = group.id === 'main' || groupName === 'เส้นทางหลัก';
       var isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(group.name || groupName || '');
-      group.routes.forEach(function(r) {
-        if (!r.from || !r.to) return;
+      var groupLabel = group.name || groupName;
+      var groupId = group.id || groupName;
+      var groupRoutes = [];
+      var groupSeen = {};
+      group.routes.slice().sort(function(a,b){
+        return _routeSortValue(a, 0) - _routeSortValue(b, 0);
+      }).forEach(function(r, routeIndex) {
+        if (!r.from || !r.to || r.isActive===false) return;
         var fromKey = _labelToKey(r.from,true,'origin');
         var toKey   = _labelToKey(r.to,true,'dest');
         var times   = Array.isArray(r.times)?r.times.slice().sort():[];
         var price   = Number(r.price)||0;
+        var routeGroupLabel = r.groupName || groupLabel;
+        var routeGroupId = r.groupId || groupId;
+        var routeSortOrder = _routeSortValue(r, routeIndex);
 
         if (!ORIGIN_TIMES[fromKey]) ORIGIN_TIMES[fromKey] = {label:r.from,times:[]};
         ORIGIN_TIMES[fromKey].label = r.from;
@@ -686,7 +698,14 @@ function _applySettings(snap) {
         LEG2_DEST[toKey].price = price;
         LEG2_DEST[toKey].leg2 = !!isLeg2Group;
         LEG2_DEST[toKey].times = times;
+        LEG2_DEST[toKey].groupName = routeGroupLabel;
+        LEG2_DEST[toKey].groupId = routeGroupId;
+        LEG2_DEST[toKey].sortOrder = routeSortOrder;
         ROUTE_PRICE[toKey] = price;
+        if(!groupSeen[toKey]){
+          groupSeen[toKey]=true;
+          groupRoutes.push({key:toKey,label:r.to,groupId:routeGroupId,groupName:routeGroupLabel,sortOrder:routeSortOrder});
+        }
         if (fromKey && toKey) {
           if (!ADMIN_ROUTE_TIMES[fromKey]) ADMIN_ROUTE_TIMES[fromKey] = {};
           ADMIN_ROUTE_TIMES[fromKey][toKey] = times;
@@ -706,6 +725,7 @@ function _applySettings(snap) {
           console.log('[BOOKING ROUTE DEBUG] registered closure',{group:groupName,fromKey:fromKey,toKey:toKey,closedStops:ROUTE_CLOSED_STOPS[fromKey][toKey]});
         }
       });
+      if(groupRoutes.length)ADMIN_ROUTE_GROUPS.push({id:groupId,name:groupLabel,sortOrder:_routeSortValue(group, groupIndex),routes:groupRoutes});
     });
   }
   console.log('[BOOKING ROUTE DEBUG] effective ROUTE_CLOSED_STOPS',ROUTE_CLOSED_STOPS);
@@ -795,6 +815,14 @@ function _routeKeyFromLabel(label) {
   return 'admin_' + encodeURIComponent(String(label || '').trim()).replace(/%/g,'_').replace(/[^A-Za-z0-9_]/g,'_').slice(0,80);
 }
 
+function _routeSortValue(item, fallback) {
+  if (item && item.sortOrder !== undefined && item.sortOrder !== null && item.sortOrder !== '') {
+    var n = Number(item.sortOrder);
+    if (!isNaN(n)) return n;
+  }
+  return Number(fallback) || 0;
+}
+
 // map label → key (เทียบจาก LEG2_DEST และ ORIGIN_TIMES)
 function _labelToKey(label, create, type) {
   if (!label) return null;
@@ -841,12 +869,26 @@ function _rebuildRouteSelects() {
     fromSel.appendChild(opt);
   });
   toSel.innerHTML = '';
-  Object.keys(LEG2_DEST).forEach(function(key) {
-    var opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = LEG2_DEST[key].label || key;
-    toSel.appendChild(opt);
-  });
+  if (ADMIN_ROUTE_GROUPS.length) {
+    ADMIN_ROUTE_GROUPS.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(group) {
+      var optgroup = document.createElement('optgroup');
+      optgroup.label = group.name || 'ปลายทาง';
+      group.routes.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(route) {
+        var opt = document.createElement('option');
+        opt.value = route.key;
+        opt.textContent = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
+        optgroup.appendChild(opt);
+      });
+      toSel.appendChild(optgroup);
+    });
+  } else {
+    Object.keys(LEG2_DEST).forEach(function(key) {
+      var opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = LEG2_DEST[key].label || key;
+      toSel.appendChild(opt);
+    });
+  }
   fromSel.value = ORIGIN_TIMES[prevFrom] ? prevFrom : (fromSel.options[0] ? fromSel.options[0].value : '');
   toSel.value = LEG2_DEST[prevTo] ? prevTo : (toSel.options[0] ? toSel.options[0].value : '');
 }
@@ -913,6 +955,7 @@ var TEST_MODE = false;
 var ROUTE_CLOSED_STOPS = {};
 var ADMIN_ROUTE_TIMES = {};
 var ADMIN_ROUTE_SOURCE_LOADED = false;
+var ADMIN_ROUTE_GROUPS = [];
  
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
