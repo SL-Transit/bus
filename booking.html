@@ -685,9 +685,8 @@ function _applySettings(snap) {
         var toKey   = _labelToKey(r.to,true,'dest');
         var times   = Array.isArray(r.times)?r.times.slice().sort():[];
         var price   = Number(r.price)||0;
-        var displayGroupType = (r.groupType || group.groupType || groupId) === 'main_route' || groupId === 'main' ? 'main_route' : 'other_route';
-        var routeGroupLabel = displayGroupType === 'main_route' ? 'เส้นทางหลัก' : 'กลุ่มเส้นทางอื่น';
-        var routeGroupId = displayGroupType;
+        var routeGroupLabel = r.groupName || groupLabel;
+        var routeGroupId = r.groupId || groupId;
         var routeSortOrder = _routeSortValue(r, routeIndex);
 
         if (!ORIGIN_TIMES[fromKey]) ORIGIN_TIMES[fromKey] = {label:r.from,times:[]};
@@ -697,7 +696,7 @@ function _applySettings(snap) {
         if (!LEG2_DEST[toKey]) LEG2_DEST[toKey] = {label:r.to,price:price,leg2:isLeg2Group};
         LEG2_DEST[toKey].label = r.to;
         LEG2_DEST[toKey].price = price;
-        LEG2_DEST[toKey].leg2 = !!(isLeg2Group || r.leg2 === true);
+        LEG2_DEST[toKey].leg2 = !!isLeg2Group;
         LEG2_DEST[toKey].times = times;
         LEG2_DEST[toKey].groupName = routeGroupLabel;
         LEG2_DEST[toKey].groupId = routeGroupId;
@@ -728,7 +727,6 @@ function _applySettings(snap) {
       });
       if(groupRoutes.length)ADMIN_ROUTE_GROUPS.push({id:groupId,name:groupLabel,sortOrder:_routeSortValue(group, groupIndex),routes:groupRoutes});
     });
-    ADMIN_ROUTE_GROUPS = _normalizeRouteGroupsForDisplay(ADMIN_ROUTE_GROUPS);
   }
   console.log('[BOOKING ROUTE DEBUG] effective ROUTE_CLOSED_STOPS',ROUTE_CLOSED_STOPS);
 
@@ -823,29 +821,6 @@ function _routeSortValue(item, fallback) {
     if (!isNaN(n)) return n;
   }
   return Number(fallback) || 0;
-}
-
-function _normalizeRouteGroupsForDisplay(groups) {
-  var out = {
-    main_route: {id:'main_route',name:'เส้นทางหลัก',sortOrder:0,routes:[]},
-    other_route: {id:'other_route',name:'กลุ่มเส้นทางอื่น',sortOrder:1,routes:[]}
-  };
-  var seen = {main_route:{},other_route:{}};
-  (groups || []).forEach(function(group) {
-    (group.routes || []).forEach(function(route) {
-      var type = route.groupId === 'main_route' ? 'main_route' : 'other_route';
-      if (!route.key || seen[type][route.key]) return;
-      seen[type][route.key] = true;
-      out[type].routes.push(Object.assign({}, route, {
-        groupId: type,
-        groupName: out[type].name
-      }));
-    });
-  });
-  return [out.main_route, out.other_route].filter(function(group){
-    group.routes.sort(function(a,b){return _routeSortValue(a,0)-_routeSortValue(b,0);});
-    return group.routes.length;
-  });
 }
 
 // map label → key (เทียบจาก LEG2_DEST และ ORIGIN_TIMES)

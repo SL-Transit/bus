@@ -868,7 +868,7 @@ function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
     console.log('[ADMIN ROUTE DEBUG] read path=settings/routes',snap.val());
     var saved=decodeRouteGroups(snap.val()||{});
-    routeData=normalizeRouteGroupsToTwoGroups(mergeDefaultRoutes(Object.keys(saved).length?saved:getDefaultRoutes()));
+    routeData=Object.keys(saved).length?saved:getDefaultRoutes();
     renderRouteGroups();
   });
 }
@@ -891,43 +891,6 @@ function decodeRouteGroups(saved){
     out[name]=gdata;
   });
   return out;
-}
-function routeGroupType(gname,gdata,r){
-  var gid=String((gdata&&gdata.id)||(r&&r.groupId)||'').toLowerCase();
-  var gt=String((r&&r.groupType)||(gdata&&gdata.groupType)||'').toLowerCase();
-  if(gt==='main_route'||gid==='main'||gid==='main_route')return'main_route';
-  return'other_route';
-}
-function normalizeRouteGroupsToTwoGroups(data){
-  var groups={
-    'เส้นทางหลัก':{id:'main_route',groupType:'main_route',sortOrder:0,isActive:true,routes:[]},
-    'กลุ่มเส้นทางอื่น':{id:'other_route',groupType:'other_route',sortOrder:1,isActive:true,routes:[]}
-  };
-  Object.entries(data||{}).forEach(function(entry){
-    var gname=entry[0],gdata=entry[1]||{},routes=gdata.routes||[];
-    if(gdata.isActive===false&&routeGroupType(gname,gdata,null)==='main_route')groups['เส้นทางหลัก'].isActive=false;
-    if(gdata.isActive===false&&routeGroupType(gname,gdata,null)==='other_route')groups['กลุ่มเส้นทางอื่น'].isActive=false;
-    routes.forEach(function(route){
-      if(!route)return;
-      var type=routeGroupType(gname,gdata,route);
-      var item=Object.assign({},route);
-      if(gdata.id==='coastal'||gdata.id==='bangkok'||/พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(gname))item.leg2=true;
-      item.groupType=type;
-      item.groupId=type;
-      item.groupName=type==='main_route'?'เส้นทางหลัก':'กลุ่มเส้นทางอื่น';
-      if(item.sortOrder===undefined||item.sortOrder===null||item.sortOrder==='')item.sortOrder=groups[item.groupName].routes.length;
-      groups[item.groupName].routes.push(item);
-    });
-  });
-  Object.keys(groups).forEach(function(name){
-    groups[name].routes.sort(function(a,b){
-      var ao=Number(a.sortOrder),bo=Number(b.sortOrder);
-      if(isNaN(ao))ao=0;if(isNaN(bo))bo=0;
-      return ao-bo;
-    });
-    groups[name].routes.forEach(function(r,i){r.sortOrder=i;});
-  });
-  return groups;
 }
 function mergeDefaultRoutes(saved){
   var defs=getDefaultRoutes();
@@ -1039,7 +1002,7 @@ function renderRouteGroups(){
     html+='<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDel(\'ลบกลุ่มเส้นทาง &ldquo;'+esc(gname)+'&rdquo;?\',function(){deleteRouteGroup(\''+esc(gname)+'\')})">\ud83d\uddd1\ufe0f ลบกลุ่ม</button>';
     html+='</div><div class="rgroup-body '+(openRouteGroups[gname]?'open':'')+'" id="rgb_'+gi+'">';
     gdata.routes.forEach(function(r,ri){
-      var canBlockStops=gdata.groupType==='main_route'||gdata.id==='main'||gdata.id==='main_route'||gname==='เส้นทางหลัก';
+      var canBlockStops=gdata.id==='main'||gname==='เส้นทางหลัก';
       html+='<div class="route-row"><div class="rr-fields">';
       html+='<div><label class="rr-label">ต้นทาง</label><input type="text" value="'+esc(r.from||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'from\',this.value)"></div>';
       html+='<div><label class="rr-label">ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
@@ -1101,7 +1064,7 @@ function moveRouteToGroup(gname,ri){
 function csvStops(v){return String(v||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
 function toggleClosedStopMode(gname,ri,t,on){
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
-  if(routeData[gname].groupType!=='main_route'&&routeData[gname].id!=='main'&&routeData[gname].id!=='main_route'&&gname!=='เส้นทางหลัก')return;
+  if(routeData[gname].id!=='main'&&gname!=='เส้นทางหลัก')return;
   var r=routeData[gname].routes[ri];
   openRouteGroups[gname]=true;
   if(!r.closedStops)r.closedStops={};
@@ -1156,18 +1119,15 @@ function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].rout
 function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่:');if(!name||!name.trim())return;routeData[name.trim()]={id:'custom_'+Date.now(),routes:[]};renderRouteGroups();}
 function deleteRouteGroup(gname){delete routeData[gname];renderRouteGroups();}
 function prepareRouteDataForSave(){
-  routeData=normalizeRouteGroupsToTwoGroups(routeData);
   Object.entries(routeData).forEach(function(entry,gi){
-    var gname=entry[0],gdata=entry[1],isMain=gdata.groupType==='main_route'||gdata.id==='main'||gdata.id==='main_route'||gname==='เส้นทางหลัก';
-    gdata.id=isMain?'main_route':'other_route';
-    gdata.groupType=isMain?'main_route':'other_route';
+    var gname=entry[0],gdata=entry[1],isMain=gdata.id==='main'||gname==='เส้นทางหลัก';
+    if(!gdata.id)gdata.id='custom_'+Date.now()+'_'+gi;
     gdata.name=gname;
     gdata.sortOrder=gi;
     if(gdata.isActive===undefined)gdata.isActive=true;
     (gdata.routes||[]).forEach(function(r,ri){
       r.groupId=gdata.id;
       r.groupName=gname;
-      r.groupType=gdata.groupType;
       r.sortOrder=ri;
       if(r.isActive===undefined)r.isActive=true;
       if(!isMain)delete r.closedStops;
