@@ -867,7 +867,9 @@ function loadRevenue(){
 function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
     console.log('[ADMIN ROUTE DEBUG] read path=settings/routes',snap.val());
-    routeData=mergeDefaultRoutes(decodeRouteGroups(snap.val()||{}));renderRouteGroups();
+    var saved=decodeRouteGroups(snap.val()||{});
+    routeData=Object.keys(saved).length?saved:getDefaultRoutes();
+    renderRouteGroups();
   });
 }
 function safeRouteGroupKey(gname,gdata,i){

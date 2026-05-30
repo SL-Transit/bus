@@ -654,64 +654,52 @@ function _applySettings(snap) {
   }
   applyPaymentModeUI();
 
-  // --- ราคาตามเส้นทาง (LEG2_DEST) ---
-  if (data.routes) {
-    Object.values(data.routes).forEach(function(group) {
-      if (!group.routes) return;
-      group.routes.forEach(function(r) {
-        if (!r.to || r.price === undefined || r.price === null) return;
-        var destKey = _labelToKey(r.to);
-        var fromKey = _labelToKey(r.from);
-        if (destKey && LEG2_DEST[destKey]) {
-          LEG2_DEST[destKey].price = Number(r.price);
-          LEG2_DEST[destKey].label = r.to;
-        }
-        if (fromKey && ORIGIN_TIMES[fromKey] && r.from) ORIGIN_TIMES[fromKey].label = r.from;
-        if (fromKey && destKey) {
-          if (!SEGMENT_PRICE[fromKey]) SEGMENT_PRICE[fromKey] = {};
-          SEGMENT_PRICE[fromKey][destKey] = Number(r.price);
-        }
-        // ROUTE_PRICE fallback
-        if (destKey) ROUTE_PRICE[destKey] = Number(r.price);
-      });
-    });
-  }
-
   // --- ตารางเวลา (ORIGIN_TIMES + LEG2 times) ---
-  ROUTE_CLOSED_STOPS = {};
-  ADMIN_ROUTE_TIMES = {};
+  ADMIN_ROUTE_SOURCE_LOADED = !!data.routes;
   console.log('[BOOKING ROUTE DEBUG] loaded settings/routes',data.routes||null);
   if (data.routes) {
+    ORIGIN_TIMES = {};
+    LEG2_DEST = {};
+    SEGMENT_PRICE = {};
+    ROUTE_PRICE = {};
+    ROUTE_CLOSED_STOPS = {};
+    ADMIN_ROUTE_TIMES = {};
     Object.entries(data.routes).forEach(function(entry) {
       var groupName = entry[0];
       var group = entry[1];
       if (!group.routes) return;
       var isMainGroup = group.id === 'main' || groupName === 'เส้นทางหลัก';
+      var isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(group.name || groupName || '');
       group.routes.forEach(function(r) {
-        if (!r.from || !r.times || !r.times.length) return;
-        var fromKey = _labelToKey(r.from);
-        var toKey   = _labelToKey(r.to);
-        var times   = r.times.slice().sort();
+        if (!r.from || !r.to) return;
+        var fromKey = _labelToKey(r.from,true,'origin');
+        var toKey   = _labelToKey(r.to,true,'dest');
+        var times   = Array.isArray(r.times)?r.times.slice().sort():[];
+        var price   = Number(r.price)||0;
 
-        // ต้นทางหลัก → อัพ ORIGIN_TIMES
-        if (fromKey && ORIGIN_TIMES[fromKey]) {
-          ORIGIN_TIMES[fromKey].times = times;
-          ORIGIN_TIMES[fromKey].label = r.from;
-        }
-        // ปลายทาง LEG2 → อัพ LEG2_DEST times
-        if (toKey && LEG2_DEST[toKey]) {
-          LEG2_DEST[toKey].times = times;
-          LEG2_DEST[toKey].label = r.to;
-        }
+        if (!ORIGIN_TIMES[fromKey]) ORIGIN_TIMES[fromKey] = {label:r.from,times:[]};
+        ORIGIN_TIMES[fromKey].label = r.from;
+        if (r.to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ORIGIN_TIMES[fromKey].times.length) ORIGIN_TIMES[fromKey].times = times;
+
+        if (!LEG2_DEST[toKey]) LEG2_DEST[toKey] = {label:r.to,price:price,leg2:isLeg2Group};
+        LEG2_DEST[toKey].label = r.to;
+        LEG2_DEST[toKey].price = price;
+        LEG2_DEST[toKey].leg2 = !!isLeg2Group;
+        LEG2_DEST[toKey].times = times;
+        ROUTE_PRICE[toKey] = price;
         if (fromKey && toKey) {
           if (!ADMIN_ROUTE_TIMES[fromKey]) ADMIN_ROUTE_TIMES[fromKey] = {};
           ADMIN_ROUTE_TIMES[fromKey][toKey] = times;
+          if (!SEGMENT_PRICE[fromKey]) SEGMENT_PRICE[fromKey] = {};
+          SEGMENT_PRICE[fromKey][toKey] = price;
         }
         if (isMainGroup && fromKey && toKey && r.closedStops) {
           if (!ROUTE_CLOSED_STOPS[fromKey]) ROUTE_CLOSED_STOPS[fromKey] = {};
           if (!ROUTE_CLOSED_STOPS[fromKey][toKey]) ROUTE_CLOSED_STOPS[fromKey][toKey] = {};
           Object.keys(r.closedStops).forEach(function(timeKey) {
-            ROUTE_CLOSED_STOPS[fromKey][toKey][timeKey] = (r.closedStops[timeKey] || []).map(function(stop){
+            var rawStops = r.closedStops[timeKey] || [];
+            var stopList = Array.isArray(rawStops) ? rawStops : [rawStops];
+            ROUTE_CLOSED_STOPS[fromKey][toKey][timeKey] = stopList.map(function(stop){
               return stop === '__route__' || stop === '*' ? stop : _labelToKey(stop);
             }).filter(Boolean);
           });
@@ -743,6 +731,7 @@ function _applySettings(snap) {
     });
   }
   _syncRouteOptionLabels();
+  if (data.routes) _rebuildRouteSelects();
 }
 
 function applyBookingAvailability() {
@@ -802,8 +791,12 @@ function sendLineMessage(payload) {
   return realLineSend(payload);
 }
 
+function _routeKeyFromLabel(label) {
+  return 'admin_' + encodeURIComponent(String(label || '').trim()).replace(/%/g,'_').replace(/[^A-Za-z0-9_]/g,'_').slice(0,80);
+}
+
 // map label → key (เทียบจาก LEG2_DEST และ ORIGIN_TIMES)
-function _labelToKey(label) {
+function _labelToKey(label, create, type) {
   if (!label) return null;
   var clean = String(label).replace(/\s+/g, '').toLowerCase();
   // ลองหาใน LEG2_DEST ก่อน
@@ -816,7 +809,11 @@ function _labelToKey(label) {
     var originLabel = String(ORIGIN_TIMES[ok].label || '').replace(/\s+/g, '').toLowerCase();
     if (originLabel === clean || clean.indexOf(originLabel) !== -1 || originLabel.indexOf(clean) !== -1) return ok;
   }
-  return null;
+  if (!create) return null;
+  var key = _routeKeyFromLabel(label);
+  if (type === 'origin' && !ORIGIN_TIMES[key]) ORIGIN_TIMES[key] = {label:String(label).trim(),times:[]};
+  if (type === 'dest' && !LEG2_DEST[key]) LEG2_DEST[key] = {label:String(label).trim(),price:0,leg2:false};
+  return key;
 }
 
 function _syncRouteOptionLabels() {
@@ -828,6 +825,30 @@ function _syncRouteOptionLabels() {
     var opt = document.querySelector('#routeTo option[value="' + key + '"]');
     if (opt && LEG2_DEST[key].label) opt.textContent = LEG2_DEST[key].label;
   });
+}
+
+function _rebuildRouteSelects() {
+  var fromSel = document.getElementById('routeFrom');
+  var toSel = document.getElementById('routeTo');
+  if (!fromSel || !toSel) return;
+  var prevFrom = fromSel.value;
+  var prevTo = toSel.value;
+  fromSel.innerHTML = '';
+  Object.keys(ORIGIN_TIMES).forEach(function(key) {
+    var opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = ORIGIN_TIMES[key].label || key;
+    fromSel.appendChild(opt);
+  });
+  toSel.innerHTML = '';
+  Object.keys(LEG2_DEST).forEach(function(key) {
+    var opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = LEG2_DEST[key].label || key;
+    toSel.appendChild(opt);
+  });
+  fromSel.value = ORIGIN_TIMES[prevFrom] ? prevFrom : (fromSel.options[0] ? fromSel.options[0].value : '');
+  toSel.value = LEG2_DEST[prevTo] ? prevTo : (toSel.options[0] ? toSel.options[0].value : '');
 }
 
 // Listen real-time — ถ้า admin แก้ข้อมูล จะได้รับทันที
@@ -891,6 +912,7 @@ var BOOKING_OPEN = true;
 var TEST_MODE = false;
 var ROUTE_CLOSED_STOPS = {};
 var ADMIN_ROUTE_TIMES = {};
+var ADMIN_ROUTE_SOURCE_LOADED = false;
  
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
@@ -1263,13 +1285,8 @@ function updateRoute() {
  
   // ป้องกันต้นทาง=ปลายทาง
   if (selOrigin === selDest) {
-    if (selOrigin === 'chachoengsao') {
-      selDest = 'sanamchai';
-    } else if (selOrigin === 'sanamchai') {
-      selDest = 'chachoengsao';
-    } else {
-      selDest = 'chachoengsao';
-    }
+    var firstDifferent = Array.prototype.slice.call(document.getElementById('routeTo').options).find(function(opt){return opt.value!==selOrigin;});
+    selDest = firstDifferent ? firstDifferent.value : selDest;
     document.getElementById('routeTo').value = selDest;
   }
  
@@ -1277,7 +1294,9 @@ function updateRoute() {
   var originPrice = ORIGIN_PRICE[selOrigin] || 0;
   var destInfo = LEG2_DEST[selDest];
   var computedPrice;
-  if ((SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) || (SEGMENT_PRICE[selDest] && SEGMENT_PRICE[selDest][selOrigin] !== undefined)) {
+  if (ADMIN_ROUTE_SOURCE_LOADED) {
+    computedPrice = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) ? SEGMENT_PRICE[selOrigin][selDest] : 0;
+  } else if ((SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) || (SEGMENT_PRICE[selDest] && SEGMENT_PRICE[selDest][selOrigin] !== undefined)) {
     computedPrice = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest]) || SEGMENT_PRICE[selDest][selOrigin];
   } else if (selOrigin === 'phanom' && PHANOM_DEST_TIMES[selDest] && PHANOM_DEST_TIMES[selDest].price === 0) {
     computedPrice = originPrice || ROUTE_PRICE[selDest] || 55;
@@ -1333,7 +1352,9 @@ function getStatusBadge(dateStr, timeStr) {
  
 function renderTimes() {
   var times;
-  if (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) {
+  if (ADMIN_ROUTE_SOURCE_LOADED) {
+    times = (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) ? ADMIN_ROUTE_TIMES[selOrigin][selDest] : [];
+  } else if (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) {
     times = ADMIN_ROUTE_TIMES[selOrigin][selDest];
   } else if (selOrigin === 'chachoengsao' && CHACHOENGSAO_TIMES[selDest]) {
     times = CHACHOENGSAO_TIMES[selDest];
@@ -1978,7 +1999,9 @@ function computePriceServerSide(origin, dest) {
   var originPrice = ORIGIN_PRICE[origin] || 0;
   var destInfo = LEG2_DEST[dest];
   var price;
-  if ((SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) ||
+  if (ADMIN_ROUTE_SOURCE_LOADED) {
+    price = (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) ? SEGMENT_PRICE[origin][dest] : 0;
+  } else if ((SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) ||
       (SEGMENT_PRICE[dest] && SEGMENT_PRICE[dest][origin] !== undefined)) {
     price = (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest]) || SEGMENT_PRICE[dest][origin];
   } else if (origin === 'phanom' && PHANOM_DEST_TIMES[dest] && PHANOM_DEST_TIMES[dest].price === 0) {
@@ -1990,7 +2013,7 @@ function computePriceServerSide(origin, dest) {
   } else {
     price = ROUTE_PRICE[dest] || originPrice || 55;
   }
-  return price || 55;
+  return ADMIN_ROUTE_SOURCE_LOADED ? (Number(price)||0) : (price || 55);
 }
  
 function drawRoundRect(ctx, x, y, w, h, r) {

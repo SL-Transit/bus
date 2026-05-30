@@ -507,83 +507,7 @@ const LEG2_DESTINATIONS = {
 
 const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
 const ADMIN_ROUTE_TIMES = {};
-const BOOKING_ROUTE_TIMES = {
-  'ฉะเชิงเทรา (แปดริ้ว)': {
-    'ท่ารถสนามชัยเขต': ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'],
-    'คลองหาด': ['11:20','14:00'],
-    'หนองคอก': ['11:20','14:00','17:20'],
-    'ท่าตะเกียบ': ['11:20','14:00','17:20'],
-    'ทุ่งกบินทร์': ['11:20','14:00'],
-    'สี่แยกโคนม': ['11:20','14:00'],
-    'คลองตะเคียน': ['11:20','14:00'],
-    'ไพจิตร': ['11:20','14:00'],
-    'หนองเรือ': ['11:20','14:00'],
-    'พนมสารคาม': ['09:40','11:20','12:20','14:00','15:20','16:20','17:20']
-  },
-  'พนมสารคาม': {
-    'ท่ารถสนามชัยเขต': ['10:20','11:40','12:00','12:30','13:00','14:30','14:40','15:00','16:00','17:00','18:00'],
-    'ท่าตะเกียบ': ['12:00','14:40','18:00'],
-    'หนองคอก': ['12:00','14:40','18:00'],
-    'คลองหาด': ['12:00','14:40'],
-    'ทุ่งกบินทร์': ['12:00','14:40'],
-    'สี่แยกโคนม': ['12:00','14:40'],
-    'ไพจิตร': ['12:00','14:40'],
-    'คลองตะเคียน': ['12:00','14:40'],
-    'หนองเรือ': ['12:00','14:40']
-  },
-  'ท่ารถสนามชัยเขต': {
-    'ท่าตะเกียบ': ['12:20','15:00','18:20'],
-    'หนองคอก': ['12:20','15:00','18:20'],
-    'คลองหาด': ['12:20','15:00'],
-    'ทุ่งกบินทร์': ['12:20','15:00'],
-    'สี่แยกโคนม': ['12:20','15:00'],
-    'ไพจิตร': ['12:20','15:00'],
-    'คลองตะเคียน': ['12:00','14:40'],
-    'หนองเรือ': ['12:20','15:00']
-  },
-  'ท่าตะเกียบ': {
-    'หนองคอก': ['12:50','15:30','18:50'],
-    'คลองหาด': ['12:50','15:30'],
-    'ทุ่งกบินทร์': ['12:50','15:30'],
-    'สี่แยกโคนม': ['12:50','15:30'],
-    'ไพจิตร': ['12:50','15:30'],
-    'คลองตะเคียน': ['12:00','14:40'],
-    'หนองเรือ': ['12:50','15:30']
-  },
-  'หนองคอก': {
-    'คลองหาด': ['13:05','15:45'],
-    'ทุ่งกบินทร์': ['13:05','15:45'],
-    'สี่แยกโคนม': ['13:05','15:45'],
-    'ไพจิตร': ['13:05','15:45'],
-    'คลองตะเคียน': ['12:00','14:40'],
-    'หนองเรือ': ['13:05','15:45']
-  },
-  'หนองเรือ': {
-    'คลองหาด': ['13:35','16:15'],
-    'คลองตะเคียน': ['12:00','14:40'],
-    'ทุ่งกบินทร์': ['13:35','16:15'],
-    'สี่แยกโคนม': ['13:35','16:15'],
-    'ไพจิตร': ['13:35','16:15']
-  },
-  'คลองตะเคียน': {
-    'คลองหาด': ['13:35','16:15'],
-    'ทุ่งกบินทร์': ['13:35','16:15'],
-    'สี่แยกโคนม': ['13:35','16:15'],
-    'ไพจิตร': ['13:35','16:15']
-  },
-  'ไพจิตร': {
-    'คลองหาด': ['13:37','16:17'],
-    'ทุ่งกบินทร์': ['13:37','16:17'],
-    'สี่แยกโคนม': ['13:37','16:17']
-  },
-  'ทุ่งกบินทร์': {
-    'คลองหาด': ['13:43','16:23'],
-    'สี่แยกโคนม': ['13:43','16:23']
-  },
-  'สี่แยกโคนม': {
-    'คลองหาด': ['13:53','16:33']
-  }
-};
+let ADMIN_ROUTE_SOURCE_LOADED = false;
 
 // ต้นทางและปลายทางตรง
 const ORIGIN_LIST = [
@@ -730,13 +654,13 @@ function isMainRouteLabel(label) {
 
 function getPairTimes(from, to) {
   if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to];
-  if (BOOKING_ROUTE_TIMES[from] && BOOKING_ROUTE_TIMES[from][to]) return BOOKING_ROUTE_TIMES[from][to];
   return null;
 }
 
 function getLeg1Times(){
   const pairTimes = getPairTimes(selOrigin, selDest);
   if (pairTimes) return pairTimes;
+  if (ADMIN_ROUTE_SOURCE_LOADED) return [];
   if(ROUTES[selOrigin]) return ROUTES[selOrigin].times;
   return [];
 }
@@ -745,40 +669,42 @@ function applyPassengerRouteSettings(data) {
   const routesData = data && data.routes ? data.routes : null;
   if (!routesData) return;
 
+  ADMIN_ROUTE_SOURCE_LOADED = true;
   Object.keys(ADMIN_ROUTE_TIMES).forEach(function(key){ delete ADMIN_ROUTE_TIMES[key]; });
+  Object.keys(ROUTES).forEach(function(key){ delete ROUTES[key]; });
+  Object.keys(LEG2_DESTINATIONS).forEach(function(key){ delete LEG2_DESTINATIONS[key]; });
+  ORIGIN_LIST.length = 0;
+  DEST_NORMAL.length = 0;
+  DEST_LEG2.length = 0;
 
-  Object.values(routesData).forEach(function(group) {
+  Object.entries(routesData).forEach(function(entry) {
+    const group = entry[1];
     if (!group || !Array.isArray(group.routes)) return;
+    const groupName = group.name || entry[0] || '';
+    const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
     group.routes.forEach(function(route) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
 
-      const from = findKnownRouteLabel(route.from, [ROUTES, LEG2_DESTINATIONS]);
-      const to = findKnownRouteLabel(route.to, [ROUTES, LEG2_DESTINATIONS]);
+      const from = String(route.from || '').trim();
+      const to = String(route.to || '').trim();
       const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
-      if (!from || !to || !times.length) return;
+      if (!from || !to) return;
 
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
       ADMIN_ROUTE_TIMES[from][to] = times;
 
-      if (isMainRouteLabel(from)) {
-        if (!ROUTES[from]) ROUTES[from] = { times: times.slice() };
-        addUnique(ORIGIN_LIST, from);
-        addUnique(DEST_NORMAL, from);
-      }
+      if (!ROUTES[from]) ROUTES[from] = { times: [] };
+      if (to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ROUTES[from].times.length) ROUTES[from].times = times.slice();
+      addUnique(ORIGIN_LIST, from);
+      addUnique(DEST_NORMAL, from);
 
-      if (LEG2_DESTINATIONS[to]) {
-        LEG2_DESTINATIONS[to].leg2Times = times.slice();
+      if (isLeg2Group) {
+        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: groupName || 'ต่อรถ' };
         addUnique(DEST_LEG2, to);
       } else {
-        if (isMainRouteLabel(to)) {
-          if (!ROUTES[to]) ROUTES[to] = { times: [] };
-          addUnique(ORIGIN_LIST, to);
-          addUnique(DEST_NORMAL, to);
-        }
-      }
-
-      if (to === 'ฉะเชิงเทรา (แปดริ้ว)') {
-        ROUTES[from].times = times.slice();
+        if (!ROUTES[to]) ROUTES[to] = { times: [] };
+        addUnique(ORIGIN_LIST, to);
+        addUnique(DEST_NORMAL, to);
       }
     });
   });
