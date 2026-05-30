@@ -665,9 +665,8 @@ function _applySettings(snap) {
     ROUTE_CLOSED_STOPS = {};
     ADMIN_ROUTE_TIMES = {};
     ADMIN_ROUTE_GROUPS = [];
-    Object.entries(data.routes).sort(function(a,b){
-      return _routeSortValue(a[1], 0) - _routeSortValue(b[1], 0);
-    }).forEach(function(entry, groupIndex) {
+    var bookingDisplayGroups = _createBookingDisplayGroups();
+    Object.entries(data.routes).forEach(function(entry, groupIndex) {
       var groupName = entry[0];
       var group = entry[1];
       if (!group.routes || group.isActive===false) return;
@@ -675,11 +674,7 @@ function _applySettings(snap) {
       var isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(group.name || groupName || '');
       var groupLabel = group.name || groupName;
       var groupId = group.id || groupName;
-      var groupRoutes = [];
-      var groupSeen = {};
-      group.routes.slice().sort(function(a,b){
-        return _routeSortValue(a, 0) - _routeSortValue(b, 0);
-      }).forEach(function(r, routeIndex) {
+      group.routes.forEach(function(r, routeIndex) {
         if (!r.from || !r.to || r.isActive===false) return;
         var fromKey = _labelToKey(r.from,true,'origin');
         var toKey   = _labelToKey(r.to,true,'dest');
@@ -702,10 +697,8 @@ function _applySettings(snap) {
         LEG2_DEST[toKey].groupId = routeGroupId;
         LEG2_DEST[toKey].sortOrder = routeSortOrder;
         ROUTE_PRICE[toKey] = price;
-        if(!groupSeen[toKey]){
-          groupSeen[toKey]=true;
-          groupRoutes.push({key:toKey,label:r.to,groupId:routeGroupId,groupName:routeGroupLabel,sortOrder:routeSortOrder});
-        }
+        _addBookingDisplayRoute(bookingDisplayGroups, fromKey, r.from, false, null, routeSortOrder);
+        _addBookingDisplayRoute(bookingDisplayGroups, toKey, r.to, isLeg2Group, routeGroupLabel, routeSortOrder);
         if (fromKey && toKey) {
           if (!ADMIN_ROUTE_TIMES[fromKey]) ADMIN_ROUTE_TIMES[fromKey] = {};
           ADMIN_ROUTE_TIMES[fromKey][toKey] = times;
@@ -725,8 +718,8 @@ function _applySettings(snap) {
           console.log('[BOOKING ROUTE DEBUG] registered closure',{group:groupName,fromKey:fromKey,toKey:toKey,closedStops:ROUTE_CLOSED_STOPS[fromKey][toKey]});
         }
       });
-      if(groupRoutes.length)ADMIN_ROUTE_GROUPS.push({id:groupId,name:groupLabel,sortOrder:_routeSortValue(group, groupIndex),routes:groupRoutes});
     });
+    ADMIN_ROUTE_GROUPS = _finalizeBookingDisplayGroups(bookingDisplayGroups);
   }
   console.log('[BOOKING ROUTE DEBUG] effective ROUTE_CLOSED_STOPS',ROUTE_CLOSED_STOPS);
 
@@ -821,6 +814,43 @@ function _routeSortValue(item, fallback) {
     if (!isNaN(n)) return n;
   }
   return Number(fallback) || 0;
+}
+
+function _createBookingDisplayGroups() {
+  return {
+    normal: {id:'normal',name:'— เส้นทางหลัก —',sortOrder:0,routes:[],seen:{}},
+    leg2: [],
+    leg2ByName: {}
+  };
+}
+
+function _addBookingDisplayRoute(display, key, label, isLeg2, groupName, sortOrder) {
+  if (!display || !key || !label) return;
+  var bucket;
+  if (isLeg2) {
+    var name = groupName || 'ต่อรถ';
+    if (!display.leg2ByName[name]) {
+      display.leg2ByName[name] = {id:'leg2_'+display.leg2.length,name:'— '+name+' —',sortOrder:display.leg2.length+1,routes:[],seen:{}};
+      display.leg2.push(display.leg2ByName[name]);
+    }
+    bucket = display.leg2ByName[name];
+  } else {
+    bucket = display.normal;
+  }
+  if (bucket.seen[key]) return;
+  bucket.seen[key] = true;
+  bucket.routes.push({key:key,label:label,sortOrder:bucket.routes.length});
+}
+
+function _finalizeBookingDisplayGroups(display) {
+  if (!display) return [];
+  var groups = [];
+  if (display.normal.routes.length) groups.push(display.normal);
+  display.leg2.forEach(function(group){ if (group.routes.length) groups.push(group); });
+  groups.forEach(function(group){
+    delete group.seen;
+  });
+  return groups;
 }
 
 // map label → key (เทียบจาก LEG2_DEST และ ORIGIN_TIMES)
