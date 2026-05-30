@@ -678,7 +678,8 @@ function _applySettings(snap) {
         if (!r.from || !r.to || r.isActive===false) return;
         var fromKey = _labelToKey(r.from,true,'origin');
         var toKey   = _labelToKey(r.to,true,'dest');
-        var times   = Array.isArray(r.times)?r.times.slice().sort():[];
+        var disabledTimes = Array.isArray(r.disabledTimes)?r.disabledTimes:[];
+        var times   = Array.isArray(r.times)?r.times.filter(function(t){return disabledTimes.indexOf(t)===-1;}).sort():[];
         var price   = Number(r.price)||0;
         var routeGroupLabel = r.groupName || groupLabel;
         var routeGroupId = r.groupId || groupId;
@@ -839,7 +840,7 @@ function _addBookingDisplayRoute(display, key, label, isLeg2, groupName, sortOrd
   }
   if (bucket.seen[key]) return;
   bucket.seen[key] = true;
-  bucket.routes.push({key:key,label:label,sortOrder:bucket.routes.length});
+  bucket.routes.push({key:key,label:label,sortOrder:_routeSortValue({sortOrder:sortOrder},bucket.routes.length)});
 }
 
 function _finalizeBookingDisplayGroups(display) {

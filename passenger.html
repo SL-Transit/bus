@@ -680,14 +680,17 @@ function applyPassengerRouteSettings(data) {
   Object.entries(routesData).forEach(function(entry) {
     const group = entry[1];
     if (!group || !Array.isArray(group.routes)) return;
+    if (group.isActive === false) return;
     const groupName = group.name || entry[0] || '';
     const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
     group.routes.forEach(function(route) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
+      if (route.isActive === false) return;
 
       const from = String(route.from || '').trim();
       const to = String(route.to || '').trim();
-      const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
+      const disabledTimes = Array.isArray(route.disabledTimes) ? route.disabledTimes : [];
+      const times = route.times.filter(function(t){ return t && disabledTimes.indexOf(t) === -1; }).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
       if (!from || !to) return;
 
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};

@@ -168,6 +168,14 @@ tr:hover td{background:#fafafa;}
 .rgroup-body{padding:12px 14px;display:none;}
 .rgroup-body.open{display:block;}
 .route-row{padding:14px;background:#fff;border-radius:8px;margin-bottom:10px;border:1px solid var(--border);}
+.route-line{display:grid;grid-template-columns:minmax(180px,1fr) minmax(120px,170px) auto;gap:10px;align-items:center;}
+.route-main-text{min-width:0;}
+.route-dest-name{font-size:14px;font-weight:800;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.route-origin-name{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.route-price-inline{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);}
+.route-price-inline input{max-width:96px;text-align:right;}
+.route-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
+.route-schedule-panel{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
 .rr-fields{display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;margin-bottom:12px;}
 .rr-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
 .route-row input{border:1px solid var(--border);border-radius:5px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;outline:none;width:100%;}
@@ -178,14 +186,15 @@ tr:hover td{background:#fafafa;}
 .chip .cx:hover{color:var(--red);}
 .route-section-label{font-size:11px;font-weight:700;color:var(--navy);margin:2px 0 7px;}
 .time-edit-list{display:grid;gap:7px;margin-bottom:8px;}
-.time-edit-row{display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:8px;}
+.time-edit-row{display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:8px;}
 .time-edit-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;font-family:'Kanit',sans-serif;}
+.time-display-input{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;font-family:'Kanit',sans-serif;background:#fff;}
 .stop-close-control{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--navy);}
 .stop-close-control input{width:auto;}
 .stop-close-control span{font-size:11px;font-weight:600;color:var(--muted);}
 .blocked-hint{font-size:10px;color:var(--muted);margin-top:3px;}
 .add-chip-row{display:flex;gap:6px;align-items:center;}
-.add-chip-row input[type=time]{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;width:110px;font-family:'Kanit',sans-serif;}
+.add-chip-row input{border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:12px;width:120px;font-family:'Kanit',sans-serif;}
 .control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px;}
 .control-card{border:1px solid var(--border);border-radius:8px;background:#f8fbff;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:74px;}
 .control-card strong{display:block;color:var(--navy);font-size:13px;margin-bottom:3px;}
@@ -539,7 +548,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={};
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -1111,25 +1120,29 @@ function renderRouteGroups(){
     html+='</div><div class="rgroup-body '+(openRouteGroups[gname]?'open':'')+'" id="rgb_'+gi+'">';
     gdata.routes.forEach(function(r,ri){
       var canBlockStops=gdata.id==='main'||gname==='เส้นทางหลัก';
-      html+='<div class="route-row"><div class="rr-fields">';
-      html+='<div><label class="rr-label">ต้นทาง</label><input type="text" value="'+esc(r.from||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'from\',this.value)"></div>';
-      html+='<div><label class="rr-label">ปลายทาง</label><input type="text" value="'+esc(r.to||'')+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'to\',this.value)"></div>';
-      html+='<div><label class="rr-label">ราคา (บาท)</label><input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></div>';
-      html+='<div><label class="rr-label">แสดง</label><label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label></div>';
-      html+='</div><div><div class="route-section-label">ตารางเวลา</div>';
-      html+='<div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
-        var blockedRaw=(r.closedStops||{})[t];
-        var blocked=Array.isArray(blockedRaw)?blockedRaw.join(', '):(blockedRaw||'');
-        var blockOn=!!blocked;
-        return'<div class="time-edit-row"><input type="time" value="'+esc(t)+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
-          (canBlockStops?'<div><label class="stop-close-control"><input type="checkbox" '+(blockOn?'checked':'')+' onchange="toggleClosedStopMode(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> งดรับจอง <span>'+(blockOn?'ปิดอยู่':'เปิดจอง')+'</span></label></div>':'<div class="blocked-hint">กลุ่มนี้เปิด/ปิดตามเวลาปกติ ไม่มีปิดเฉพาะป้าย</div>')+
-          '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(t)+' น.?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
-      }).join('')+'</div>';
-      html+='<div class="add-chip-row"><input type="time" id="tc_'+gi+'_'+ri+'"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่ม</button>';
+      var scheduleKey=routeScheduleKey(gname,r);
+      var scheduleOpen=!!openRouteSchedules[scheduleKey];
+      html+='<div class="route-row"><div class="route-line">';
+      html+='<div class="route-main-text"><div class="route-dest-name">'+esc(r.to||'ยังไม่ระบุปลายทาง')+'</div><div class="route-origin-name">'+esc(r.from||'ยังไม่ระบุต้นทาง')+' → '+esc(r.to||'')+'</div></div>';
+      html+='<label class="route-price-inline">ราคา <input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"> บาท</label>';
+      html+='<div class="route-actions">';
+      html+='<label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label>';
+      html+='<button class="btn btn-primary btn-sm" onclick="toggleRouteSchedule(\''+esc(gname)+'\','+ri+')">ตารางเวลา '+(scheduleOpen?'▲':'▼')+'</button>';
       html+='<button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">▲</button><button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">▼</button>';
-      html+='<button class="btn btn-dark btn-sm" onclick="moveRouteToGroup(\''+esc(gname)+'\','+ri+')">ย้ายกลุ่ม</button>';
-      html+='<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">\ud83d\uddd1\ufe0f ลบ</button></div>';
+      html+='<button class="btn btn-dark btn-sm" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">แก้ไข</button>';
+      html+='<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">ลบ</button>';
       html+='</div></div>';
+      if(scheduleOpen){
+        html+='<div class="route-schedule-panel"><div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
+          var bookingOn=isTimeBookingEnabled(r,t);
+          return'<div class="time-edit-row"><input class="time-display-input" type="text" value="'+esc(formatTimeForDisplay(t))+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
+            '<label class="stop-close-control"><input type="checkbox" '+(bookingOn?'checked':'')+' onchange="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> เปิด/ปิดเวลาจอง <span>'+(bookingOn?'เปิดจอง':'ปิดจอง')+'</span></label>'+
+            '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
+        }).join('')+'</div>';
+        html+='<div class="add-chip-row"><input type="text" id="tc_'+gi+'_'+ri+'" placeholder="10:20 AM"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่มเวลา</button>';
+        html+='<button class="btn btn-dark btn-sm" onclick="moveRouteToGroup(\''+esc(gname)+'\','+ri+')">ย้ายกลุ่ม</button></div></div>';
+      }
+      html+='</div>';
     });
     html+='<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-dark btn-sm" onclick="addRoute(\''+esc(gname)+'\')">+ เพิ่มเส้นทาง</button><button class="btn btn-primary btn-sm" onclick="addPlaceToGroup(\''+esc(gname)+'\')">+ เพิ่มสถานที่ในกลุ่ม</button></div>';
     html+='</div></div>';
@@ -1140,6 +1153,14 @@ function toggleRG(i){
   var entry=Object.entries(routeData)[i];
   var b=document.getElementById('rgb_'+i);b.classList.toggle('open');
   if(entry)openRouteGroups[entry[0]]=b.classList.contains('open');
+}
+function routeScheduleKey(gname,r){return gname+'|'+String((r&&r.from)||'')+'|'+String((r&&r.to)||'');}
+function toggleRouteSchedule(gname,ri){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var key=routeScheduleKey(gname,routeData[gname].routes[ri]);
+  openRouteSchedules[key]=!openRouteSchedules[key];
+  openRouteGroups[gname]=true;
+  renderRouteGroups();
 }
 function updateRoute(gname,ri,field,val){if(routeData[gname]&&routeData[gname].routes[ri])routeData[gname].routes[ri][field]=val;}
 function setRouteGroupActive(gname,on){if(routeData[gname])routeData[gname].isActive=on;}
@@ -1165,6 +1186,21 @@ function moveRoute(gname,ri,dir){
   var j=ri+dir;if(j<0||j>=routes.length)return;
   var tmp=routes[ri];routes[ri]=routes[j];routes[j]=tmp;renderRouteGroups();
 }
+function editRouteNames(gname,ri){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var r=routeData[gname].routes[ri],oldKey=routeScheduleKey(gname,r);
+  var from=prompt('ต้นทาง:',r.from||'');
+  if(!from||!from.trim())return;
+  var to=prompt('ปลายทาง:',r.to||'');
+  if(!to||!to.trim())return;
+  r.from=from.trim();
+  r.to=to.trim();
+  if(openRouteSchedules[oldKey]){
+    delete openRouteSchedules[oldKey];
+    openRouteSchedules[routeScheduleKey(gname,r)]=true;
+  }
+  renderRouteGroups();
+}
 function moveRouteToGroup(gname,ri){
   routeData=normalizeRouteGroups(routeData);
   var names=STANDARD_ROUTE_GROUP_NAMES.filter(function(n){return n!==gname;});
@@ -1176,6 +1212,49 @@ function moveRouteToGroup(gname,ri){
   routeData[target].routes.push(item);openRouteGroups[target]=true;renderRouteGroups();
 }
 function csvStops(v){return String(v||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
+function pad2(n){return String(n).padStart(2,'0');}
+function formatTimeForDisplay(t){
+  var m=String(t||'').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if(!m)return String(t||'');
+  var h=Number(m[1]),min=m[2],ampm=h>=12?'PM':'AM',hh=h%12;
+  if(hh===0)hh=12;
+  return pad2(hh)+':'+min+' '+ampm;
+}
+function parseTimeForSave(v){
+  var s=String(v||'').trim();
+  var m=s.match(/^(\d{1,2}):(\d{2})$/);
+  if(m)return pad2(Math.max(0,Math.min(23,Number(m[1]))))+':'+m[2];
+  m=s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if(!m)return'';
+  var h=Number(m[1]),min=m[2],ampm=m[3].toUpperCase();
+  if(h<1||h>12)return'';
+  if(ampm==='PM'&&h!==12)h+=12;
+  if(ampm==='AM'&&h===12)h=0;
+  return pad2(h)+':'+min;
+}
+function isTimeBookingEnabled(r,t){
+  if(!r)return true;
+  if(Array.isArray(r.disabledTimes)&&r.disabledTimes.indexOf(t)!==-1)return false;
+  var blocked=(r.closedStops||{})[t];
+  return !(blocked&&(Array.isArray(blocked)?blocked.length:true));
+}
+function setTimeBookingEnabled(gname,ri,t,on){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var r=routeData[gname].routes[ri];
+  if(!Array.isArray(r.disabledTimes))r.disabledTimes=[];
+  r.disabledTimes=r.disabledTimes.filter(function(x){return x!==t;});
+  if(!on)r.disabledTimes.push(t);
+  if(routeData[gname].id==='main'||gname==='เส้นทางหลัก'){
+    if(!r.closedStops)r.closedStops={};
+    if(on){
+      delete r.closedStops[t];
+    }else if(!r.closedStops[t]||(Array.isArray(r.closedStops[t])&&!r.closedStops[t].length)){
+      r.closedStops[t]=[r.to||'__route__'];
+    }
+  }
+  openRouteSchedules[routeScheduleKey(gname,r)]=true;
+  renderRouteGroups();
+}
 function toggleClosedStopMode(gname,ri,t,on){
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
   if(routeData[gname].id!=='main'&&gname!=='เส้นทางหลัก')return;
@@ -1192,20 +1271,27 @@ function toggleClosedStopMode(gname,ri,t,on){
   saveRouteSettings('บันทึกสำเร็จ', (on?'งดรับจอง ':'เปิดจอง ')+(r.from||'')+' → '+(r.to||'')+' '+t);
 }
 function updateTime(gname,ri,ti,val){
-  if(!val||!routeData[gname]||!routeData[gname].routes[ri])return;
+  val=parseTimeForSave(val);
+  if(!val||!routeData[gname]||!routeData[gname].routes[ri]){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 10:20 AM หรือ 13:00');renderRouteGroups();return;}
   var r=routeData[gname].routes[ri],times=r.times||[],old=times[ti];
   if(old===val)return;
   if(times.indexOf(val)!==-1){alert('เวลานี้มีอยู่แล้ว');renderRouteGroups();return;}
   times[ti]=val;times.sort();r.times=times;
   if(r.closedStops&&r.closedStops[old]){r.closedStops[val]=r.closedStops[old];delete r.closedStops[old];}
+  if(Array.isArray(r.disabledTimes)&&r.disabledTimes.indexOf(old)!==-1){
+    r.disabledTimes=r.disabledTimes.filter(function(x){return x!==old;});
+    r.disabledTimes.push(val);
+  }
+  openRouteSchedules[routeScheduleKey(gname,r)]=true;
   renderRouteGroups();
 }
 function addTime(gname,ri,inputId){
-  var t=document.getElementById(inputId).value;if(!t)return;
+  var t=parseTimeForSave(document.getElementById(inputId).value);if(!t){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 10:20 AM หรือ 13:00');return;}
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
   var times=routeData[gname].routes[ri].times||[];
   if(times.indexOf(t)!==-1){alert('เวลานี้มีอยู่แล้ว');return;}
   times.push(t);times.sort();routeData[gname].routes[ri].times=times;
+  openRouteSchedules[routeScheduleKey(gname,routeData[gname].routes[ri])]=true;
   document.getElementById(inputId).value='';renderRouteGroups();
 }
 function removeTime(gname,ri,t){
@@ -1213,6 +1299,8 @@ function removeTime(gname,ri,t){
   var r=routeData[gname].routes[ri];
   r.times=(r.times||[]).filter(function(x){return x!==t;});
   if(r.closedStops)delete r.closedStops[t];
+  if(Array.isArray(r.disabledTimes))r.disabledTimes=r.disabledTimes.filter(function(x){return x!==t;});
+  openRouteSchedules[routeScheduleKey(gname,r)]=true;
   renderRouteGroups();
 }
 function addRoute(gname){if(!routeData[gname])return;routeData[gname].routes.push({from:'',to:'',price:0,times:[]});renderRouteGroups();}
@@ -1262,6 +1350,16 @@ function prepareRouteDataForSave(){
       r.groupName=gname;
       r.sortOrder=ri;
       if(r.isActive===undefined)r.isActive=true;
+      if(Array.isArray(r.times)){
+        r.times=r.times.map(parseTimeForSave).filter(Boolean).sort();
+      }else{
+        r.times=[];
+      }
+      if(Array.isArray(r.disabledTimes)){
+        r.disabledTimes=r.disabledTimes.map(parseTimeForSave).filter(function(t){return t&&r.times.indexOf(t)!==-1;});
+      }else{
+        delete r.disabledTimes;
+      }
       if(!isMain)delete r.closedStops;
     });
   });
