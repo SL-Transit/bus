@@ -657,6 +657,14 @@ function getPairTimes(from, to) {
   return null;
 }
 
+function routeSortValue(item, fallback) {
+  if (item && item.sortOrder !== undefined && item.sortOrder !== null && item.sortOrder !== '') {
+    const n = Number(item.sortOrder);
+    if (!isNaN(n)) return n;
+  }
+  return Number(fallback) || 0;
+}
+
 function getLeg1Times(){
   const pairTimes = getPairTimes(selOrigin, selDest);
   if (pairTimes) return pairTimes;
@@ -677,12 +685,18 @@ function applyPassengerRouteSettings(data) {
   DEST_NORMAL.length = 0;
   DEST_LEG2.length = 0;
 
-  Object.entries(routesData).forEach(function(entry) {
+  Object.entries(routesData).sort(function(a,b){
+    return routeSortValue(a[1],0)-routeSortValue(b[1],0);
+  }).forEach(function(entry) {
     const group = entry[1];
     if (!group || !Array.isArray(group.routes)) return;
     const groupName = group.name || entry[0] || '';
     const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
-    group.routes.forEach(function(route) {
+    const displayGroupType = (group.groupType || group.id) === 'main_route' || group.id === 'main' ? 'main_route' : 'other_route';
+    const displayGroupName = displayGroupType === 'main_route' ? 'เส้นทางหลัก' : 'กลุ่มเส้นทางอื่น';
+    group.routes.slice().sort(function(a,b){
+      return routeSortValue(a,0)-routeSortValue(b,0);
+    }).forEach(function(route) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
 
       const from = String(route.from || '').trim();
@@ -698,8 +712,8 @@ function applyPassengerRouteSettings(data) {
       addUnique(ORIGIN_LIST, from);
       addUnique(DEST_NORMAL, from);
 
-      if (isLeg2Group) {
-        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: groupName || 'ต่อรถ' };
+      if (isLeg2Group || route.leg2 === true) {
+        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: displayGroupName };
         addUnique(DEST_LEG2, to);
       } else {
         if (!ROUTES[to]) ROUTES[to] = { times: [] };
@@ -1152,7 +1166,7 @@ function buildDropdowns(){
 
     // เส้นทางตรง
     const grp0 = document.createElement('optgroup');
-    grp0.label = '— เส้นทางหลัก —';
+    grp0.label = 'เส้นทางหลัก';
     DEST_NORMAL.forEach(d=>{
       if(d===selOrigin) return;
       const opt = document.createElement('option');
@@ -1171,7 +1185,7 @@ function buildDropdowns(){
     });
     Object.keys(groups).forEach(gLabel=>{
       const grp = document.createElement('optgroup');
-      grp.label = `— ${gLabel} —`;
+      grp.label = gLabel;
       groups[gLabel].forEach(d=>{
         const opt = document.createElement('option');
         opt.value=d; opt.textContent=d;
