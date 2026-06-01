@@ -1358,6 +1358,17 @@ function getAdminAwareSchedules(origin, destination) {
   return [];
 }
 
+function getTransferPrice(origin, destination) {
+  var destObj = LEG2_DEST[destination];
+  var leg1Price = (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][TRANSFER_POINT_KEY] !== undefined)
+    ? Number(SEGMENT_PRICE[origin][TRANSFER_POINT_KEY])
+    : Number(ORIGIN_PRICE[origin] || 0);
+  var leg2Price = (SEGMENT_PRICE[TRANSFER_POINT_KEY] && SEGMENT_PRICE[TRANSFER_POINT_KEY][destination] !== undefined)
+    ? Number(SEGMENT_PRICE[TRANSFER_POINT_KEY][destination])
+    : Number((destObj && destObj.price) || ROUTE_PRICE[destination] || 0);
+  return leg1Price + leg2Price;
+}
+
 function formatTransferSchedule(times) {
   return (times || []).map(function(t) { return t + ' น.'; }).join(', ');
 }
@@ -1409,7 +1420,7 @@ function updateRoute() {
     if (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) {
       computedPrice = SEGMENT_PRICE[selOrigin][selDest];
     } else if (shouldRequireTransfer(selOrigin, selDest) && destInfo) {
-      computedPrice = originPrice + destInfo.price;
+      computedPrice = getTransferPrice(selOrigin, selDest);
     } else {
       computedPrice = 0;
     }
@@ -2123,7 +2134,7 @@ function computePriceServerSide(origin, dest) {
     if (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) {
       price = SEGMENT_PRICE[origin][dest];
     } else if (shouldRequireTransfer(origin, dest) && destInfo) {
-      price = originPrice + destInfo.price;
+      price = getTransferPrice(origin, dest);
     } else {
       price = 0;
     }
