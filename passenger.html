@@ -594,22 +594,27 @@ function choosePrimaryBus(buses) {
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
   if (!navigator.geolocation) {
     focusSelectedOrigin();
-    return;
+    return Promise.resolve(null);
   }
-  navigator.geolocation.getCurrentPosition(function(pos) {
-    var current = normalizeMapPoint({
-      lon: pos.coords.longitude,
-      lat: pos.coords.latitude
+
+  return new Promise(function(resolve) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      var current = normalizeMapPoint({
+        lon: pos.coords.longitude,
+        lat: pos.coords.latitude
+      });
+      passengerPos = current;
+      updatePassengerOnMap(current, forceCenter);
+      resolve(current);
+    }, function(err) {
+      console.warn('Passenger current location error:', err && err.message ? err.message : err);
+      focusSelectedOrigin();
+      resolve(null);
+    }, {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 0
     });
-    passengerPos = current;
-    updatePassengerOnMap(current, forceCenter);
-  }, function(err) {
-    console.warn('Passenger current location error:', err && err.message ? err.message : err);
-    focusSelectedOrigin();
-  }, {
-    enableHighAccuracy: true,
-    timeout: 8000,
-    maximumAge: 0
   });
 }
 
@@ -765,7 +770,7 @@ function initMap() {
           resolved = true;
           mapReady = true;
           refreshMapSizeSafely();
-          focusSelectedOrigin();
+          startPassengerLocation();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
           if (Object.keys(allBusPositions).length) {
             updateAllBusesOnMap(allBusPositions);
