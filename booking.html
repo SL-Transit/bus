@@ -665,6 +665,7 @@ function _applySettings(snap) {
     ROUTE_CLOSED_STOPS = {};
     ADMIN_ROUTE_TIMES = {};
     ADMIN_ROUTE_GROUPS = [];
+    TRANSFER_POINT_KEY = 'chachoengsao';
     var bookingDisplayGroups = _createBookingDisplayGroups();
     Object.entries(data.routes).forEach(function(entry, groupIndex) {
       var groupName = entry[0];
@@ -678,6 +679,7 @@ function _applySettings(snap) {
         if (!r.from || !r.to || r.isActive===false) return;
         var fromKey = _labelToKey(r.from,true,'origin');
         var toKey   = _labelToKey(r.to,true,'dest');
+        if (String(r.to || '').indexOf('แปดริ้ว') !== -1 || String(r.to || '').indexOf('ฉะเชิงเทรา') !== -1) TRANSFER_POINT_KEY = toKey;
         var disabledTimes = Array.isArray(r.disabledTimes)?r.disabledTimes:[];
         var times   = Array.isArray(r.times)?r.times.filter(function(t){return disabledTimes.indexOf(t)===-1;}).sort():[];
         var price   = Number(r.price)||0;
@@ -987,6 +989,7 @@ var ROUTE_CLOSED_STOPS = {};
 var ADMIN_ROUTE_TIMES = {};
 var ADMIN_ROUTE_SOURCE_LOADED = false;
 var ADMIN_ROUTE_GROUPS = [];
+var TRANSFER_POINT_KEY = 'chachoengsao';
  
 var SEGMENT_PRICE = {
   // จาก พนมสารคาม ไป ...
@@ -1306,7 +1309,7 @@ function getTransferInfo(origin, dest, mainTime) {
   if (!destObj || !destObj.leg2 || !destObj.times || !destObj.times.length) return null;
   var times = destObj.times.slice();
   var transferTime = mainTime;
-  if (origin !== 'chachoengsao') {
+  if (origin !== TRANSFER_POINT_KEY) {
     var originLabel = (ORIGIN_TIMES[origin] && ORIGIN_TIMES[origin].label) || document.getElementById('routeFrom').selectedOptions[0].text || '';
     var buffer = getTransferBufferMinutes(originLabel);
     var target = addMinutesToTime(mainTime, buffer === null ? (destObj.buffer || 40) : buffer);
@@ -1319,6 +1322,40 @@ function getTransferInfo(origin, dest, mainTime) {
     transferTime: transferTime,
     times: times
   };
+}
+
+function isMainRouteStop(stopName) {
+  return !!(stopName && ORIGIN_TIMES[stopName]);
+}
+
+function isExternalDestination(destinationName) {
+  var destObj = LEG2_DEST[destinationName];
+  return !!(destObj && destObj.leg2);
+}
+
+function shouldRequireTransfer(origin, destination) {
+  return origin !== TRANSFER_POINT_KEY && isMainRouteStop(origin) && isExternalDestination(destination);
+}
+
+function getDirectSchedules(origin, destination) {
+  if (ADMIN_ROUTE_TIMES[origin] && ADMIN_ROUTE_TIMES[origin][destination]) {
+    return ADMIN_ROUTE_TIMES[origin][destination];
+  }
+  return null;
+}
+
+function getTransferSchedules(origin, destination) {
+  var leg1Times = getDirectSchedules(origin, TRANSFER_POINT_KEY);
+  if (leg1Times && leg1Times.length) return leg1Times;
+  if (ORIGIN_TIMES[origin] && ORIGIN_TIMES[origin].times) return ORIGIN_TIMES[origin].times;
+  return [];
+}
+
+function getAdminAwareSchedules(origin, destination) {
+  var directTimes = getDirectSchedules(origin, destination);
+  if (directTimes && directTimes.length) return directTimes;
+  if (shouldRequireTransfer(origin, destination)) return getTransferSchedules(origin, destination);
+  return [];
 }
 
 function formatTransferSchedule(times) {
@@ -1369,7 +1406,13 @@ function updateRoute() {
   var destInfo = LEG2_DEST[selDest];
   var computedPrice;
   if (ADMIN_ROUTE_SOURCE_LOADED) {
-    computedPrice = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) ? SEGMENT_PRICE[selOrigin][selDest] : 0;
+    if (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) {
+      computedPrice = SEGMENT_PRICE[selOrigin][selDest];
+    } else if (shouldRequireTransfer(selOrigin, selDest) && destInfo) {
+      computedPrice = originPrice + destInfo.price;
+    } else {
+      computedPrice = 0;
+    }
   } else if ((SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest] !== undefined) || (SEGMENT_PRICE[selDest] && SEGMENT_PRICE[selDest][selOrigin] !== undefined)) {
     computedPrice = (SEGMENT_PRICE[selOrigin] && SEGMENT_PRICE[selOrigin][selDest]) || SEGMENT_PRICE[selDest][selOrigin];
   } else if (selOrigin === 'phanom' && PHANOM_DEST_TIMES[selDest] && PHANOM_DEST_TIMES[selDest].price === 0) {
@@ -1427,7 +1470,7 @@ function getStatusBadge(dateStr, timeStr) {
 function renderTimes() {
   var times;
   if (ADMIN_ROUTE_SOURCE_LOADED) {
-    times = (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) ? ADMIN_ROUTE_TIMES[selOrigin][selDest] : [];
+    times = getAdminAwareSchedules(selOrigin, selDest);
   } else if (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) {
     times = ADMIN_ROUTE_TIMES[selOrigin][selDest];
   } else if (selOrigin === 'chachoengsao' && CHACHOENGSAO_TIMES[selDest]) {
@@ -1672,7 +1715,7 @@ function updateSummary() {
   var leg2Card = document.getElementById('leg2SummaryCard');
   var leg2Detail = document.getElementById('leg2SummaryDetail');
   if (destObj && destObj.leg2 && transferInfo) {
-    document.getElementById('sumRoute').textContent = selOrigin === 'chachoengsao' ? (fromName + ' → ' + toName) : (fromName + ' → แปดริ้ว');
+    document.getElementById('sumRoute').textContent = selOrigin === TRANSFER_POINT_KEY ? (fromName + ' → ' + toName) : (fromName + ' → แปดริ้ว');
     if (leg2Card && leg2Detail) {
       leg2Card.style.display = 'block';
       var legs = buildLegRoutes(fromName, toName, true);
@@ -1984,6 +2027,7 @@ function submitBooking() {
         platformNum = 6;
       }
       var transferInfo = getTransferInfo(selOrigin, selDest, selTime);
+      var requiresTransfer = shouldRequireTransfer(selOrigin, selDest);
       var fromName = fromEl2.options[fromEl2.selectedIndex].text;
       var toName = toEl2.options[toEl2.selectedIndex].text;
       var legRoutes = buildLegRoutes(fromName, toName, !!transferInfo);
@@ -2016,6 +2060,8 @@ function submitBooking() {
         paymentMode: PAYMENT_MODE,
         testMode:    TEST_MODE,
         mockPayment: TEST_MODE,
+        requiresTransfer: requiresTransfer,
+        transferPoint: requiresTransfer ? ((LEG2_DEST[TRANSFER_POINT_KEY] && LEG2_DEST[TRANSFER_POINT_KEY].label) || 'แปดริ้ว') : '',
         slip:        imageUrl,
         dupKey:      dupKey,
         queueNumber: queueNum,
@@ -2074,7 +2120,13 @@ function computePriceServerSide(origin, dest) {
   var destInfo = LEG2_DEST[dest];
   var price;
   if (ADMIN_ROUTE_SOURCE_LOADED) {
-    price = (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) ? SEGMENT_PRICE[origin][dest] : 0;
+    if (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) {
+      price = SEGMENT_PRICE[origin][dest];
+    } else if (shouldRequireTransfer(origin, dest) && destInfo) {
+      price = originPrice + destInfo.price;
+    } else {
+      price = 0;
+    }
   } else if ((SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest] !== undefined) ||
       (SEGMENT_PRICE[dest] && SEGMENT_PRICE[dest][origin] !== undefined)) {
     price = (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][dest]) || SEGMENT_PRICE[dest][origin];
