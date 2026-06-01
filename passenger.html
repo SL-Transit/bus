@@ -1326,11 +1326,7 @@ document.addEventListener('DOMContentLoaded', async function(){
   await renderRoutePolyline(routeData);
   renderStationMarkers(routeData);
   refreshMapSizeSafely();
-  forceFocusSelectedOriginAfterMapReady();
-
-  setTimeout(function () {
-    requestPassengerCurrentLocation(true, false);
-  }, 1500);
+  requestPassengerCurrentLocation(true, false);
 
   window.addEventListener('resize', refreshMapSizeSafely);
 
