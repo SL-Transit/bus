@@ -1163,9 +1163,10 @@ function renderSched() {
   const origin = selOrigin, dest = selDest;
 
   if(isLeg2Dest(dest)){
-    const startsAtTransferHub = origin === 'ฉะเชิงเทรา (แปดริ้ว)';
+    const transferHubLabel = 'ฉะเชิงเทรา (แปดริ้ว)';
+    const startsAtTransferHub = normalizeRouteAlias(origin) === transferHubLabel || cleanRouteLabel(origin) === cleanRouteLabel(transferHubLabel);
     const leg1Times = startsAtTransferHub ? [] : getLeg1Times();
-    const leg2Times = getPairTimes('ฉะเชิงเทรา (แปดริ้ว)', dest) || LEG2_DESTINATIONS[dest].leg2Times;
+    const leg2Times = getPairTimes(transferHubLabel, dest) || getPairTimes(origin, dest) || LEG2_DESTINATIONS[dest].leg2Times;
 
     // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
     const [l1a, l1b] = splitBalanced(leg1Times);
@@ -1199,7 +1200,7 @@ function renderSched() {
       <div class="leg2-cols">
         <div class="leg2-col-head">
           <div class="leg2-col-sub">เที่ยวที่ 2</div>
-          <div class="leg2-col-name">แปดริ้ว → ${dest}</div>
+          <div class="leg2-col-name">${startsAtTransferHub ? origin : transferHubLabel} → ${dest}</div>
           <div class="leg2-col-note">ต่อรถที่ชานชาลา 6</div>
         </div>
         <div class="leg2-col-head" style="border-right:none;">
