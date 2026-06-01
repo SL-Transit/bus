@@ -543,6 +543,9 @@ let allBusPositions={};
 // คง viewDir ไว้สำหรับ GPS/Map
 let viewDir='go';
 let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false;
+let stationMarkerOverlays=[];
+let routeRenderSeq=0;
+let mapInitPromise=null;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
 let busFollowMode=true, busCentered=false;
 
@@ -712,7 +715,6 @@ function applyPassengerRouteSettings(data) {
     });
   });
 
-  console.log('[PASSENGER ROUTE DEBUG] loaded settings/routes', routesData);
   buildDropdowns();
   renderSched();
   renderNextBus();
@@ -725,6 +727,7 @@ function applyTestModeUI() {
 
 // ===== LONGDO MAP =====
 function initMap() {
+  if (mapInitPromise) return mapInitPromise;
   try {
     mapObj = new longdo.Map({
       placeholder: document.getElementById('map'),
@@ -732,10 +735,14 @@ function initMap() {
       location: { lon:101.245, lat:13.710 },
     });
 
-    mapReady = true;
+    mapReady = false;
 
     // ซ่อน UI ทุกตัว เหลือแค่ Geolocation
-    setTimeout(function(){
+    mapInitPromise = new Promise(function(resolve) {
+      var resolved = false;
+      function onMapReady() {
+        if (resolved) return;
+
       try { mapObj.Ui.DPad.visible(false); } catch(e){}
       try { mapObj.Ui.Zoombar.visible(false); } catch(e){}
       try { mapObj.Ui.Toolbar.visible(false); } catch(e){}
@@ -744,44 +751,146 @@ function initMap() {
       try { mapObj.Ui.Scale.visible(false); } catch(e){}
       try { mapObj.Ui.Crosshair.visible(false); } catch(e){}
       try { mapObj.Ui.Geolocation.visible(true); } catch(e){}
-    }, 1000);
 
-    // วาดป้ายจอดครบ 3 จุด
-    STOPS_GO.forEach(function(s, i) {
-      try {
-        var m = new longdo.Marker({ lon: s.lng, lat: s.lat }, {
-          icon: {
-            html: '<div style="font-size:24px;line-height:1">🚏</div>',
-            offset: { x: 12, y: 12 }
+        function finishMapReady() {
+          if (resolved) return;
+          resolved = true;
+          mapReady = true;
+          refreshMapSizeSafely();
+          focusSelectedOrigin();
+    // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
+          if (Object.keys(allBusPositions).length) {
+            updateAllBusesOnMap(allBusPositions);
           }
-        });
-        mapObj.Overlays.add(m);
-      } catch(e) {
-        console.warn('Stop marker error:', e);
+          resolve(mapObj);
+        }
+
+        try {
+          mapObj.Event.bind('idle', finishMapReady);
+        } catch(e) {}
+        setTimeout(finishMapReady, 1500);
       }
-      // label ชื่อป้าย ใช้ Marker แบบ HTML เพื่อรองรับ Longdo Map API รุ่นปัจจุบัน
+
       try {
-        var label = new longdo.Marker({ lon: s.lng, lat: s.lat }, {
-          icon: {
-            html: '<div style="background:rgba(30,58,138,0.85);color:#fff;font-size:10px;font-weight:600;padding:3px 7px;border-radius:10px;white-space:nowrap;margin-top:2px">' + s.name + '</div>',
-            offset: { x: 10, y: -10 }
-          }
-        });
-        mapObj.Overlays.add(label);
+        mapObj.Event.bind('ready', onMapReady);
       } catch(e) {
-        console.warn('Stop label error:', e);
+        setTimeout(onMapReady, 800);
       }
     });
-
-    drawRoute();
-    focusSelectedOrigin();
-    // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
-    if (Object.keys(allBusPositions).length) {
-      updateAllBusesOnMap(allBusPositions);
-    }
   } catch(e) {
     console.error('Map error:', e);
+    mapInitPromise = Promise.resolve(null);
   }
+  return mapInitPromise;
+}
+
+function initPassengerMap() {
+  return new Promise(function(resolve) {
+    (function waitLongdoReady(){
+      if (window.longdo) {
+        initMap().then(resolve);
+        return;
+      }
+      setTimeout(waitLongdoReady, 300);
+    })();
+  });
+}
+
+function loadPassengerRouteData() {
+  return Promise.resolve({
+    stations: curStops().slice()
+  });
+}
+
+function renderRoutePolyline(routeData) {
+  return drawRoute(routeData);
+}
+
+async function refreshPassengerMapRoute() {
+  if (!mapReady || !mapObj) return;
+  const routeData = await loadPassengerRouteData();
+  await renderRoutePolyline(routeData);
+  renderStationMarkers(routeData);
+  refreshMapSizeSafely();
+}
+
+function clearStationMarkers() {
+  if (!mapObj || !stationMarkerOverlays.length) return;
+  stationMarkerOverlays.forEach(function(overlay) {
+    try { mapObj.Overlays.remove(overlay); } catch(e){}
+  });
+  stationMarkerOverlays = [];
+}
+
+function renderStationMarkers(routeData, skipEnsure) {
+  if (!mapReady || !mapObj || !routeData || !Array.isArray(routeData.stations)) return;
+
+  clearStationMarkers();
+
+  routeData.stations.forEach(function(s) {
+    var point = normalizeMapPoint(s);
+    if (!point) return;
+
+    try {
+      var marker = new longdo.Marker(point, {
+        weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
+        icon: {
+          html: '<div style="font-size:24px;line-height:1">&#128655;</div>',
+          offset: { x: 12, y: 12 }
+        }
+      });
+      mapObj.Overlays.add(marker);
+      stationMarkerOverlays.push(marker);
+    } catch(e) {
+      console.warn('Stop marker error:', e);
+    }
+
+    try {
+      var label = new longdo.Marker(point, {
+        weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
+        icon: {
+          html: '<div style="background:rgba(30,58,138,0.85);color:#fff;font-size:10px;font-weight:600;padding:3px 7px;border-radius:10px;white-space:nowrap;margin-top:2px">' + s.name + '</div>',
+          offset: { x: 10, y: -10 }
+        }
+      });
+      mapObj.Overlays.add(label);
+      stationMarkerOverlays.push(label);
+    } catch(e) {
+      console.warn('Stop label error:', e);
+    }
+  });
+  if (!skipEnsure) ensureStationMarkersVisible(routeData, 0);
+}
+
+function refreshMapSizeSafely() {
+  if (!mapObj) return;
+  setTimeout(function() {
+    try {
+      if (typeof mapObj.resize === 'function') mapObj.resize();
+    } catch(e){}
+  }, 300);
+}
+
+function ensureStationMarkersVisible(routeData, attempt) {
+  if (!mapObj || !routeData || !Array.isArray(routeData.stations)) return;
+  if (attempt >= 3) return;
+
+  setTimeout(function() {
+    var missingElement = stationMarkerOverlays.length < routeData.stations.length * 2 ||
+      stationMarkerOverlays.some(function(overlay) {
+        try {
+          return typeof overlay.element === 'function' && !overlay.element();
+        } catch(e) {
+          return false;
+        }
+      });
+
+    if (!missingElement) return;
+    renderStationMarkers(routeData, true);
+    try { if (typeof mapObj.repaint === 'function') mapObj.repaint(); } catch(e){}
+    refreshMapSizeSafely();
+    ensureStationMarkersVisible(routeData, attempt + 1);
+  }, attempt === 0 ? 300 : 800);
 }
 
 function startPassengerLocation() {
@@ -833,14 +942,16 @@ function updatePassengerOnMap(latlng, forceCenter) {
 }
 
 // ข้อ 4: เส้นทางตามถนน
-function drawRoute() {
-  if (!mapReady) return;
-  const stops = viewDir==='go' ? STOPS_GO : STOPS_BACK;
+function drawRoute(routeData) {
+  if (!mapReady) return Promise.resolve();
+  const stops = routeData && Array.isArray(routeData.stations) ? routeData.stations : (viewDir==='go' ? STOPS_GO : STOPS_BACK);
   const coords = stops.map(s=>`${s.lng},${s.lat}`).join(';');
+  const renderSeq = ++routeRenderSeq;
 
-  fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+  return fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
     .then(r=>r.json())
     .then(data=>{
+      if (renderSeq !== routeRenderSeq) return;
       if (data.routes?.[0]) {
         const pts = data.routes[0].geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}));
         if (routeLine) mapObj.Overlays.remove(routeLine);
@@ -852,6 +963,7 @@ function drawRoute() {
       }
     })
     .catch(()=>{
+      if (renderSeq !== routeRenderSeq) return;
       const pts = stops.map(s=>({lon:s.lng, lat:s.lat}));
       if (routeLine) mapObj.Overlays.remove(routeLine);
       routeLine = new longdo.Polyline(pts,{lineColor:'#1e40af',lineWidth:4});
@@ -1192,6 +1304,7 @@ function buildDropdowns(){
       if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
       buildDestOptions();
       renderSched(); renderNextBus();
+      refreshPassengerMapRoute();
       if (mapReady && !passengerCentered) focusSelectedOrigin();
     });
     originSel.dataset.bound = '1';
@@ -1201,6 +1314,7 @@ function buildDropdowns(){
     destSel.addEventListener('change', function(){
       selDest = this.value;
       renderSched(); renderNextBus();
+      refreshPassengerMapRoute();
     });
     destSel.dataset.bound = '1';
   }
@@ -1220,7 +1334,6 @@ db.ref('settings').on('value', function(snap) {
 db.ref('bus').on('value', function(snap){
   allBusPositions = snap.val() || {};
   lastPos = choosePrimaryBus(allBusPositions);
-  console.log('Firebase bus data received:', allBusPositions);
   renderStatus(lastPos);
   renderRouteStrip(lastPos);
   renderSched();
@@ -1228,8 +1341,6 @@ db.ref('bus').on('value', function(snap){
   updateLastUpdate(lastPos);
   if (mapReady && Object.keys(allBusPositions).length) {
     updateAllBusesOnMap(allBusPositions);
-  } else {
-    console.log('Map not ready yet, will retry. mapReady:', mapReady);
   }
 }, function(error) {
   console.error('Firebase bus listener error:', error && error.message ? error.message : error);
@@ -1249,22 +1360,26 @@ tick(); setInterval(tick,1000);
 fullRender(null);
 
 // Map init — รอ Longdo พร้อม แล้ว retry แสดงตำแหน่งรถ
-(function waitLongdo(){
-  if(window.longdo){
-    initMap();
-    // หลัง map init เสร็จ retry แสดงรถทุก 2 วินาที (กรณี Firebase เร็วกว่า map)
-    var retryCount = 0;
-    var retryTimer = setInterval(function(){
-      retryCount++;
-      if (mapReady && Object.keys(allBusPositions).length) {
-        updateAllBusesOnMap(allBusPositions);
-        clearInterval(retryTimer);
-      }
-      if (retryCount > 15) clearInterval(retryTimer); // หยุดหลัง 30 วินาที
-    }, 2000);
-  }
-  else { setTimeout(waitLongdo,300); }
-})();
+document.addEventListener('DOMContentLoaded', async function(){
+  await initPassengerMap();
+  const routeData = await loadPassengerRouteData();
+  await renderRoutePolyline(routeData);
+  renderStationMarkers(routeData);
+  refreshMapSizeSafely();
+  window.addEventListener('resize', refreshMapSizeSafely);
+
+  var retryCount = 0;
+  var retryTimer = setInterval(function(){
+    retryCount++;
+    renderStationMarkers(routeData);
+    refreshMapSizeSafely();
+    if (mapReady && Object.keys(allBusPositions).length) {
+      updateAllBusesOnMap(allBusPositions);
+      clearInterval(retryTimer);
+    }
+    if (retryCount > 15) clearInterval(retryTimer);
+  }, 2000);
+});
 </script>
 </body>
 </html>
