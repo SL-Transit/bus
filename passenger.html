@@ -668,6 +668,14 @@ function getLeg1Times(){
   return [];
 }
 
+function getLeg1TimesToTransferHub(origin, transferHubLabel) {
+  const pairTimes = getPairTimes(origin, transferHubLabel);
+  if (pairTimes) return pairTimes;
+  if (ADMIN_ROUTE_SOURCE_LOADED) return [];
+  if (ROUTES[origin]) return ROUTES[origin].times;
+  return [];
+}
+
 function applyPassengerRouteSettings(data) {
   const routesData = data && data.routes ? data.routes : null;
   if (!routesData) return;
@@ -1165,7 +1173,7 @@ function renderSched() {
   if(isLeg2Dest(dest)){
     const transferHubLabel = 'ฉะเชิงเทรา (แปดริ้ว)';
     const startsAtTransferHub = normalizeRouteAlias(origin) === transferHubLabel || cleanRouteLabel(origin) === cleanRouteLabel(transferHubLabel);
-    const leg1Times = startsAtTransferHub ? [] : getLeg1Times();
+    const leg1Times = startsAtTransferHub ? [] : getLeg1TimesToTransferHub(origin, transferHubLabel);
     const leg2Times = getPairTimes(transferHubLabel, dest) || getPairTimes(origin, dest) || LEG2_DESTINATIONS[dest].leg2Times;
 
     // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
