@@ -593,7 +593,7 @@ function choosePrimaryBus(buses) {
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {
   if (!navigator.geolocation) {
-    focusSelectedOrigin();
+    console.warn('Passenger geolocation is not supported.');
     return Promise.resolve(null);
   }
 
@@ -608,7 +608,6 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
       resolve(current);
     }, function(err) {
       console.warn('Passenger current location error:', err && err.message ? err.message : err);
-      focusSelectedOrigin();
       resolve(null);
     }, {
       enableHighAccuracy: true,
@@ -738,6 +737,14 @@ function applyTestModeUI() {
   if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
 }
 
+function triggerLongdoGeolocation() {
+  try {
+    mapObj.Ui.Geolocation._geolocateButton.click();
+  } catch(e) {
+    console.warn('Longdo geolocation trigger failed:', e && e.message ? e.message : e);
+  }
+}
+
 // ===== LONGDO MAP =====
 function initMap() {
   if (mapInitPromise) return mapInitPromise;
@@ -770,6 +777,7 @@ function initMap() {
           resolved = true;
           mapReady = true;
           refreshMapSizeSafely();
+          triggerLongdoGeolocation();
           startPassengerLocation();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
           if (Object.keys(allBusPositions).length) {
