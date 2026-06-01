@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ตารางเวลาและบริการเส้นรถประจำทาง – Smart Transit</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 :root {
@@ -73,10 +74,17 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 
 /* ===== MAP ===== */
 #map { height:280px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); overflow:hidden; background:#e8edf3; position:relative; }
-#map .ldc-widget:not(.ldc-geolocation),
-#map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
-#map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
-#map .ldmap-crosshair { display:none !important; }
+.leaflet-container { font-family:'Kanit',sans-serif; background:#f4f6f8; }
+.leaflet-control-attribution { font-size:10px; }
+.leaflet-control-zoom { border:none !important; box-shadow:0 1px 5px rgba(15,23,42,.16); }
+.leaflet-control-zoom a { color:#1d4ed8 !important; border-color:#e2e8f0 !important; }
+.leaflet-marker-icon { overflow:visible; }
+.leaflet-div-icon { background:transparent; border:none; }
+.map-stop-icon { font-size:22px; line-height:1; filter:drop-shadow(0 2px 3px rgba(15,23,42,.28)); }
+.map-stop-label { background:rgba(30,58,138,.92); color:#fff; font-size:10px; font-weight:700; padding:3px 7px; border-radius:10px; white-space:nowrap; box-shadow:0 2px 6px rgba(15,23,42,.2); }
+.map-bus-icon { width:34px; height:34px; border-radius:50%; background:#f97316; border:3px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; color:#fff; font-size:19px; line-height:1; }
+.map-bus-label { background:#f97316; color:#fff; font-size:12px; font-weight:700; padding:5px 10px; border-radius:16px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+.map-passenger-marker { width:20px; height:20px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 4px rgba(37,99,235,.22),0 2px 8px rgba(0,0,0,.28); }
 
 /* ===== ROUTE STRIP ===== */
 .route-card {
@@ -564,10 +572,7 @@ function normalizeMapPoint(point) {
 
 function focusMap(point, zoomLevel) {
   if (!mapObj || !point) return;
-  mapObj.location(point, true);
-  if (zoomLevel) {
-    setTimeout(function(){ mapObj.zoom(zoomLevel, true); }, 80);
-  }
+  mapObj.setView([point.lat, point.lon], zoomLevel || mapObj.getZoom(), { animate: true });
 }
 
 function getStopByName(name) {
@@ -737,14 +742,6 @@ function applyTestModeUI() {
   if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
 }
 
-function triggerLongdoGeolocation() {
-  try {
-    mapObj.Ui.Geolocation._geolocateButton.click();
-  } catch(e) {
-    console.warn('Longdo geolocation trigger failed:', e && e.message ? e.message : e);
-  }
-}
-
 function forceFocusSelectedOriginAfterMapReady() {
   if (!mapReady || !mapObj) return;
 
@@ -756,65 +753,35 @@ function forceFocusSelectedOriginAfterMapReady() {
 
   setTimeout(function () {
     try {
-      mapObj.location(point, true);
-      mapObj.zoom(14, true);
+      mapObj.setView([point.lat, point.lon], 14, { animate: true });
     } catch (e) {
       console.warn('Force focus selected origin failed:', e);
     }
   }, 500);
 }
 
-// ===== LONGDO MAP =====
+// ===== LEAFLET MAP =====
 function initMap() {
   if (mapInitPromise) return mapInitPromise;
   try {
-    mapObj = new longdo.Map({
-      placeholder: document.getElementById('map'),
-      zoom: 10,
-      location: { lon:101.245, lat:13.710 },
-    });
+    mapObj = L.map('map', {
+      zoomControl: true,
+      attributionControl: true,
+      scrollWheelZoom: true
+    }).setView([13.710, 101.245], 10);
 
-    mapReady = false;
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(mapObj);
 
-    // ซ่อน UI ทุกตัว เหลือแค่ Geolocation
-    mapInitPromise = new Promise(function(resolve) {
-      var resolved = false;
-      function onMapReady() {
-        if (resolved) return;
-
-      try { mapObj.Ui.DPad.visible(false); } catch(e){}
-      try { mapObj.Ui.Zoombar.visible(false); } catch(e){}
-      try { mapObj.Ui.Toolbar.visible(false); } catch(e){}
-      try { mapObj.Ui.LayerSelector.visible(false); } catch(e){}
-      try { mapObj.Ui.Fullscreen.visible(false); } catch(e){}
-      try { mapObj.Ui.Scale.visible(false); } catch(e){}
-      try { mapObj.Ui.Crosshair.visible(false); } catch(e){}
-      try { mapObj.Ui.Geolocation.visible(true); } catch(e){}
-
-        function finishMapReady() {
-          if (resolved) return;
-          resolved = true;
-          mapReady = true;
-          refreshMapSizeSafely();
-    // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
-          if (Object.keys(allBusPositions).length) {
-            updateAllBusesOnMap(allBusPositions);
-          }
-          resolve(mapObj);
-        }
-
-        try {
-          mapObj.Event.bind('idle', finishMapReady);
-        } catch(e) {}
-        setTimeout(finishMapReady, 1500);
-      }
-
-      try {
-        mapObj.Event.bind('ready', onMapReady);
-      } catch(e) {
-        setTimeout(onMapReady, 800);
-      }
-    });
+    stationMarkerOverlays = L.layerGroup().addTo(mapObj);
+    mapReady = true;
+    refreshMapSizeSafely();
+    if (Object.keys(allBusPositions).length) {
+      updateAllBusesOnMap(allBusPositions);
+    }
+    mapInitPromise = Promise.resolve(mapObj);
   } catch(e) {
     console.error('Map error:', e);
     mapInitPromise = Promise.resolve(null);
@@ -823,15 +790,7 @@ function initMap() {
 }
 
 function initPassengerMap() {
-  return new Promise(function(resolve) {
-    (function waitLongdoReady(){
-      if (window.longdo) {
-        initMap().then(resolve);
-        return;
-      }
-      setTimeout(waitLongdoReady, 300);
-    })();
-  });
+  return initMap();
 }
 
 function loadPassengerRouteData() {
@@ -853,11 +812,8 @@ async function refreshPassengerMapRoute() {
 }
 
 function clearStationMarkers() {
-  if (!mapObj || !stationMarkerOverlays.length) return;
-  stationMarkerOverlays.forEach(function(overlay) {
-    try { mapObj.Overlays.remove(overlay); } catch(e){}
-  });
-  stationMarkerOverlays = [];
+  if (!stationMarkerOverlays) return;
+  stationMarkerOverlays.clearLayers();
 }
 
 function renderStationMarkers(routeData, skipEnsure) {
@@ -869,66 +825,40 @@ function renderStationMarkers(routeData, skipEnsure) {
     var point = normalizeMapPoint(s);
     if (!point) return;
 
-    try {
-      var marker = new longdo.Marker(point, {
-        weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-        icon: {
-          html: '<div style="font-size:24px;line-height:1">&#128655;</div>',
-          offset: { x: 12, y: 12 }
-        }
-      });
-      mapObj.Overlays.add(marker);
-      stationMarkerOverlays.push(marker);
-    } catch(e) {
-      console.warn('Stop marker error:', e);
-    }
+    var marker = L.marker([point.lat, point.lon], {
+      icon: L.divIcon({
+        className: 'leaflet-div-icon',
+        html: '<div class="map-stop-icon">&#128655;</div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      })
+    });
+    stationMarkerOverlays.addLayer(marker);
 
-    try {
-      var label = new longdo.Marker(point, {
-        weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-        icon: {
-          html: '<div style="background:rgba(30,58,138,0.85);color:#fff;font-size:10px;font-weight:600;padding:3px 7px;border-radius:10px;white-space:nowrap;margin-top:2px">' + s.name + '</div>',
-          offset: { x: 10, y: -10 }
-        }
-      });
-      mapObj.Overlays.add(label);
-      stationMarkerOverlays.push(label);
-    } catch(e) {
-      console.warn('Stop label error:', e);
-    }
+    var label = L.marker([point.lat, point.lon], {
+      icon: L.divIcon({
+        className: 'leaflet-div-icon',
+        html: '<div class="map-stop-label">' + s.name + '</div>',
+        iconSize: [1, 1],
+        iconAnchor: [-8, 28]
+      }),
+      interactive: false
+    });
+    stationMarkerOverlays.addLayer(label);
   });
-  if (!skipEnsure) ensureStationMarkersVisible(routeData, 0);
 }
 
 function refreshMapSizeSafely() {
   if (!mapObj) return;
   setTimeout(function() {
     try {
-      if (typeof mapObj.resize === 'function') mapObj.resize();
+      mapObj.invalidateSize();
     } catch(e){}
   }, 300);
 }
 
 function ensureStationMarkersVisible(routeData, attempt) {
-  if (!mapObj || !routeData || !Array.isArray(routeData.stations)) return;
-  if (attempt >= 3) return;
-
-  setTimeout(function() {
-    var missingElement = stationMarkerOverlays.length < routeData.stations.length * 2 ||
-      stationMarkerOverlays.some(function(overlay) {
-        try {
-          return typeof overlay.element === 'function' && !overlay.element();
-        } catch(e) {
-          return false;
-        }
-      });
-
-    if (!missingElement) return;
-    renderStationMarkers(routeData, true);
-    try { if (typeof mapObj.repaint === 'function') mapObj.repaint(); } catch(e){}
-    refreshMapSizeSafely();
-    ensureStationMarkersVisible(routeData, attempt + 1);
-  }, attempt === 0 ? 300 : 800);
+  refreshMapSizeSafely();
 }
 
 function startPassengerLocation() {
@@ -962,16 +892,17 @@ function updatePassengerOnMap(latlng, forceCenter) {
   latlng = normalizeMapPoint(latlng);
   if (!mapReady || !mapObj || !latlng) return;
 
-  try { if (passengerMarker) mapObj.Overlays.remove(passengerMarker); } catch(e){}
+  try { if (passengerMarker) mapObj.removeLayer(passengerMarker); } catch(e){}
 
-  passengerMarker = new longdo.Marker(latlng, {
+  passengerMarker = L.marker([latlng.lat, latlng.lon], {
     title: 'ตำแหน่งของคุณ',
-    icon: {
-      html: '<div style="width:20px;height:20px;border-radius:50%;background:#2563eb;border:4px solid #fff;box-shadow:0 0 0 4px rgba(37,99,235,.22),0 2px 8px rgba(0,0,0,.28)"></div>',
-      offset: { x: 10, y: 10 }
-    }
-  });
-  mapObj.Overlays.add(passengerMarker);
+    icon: L.divIcon({
+      className: 'leaflet-div-icon',
+      html: '<div class="map-passenger-marker"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    })
+  }).addTo(mapObj);
 
   if (forceCenter || !passengerCentered) {
     focusMap(latlng, 15);
@@ -979,33 +910,31 @@ function updatePassengerOnMap(latlng, forceCenter) {
   }
 }
 
-// ข้อ 4: เส้นทางตามถนน
 function drawRoute(routeData) {
   if (!mapReady) return Promise.resolve();
   const stops = routeData && Array.isArray(routeData.stations) ? routeData.stations : (viewDir==='go' ? STOPS_GO : STOPS_BACK);
-  const coords = stops.map(s=>`${s.lng},${s.lat}`).join(';');
+  const coords = stops.map(function(s){ return s.lng + ',' + s.lat; }).join(';');
   const renderSeq = ++routeRenderSeq;
 
-  return fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+  return fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson')
     .then(r=>r.json())
     .then(data=>{
       if (renderSeq !== routeRenderSeq) return;
       if (data.routes?.[0]) {
-        const pts = data.routes[0].geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}));
-        if (routeLine) mapObj.Overlays.remove(routeLine);
-        routeLine = new longdo.Polyline(pts, {
-          lineColor: viewDir==='go'?'#1e40af':'#dc2626',
-          lineWidth:5, lineOpacity:0.8
-        });
-        mapObj.Overlays.add(routeLine);
+        const pts = data.routes[0].geometry.coordinates.map(c=>[c[1], c[0]]);
+        if (routeLine) mapObj.removeLayer(routeLine);
+        routeLine = L.polyline(pts, {
+          color: viewDir==='go'?'#1e40af':'#dc2626',
+          weight: 5,
+          opacity: 0.85
+        }).addTo(mapObj);
       }
     })
     .catch(()=>{
       if (renderSeq !== routeRenderSeq) return;
-      const pts = stops.map(s=>({lon:s.lng, lat:s.lat}));
-      if (routeLine) mapObj.Overlays.remove(routeLine);
-      routeLine = new longdo.Polyline(pts,{lineColor:'#1e40af',lineWidth:4});
-      mapObj.Overlays.add(routeLine);
+      const pts = stops.map(s=>[s.lat, s.lng]);
+      if (routeLine) mapObj.removeLayer(routeLine);
+      routeLine = L.polyline(pts,{ color:'#1e40af', weight:4, opacity:0.85 }).addTo(mapObj);
     });
 }
 
@@ -1029,30 +958,30 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   }
   if (!latlng) return;
 
-  // ลบ marker เดิม
-  try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e){}
-  try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e){}
+  try { if (busMarkers[carId]) mapObj.removeLayer(busMarkers[carId]); } catch(e){}
+  try { if (busTagMarkers[carId]) mapObj.removeLayer(busTagMarkers[carId]); } catch(e){}
 
   var label = String(carId).replace(/^car/i, 'รถ ');
-  busMarkers[carId] = new longdo.Marker(latlng, {
-  title: 'รถโดยสาร ' + label,
-  icon: {
-    html: '<div style="width:34px;height:34px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;line-height:1">🚌</div>',
-    offset: { x: 17, y: 17 }
-  }
-});
-  mapObj.Overlays.add(busMarkers[carId]);
+  busMarkers[carId] = L.marker([latlng.lat, latlng.lon], {
+    title: 'รถโดยสาร ' + label,
+    icon: L.divIcon({
+      className: 'leaflet-div-icon',
+      html: '<div class="map-bus-icon">&#128652;</div>',
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    })
+  }).addTo(mapObj);
 
-  // เพิ่ม tag HTML กำกับตำแหน่ง
-  busTagMarkers[carId] = new longdo.Marker(latlng, {
-    icon: {
-      html: '<div style="background:#f97316;color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:16px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚌 ' + label + '</div>',
-      offset: { x: 10, y: -20 }
-    }
-  });
-  mapObj.Overlays.add(busTagMarkers[carId]);
+  busTagMarkers[carId] = L.marker([latlng.lat, latlng.lon], {
+    icon: L.divIcon({
+      className: 'leaflet-div-icon',
+      html: '<div class="map-bus-label">&#128652; ' + label + '</div>',
+      iconSize: [1, 1],
+      iconAnchor: [-10, 38]
+    }),
+    interactive: false
+  }).addTo(mapObj);
 
-  // หน้าผู้โดยสารต้องเห็นรถเรียลไทม์เป็นหลัก แม้ตำแหน่งผู้ใช้จะใช้ไม่ได้
   if (shouldFocus && (busFollowMode || !busCentered)) {
     focusMap(latlng, 14);
     busCentered = true;
@@ -1390,7 +1319,7 @@ function tick() {
 tick(); setInterval(tick,1000);
 fullRender(null);
 
-// Map init — รอ Longdo พร้อม แล้ว retry แสดงตำแหน่งรถ
+// Map init — รอ Leaflet พร้อม แล้ว retry แสดงตำแหน่งรถ
 document.addEventListener('DOMContentLoaded', async function(){
   await initPassengerMap();
   const routeData = await loadPassengerRouteData();
@@ -1400,7 +1329,6 @@ document.addEventListener('DOMContentLoaded', async function(){
   forceFocusSelectedOriginAfterMapReady();
 
   setTimeout(function () {
-    triggerLongdoGeolocation();
     requestPassengerCurrentLocation(true, false);
   }, 1500);
 
