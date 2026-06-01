@@ -989,14 +989,6 @@ function updateAllBusesOnMap(buses) {
   Object.keys(buses || {}).forEach(function(id) {
     updateBusOnMap(buses[id], id, false);
   });
-  var primary = choosePrimaryBus(buses);
-  if (primary && (busFollowMode || !busCentered)) {
-    var point = normalizeMapPoint(primary);
-    if (point) {
-      focusMap(point, 14);
-      busCentered = true;
-    }
-  }
 }
 
 function updateBusOnMap(pos, carId, shouldFocus) {
