@@ -745,6 +745,25 @@ function triggerLongdoGeolocation() {
   }
 }
 
+function forceFocusSelectedOriginAfterMapReady() {
+  if (!mapReady || !mapObj) return;
+
+  const stop = getStopByName(selOrigin);
+  if (!stop) return;
+
+  const point = normalizeMapPoint(stop);
+  if (!point) return;
+
+  setTimeout(function () {
+    try {
+      mapObj.location(point, true);
+      mapObj.zoom(14, true);
+    } catch (e) {
+      console.warn('Force focus selected origin failed:', e);
+    }
+  }, 500);
+}
+
 // ===== LONGDO MAP =====
 function initMap() {
   if (mapInitPromise) return mapInitPromise;
@@ -777,8 +796,6 @@ function initMap() {
           resolved = true;
           mapReady = true;
           refreshMapSizeSafely();
-          triggerLongdoGeolocation();
-          startPassengerLocation();
     // ถ้า Firebase ส่งข้อมูลมาก่อนที่ map จะพร้อม ให้แสดงทันที
           if (Object.keys(allBusPositions).length) {
             updateAllBusesOnMap(allBusPositions);
@@ -1380,6 +1397,13 @@ document.addEventListener('DOMContentLoaded', async function(){
   await renderRoutePolyline(routeData);
   renderStationMarkers(routeData);
   refreshMapSizeSafely();
+  forceFocusSelectedOriginAfterMapReady();
+
+  setTimeout(function () {
+    triggerLongdoGeolocation();
+    requestPassengerCurrentLocation(true, false);
+  }, 1500);
+
   window.addEventListener('resize', refreshMapSizeSafely);
 
   var retryCount = 0;
