@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ตารางเวลาและบริการเส้นรถประจำทาง – Smart Transit</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 :root {
@@ -74,13 +74,11 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 
 /* ===== MAP ===== */
 #map { height:280px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); overflow:hidden; background:#e8edf3; position:relative; }
-.leaflet-container { font-family:'Kanit',sans-serif; background:#f7f8fa; }
-.leaflet-tile-pane img { filter:saturate(0.48) contrast(0.92) brightness(1.12) sepia(0.08); }
-.leaflet-control-attribution { font-size:10px; }
-.leaflet-control-zoom { border:none !important; box-shadow:0 1px 5px rgba(15,23,42,.16); }
-.leaflet-control-zoom a { color:#1d4ed8 !important; border-color:#e2e8f0 !important; }
-.leaflet-marker-icon { overflow:visible; }
-.leaflet-div-icon { background:transparent; border:none; }
+#map .mapboxgl-canvas { border-radius:12px; }
+.mapboxgl-map { font-family:'Kanit',sans-serif; background:#f7f8fa; }
+.mapboxgl-ctrl-attrib { font-size:10px; }
+.mapboxgl-ctrl-group { border:none !important; box-shadow:0 1px 5px rgba(15,23,42,.16) !important; }
+.mapboxgl-ctrl-group button { color:#1d4ed8 !important; border-color:#e2e8f0 !important; }
 .map-stop-icon { font-size:22px; line-height:1; filter:drop-shadow(0 2px 3px rgba(15,23,42,.28)); }
 .map-stop-label { background:rgba(30,58,138,.92); color:#fff; font-size:10px; font-weight:700; padding:3px 7px; border-radius:10px; white-space:nowrap; box-shadow:0 2px 6px rgba(15,23,42,.2); }
 .map-bus-icon { width:34px; height:34px; border-radius:50%; background:#f97316; border:3px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; color:#fff; font-size:19px; line-height:1; }
@@ -556,6 +554,7 @@ let stationMarkerOverlays=[];
 let routeRenderSeq=0;
 let mapInitPromise=null;
 let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
+let followUser=true;
 let busFollowMode=true, busCentered=false;
 
 // ===== HELPERS =====
@@ -573,7 +572,11 @@ function normalizeMapPoint(point) {
 
 function focusMap(point, zoomLevel) {
   if (!mapObj || !point) return;
-  mapObj.setView([point.lat, point.lon], zoomLevel || mapObj.getZoom(), { animate: true });
+  mapObj.easeTo({
+    center: [point.lon, point.lat],
+    zoom: zoomLevel || mapObj.getZoom(),
+    duration: 600
+  });
 }
 
 function getStopByName(name) {
@@ -754,35 +757,39 @@ function forceFocusSelectedOriginAfterMapReady() {
 
   setTimeout(function () {
     try {
-      mapObj.setView([point.lat, point.lon], 14, { animate: true });
+      focusMap(point, 14);
     } catch (e) {
       console.warn('Force focus selected origin failed:', e);
     }
   }, 500);
 }
 
-// ===== LEAFLET MAP =====
+// ===== MAPBOX MAP =====
 function initMap() {
   if (mapInitPromise) return mapInitPromise;
   try {
-    mapObj = L.map('map', {
-      zoomControl: true,
-      attributionControl: true,
-      scrollWheelZoom: true
-    }).setView([13.710, 101.245], 10);
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic2FrdW5kZWNoIiwiYSI6ImNtcHhmaDkycjA2eGQyc3Iwc2lmanF0dmwifQ' + '.aiGmXhw_ZJWVICXHN12fYg';
+    stationMarkerOverlays = [];
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-    }).addTo(mapObj);
+    mapObj = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [101.245, 13.710],
+      zoom: 10,
+      attributionControl: true
+    });
+    mapObj.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
 
-    stationMarkerOverlays = L.layerGroup().addTo(mapObj);
-    mapReady = true;
-    refreshMapSizeSafely();
-    if (Object.keys(allBusPositions).length) {
-      updateAllBusesOnMap(allBusPositions);
-    }
-    mapInitPromise = Promise.resolve(mapObj);
+    mapInitPromise = new Promise(function(resolve) {
+      mapObj.on('load', function() {
+        mapReady = true;
+        refreshMapSizeSafely();
+        if (Object.keys(allBusPositions).length) {
+          updateAllBusesOnMap(allBusPositions);
+        }
+        resolve(mapObj);
+      });
+    });
   } catch(e) {
     console.error('Map error:', e);
     mapInitPromise = Promise.resolve(null);
@@ -814,7 +821,10 @@ async function refreshPassengerMapRoute() {
 
 function clearStationMarkers() {
   if (!stationMarkerOverlays) return;
-  stationMarkerOverlays.clearLayers();
+  stationMarkerOverlays.forEach(function(marker) {
+    try { marker.remove(); } catch(e){}
+  });
+  stationMarkerOverlays = [];
 }
 
 function renderStationMarkers(routeData, skipEnsure) {
@@ -826,26 +836,21 @@ function renderStationMarkers(routeData, skipEnsure) {
     var point = normalizeMapPoint(s);
     if (!point) return;
 
-    var marker = L.marker([point.lat, point.lon], {
-      icon: L.divIcon({
-        className: 'leaflet-div-icon',
-        html: '<div class="map-stop-icon">&#128655;</div>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
-      })
-    });
-    stationMarkerOverlays.addLayer(marker);
+    var markerEl = document.createElement('div');
+    markerEl.className = 'map-stop-icon';
+    markerEl.innerHTML = '&#128655;';
+    var marker = new mapboxgl.Marker({ element: markerEl, anchor: 'center' })
+      .setLngLat([point.lon, point.lat])
+      .addTo(mapObj);
+    stationMarkerOverlays.push(marker);
 
-    var label = L.marker([point.lat, point.lon], {
-      icon: L.divIcon({
-        className: 'leaflet-div-icon',
-        html: '<div class="map-stop-label">' + s.name + '</div>',
-        iconSize: [1, 1],
-        iconAnchor: [-8, 28]
-      }),
-      interactive: false
-    });
-    stationMarkerOverlays.addLayer(label);
+    var labelEl = document.createElement('div');
+    labelEl.className = 'map-stop-label';
+    labelEl.textContent = s.name;
+    var label = new mapboxgl.Marker({ element: labelEl, anchor: 'top-left', offset: [8, 16] })
+      .setLngLat([point.lon, point.lat])
+      .addTo(mapObj);
+    stationMarkerOverlays.push(label);
   });
 }
 
@@ -853,7 +858,7 @@ function refreshMapSizeSafely() {
   if (!mapObj) return;
   setTimeout(function() {
     try {
-      mapObj.invalidateSize();
+      mapObj.resize();
     } catch(e){}
   }, 300);
 }
@@ -893,19 +898,17 @@ function updatePassengerOnMap(latlng, forceCenter) {
   latlng = normalizeMapPoint(latlng);
   if (!mapReady || !mapObj || !latlng) return;
 
-  try { if (passengerMarker) mapObj.removeLayer(passengerMarker); } catch(e){}
+  if (passengerMarker) {
+    passengerMarker.setLngLat([latlng.lon, latlng.lat]);
+  } else {
+    var passengerEl = document.createElement('div');
+    passengerEl.className = 'map-passenger-marker';
+    passengerMarker = new mapboxgl.Marker({ element: passengerEl, anchor: 'center' })
+      .setLngLat([latlng.lon, latlng.lat])
+      .addTo(mapObj);
+  }
 
-  passengerMarker = L.marker([latlng.lat, latlng.lon], {
-    title: 'ตำแหน่งของคุณ',
-    icon: L.divIcon({
-      className: 'leaflet-div-icon',
-      html: '<div class="map-passenger-marker"></div>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    })
-  }).addTo(mapObj);
-
-  if (forceCenter || !passengerCentered) {
+  if ((forceCenter || !passengerCentered) && followUser) {
     focusMap(latlng, 15);
     passengerCentered = true;
   }
@@ -917,25 +920,44 @@ function drawRoute(routeData) {
   const coords = stops.map(function(s){ return s.lng + ',' + s.lat; }).join(';');
   const renderSeq = ++routeRenderSeq;
 
+  function setRouteLine(coordinates) {
+    if (renderSeq !== routeRenderSeq) return;
+    const geojson = {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: coordinates },
+      properties: {}
+    };
+
+    if (mapObj.getSource('route-line')) {
+      mapObj.getSource('route-line').setData(geojson);
+      return;
+    }
+
+    mapObj.addSource('route-line', { type: 'geojson', data: geojson });
+    mapObj.addLayer({
+      id: 'route-line',
+      type: 'line',
+      source: 'route-line',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': viewDir==='go' ? '#1e40af' : '#dc2626',
+        'line-width': 5,
+        'line-opacity': 0.85
+      }
+    });
+    routeLine = true;
+  }
+
   return fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson')
     .then(r=>r.json())
     .then(data=>{
-      if (renderSeq !== routeRenderSeq) return;
       if (data.routes?.[0]) {
-        const pts = data.routes[0].geometry.coordinates.map(c=>[c[1], c[0]]);
-        if (routeLine) mapObj.removeLayer(routeLine);
-        routeLine = L.polyline(pts, {
-          color: viewDir==='go'?'#1e40af':'#dc2626',
-          weight: 5,
-          opacity: 0.85
-        }).addTo(mapObj);
+        setRouteLine(data.routes[0].geometry.coordinates);
       }
     })
     .catch(()=>{
-      if (renderSeq !== routeRenderSeq) return;
-      const pts = stops.map(s=>[s.lat, s.lng]);
-      if (routeLine) mapObj.removeLayer(routeLine);
-      routeLine = L.polyline(pts,{ color:'#1e40af', weight:4, opacity:0.85 }).addTo(mapObj);
+      const pts = stops.map(s=>[s.lng, s.lat]);
+      setRouteLine(pts);
     });
 }
 
@@ -959,29 +981,30 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   }
   if (!latlng) return;
 
-  try { if (busMarkers[carId]) mapObj.removeLayer(busMarkers[carId]); } catch(e){}
-  try { if (busTagMarkers[carId]) mapObj.removeLayer(busTagMarkers[carId]); } catch(e){}
-
+  var lngLat = [latlng.lon, latlng.lat];
   var label = String(carId).replace(/^car/i, 'รถ ');
-  busMarkers[carId] = L.marker([latlng.lat, latlng.lon], {
-    title: 'รถโดยสาร ' + label,
-    icon: L.divIcon({
-      className: 'leaflet-div-icon',
-      html: '<div class="map-bus-icon">&#128652;</div>',
-      iconSize: [34, 34],
-      iconAnchor: [17, 17]
-    })
-  }).addTo(mapObj);
 
-  busTagMarkers[carId] = L.marker([latlng.lat, latlng.lon], {
-    icon: L.divIcon({
-      className: 'leaflet-div-icon',
-      html: '<div class="map-bus-label">&#128652; ' + label + '</div>',
-      iconSize: [1, 1],
-      iconAnchor: [-10, 38]
-    }),
-    interactive: false
-  }).addTo(mapObj);
+  if (busMarkers[carId]) {
+    busMarkers[carId].setLngLat(lngLat);
+  } else {
+    var busEl = document.createElement('div');
+    busEl.className = 'map-bus-icon';
+    busEl.innerHTML = '&#128652;';
+    busMarkers[carId] = new mapboxgl.Marker({ element: busEl, anchor: 'center' })
+      .setLngLat(lngLat)
+      .addTo(mapObj);
+  }
+
+  if (busTagMarkers[carId]) {
+    busTagMarkers[carId].setLngLat(lngLat);
+  } else {
+    var tagEl = document.createElement('div');
+    tagEl.className = 'map-bus-label';
+    tagEl.innerHTML = '&#128652; ' + label;
+    busTagMarkers[carId] = new mapboxgl.Marker({ element: tagEl, anchor: 'top-left', offset: [10, 20] })
+      .setLngLat(lngLat)
+      .addTo(mapObj);
+  }
 
   if (shouldFocus && (busFollowMode || !busCentered)) {
     focusMap(latlng, 14);
@@ -1320,7 +1343,7 @@ function tick() {
 tick(); setInterval(tick,1000);
 fullRender(null);
 
-// Map init — รอ Leaflet พร้อม แล้ว retry แสดงตำแหน่งรถ
+// Map init — รอ Mapbox พร้อม แล้ว retry แสดงตำแหน่งรถ
 document.addEventListener('DOMContentLoaded', async function(){
   await initPassengerMap();
   const routeData = await loadPassengerRouteData();
