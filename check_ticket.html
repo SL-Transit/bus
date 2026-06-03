@@ -176,6 +176,37 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
       margin-bottom: 16px;
     }
+    .lookup-panel {
+      position: relative;
+      z-index: 5;
+      background: #1f2937;
+      color: #f8fafc;
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, .18);
+      padding: 18px;
+    }
+    .lookup-panel h1 { color: #fff; font-size: 24px; margin-bottom: 4px; }
+    .lookup-panel .lead { color: #cbd5e1; font-size: 15px; margin-bottom: 12px; line-height: 1.55; }
+    .lookup-panel label { color: #e2e8f0; font-size: 15px; margin-bottom: 6px; }
+    .lookup-panel input {
+      background: #0f172a;
+      color: #fff;
+      border-color: #475569;
+      min-height: 52px;
+      padding: 12px 14px;
+    }
+    .lookup-panel input:focus { background: #0f172a; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
+    .lookup-panel button { min-height: 52px; padding: 12px 18px; }
+    .tracking-page .lookup-panel {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      top: 16px;
+      margin: 0;
+      border-radius: 14px;
+      background: rgba(31,41,55,.92);
+      backdrop-filter: blur(10px);
+    }
     .tracking-map { position: absolute; inset: 0 0 34%; background: #101826; }
     .tracking-map::after {
       content: "";
@@ -316,24 +347,23 @@
     </div>
     <div id="testModeStatus" class="test-mode-status">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และอ่าน/เขียนเฉพาะข้อมูลทดสอบ</div>
 
-    <section class="panel">
-      <h1>ตรวจสอบ / เช็คอิน / ยกเลิกตั๋ว</h1>
-      <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว ระบบจะแสดงเฉพาะข้อมูลการจองของผู้โดยสารคนนั้น</p>
-      <div class="search-grid">
-        <div class="field">
-          <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
-          <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
-        </div>
-        <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
-      </div>
-      <div id="lookupStatus" class="status info hidden"></div>
-    </section>
-
-    <section id="trackingPage" class="tracking-page hidden">
+    <section id="trackingPage" class="tracking-page">
       <div id="trackingMap" class="tracking-map"></div>
-      <div id="trackingMapBadge" class="tracking-map-badge">รอตำแหน่งรถ</div>
-      <button id="cancelTicketButton" class="tracking-cancel" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
-      <div id="trackingBottomSheet" class="tracking-bottom-sheet">
+      <section id="lookupPanel" class="panel lookup-panel">
+        <h1>ตรวจสอบตั๋ว</h1>
+        <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว เพื่อดูรถที่เกี่ยวข้องกับการจองของคุณ</p>
+        <div class="search-grid">
+          <div class="field">
+            <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
+            <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
+          </div>
+          <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
+        </div>
+        <div id="lookupStatus" class="status info hidden"></div>
+      </section>
+      <div id="trackingMapBadge" class="tracking-map-badge hidden">รอตำแหน่งรถ</div>
+      <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
+      <div id="trackingBottomSheet" class="tracking-bottom-sheet hidden">
         <div class="tracking-sheet-head">
           <div>
             <h2 class="tracking-title"><span class="tracking-title-icon">🚐</span>รายละเอียดการจอง</h2>
@@ -603,7 +633,8 @@
     function lookupTicket() {
       var value = normalizeLookup(document.getElementById('lookupValue').value);
       var btn = document.getElementById('btnLookup');
-      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false); show('trackingPage', false);
+      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
+      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingMapBadge', false); show('lookupPanel', true);
       stopTrackingSubscription();
       resetFlexibleTracking();
 
@@ -923,10 +954,14 @@
 
     function renderTrackingLayout() {
       if (!currentBooking) return;
+      show('lookupPanel', false);
       show('ticketPanel', false);
       show('checkinPanel', false);
       show('cancelPanel', false);
       show('trackingPage', true);
+      show('trackingBottomSheet', true);
+      show('cancelTicketButton', true);
+      show('trackingMapBadge', true);
       renderPassengerTrackingCard();
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
@@ -2006,6 +2041,7 @@
     document.getElementById('lookupValue').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') lookupTicket();
     });
+    initTrackingMap();
 
     var params = new URLSearchParams(location.search);
     var initial = params.get('code') || params.get('phone');
