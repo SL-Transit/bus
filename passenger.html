@@ -854,7 +854,7 @@ function setFollowUser(nextValue) {
   if (followUser && passengerPos) {
     focusMap(passengerPos, 15, false);
   } else if (followUser) {
-    triggerLongdoGeolocation();
+    requestPassengerCurrentLocation(true, false);
   }
 }
 
@@ -1105,19 +1105,6 @@ function applyTestModeUI() {
   if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
 }
 
-function triggerLongdoGeolocation() {
-  try {
-    if (mapObj && window.longdo && longdo.LocationMode) {
-      var mode = longdo.GeolocationMode && longdo.GeolocationMode.ZoomToMarker
-        ? longdo.GeolocationMode.ZoomToMarker
-        : true;
-      mapObj.location(longdo.LocationMode.Geolocation, mode);
-    }
-  } catch(e) {
-    console.warn('Longdo geolocation trigger failed:', e && e.message ? e.message : e);
-  }
-}
-
 window.selectPassengerStop = function(stopIndex) {
   var stop = curStops()[stopIndex];
   if (!stop) return;
@@ -1186,7 +1173,6 @@ function initMap() {
         console.log('Longdo map loaded');
         refreshMapSizeSafely();
         bindManualMapInteractionPause();
-        triggerLongdoGeolocation();
         if (Object.keys(allBusPositions).length) updateAllBusesOnMap(allBusPositions);
         resolve(mapObj);
       }
