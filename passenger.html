@@ -334,6 +334,217 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   .bus-list-item { align-items:flex-start; flex-wrap:wrap; gap:6px 8px; }
   .bus-list-dir { width:100%; margin-left:0; }
 }
+
+/* ===== MODERN MOBILE MAP APP LAYOUT ===== */
+html, body { width:100%; min-height:100%; overflow:hidden; }
+body { background:#e7eef4; }
+.topbar, .info-strip, .test-mode-strip { display:none; }
+.map-page {
+  position:relative;
+  min-height:100vh;
+  height:100dvh;
+  overflow:hidden;
+  background:#dbe7ef;
+}
+.main {
+  max-width:none;
+  width:100%;
+  height:100%;
+  margin:0;
+  padding:0;
+}
+#map {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  min-height:100%;
+  margin:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+#map .mapboxgl-canvas { border-radius:0; }
+.mapboxgl-ctrl-top-left { top:148px !important; left:12px !important; }
+.top-route-card {
+  position:absolute;
+  top:calc(14px + env(safe-area-inset-top));
+  left:50%;
+  z-index:20;
+  width:min(94vw,480px);
+  transform:translateX(-50%);
+  pointer-events:auto;
+}
+.route-select-card.top-route-card {
+  margin:0;
+  padding:14px;
+  border:1px solid rgba(226,232,240,.92);
+  border-radius:18px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 18px 38px rgba(15,23,42,.18),0 3px 10px rgba(15,23,42,.08);
+  backdrop-filter:blur(12px);
+}
+.rs-title { margin-bottom:10px; color:#334155; letter-spacing:.6px; }
+.rs-row { align-items:center; gap:9px; }
+.rs-group { gap:4px; }
+.rs-label { font-size:11px; color:#64748b; }
+.rs-select {
+  min-height:42px;
+  padding:9px 32px 9px 11px;
+  border-radius:12px;
+  border-color:#dbe4ee;
+  background-color:#f8fafc;
+  font-size:14px;
+}
+.rs-select:focus {
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+}
+.rs-arrow { padding:18px 0 0; color:#2563eb; }
+.follow-user-btn {
+  position:absolute;
+  right:16px;
+  bottom:calc(178px + env(safe-area-inset-bottom));
+  z-index:18;
+  width:auto;
+  min-width:46px;
+  height:46px;
+  padding:0 13px;
+  margin:0;
+  border:1px solid rgba(203,213,225,.9);
+  border-radius:999px;
+  background:#ffffff;
+  color:#1d4ed8;
+  box-shadow:0 10px 24px rgba(15,23,42,.18);
+  font-size:0;
+}
+.follow-user-btn::before { content:"◎"; font-size:23px; line-height:1; }
+.follow-user-btn.is-off { background:#ffffff; color:#64748b; }
+.bottom-sheet {
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:19;
+  max-height:82dvh;
+  padding:0 14px calc(14px + env(safe-area-inset-bottom));
+  border-radius:24px 24px 0 0;
+  background:rgba(248,250,252,.98);
+  box-shadow:0 -18px 42px rgba(15,23,42,.22);
+  transform:translateY(calc(100% - var(--sheet-collapsed-height, 172px)));
+  transition:transform .28s ease;
+  touch-action:none;
+  overflow:hidden;
+}
+.bottom-sheet.sheet-expanded { transform:translateY(0); }
+.bottom-sheet-header {
+  position:sticky;
+  top:0;
+  z-index:2;
+  margin:0 -14px;
+  padding:9px 14px 10px;
+  background:rgba(248,250,252,.98);
+  border-radius:24px 24px 0 0;
+  border-bottom:1px solid rgba(226,232,240,.88);
+  cursor:pointer;
+}
+.sheet-handle {
+  width:42px;
+  height:5px;
+  margin:0 auto 10px;
+  border-radius:999px;
+  background:#cbd5e1;
+}
+.sheet-summary-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.sheet-route-name {
+  font-size:16px;
+  font-weight:800;
+  color:#0f172a;
+  line-height:1.25;
+}
+.sheet-route-sub {
+  margin-top:3px;
+  font-size:12px;
+  font-weight:500;
+  color:#64748b;
+  line-height:1.35;
+}
+.sheet-chip {
+  flex-shrink:0;
+  border:1px solid #bfdbfe;
+  border-radius:999px;
+  padding:6px 10px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-family:'Chakra Petch',sans-serif;
+  font-size:14px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.bottom-sheet-content {
+  max-height:calc(82dvh - 92px);
+  overflow-y:auto;
+  padding:12px 0 8px;
+  -webkit-overflow-scrolling:touch;
+}
+.bottom-sheet-content > .route-card,
+.bottom-sheet-content > .status-card,
+.bottom-sheet-content > .next-bus,
+.bottom-sheet-content > .sched-card,
+.bottom-sheet-content > .leg2-card,
+.bottom-sheet-content > .booking-tab,
+.bottom-sheet-content > .footer {
+  margin-left:0;
+  margin-right:0;
+}
+.bottom-sheet:not(.sheet-expanded) .sheet-expanded-only,
+.bottom-sheet:not(.sheet-expanded) .sec-label,
+.bottom-sheet:not(.sheet-expanded) #schedWrapper,
+.bottom-sheet:not(.sheet-expanded) .booking-tab,
+.bottom-sheet:not(.sheet-expanded) .footer {
+  display:none;
+}
+.bottom-sheet:not(.sheet-expanded) .route-card {
+  max-height:72px;
+  overflow:hidden;
+}
+.bottom-sheet:not(.sheet-expanded) .route-visual-scroll { display:none; }
+.bottom-sheet .route-card,
+.bottom-sheet .status-card,
+.bottom-sheet .next-bus,
+.bottom-sheet .sched-card,
+.bottom-sheet .leg2-card {
+  border-radius:16px;
+  box-shadow:0 1px 8px rgba(15,23,42,.08);
+}
+.bottom-sheet .route-card { margin-bottom:10px; }
+.bottom-sheet .status-card,
+.bottom-sheet .next-bus { margin-bottom:10px; }
+.bottom-sheet .sec-label { margin-top:2px; }
+.map-stop-icon, .map-stop-label, .map-bus-icon, .map-bus-label { cursor:pointer; }
+@media (min-width:720px) {
+  .bottom-sheet {
+    left:50%;
+    right:auto;
+    width:min(520px,94vw);
+    transform:translate(-50%, calc(100% - var(--sheet-collapsed-height, 172px)));
+    border-radius:24px 24px 0 0;
+  }
+  .bottom-sheet.sheet-expanded { transform:translate(-50%,0); }
+}
+@media (max-width:360px) {
+  .route-select-card.top-route-card { padding:12px; border-radius:16px; }
+  .rs-row { display:grid; grid-template-columns:1fr; }
+  .rs-arrow { display:none; }
+  .mapboxgl-ctrl-top-left { top:206px !important; }
+  .bottom-sheet { --sheet-collapsed-height:166px; }
+  .sheet-route-name { font-size:15px; }
+}
 </style>
 </head>
 <body>
@@ -357,10 +568,11 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 
 <div class="test-mode-strip" id="testModeStrip">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง</div>
 
+<div class="map-page">
 <div class="main">
 
   <!-- ลำดับใหม่: เลือกเส้นทาง → แผนที่ -->
-  <div class="route-select-card">
+  <div class="route-select-card top-route-card">
     <div class="rs-title">เลือกเส้นทาง</div>
     <div class="rs-row">
       <div class="rs-group">
@@ -379,6 +591,19 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งฉัน</button>
 
   <!-- ตำแหน่งรถ — รองรับหลายคัน -->
+  <section class="bottom-sheet sheet-collapsed" id="routeBottomSheet" aria-live="polite">
+    <div class="bottom-sheet-header" id="bottomSheetHeader" role="button" tabindex="0" aria-expanded="false">
+      <div class="sheet-handle"></div>
+      <div class="sheet-summary-row">
+        <div>
+          <div class="sheet-route-name" id="sheetRouteName">เลือกต้นทางและปลายทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">แผนที่และตารางเวลาจะอัปเดตตามเส้นทางที่เลือก</div>
+        </div>
+        <div class="sheet-chip" id="sheetEtaChip">--:--</div>
+      </div>
+    </div>
+    <div class="bottom-sheet-content">
+
   <div class="route-card">
     <div class="route-card-header">
       <div class="route-label">ตำแหน่งรถปัจจุบัน</div>
@@ -421,6 +646,9 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
     <span class="note-title">หมายเหตุ :</span><br>
     ตารางเวลาเดินรถอาจมีการคลาดเคลื่อนจากสภาพการจราจร สภาพอากาศ หรือเหตุสุดวิสัย  ขออภัยในความไม่สะดวกมา ณ โอกาสนี้
   </div>
+    </div>
+  </section>
+</div>
 </div>
 
 <script>
@@ -559,6 +787,7 @@ let mapInitPromise=null;
 let userMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
 let followUser=true;
 let busFollowMode=true, busCentered=false;
+let selectedMapFocus = null;
 
 // ===== HELPERS =====
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
@@ -591,6 +820,25 @@ function focusSelectedOrigin() {
   if (stop) focusMap(normalizeMapPoint(stop), 14);
 }
 
+function fitSelectedRouteOnMap() {
+  if (!mapReady || !mapObj) return;
+  var originStop = getStopByName(selOrigin);
+  var destStop = getStopByName(selDest);
+  var points = [originStop, destStop].map(normalizeMapPoint).filter(Boolean);
+
+  if (points.length >= 2) {
+    var bounds = new mapboxgl.LngLatBounds();
+    points.forEach(function(point) { bounds.extend([point.lon, point.lat]); });
+    mapObj.fitBounds(bounds, {
+      padding: { top: 190, right: 46, bottom: 230, left: 46 },
+      maxZoom: 13.5,
+      duration: 700
+    });
+  } else if (points.length === 1) {
+    focusMap(points[0], 14);
+  }
+}
+
 function updateFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn) return;
@@ -615,6 +863,77 @@ function bindFollowUserButton() {
   });
   btn.dataset.bound = '1';
   updateFollowUserButton();
+}
+
+function setBottomSheetState(expanded) {
+  var sheet = document.getElementById('routeBottomSheet');
+  var header = document.getElementById('bottomSheetHeader');
+  if (!sheet) return;
+  sheet.classList.toggle('sheet-expanded', expanded === true);
+  sheet.classList.toggle('sheet-collapsed', expanded !== true);
+  if (header) header.setAttribute('aria-expanded', expanded === true ? 'true' : 'false');
+  refreshMapSizeSafely();
+}
+
+function toggleBottomSheet() {
+  var sheet = document.getElementById('routeBottomSheet');
+  setBottomSheetState(!(sheet && sheet.classList.contains('sheet-expanded')));
+}
+
+function bindBottomSheet() {
+  var sheet = document.getElementById('routeBottomSheet');
+  var header = document.getElementById('bottomSheetHeader');
+  if (!sheet || !header || sheet.dataset.bound === '1') return;
+
+  var startY = 0;
+  var dragging = false;
+
+  header.addEventListener('click', toggleBottomSheet);
+  header.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleBottomSheet();
+    }
+  });
+  sheet.addEventListener('touchstart', function(e) {
+    if (!e.touches || !e.touches.length) return;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }, { passive:true });
+  sheet.addEventListener('touchend', function(e) {
+    if (!dragging || !e.changedTouches || !e.changedTouches.length) return;
+    var delta = e.changedTouches[0].clientY - startY;
+    dragging = false;
+    if (Math.abs(delta) < 26) return;
+    setBottomSheetState(delta < 0);
+  }, { passive:true });
+
+  sheet.dataset.bound = '1';
+}
+
+function updateBottomSheetSummary() {
+  var routeName = document.getElementById('sheetRouteName');
+  var routeSub = document.getElementById('sheetRouteSub');
+  var etaChip = document.getElementById('sheetEtaChip');
+  if (!routeName || !routeSub || !etaChip) return;
+
+  if (!selOrigin || !selDest) {
+    routeName.textContent = 'เลือกต้นทางและปลายทาง';
+    routeSub.textContent = 'แผนที่และตารางเวลาจะอัปเดตตามเส้นทางที่เลือก';
+    etaChip.textContent = '--:--';
+    return;
+  }
+
+  routeName.textContent = selOrigin + ' → ' + selDest;
+
+  var statusTitle = document.getElementById('statusTitle');
+  var nextDetail = document.getElementById('nextDetail');
+  var nextTime = document.getElementById('nextTime');
+  var focusText = selectedMapFocus ? selectedMapFocus : '';
+  var statusText = statusTitle && statusTitle.textContent ? statusTitle.textContent : 'รอข้อมูลตำแหน่งรถ';
+  var nextText = nextDetail && nextDetail.textContent ? nextDetail.textContent : '';
+  routeSub.textContent = focusText || (statusText + (nextText ? ' · ' + nextText : ''));
+  etaChip.textContent = nextTime && nextTime.textContent ? nextTime.textContent.replace(' น.', '') : '--:--';
 }
 
 function choosePrimaryBus(buses) {
@@ -770,6 +1089,7 @@ function applyPassengerRouteSettings(data) {
   buildDropdowns();
   renderSched();
   renderNextBus();
+  updateBottomSheetSummary();
 }
 
 function applyTestModeUI() {
@@ -921,6 +1241,11 @@ function renderStationMarkers(routeData, skipEnsure) {
     var markerEl = document.createElement('div');
     markerEl.className = 'map-stop-icon';
     markerEl.innerHTML = '&#128655;';
+    markerEl.addEventListener('click', function() {
+      selectedMapFocus = 'ป้ายที่เลือก: ' + s.name;
+      updateBottomSheetSummary();
+      setBottomSheetState(true);
+    });
     var marker = new mapboxgl.Marker({ element: markerEl, anchor: 'center' })
       .setLngLat([point.lon, point.lat])
       .addTo(mapObj);
@@ -929,6 +1254,11 @@ function renderStationMarkers(routeData, skipEnsure) {
     var labelEl = document.createElement('div');
     labelEl.className = 'map-stop-label';
     labelEl.textContent = s.name;
+    labelEl.addEventListener('click', function() {
+      selectedMapFocus = 'ป้ายที่เลือก: ' + s.name;
+      updateBottomSheetSummary();
+      setBottomSheetState(true);
+    });
     var label = new mapboxgl.Marker({ element: labelEl, anchor: 'top-left', offset: [8, 16] })
       .setLngLat([point.lon, point.lat])
       .addTo(mapObj);
@@ -1091,10 +1421,28 @@ function updateBusOnMap(pos, carId, shouldFocus) {
     var busEl = document.createElement('div');
     busEl.className = 'map-bus-icon';
     busEl.innerHTML = '&#128652;';
+    busEl.addEventListener('click', function() {
+      var stopName = dir[pos.stopIdx]?.name || '?';
+      var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
+      selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
+      updateBottomSheetSummary();
+      setBottomSheetState(true);
+      focusMap(latlng, 14);
+    });
     busMarkers[carId] = new mapboxgl.Marker({ element: busEl, anchor: 'center' })
       .setLngLat(lngLat)
       .addTo(mapObj);
     console.log('vehicle marker created', carId, latlng);
+  }
+  if (busMarkers[carId] && busMarkers[carId].getElement) {
+    busMarkers[carId].getElement().onclick = function() {
+      var stopName = dir[pos.stopIdx]?.name || '?';
+      var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
+      selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
+      updateBottomSheetSummary();
+      setBottomSheetState(true);
+      focusMap(latlng, 14);
+    };
   }
 
   if (busTagMarkers[carId]) {
@@ -1103,9 +1451,27 @@ function updateBusOnMap(pos, carId, shouldFocus) {
     var tagEl = document.createElement('div');
     tagEl.className = 'map-bus-label';
     tagEl.innerHTML = '&#128652; ' + label;
+    tagEl.addEventListener('click', function() {
+      var stopName = dir[pos.stopIdx]?.name || '?';
+      var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
+      selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
+      updateBottomSheetSummary();
+      setBottomSheetState(true);
+      focusMap(latlng, 14);
+    });
     busTagMarkers[carId] = new mapboxgl.Marker({ element: tagEl, anchor: 'top-left', offset: [10, 20] })
       .setLngLat(lngLat)
       .addTo(mapObj);
+  }
+  if (busTagMarkers[carId] && busTagMarkers[carId].getElement) {
+    busTagMarkers[carId].getElement().onclick = function() {
+      var stopName = dir[pos.stopIdx]?.name || '?';
+      var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
+      selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
+      updateBottomSheetSummary();
+      setBottomSheetState(true);
+      focusMap(latlng, 14);
+    };
   }
 
   if (shouldFocus && (busFollowMode || !busCentered)) {
@@ -1151,6 +1517,7 @@ function renderStatus(pos) {
   document.getElementById('statusTitle').textContent = info.title;
   const sub = document.getElementById('statusSub');
   if (sub) sub.textContent = info.sub;
+  updateBottomSheetSummary();
 }
 
 function renderRouteStrip(pos) {
@@ -1329,6 +1696,7 @@ function fullRender(pos) {
   renderRouteStrip(pos);
   renderSched();
   renderNextBus();
+  updateBottomSheetSummary();
   updateLastUpdate(pos);
   if (Object.keys(allBusPositions).length && mapReady) updateAllBusesOnMap(allBusPositions);
 }
@@ -1389,9 +1757,11 @@ function buildDropdowns(){
       selOrigin = this.value;
       if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
       buildDestOptions();
+      selectedMapFocus = null;
       renderSched(); renderNextBus();
       refreshPassengerMapRoute();
-      if (mapReady && !passengerCentered) focusSelectedOrigin();
+      fitSelectedRouteOnMap();
+      updateBottomSheetSummary();
     });
     originSel.dataset.bound = '1';
   }
@@ -1399,8 +1769,11 @@ function buildDropdowns(){
   if (destSel.dataset.bound !== '1') {
     destSel.addEventListener('change', function(){
       selDest = this.value;
+      selectedMapFocus = null;
       renderSched(); renderNextBus();
       refreshPassengerMapRoute();
+      fitSelectedRouteOnMap();
+      updateBottomSheetSummary();
     });
     destSel.dataset.bound = '1';
   }
@@ -1424,6 +1797,7 @@ db.ref('bus').on('value', function(snap){
   renderRouteStrip(lastPos);
   renderSched();
   renderNextBus();
+  updateBottomSheetSummary();
   updateLastUpdate(lastPos);
   if (mapReady && Object.keys(allBusPositions).length) {
     updateAllBusesOnMap(allBusPositions);
@@ -1441,6 +1815,7 @@ function tick() {
   document.getElementById('dateText').textContent=
     `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
   renderNextBus();
+  updateBottomSheetSummary();
 }
 tick(); setInterval(tick,1000);
 fullRender(null);
@@ -1448,10 +1823,13 @@ fullRender(null);
 // Map init — รอ Mapbox พร้อม แล้ว retry แสดงตำแหน่งรถ
 document.addEventListener('DOMContentLoaded', async function(){
   bindFollowUserButton();
+  bindBottomSheet();
   await initPassengerMap();
   const routeData = await loadPassengerRouteData();
   await renderRoutePolyline(routeData);
   renderStationMarkers(routeData);
+  fitSelectedRouteOnMap();
+  updateBottomSheetSummary();
   refreshMapSizeSafely();
   startPassengerLocation();
 
