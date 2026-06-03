@@ -1261,6 +1261,10 @@ function startPassengerLocation() {
     console.log('GPS received', next);
 
     if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
+      if (followUser) {
+        focusMap(next, 15);
+        passengerCentered = true;
+      }
       return;
     }
 
