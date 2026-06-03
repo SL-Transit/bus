@@ -784,6 +784,7 @@ let userMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered
 let followUser=true;
 let busFollowMode=true, busCentered=false;
 let selectedMapFocus = null;
+let programmaticMapMoveUntil = 0;
 
 // ===== HELPERS =====
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
@@ -802,10 +803,19 @@ function focusMap(point, zoomLevel, animate) {
   if (!mapObj || !point) return;
   try {
     var shouldAnimate = animate === true;
+    programmaticMapMoveUntil = Date.now() + 900;
     console.log('map focus', { point: point, zoom: zoomLevel || null, animate: shouldAnimate });
     mapObj.location(point, shouldAnimate);
     if (zoomLevel) setTimeout(function(){ mapObj.zoom(zoomLevel, shouldAnimate); }, 80);
   } catch(e) { console.warn('Longdo focus failed:', e); }
+}
+
+function pauseFollowForManualMapUse(reason) {
+  if (Date.now() < programmaticMapMoveUntil) return;
+  if (!followUser) return;
+  followUser = false;
+  console.log('followUser paused by map interaction', reason || '');
+  updateFollowUserButton();
 }
 
 function getStopByName(name) {
@@ -1175,6 +1185,7 @@ function initMap() {
         try { mapObj.Ui.Geolocation.visible(false); } catch(e){}
         console.log('Longdo map loaded');
         refreshMapSizeSafely();
+        bindManualMapInteractionPause();
         triggerLongdoGeolocation();
         if (Object.keys(allBusPositions).length) updateAllBusesOnMap(allBusPositions);
         resolve(mapObj);
@@ -1185,6 +1196,34 @@ function initMap() {
     });
   } catch(e) { console.error('Map error:', e); mapInitPromise = Promise.resolve(null); }
   return mapInitPromise;
+}
+
+function bindManualMapInteractionPause() {
+  if (!mapObj || mapObj.__manualFollowPauseBound) return;
+  mapObj.__manualFollowPauseBound = true;
+
+  var eventNames = [];
+  if (window.longdo && longdo.EventName) {
+    ['Drag', 'Wheel', 'Zoom'].forEach(function(name) {
+      if (longdo.EventName[name]) eventNames.push(longdo.EventName[name]);
+    });
+  }
+  eventNames.concat(['drag', 'wheel', 'zoom']).forEach(function(eventName) {
+    try {
+      mapObj.Event.bind(eventName, function() {
+        pauseFollowForManualMapUse(eventName);
+      });
+    } catch(e) {}
+  });
+
+  var mapEl = document.getElementById('map');
+  if (mapEl) {
+    ['touchstart', 'pointerdown', 'wheel'].forEach(function(eventName) {
+      mapEl.addEventListener(eventName, function() {
+        pauseFollowForManualMapUse(eventName);
+      }, { passive:true });
+    });
+  }
 }
 
 function initPassengerMap() {
@@ -1269,6 +1308,8 @@ function startPassengerLocation() {
     console.log('GPS received', next);
 
     if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
+      passengerPos = next;
+      updatePassengerOnMap(next, false);
       if (followUser) {
         focusMap(next, 15, false);
         passengerCentered = true;
