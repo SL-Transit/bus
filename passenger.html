@@ -798,11 +798,12 @@ function normalizeMapPoint(point) {
   return { lon: lon, lat: lat };
 }
 
-function focusMap(point, zoomLevel) {
+function focusMap(point, zoomLevel, animate) {
   if (!mapObj || !point) return;
   try {
-    mapObj.location(point, true);
-    if (zoomLevel) setTimeout(function(){ mapObj.zoom(zoomLevel, true); }, 80);
+    var shouldAnimate = animate === true;
+    mapObj.location(point, shouldAnimate);
+    if (zoomLevel) setTimeout(function(){ mapObj.zoom(zoomLevel, shouldAnimate); }, 80);
   } catch(e) { console.warn('Longdo focus failed:', e); }
 }
 
@@ -840,7 +841,7 @@ function setFollowUser(nextValue) {
   console.log('followUser changed', followUser);
   updateFollowUserButton();
   if (followUser && passengerPos) {
-    focusMap(passengerPos, 15);
+    focusMap(passengerPos, 15, false);
   } else if (followUser) {
     triggerLongdoGeolocation();
   }
@@ -850,7 +851,12 @@ function bindFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn || btn.dataset.bound === '1') return;
   btn.addEventListener('click', function() {
-    setFollowUser(!followUser);
+    setFollowUser(true);
+    if (passengerPos) {
+      focusMap(passengerPos, 15, false);
+    } else {
+      requestPassengerCurrentLocation(true, false);
+    }
   });
   btn.dataset.bound = '1';
   updateFollowUserButton();
@@ -1263,7 +1269,7 @@ function startPassengerLocation() {
 
     if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
       if (followUser) {
-        focusMap(next, 15);
+        focusMap(next, 15, false);
         passengerCentered = true;
       }
       return;
@@ -1290,7 +1296,7 @@ function updatePassengerOnMap(latlng, forceCenter) {
   userMarker = new longdo.Marker(latlng, { title: 'ตำแหน่งของคุณ', icon: { html: '<div class="map-passenger-marker"></div>', offset: { x: 13, y: 13 } } });
   mapObj.Overlays.add(userMarker);
   console.log('user marker updated', latlng);
-  if ((forceCenter || !passengerCentered) && followUser) { focusMap(latlng, 15); passengerCentered = true; }
+  if ((forceCenter || !passengerCentered) && followUser) { focusMap(latlng, 15, false); passengerCentered = true; }
 }
 
 function drawRoute(routeData) {
