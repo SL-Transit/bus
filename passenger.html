@@ -841,6 +841,8 @@ function setFollowUser(nextValue) {
   updateFollowUserButton();
   if (followUser && passengerPos) {
     focusMap(passengerPos, 15);
+  } else if (followUser) {
+    triggerLongdoGeolocation();
   }
 }
 
@@ -1088,8 +1090,8 @@ function applyTestModeUI() {
 
 function triggerLongdoGeolocation() {
   try {
-    if (mapObj && mapObj.Ui && mapObj.Ui.Geolocation && mapObj.Ui.Geolocation._geolocateButton) {
-      mapObj.Ui.Geolocation._geolocateButton.click();
+    if (mapObj && window.longdo && longdo.LocationMode) {
+      mapObj.location(longdo.LocationMode.Geolocation);
     }
   } catch(e) {
     console.warn('Longdo geolocation trigger failed:', e && e.message ? e.message : e);
