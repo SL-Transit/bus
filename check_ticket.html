@@ -167,8 +167,8 @@
 
     .tracking-page {
       position: relative;
-      height: min(820px, calc(100vh - 20px));
-      min-height: 680px;
+      height: min(780px, calc(100vh - 20px));
+      min-height: 620px;
       overflow: hidden;
       background: #101826;
       border: 1px solid var(--border);
@@ -198,7 +198,7 @@
     }
     .lookup-panel input:focus { background: #fff; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
     .lookup-panel button { min-height: 52px; padding: 12px 18px; }
-    .tracking-map { position: absolute; inset: 0 0 34%; background: #101826; }
+    .tracking-map { position: absolute; inset: 0 0 30%; background: #101826; }
     .tracking-map::after {
       content: "";
       position: absolute;
@@ -257,28 +257,28 @@
       right: 0;
       bottom: 0;
       z-index: 3;
-      min-height: 34%;
-      max-height: 58%;
+      min-height: 30%;
+      max-height: 46%;
       overflow: auto;
       background: #1f2937;
       color: #f8fafc;
       border-radius: 18px 18px 0 0;
-      padding: 16px;
+      padding: 14px 16px 16px;
       box-shadow: 0 -16px 34px rgba(15, 23, 42, .22);
     }
-    .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
-    .tracking-sheet-head h2 { margin-bottom: 2px; color: #fff; font-size: 22px; }
+    .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+    .tracking-sheet-head h2 { margin-bottom: 0; color: #fff; font-size: 20px; }
     .tracking-title { display: inline-flex; align-items: center; gap: 8px; }
     .tracking-title-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(255,255,255,.11); }
     .tracking-route { color: #cbd5e1; font-size: 15px; line-height: 1.5; }
-    .tracking-summary { color: #f8fafc; font-size: 17px; font-weight: 800; line-height: 1.65; margin-top: 8px; overflow-wrap: anywhere; }
-    .tracking-divider { height: 4px; border-radius: 999px; background: #22c55e; margin: 12px 0; }
+    .tracking-summary { color: #f8fafc; font-size: 16px; font-weight: 800; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; }
+    .tracking-divider { height: 4px; border-radius: 999px; background: #22c55e; margin: 9px 0; }
     .tracking-person { display: none; }
     .tracking-person div { background: rgba(15,23,42,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; }
     .tracking-label { color: #94a3b8; font-size: 13px; font-weight: 700; }
-    .tracking-value { color: #fff; font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
-    .tracking-subvalue { color: #cbd5e1; font-size: 15px; font-weight: 600; line-height: 1.55; margin-top: 3px; overflow-wrap: anywhere; }
-    .tracking-info { position: relative; display: grid; gap: 10px; margin-bottom: 12px; padding-left: 8px; }
+    .tracking-value { color: #fff; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+    .tracking-subvalue { color: #cbd5e1; font-size: 14px; font-weight: 600; line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
+    .tracking-info { position: relative; display: grid; gap: 7px; margin-bottom: 10px; padding-left: 8px; }
     .tracking-info::before { content: ""; position: absolute; left: 16px; top: 19px; bottom: 19px; width: 2px; background: rgba(226,232,240,.38); }
     .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; }
     .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: #22c55e; border: 4px solid #334155; box-shadow: 0 0 0 1px rgba(255,255,255,.24); }
@@ -291,6 +291,7 @@
     .tracking-marker.van { background: #16a34a; color: #fff; }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
     .tracking-marker.transfer { background: #f97316; color: #fff; }
+    .tracking-marker.passenger { background: #3b82f6; color: #fff; box-shadow: 0 0 0 6px rgba(59,130,246,.25), 0 5px 14px rgba(15, 23, 42, .25); }
 
     .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .reason-box { display: grid; gap: 12px; margin-top: 12px; }
@@ -338,9 +339,9 @@
       .ticket-head { align-items: flex-start; flex-direction: column; }
       .schedule-time-box { border-left: 0; border-top: 4px solid var(--blue); }
       .tracking-page { height: 100vh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
-      .tracking-map { inset: 0 0 38%; }
+      .tracking-map { inset: 0 0 34%; }
       .tracking-person { grid-template-columns: 1fr; }
-      .tracking-bottom-sheet { min-height: 38%; max-height: 62%; }
+      .tracking-bottom-sheet { min-height: 34%; max-height: 56%; }
       button, .btn { width: 100%; white-space: normal; }
     }
   </style>
@@ -577,6 +578,7 @@
     var trackingMap = null;
     var trackingMapReady = false;
     var trackingVanMarker = null;
+    var trackingPassengerMarker = null;
     var trackingPickupMarker = null;
     var trackingTransferMarker = null;
     var trackingRouteSourceReady = false;
@@ -1025,6 +1027,7 @@
         renderPickupMarker();
         renderTransferMarker();
         if (vanLocation) renderVanMarker(vanLocation);
+        if (lastPosition) renderPassengerMarker(lastPosition);
         updateTrackingRouteLine();
       });
     }
@@ -1212,7 +1215,19 @@
 
     function focusPassengerLocation(position) {
       if (!trackingMapReady || !trackingMap || !position) return;
+      renderPassengerMarker(position);
       trackingMap.easeTo({ center: [position.lng, position.lat], zoom: Math.max(trackingMap.getZoom(), 13), duration: 600 });
+    }
+
+    function renderPassengerMarker(position) {
+      if (!trackingMapReady || !trackingMap || !position) return;
+      if (!trackingPassengerMarker) {
+        trackingPassengerMarker = new mapboxgl.Marker({ element: createTrackingMarker('passenger', 'คุณ') })
+          .setLngLat([position.lng, position.lat])
+          .addTo(trackingMap);
+      } else {
+        trackingPassengerMarker.setLngLat([position.lng, position.lat]);
+      }
     }
 
     function locatePassengerNow() {
@@ -1269,7 +1284,7 @@
       document.getElementById('trackingPhone').textContent = currentBooking.phone || '-';
       document.getElementById('trackingRouteSummary').textContent = '';
       document.getElementById('trackingBookingSummary').textContent =
-        displayPassengerName(currentBooking.name) + ' เบอร์ ' + maskPhone(currentBooking.phone) + ' ' + originName + ' → ' + finalDestination;
+        displayPassengerName(currentBooking.name) + ' เบอร์ ' + (currentBooking.phone || '-') + ' ' + originName + ' → ' + finalDestination;
       var pickupEta = calculatePickupEta();
       var destEta = calculateTransferOrDestinationEta();
       renderTrackingMapBadge(pickupEta);
@@ -1304,12 +1319,6 @@
         return 'เมื่อถึงแปดริ้ว ให้ต่อรถเที่ยว ' + formatTimeText(legs.leg2Time) + ' ไป' + routeInfo.destination;
       }
       return 'อัปเดตตำแหน่งล่าสุด ' + formatAgo(age || 0);
-    }
-
-    function maskPhone(phone) {
-      var digits = String(phone || '').replace(/[^0-9]/g, '');
-      if (digits.length < 7) return phone || '-';
-      return digits.slice(0, 3) + '-xxxx' + digits.slice(-3);
     }
 
     function formatEtaDuration(minutes) {
