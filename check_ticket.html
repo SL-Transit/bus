@@ -8,7 +8,8 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-  <script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
   <style>
     :root {
       --navy: #17324d;
@@ -164,6 +165,60 @@
     .metric .num { color: var(--navy); font-family: 'Chakra Petch', sans-serif; font-size: 29px; font-weight: 700; line-height: 1.25; }
     .metric .unit { color: var(--muted); font-size: 15px; margin-top: 3px; }
 
+    .tracking-page {
+      position: relative;
+      height: min(760px, calc(100vh - 28px));
+      min-height: 640px;
+      overflow: hidden;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
+      margin-bottom: 16px;
+    }
+    .tracking-map { position: absolute; inset: 0 0 28%; background: #dbe4ee; }
+    .tracking-cancel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--red);
+      border: 1px solid #fecaca;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, .18);
+      font-size: 15px;
+    }
+    .tracking-bottom-sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 3;
+      min-height: 30%;
+      max-height: 48%;
+      overflow: auto;
+      background: #fff;
+      border-radius: 18px 18px 0 0;
+      padding: 16px;
+      box-shadow: 0 -16px 34px rgba(15, 23, 42, .22);
+    }
+    .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .tracking-sheet-head h2 { margin-bottom: 2px; }
+    .tracking-route { color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .tracking-person { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .tracking-person div, .tracking-info-item { background: var(--soft); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
+    .tracking-label { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .tracking-value { color: var(--ink); font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+    .tracking-info { display: grid; gap: 8px; margin-bottom: 12px; }
+    .tracking-actions { display: grid; gap: 8px; }
+    .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
+    .tracking-marker.van { background: #16a34a; color: #fff; }
+    .tracking-marker.pickup { background: #2563eb; color: #fff; }
+    .tracking-marker.transfer { background: #f97316; color: #fff; }
+
     .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .reason-box { display: grid; gap: 12px; margin-top: 12px; }
 
@@ -199,7 +254,9 @@
     }
 
     @media (max-width: 640px) {
-      body { padding: 14px; font-size: 18px; }
+      body { padding: 0; font-size: 18px; }
+      .wrap { max-width: none; }
+      .topbar, #testModeStatus, .panel { margin-left: 12px; margin-right: 12px; }
       h1 { font-size: 27px; }
       h2 { font-size: 22px; }
       .panel { padding: 18px; border-radius: 8px; }
@@ -207,6 +264,10 @@
       #qrCode { margin: 0 auto; }
       .ticket-head { align-items: flex-start; flex-direction: column; }
       .schedule-time-box { border-left: 0; border-top: 4px solid var(--blue); }
+      .tracking-page { height: 100vh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
+      .tracking-map { inset: 0 0 30%; }
+      .tracking-person { grid-template-columns: 1fr; }
+      .tracking-bottom-sheet { max-height: 54%; }
       button, .btn { width: 100%; white-space: normal; }
     }
   </style>
@@ -230,6 +291,32 @@
         <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
       </div>
       <div id="lookupStatus" class="status info hidden"></div>
+    </section>
+
+    <section id="trackingPage" class="tracking-page hidden">
+      <div id="trackingMap" class="tracking-map"></div>
+      <button id="cancelTicketButton" class="tracking-cancel" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
+      <div id="trackingBottomSheet" class="tracking-bottom-sheet">
+        <div class="tracking-sheet-head">
+          <div>
+            <h2>รายละเอียดการจอง</h2>
+            <div id="trackingRouteSummary" class="tracking-route">-</div>
+          </div>
+          <div id="trackingCode" class="ticket-state" style="background:#eff6ff;color:#1d4ed8">-</div>
+        </div>
+        <div class="tracking-person">
+          <div><div class="tracking-label">ผู้โดยสาร</div><div id="trackingName" class="tracking-value">-</div></div>
+          <div><div class="tracking-label">เบอร์โทร</div><div id="trackingPhone" class="tracking-value">-</div></div>
+        </div>
+        <div class="tracking-info">
+          <div class="tracking-info-item"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div></div>
+          <div class="tracking-info-item"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div></div>
+          <div class="tracking-info-item"><div class="tracking-label">ขั้นตอนถัดไป</div><div id="trackingNextStep" class="tracking-value">-</div></div>
+        </div>
+        <div class="tracking-actions">
+          <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
+        </div>
+      </div>
     </section>
 
     <section id="ticketPanel" class="panel hidden">
@@ -370,11 +457,26 @@
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
     var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
-    var LONGDO_MAP_KEY = 'e817a8a0a0e83c4f2c32c7b1db12424e';
+    var MAPBOX_ACCESS_TOKEN = '';
     var DISTANCE_MODE = 'road';
     var ROAD_DISTANCE_FACTOR = 1.335;
     var ROAD_DISTANCE_CACHE = {};
     var roadDistanceRequestSeq = 0;
+    var STOP_LOCATIONS = [
+      { name:'คลองหาด', lat:13.453565, lng:102.299330 },
+      { name:'สี่แยกโคนม', lat:13.436666, lng:102.200895 },
+      { name:'ทุ่งกบินทร์', lat:13.439877, lng:102.083043 },
+      { name:'ไพจิตร', lat:13.416310, lng:102.020767 },
+      { name:'หนองเรือ', lat:13.420494, lng:101.995365 },
+      { name:'คลองตะเคียน', lat:13.420264, lng:101.765445 },
+      { name:'หนองคอก', lat:13.381579, lng:101.708016 },
+      { name:'ท่าตะเกียบ', lat:13.443342, lng:101.610222 },
+      { name:'ท่ารถสนามชัยเขต', lat:13.659022, lng:101.437482 },
+      { name:'พนมสารคาม', lat:13.745082, lng:101.355993 },
+      { name:'ขนส่งฉะเชิงเทรา', lat:13.692477, lng:101.054105 },
+      { name:'แปดริ้ว', lat:13.692477, lng:101.054105 },
+      { name:'ฉะเชิงเทรา', lat:13.692477, lng:101.054105 }
+    ];
     var ADMIN_DEST_SCHEDULES = [];
     var TEST_MODE = false;
 
@@ -391,6 +493,18 @@
     var suggestedNextTrip = null;
     var countdownTimer = null;
     var checkinSubmitLock = false;
+    var trackingMap = null;
+    var trackingMapReady = false;
+    var trackingVanMarker = null;
+    var trackingPickupMarker = null;
+    var trackingTransferMarker = null;
+    var trackingRouteSourceReady = false;
+    var trackingBusRef = null;
+    var trackingVehicleId = '';
+    var vanLocation = null;
+    var pickupStopLocation = null;
+    var transferPointLocation = null;
+    var destinationLocation = null;
     var TEST_PATHS = {
       bookings: 'testBookings/',
       ticketLocations: 'testTicketLocations/',
@@ -400,6 +514,11 @@
     db.ref('settings').on('value', function(snap) {
       var settings = snap.val() || {};
       TEST_MODE = settings.testMode === true;
+      MAPBOX_ACCESS_TOKEN = (settings.boxmap && settings.boxmap.accessToken) ||
+        (settings.mapbox && settings.mapbox.accessToken) ||
+        settings.boxmapAccessToken ||
+        settings.mapboxAccessToken ||
+        MAPBOX_ACCESS_TOKEN;
       renderTestModeStatus();
       if (settings.checkin && settings.checkin.radiusKm !== undefined) CHECKIN_RADIUS_KM = Number(settings.checkin.radiusKm) || 2.5;
       if (settings.checkin && settings.checkin.distanceMode) {
@@ -440,7 +559,8 @@
     function lookupTicket() {
       var value = normalizeLookup(document.getElementById('lookupValue').value);
       var btn = document.getElementById('btnLookup');
-      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
+      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false); show('trackingPage', false);
+      stopTrackingSubscription();
       resetFlexibleTracking();
 
       if (!value) { setStatus('lookupStatus', 'bad', 'กรุณากรอกเบอร์โทรศัพท์หรือรหัสตั๋ว'); return; }
@@ -589,6 +709,7 @@
       updateCancelAvailability();
       updateActionAvailability();
       updateFlexiblePanel();
+      renderTrackingLayout();
     }
 
     function splitLegs(route) {
@@ -746,6 +867,271 @@
       return map[status] || status || 'ยืนยันแล้ว';
     }
 
+    function loadBoxmapFromPassengerPattern() {
+      return typeof mapboxgl !== 'undefined' && !!MAPBOX_ACCESS_TOKEN;
+    }
+
+    function renderTrackingLayout() {
+      if (!currentBooking) return;
+      show('trackingPage', true);
+      renderPassengerTrackingCard();
+      initTrackingMap();
+      pickupStopLocation = resolvePickupStopLocation(currentBooking);
+      transferPointLocation = { name: 'จุดต่อรถแปดริ้ว', lat: TERMINAL.lat, lng: TERMINAL.lng };
+      destinationLocation = resolveDestinationLocation(currentBooking);
+      renderPickupMarker();
+      renderTransferMarker();
+      subscribeVanLocationForTicket();
+      renderCheckinButtonState();
+      setTimeout(function() {
+        if (trackingMap) trackingMap.resize();
+      }, 80);
+    }
+
+    function initTrackingMap() {
+      if (trackingMap || !loadBoxmapFromPassengerPattern()) return;
+      mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+      trackingMap = new mapboxgl.Map({
+        container: 'trackingMap',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [TERMINAL.lng, TERMINAL.lat],
+        zoom: 10.5,
+        attributionControl: false
+      });
+      trackingMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
+      trackingMap.on('load', function() {
+        trackingMapReady = true;
+        trackingMap.addSource('trackingRouteLine', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+        trackingMap.addLayer({
+          id: 'trackingRouteLine',
+          type: 'line',
+          source: 'trackingRouteLine',
+          paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-opacity': 0.76 }
+        });
+        trackingRouteSourceReady = true;
+        renderPickupMarker();
+        renderTransferMarker();
+        if (vanLocation) renderVanMarker(vanLocation);
+        updateTrackingRouteLine();
+      });
+    }
+
+    function stopTrackingSubscription() {
+      if (trackingBusRef) trackingBusRef.off();
+      trackingBusRef = null;
+      trackingVehicleId = '';
+      vanLocation = null;
+    }
+
+    function subscribeVanLocationForTicket() {
+      stopTrackingSubscription();
+      trackingBusRef = db.ref('bus');
+      trackingBusRef.on('value', function(snap) {
+        var buses = snap.val() || {};
+        var match = resolveVehicleForBooking(currentBooking, buses);
+        trackingVehicleId = match && match.id ? match.id : '';
+        vanLocation = match && match.location ? match.location : null;
+        if (vanLocation) {
+          renderVanMarker(vanLocation);
+          updateVanMarkerSmoothly(vanLocation);
+        }
+        renderPassengerTrackingCard();
+      });
+    }
+
+    function resolveVehicleForBooking(booking, buses) {
+      var keys = Object.keys(buses || {});
+      if (!booking || !keys.length) return null;
+      var routeInfo = connectionRouteInfo(booking.route);
+      var origin = getRouteOrigin(booking, getLegSchedule(booking));
+      var direction = routeDirectionForOrigin(origin);
+      var preferredQueue = booking.queue || booking.queueNo || booking.vanQueue || booking.carQueue || '';
+      var best = null;
+      keys.forEach(function(id) {
+        var pos = normalizeTrackingPoint(buses[id]);
+        if (!pos) return;
+        var score = 0;
+        if (preferredQueue && String(buses[id].queue || '') === String(preferredQueue)) score += 5;
+        if (direction && buses[id].direction === direction) score += 3;
+        if (routeInfo.type === 'secondary_connection' && buses[id].direction === 'go') score += 1;
+        if (!best || score > best.score || (score === best.score && Number(pos.ts || 0) > Number(best.location.ts || 0))) {
+          best = { id: id, location: pos, score: score };
+        }
+      });
+      return best;
+    }
+
+    function routeDirectionForOrigin(origin) {
+      var clean = String(origin || '').replace(/\s+/g, '');
+      if (!clean) return '';
+      if (clean.indexOf('ฉะเชิงเทรา') !== -1 || clean.indexOf('แปดริ้ว') !== -1) return 'back';
+      return 'go';
+    }
+
+    function normalizeTrackingPoint(point) {
+      point = point || {};
+      var lat = Number(point.lat !== undefined ? point.lat : point.latitude);
+      var lng = Number(point.lng !== undefined ? point.lng : (point.lon !== undefined ? point.lon : point.longitude));
+      if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return null;
+      return Object.assign({}, point, { lat: lat, lng: lng });
+    }
+
+    function resolvePickupStopLocation(booking) {
+      var origin = getRouteOrigin(booking, getLegSchedule(booking));
+      return findStopLocation(origin) || STOP_LOCATIONS[0];
+    }
+
+    function resolveDestinationLocation(booking) {
+      var routeInfo = connectionRouteInfo(booking.route);
+      return findStopLocation(routeInfo.destination || booking.destination || booking.to || '') || transferPointLocation;
+    }
+
+    function findStopLocation(name) {
+      var clean = String(name || '').replace(/\s+/g, '');
+      if (!clean) return null;
+      for (var i = 0; i < STOP_LOCATIONS.length; i++) {
+        var stopClean = STOP_LOCATIONS[i].name.replace(/\s+/g, '');
+        if (clean.indexOf(stopClean) !== -1 || stopClean.indexOf(clean) !== -1) return STOP_LOCATIONS[i];
+      }
+      return null;
+    }
+
+    function createTrackingMarker(className, text) {
+      var el = document.createElement('div');
+      el.className = 'tracking-marker ' + className;
+      el.textContent = text;
+      return el;
+    }
+
+    function renderVanMarker(location) {
+      if (!trackingMapReady || !trackingMap || !location) return;
+      if (!trackingVanMarker) {
+        trackingVanMarker = new mapboxgl.Marker({ element: createTrackingMarker('van', 'รถ') })
+          .setLngLat([location.lng, location.lat])
+          .addTo(trackingMap);
+      } else {
+        trackingVanMarker.setLngLat([location.lng, location.lat]);
+      }
+      focusTrackingMap();
+      updateTrackingRouteLine();
+    }
+
+    function renderPickupMarker() {
+      if (!trackingMapReady || !trackingMap || !pickupStopLocation) return;
+      if (!trackingPickupMarker) {
+        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ป้าย') })
+          .setLngLat([pickupStopLocation.lng, pickupStopLocation.lat])
+          .addTo(trackingMap);
+      } else {
+        trackingPickupMarker.setLngLat([pickupStopLocation.lng, pickupStopLocation.lat]);
+      }
+      updateTrackingRouteLine();
+    }
+
+    function renderTransferMarker() {
+      var point = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
+      if (!trackingMapReady || !trackingMap || !point) return;
+      if (!trackingTransferMarker) {
+        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ถึง') })
+          .setLngLat([point.lng, point.lat])
+          .addTo(trackingMap);
+      } else {
+        trackingTransferMarker.setLngLat([point.lng, point.lat]);
+      }
+      updateTrackingRouteLine();
+    }
+
+    function updateVanMarkerSmoothly(location) {
+      renderVanMarker(location);
+    }
+
+    function updateTrackingRouteLine() {
+      if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
+      var coords = [];
+      if (vanLocation) coords.push([vanLocation.lng, vanLocation.lat]);
+      if (pickupStopLocation) coords.push([pickupStopLocation.lng, pickupStopLocation.lat]);
+      var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
+      if (target) coords.push([target.lng, target.lat]);
+      trackingMap.getSource('trackingRouteLine').setData(coords.length >= 2 ? {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: coords },
+        properties: {}
+      } : { type: 'FeatureCollection', features: [] });
+    }
+
+    function focusTrackingMap() {
+      if (!trackingMap || !trackingMapReady) return;
+      var target = currentBooking && connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
+      var points = [vanLocation, pickupStopLocation, target].filter(Boolean);
+      if (!points.length) return;
+      var bounds = new mapboxgl.LngLatBounds();
+      points.forEach(function(p) { bounds.extend([p.lng, p.lat]); });
+      trackingMap.fitBounds(bounds, { padding: { top: 70, right: 40, bottom: 240, left: 40 }, maxZoom: 14, duration: 500 });
+    }
+
+    function calculatePickupEta() {
+      if (!vanLocation || !pickupStopLocation) return null;
+      var speed = Number(vanLocation.speed || 0);
+      var km = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) * ROAD_DISTANCE_FACTOR;
+      return Math.max(1, Math.round((km / Math.max(speed, 24)) * 60));
+    }
+
+    function calculateTransferOrDestinationEta() {
+      var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
+      if (!vanLocation || !target) return null;
+      var speed = Number(vanLocation.speed || 0);
+      var km = distanceKm(vanLocation.lat, vanLocation.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
+      return Math.max(1, Math.round((km / Math.max(speed, 28)) * 60));
+    }
+
+    function renderPassengerTrackingCard() {
+      if (!currentBooking) return;
+      var legs = getLegSchedule(currentBooking);
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      document.getElementById('trackingCode').textContent = currentBooking.code || '-';
+      document.getElementById('trackingName').textContent = displayPassengerName(currentBooking.name);
+      document.getElementById('trackingPhone').textContent = currentBooking.phone || '-';
+      document.getElementById('trackingRouteSummary').textContent = legs.leg1 + (legs.leg2 ? ' / ' + legs.leg2 : '');
+      var pickupEta = calculatePickupEta();
+      var destEta = calculateTransferOrDestinationEta();
+      var pickupName = pickupStopLocation ? pickupStopLocation.name : getRouteOrigin(currentBooking, legs);
+      document.getElementById('trackingPickupEta').textContent = pickupEta === null ? 'กำลังรอตำแหน่งรถจากคนขับ' : 'รถจะถึงป้าย ' + pickupName + ' ประมาณ ' + pickupEta + ' นาที';
+      document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
+        (routeInfo.type === 'secondary_connection' ? 'จะถึงจุดต่อรถแปดริ้วประมาณ ' : 'จะถึงปลายทางประมาณ ') + destEta + ' นาที';
+      document.getElementById('trackingNextStep').textContent = renderNextStepText();
+    }
+
+    function renderNextStepText() {
+      if (!currentBooking) return '-';
+      var legs = getLegSchedule(currentBooking);
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      var age = vanLocation && vanLocation.ts ? Date.now() - Number(vanLocation.ts) : null;
+      if (!vanLocation) return 'กำลังรอตำแหน่งรถจากคนขับ';
+      if (age !== null && age > 2 * 60 * 1000) return 'ตำแหน่งรถอาจไม่เป็นปัจจุบัน · อัปเดตล่าสุด ' + formatAgo(age);
+      if (routeInfo.type === 'secondary_connection') {
+        return 'เมื่อถึงแปดริ้ว ให้ต่อรถเที่ยว ' + formatTimeText(legs.leg2Time) + ' ไป' + routeInfo.destination;
+      }
+      return 'อัปเดตตำแหน่งล่าสุด ' + formatAgo(age || 0);
+    }
+
+    function renderCheckinButtonState() {
+      var source = document.getElementById('btnCheckin');
+      var target = document.getElementById('trackingCheckinButton');
+      if (!source || !target) return;
+      var routeInfo = currentBooking ? connectionRouteInfo(currentBooking.route) : { type: 'main_route' };
+      show('trackingCheckinButton', routeInfo.type === 'secondary_connection');
+      target.disabled = source.disabled;
+      target.textContent = source.textContent;
+    }
+
+    function formatAgo(ms) {
+      var sec = Math.max(0, Math.round(Number(ms || 0) / 1000));
+      if (sec < 60) return sec + ' วินาทีที่แล้ว';
+      return Math.round(sec / 60) + ' นาทีที่แล้ว';
+    }
 
     function startGPS() {
       if (!navigator.geolocation) { setStatus('scheduleStatus', 'bad', 'อุปกรณ์นี้ไม่รองรับ GPS'); return; }
@@ -823,8 +1209,7 @@
     function refreshRoadDistance(position) {
       if (DISTANCE_MODE !== 'road') return;
       var seq = ++roadDistanceRequestSeq;
-      requestLongdoRoadDistanceKm(position)
-        .catch(function() { return requestOsrmRoadDistanceKm(position); })
+      requestOsrmRoadDistanceKm(position)
         .then(function(road) {
         var roadKm = road && road.km;
         if (seq !== roadDistanceRequestSeq || roadKm === null || isNaN(roadKm)) return;
@@ -849,29 +1234,6 @@
         TERMINAL.lat.toFixed(5),
         TERMINAL.lng.toFixed(5)
       ].join(',');
-    }
-
-    function requestLongdoRoadDistanceKm(position) {
-      var key = roadDistanceCacheKey('longdo', position);
-      if (ROAD_DISTANCE_CACHE[key] !== undefined) return Promise.resolve({ km: ROAD_DISTANCE_CACHE[key], source: 'longdo_road' });
-
-      var url = 'https://api.longdo.com/RouteService/json/route/guide?' +
-        'flon=' + encodeURIComponent(position.lng) +
-        '&flat=' + encodeURIComponent(position.lat) +
-        '&tlon=' + encodeURIComponent(TERMINAL.lng) +
-        '&tlat=' + encodeURIComponent(TERMINAL.lat) +
-        '&mode=t&type=25&locale=th&key=' + encodeURIComponent(LONGDO_MAP_KEY);
-
-      return fetch(url).then(function(res) {
-        if (!res.ok) throw new Error('Longdo ' + res.status);
-        return res.json();
-      }).then(function(data) {
-        var route = data && data.data && data.data[0];
-        if (!route || !route.distance) throw new Error('Longdo route not found');
-        var km = route.distance / 1000;
-        ROAD_DISTANCE_CACHE[key] = km;
-        return { km: km, source: 'longdo_road' };
-      });
     }
 
     function requestOsrmRoadDistanceKm(position) {
@@ -974,6 +1336,7 @@
       if (currentBooking && currentBooking.status === 'checked_in') btn.textContent = 'เช็คอินแล้ว';
       else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
       else btn.textContent = 'เช็คอินถึงจุดต่อรถ';
+      renderCheckinButtonState();
       updateFlexiblePanel();
     }
 
