@@ -170,13 +170,36 @@
       height: min(760px, calc(100vh - 28px));
       min-height: 640px;
       overflow: hidden;
-      background: #0f172a;
+      background: #101826;
       border: 1px solid var(--border);
       border-radius: 8px;
       box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
       margin-bottom: 16px;
     }
-    .tracking-map { position: absolute; inset: 0 0 28%; background: #dbe4ee; }
+    .tracking-map { position: absolute; inset: 0 0 30%; background: #dbe4ee; }
+    .tracking-map::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(15,23,42,.2) 0%, rgba(15,23,42,0) 36%, rgba(15,23,42,.34) 100%);
+      z-index: 1;
+    }
+    .tracking-map-badge {
+      position: absolute;
+      left: 24px;
+      top: 42%;
+      z-index: 4;
+      color: #fff;
+      background: rgba(15, 23, 42, .72);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 16px;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(15,23,42,.28);
+      backdrop-filter: blur(8px);
+    }
     .tracking-cancel {
       position: absolute;
       top: 12px;
@@ -198,22 +221,33 @@
       bottom: 0;
       z-index: 3;
       min-height: 30%;
-      max-height: 48%;
+      max-height: 52%;
       overflow: auto;
-      background: #fff;
+      background: #1f2937;
+      color: #f8fafc;
       border-radius: 18px 18px 0 0;
       padding: 16px;
       box-shadow: 0 -16px 34px rgba(15, 23, 42, .22);
     }
     .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
-    .tracking-sheet-head h2 { margin-bottom: 2px; }
-    .tracking-route { color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .tracking-sheet-head h2 { margin-bottom: 2px; color: #fff; font-size: 22px; }
+    .tracking-title { display: inline-flex; align-items: center; gap: 8px; }
+    .tracking-title-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(255,255,255,.11); }
+    .tracking-route { color: #cbd5e1; font-size: 15px; line-height: 1.5; }
+    .tracking-divider { height: 4px; border-radius: 999px; background: #22c55e; margin: 12px 0; }
     .tracking-person { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
-    .tracking-person div, .tracking-info-item { background: var(--soft); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
-    .tracking-label { color: var(--muted); font-size: 13px; font-weight: 700; }
-    .tracking-value { color: var(--ink); font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
-    .tracking-info { display: grid; gap: 8px; margin-bottom: 12px; }
+    .tracking-person div { background: rgba(15,23,42,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; }
+    .tracking-label { color: #94a3b8; font-size: 13px; font-weight: 700; }
+    .tracking-value { color: #fff; font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+    .tracking-info { position: relative; display: grid; gap: 10px; margin-bottom: 12px; padding-left: 8px; }
+    .tracking-info::before { content: ""; position: absolute; left: 16px; top: 19px; bottom: 19px; width: 2px; background: rgba(226,232,240,.38); }
+    .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; }
+    .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: #22c55e; border: 4px solid #334155; box-shadow: 0 0 0 1px rgba(255,255,255,.24); }
+    .tracking-dot.transfer { background: #fb7185; }
+    .tracking-dot.next { background: #60a5fa; }
+    .tracking-info-copy { min-width: 0; }
     .tracking-actions { display: grid; gap: 8px; }
+    .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 56px; }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van { background: #16a34a; color: #fff; }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
@@ -295,23 +329,25 @@
 
     <section id="trackingPage" class="tracking-page hidden">
       <div id="trackingMap" class="tracking-map"></div>
+      <div id="trackingMapBadge" class="tracking-map-badge">รอตำแหน่งรถ</div>
       <button id="cancelTicketButton" class="tracking-cancel" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
       <div id="trackingBottomSheet" class="tracking-bottom-sheet">
         <div class="tracking-sheet-head">
           <div>
-            <h2>รายละเอียดการจอง</h2>
+            <h2 class="tracking-title"><span class="tracking-title-icon">🚐</span>รายละเอียดการจอง</h2>
             <div id="trackingRouteSummary" class="tracking-route">-</div>
           </div>
-          <div id="trackingCode" class="ticket-state" style="background:#eff6ff;color:#1d4ed8">-</div>
+          <div id="trackingCode" class="ticket-state" style="background:rgba(255,255,255,.12);color:#fff">-</div>
         </div>
         <div class="tracking-person">
           <div><div class="tracking-label">ผู้โดยสาร</div><div id="trackingName" class="tracking-value">-</div></div>
           <div><div class="tracking-label">เบอร์โทร</div><div id="trackingPhone" class="tracking-value">-</div></div>
         </div>
+        <div class="tracking-divider"></div>
         <div class="tracking-info">
-          <div class="tracking-info-item"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div></div>
-          <div class="tracking-info-item"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div></div>
-          <div class="tracking-info-item"><div class="tracking-label">ขั้นตอนถัดไป</div><div id="trackingNextStep" class="tracking-value">-</div></div>
+          <div class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div></div></div>
+          <div class="tracking-info-item"><span class="tracking-dot transfer"></span><div class="tracking-info-copy"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div></div></div>
+          <div class="tracking-info-item"><span class="tracking-dot next"></span><div class="tracking-info-copy"><div class="tracking-label">ขั้นตอนถัดไป</div><div id="trackingNextStep" class="tracking-value">-</div></div></div>
         </div>
         <div class="tracking-actions">
           <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
@@ -1114,11 +1150,23 @@
       document.getElementById('trackingRouteSummary').textContent = legs.leg1 + (legs.leg2 ? ' / ' + legs.leg2 : '');
       var pickupEta = calculatePickupEta();
       var destEta = calculateTransferOrDestinationEta();
+      renderTrackingMapBadge(pickupEta);
       var pickupName = pickupStopLocation ? pickupStopLocation.name : getRouteOrigin(currentBooking, legs);
       document.getElementById('trackingPickupEta').textContent = pickupEta === null ? 'กำลังรอตำแหน่งรถจากคนขับ' : 'รถจะถึงป้าย ' + pickupName + ' ประมาณ ' + pickupEta + ' นาที';
       document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
         (routeInfo.type === 'secondary_connection' ? 'จะถึงจุดต่อรถแปดริ้วประมาณ ' : 'จะถึงปลายทางประมาณ ') + destEta + ' นาที';
       document.getElementById('trackingNextStep').textContent = renderNextStepText();
+    }
+
+    function renderTrackingMapBadge(pickupEta) {
+      var el = document.getElementById('trackingMapBadge');
+      if (!el) return;
+      if (!vanLocation || !pickupStopLocation || pickupEta === null) {
+        el.textContent = 'รอตำแหน่งรถ';
+        return;
+      }
+      var km = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) * ROAD_DISTANCE_FACTOR;
+      el.textContent = km.toFixed(1) + ' กม. · ' + pickupEta + ' นาที';
     }
 
     function renderNextStepText() {
