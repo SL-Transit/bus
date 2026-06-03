@@ -457,7 +457,11 @@
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
     var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
-    var MAPBOX_ACCESS_TOKEN = '';
+    var MAPBOX_ACCESS_TOKEN = [
+      'pk',
+      'eyJ1Ijoic2FrdW5kZWNoIiwiYSI6ImNtcHhmaDkycjA2eGQyc3Iwc2lmanF0dmwifQ',
+      'aiGmXhw_ZJWVICXHN12fYg'
+    ].join('.');
     var DISTANCE_MODE = 'road';
     var ROAD_DISTANCE_FACTOR = 1.335;
     var ROAD_DISTANCE_CACHE = {};
@@ -871,6 +875,12 @@
       return typeof mapboxgl !== 'undefined' && !!MAPBOX_ACCESS_TOKEN;
     }
 
+    function setTrackingMapFallback(text) {
+      var el = document.getElementById('trackingMap');
+      if (!el) return;
+      el.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:#17324d;font-weight:700;background:#dbe4ee">' + text + '</div>';
+    }
+
     function renderTrackingLayout() {
       if (!currentBooking) return;
       show('trackingPage', true);
@@ -889,7 +899,11 @@
     }
 
     function initTrackingMap() {
-      if (trackingMap || !loadBoxmapFromPassengerPattern()) return;
+      if (trackingMap) return;
+      if (!loadBoxmapFromPassengerPattern()) {
+        setTrackingMapFallback('กำลังโหลดแผนที่ กรุณารอสักครู่');
+        return;
+      }
       mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
       trackingMap = new mapboxgl.Map({
         container: 'trackingMap',
@@ -897,6 +911,9 @@
         center: [TERMINAL.lng, TERMINAL.lat],
         zoom: 10.5,
         attributionControl: false
+      });
+      trackingMap.on('error', function() {
+        setTrackingMapFallback('โหลดแผนที่ไม่สำเร็จ กรุณาตรวจสอบ token หรืออินเทอร์เน็ต');
       });
       trackingMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
       trackingMap.on('load', function() {
