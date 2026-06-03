@@ -73,17 +73,17 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .status-text span { font-size:13px; color:var(--muted); margin-top:3px; display:block; }
 
 /* ===== MAP ===== */
-#map { height:280px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border); overflow:hidden; background:#e8edf3; position:relative; }
-#map .mapboxgl-canvas { border-radius:12px; }
-.mapboxgl-map { font-family:'Kanit',sans-serif; background:#f7f8fa; }
+#map { height:clamp(240px,40vh,300px); border-radius:16px; margin-bottom:12px; border:1px solid #cbd5e1; overflow:hidden; background:#dcebf7; position:relative; box-shadow:0 10px 24px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.08); }
+#map .mapboxgl-canvas { border-radius:16px; }
+.mapboxgl-map { font-family:'Kanit',sans-serif; background:#eef6fb; }
 .mapboxgl-ctrl-attrib { font-size:10px; }
-.mapboxgl-ctrl-group { border:none !important; box-shadow:0 1px 5px rgba(15,23,42,.16) !important; }
+.mapboxgl-ctrl-group { border:none !important; border-radius:12px !important; overflow:hidden; box-shadow:0 4px 12px rgba(15,23,42,.18) !important; }
 .mapboxgl-ctrl-group button { color:#1d4ed8 !important; border-color:#e2e8f0 !important; }
-.map-stop-icon { font-size:22px; line-height:1; filter:drop-shadow(0 2px 3px rgba(15,23,42,.28)); }
-.map-stop-label { background:rgba(30,58,138,.92); color:#fff; font-size:10px; font-weight:700; padding:3px 7px; border-radius:10px; white-space:nowrap; box-shadow:0 2px 6px rgba(15,23,42,.2); }
-.map-bus-icon { width:34px; height:34px; border-radius:50%; background:#f97316; border:3px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; color:#fff; font-size:19px; line-height:1; }
-.map-bus-label { background:#f97316; color:#fff; font-size:12px; font-weight:700; padding:5px 10px; border-radius:16px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.3); }
-.map-passenger-marker { width:20px; height:20px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 4px rgba(37,99,235,.22),0 2px 8px rgba(0,0,0,.28); }
+.map-stop-icon { width:34px; height:34px; border-radius:50%; background:#1e3a8a; border:3px solid #fff; box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(30,58,138,.18); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; line-height:1; }
+.map-stop-label { background:rgba(15,23,42,.9); color:#fff; font-size:11px; font-weight:700; padding:4px 8px; border-radius:12px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.24); border:1px solid rgba(255,255,255,.82); }
+.map-bus-icon { width:40px; height:40px; border-radius:50%; background:#16a34a; border:4px solid #fff; box-shadow:0 6px 16px rgba(15,23,42,.38),0 0 0 4px rgba(22,163,74,.2); display:flex; align-items:center; justify-content:center; color:#fff; font-size:21px; line-height:1; }
+.map-bus-label { background:#15803d; color:#fff; font-size:12px; font-weight:700; padding:6px 11px; border-radius:16px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.3); border:1px solid rgba(255,255,255,.78); }
+.map-passenger-marker { width:26px; height:26px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 5px rgba(37,99,235,.24),0 4px 12px rgba(15,23,42,.34); }
 .follow-user-btn { width:100%; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:10px; padding:9px 12px; margin:-4px 0 12px; font-family:'Kanit',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.08); }
 .follow-user-btn.is-off { background:#fff; color:#5a6a7e; border-color:#d1dbe8; }
 
@@ -292,7 +292,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   .info-strip { padding:8px 12px; }
   .route-select-card { padding:12px; }
   .route-card { padding:12px; }
-  #map { height:240px; }
+  #map { height:230px; border-radius:14px; }
   .route-select-card,
   .sched-card,
   .leg2-card,
@@ -796,6 +796,55 @@ function forceFocusSelectedOriginAfterMapReady() {
 }
 
 // ===== MAPBOX MAP =====
+function applyMobileMapPaint() {
+  if (!mapObj || !mapObj.getStyle()) return;
+
+  var layers = mapObj.getStyle().layers || [];
+
+  function setLayerPaint(layerId, props) {
+    if (!mapObj.getLayer(layerId)) return;
+    Object.keys(props).forEach(function(prop) {
+      try { mapObj.setPaintProperty(layerId, prop, props[prop]); } catch(e) {}
+    });
+  }
+
+  function paintMatching(testFn, type, props) {
+    layers.forEach(function(layer) {
+      if (type && layer.type !== type) return;
+      if (testFn(layer.id, layer)) setLayerPaint(layer.id, props);
+    });
+  }
+
+  paintMatching(function(id) {
+    return id === 'water' || id.indexOf('water-') === 0 || id.indexOf('waterway') >= 0;
+  }, 'fill', { 'fill-color': '#8ed2f6', 'fill-opacity': 0.88 });
+
+  paintMatching(function(id) {
+    return id.indexOf('park') >= 0 || id.indexOf('landuse') >= 0 || id.indexOf('national-park') >= 0 || id.indexOf('pitch') >= 0;
+  }, 'fill', { 'fill-color': '#bfe8c2', 'fill-opacity': 0.68 });
+
+  paintMatching(function(id) {
+    return id.indexOf('building') >= 0;
+  }, 'fill', { 'fill-color': '#d7dee7', 'fill-opacity': 0.76 });
+
+  paintMatching(function(id) {
+    return /road-(motorway|trunk|primary|secondary|tertiary)/.test(id);
+  }, 'line', { 'line-color': '#ffffff', 'line-opacity': 1 });
+
+  paintMatching(function(id) {
+    return /road-(street|minor|service|path)/.test(id);
+  }, 'line', { 'line-color': '#fffdf5', 'line-opacity': 0.94 });
+
+  paintMatching(function(id) {
+    return id.indexOf('label') >= 0 || id.indexOf('place') >= 0 || id.indexOf('poi') >= 0;
+  }, 'symbol', {
+    'text-color': '#334155',
+    'text-halo-color': '#ffffff',
+    'text-halo-width': 1.15,
+    'text-halo-blur': 0.15
+  });
+}
+
 function initMap() {
   if (mapInitPromise) return mapInitPromise;
   try {
@@ -804,7 +853,7 @@ function initMap() {
 
     mapObj = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: 'mapbox://styles/mapbox/streets-v12',
       center: [101.245, 13.710],
       zoom: 10,
       attributionControl: true
@@ -814,6 +863,7 @@ function initMap() {
     mapInitPromise = new Promise(function(resolve) {
       mapObj.on('load', function() {
         mapReady = true;
+        applyMobileMapPaint();
         console.log('map loaded');
         refreshMapSizeSafely();
         if (Object.keys(allBusPositions).length) {
@@ -966,19 +1016,33 @@ function drawRoute(routeData) {
 
     if (mapObj.getSource('route-line')) {
       mapObj.getSource('route-line').setData(geojson);
+      try {
+        mapObj.setPaintProperty('route-line', 'line-color', viewDir==='go' ? '#0b5fff' : '#ef4444');
+      } catch(e) {}
       return;
     }
 
     mapObj.addSource('route-line', { type: 'geojson', data: geojson });
+    mapObj.addLayer({
+      id: 'route-line-casing',
+      type: 'line',
+      source: 'route-line',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': '#ffffff',
+        'line-width': 10,
+        'line-opacity': 0.92
+      }
+    });
     mapObj.addLayer({
       id: 'route-line',
       type: 'line',
       source: 'route-line',
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': viewDir==='go' ? '#1e40af' : '#dc2626',
-        'line-width': 5,
-        'line-opacity': 0.85
+        'line-color': viewDir==='go' ? '#0b5fff' : '#ef4444',
+        'line-width': 6,
+        'line-opacity': 0.96
       }
     });
     routeLine = true;
