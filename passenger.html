@@ -1091,7 +1091,10 @@ function applyTestModeUI() {
 function triggerLongdoGeolocation() {
   try {
     if (mapObj && window.longdo && longdo.LocationMode) {
-      mapObj.location(longdo.LocationMode.Geolocation);
+      var mode = longdo.GeolocationMode && longdo.GeolocationMode.ZoomToMarker
+        ? longdo.GeolocationMode.ZoomToMarker
+        : true;
+      mapObj.location(longdo.LocationMode.Geolocation, mode);
     }
   } catch(e) {
     console.warn('Longdo geolocation trigger failed:', e && e.message ? e.message : e);
