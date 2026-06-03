@@ -1248,9 +1248,10 @@ function ensureStationMarkersVisible(routeData, attempt) {
 }
 
 function startPassengerLocation() {
-  if (!navigator.geolocation || passengerWatchId !== null) return;
+  if (!navigator.geolocation) return Promise.resolve(null);
+  if (passengerWatchId !== null) return Promise.resolve(passengerPos);
 
-  requestPassengerCurrentLocation(true, false);
+  var initialLocationPromise = requestPassengerCurrentLocation(true, false);
 
   passengerWatchId = navigator.geolocation.watchPosition(function(pos) {
     var next = normalizeMapPoint({
@@ -1278,6 +1279,8 @@ function startPassengerLocation() {
     timeout: 15000,
     maximumAge: 5000
   });
+
+  return initialLocationPromise;
 }
 
 function updatePassengerOnMap(latlng, forceCenter) {
@@ -1682,10 +1685,12 @@ document.addEventListener('DOMContentLoaded', async function(){
   const routeData = await loadPassengerRouteData();
   await renderRoutePolyline(routeData);
   renderStationMarkers(routeData);
-  fitSelectedRouteOnMap();
   updateBottomSheetSummary();
   refreshMapSizeSafely();
-  startPassengerLocation();
+  const initialPassengerLocation = await startPassengerLocation();
+  if (!followUser || !initialPassengerLocation) {
+    fitSelectedRouteOnMap();
+  }
 
   window.addEventListener('resize', refreshMapSizeSafely);
 
