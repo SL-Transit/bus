@@ -176,37 +176,28 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
       margin-bottom: 16px;
     }
+    .tracking-page.hidden { display: none !important; }
     .lookup-panel {
       position: relative;
       z-index: 5;
-      background: #1f2937;
-      color: #f8fafc;
-      border: 1px solid rgba(255,255,255,.08);
-      box-shadow: 0 14px 32px rgba(15, 23, 42, .18);
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
       padding: 18px;
     }
-    .lookup-panel h1 { color: #fff; font-size: 24px; margin-bottom: 4px; }
-    .lookup-panel .lead { color: #cbd5e1; font-size: 15px; margin-bottom: 12px; line-height: 1.55; }
-    .lookup-panel label { color: #e2e8f0; font-size: 15px; margin-bottom: 6px; }
+    .lookup-panel h1 { color: var(--navy); font-size: 28px; margin-bottom: 6px; }
+    .lookup-panel .lead { color: var(--muted); font-size: 16px; margin-bottom: 14px; line-height: 1.65; }
+    .lookup-panel label { color: var(--navy); font-size: 16px; margin-bottom: 6px; }
     .lookup-panel input {
-      background: #0f172a;
-      color: #fff;
-      border-color: #475569;
+      background: var(--soft);
+      color: var(--navy);
+      border-color: var(--line);
       min-height: 52px;
       padding: 12px 14px;
     }
-    .lookup-panel input:focus { background: #0f172a; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
+    .lookup-panel input:focus { background: #fff; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
     .lookup-panel button { min-height: 52px; padding: 12px 18px; }
-    .tracking-page .lookup-panel {
-      position: absolute;
-      left: 16px;
-      right: 16px;
-      top: 16px;
-      margin: 0;
-      border-radius: 14px;
-      background: rgba(31,41,55,.92);
-      backdrop-filter: blur(10px);
-    }
     .tracking-map { position: absolute; inset: 0 0 34%; background: #101826; }
     .tracking-map::after {
       content: "";
@@ -230,6 +221,21 @@
       font-weight: 800;
       box-shadow: 0 8px 18px rgba(15,23,42,.28);
       backdrop-filter: blur(8px);
+    }
+    .tracking-locate {
+      position: absolute;
+      right: 12px;
+      top: 68px;
+      z-index: 4;
+      width: 44px;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 999px;
+      background: #fff;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 8px 20px rgba(15,23,42,.18);
+      font-size: 20px;
     }
     .tracking-cancel {
       position: absolute;
@@ -347,21 +353,23 @@
     </div>
     <div id="testModeStatus" class="test-mode-status">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และอ่าน/เขียนเฉพาะข้อมูลทดสอบ</div>
 
-    <section id="trackingPage" class="tracking-page">
-      <div id="trackingMap" class="tracking-map"></div>
-      <section id="lookupPanel" class="panel lookup-panel">
-        <h1>ตรวจสอบตั๋ว</h1>
-        <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว เพื่อดูรถที่เกี่ยวข้องกับการจองของคุณ</p>
-        <div class="search-grid">
-          <div class="field">
-            <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
-            <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
-          </div>
-          <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
+    <section id="lookupPanel" class="panel lookup-panel">
+      <h1>ตรวจสอบ / เช็คอิน / ยกเลิกตั๋ว</h1>
+      <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว ระบบจะแสดงเฉพาะข้อมูลการจองของผู้โดยสารคนนั้น</p>
+      <div class="search-grid">
+        <div class="field">
+          <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
+          <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
         </div>
-        <div id="lookupStatus" class="status info hidden"></div>
-      </section>
+        <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
+      </div>
+      <div id="lookupStatus" class="status info hidden"></div>
+    </section>
+
+    <section id="trackingPage" class="tracking-page hidden">
+      <div id="trackingMap" class="tracking-map"></div>
       <div id="trackingMapBadge" class="tracking-map-badge hidden">รอตำแหน่งรถ</div>
+      <button id="trackingLocateButton" class="tracking-locate hidden" type="button" onclick="locatePassengerNow()" title="ระบุตำแหน่ง">⌖</button>
       <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
       <div id="trackingBottomSheet" class="tracking-bottom-sheet hidden">
         <div class="tracking-sheet-head">
@@ -634,7 +642,7 @@
       var value = normalizeLookup(document.getElementById('lookupValue').value);
       var btn = document.getElementById('btnLookup');
       show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
-      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingMapBadge', false); show('lookupPanel', true);
+      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingMapBadge', false); show('trackingLocateButton', false); show('lookupPanel', true); show('trackingPage', false);
       stopTrackingSubscription();
       resetFlexibleTracking();
 
@@ -962,6 +970,7 @@
       show('trackingBottomSheet', true);
       show('cancelTicketButton', true);
       show('trackingMapBadge', true);
+      show('trackingLocateButton', true);
       renderPassengerTrackingCard();
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
@@ -1204,6 +1213,24 @@
     function focusPassengerLocation(position) {
       if (!trackingMapReady || !trackingMap || !position) return;
       trackingMap.easeTo({ center: [position.lng, position.lat], zoom: Math.max(trackingMap.getZoom(), 13), duration: 600 });
+    }
+
+    function locatePassengerNow() {
+      if (lastPosition) {
+        focusPassengerLocation(lastPosition);
+        return;
+      }
+      if (!navigator.geolocation) {
+        setStatus('lookupStatus', 'bad', 'อุปกรณ์นี้ไม่รองรับ GPS');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+        lastPosition = next;
+        focusPassengerLocation(next);
+      }, function(err) {
+        setStatus('lookupStatus', 'bad', err.message || 'ไม่สามารถอ่านตำแหน่ง GPS ได้');
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
     }
 
     function focusTrackingMap() {
@@ -2041,8 +2068,6 @@
     document.getElementById('lookupValue').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') lookupTicket();
     });
-    initTrackingMap();
-
     var params = new URLSearchParams(location.search);
     var initial = params.get('code') || params.get('phone');
     if (initial) {
