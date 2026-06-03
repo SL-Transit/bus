@@ -167,7 +167,7 @@
 
     .tracking-page {
       position: relative;
-      height: min(780px, calc(100vh - 20px));
+      height: min(760px, calc(100vh - 20px));
       min-height: 620px;
       overflow: hidden;
       background: #101826;
@@ -198,7 +198,7 @@
     }
     .lookup-panel input:focus { background: #fff; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
     .lookup-panel button { min-height: 52px; padding: 12px 18px; }
-    .tracking-map { position: absolute; inset: 0 0 30%; background: #101826; }
+    .tracking-map { position: absolute; inset: 0; background: #101826; }
     .tracking-map::after {
       content: "";
       position: absolute;
@@ -251,21 +251,41 @@
       box-shadow: 0 8px 20px rgba(15, 23, 42, .18);
       font-size: 15px;
     }
+    @media (max-width: 640px) {
+      .tracking-cancel {
+        top: 10px;
+        right: 10px;
+        min-height: 38px;
+        width: auto;
+        padding: 8px 12px;
+        font-size: 13px;
+        box-shadow: 0 6px 14px rgba(15,23,42,.18);
+      }
+      .tracking-locate {
+        top: 58px;
+        width: 40px;
+        min-height: 40px;
+      }
+    }
     .tracking-bottom-sheet {
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      left: 50%;
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
       z-index: 3;
-      min-height: 30%;
-      max-height: 46%;
+      width: min(92%, 560px);
+      min-height: auto;
+      max-height: min(54%, 390px);
       overflow: auto;
-      background: #1f2937;
+      background: rgba(31, 41, 55, .96);
       color: #f8fafc;
-      border-radius: 18px 18px 0 0;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 18px;
       padding: 14px 16px 16px;
-      box-shadow: 0 -16px 34px rgba(15, 23, 42, .22);
+      box-shadow: 0 18px 44px rgba(15, 23, 42, .34);
+      backdrop-filter: blur(10px);
     }
+    .tracking-sheet-handle { width: 42px; height: 4px; border-radius: 999px; background: #cbd5e1; opacity: .8; margin: 0 auto 10px; }
     .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
     .tracking-sheet-head h2 { margin-bottom: 0; color: #fff; font-size: 20px; }
     .tracking-title { display: inline-flex; align-items: center; gap: 8px; }
@@ -339,10 +359,11 @@
       .ticket-head { align-items: flex-start; flex-direction: column; }
       .schedule-time-box { border-left: 0; border-top: 4px solid var(--blue); }
       .tracking-page { height: 100vh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
-      .tracking-map { inset: 0 0 34%; }
+      .tracking-map { inset: 0; }
       .tracking-person { grid-template-columns: 1fr; }
-      .tracking-bottom-sheet { min-height: 34%; max-height: 56%; }
+      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 50%; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
       button, .btn { width: 100%; white-space: normal; }
+      .tracking-cancel, .tracking-locate { width: auto; white-space: nowrap; }
     }
   </style>
 </head>
@@ -373,6 +394,7 @@
       <button id="trackingLocateButton" class="tracking-locate hidden" type="button" onclick="locatePassengerNow()" title="ระบุตำแหน่ง">⌖</button>
       <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
       <div id="trackingBottomSheet" class="tracking-bottom-sheet hidden">
+        <div class="tracking-sheet-handle"></div>
         <div class="tracking-sheet-head">
           <div>
             <h2 class="tracking-title"><span class="tracking-title-icon">🚐</span>รายละเอียดการจอง</h2>
@@ -644,7 +666,7 @@
       var value = normalizeLookup(document.getElementById('lookupValue').value);
       var btn = document.getElementById('btnLookup');
       show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
-      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingMapBadge', false); show('trackingLocateButton', false); show('lookupPanel', true); show('trackingPage', false);
+      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingMapBadge', false); show('trackingLocateButton', false); show('lookupPanel', true); show('trackingPage', false); showTopbar(true);
       stopTrackingSubscription();
       resetFlexibleTracking();
 
@@ -973,6 +995,7 @@
       show('cancelTicketButton', true);
       show('trackingMapBadge', true);
       show('trackingLocateButton', true);
+      showTopbar(false);
       renderPassengerTrackingCard();
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
@@ -991,6 +1014,11 @@
     function autoStartPassengerGps() {
       if (watchId !== null || !navigator.geolocation || !currentBooking) return;
       startGPS();
+    }
+
+    function showTopbar(yes) {
+      var el = document.querySelector('.topbar');
+      if (el) el.classList.toggle('hidden', !yes);
     }
 
     function initTrackingMap() {
