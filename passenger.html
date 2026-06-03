@@ -84,6 +84,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .map-bus-icon { width:34px; height:34px; border-radius:50%; background:#f97316; border:3px solid #fff; box-shadow:0 4px 12px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; color:#fff; font-size:19px; line-height:1; }
 .map-bus-label { background:#f97316; color:#fff; font-size:12px; font-weight:700; padding:5px 10px; border-radius:16px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.3); }
 .map-passenger-marker { width:20px; height:20px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 4px rgba(37,99,235,.22),0 2px 8px rgba(0,0,0,.28); }
+.follow-user-btn { width:100%; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:10px; padding:9px 12px; margin:-4px 0 12px; font-family:'Kanit',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.08); }
+.follow-user-btn.is-off { background:#fff; color:#5a6a7e; border-color:#d1dbe8; }
 
 /* ===== ROUTE STRIP ===== */
 .route-card {
@@ -374,6 +376,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   </div>
 
   <div id="map"></div>
+  <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งฉัน</button>
 
   <!-- ตำแหน่งรถ — รองรับหลายคัน -->
   <div class="route-card">
@@ -553,7 +556,7 @@ let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false
 let stationMarkerOverlays=[];
 let routeRenderSeq=0;
 let mapInitPromise=null;
-let passengerMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
+let userMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
 let followUser=true;
 let busFollowMode=true, busCentered=false;
 
@@ -588,6 +591,32 @@ function focusSelectedOrigin() {
   if (stop) focusMap(normalizeMapPoint(stop), 14);
 }
 
+function updateFollowUserButton() {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn) return;
+  btn.classList.toggle('is-off', !followUser);
+  btn.textContent = followUser ? 'กำลังติดตามตำแหน่งฉัน' : 'ติดตามตำแหน่งฉัน';
+}
+
+function setFollowUser(nextValue) {
+  followUser = nextValue === true;
+  console.log('followUser changed', followUser);
+  updateFollowUserButton();
+  if (followUser && passengerPos) {
+    focusMap(passengerPos, 15);
+  }
+}
+
+function bindFollowUserButton() {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn || btn.dataset.bound === '1') return;
+  btn.addEventListener('click', function() {
+    setFollowUser(!followUser);
+  });
+  btn.dataset.bound = '1';
+  updateFollowUserButton();
+}
+
 function choosePrimaryBus(buses) {
   var best = null;
   Object.keys(buses || {}).forEach(function(id) {
@@ -612,10 +641,12 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
         lon: pos.coords.longitude,
         lat: pos.coords.latitude
       });
+      console.log('GPS received', current);
       passengerPos = current;
       updatePassengerOnMap(current, forceCenter);
       resolve(current);
     }, function(err) {
+      console.log('GPS error', err && err.message ? err.message : err);
       console.warn('Passenger current location error:', err && err.message ? err.message : err);
       resolve(null);
     }, {
@@ -783,6 +814,7 @@ function initMap() {
     mapInitPromise = new Promise(function(resolve) {
       mapObj.on('load', function() {
         mapReady = true;
+        console.log('map loaded');
         refreshMapSizeSafely();
         if (Object.keys(allBusPositions).length) {
           updateAllBusesOnMap(allBusPositions);
@@ -878,6 +910,7 @@ function startPassengerLocation() {
       lat: pos.coords.latitude
     });
     if (!next) return;
+    console.log('GPS received', next);
 
     if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
       return;
@@ -886,6 +919,7 @@ function startPassengerLocation() {
     passengerPos = next;
     updatePassengerOnMap(next, true);
   }, function(err) {
+    console.log('GPS error', err && err.message ? err.message : err);
     console.warn('Passenger location error:', err && err.message ? err.message : err);
   }, {
     enableHighAccuracy: true,
@@ -898,14 +932,16 @@ function updatePassengerOnMap(latlng, forceCenter) {
   latlng = normalizeMapPoint(latlng);
   if (!mapReady || !mapObj || !latlng) return;
 
-  if (passengerMarker) {
-    passengerMarker.setLngLat([latlng.lon, latlng.lat]);
+  if (userMarker) {
+    userMarker.setLngLat([latlng.lon, latlng.lat]);
+    console.log('user marker updated', latlng);
   } else {
     var passengerEl = document.createElement('div');
     passengerEl.className = 'map-passenger-marker';
-    passengerMarker = new mapboxgl.Marker({ element: passengerEl, anchor: 'center' })
+    userMarker = new mapboxgl.Marker({ element: passengerEl, anchor: 'center' })
       .setLngLat([latlng.lon, latlng.lat])
       .addTo(mapObj);
+    console.log('user marker created', latlng);
   }
 
   if ((forceCenter || !passengerCentered) && followUser) {
@@ -986,6 +1022,7 @@ function updateBusOnMap(pos, carId, shouldFocus) {
 
   if (busMarkers[carId]) {
     busMarkers[carId].setLngLat(lngLat);
+    console.log('vehicle marker updated', carId, latlng);
   } else {
     var busEl = document.createElement('div');
     busEl.className = 'map-bus-icon';
@@ -993,6 +1030,7 @@ function updateBusOnMap(pos, carId, shouldFocus) {
     busMarkers[carId] = new mapboxgl.Marker({ element: busEl, anchor: 'center' })
       .setLngLat(lngLat)
       .addTo(mapObj);
+    console.log('vehicle marker created', carId, latlng);
   }
 
   if (busTagMarkers[carId]) {
@@ -1345,6 +1383,7 @@ fullRender(null);
 
 // Map init — รอ Mapbox พร้อม แล้ว retry แสดงตำแหน่งรถ
 document.addEventListener('DOMContentLoaded', async function(){
+  bindFollowUserButton();
   await initPassengerMap();
   const routeData = await loadPassengerRouteData();
   await renderRoutePolyline(routeData);
