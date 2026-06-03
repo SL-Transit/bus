@@ -469,7 +469,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;font-size:13px;color:#166534;line-height:1.8;margin-bottom:12px;">
           ✅ ข้อมูลการจองครบถ้วนเรียบร้อยแล้ว<br>
           📱 แสดงรูปตั๋วหรือรหัสเมื่อขึ้นรถ<br>
-          <div class="checkin-notice">ก่อนถึงจุดเปลี่ยนรถฉะเชิงเทรา กรุณาเช็คอินผ่านระบบ เพื่อให้ระบบคำนวณเวลารถต่อที่เหมาะสม และแจ้งข้อมูลให้นายท่ารับทราบล่วงหน้า</div>
+          <div class="checkin-notice" id="checkinNotice">ก่อนถึงจุดเปลี่ยนรถฉะเชิงเทรา กรุณาเช็คอินผ่านระบบ เพื่อให้ระบบคำนวณเวลารถต่อที่เหมาะสม และแจ้งข้อมูลให้นายท่ารับทราบล่วงหน้า</div>
         </div>
         <button onclick="downloadTicketImage()" style="width:100%;padding:13px;border-radius:12px;border:2px solid #2563eb;background:#fff;color:#2563eb;font-family:'Kanit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">💾 บันทึกตั๋วเป็นรูปภาพ</button>
         <button class="btn-submit" style="background:linear-gradient(135deg,#059669,#10b981)" id="btnCheckin" onclick="goCheckin()">🎫 ดูตั๋ว / เช็คอิน</button>
@@ -1895,6 +1895,19 @@ function showSuccess(booking) {
     document.getElementById('ticketLeg2Wrap').style.display = 'none';
     document.getElementById('ticketLeg2TimeWrap').style.display = 'none';
   }
+  var checkinNotice = document.getElementById('checkinNotice');
+  var btnCheckin = document.getElementById('btnCheckin');
+  var hasTransferLeg = !!(legSchedule && legSchedule.leg2);
+  if (checkinNotice) {
+    checkinNotice.style.display = hasTransferLeg ? 'block' : 'none';
+    if (!hasTransferLeg) {
+      checkinNotice.textContent = 'เส้นทางนี้เป็นเส้นทางหลัก ไม่ต้องเช็คอินต่อรถ ระบบจะแสดงตั๋วและข้อมูลปลายทางจริงของผู้โดยสาร';
+    }
+  }
+  if (btnCheckin) {
+    btnCheckin.textContent = hasTransferLeg ? '🎫 ดูตั๋ว / เช็คอิน' : '🎫 ดูตั๋ว';
+  }
+
   if (booking.queueNumber) {
     document.getElementById('ticketQueuePrizeNum').textContent = 'ลำดับคิวที่ ' + booking.queueNumber;
     document.getElementById('ticketQueuePrize').style.display = 'block';

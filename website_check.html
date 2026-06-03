@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบตรวจสอบเว็บตั๋วรถ — Smart Ticket</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════
+   Design: Industrial / System Monitor
+   Dark panel, mono font, crisp status colors
+═══════════════════════════════════════ */
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #848d97;
+  --pass: #3fb950;
+  --fail: #f85149;
+  --manual: #d29922;
+  --nodata: #8b949e;
+  --accent: #388bfd;
+  --mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --thai: 'Noto Sans Thai', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--thai);
+  font-size: 14px;
+  min-height: 100vh;
+  padding: 20px 16px 60px;
+}
+
+/* ── Header ── */
+.hd {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px; margin-bottom: 20px;
+}
+.hd-left h1 {
+  font-family: var(--mono);
+  font-size: 18px; font-weight: 700; color: var(--text);
+  letter-spacing: 1px;
+}
+.hd-left p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.hd-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── Buttons ── */
+.btn {
+  font-family: var(--thai); font-weight: 700; font-size: 14px;
+  border: none; border-radius: 6px; cursor: pointer;
+  padding: 10px 20px; transition: opacity .15s;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-run {
+  background: var(--accent); color: #fff;
+  box-shadow: 0 0 12px rgba(56,139,253,.35);
+}
+.btn-run:hover:not(:disabled) { opacity: .85; }
+.btn-log { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+.btn-log:hover { color: var(--text); }
+
+/* ── Summary bar ── */
+.summary-bar {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+.sum-cell { text-align: center; }
+.sum-num {
+  font-family: var(--mono); font-size: 28px; font-weight: 700;
+  line-height: 1; display: block;
+}
+.sum-lbl { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.sum-pass .sum-num { color: var(--pass); }
+.sum-fail .sum-num { color: var(--fail); }
+.sum-manual .sum-num { color: var(--manual); }
+.sum-nodata .sum-num { color: var(--nodata); }
+.sum-total .sum-num { color: var(--accent); }
+
+/* ── Progress bar ── */
+.progress-wrap { display: none; margin-bottom: 12px; }
+.progress-track {
+  height: 4px; background: var(--surface2);
+  border-radius: 2px; overflow: hidden;
+}
+.progress-bar {
+  height: 100%; background: var(--accent);
+  width: 0%; transition: width .2s;
+  border-radius: 2px;
+}
+.progress-label { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+/* ── Section header ── */
+.section-hd {
+  display: flex; align-items: center; gap: 10px;
+  margin: 20px 0 10px;
+}
+.section-hd-line {
+  flex: 1; height: 1px; background: var(--border);
+}
+.section-hd span {
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  color: var(--muted); letter-spacing: 1px; white-space: nowrap;
+}
+
+/* ── Test table ── */
+.test-table {
+  width: 100%; border-collapse: collapse;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.test-table th {
+  background: var(--surface2);
+  color: var(--muted); font-weight: 700;
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: .5px; text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.test-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.test-table tr:last-child td { border-bottom: none; }
+.test-table tr:hover td { background: rgba(255,255,255,.025); }
+
+/* status dot */
+.dot {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 4px; white-space: nowrap;
+}
+.dot-wait { background: #21262d; color: var(--muted); }
+.dot-run  { background: #1f2d45; color: var(--accent);
+  animation: pulse 1s infinite; }
+.dot-pass { background: #0d2818; color: var(--pass); }
+.dot-fail { background: #2d0f0d; color: var(--fail); }
+.dot-manual { background: #2d2208; color: var(--manual); }
+.dot-nodata { background: #1c2128; color: var(--nodata); }
+
+@keyframes pulse {
+  0%,100%{opacity:1} 50%{opacity:.5}
+}
+
+.test-id {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--muted); white-space: nowrap;
+}
+.test-name { color: var(--text); font-weight: 600; }
+.test-detail {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--muted); word-break: break-all;
+}
+
+/* ── Log panel ── */
+.log-wrap {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 20px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.log-wrap pre {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--muted); line-height: 1.7;
+  white-space: pre-wrap; word-break: break-all;
+}
+
+/* ── Manual notice ── */
+.manual-notice {
+  background: #2d2208;
+  border: 1px solid #5a4510;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--manual);
+  line-height: 1.7;
+}
+.manual-notice strong { display: block; margin-bottom: 4px; font-family: var(--mono); }
+
+.manual-check-item { margin-top:10px; padding-top:10px; border-top:1px solid #5a4510; }
+.manual-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.manual-actions label { display:inline-flex; align-items:center; gap:5px; font-size:12px; cursor:pointer; }
+.manual-note { width:100%; min-height:36px; margin-top:8px; padding:8px 10px; border-radius:6px; border:1px solid #5a4510; background:#161b22; color:var(--text); font-family:var(--thai); font-size:12px; resize:vertical; }
+.manual-export-btn { margin-top:12px; width:100%; padding:10px 12px; border-radius:8px; border:1px solid #5a4510; background:#161b22; color:var(--manual); font-family:var(--thai); font-weight:700; cursor:pointer; }
+
+/* Inline detail expand */
+.detail-toggle { cursor: pointer; color: var(--accent); font-size: 11px; }
+.detail-text { display: none; margin-top: 4px; }
+.detail-text.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<div class="hd">
+  <div class="hd-left">
+    <h1>SMART TICKET · SYSTEM CHECK</h1>
+    <p>ระบบตรวจสอบเว็บตั๋วรถเดินทาง — booking.html & check_ticket.html</p>
+  </div>
+  <div class="hd-right">
+    <button class="btn btn-run" id="btnRun" onclick="startRun()">▶ เริ่มตรวจระบบ</button>
+    <button class="btn btn-log" id="btnLog" onclick="toggleLog()">📋 ดู log</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ SUMMARY ═══════════════════ -->
+<div class="summary-bar" id="summaryBar">
+  <div class="sum-cell sum-pass">
+    <span class="sum-num" id="sumPass">—</span>
+    <div class="sum-lbl">✓ ผ่าน</div>
+  </div>
+  <div class="sum-cell sum-fail">
+    <span class="sum-num" id="sumFail">—</span>
+    <div class="sum-lbl">✗ ไม่ผ่าน</div>
+  </div>
+  <div class="sum-cell sum-manual">
+    <span class="sum-num" id="sumManual">—</span>
+    <div class="sum-lbl">👁 ตรวจด้วยมือ</div>
+  </div>
+  <div class="sum-cell sum-nodata">
+    <span class="sum-num" id="sumNodata">—</span>
+    <div class="sum-lbl">? ไม่พบข้อมูล</div>
+  </div>
+  <div class="sum-cell sum-total">
+    <span class="sum-num" id="sumTotal">—</span>
+    <div class="sum-lbl">ทั้งหมด</div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PROGRESS ═══════════════════ -->
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-track">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="progress-label" id="progressLabel">เตรียมพร้อม...</div>
+</div>
+
+<!-- ═══════════════════ SECTION 1: BOOKING ═══════════════════ -->
+<div class="section-hd">
+  <div class="section-hd-line"></div>
+  <span>01 · booking.html — หน้าจองตั๋ว</span>
+  <div class="section-hd-line"></div>
+</div>
+
+<table class="test-table" id="tableBooking">
+  <thead>
+    <tr>
+      <th style="width:80px">ID</th>
+      <th style="width:100px">สถานะ</th>
+      <th>ชื่อ test case</th>
+      <th>รายละเอียดผล</th>
+    </tr>
+  </thead>
+  <tbody id="bodyBooking">
+    <!-- rows injected by JS -->
+  </tbody>
+</table>
+
+<!-- ═══════════════════ SECTION 2: CHECK_TICKET ═══════════════════ -->
+<div class="section-hd" style="margin-top:28px">
+  <div class="section-hd-line"></div>
+  <span>02 · check_ticket.html — หน้าตรวจตั๋ว</span>
+  <div class="section-hd-line"></div>
+</div>
+
+<table class="test-table" id="tableCheckin">
+  <thead>
+    <tr>
+      <th style="width:80px">ID</th>
+      <th style="width:100px">สถานะ</th>
+      <th>ชื่อ test case</th>
+      <th>รายละเอียดผล</th>
+    </tr>
+  </thead>
+  <tbody id="bodyCheckin">
+    <!-- rows injected by JS -->
+  </tbody>
+</table>
+
+<!-- ═══════════════════ MANUAL TESTS ═══════════════════ -->
+<div class="section-hd" style="margin-top:28px">
+  <div class="section-hd-line"></div>
+  <span>03 · ต้องตรวจด้วยมือ</span>
+  <div class="section-hd-line"></div>
+</div>
+<div class="manual-notice" id="manualNoticeBox" style="display:none">
+  <strong>👁 รายการที่ต้องตรวจด้วยมือ (ระบบทำอัตโนมัติไม่ได้)</strong>
+  <div id="manualList"></div>
+</div>
+<div id="manualEmpty" style="color:var(--muted);font-size:12px;padding:8px 0;">
+  กด "เริ่มตรวจระบบ" เพื่อดูรายการ
+</div>
+
+<!-- ═══════════════════ LOG ═══════════════════ -->
+<div class="log-wrap" id="logWrap">
+  <pre id="logContent">— ยังไม่มี log —</pre>
+</div>
+
+<!-- ═══════════════════ SCRIPTS ═══════════════════ -->
+<script src="test_cases.js"></script>
+<script src="website_check.js"></script>
+<script>
+// ─────────────────────────────────────────
+//  UI Controller
+// ─────────────────────────────────────────
+var _running = false;
+
+function initRows() {
+  var allCases = (TEST_CASES.booking || []).concat(TEST_CASES.checkin || []);
+  var bBody = document.getElementById('bodyBooking');
+  var cBody = document.getElementById('bodyCheckin');
+  bBody.innerHTML = '';
+  cBody.innerHTML = '';
+
+  (TEST_CASES.booking || []).forEach(function(tc) {
+    bBody.appendChild(makeRow(tc));
+  });
+  (TEST_CASES.checkin || []).forEach(function(tc) {
+    cBody.appendChild(makeRow(tc));
+  });
+}
+
+function makeRow(tc) {
+  var tr = document.createElement('tr');
+  tr.id = 'row-' + tc.id;
+  tr.innerHTML =
+    '<td><span class="test-id">' + tc.id + '</span></td>' +
+    '<td><span class="dot dot-wait" id="dot-' + tc.id + '">WAIT</span></td>' +
+    '<td>' +
+      '<div class="test-name">' + escHtml(tc.name) + '</div>' +
+      '<div class="test-detail" style="margin-top:3px">' + escHtml(tc.description || '') + '</div>' +
+    '</td>' +
+    '<td><div class="test-detail" id="detail-' + tc.id + '">—</div></td>';
+  return tr;
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setRowStatus(result) {
+  var dot = document.getElementById('dot-' + result.id);
+  var detail = document.getElementById('detail-' + result.id);
+  if (!dot) return;
+
+  var cls = { pass:'dot-pass', fail:'dot-fail', manual:'dot-manual', nodata:'dot-nodata', running:'dot-run' }[result.status] || 'dot-wait';
+  var label = { pass:'PASS', fail:'FAIL', manual:'MANUAL', nodata:'?', running:'RUN…' }[result.status] || 'WAIT';
+  dot.className = 'dot ' + cls;
+  dot.textContent = label;
+
+  if (detail && result.detail) {
+    detail.textContent = result.detail;
+  }
+}
+
+function updateSummary(summary) {
+  var bar = document.getElementById('summaryBar');
+  bar.style.display = 'grid';
+  document.getElementById('sumPass').textContent   = summary.pass;
+  document.getElementById('sumFail').textContent   = summary.fail;
+  document.getElementById('sumManual').textContent = summary.manual;
+  document.getElementById('sumNodata').textContent = summary.nodata;
+  document.getElementById('sumTotal').textContent  = summary.total;
+}
+
+function updateProgress(done, total) {
+  var wrap = document.getElementById('progressWrap');
+  var bar  = document.getElementById('progressBar');
+  var lbl  = document.getElementById('progressLabel');
+  wrap.style.display = 'block';
+  var pct = total > 0 ? Math.round(done / total * 100) : 0;
+  bar.style.width = pct + '%';
+  lbl.textContent = 'ตรวจแล้ว ' + done + ' / ' + total + ' (' + pct + '%)';
+}
+
+function buildManualList(results) {
+  var manuals = results.filter(function(r) { return r.status === 'manual'; });
+  var box = document.getElementById('manualNoticeBox');
+  var list = document.getElementById('manualList');
+  var empty = document.getElementById('manualEmpty');
+
+  if (manuals.length === 0) {
+    box.style.display = 'none';
+    empty.style.display = 'block';
+    empty.textContent = '— ไม่มีรายการที่ต้องตรวจด้วยมือในชุดนี้ —';
+    return;
+  }
+
+  empty.style.display = 'none';
+  box.style.display = 'block';
+  var html = '';
+  manuals.forEach(function(r) {
+    html += '<div class="manual-check-item" data-manual-id="' + escHtml(r.id) + '">';
+    html += '<strong style="color:#f0c040">[' + escHtml(r.id) + '] ' + escHtml(r.name) + '</strong>';
+    html += '<div style="margin-top:3px;color:#d29922">' + escHtml(r.detail) + '</div>';
+    html += '<div class="manual-actions">';
+    html += '<label><input type="radio" name="manual-' + escHtml(r.id) + '" value="pass"> ผ่าน</label>';
+    html += '<label><input type="radio" name="manual-' + escHtml(r.id) + '" value="fail"> ไม่ผ่าน</label>';
+    html += '<label><input type="radio" name="manual-' + escHtml(r.id) + '" value="skip"> ยังไม่ได้ตรวจ</label>';
+    html += '</div>';
+    html += '<textarea class="manual-note" placeholder="หมายเหตุ เช่น LINE เข้าแล้ว / GPS ยังไม่ตรง / ต้องแก้เพิ่ม"></textarea>';
+    html += '</div>';
+  });
+  html += '<button class="manual-export-btn" onclick="exportManualChecklist()">📋 สรุปผลตรวจด้วยมือไปที่ log</button>';
+  list.innerHTML = html;
+}
+
+function exportManualChecklist() {
+  var items = document.querySelectorAll('.manual-check-item');
+  if (!items.length) return;
+  appendLog('──── Manual checklist summary ────');
+  Array.prototype.forEach.call(items, function(item) {
+    var id = item.getAttribute('data-manual-id') || '-';
+    var checked = item.querySelector('input[type="radio"]:checked');
+    var note = item.querySelector('.manual-note');
+    appendLog('[' + id + '] ' + (checked ? checked.value : 'not_checked') + ' | ' + (note && note.value ? note.value : '-'));
+  });
+}
+
+function appendLog(msg) {
+  var el = document.getElementById('logContent');
+  if (el.textContent === '— ยังไม่มี log —') el.textContent = '';
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+function toggleLog() {
+  var w = document.getElementById('logWrap');
+  w.style.display = w.style.display === 'block' ? 'none' : 'block';
+}
+
+// ─────────────────────────────────────────
+//  Run
+// ─────────────────────────────────────────
+async function startRun() {
+  if (_running) return;
+  _running = true;
+
+  var btn = document.getElementById('btnRun');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังตรวจ...';
+
+  // reset rows
+  initRows();
+  document.getElementById('logContent').textContent = '— ยังไม่มี log —';
+  document.getElementById('manualEmpty').textContent = 'กำลังตรวจสอบ...';
+  document.getElementById('manualNoticeBox').style.display = 'none';
+
+  // mark all as running
+  var allCases = (TEST_CASES.booking || []).concat(TEST_CASES.checkin || []);
+  allCases.forEach(function(tc) {
+    setRowStatus({ id: tc.id, status: 'wait', detail: '—' });
+  });
+
+  // track current running
+  var currentRunning = null;
+
+  try {
+    await Runner.runAll({
+      onProgress: function(ev) {
+        if (ev.log) appendLog(ev.log);
+
+        if (ev.result) {
+          // clear previous running dot
+          if (currentRunning && currentRunning !== ev.result.id) {
+            // already handled
+          }
+          setRowStatus(ev.result);
+
+          // mark next as running
+          var allTcs = (TEST_CASES.booking || []).concat(TEST_CASES.checkin || []);
+          var nextIdx = allTcs.findIndex(function(tc) { return tc.id === ev.result.id; }) + 1;
+          if (nextIdx < allTcs.length) {
+            var nextTc = allTcs[nextIdx];
+            currentRunning = nextTc.id;
+            setRowStatus({ id: nextTc.id, status: 'running', detail: 'กำลังตรวจ...' });
+          }
+        }
+
+        if (ev.done !== undefined && ev.total !== undefined) {
+          updateProgress(ev.done, ev.total);
+          if (ev.results) {
+            var s = Runner.getSummary(ev.results);
+            updateSummary(Object.assign(s, { total: ev.total }));
+          }
+        }
+      },
+      onDone: function(ev) {
+        updateSummary(Object.assign(ev.summary, { total: ev.summary.total }));
+        updateProgress(ev.summary.total, ev.summary.total);
+        buildManualList(ev.results);
+        ev.logs.forEach(function(l) { appendLog(l); });
+      }
+    });
+  } catch(e) {
+    appendLog('ERROR: ' + e.message);
+    console.error(e);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ ตรวจอีกครั้ง';
+  _running = false;
+}
+
+// ─────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  initRows();
+});
+</script>
+</body>
+</html>
