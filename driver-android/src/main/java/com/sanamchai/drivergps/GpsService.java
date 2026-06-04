@@ -233,10 +233,7 @@ public class GpsService extends Service {
     }
 
     private void writeAuthedData(Map<String, Object> data, Location loc) {
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("bus/" + QUEUE_ID, data);
-        updates.put("liveVehicles/" + QUEUE_ID, data);
-        FirebaseDatabase.getInstance().getReference().updateChildren(updates, (DatabaseError error, DatabaseReference ref) -> {
+        busRef.setValue(data, (DatabaseError error, DatabaseReference ref) -> {
             if (error != null) {
                 if ("gps_error".equals(String.valueOf(data.get("status")))) {
                     updateNotification("Firebase error: " + error.getMessage());
@@ -254,6 +251,12 @@ public class GpsService extends Service {
             pendingLocation = null;
             if (loc == null) updateNotification(String.valueOf(data.get("status")));
             else updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
+        });
+        liveVehicleRef.setValue(data, (DatabaseError error, DatabaseReference ref) -> {
+            if (error != null) {
+                prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
+                        "liveVehicles optional: " + error.getMessage()).apply();
+            }
         });
     }
 
@@ -275,7 +278,9 @@ public class GpsService extends Service {
         data.put("appUpdatedAt", now);
         data.put("ts", now);
         busRef.onDisconnect().updateChildren(data);
-        liveVehicleRef.onDisconnect().updateChildren(data);
+        try {
+            liveVehicleRef.onDisconnect().updateChildren(data);
+        } catch (Exception ignored) {}
     }
 
     private Map<String, Object> buildData(Location loc, boolean online) {
