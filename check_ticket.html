@@ -144,6 +144,18 @@
       line-height: 1.55;
       margin-bottom: 16px;
     }
+    .admin-test-status {
+      display: none;
+      background: #eff6ff;
+      border: 2px solid #93c5fd;
+      color: #1e3a8a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }
 
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     .row { background: var(--soft); border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
@@ -443,6 +455,7 @@
     </section>
 
     <section id="ticketPanel" class="panel hidden">
+      <div id="adminTesterStatus" class="admin-test-status">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังเช็คระบบด้วยตั๋วจริง</div>
       <div class="ticket-head">
         <div>
           <div class="small" style="color:rgba(255,255,255,.78)">รหัสตั๋ว</div>
@@ -655,6 +668,9 @@
     var originArrivalNoticeShown = false;
     var originCheckinAnchor = null;
     var relevantRouteStops = [];
+    var ADMIN_TESTER_ID = 'admin';
+    var ADMIN_TESTER_PHONE = '0929383999';
+    var ADMIN_TESTER_NOTICE = 'แอดมินกำลังเช็คระบบการทำงานด้วย flow ผู้ใช้งานจริง';
     var TEST_PATHS = {
       bookings: 'testBookings/',
       ticketLocations: 'testTicketLocations/',
@@ -679,6 +695,9 @@
     });
 
     function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }
+    function isAdminTesterBooking(booking) {
+      return !!(booking && (booking.isAdminTester === true || booking.testerId === ADMIN_TESTER_ID || String(booking.phone || '').replace(/[^0-9]/g, '') === ADMIN_TESTER_PHONE));
+    }
     function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
@@ -870,6 +889,11 @@
       document.getElementById('showDate').textContent = formatDate(currentBooking.date);
       document.getElementById('showSeats').textContent = currentBooking.seats + ' ที่นั่ง';
       document.getElementById('showPrice').textContent = currentBooking.price ? '฿' + Number(currentBooking.price).toLocaleString() + ' บาท' : '-';
+      var adminStatus = document.getElementById('adminTesterStatus');
+      if (adminStatus) {
+        adminStatus.style.display = isAdminTesterBooking(currentBooking) ? 'block' : 'none';
+        adminStatus.textContent = 'ADMIN CHECK: ผู้ใช้ ID admin เบอร์ ' + ADMIN_TESTER_PHONE + ' กำลังเช็คระบบด้วยตั๋วจริง';
+      }
 
       var legs = getLegSchedule(currentBooking);
       document.getElementById('showLeg1Route').textContent = legs.leg1;
@@ -2029,6 +2053,11 @@
         code: currentBooking.code,
         name: currentBooking.name || '',
         phone: currentBooking.phone || '',
+        userId: isAdminTesterBooking(currentBooking) ? ADMIN_TESTER_ID : '',
+        isAdminTester: isAdminTesterBooking(currentBooking),
+        testerId: isAdminTesterBooking(currentBooking) ? ADMIN_TESTER_ID : '',
+        testerRole: isAdminTesterBooking(currentBooking) ? 'admin' : '',
+        testerNotice: isAdminTesterBooking(currentBooking) ? ADMIN_TESTER_NOTICE : '',
         route: currentBooking.route || '',
         date: currentBooking.date || '',
         time: nextTime || '',
@@ -2078,6 +2107,11 @@
 
       var payload = Object.assign({}, update, {
         testMode: TEST_MODE,
+        userId: isAdminTesterBooking(currentBooking) ? ADMIN_TESTER_ID : (currentBooking.userId || ''),
+        isAdminTester: isAdminTesterBooking(currentBooking),
+        testerId: isAdminTesterBooking(currentBooking) ? ADMIN_TESTER_ID : (currentBooking.testerId || ''),
+        testerRole: isAdminTesterBooking(currentBooking) ? 'admin' : (currentBooking.testerRole || ''),
+        testerNotice: isAdminTesterBooking(currentBooking) ? ADMIN_TESTER_NOTICE : (currentBooking.testerNotice || ''),
         lineEvent: eventName,
         lineMessage: linePayload.message,
         linePayload: linePayload,

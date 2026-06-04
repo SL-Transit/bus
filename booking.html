@@ -183,6 +183,8 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
 .booking-closed-title{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:8px;}
 .booking-closed-desc{font-size:14px;color:var(--muted);line-height:1.8;}
 .test-mode-strip{display:none;max-width:480px;margin:12px auto 0;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;}
+.admin-test-strip{display:none;max-width:480px;margin:12px auto 0;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;line-height:1.65;}
+.admin-test-note{display:none;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;line-height:1.65;margin-top:10px;}
  
 /* QUEUE NUMBER */
 .queue-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:8px 18px;border-radius:30px;font-size:15px;font-weight:700;margin-bottom:10px;}
@@ -227,6 +229,7 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="booking-closed-desc">ขณะนี้เจ้าหน้าที่ปิดระบบรับจองออนไลน์ไว้ชั่วคราว กรุณากลับมาใหม่ภายหลังหรือติดต่อท่ารถโดยตรง</div>
   </div>
 </div>
+<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังทดสอบระบบแบบผู้ใช้งานจริง</div>
 
 <div class="header" style="position:relative">
   <div class="header-title-wrap">
@@ -366,8 +369,9 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
  
       <div class="field">
         <label>เบอร์โทรศัพท์ *</label>
-        <input type="tel" id="pPhone" placeholder="0812345678" maxlength="10" inputmode="numeric" oninput="validatePhone()">
+        <input type="tel" id="pPhone" placeholder="0812345678" maxlength="10" inputmode="numeric" oninput="validatePhone();updateAdminTesterNotice()">
         <div class="field-error" id="phoneError">กรุณากรอกเบอร์โทรให้ถูกต้อง</div>
+        <div class="admin-test-note" id="adminTesterNote">ผู้ใช้ ID admin: แอดมินกำลังเช็คระบบ สามารถจองจริง ตรวจตั๋วจริง และเช็คอินตาม flow จริง</div>
       </div>
     </div>
  
@@ -604,6 +608,25 @@ var authReady = firebase.auth().signInAnonymously().catch(function(err) {
   console.warn('Anonymous auth is not ready', err);
   return null;
 });
+var ADMIN_TESTER_ID='admin';
+var ADMIN_TESTER_PHONE='0929383999';
+var ADMIN_TESTER_NOTICE='แอดมินกำลังเช็คระบบการทำงาน สามารถทดลองเหมือนผู้ใช้งานจริง จองตั๋วจริง ตรวจตั๋วจริง และเช็คอินจริงตามเงื่อนไขระบบ';
+function isAdminTesterPhone(phone){return sanitizePhone(phone)===ADMIN_TESTER_PHONE;}
+function setAdminTesterSession(on){
+  try{
+    if(on)localStorage.setItem('adminTesterMode','1');
+    else localStorage.removeItem('adminTesterMode');
+  }catch(e){}
+}
+function updateAdminTesterNotice(){
+  var phoneEl=document.getElementById('pPhone');
+  var on=phoneEl&&isAdminTesterPhone(phoneEl.value);
+  var strip=document.getElementById('adminTesterStrip');
+  var note=document.getElementById('adminTesterNote');
+  if(strip)strip.style.display=on?'block':'none';
+  if(note)note.style.display=on?'block':'none';
+  setAdminTesterSession(on);
+}
 
 // ===== FIREBASE SETTINGS SYNC (อ่านอย่างเดียว — ไม่แตะโค้ดจอง) =====
 var _settingsLoaded = false;
@@ -1609,6 +1632,7 @@ function goPage(p) {
     if (name.length < 3) { alert('ชื่อ-นามสกุลต้องมีอย่างน้อย 3 ตัวอักษร'); return; }
     if (!phone) { alert('กรุณากรอกเบอร์โทรศัพท์'); return; }
     if (!validatePhone()) { alert('กรุณาใส่เบอร์โทรให้ถูกต้อง'); return; }
+    updateAdminTesterNotice();
 
     // --- ตรวจซ้ำจาก Firebase แบบ async ก่อนเปลี่ยนหน้า ---
     var dateVal2 = document.getElementById('travelDate').value;
@@ -1620,6 +1644,13 @@ function goPage(p) {
     }
 
     if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = '⏳ กำลังตรวจสอบ...'; }
+    if (isAdminTesterPhone(phone)) {
+      document.getElementById('sumTotal2').textContent = '฿' + getBookingTotal(PRICE, seats).toLocaleString() + ' บาท';
+      applyPaymentModeUI();
+      if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'ถัดไป →'; }
+      _navigatePage(3);
+      return;
+    }
 
     var checkSameTrip = db.ref('bookings').orderByChild('dupKey').equalTo(dupKey2).once('value');
     var checkSameDay  = db.ref('bookings').orderByChild('date').equalTo(dateVal2).once('value');
@@ -2048,11 +2079,18 @@ function submitBooking() {
         leg2: legRoutes.leg2,
         leg2Time: transferInfo ? (transferInfo.transferTime || '') : ''
       };
+      var isAdminTester = isAdminTesterPhone(safePhone);
+      if(isAdminTester)setAdminTesterSession(true);
 
       var booking = {
         code:        code,
         name:        safeName,
         phone:       safePhone,
+        userId:      isAdminTester ? ADMIN_TESTER_ID : '',
+        isAdminTester: isAdminTester,
+        testerId:    isAdminTester ? ADMIN_TESTER_ID : '',
+        testerRole:  isAdminTester ? 'admin' : '',
+        testerNotice:isAdminTester ? ADMIN_TESTER_NOTICE : '',
         route:       fromName + ' → ' + toName,
         origin:      fromName,
         destination: toName,
