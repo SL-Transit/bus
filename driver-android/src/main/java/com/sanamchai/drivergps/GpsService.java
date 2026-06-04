@@ -35,7 +35,6 @@ public class GpsService extends Service {
 
     private static final String CHANNEL_ID = "gps_sender";
     private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
-    private static final String QUEUE_ID = "car1";
     private static final long SEND_INTERVAL_MS = 10000;
     private static final float MAX_ACCURATE_METERS = 100f;
     private static boolean persistenceConfigured = false;
@@ -54,6 +53,7 @@ public class GpsService extends Service {
     private String gpsErrorMessage = null;
     private Map<String, Object> pendingData = null;
     private Location pendingLocation = null;
+    private String queueId = "car1"; // default fallback
 
     private final Runnable heartbeatTick = new Runnable() {
         @Override public void run() {
@@ -79,11 +79,13 @@ public class GpsService extends Service {
         super.onCreate();
         prefs = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        initFirebase();
         createChannel();
     }
 
     private void initFirebase() {
+        // อ่าน vehicle ID จาก SharedPreferences ทุกครั้งที่ start
+        queueId = prefs.getString(MainActivity.KEY_VEHICLE_ID, "car1");
+
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseOptions options = new FirebaseOptions.Builder()
                     .setApiKey("AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI")
@@ -101,8 +103,8 @@ public class GpsService extends Service {
             } catch (Exception ignored) {}
             persistenceConfigured = true;
         }
-        busRef = db.getReference("bus/" + QUEUE_ID);
-        liveVehicleRef = db.getReference("liveVehicles/" + QUEUE_ID);
+        busRef = db.getReference("bus/" + queueId);
+        liveVehicleRef = db.getReference("liveVehicles/" + queueId);
         connectedRef = db.getReference(".info/connected");
         busRef.keepSynced(true);
         liveVehicleRef.keepSynced(true);
@@ -120,6 +122,9 @@ public class GpsService extends Service {
     }
 
     private void startTracking() {
+        // init Firebase ใหม่ทุกครั้งเพื่อให้ได้ queueId ล่าสุด
+        initFirebase();
+
         if (running) {
             setupDisconnectHandlers();
             sendHeartbeat();
@@ -134,7 +139,7 @@ public class GpsService extends Service {
                 .putString(MainActivity.KEY_LAST_STATUS, "online / locating")
                 .putString(MainActivity.KEY_LAST_ERROR, "")
                 .apply();
-        startForeground(1, buildNotification("Locating GPS..."));
+        startForeground(1, buildNotification("Locating GPS... [" + queueId + "]"));
         setupDisconnectHandlers();
         sendHeartbeat();
         handler.removeCallbacks(heartbeatTick);
@@ -177,7 +182,7 @@ public class GpsService extends Service {
         }
         if (latestLocation == null) {
             recordStatus("online / locating");
-            updateNotification("Waiting for GPS...");
+            updateNotification("Waiting for GPS... [" + queueId + "]");
             writeData(buildStatusData(null, true, "locating", null), null);
             return;
         }
@@ -250,7 +255,7 @@ public class GpsService extends Service {
             pendingData = null;
             pendingLocation = null;
             if (loc == null) updateNotification(String.valueOf(data.get("status")));
-            else updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
+            else updateNotification(String.format(Locale.US, "[%s] %.5f, %.5f", queueId, loc.getLatitude(), loc.getLongitude()));
         });
         liveVehicleRef.setValue(data, (DatabaseError error, DatabaseReference ref) -> {
             if (error != null) {
@@ -308,7 +313,7 @@ public class GpsService extends Service {
         }
         data.put("direction", "go");
         data.put("queue", 1);
-        data.put("queueId", QUEUE_ID);
+        data.put("queueId", queueId);   // ใช้ค่าที่อ่านจาก prefs แทน hardcode
         data.put("status", status);
         data.put("online", online);
         data.put("source", "gps-transit-apk");
@@ -373,7 +378,7 @@ public class GpsService extends Service {
 
     private Notification buildNotification(String text) {
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
-        return b.setContentTitle("GPS Transit sending location")
+        return b.setContentTitle("GPS Transit [" + queueId + "]")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setOngoing(true)
@@ -396,3 +401,4 @@ public class GpsService extends Service {
             {13.745082, 101.355993}, {13.692477, 101.054105}
     };
 }
+
