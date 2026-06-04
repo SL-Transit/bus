@@ -393,7 +393,7 @@
         </div>
         <div class="tracking-divider"></div>
         <div class="tracking-info">
-          <div class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div><div id="trackingPickupRoute" class="tracking-subvalue">-</div></div></div>
+          <div id="trackingPickupItem" class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div><div id="trackingPickupRoute" class="tracking-subvalue">-</div></div></div>
           <div class="tracking-info-item"><span class="tracking-dot transfer"></span><div class="tracking-info-copy"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div><div id="trackingDestinationName" class="tracking-subvalue">-</div></div></div>
           <div class="tracking-info-item"><span class="tracking-dot next"></span><div class="tracking-info-copy"><div class="tracking-label">จุดต่อรถ</div><div id="trackingNextStep" class="tracking-value">-</div><div id="trackingPlatform" class="tracking-subvalue">-</div></div></div>
         </div>
@@ -493,6 +493,18 @@
     </div>
   </div>
 
+  <div id="cancelledDoneModal" class="modal hidden">
+    <div class="modal-card">
+      <div style="text-align:center;margin-bottom:14px">
+        <div style="font-size:44px">✅</div>
+        <h2 style="margin-bottom:8px">ยกเลิกตั๋วแล้ว</h2>
+        <p class="lead" style="margin-bottom:0">ระบบบันทึกสถานะและส่งข้อมูลแจ้งปลายทางแล้ว</p>
+      </div>
+      <div id="cancelledDoneDetail" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:16px;font-size:14px;line-height:1.8;color:#0f172a"></div>
+      <button class="btn-dark" type="button" onclick="show('cancelledDoneModal', false)" style="width:100%">ปิด</button>
+    </div>
+  </div>
+
   <script>
     firebase.initializeApp({
       apiKey: "AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
@@ -587,6 +599,7 @@
     var trackingPassengerMarker = null;
     var trackingPickupMarker = null;
     var trackingTransferMarker = null;
+    var trackingRouteStopMarkers = [];
     var trackingRouteSourceReady = false;
     var trackingRouteRequestSeq = 0;
     var trackingBusRef = null;
@@ -595,6 +608,11 @@
     var pickupStopLocation = null;
     var transferPointLocation = null;
     var destinationLocation = null;
+    var originAutoCheckinDone = false;
+    var originArrivalDismissed = false;
+    var originArrivalNoticeShown = false;
+    var originCheckinAnchor = null;
+    var relevantRouteStops = [];
     var TEST_PATHS = {
       bookings: 'testBookings/',
       ticketLocations: 'testTicketLocations/',
@@ -984,8 +1002,13 @@
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
       transferPointLocation = { name: 'จุดต่อรถแปดริ้ว', lat: TERMINAL.lat, lng: TERMINAL.lng };
       destinationLocation = resolveDestinationLocation(currentBooking);
+      originAutoCheckinDone = currentBooking.originCheckin && currentBooking.originCheckin.status === 'boarded';
+      originArrivalDismissed = originAutoCheckinDone || (currentBooking.originArrival && currentBooking.originArrival.passed === true);
+      originArrivalNoticeShown = originArrivalDismissed;
+      relevantRouteStops = resolveRelevantRouteStops(currentBooking);
       renderPickupMarker();
       renderTransferMarker();
+      renderRouteStopMarkers();
       subscribeVanLocationForTicket();
       renderCheckinButtonState();
       autoStartPassengerGps();
@@ -1037,6 +1060,7 @@
         trackingRouteSourceReady = true;
         renderPickupMarker();
         renderTransferMarker();
+        renderRouteStopMarkers();
         if (vanLocation) renderVanMarker(vanLocation);
         if (lastPosition) renderPassengerMarker(lastPosition);
         updateTrackingRouteLine();
@@ -1123,11 +1147,41 @@
       return null;
     }
 
+    function resolveRelevantRouteStops(booking) {
+      var legs = getLegSchedule(booking);
+      var origin = findStopLocation(getRouteOrigin(booking, legs));
+      var routeInfo = connectionRouteInfo(booking.route);
+      var target = routeInfo.type === 'secondary_connection' ? findStopLocation('แปดริ้ว') : resolveDestinationLocation(booking);
+      if (!origin || !target) return [origin || target].filter(Boolean);
+      var start = STOP_LOCATIONS.findIndex(function(s) { return s.name === origin.name; });
+      var end = STOP_LOCATIONS.findIndex(function(s) { return s.name === target.name; });
+      if (start === -1 || end === -1) return [origin, target];
+      var from = Math.min(start, end);
+      var to = Math.max(start, end);
+      var stops = STOP_LOCATIONS.slice(from, to + 1);
+      return start <= end ? stops : stops.reverse();
+    }
+
     function createTrackingMarker(className, text) {
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
       el.textContent = text;
       return el;
+    }
+
+    function renderRouteStopMarkers() {
+      if (!trackingMapReady || !trackingMap) return;
+      trackingRouteStopMarkers.forEach(function(marker) {
+        try { marker.remove(); } catch(e) {}
+      });
+      trackingRouteStopMarkers = [];
+      relevantRouteStops.forEach(function(stop) {
+        if (!stop || (pickupStopLocation && stop.name === pickupStopLocation.name) || (transferPointLocation && stop.name === transferPointLocation.name)) return;
+        var marker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ป้าย') })
+          .setLngLat([stop.lng, stop.lat])
+          .addTo(trackingMap);
+        trackingRouteStopMarkers.push(marker);
+      });
     }
 
     function renderVanMarker(location) {
@@ -1176,9 +1230,11 @@
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
       var coords = [];
       if (vanLocation) coords.push([vanLocation.lng, vanLocation.lat]);
-      if (pickupStopLocation) coords.push([pickupStopLocation.lng, pickupStopLocation.lat]);
+      (relevantRouteStops.length ? relevantRouteStops : [pickupStopLocation]).forEach(function(stop) {
+        if (stop) coords.push([stop.lng, stop.lat]);
+      });
       var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
-      if (target) coords.push([target.lng, target.lat]);
+      if (target && !coords.some(function(c) { return Math.abs(c[0] - target.lng) < 0.00001 && Math.abs(c[1] - target.lat) < 0.00001; })) coords.push([target.lng, target.lat]);
       if (coords.length >= 2) {
         updateTrackingRoadRoute(coords);
         return;
@@ -1278,10 +1334,18 @@
 
     function calculateTransferOrDestinationEta() {
       var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
-      if (!vanLocation || !target) return null;
-      var speed = Number(vanLocation.speed || 0);
-      var km = distanceKm(vanLocation.lat, vanLocation.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
+      var source = shouldUsePassengerForJourneyEta() ? lastPosition : vanLocation;
+      if (!source || !target) return null;
+      var speed = Number(source.speed || (vanLocation && vanLocation.speed) || 0);
+      var km = distanceKm(source.lat, source.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
       return Math.max(1, Math.round((km / Math.max(speed, 28)) * 60));
+    }
+
+    function shouldUsePassengerForJourneyEta() {
+      if (!lastPosition || !pickupStopLocation || !currentBooking) return false;
+      var dep = departureDate();
+      var movedKm = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng);
+      return !!(originAutoCheckinDone && dep && Date.now() >= dep.getTime() && movedKm > 2);
     }
 
     function renderPassengerTrackingCard() {
@@ -1298,13 +1362,78 @@
         displayPassengerName(currentBooking.name) + ' เบอร์ ' + (currentBooking.phone || '-') + ' ' + originName + ' → ' + finalDestination;
       var pickupEta = calculatePickupEta();
       var destEta = calculateTransferOrDestinationEta();
-      document.getElementById('trackingPickupEta').textContent = pickupEta === null ? 'กำลังรอตำแหน่งรถจากคนขับ' : 'ประมาณ ' + formatEtaDuration(pickupEta);
+      updateOriginArrivalState();
+      if (originArrivalDismissed) {
+        show('trackingPickupItem', false);
+      } else {
+        show('trackingPickupItem', true);
+        document.getElementById('trackingPickupEta').textContent = isVanAtOrPastPickup() ? 'รถถึง ' + originName + ' แล้ว' : (pickupEta === null ? 'กำลังรอตำแหน่งรถจากคนขับ' : 'ประมาณ ' + formatEtaDuration(pickupEta));
+      }
       document.getElementById('trackingPickupRoute').textContent = legs.leg1 || (originName + ' → ' + finalDestination);
       document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
         'ประมาณ ' + formatEtaDuration(destEta);
       document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถแปดริ้ว' : 'ปลายทาง ' + finalDestination;
       document.getElementById('trackingNextStep').textContent = renderNextStepText();
       document.getElementById('trackingPlatform').textContent = renderPlatformText(routeInfo, legs);
+    }
+
+    function updateOriginArrivalState() {
+      if (!currentBooking || !pickupStopLocation) return;
+      var arrived = isVanAtOrPastPickup();
+      if (arrived && !originAutoCheckinDone) maybeAutoOriginCheckin();
+      if (arrived && !originArrivalDismissed && !originAutoCheckinDone && !originArrivalNoticeShown) {
+        originArrivalNoticeShown = true;
+        db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originArrival').update({
+          passed: true,
+          origin: pickupStopLocation.name,
+          ts: firebase.database.ServerValue.TIMESTAMP
+        }).catch(function(){});
+        setTimeout(function() {
+          originArrivalDismissed = true;
+          renderPassengerTrackingCard();
+        }, 4500);
+      }
+      validateOriginBoardingState();
+    }
+
+    function isVanAtOrPastPickup() {
+      if (!vanLocation || !pickupStopLocation) return false;
+      var near = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) <= 0.35;
+      var stopIdx = Number(vanLocation.stopIdx);
+      var pickupIdx = STOP_LOCATIONS.findIndex(function(s) { return s.name === pickupStopLocation.name; });
+      var dir = routeDirectionForOrigin(getRouteOrigin(currentBooking, getLegSchedule(currentBooking)));
+      var passed = !isNaN(stopIdx) && pickupIdx >= 0 && (dir === 'back' ? stopIdx <= pickupIdx : stopIdx >= pickupIdx);
+      return near || passed;
+    }
+
+    function maybeAutoOriginCheckin() {
+      if (originAutoCheckinDone || !lastPosition || !pickupStopLocation || !currentBooking) return;
+      var passengerAtPickup = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng) <= 0.5;
+      if (!passengerAtPickup) return;
+      originAutoCheckinDone = true;
+      originCheckinAnchor = { lat: lastPosition.lat, lng: lastPosition.lng, ts: Date.now() };
+      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originCheckin').update({
+        status: 'boarded',
+        auto: true,
+        origin: pickupStopLocation.name,
+        lat: lastPosition.lat,
+        lng: lastPosition.lng,
+        ts: firebase.database.ServerValue.TIMESTAMP
+      }).catch(function(){});
+    }
+
+    function validateOriginBoardingState() {
+      if (!originAutoCheckinDone || !lastPosition || !pickupStopLocation || !currentBooking) return;
+      var dep = departureDate();
+      if (!dep || Date.now() - dep.getTime() < 30 * 60000) return;
+      var movedKm = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng);
+      if (movedKm > 3) return;
+      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originCheckin').update({
+        status: 'not_boarded_suspected',
+        reason: 'passenger_still_near_origin_30_minutes_after_departure',
+        checkedAt: firebase.database.ServerValue.TIMESTAMP
+      }).catch(function(){});
+      originAutoCheckinDone = false;
     }
 
     function renderNextStepText() {
@@ -1375,6 +1504,7 @@
       var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
       lastPosition = next;
       focusPassengerLocation(next);
+      if (currentBooking) renderPassengerTrackingCard();
       currentDistanceKm = getCheckinDistanceKm(next);
       currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(previous, next) : pos.coords.speed * 3.6;
       updateStationaryTracking(next);
@@ -1739,7 +1869,26 @@
         status: 'cancelled',
         cancelledAt: Date.now(),
         officialStatus: 'ตั๋วของคุณถูกยกเลิกแล้ว'
-      }, 'cancel_ticket', 'ยกเลิกตั๋วสำเร็จ แจ้งท่าปลายทางแล้ว');
+      }, 'cancel_ticket', 'ยกเลิกตั๋วสำเร็จ แจ้งท่าปลายทางแล้ว')
+        .then(showCancelledDonePopup)
+        .catch(function(){});
+    }
+
+    function showCancelledDonePopup() {
+      show('trackingPage', false);
+      show('lookupPanel', false);
+      showTopbar(false);
+      var detail = document.getElementById('cancelledDoneDetail');
+      if (detail && currentBooking) {
+        detail.innerHTML =
+          'ชื่อ: ' + escapeHtml(displayPassengerName(currentBooking.name)) + '<br>' +
+          'เบอร์โทร: ' + escapeHtml(currentBooking.phone || '-') + '<br>' +
+          'รหัสตั๋ว: ' + escapeHtml(currentBooking.code || '-') + '<br>' +
+          'เส้นทาง: ' + escapeHtml(currentBooking.route || '-') + '<br>' +
+          'รอบเวลา: ' + escapeHtml(currentBooking.time || '-') + ' น.<br>' +
+          '<strong>สถานะ: ยกเลิกตั๋วแล้ว</strong>';
+      }
+      show('cancelledDoneModal', true);
     }
 
     function updateBookingAndNotify(update, eventName, successText) {
@@ -1958,6 +2107,24 @@
           'วันเวลา: ' + (currentBooking.date || '-') + ' ' + (data.time || currentBooking.time || '-'),
           'จำนวน: ' + (currentBooking.seats || 1),
           'ใกล้ถึงจุดหมายอีก 3 นาที'
+        ].join('\n');
+      }
+
+      if (data.eventName === 'cancel_ticket') {
+        var cancelLegs = getLegSchedule(currentBooking);
+        return [
+          'ผู้โดยสารยกเลิกตั๋ว',
+          '',
+          'ชื่อผู้โดยสาร: ' + (currentBooking.name || '-'),
+          'เบอร์โทร: ' + (currentBooking.phone || '-'),
+          'รหัสตั๋ว: ' + (currentBooking.code || '-'),
+          'รายละเอียดตั๋ว: ' + (currentBooking.route || '-'),
+          'ต้นทาง: ' + getRouteOrigin(currentBooking, cancelLegs),
+          'ปลายทาง: ' + (connectionRouteInfo(currentBooking.route).destination || currentBooking.destination || '-'),
+          'รอบเวลา: ' + (currentBooking.time || cancelLegs.leg1Time || '-') + ' น.',
+          'วันเดินทาง: ' + formatDate(currentBooking.date),
+          'จำนวนที่นั่ง: ' + (currentBooking.seats || 1),
+          'สถานะ: ยกเลิกตั๋วแล้ว'
         ].join('\n');
       }
 
