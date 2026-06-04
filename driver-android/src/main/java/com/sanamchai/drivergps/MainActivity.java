@@ -125,12 +125,14 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
         root.setPadding(dp(20), dp(40), dp(20), dp(40));
         root.setBackgroundColor(Color.rgb(10, 14, 26));
+        // ให้ root สูงเต็มหน้าจอเพื่อให้ content อยู่กึ่งกลางได้
+        root.setMinimumHeight(getResources().getDisplayMetrics().heightPixels);
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT));
+                ScrollView.LayoutParams.MATCH_PARENT));
 
         ImageView cover = new ImageView(this);
         cover.setImageResource(getResources().getIdentifier("app_cover", "drawable", getPackageName()));
@@ -469,25 +471,4 @@ public class MainActivity extends Activity {
                 errorText.setText("⚠ " + error);
                 errorText.setVisibility(android.view.View.VISIBLE);
             } else {
-                errorText.setVisibility(android.view.View.GONE);
-            }
-
-            mainButton.setText("หยุดส่งตำแหน่ง");
-            setButtonStyle(true);
-        } else {
-            animateStatusChange("○ ไม่ได้ส่ง", Color.rgb(100, 116, 139));
-            animateCoordsChange("---.-----,  ---.-----");
-            animateSentTime("--:--:--");
-            errorText.setVisibility(android.view.View.GONE);
-            mainButton.setText("เริ่มส่งตำแหน่ง");
-            setButtonStyle(false);
-        }
-    }
-
-    private void setButtonStyle(boolean isStop) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(16));
-        bg.setColor(isStop ? Color.rgb(220, 38, 38) : Color.rgb(22, 163, 74));
-        mainButton.setBackground(bg);
-    }
-}
+                errorText.setVisibility(android.view.V
