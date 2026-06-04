@@ -283,8 +283,31 @@
       padding: 14px 16px 16px;
       box-shadow: 0 18px 44px rgba(15, 23, 42, .34);
       backdrop-filter: blur(10px);
+      transition: transform .22s ease, max-height .22s ease;
     }
-    .tracking-sheet-handle { width: 42px; height: 4px; border-radius: 999px; background: #cbd5e1; opacity: .8; margin: 0 auto 10px; }
+    .tracking-bottom-sheet.collapsed {
+      transform: translateX(-50%) translateY(calc(100% - 42px));
+      overflow: hidden;
+    }
+    .tracking-bottom-sheet.collapsed .tracking-sheet-body { visibility: hidden; }
+    .tracking-sheet-handle {
+      width: 100%;
+      min-height: 18px;
+      border: 0;
+      background: transparent;
+      padding: 0 0 10px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    .tracking-sheet-handle::before {
+      content: "";
+      width: 42px;
+      height: 4px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      opacity: .8;
+    }
     .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
     .tracking-sheet-head h2 { margin-bottom: 0; color: #fff; font-size: 20px; }
     .tracking-title { display: inline-flex; align-items: center; gap: 8px; }
@@ -392,27 +415,29 @@
       <button id="trackingLocateButton" class="tracking-locate hidden" type="button" onclick="locatePassengerNow()" title="ระบุตำแหน่ง">⌖</button>
       <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
       <div id="trackingBottomSheet" class="tracking-bottom-sheet hidden">
-        <div class="tracking-sheet-handle"></div>
-        <div class="tracking-sheet-head">
-          <div>
-            <h2 class="tracking-title"><span class="tracking-title-icon">🚐</span>รายละเอียดการจอง</h2>
-            <div id="trackingRouteSummary" class="tracking-route">-</div>
-            <div id="trackingBookingSummary" class="tracking-summary">-</div>
+        <button class="tracking-sheet-handle" type="button" onclick="toggleTrackingSheet()" aria-label="ย่อหรือขยายรายละเอียด"></button>
+        <div class="tracking-sheet-body">
+          <div class="tracking-sheet-head">
+            <div>
+              <h2 class="tracking-title"><span class="tracking-title-icon">🚐</span>รายละเอียดการจอง</h2>
+              <div id="trackingRouteSummary" class="tracking-route">-</div>
+              <div id="trackingBookingSummary" class="tracking-summary">-</div>
+            </div>
+            <div id="trackingCode" class="ticket-state" style="background:rgba(255,255,255,.12);color:#fff">-</div>
           </div>
-          <div id="trackingCode" class="ticket-state" style="background:rgba(255,255,255,.12);color:#fff">-</div>
-        </div>
-        <div class="tracking-person" aria-hidden="true">
-          <div><div class="tracking-label">ผู้โดยสาร</div><div id="trackingName" class="tracking-value">-</div></div>
-          <div><div class="tracking-label">เบอร์โทร</div><div id="trackingPhone" class="tracking-value">-</div></div>
-        </div>
-        <div class="tracking-divider"></div>
-        <div class="tracking-info">
-          <div id="trackingPickupItem" class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div><div id="trackingPickupRoute" class="tracking-subvalue">-</div></div></div>
-          <div class="tracking-info-item"><span class="tracking-dot transfer"></span><div class="tracking-info-copy"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div><div id="trackingDestinationName" class="tracking-subvalue">-</div></div></div>
-          <div class="tracking-info-item"><span class="tracking-dot next"></span><div class="tracking-info-copy"><div class="tracking-label">จุดต่อรถ</div><div id="trackingNextStep" class="tracking-value">-</div><div id="trackingPlatform" class="tracking-subvalue">-</div></div></div>
-        </div>
-        <div class="tracking-actions">
-          <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
+          <div class="tracking-person" aria-hidden="true">
+            <div><div class="tracking-label">ผู้โดยสาร</div><div id="trackingName" class="tracking-value">-</div></div>
+            <div><div class="tracking-label">เบอร์โทร</div><div id="trackingPhone" class="tracking-value">-</div></div>
+          </div>
+          <div class="tracking-divider"></div>
+          <div class="tracking-info">
+            <div id="trackingPickupItem" class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">รถถึงป้ายต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถจากคนขับ</div><div id="trackingPickupRoute" class="tracking-subvalue">-</div></div></div>
+            <div class="tracking-info-item"><span class="tracking-dot transfer"></span><div class="tracking-info-copy"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div><div id="trackingDestinationName" class="tracking-subvalue">-</div></div></div>
+            <div class="tracking-info-item"><span class="tracking-dot next"></span><div class="tracking-info-copy"><div class="tracking-label">จุดต่อรถ</div><div id="trackingNextStep" class="tracking-value">-</div><div id="trackingPlatform" class="tracking-subvalue">-</div></div></div>
+          </div>
+          <div class="tracking-actions">
+            <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
+          </div>
         </div>
       </div>
     </section>
@@ -616,6 +641,8 @@
     var trackingRouteStopMarkers = [];
     var trackingRouteSourceReady = false;
     var trackingRouteRequestSeq = 0;
+    var passengerAutoFocused = false;
+    var trackingUserInteracted = false;
     var trackingBusRef = null;
     var trackingVehicleId = '';
     var vanLocation = null;
@@ -1012,6 +1039,9 @@
       show('trackingLocateButton', true);
       showTopbar(false);
       setTrackingActive(true);
+      setTrackingSheetCollapsed(false);
+      passengerAutoFocused = false;
+      trackingUserInteracted = false;
       renderPassengerTrackingCard();
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
@@ -1067,6 +1097,8 @@
         setTrackingMapFallback('โหลดแผนที่ไม่สำเร็จ กรุณาตรวจสอบ token หรืออินเทอร์เน็ต');
       });
       trackingMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
+      trackingMap.on('dragstart', function() { trackingUserInteracted = true; });
+      trackingMap.on('zoomstart', function() { trackingUserInteracted = true; });
       trackingMap.on('load', function() {
         trackingMapReady = true;
         trackingMap.addSource('trackingRouteLine', {
@@ -1302,10 +1334,13 @@
       } : { type: 'FeatureCollection', features: [] });
     }
 
-    function focusPassengerLocation(position) {
+    function focusPassengerLocation(position, force) {
       if (!trackingMapReady || !trackingMap || !position) return;
       renderPassengerMarker(position);
-      trackingMap.easeTo({ center: [position.lng, position.lat], zoom: Math.max(trackingMap.getZoom(), 13), duration: 600 });
+      if (force || (!passengerAutoFocused && !trackingUserInteracted)) {
+        trackingMap.easeTo({ center: [position.lng, position.lat], zoom: Math.max(trackingMap.getZoom(), 13), duration: 600 });
+        passengerAutoFocused = true;
+      }
     }
 
     function renderPassengerMarker(position) {
@@ -1321,7 +1356,7 @@
 
     function locatePassengerNow() {
       if (lastPosition) {
-        focusPassengerLocation(lastPosition);
+        focusPassengerLocation(lastPosition, true);
         return;
       }
       if (!navigator.geolocation) {
@@ -1331,10 +1366,24 @@
       navigator.geolocation.getCurrentPosition(function(pos) {
         var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
         lastPosition = next;
-        focusPassengerLocation(next);
+        focusPassengerLocation(next, true);
       }, function(err) {
         setStatus('lookupStatus', 'bad', err.message || 'ไม่สามารถอ่านตำแหน่ง GPS ได้');
       }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+    }
+
+    function setTrackingSheetCollapsed(collapsed) {
+      var sheet = document.getElementById('trackingBottomSheet');
+      if (sheet) sheet.classList.toggle('collapsed', collapsed === true);
+      setTimeout(function() {
+        if (trackingMap) trackingMap.resize();
+      }, 240);
+    }
+
+    function toggleTrackingSheet() {
+      var sheet = document.getElementById('trackingBottomSheet');
+      if (!sheet) return;
+      setTrackingSheetCollapsed(!sheet.classList.contains('collapsed'));
     }
 
     function focusTrackingMap() {
@@ -1525,7 +1574,7 @@
       var previous = lastPosition;
       var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
       lastPosition = next;
-      focusPassengerLocation(next);
+      focusPassengerLocation(next, false);
       if (currentBooking) renderPassengerTrackingCard();
       currentDistanceKm = getCheckinDistanceKm(next);
       currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(previous, next) : pos.coords.speed * 3.6;
