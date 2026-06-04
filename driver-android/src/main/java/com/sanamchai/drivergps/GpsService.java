@@ -55,6 +55,63 @@ public class GpsService extends Service {
     private Location pendingLocation = null;
     private String queueId = "car1"; // default fallback
 
+    // ===== Kalman Filter =====
+    private static final float KALMAN_Q = 3f;   // process noise (ยิ่งมาก = ไว้ใจ GPS มากขึ้น)
+    private static final float KALMAN_R = 10f;  // measurement noise (ยิ่งมาก = กรองแรงขึ้น)
+    private double kfLat = 0, kfLng = 0;
+    private float kfAccuracy = 0;
+    private long kfTimestamp = 0;
+    private boolean kfInitialized = false;
+
+    // กรองตำแหน่งด้วย Kalman Filter + Speed Check
+    private Location filterLocation(Location raw) {
+        if (raw == null) return null;
+
+        // ตัดค่าที่ accuracy แย่มาก
+        if (raw.hasAccuracy() && raw.getAccuracy() > 80f) return null;
+
+        if (!kfInitialized) {
+            kfLat = raw.getLatitude();
+            kfLng = raw.getLongitude();
+            kfAccuracy = raw.hasAccuracy() ? raw.getAccuracy() : 10f;
+            kfTimestamp = raw.getTime();
+            kfInitialized = true;
+            return raw;
+        }
+
+        // ตรวจสอบความเร็วผิดปกติ (> 150 กม./ชม. = น่าสงสัย)
+        if (kfTimestamp > 0) {
+            double dtSec = (raw.getTime() - kfTimestamp) / 1000.0;
+            if (dtSec > 0) {
+                double dLat = raw.getLatitude() - kfLat;
+                double dLng = raw.getLongitude() - kfLng;
+                double distM = Math.sqrt(dLat * dLat + dLng * dLng) * 111000;
+                double speedMs = distM / dtSec;
+                if (speedMs > 42f) { // 42 m/s = ~150 km/h
+                    return null; // กรองทิ้ง
+                }
+            }
+        }
+
+        // Kalman Update
+        float dt = kfTimestamp > 0 ? (raw.getTime() - kfTimestamp) / 1000f : 1f;
+        float predicted = kfAccuracy + KALMAN_Q * Math.max(dt, 1f);
+        float rawAcc = raw.hasAccuracy() ? raw.getAccuracy() : 10f;
+        float gain = predicted / (predicted + KALMAN_R + rawAcc);
+
+        kfLat += gain * (raw.getLatitude() - kfLat);
+        kfLng += gain * (raw.getLongitude() - kfLng);
+        kfAccuracy = (1 - gain) * predicted;
+        kfTimestamp = raw.getTime();
+
+        // สร้าง Location object ที่กรองแล้ว
+        Location filtered = new Location(raw);
+        filtered.setLatitude(kfLat);
+        filtered.setLongitude(kfLng);
+        filtered.setAccuracy(kfAccuracy);
+        return filtered;
+    }
+
     private final Runnable heartbeatTick = new Runnable() {
         @Override public void run() {
             if (!running) return;
@@ -65,9 +122,11 @@ public class GpsService extends Service {
 
     private final LocationListener listener = new LocationListener() {
         @Override public void onLocationChanged(Location location) {
-            latestLocation = location;
-            saveCoords(location);
-            sendLocationUpdate(location);
+            Location filtered = filterLocation(location);
+            if (filtered == null) return; // กรองทิ้ง
+            latestLocation = filtered;
+            saveCoords(filtered);
+            sendLocationUpdate(filtered);
         }
 
         @Override public void onProviderDisabled(String provider) {
@@ -400,5 +459,5 @@ public class GpsService extends Service {
             {13.381579, 101.708016}, {13.443342, 101.610222}, {13.659022, 101.437482},
             {13.745082, 101.355993}, {13.692477, 101.054105}
     };
-}
+    }
 
