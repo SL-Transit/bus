@@ -600,6 +600,7 @@
     var DISTANCE_MODE = 'road';
     var ROAD_DISTANCE_FACTOR = 1.335;
     var ROAD_DISTANCE_CACHE = {};
+    var LAST_TICKET_STORAGE_KEY = 'checkTicket.lastTicket.v2';
     var roadDistanceRequestSeq = 0;
     var STOP_LOCATIONS = [
       { name:'คลองหาด', lat:13.453565, lng:102.299330 },
@@ -739,6 +740,7 @@
         }
         currentCode = found.code;
         currentBooking = normalizeBooking(found.booking, found.code);
+        rememberLastTicket(found.code);
         if (found.matchCount && found.matchCount > 1) {
           setStatus('lookupStatus', 'info', 'พบหลายรายการในเบอร์นี้ กำลังแสดงรายการล่าสุด');
         } else {
@@ -779,6 +781,35 @@
         matches[0].matchCount = matches.length;
         return matches[0];
       });
+    }
+
+    function rememberLastTicket(code) {
+      if (!code) return;
+      try {
+        localStorage.setItem(LAST_TICKET_STORAGE_KEY, JSON.stringify({
+          code: code,
+          testMode: TEST_MODE === true,
+          savedAt: Date.now()
+        }));
+      } catch (err) {}
+    }
+
+    function getRememberedTicket() {
+      try {
+        var raw = localStorage.getItem(LAST_TICKET_STORAGE_KEY);
+        if (!raw) return '';
+        var saved = JSON.parse(raw);
+        if (!saved || !saved.code || saved.testMode !== (TEST_MODE === true)) return '';
+        return normalizeLookup(saved.code);
+      } catch (err) {
+        return '';
+      }
+    }
+
+    function clearRememberedTicket() {
+      try {
+        localStorage.removeItem(LAST_TICKET_STORAGE_KEY);
+      } catch (err) {}
     }
 
     function bookingSortTime(booking) {
@@ -1116,7 +1147,7 @@
         renderTransferMarker();
         renderRouteStopMarkers();
         if (vanLocation) renderVanMarker(vanLocation);
-        if (lastPosition) renderPassengerMarker(lastPosition);
+        if (lastPosition) focusPassengerLocation(lastPosition, true);
         updateTrackingRouteLine();
       });
     }
@@ -1247,7 +1278,7 @@
       } else {
         trackingVanMarker.setLngLat([location.lng, location.lat]);
       }
-      focusTrackingMap();
+      if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
     }
 
@@ -1950,6 +1981,7 @@
       show('lookupPanel', false);
       showTopbar(false);
       setTrackingActive(false);
+      clearRememberedTicket();
       var detail = document.getElementById('cancelledDoneDetail');
       if (detail && currentBooking) {
         detail.innerHTML =
@@ -2316,7 +2348,7 @@
       if (e.key === 'Enter') lookupTicket();
     });
     var params = new URLSearchParams(location.search);
-    var initial = params.get('code') || params.get('phone');
+    var initial = params.get('code') || params.get('phone') || getRememberedTicket();
     if (initial) {
       document.getElementById('lookupValue').value = normalizeLookup(initial);
       lookupTicket();
