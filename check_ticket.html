@@ -38,6 +38,16 @@
     }
 
     .wrap { width: 100%; max-width: 1040px; margin: 0 auto; }
+    body.tracking-active {
+      padding: 0;
+      overflow: hidden;
+      background: #fff;
+    }
+    body.tracking-active .wrap {
+      width: 100vw;
+      max-width: none;
+      margin: 0;
+    }
 
     .topbar {
       display: flex;
@@ -176,6 +186,15 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
       margin-bottom: 16px;
     }
+    body.tracking-active .tracking-page {
+      width: 100vw;
+      height: 100vh;
+      min-height: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      margin: 0;
+    }
     .tracking-page.hidden { display: none !important; }
     .lookup-panel {
       position: relative;
@@ -200,12 +219,7 @@
     .lookup-panel button { min-height: 52px; padding: 12px 18px; }
     .tracking-map { position: absolute; inset: 0; background: #101826; }
     .tracking-map::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: linear-gradient(180deg, rgba(15,23,42,.2) 0%, rgba(15,23,42,0) 36%, rgba(15,23,42,.34) 100%);
-      z-index: 1;
+      display: none;
     }
     .tracking-locate {
       position: absolute;
@@ -668,7 +682,7 @@
       var value = normalizeLookup(document.getElementById('lookupValue').value);
       var btn = document.getElementById('btnLookup');
       show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
-      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingLocateButton', false); show('lookupPanel', true); show('trackingPage', false); showTopbar(true);
+      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingLocateButton', false); show('lookupPanel', true); show('trackingPage', false); showTopbar(true); setTrackingActive(false);
       stopTrackingSubscription();
       resetFlexibleTracking();
 
@@ -997,6 +1011,7 @@
       show('cancelTicketButton', true);
       show('trackingLocateButton', true);
       showTopbar(false);
+      setTrackingActive(true);
       renderPassengerTrackingCard();
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
@@ -1027,6 +1042,13 @@
       if (el) el.classList.toggle('hidden', !yes);
     }
 
+    function setTrackingActive(active) {
+      document.body.classList.toggle('tracking-active', active === true);
+      setTimeout(function() {
+        if (trackingMap) trackingMap.resize();
+      }, 80);
+    }
+
     function initTrackingMap() {
       if (trackingMap) return;
       if (!loadBoxmapFromPassengerPattern()) {
@@ -1036,7 +1058,7 @@
       mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
       trackingMap = new mapboxgl.Map({
         container: 'trackingMap',
-        style: 'mapbox://styles/mapbox/light-v11',
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: [TERMINAL.lng, TERMINAL.lat],
         zoom: 10.5,
         attributionControl: false
@@ -1878,6 +1900,7 @@
       show('trackingPage', false);
       show('lookupPanel', false);
       showTopbar(false);
+      setTrackingActive(false);
       var detail = document.getElementById('cancelledDoneDetail');
       if (detail && currentBooking) {
         detail.innerHTML =
