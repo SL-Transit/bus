@@ -2,22 +2,22 @@ package com.sanamchai.drivergps;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
@@ -36,8 +36,8 @@ public class MainActivity extends Activity {
 
     private SharedPreferences prefs;
     private TextView statusText;
+    private TextView vehiclePickerText;
     private Button mainButton;
-    private Spinner vehicleSpinner;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable uiTick = new Runnable() {
         @Override public void run() {
@@ -49,6 +49,10 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        // ตั้งค่า default vehicle ถ้ายังไม่มี
+        if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
+            prefs.edit().putString(KEY_VEHICLE_ID, VEHICLE_IDS[0]).apply();
+        }
         buildUi();
         requestPermissionsThenStart();
         uiHandler.post(uiTick);
@@ -108,40 +112,28 @@ public class MainActivity extends Activity {
         vehicleLabel.setGravity(Gravity.CENTER);
         root.addView(vehicleLabel);
 
-        // --- Spinner เลือก Vehicle ID ---
-        vehicleSpinner = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, VEHICLE_IDS);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        vehicleSpinner.setAdapter(adapter);
+        // --- ปุ่มเลือก Vehicle แบบ custom (กดแล้วขึ้น dialog) ---
+        vehiclePickerText = new TextView(this);
+        vehiclePickerText.setTextColor(Color.WHITE);
+        vehiclePickerText.setTextSize(20);
+        vehiclePickerText.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        vehiclePickerText.setGravity(Gravity.CENTER);
+        vehiclePickerText.setPadding(dp(16), dp(14), dp(16), dp(14));
+        vehiclePickerText.setText("▼  " + prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]));
 
-        // โหลดค่าที่เคยเลือกไว้
-        String savedVehicle = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-        for (int i = 0; i < VEHICLE_IDS.length; i++) {
-            if (VEHICLE_IDS[i].equals(savedVehicle)) {
-                vehicleSpinner.setSelection(i);
-                break;
-            }
-        }
+        GradientDrawable pickerBg = new GradientDrawable();
+        pickerBg.setColor(Color.rgb(30, 41, 59));
+        pickerBg.setCornerRadius(dp(10));
+        pickerBg.setStroke(dp(2), Color.rgb(99, 102, 241));
+        vehiclePickerText.setBackground(pickerBg);
 
-        vehicleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
-                String selected = VEHICLE_IDS[position];
-                prefs.edit().putString(KEY_VEHICLE_ID, selected).apply();
-                // ถ้ากำลังส่งอยู่ ให้ restart service ด้วย vehicle ใหม่
-                if (prefs.getBoolean(KEY_ENABLED, false)) {
-                    stopGpsService();
-                    startGpsService();
-                }
-            }
-            @Override public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        vehiclePickerText.setOnClickListener(v -> showVehicleDialog());
 
-        LinearLayout.LayoutParams spinnerLp = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams pickerLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        spinnerLp.setMargins(0, dp(8), 0, dp(16));
-        root.addView(vehicleSpinner, spinnerLp);
+        pickerLp.setMargins(0, dp(8), 0, dp(16));
+        root.addView(vehiclePickerText, pickerLp);
 
         statusText = new TextView(this);
         statusText.setTextColor(Color.rgb(248, 250, 252));
@@ -173,7 +165,7 @@ public class MainActivity extends Activity {
         root.addView(note);
 
         TextView version = new TextView(this);
-        version.setText("v1.5");
+        version.setText("v1.6");
         version.setTextColor(Color.rgb(71, 85, 105));
         version.setTextSize(12);
         version.setGravity(Gravity.CENTER);
@@ -182,6 +174,30 @@ public class MainActivity extends Activity {
 
         setContentView(scroll);
         refreshUi();
+    }
+
+    private void showVehicleDialog() {
+        // ถ้ากำลังส่งอยู่ ต้องหยุดก่อนจึงเปลี่ยนได้
+        boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
+        String currentId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        int currentIdx = 0;
+        for (int i = 0; i < VEHICLE_IDS.length; i++) {
+            if (VEHICLE_IDS[i].equals(currentId)) { currentIdx = i; break; }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("เลือกรหัสรถ")
+                .setSingleChoiceItems(VEHICLE_IDS, currentIdx, (dialog, which) -> {
+                    String selected = VEHICLE_IDS[which];
+                    prefs.edit().putString(KEY_VEHICLE_ID, selected).apply();
+                    vehiclePickerText.setText("▼  " + selected);
+                    dialog.dismiss();
+                    if (enabled) {
+                        stopGpsService();
+                        startGpsService();
+                    }
+                })
+                .setNegativeButton("ยกเลิก", null)
+                .show();
     }
 
     private int dp(int value) {
@@ -243,8 +259,7 @@ public class MainActivity extends Activity {
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
 
-        // ปิด spinner ตอนกำลังส่งอยู่ ไม่ให้เปลี่ยนรถกลางทาง
-        vehicleSpinner.setEnabled(!enabled);
+        vehiclePickerText.setText("▼  " + vehicleId);
 
         if (!hasLocationPermission()) {
             statusText.setText("กรุณาอนุญาตตำแหน่ง เพื่อเริ่มส่ง GPS");
