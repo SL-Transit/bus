@@ -658,6 +658,9 @@
     var passengerAutoFocused = false;
     var trackingUserInteracted = false;
     var trackingBusRef = null;
+    var trackingLiveVehiclesRef = null;
+    var trackingBusFeed = {};
+    var trackingLiveVehicleFeed = {};
     var trackingVehicleId = '';
     var vanLocation = null;
     var pickupStopLocation = null;
@@ -1178,7 +1181,11 @@
 
     function stopTrackingSubscription() {
       if (trackingBusRef) trackingBusRef.off();
+      if (trackingLiveVehiclesRef) trackingLiveVehiclesRef.off();
       trackingBusRef = null;
+      trackingLiveVehiclesRef = null;
+      trackingBusFeed = {};
+      trackingLiveVehicleFeed = {};
       trackingVehicleId = '';
       vanLocation = null;
     }
@@ -1187,16 +1194,34 @@
       stopTrackingSubscription();
       trackingBusRef = db.ref('bus');
       trackingBusRef.on('value', function(snap) {
-        var buses = snap.val() || {};
-        var match = resolveVehicleForBooking(currentBooking, buses);
-        trackingVehicleId = match && match.id ? match.id : '';
-        vanLocation = match && match.location ? match.location : null;
-        if (vanLocation) {
-          renderVanMarker(vanLocation);
-          updateVanMarkerSmoothly(vanLocation);
-        }
-        renderPassengerTrackingCard();
+        trackingBusFeed = snap.val() || {};
+        refreshTrackingVehicleFromFeeds();
       });
+      trackingLiveVehiclesRef = db.ref('liveVehicles');
+      trackingLiveVehiclesRef.on('value', function(snap) {
+        trackingLiveVehicleFeed = snap.val() || {};
+        refreshTrackingVehicleFromFeeds();
+      });
+    }
+
+    function mergeTrackingVehicleFeeds() {
+      var merged = Object.assign({}, trackingBusFeed || {});
+      Object.keys(trackingLiveVehicleFeed || {}).forEach(function(id) {
+        merged[id] = Object.assign({}, merged[id] || {}, trackingLiveVehicleFeed[id] || {});
+      });
+      return merged;
+    }
+
+    function refreshTrackingVehicleFromFeeds() {
+      var vehicles = mergeTrackingVehicleFeeds();
+      var match = resolveVehicleForBooking(currentBooking, vehicles);
+      trackingVehicleId = match && match.id ? match.id : '';
+      vanLocation = match && match.location ? match.location : null;
+      if (vanLocation && normalizeTrackingPoint(vanLocation)) {
+        renderVanMarker(vanLocation);
+        updateVanMarkerSmoothly(vanLocation);
+      }
+      renderPassengerTrackingCard();
     }
 
     function resolveVehicleForBooking(booking, buses) {
@@ -1208,7 +1233,7 @@
       var preferredQueue = booking.queue || booking.queueNo || booking.vanQueue || booking.carQueue || '';
       var best = null;
       keys.forEach(function(id) {
-        var pos = normalizeTrackingPoint(buses[id]);
+        var pos = normalizeTrackingPoint(buses[id]) || normalizeTrackingStatusOnly(buses[id]);
         if (!pos) return;
         var score = 0;
         if (preferredQueue && String(buses[id].queue || '') === String(preferredQueue)) score += 5;
@@ -1234,6 +1259,21 @@
       var lng = Number(point.lng !== undefined ? point.lng : (point.lon !== undefined ? point.lon : point.longitude));
       if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return null;
       return Object.assign({}, point, { lat: lat, lng: lng });
+    }
+
+    function normalizeTrackingStatusOnly(point) {
+      point = point || {};
+      if (!point.status && point.online !== false) return null;
+      return Object.assign({}, point);
+    }
+
+    function vehicleStatusMessage(pos) {
+      var status = pos && pos.status ? String(pos.status) : '';
+      if (pos && pos.online === false) return 'รถออฟไลน์อยู่ ระบบจะอัปเดตเมื่อคนขับกลับมาออนไลน์';
+      if (status === 'locating') return 'คนขับออนไลน์แล้ว กำลังค้นหาสัญญาณ GPS';
+      if (status === 'low_accuracy') return 'กำลังรอสัญญาณ GPS ให้แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
+      if (status === 'gps_error') return 'GPS ของคนขับมีปัญหา กรุณารอสักครู่';
+      return '';
     }
 
     function resolvePickupStopLocation(booking) {
@@ -1452,7 +1492,7 @@
     }
 
     function calculatePickupEta() {
-      if (!vanLocation || !pickupStopLocation) return null;
+      if (!normalizeTrackingPoint(vanLocation) || !pickupStopLocation) return null;
       var speed = Number(vanLocation.speed || 0);
       var km = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) * ROAD_DISTANCE_FACTOR;
       return Math.max(1, Math.round((km / Math.max(speed, 24)) * 60));
@@ -1461,7 +1501,7 @@
     function calculateTransferOrDestinationEta() {
       var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
       var source = shouldUsePassengerForJourneyEta() ? lastPosition : vanLocation;
-      if (!source || !target) return null;
+      if (!normalizeTrackingPoint(source) || !target) return null;
       var speed = Number(source.speed || (vanLocation && vanLocation.speed) || 0);
       var km = distanceKm(source.lat, source.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
       return Math.max(1, Math.round((km / Math.max(speed, 28)) * 60));
@@ -1523,7 +1563,7 @@
     }
 
     function isVanAtOrPastPickup() {
-      if (!vanLocation || !pickupStopLocation) return false;
+      if (!normalizeTrackingPoint(vanLocation) || !pickupStopLocation) return false;
       var near = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) <= 0.35;
       var stopIdx = Number(vanLocation.stopIdx);
       var pickupIdx = STOP_LOCATIONS.findIndex(function(s) { return s.name === pickupStopLocation.name; });
@@ -1567,6 +1607,8 @@
       var legs = getLegSchedule(currentBooking);
       var routeInfo = connectionRouteInfo(currentBooking.route);
       var age = vanLocation && vanLocation.ts ? Date.now() - Number(vanLocation.ts) : null;
+      var statusText = vehicleStatusMessage(vanLocation);
+      if (statusText) return statusText;
       if (!vanLocation) return 'กำลังรอตำแหน่งรถจากคนขับ';
       if (age !== null && age > 2 * 60 * 1000) return 'ตำแหน่งรถอาจไม่เป็นปัจจุบัน · อัปเดตล่าสุด ' + formatAgo(age);
       if (routeInfo.type === 'secondary_connection') {

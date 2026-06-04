@@ -16,16 +16,18 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 
-import java.util.Locale;
-import java.util.HashMap;
-import java.util.Map;
-
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 public class GpsService extends Service {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
@@ -33,21 +35,31 @@ public class GpsService extends Service {
 
     private static final String CHANNEL_ID = "gps_sender";
     private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String QUEUE_ID = "car1";
+    private static final long SEND_INTERVAL_MS = 10000;
+    private static final float MAX_ACCURATE_METERS = 100f;
+    private static boolean persistenceConfigured = false;
 
     private SharedPreferences prefs;
     private LocationManager locationManager;
     private FirebaseAuth auth;
     private DatabaseReference busRef;
+    private DatabaseReference liveVehicleRef;
+    private DatabaseReference connectedRef;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Location latestLocation;
     private boolean running = false;
+    private boolean reportingError = false;
+    private long lastLocationSentAt = 0;
+    private String gpsErrorMessage = null;
+    private Map<String, Object> pendingData = null;
+    private Location pendingLocation = null;
 
-    private final Runnable periodicSend = new Runnable() {
+    private final Runnable heartbeatTick = new Runnable() {
         @Override public void run() {
             if (!running) return;
-            refreshLastKnownLocation();
-            sendLatest();
-            handler.postDelayed(this, 20000);
+            sendHeartbeat();
+            handler.postDelayed(this, SEND_INTERVAL_MS);
         }
     };
 
@@ -55,6 +67,11 @@ public class GpsService extends Service {
         @Override public void onLocationChanged(Location location) {
             latestLocation = location;
             saveCoords(location);
+            sendLocationUpdate(location);
+        }
+
+        @Override public void onProviderDisabled(String provider) {
+            recordError("GPS provider disabled: " + provider);
         }
     };
 
@@ -77,7 +94,19 @@ public class GpsService extends Service {
             FirebaseApp.initializeApp(this, options);
         }
         auth = FirebaseAuth.getInstance();
-        busRef = FirebaseDatabase.getInstance().getReference("bus/car1");
+        FirebaseDatabase db = FirebaseDatabase.getInstance();
+        if (!persistenceConfigured) {
+            try {
+                db.setPersistenceEnabled(true);
+            } catch (Exception ignored) {}
+            persistenceConfigured = true;
+        }
+        busRef = db.getReference("bus/" + QUEUE_ID);
+        liveVehicleRef = db.getReference("liveVehicles/" + QUEUE_ID);
+        connectedRef = db.getReference(".info/connected");
+        busRef.keepSynced(true);
+        liveVehicleRef.keepSynced(true);
+        watchConnectionState();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -91,36 +120,44 @@ public class GpsService extends Service {
     }
 
     private void startTracking() {
-        if (running) return;
+        if (running) {
+            setupDisconnectHandlers();
+            sendHeartbeat();
+            handler.removeCallbacks(heartbeatTick);
+            handler.postDelayed(heartbeatTick, SEND_INTERVAL_MS);
+            return;
+        }
         running = true;
+        gpsErrorMessage = null;
         prefs.edit()
                 .putBoolean(MainActivity.KEY_ENABLED, true)
-                .putString(MainActivity.KEY_LAST_STATUS, "เริ่มระบบแล้ว กำลังรอ GPS")
+                .putString(MainActivity.KEY_LAST_STATUS, "online / locating")
                 .putString(MainActivity.KEY_LAST_ERROR, "")
                 .apply();
-        startForeground(1, buildNotification("กำลังหาตำแหน่ง..."));
+        startForeground(1, buildNotification("Locating GPS..."));
+        setupDisconnectHandlers();
+        sendHeartbeat();
+        handler.removeCallbacks(heartbeatTick);
+        handler.postDelayed(heartbeatTick, SEND_INTERVAL_MS);
         if (!hasLocationPermission()) {
-            recordError("ยังไม่ได้อนุญาตตำแหน่ง");
+            recordError("Location permission is not granted");
             return;
         }
         try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 0, listener);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, SEND_INTERVAL_MS, 0, listener);
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 0, listener);
         } catch (SecurityException e) {
             recordError(e.getMessage());
         }
-        refreshLastKnownLocation();
-        handler.removeCallbacks(periodicSend);
-        handler.post(periodicSend);
     }
 
     private void stopTracking() {
         running = false;
         prefs.edit()
                 .putBoolean(MainActivity.KEY_ENABLED, false)
-                .putString(MainActivity.KEY_LAST_STATUS, "หยุดส่งแล้ว")
+                .putString(MainActivity.KEY_LAST_STATUS, "stopped")
                 .apply();
-        handler.removeCallbacks(periodicSend);
+        handler.removeCallbacks(heartbeatTick);
         try { locationManager.removeUpdates(listener); } catch (Exception ignored) {}
         markOffline();
         stopForeground(true);
@@ -133,81 +170,146 @@ public class GpsService extends Service {
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void refreshLastKnownLocation() {
-        if (!hasLocationPermission()) return;
-        try {
-            Location gps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            Location network = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-            Location best = gps != null ? gps : network;
-            if (network != null && gps != null && network.getTime() > gps.getTime()) best = network;
-            if (best != null) {
-                latestLocation = best;
-                saveCoords(best);
-            }
-        } catch (SecurityException ignored) {}
-    }
-
-    private void sendLatest() {
-        if (latestLocation == null) {
-            recordStatus("รอสัญญาณ GPS");
-            updateNotification("รอสัญญาณ GPS...");
+    private void sendHeartbeat() {
+        if (gpsErrorMessage != null && latestLocation == null) {
+            writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null);
             return;
         }
-        final Location loc = latestLocation;
+        if (latestLocation == null) {
+            recordStatus("online / locating");
+            updateNotification("Waiting for GPS...");
+            writeData(buildStatusData(null, true, "locating", null), null);
+            return;
+        }
+        writeData(buildData(latestLocation, true), latestLocation);
+    }
+
+    private void sendLocationUpdate(Location loc) {
+        if (!running || loc == null) return;
+        gpsErrorMessage = null;
+        long now = System.currentTimeMillis();
+        if (now - lastLocationSentAt < SEND_INTERVAL_MS) return;
+        lastLocationSentAt = now;
         writeData(buildData(loc, true), loc);
     }
 
+    private void watchConnectionState() {
+        connectedRef.addValueEventListener(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                Boolean connected = snapshot.getValue(Boolean.class);
+                if (!Boolean.TRUE.equals(connected) || !running) return;
+                setupDisconnectHandlers();
+                if (pendingData != null) {
+                    writeData(pendingData, pendingLocation);
+                } else {
+                    lastLocationSentAt = 0;
+                    sendHeartbeat();
+                }
+            }
+
+            @Override public void onCancelled(DatabaseError error) {
+                recordError("Firebase connection: " + error.getMessage());
+            }
+        });
+    }
+
     private void writeData(Map<String, Object> data, Location loc) {
+        pendingData = new HashMap<>(data);
+        pendingLocation = loc;
         if (auth.getCurrentUser() != null) {
             writeAuthedData(data, loc);
             return;
         }
         auth.signInAnonymously()
                 .addOnSuccessListener(result -> writeAuthedData(data, loc))
-                .addOnFailureListener(e -> recordError("Firebase Auth: " + e.getMessage()));
+                .addOnFailureListener(e -> {
+                    if ("gps_error".equals(String.valueOf(data.get("status")))) {
+                        updateNotification("Firebase Auth: " + e.getMessage());
+                        return;
+                    }
+                    writeAuthedData(data, loc);
+                    recordError("Firebase Auth: " + e.getMessage());
+                });
     }
 
     private void writeAuthedData(Map<String, Object> data, Location loc) {
-        busRef.setValue(data, (DatabaseError error, DatabaseReference ref) -> {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("bus/" + QUEUE_ID, data);
+        updates.put("liveVehicles/" + QUEUE_ID, data);
+        FirebaseDatabase.getInstance().getReference().updateChildren(updates, (DatabaseError error, DatabaseReference ref) -> {
             if (error != null) {
+                if ("gps_error".equals(String.valueOf(data.get("status")))) {
+                    updateNotification("Firebase error: " + error.getMessage());
+                    return;
+                }
                 recordError("Firebase " + error.getCode() + ": " + error.getMessage());
                 return;
             }
-            if (loc != null) {
-                prefs.edit()
-                        .putLong(MainActivity.KEY_LAST_SENT, System.currentTimeMillis())
-                        .putString(MainActivity.KEY_LAST_STATUS, "ส่งสำเร็จ")
-                        .putString(MainActivity.KEY_LAST_ERROR, "")
-                        .apply();
-                updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
-            }
+            prefs.edit()
+                    .putLong(MainActivity.KEY_LAST_SENT, System.currentTimeMillis())
+                    .putString(MainActivity.KEY_LAST_STATUS, loc == null ? String.valueOf(data.get("status")) : "sent")
+                    .putString(MainActivity.KEY_LAST_ERROR, "")
+                    .apply();
+            pendingData = null;
+            pendingLocation = null;
+            if (loc == null) updateNotification(String.valueOf(data.get("status")));
+            else updateNotification(String.format(Locale.US, "%.5f, %.5f", loc.getLatitude(), loc.getLongitude()));
         });
     }
 
     private void markOffline() {
+        long now = System.currentTimeMillis();
         Map<String, Object> data = new HashMap<>();
         data.put("online", false);
-        data.put("ts", System.currentTimeMillis());
+        data.put("status", "offline");
+        data.put("appUpdatedAt", now);
+        data.put("ts", now);
         writeData(data, null);
     }
 
-    private Map<String, Object> buildData(Location loc, boolean online) {
-        Integer speedKmh = loc.hasSpeed() ? Math.round(loc.getSpeed() * 3.6f) : null;
-        Float heading = loc.hasBearing() ? loc.getBearing() : null;
+    private void setupDisconnectHandlers() {
+        long now = System.currentTimeMillis();
         Map<String, Object> data = new HashMap<>();
-        data.put("lat", loc.getLatitude());
-        data.put("lng", loc.getLongitude());
-        data.put("lon", loc.getLongitude());
-        data.put("acc", Math.round(loc.getAccuracy()));
-        data.put("speed", speedKmh);
-        data.put("heading", heading);
+        data.put("online", false);
+        data.put("status", "offline");
+        data.put("appUpdatedAt", now);
+        data.put("ts", now);
+        busRef.onDisconnect().updateChildren(data);
+        liveVehicleRef.onDisconnect().updateChildren(data);
+    }
+
+    private Map<String, Object> buildData(Location loc, boolean online) {
+        boolean accurate = !loc.hasAccuracy() || loc.getAccuracy() <= MAX_ACCURATE_METERS;
+        return buildStatusData(loc, online, accurate ? "moving" : "low_accuracy", null);
+    }
+
+    private Map<String, Object> buildStatusData(Location loc, boolean online, String status, String errorMessage) {
+        long now = System.currentTimeMillis();
+        Map<String, Object> data = new HashMap<>();
+        if (loc != null && (!loc.hasAccuracy() || loc.getAccuracy() <= MAX_ACCURATE_METERS)) {
+            Integer speedKmh = loc.hasSpeed() ? Math.round(loc.getSpeed() * 3.6f) : null;
+            Float heading = loc.hasBearing() ? loc.getBearing() : null;
+            data.put("lat", loc.getLatitude());
+            data.put("lng", loc.getLongitude());
+            data.put("lon", loc.getLongitude());
+            data.put("speed", speedKmh);
+            data.put("heading", heading);
+            data.put("stopIdx", nearestStopIndex(loc.getLatitude(), loc.getLongitude()));
+        }
+        if (loc != null && loc.hasAccuracy()) {
+            data.put("accuracy", Math.round(loc.getAccuracy()));
+            data.put("acc", Math.round(loc.getAccuracy()));
+            data.put("locationUpdatedAt", now);
+        }
         data.put("direction", "go");
         data.put("queue", 1);
-        data.put("stopIdx", nearestStopIndex(loc.getLatitude(), loc.getLongitude()));
-        data.put("status", "towards");
+        data.put("queueId", QUEUE_ID);
+        data.put("status", status);
         data.put("online", online);
         data.put("source", "gps-transit-apk");
-        data.put("ts", System.currentTimeMillis());
+        data.put("appUpdatedAt", now);
+        data.put("ts", now);
+        if (errorMessage != null) data.put("errorMessage", errorMessage);
         return data;
     }
 
@@ -244,11 +346,17 @@ public class GpsService extends Service {
     }
 
     private void recordError(String error) {
+        gpsErrorMessage = error == null ? "unknown" : error;
+        if (!reportingError) {
+            reportingError = true;
+            writeData(buildStatusData(null, true, "gps_error", error == null ? "unknown" : error), null);
+            reportingError = false;
+        }
         prefs.edit()
-                .putString(MainActivity.KEY_LAST_STATUS, "ส่งไม่ได้")
+                .putString(MainActivity.KEY_LAST_STATUS, "gps_error")
                 .putString(MainActivity.KEY_LAST_ERROR, error == null ? "unknown" : error)
                 .apply();
-        updateNotification("ส่งไม่ได้: " + (error == null ? "unknown" : error));
+        updateNotification("GPS error: " + (error == null ? "unknown" : error));
     }
 
     private void createChannel() {
@@ -260,7 +368,7 @@ public class GpsService extends Service {
 
     private Notification buildNotification(String text) {
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
-        return b.setContentTitle("GPS Transit กำลังส่งตำแหน่ง")
+        return b.setContentTitle("GPS Transit sending location")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setOngoing(true)

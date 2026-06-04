@@ -754,6 +754,8 @@ const DEST_NORMAL = [
 
 let lastPos=null;
 let allBusPositions={};
+let rawBusPositions={};
+let liveVehiclePositions={};
 // คง viewDir ไว้สำหรับ GPS/Map
 let viewDir='go';
 let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false;
@@ -777,6 +779,34 @@ function normalizeMapPoint(point) {
   var lon = Number(point.lon ?? point.lng ?? point.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null;
   return { lon: lon, lat: lat };
+}
+
+function vehicleStatusMessage(pos) {
+  var status = pos && pos.status ? String(pos.status) : '';
+  if (pos && pos.online === false) return 'รถออฟไลน์อยู่ ระบบจะอัปเดตเมื่อคนขับกลับมาออนไลน์';
+  if (status === 'locating') return 'คนขับออนไลน์แล้ว กำลังค้นหาสัญญาณ GPS';
+  if (status === 'low_accuracy') return 'กำลังรอสัญญาณ GPS ให้แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
+  if (status === 'gps_error') return 'GPS ของคนขับมีปัญหา กรุณารอสักครู่';
+  if (status === 'moving') return 'ตำแหน่งรถอัปเดตแบบเรียลไทม์';
+  return '';
+}
+
+function mergeVehicleFeeds() {
+  var merged = Object.assign({}, rawBusPositions || {});
+  Object.keys(liveVehiclePositions || {}).forEach(function(id) {
+    merged[id] = Object.assign({}, merged[id] || {}, liveVehiclePositions[id] || {});
+  });
+  allBusPositions = merged;
+  lastPos = choosePrimaryBus(allBusPositions);
+  renderStatus(lastPos);
+  renderRouteStrip(lastPos);
+  renderSched();
+  renderNextBus();
+  updateBottomSheetSummary();
+  updateLastUpdate(lastPos);
+  if (mapReady && Object.keys(allBusPositions).length) {
+    updateAllBusesOnMap(allBusPositions);
+  }
 }
 
 function focusMap(point, zoomLevel, animate) {
@@ -1364,6 +1394,12 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
 
 // ===== STATUS =====
 function getStatusInfo(pos) {
+  if (pos) {
+    var statusNote = vehicleStatusMessage(pos);
+    if (pos.online === false || pos.status === 'locating' || pos.status === 'low_accuracy' || pos.status === 'gps_error') {
+      return {cls:'stopped', icon:'รถ', title:statusNote, sub:'สถานะจากแอพคนขับ'};
+    }
+  }
   if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
   const elapsed=(Date.now()-pos.ts)/1000;
   const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
@@ -1692,19 +1728,17 @@ db.ref('settings').on('value', function(snap) {
 
 // Firebase — bus/car1, bus/car2, ... รองรับรถหลายคันจากแอพคนขับ
 db.ref('bus').on('value', function(snap){
-  allBusPositions = snap.val() || {};
-  lastPos = choosePrimaryBus(allBusPositions);
-  renderStatus(lastPos);
-  renderRouteStrip(lastPos);
-  renderSched();
-  renderNextBus();
-  updateBottomSheetSummary();
-  updateLastUpdate(lastPos);
-  if (mapReady && Object.keys(allBusPositions).length) {
-    updateAllBusesOnMap(allBusPositions);
-  }
+  rawBusPositions = snap.val() || {};
+  mergeVehicleFeeds();
 }, function(error) {
   console.error('Firebase bus listener error:', error && error.message ? error.message : error);
+});
+
+db.ref('liveVehicles').on('value', function(snap){
+  liveVehiclePositions = snap.val() || {};
+  mergeVehicleFeeds();
+}, function(error) {
+  console.error('Firebase liveVehicles listener error:', error && error.message ? error.message : error);
 });
 
 // Clock

@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("ส่งตำแหน่งรถโดยสารเข้า passenger.html ทุก 20 วินาที");
+        sub.setText("GPS -> Firebase every 10 seconds");
         sub.setTextColor(Color.rgb(203, 213, 225));
         sub.setTextSize(16);
         sub.setGravity(Gravity.CENTER);
@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
         root.addView(note);
 
         TextView version = new TextView(this);
-        version.setText("v1.2");
+        version.setText("v1.4");
         version.setTextColor(Color.rgb(71, 85, 105));
         version.setTextSize(12);
         version.setGravity(Gravity.CENTER);
@@ -200,7 +200,7 @@ public class MainActivity extends Activity {
             String status = prefs.getString(KEY_LAST_STATUS, "กำลังรอ GPS...");
             String error = prefs.getString(KEY_LAST_ERROR, "");
             String time = sent > 0 ? new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date(sent)) : "--:--:--";
-            statusText.setText("กำลังส่ง GPS ไป bus/car1 ทุก 20 วินาที\n" +
+            statusText.setText("Sending GPS to bus/car1 every 10 seconds\n" +
                     "สถานะ: " + status + "\n" +
                     "พิกัดล่าสุด: " + coords + "\n" +
                     "ส่งล่าสุด: " + time +
