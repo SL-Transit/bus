@@ -11,10 +11,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
@@ -24,10 +27,17 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_SENT = "last_sent";
     static final String KEY_LAST_COORDS = "last_coords";
     static final String KEY_LAST_ERROR = "last_error";
+    static final String KEY_VEHICLE_ID = "vehicle_id";
+
+    // --- กำหนดรายการรถที่นี่ ---
+    private static final String[] VEHICLE_IDS = {
+        "car1", "car2", "car3", "car4", "car5"
+    };
 
     private SharedPreferences prefs;
     private TextView statusText;
     private Button mainButton;
+    private Spinner vehicleSpinner;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable uiTick = new Runnable() {
         @Override public void run() {
@@ -87,8 +97,51 @@ public class MainActivity extends Activity {
         sub.setTextColor(Color.rgb(203, 213, 225));
         sub.setTextSize(16);
         sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, 14, 0, 34);
+        sub.setPadding(0, 14, 0, 24);
         root.addView(sub);
+
+        // --- Label เลือกรถ ---
+        TextView vehicleLabel = new TextView(this);
+        vehicleLabel.setText("เลือกรหัสรถ:");
+        vehicleLabel.setTextColor(Color.rgb(203, 213, 225));
+        vehicleLabel.setTextSize(16);
+        vehicleLabel.setGravity(Gravity.CENTER);
+        root.addView(vehicleLabel);
+
+        // --- Spinner เลือก Vehicle ID ---
+        vehicleSpinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, VEHICLE_IDS);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        vehicleSpinner.setAdapter(adapter);
+
+        // โหลดค่าที่เคยเลือกไว้
+        String savedVehicle = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        for (int i = 0; i < VEHICLE_IDS.length; i++) {
+            if (VEHICLE_IDS[i].equals(savedVehicle)) {
+                vehicleSpinner.setSelection(i);
+                break;
+            }
+        }
+
+        vehicleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
+                String selected = VEHICLE_IDS[position];
+                prefs.edit().putString(KEY_VEHICLE_ID, selected).apply();
+                // ถ้ากำลังส่งอยู่ ให้ restart service ด้วย vehicle ใหม่
+                if (prefs.getBoolean(KEY_ENABLED, false)) {
+                    stopGpsService();
+                    startGpsService();
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        LinearLayout.LayoutParams spinnerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        spinnerLp.setMargins(0, dp(8), 0, dp(16));
+        root.addView(vehicleSpinner, spinnerLp);
 
         statusText = new TextView(this);
         statusText.setTextColor(Color.rgb(248, 250, 252));
@@ -120,7 +173,7 @@ public class MainActivity extends Activity {
         root.addView(note);
 
         TextView version = new TextView(this);
-        version.setText("v1.4");
+        version.setText("v1.5");
         version.setTextColor(Color.rgb(71, 85, 105));
         version.setTextSize(12);
         version.setGravity(Gravity.CENTER);
@@ -188,6 +241,11 @@ public class MainActivity extends Activity {
 
     private void refreshUi() {
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+
+        // ปิด spinner ตอนกำลังส่งอยู่ ไม่ให้เปลี่ยนรถกลางทาง
+        vehicleSpinner.setEnabled(!enabled);
+
         if (!hasLocationPermission()) {
             statusText.setText("กรุณาอนุญาตตำแหน่ง เพื่อเริ่มส่ง GPS");
             mainButton.setText("ขอสิทธิ์ตำแหน่ง");
@@ -200,7 +258,7 @@ public class MainActivity extends Activity {
             String status = prefs.getString(KEY_LAST_STATUS, "กำลังรอ GPS...");
             String error = prefs.getString(KEY_LAST_ERROR, "");
             String time = sent > 0 ? new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date(sent)) : "--:--:--";
-            statusText.setText("Sending GPS to bus/car1 every 10 seconds\n" +
+            statusText.setText("Sending GPS to liveVehicles/" + vehicleId + " every 10 seconds\n" +
                     "สถานะ: " + status + "\n" +
                     "พิกัดล่าสุด: " + coords + "\n" +
                     "ส่งล่าสุด: " + time +
@@ -212,3 +270,4 @@ public class MainActivity extends Activity {
         mainButton.setBackgroundColor(enabled ? Color.rgb(220, 38, 38) : Color.rgb(22, 163, 74));
     }
 }
+
