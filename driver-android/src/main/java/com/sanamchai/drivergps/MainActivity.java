@@ -7,18 +7,32 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
-import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends Activity {
     static final String PREFS = "driver_gps";
@@ -29,15 +43,27 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_ERROR = "last_error";
     static final String KEY_VEHICLE_ID = "vehicle_id";
 
-    // --- กำหนดรายการรถที่นี่ ---
+    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+
     private static final String[] VEHICLE_IDS = {
         "car1", "car2", "car3", "car4", "car5"
     };
 
     private SharedPreferences prefs;
-    private TextView statusText;
-    private TextView vehiclePickerText;
     private Button mainButton;
+    private TextView vehiclePickerText;
+    private TextView coordsText;
+    private TextView statusBadge;
+    private TextView sentTimeText;
+    private TextView errorText;
+
+    private String lastCoords = "";
+    private String lastStatus = "";
+
+    // Firebase สำหรับตรวจสอบสถานะรถ
+    private DatabaseReference liveVehiclesRef;
+    private final Map<String, Boolean> vehicleOnlineMap = new HashMap<>();
+
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable uiTick = new Runnable() {
         @Override public void run() {
@@ -49,10 +75,10 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        // ตั้งค่า default vehicle ถ้ายังไม่มี
         if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
             prefs.edit().putString(KEY_VEHICLE_ID, VEHICLE_IDS[0]).apply();
         }
+        initFirebaseListener();
         buildUi();
         requestPermissionsThenStart();
         uiHandler.post(uiTick);
@@ -63,19 +89,45 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    // ---- เชื่อม Firebase ฟัง online status ของทุกคัน ----
+    private void initFirebaseListener() {
+        try {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseOptions options = new FirebaseOptions.Builder()
+                        .setApiKey("AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI")
+                        .setApplicationId("1:511401517598:web:5605ee3777619dffe1c40f")
+                        .setDatabaseUrl(DB_URL)
+                        .setProjectId("bus-line1-ba0ea")
+                        .build();
+                FirebaseApp.initializeApp(this, options);
+            }
+            liveVehiclesRef = FirebaseDatabase.getInstance().getReference("liveVehicles");
+            liveVehiclesRef.addValueEventListener(new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot snapshot) {
+                    vehicleOnlineMap.clear();
+                    for (DataSnapshot child : snapshot.getChildren()) {
+                        Object onlineVal = child.child("online").getValue();
+                        boolean online = Boolean.TRUE.equals(onlineVal);
+                        vehicleOnlineMap.put(child.getKey(), online);
+                    }
+                }
+                @Override public void onCancelled(DatabaseError error) {}
+            });
+        } catch (Exception e) {
+            // Firebase init ล้มเหลว ปล่อยให้ใช้งานได้ปกติ
+        }
+    }
+
     private void buildUi() {
-        int padX = dp(24);
-        int padY = dp(28);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(Color.rgb(15, 23, 42));
-        scroll.setClipToPadding(false);
+        scroll.setBackgroundColor(Color.rgb(10, 14, 26));
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
-        root.setPadding(padX, padY, padX, padY);
-        root.setBackgroundColor(Color.rgb(15, 23, 42));
-        root.setMinimumHeight(getResources().getDisplayMetrics().heightPixels - dp(96));
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setPadding(dp(20), dp(40), dp(20), dp(40));
+        root.setBackgroundColor(Color.rgb(10, 14, 26));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -84,117 +136,248 @@ public class MainActivity extends Activity {
         cover.setImageResource(getResources().getIdentifier("app_cover", "drawable", getPackageName()));
         cover.setAdjustViewBounds(true);
         cover.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams(dp(112), dp(112));
-        coverLp.setMargins(0, 0, 0, dp(22));
+        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams(dp(100), dp(100));
+        coverLp.gravity = Gravity.CENTER_HORIZONTAL;
+        coverLp.setMargins(0, 0, 0, dp(16));
         root.addView(cover, coverLp);
 
         TextView title = new TextView(this);
         title.setText("GPS Transit");
         title.setTextColor(Color.WHITE);
-        title.setTextSize(28);
-        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        title.setTextSize(26);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setGravity(Gravity.CENTER);
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("GPS -> Firebase every 10 seconds");
-        sub.setTextColor(Color.rgb(203, 213, 225));
-        sub.setTextSize(16);
+        sub.setText("ส่งตำแหน่งทุก 10 วินาที");
+        sub.setTextColor(Color.rgb(100, 116, 139));
+        sub.setTextSize(13);
         sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, 14, 0, 24);
+        sub.setPadding(0, dp(4), 0, dp(28));
         root.addView(sub);
 
-        // --- Label เลือกรถ ---
         TextView vehicleLabel = new TextView(this);
-        vehicleLabel.setText("เลือกรหัสรถ:");
-        vehicleLabel.setTextColor(Color.rgb(203, 213, 225));
-        vehicleLabel.setTextSize(16);
+        vehicleLabel.setText("รหัสรถ");
+        vehicleLabel.setTextColor(Color.rgb(100, 116, 139));
+        vehicleLabel.setTextSize(11);
+        vehicleLabel.setLetterSpacing(0.1f);
         vehicleLabel.setGravity(Gravity.CENTER);
         root.addView(vehicleLabel);
 
-        // --- ปุ่มเลือก Vehicle แบบ custom (กดแล้วขึ้น dialog) ---
         vehiclePickerText = new TextView(this);
         vehiclePickerText.setTextColor(Color.WHITE);
-        vehiclePickerText.setTextSize(20);
-        vehiclePickerText.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        vehiclePickerText.setTextSize(22);
+        vehiclePickerText.setTypeface(Typeface.DEFAULT_BOLD);
         vehiclePickerText.setGravity(Gravity.CENTER);
-        vehiclePickerText.setPadding(dp(16), dp(14), dp(16), dp(14));
-        vehiclePickerText.setText("▼  " + prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]));
+        vehiclePickerText.setPadding(dp(20), dp(14), dp(20), dp(14));
+        vehiclePickerText.setText(prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + "  ▾");
 
         GradientDrawable pickerBg = new GradientDrawable();
-        pickerBg.setColor(Color.rgb(30, 41, 59));
-        pickerBg.setCornerRadius(dp(10));
-        pickerBg.setStroke(dp(2), Color.rgb(99, 102, 241));
+        pickerBg.setColor(Color.rgb(17, 24, 39));
+        pickerBg.setCornerRadius(dp(14));
+        pickerBg.setStroke(dp(1), Color.rgb(55, 65, 81));
         vehiclePickerText.setBackground(pickerBg);
+        vehiclePickerText.setOnClickListener(v -> {
+            animateTap(vehiclePickerText);
+            showVehicleDialog();
+        });
 
-        vehiclePickerText.setOnClickListener(v -> showVehicleDialog());
-
-        LinearLayout.LayoutParams pickerLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        pickerLp.setMargins(0, dp(8), 0, dp(16));
+        LinearLayout.LayoutParams pickerLp = new LinearLayout.LayoutParams(dp(160), LinearLayout.LayoutParams.WRAP_CONTENT);
+        pickerLp.gravity = Gravity.CENTER_HORIZONTAL;
+        pickerLp.setMargins(0, dp(6), 0, dp(28));
         root.addView(vehiclePickerText, pickerLp);
 
-        statusText = new TextView(this);
-        statusText.setTextColor(Color.rgb(248, 250, 252));
-        statusText.setTextSize(18);
-        statusText.setGravity(Gravity.CENTER);
-        statusText.setPadding(20, 24, 20, 24);
-        root.addView(statusText, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
+        // GPS Card
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(20), dp(20), dp(20));
+        GradientDrawable cardBg = new GradientDrawable();
+        cardBg.setColor(Color.rgb(17, 24, 39));
+        cardBg.setCornerRadius(dp(20));
+        cardBg.setStroke(dp(1), Color.rgb(31, 41, 55));
+        card.setBackground(cardBg);
+
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(20));
+
+        LinearLayout badgeRow = new LinearLayout(this);
+        badgeRow.setOrientation(LinearLayout.HORIZONTAL);
+        badgeRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        statusBadge = new TextView(this);
+        statusBadge.setText("● รอสัญญาณ");
+        statusBadge.setTextColor(Color.rgb(234, 179, 8));
+        statusBadge.setTextSize(13);
+        statusBadge.setTypeface(Typeface.DEFAULT_BOLD);
+        badgeRow.addView(statusBadge);
+        card.addView(badgeRow);
+
+        android.view.View divider = new android.view.View(this);
+        divider.setBackgroundColor(Color.rgb(31, 41, 55));
+        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divLp.setMargins(0, dp(12), 0, dp(12));
+        card.addView(divider, divLp);
+
+        TextView coordsLabel = new TextView(this);
+        coordsLabel.setText("พิกัดปัจจุบัน");
+        coordsLabel.setTextColor(Color.rgb(100, 116, 139));
+        coordsLabel.setTextSize(11);
+        coordsLabel.setLetterSpacing(0.08f);
+        card.addView(coordsLabel);
+
+        coordsText = new TextView(this);
+        coordsText.setText("---.-----,  ---.-----");
+        coordsText.setTextColor(Color.WHITE);
+        coordsText.setTextSize(20);
+        coordsText.setTypeface(Typeface.MONOSPACE);
+        coordsText.setPadding(0, dp(4), 0, dp(14));
+        card.addView(coordsText);
+
+        TextView sentLabel = new TextView(this);
+        sentLabel.setText("ส่งล่าสุด");
+        sentLabel.setTextColor(Color.rgb(100, 116, 139));
+        sentLabel.setTextSize(11);
+        sentLabel.setLetterSpacing(0.08f);
+        card.addView(sentLabel);
+
+        sentTimeText = new TextView(this);
+        sentTimeText.setText("--:--:--");
+        sentTimeText.setTextColor(Color.rgb(148, 163, 184));
+        sentTimeText.setTextSize(16);
+        sentTimeText.setTypeface(Typeface.MONOSPACE);
+        sentTimeText.setPadding(0, dp(4), 0, 0);
+        card.addView(sentTimeText);
+
+        root.addView(card, cardLp);
+
+        errorText = new TextView(this);
+        errorText.setTextColor(Color.rgb(248, 113, 113));
+        errorText.setTextSize(13);
+        errorText.setGravity(Gravity.CENTER);
+        errorText.setPadding(0, 0, 0, dp(16));
+        errorText.setVisibility(android.view.View.GONE);
+        root.addView(errorText);
 
         mainButton = new Button(this);
         mainButton.setAllCaps(false);
-        mainButton.setTextSize(20);
+        mainButton.setTextSize(18);
         mainButton.setTextColor(Color.WHITE);
-        mainButton.setPadding(12, 22, 12, 22);
-        mainButton.setOnClickListener(v -> toggleService());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(0, 30, 0, 0);
-        root.addView(mainButton, lp);
+        mainButton.setTypeface(Typeface.DEFAULT_BOLD);
+        mainButton.setPadding(dp(16), dp(18), dp(16), dp(18));
+        mainButton.setOnClickListener(v -> {
+            animateTap(mainButton);
+            uiHandler.postDelayed(() -> toggleService(), 120);
+        });
+
+        LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        root.addView(mainButton, btnLp);
 
         TextView note = new TextView(this);
-        note.setText("หลังเริ่มส่งแล้ว ปิดหน้าแอพได้ แต่ห้าม Force stop แอพหรือปิด notification");
-        note.setTextColor(Color.rgb(148, 163, 184));
-        note.setTextSize(14);
+        note.setText("ปิดหน้าแอพได้หลังเริ่มส่ง · ห้าม Force stop");
+        note.setTextColor(Color.rgb(55, 65, 81));
+        note.setTextSize(12);
         note.setGravity(Gravity.CENTER);
-        note.setPadding(0, 28, 0, 0);
+        note.setPadding(0, dp(20), 0, 0);
         root.addView(note);
 
         TextView version = new TextView(this);
-        version.setText("v1.6");
-        version.setTextColor(Color.rgb(71, 85, 105));
-        version.setTextSize(12);
+        version.setText("v1.7");
+        version.setTextColor(Color.rgb(31, 41, 55));
+        version.setTextSize(11);
         version.setGravity(Gravity.CENTER);
-        version.setPadding(0, 16, 0, 0);
+        version.setPadding(0, dp(8), 0, 0);
         root.addView(version);
 
         setContentView(scroll);
         refreshUi();
     }
 
+    private void animateTap(android.view.View v) {
+        v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(80)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() ->
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(120)
+                                .setInterpolator(new DecelerateInterpolator()).start()
+                ).start();
+    }
+
+    private void animateCoordsChange(String newCoords) {
+        if (newCoords.equals(lastCoords)) return;
+        lastCoords = newCoords;
+        coordsText.animate().translationY(dp(8)).alpha(0f).setDuration(150)
+                .setInterpolator(new AccelerateDecelerateInterpolator())
+                .withEndAction(() -> {
+                    coordsText.setText(newCoords);
+                    coordsText.setTranslationY(-dp(8));
+                    coordsText.animate().translationY(0f).alpha(1f).setDuration(200)
+                            .setInterpolator(new DecelerateInterpolator()).start();
+                }).start();
+    }
+
+    private void animateStatusChange(String newStatus, int color) {
+        if (newStatus.equals(lastStatus)) return;
+        lastStatus = newStatus;
+        statusBadge.animate().alpha(0f).setDuration(150).withEndAction(() -> {
+            statusBadge.setText(newStatus);
+            statusBadge.setTextColor(color);
+            statusBadge.animate().alpha(1f).setDuration(200).start();
+        }).start();
+    }
+
+    private void animateSentTime(String time) {
+        sentTimeText.animate().alpha(0.3f).setDuration(100).withEndAction(() -> {
+            sentTimeText.setText(time);
+            sentTimeText.animate().alpha(1f).setDuration(200).start();
+        }).start();
+    }
+
+    // ---- Dialog เลือกรถ + ล็อคคันที่ online อยู่ ----
     private void showVehicleDialog() {
-        // ถ้ากำลังส่งอยู่ ต้องหยุดก่อนจึงเปลี่ยนได้
-        boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        String currentId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String myCurrentId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        boolean iAmOnline = prefs.getBoolean(KEY_ENABLED, false);
+
+        // สร้าง label แต่ละตัวเลือก
+        String[] labels = new String[VEHICLE_IDS.length];
+        for (int i = 0; i < VEHICLE_IDS.length; i++) {
+            String id = VEHICLE_IDS[i];
+            boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(id))
+                    && !(id.equals(myCurrentId) && iAmOnline);
+            labels[i] = onlineByOther ? id + "  🔴 ใช้งานอยู่" : id;
+        }
+
         int currentIdx = 0;
         for (int i = 0; i < VEHICLE_IDS.length; i++) {
-            if (VEHICLE_IDS[i].equals(currentId)) { currentIdx = i; break; }
+            if (VEHICLE_IDS[i].equals(myCurrentId)) { currentIdx = i; break; }
         }
+
         new AlertDialog.Builder(this)
                 .setTitle("เลือกรหัสรถ")
-                .setSingleChoiceItems(VEHICLE_IDS, currentIdx, (dialog, which) -> {
-                    String selected = VEHICLE_IDS[which];
-                    prefs.edit().putString(KEY_VEHICLE_ID, selected).apply();
-                    vehiclePickerText.setText("▼  " + selected);
-                    dialog.dismiss();
-                    if (enabled) {
-                        stopGpsService();
-                        startGpsService();
+                .setSingleChoiceItems(labels, currentIdx, (dialog, which) -> {
+                    String selectedId = VEHICLE_IDS[which];
+
+                    // ตรวจสอบว่าคันนี้ถูกใช้อยู่โดยคนอื่นหรือไม่
+                    boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(selectedId))
+                            && !(selectedId.equals(myCurrentId) && iAmOnline);
+
+                    if (onlineByOther) {
+                        // แจ้งเตือนและปิด dialog
+                        dialog.dismiss();
+                        new AlertDialog.Builder(this)
+                                .setTitle("ไม่สามารถเลือกได้")
+                                .setMessage(selectedId + " กำลังถูกใช้งานอยู่โดยคนขับคนอื่น\nกรุณาเลือกรหัสรถอื่น")
+                                .setPositiveButton("ตกลง", null)
+                                .show();
+                        return;
                     }
+
+                    prefs.edit().putString(KEY_VEHICLE_ID, selectedId).apply();
+                    vehiclePickerText.setText(selectedId + "  ▾");
+                    dialog.dismiss();
+                    if (iAmOnline) { stopGpsService(); startGpsService(); }
                 })
                 .setNegativeButton("ยกเลิก", null)
                 .show();
@@ -205,18 +388,13 @@ public class MainActivity extends Activity {
     }
 
     private void requestPermissionsThenStart() {
-        if (Build.VERSION.SDK_INT < 23) {
-            startGpsService();
-            return;
-        }
+        if (Build.VERSION.SDK_INT < 23) { startGpsService(); return; }
         java.util.ArrayList<String> permissions = new java.util.ArrayList<>();
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
         if (Build.VERSION.SDK_INT >= 33 &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             permissions.add(Manifest.permission.POST_NOTIFICATIONS);
-        }
         if (permissions.isEmpty()) startGpsService();
         else requestPermissions(permissions.toArray(new String[0]), 10);
     }
@@ -258,31 +436,58 @@ public class MainActivity extends Activity {
     private void refreshUi() {
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-
-        vehiclePickerText.setText("▼  " + vehicleId);
+        vehiclePickerText.setText(vehicleId + "  ▾");
 
         if (!hasLocationPermission()) {
-            statusText.setText("กรุณาอนุญาตตำแหน่ง เพื่อเริ่มส่ง GPS");
+            animateStatusChange("⚠ ไม่มีสิทธิ์ตำแหน่ง", Color.rgb(248, 113, 113));
             mainButton.setText("ขอสิทธิ์ตำแหน่ง");
-            mainButton.setBackgroundColor(Color.rgb(249, 115, 22));
+            setButtonStyle(false);
             return;
         }
+
         if (enabled) {
-            long sent = prefs.getLong(KEY_LAST_SENT, 0);
             String coords = prefs.getString(KEY_LAST_COORDS, "--");
-            String status = prefs.getString(KEY_LAST_STATUS, "กำลังรอ GPS...");
+            String status = prefs.getString(KEY_LAST_STATUS, "locating");
             String error = prefs.getString(KEY_LAST_ERROR, "");
-            String time = sent > 0 ? new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date(sent)) : "--:--:--";
-            statusText.setText("Sending GPS to liveVehicles/" + vehicleId + " every 10 seconds\n" +
-                    "สถานะ: " + status + "\n" +
-                    "พิกัดล่าสุด: " + coords + "\n" +
-                    "ส่งล่าสุด: " + time +
-                    (error.isEmpty() ? "" : "\nข้อผิดพลาด: " + error));
+            long sent = prefs.getLong(KEY_LAST_SENT, 0);
+            String time = sent > 0
+                    ? new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date(sent))
+                    : "--:--:--";
+
+            if (status.equals("sent") || status.equals("moving")) {
+                animateStatusChange("● กำลังส่ง GPS", Color.rgb(34, 197, 94));
+            } else if (status.equals("locating") || status.contains("locating")) {
+                animateStatusChange("● กำลังหาสัญญาณ", Color.rgb(234, 179, 8));
+            } else {
+                animateStatusChange("● " + status, Color.rgb(148, 163, 184));
+            }
+
+            if (!coords.equals("--")) animateCoordsChange(coords);
+            animateSentTime(time);
+
+            if (!error.isEmpty()) {
+                errorText.setText("⚠ " + error);
+                errorText.setVisibility(android.view.View.VISIBLE);
+            } else {
+                errorText.setVisibility(android.view.View.GONE);
+            }
+
+            mainButton.setText("หยุดส่งตำแหน่ง");
+            setButtonStyle(true);
         } else {
-            statusText.setText("หยุดส่งตำแหน่งอยู่");
+            animateStatusChange("○ ไม่ได้ส่ง", Color.rgb(100, 116, 139));
+            animateCoordsChange("---.-----,  ---.-----");
+            animateSentTime("--:--:--");
+            errorText.setVisibility(android.view.View.GONE);
+            mainButton.setText("เริ่มส่งตำแหน่ง");
+            setButtonStyle(false);
         }
-        mainButton.setText(enabled ? "หยุดส่งตำแหน่ง" : "เริ่มส่งตำแหน่ง");
-        mainButton.setBackgroundColor(enabled ? Color.rgb(220, 38, 38) : Color.rgb(22, 163, 74));
+    }
+
+    private void setButtonStyle(boolean isStop) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(16));
+        bg.setColor(isStop ? Color.rgb(220, 38, 38) : Color.rgb(22, 163, 74));
+        mainButton.setBackground(bg);
     }
 }
-
