@@ -5,7 +5,7 @@
       ".write": "auth != null"
     },
     "bookings": {
-      ".read": "auth != null",
+      ".read": true,
       ".write": true
     },
     "settings": {

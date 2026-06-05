@@ -572,8 +572,8 @@
 
     var db = firebase.database();
     var authReady = firebase.auth().signInAnonymously().catch(function(err) {
-      console.error(err);
-      throw err;
+      console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
+      return null;
     });
     // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
