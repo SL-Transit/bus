@@ -258,6 +258,15 @@ public class GpsService extends Service {
             @Override public void onDataChange(DataSnapshot snapshot) {
                 Boolean connected = snapshot.getValue(Boolean.class);
                 if (!Boolean.TRUE.equals(connected) || !running) return;
+                // ✅ แก้ไข: เมื่อ reconnect ให้ set online:true ทันที ก่อน setupDisconnectHandlers
+                // ป้องกัน onDisconnect handler ค้างทำให้ passenger เห็น online:false
+                long now = System.currentTimeMillis();
+                Map<String, Object> onlineNow = new HashMap<>();
+                onlineNow.put("online", true);
+                onlineNow.put("appUpdatedAt", now);
+                onlineNow.put("ts", now);
+                busRef.updateChildren(onlineNow);
+                liveVehicleRef.updateChildren(onlineNow);
                 setupDisconnectHandlers();
                 if (pendingData != null) writeData(pendingData, pendingLocation);
                 else { lastLocationSentAt = 0; sendHeartbeat(); }
@@ -335,13 +344,15 @@ public class GpsService extends Service {
             data.put("lat",     loc.getLatitude());
             data.put("lng",     loc.getLongitude());
             data.put("lon",     loc.getLongitude());
-            data.put("speed",   loc.hasSpeed()   ? Math.round(loc.getSpeed() * 3.6f) : null);
-            data.put("heading", loc.hasBearing() ? loc.getBearing() : null);
+            // ✅ แก้ไข: ส่ง 0 แทน null เมื่อไม่มี speed/heading — ป้องกัน Firebase null value warning
+            data.put("speed",   loc.hasSpeed()   ? Math.round(loc.getSpeed() * 3.6f) : 0);
+            data.put("heading", loc.hasBearing() ? loc.getBearing() : 0f);
             data.put("stopIdx", nearestStopIndex(loc.getLatitude(), loc.getLongitude()));
         }
-        if (loc != null && loc.hasAccuracy()) {
-            data.put("accuracy",          Math.round(loc.getAccuracy()));
-            data.put("acc",               Math.round(loc.getAccuracy()));
+        if (loc != null) {
+            // ✅ แก้ไข: ส่ง accuracy เสมอ (ถ้าไม่มีให้ส่ง 999 = unknown) ป้องกัน field หาย
+            data.put("accuracy",          loc.hasAccuracy() ? Math.round(loc.getAccuracy()) : 999);
+            data.put("acc",               loc.hasAccuracy() ? Math.round(loc.getAccuracy()) : 999);
             data.put("locationUpdatedAt", now);
         }
         data.put("direction",    "go");
