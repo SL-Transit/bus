@@ -553,7 +553,7 @@
         <p class="lead" style="margin-bottom:0">ระบบบันทึกสถานะและส่งข้อมูลแจ้งปลายทางแล้ว</p>
       </div>
       <div id="cancelledDoneDetail" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:16px;font-size:14px;line-height:1.8;color:#0f172a"></div>
-      <button class="btn-dark" type="button" onclick="show('cancelledDoneModal', false)" style="width:100%">ปิด</button>
+      <button class="btn-dark" type="button" onclick="closeCancelledDonePopup()" style="width:100%">ปิด</button>
     </div>
   </div>
 
@@ -765,12 +765,18 @@
         }
         currentCode = found.code;
         currentBooking = normalizeBooking(found.booking, found.code);
-        rememberLastTicket(found.code);
         if (found.matchCount && found.matchCount > 1) {
           setStatus('lookupStatus', 'info', 'พบหลายรายการในเบอร์นี้ กำลังแสดงรายการล่าสุด');
         } else {
           hideStatus('lookupStatus');
         }
+        if (isCancelledBooking(currentBooking)) {
+          clearRememberedTicket();
+          showCancelledDonePopup();
+          startBookingListener(found.code);
+          return;
+        }
+        rememberLastTicket(found.code);
         renderBooking();
         startBookingListener(found.code);
       }).catch(function(err) {
@@ -904,6 +910,10 @@
       return booking;
     }
 
+    function isCancelledBooking(booking) {
+      return !!(booking && booking.status === 'cancelled');
+    }
+
     function displayPassengerName(name) {
       var clean = String(name || '').trim();
       if (!clean) return '-';
@@ -919,12 +929,22 @@
       ref.on('value', function(snap) {
         if (snap.exists() && currentCode === code) {
           currentBooking = normalizeBooking(snap.val(), code);
+          if (isCancelledBooking(currentBooking)) {
+            clearRememberedTicket();
+            showCancelledDonePopup();
+            return;
+          }
           renderBooking();
         }
       });
     }
 
     function renderBooking() {
+      if (isCancelledBooking(currentBooking)) {
+        clearRememberedTicket();
+        showCancelledDonePopup();
+        return;
+      }
       show('ticketPanel', true); show('checkinPanel', true); show('cancelPanel', true);
       document.getElementById('showCode').textContent = currentBooking.code;
       document.getElementById('showStatus').textContent = statusLabel(currentBooking.status);
@@ -2080,6 +2100,10 @@
     }
 
     function openCancelConfirm() {
+      if (isCancelledBooking(currentBooking)) {
+        showCancelledDonePopup();
+        return;
+      }
       if (!canCancelTicket()) return;
       // ใส่รายละเอียดการจองใน modal
       var detail = document.getElementById('cancelModalDetail');
@@ -2099,6 +2123,10 @@
 
     function confirmCancel() {
       closeCancelConfirm();
+      if (isCancelledBooking(currentBooking)) {
+        showCancelledDonePopup();
+        return;
+      }
       updateBookingAndNotify({
         status: 'cancelled',
         cancelledAt: Date.now(),
@@ -2111,6 +2139,13 @@
     function showCancelledDonePopup() {
       show('trackingPage', false);
       show('lookupPanel', false);
+      show('ticketPanel', false);
+      show('checkinPanel', false);
+      show('cancelPanel', false);
+      show('flexPanel', false);
+      show('trackingBottomSheet', false);
+      show('cancelTicketButton', false);
+      show('trackingLocateButton', false);
       showTopbar(false);
       setTrackingActive(false);
       clearRememberedTicket();
@@ -2125,6 +2160,20 @@
           '<strong>สถานะ: ยกเลิกตั๋วแล้ว</strong>';
       }
       show('cancelledDoneModal', true);
+    }
+
+    function closeCancelledDonePopup() {
+      show('cancelledDoneModal', false);
+      show('lookupPanel', true);
+      showTopbar(true);
+      setTrackingActive(false);
+      currentBooking = null;
+      currentCode = null;
+      var input = document.getElementById('lookupValue');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
     }
 
     function updateBookingAndNotify(update, eventName, successText) {
