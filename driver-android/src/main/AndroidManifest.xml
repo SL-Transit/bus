@@ -1,38 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.sanamchai.drivergps">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ===== GPS & Location ===== -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Background location (Android 10+) — จำเป็นสำหรับส่ง GPS ตลอดเวลา -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-    <!-- ===== Wake Lock — ป้องกัน CPU หลับ ===== -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- ===== Foreground Service ===== -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-
-    <!-- ===== Network ===== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- ===== Boot (เปิดแอปอัตโนมัติหลังรีสตาร์ท) ===== -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- ===== Notification (Android 13+) ===== -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- ===== Battery Optimization Exemption Request ===== -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
         android:label="GPS Transit"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
@@ -46,13 +29,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Foreground Service พร้อม foregroundServiceType=location -->
         <service
             android:name=".GpsService"
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <!-- Boot Receiver — เปิด service อัตโนมัติหลังเปิดเครื่อง -->
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
@@ -60,9 +41,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <!-- Huawei/OPPO/Xiaomi boot -->
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.coloros.action.startservice" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
