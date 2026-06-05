@@ -29,13 +29,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
-
-      - name: Build debug APK
-        run: gradle :driver-android:assembleDebug
+          gradle-version: "8.7" 
+      
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > driver-android/keystore.jks
+      
+      - name: Build release APK
+        run: gradle :driver-android:assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: sanamchai-driver-gps-apk
-          path: driver-android/build/outputs/apk/debug/driver-android-debug.apk
+          path: driver-android/build/outputs/apk/release/driver-android-release.apk
