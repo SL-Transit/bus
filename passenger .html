@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตารางเวลาและบริการเส้นรถประจำทาง – Smart Transit</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://api.longdo.com/map3/?key=e817a8a0a0e83c4f2c32c7b1db12424e"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:#f0f4f8;
+  --card:#ffffff;
+  --text:#1a2332;
+  --muted:#5a6a7e;
+  --border:#d1dbe8;
+  --blue:#1d4ed8;
+  --blue-dark:#1e3a8a;
+  --blue-light:#eff6ff;
+  --green:#15803d;
+  --red:#b91c1c;
+}
+body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:16px; }
+
+/* ===== HEADER ===== */
+.topbar {
+  background:var(--blue-dark);
+  padding:18px 20px 15px;
+  text-align:center;
+  border-bottom:3px solid #2563eb;
+}
+.header-main {
+  font-size:18px; font-weight:700; color:#ffffff;
+  letter-spacing:0.2px; line-height:1.35;
+}
+.header-sub {
+  font-size:11px; color:#93c5fd; font-weight:400;
+  margin-top:4px; letter-spacing:1.2px; text-transform:uppercase;
+}
+
+/* ===== INFO STRIP ===== */
+.info-strip {
+  background:#1d4ed8;
+  padding:9px 18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.info-strip .time { font-family:'Chakra Petch',sans-serif; font-size:18px; color:#ffffff; letter-spacing:2px; font-weight:700; }
+.info-strip .date { font-size:11px; color:#bfdbfe; font-weight:500; margin-top:2px; }
+.info-strip .right { font-size:11px; color:#bbf7d0; font-weight:600; text-align:right; }
+.live-dot { display:inline-block; width:7px; height:7px; background:#4ade80; border-radius:50%; margin-right:5px; animation:blink 1.4s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.test-mode-strip{display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;}
+.admin-test-strip{display:none;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;line-height:1.6;}
+
+.main { padding:16px 16px; max-width:480px; margin:0 auto; }
+
+/* ===== STATUS CARD ===== */
+.status-card {
+  background:var(--card); border-radius:12px;
+  padding:16px 18px; display:flex; align-items:center; gap:14px;
+  margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,0.07);
+  border-left:4px solid #d1dbe8;
+}
+.status-card.stopped  { border-left-color:#d97706; background:var(--card); }
+.status-card.arriving { border-left-color:#15803d; background:#f0fdf4; }
+.status-card.running  { border-left-color:#1d4ed8; background:#eff6ff; }
+.status-icon { font-size:28px; flex-shrink:0; }
+.status-text strong { display:block; font-size:16px; font-weight:700; color:var(--text); }
+.status-text span { font-size:13px; color:var(--muted); margin-top:3px; display:block; }
+
+/* ===== MAP ===== */
+#map { height:clamp(240px,40vh,300px); border-radius:16px; margin-bottom:12px; border:1px solid #cbd5e1; overflow:hidden; background:#dcebf7; position:relative; box-shadow:0 10px 24px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.08); }
+#map .ldc-widget,
+#map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
+#map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
+#map .ldmap-crosshair { display:none !important; }
+.map-stop-icon { width:34px; height:34px; border-radius:50%; background:#1e3a8a; border:3px solid #fff; box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(30,58,138,.18); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; line-height:1; }
+.map-stop-label { background:rgba(15,23,42,.9); color:#fff; font-size:11px; font-weight:700; padding:4px 8px; border-radius:12px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.24); border:1px solid rgba(255,255,255,.82); }
+.map-bus-icon { width:40px; height:40px; border-radius:50%; background:#16a34a; border:4px solid #fff; box-shadow:0 6px 16px rgba(15,23,42,.38),0 0 0 4px rgba(22,163,74,.2); display:flex; align-items:center; justify-content:center; color:#fff; font-size:21px; line-height:1; }
+.map-bus-label { background:#15803d; color:#fff; font-size:12px; font-weight:700; padding:6px 11px; border-radius:16px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.3); border:1px solid rgba(255,255,255,.78); }
+.map-passenger-marker { width:26px; height:26px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 5px rgba(37,99,235,.24),0 4px 12px rgba(15,23,42,.34); }
+.follow-user-btn { width:100%; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:10px; padding:9px 12px; margin:-4px 0 12px; font-family:'Kanit',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.08); }
+.follow-user-btn.is-off { background:#fff; color:#5a6a7e; border-color:#d1dbe8; }
+
+/* ===== ROUTE STRIP ===== */
+.route-card {
+  background:var(--card); border-radius:12px; padding:14px 16px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06); margin-bottom:12px;
+  border:1px solid var(--border); overflow:hidden;
+}
+.route-card-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.route-label { font-size:12px; color:var(--muted); font-weight:600; letter-spacing:0.8px; text-transform:uppercase; }
+.route-dir-badge {
+  font-size:12px; font-weight:700; color:#1d4ed8;
+  background:#eff6ff; border:1px solid #bfdbfe;
+  padding:4px 11px; border-radius:20px;
+}
+/* เลื่อนซ้ายขวาได้ — จุดไม่ล้น */
+.route-visual-scroll {
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  padding-bottom:6px; padding-top:28px;
+}
+.route-visual {
+  display:flex; align-items:flex-start;
+  min-width:max-content;
+}
+.stop-col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:72px; }
+.stop-dot-w { position:relative; width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+.stop-dot { width:14px; height:14px; border-radius:50%; background:#d1dbe8; border:2px solid #94a3b8; transition:all 0.3s; }
+.stop-dot.active { background:#1d4ed8; border-color:#1d4ed8; box-shadow:0 0 0 5px rgba(29,78,216,0.15); width:18px; height:18px; }
+.stop-dot.passed { background:#93c5fd; border-color:#3b82f6; }
+.bus-anim { position:absolute; top:-24px; font-size:20px; animation:bob 1.8s ease-in-out infinite; }
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.line-seg { flex:1; height:3px; background:#e2e8f0; margin-top:16px; border-radius:2px; }
+.line-seg.passed { background:#3b82f6; }
+.sn { font-size:11px; font-weight:600; text-align:center; margin-top:6px; line-height:1.3; color:var(--muted); }
+.sn.active { color:#1d4ed8; font-weight:700; }
+
+/* ===== NEXT BUS ===== */
+.next-bus {
+  background:var(--card); border:1px solid var(--border);
+  border-left:4px solid #1d4ed8;
+  border-radius:12px; padding:16px 18px; margin-bottom:12px;
+  display:flex; align-items:center; gap:16px;
+}
+.next-bus-left { flex:1; }
+.next-label { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+.next-time { font-family:'Chakra Petch',sans-serif; font-size:36px; font-weight:700; color:#1e3a8a; letter-spacing:2px; line-height:1; }
+.next-detail { font-size:13px; color:var(--muted); margin-top:5px; }
+.next-icon { font-size:32px; flex-shrink:0; opacity:0.7; }
+
+/* ===== ROUTE SELECTOR ===== */
+.route-select-card {
+  background:var(--card); border-radius:12px; padding:16px;
+  margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  border:1px solid var(--border);
+}
+.rs-title {
+  font-size:11px; font-weight:700; color:var(--muted);
+  letter-spacing:1px; text-transform:uppercase; margin-bottom:12px;
+}
+.rs-row { display:flex; align-items:flex-end; gap:10px; }
+.rs-group { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
+.rs-label { font-size:12px; font-weight:600; color:var(--muted); }
+.rs-select {
+  width:100%; padding:12px 12px; border-radius:8px;
+  border:1.5px solid var(--border); font-family:'Kanit',sans-serif;
+  font-size:15px; font-weight:600; color:var(--text);
+  background:#ffffff; cursor:pointer; outline:none;
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%235a6a7e' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center;
+  padding-right:34px; min-height:46px; line-height:1.35;
+}
+.rs-select:focus { border-color:#1d4ed8; }
+.rs-arrow { font-size:20px; font-weight:700; color:#1d4ed8; padding-bottom:12px; flex-shrink:0; }
+
+/* ===== SECTION LABEL ===== */
+.sec-label {
+  font-size:11px; font-weight:700; color:var(--muted);
+  letter-spacing:1.5px; text-transform:uppercase;
+  margin-bottom:10px; padding-left:2px;
+}
+
+/* ===== SCHEDULE — DIRECT ROUTE ===== */
+.sched-card {
+  background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  margin-bottom:14px; border:1px solid var(--border);
+}
+.sched-route-header {
+  background:var(--blue-dark); padding:14px 18px;
+}
+.sched-route-from { font-size:11px; color:#93c5fd; font-weight:500; margin-bottom:3px; letter-spacing:0.5px; text-transform:uppercase; }
+.sched-route-name { font-size:17px; font-weight:700; color:#ffffff; }
+
+/* กริด 3 คอลัมน์ — เวลาใหญ่ อ่านง่าย */
+.time-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+.time-cell {
+  padding:18px 10px; text-align:center;
+  border-right:1px solid var(--border); border-bottom:1px solid var(--border);
+  font-family:'Chakra Petch',sans-serif; font-size:22px;
+  font-weight:700; color:var(--text); letter-spacing:0;
+  min-width:0;
+}
+.time-cell:nth-child(3n) { border-right:none; }
+/* ลบ border bottom แถวสุดท้าย */
+.time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+1),
+.time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+2),
+.time-grid .time-cell:nth-last-child(1),
+.time-grid .time-cell:nth-last-child(2),
+.time-grid .time-cell:nth-last-child(3) { border-bottom:none; }
+.time-cell.now-cell { background:#eff6ff; color:#1d4ed8; }
+.now-badge {
+  display:block; font-family:'Kanit',sans-serif;
+  font-size:9px; font-weight:700; color:#1d4ed8;
+  letter-spacing:0.5px; margin-top:4px;
+}
+
+/* ===== SCHEDULE — LEG2 (2 columns) ===== */
+.leg2-card {
+  background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  margin-bottom:14px; border:1px solid var(--border);
+}
+.leg2-header {
+  background:var(--blue-dark); padding:14px 18px;
+}
+.leg2-header-top { font-size:11px; color:#93c5fd; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+.leg2-header-route { font-size:17px; font-weight:700; color:#ffffff; }
+
+/* Column headers */
+.leg2-cols { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(255,255,255,0.12); }
+.leg2-col-head {
+  padding:10px 14px;
+  border-right:1px solid rgba(255,255,255,0.12);
+}
+.leg2-col-head:last-child { border-right:none; }
+.leg2-col-sub { font-size:10px; color:#93c5fd; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
+.leg2-col-name { font-size:13px; font-weight:700; color:#ffffff; margin-top:2px; }
+.leg2-col-note { font-size:10px; color:#bfdbfe; margin-top:2px; }
+
+/* Time rows side-by-side */
+.leg2-times { display:grid; grid-template-columns:1fr 1fr; }
+.leg2-time-col { border-right:1px solid var(--border); }
+.leg2-time-col:last-child { border-right:none; }
+.leg2-time-item {
+  padding:16px 12px; border-bottom:1px solid var(--border);
+  font-family:'Chakra Petch',sans-serif; font-size:22px;
+  font-weight:700; color:var(--text); letter-spacing:0;
+  text-align:center;
+  min-width:0;
+}
+.leg2-time-item:last-child { border-bottom:none; }
+.leg2-time-item.now-cell { background:#eff6ff; color:#1d4ed8; }
+.leg2-time-item.empty { background:#fafbfc; min-height:58px; }
+
+/* ===== BUS LIST (multi-bus) ===== */
+.bus-list { max-height:120px; overflow-y:auto; margin-bottom:10px; }
+.bus-list-item {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
+}
+.bus-list-item:last-child { border-bottom:none; }
+.bus-list-id { font-weight:700; color:#1d4ed8; font-size:13px; min-width:55px; }
+.bus-list-loc { color:var(--text); font-weight:500; }
+.bus-list-dir { font-size:11px; color:var(--muted); margin-left:auto; }
+
+/* ===== BOOKING TAB ===== */
+.booking-tab {
+  display:flex; align-items:center; gap:12px;
+  background:#1e3a8a; color:#ffffff;
+  border-radius:12px; padding:16px 20px;
+  margin-bottom:14px; text-decoration:none;
+  box-shadow:0 2px 8px rgba(30,58,138,0.25);
+  transition:background 0.15s;
+}
+.booking-tab:active { background:#1d4ed8; }
+.booking-tab-icon { font-size:22px; flex-shrink:0; }
+.booking-tab-text { flex:1; font-size:16px; font-weight:700; letter-spacing:0.3px; }
+.booking-tab-arrow { font-size:18px; font-weight:700; color:#93c5fd; flex-shrink:0; }
+
+/* ===== FOOTER ===== */
+.footer {
+  text-align:center; font-size:12px; color:var(--muted);
+  padding:12px 16px 32px; line-height:1.8;
+  border-top:1px solid var(--border); margin-top:4px;
+}
+.footer .note-title { color:var(--red); font-weight:700; }
+
+/* ===== DIRECT SCHED — 2-col time grid ===== */
+.time-grid-2col { display:grid; grid-template-columns:1fr 1fr; }
+.time-grid-2col .time-cell { border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+.time-grid-2col .time-cell:nth-child(2n) { border-right:none; }
+/* last row border-bottom none */
+.time-grid-2col .time-cell:nth-last-child(-n+2) { border-bottom:none; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:360px) {
+  body { font-size:15px; }
+  .topbar { padding:14px 14px 12px; }
+  .header-main { font-size:16px; }
+  .main { padding:10px 8px; }
+  .info-strip { padding:8px 12px; }
+  .route-select-card { padding:12px; }
+  .route-card { padding:12px; }
+  #map { height:230px; border-radius:14px; }
+  .route-select-card,
+  .sched-card,
+  .leg2-card,
+  .route-card,
+  .next-bus,
+  .status-card { border-radius:10px; }
+  .rs-row { display:grid; grid-template-columns:1fr; gap:9px; }
+  .rs-group { width:100%; }
+  .rs-select { font-size:15px; min-height:48px; padding:12px 34px 12px 12px; }
+  .rs-arrow {
+    width:34px; height:24px; padding:0; line-height:24px;
+    justify-self:center; align-self:center; text-align:center;
+    transform:rotate(90deg);
+  }
+  .sched-route-header,
+  .leg2-header { padding:12px 14px; }
+  .sched-route-name,
+  .leg2-header-route { font-size:15px; line-height:1.35; }
+  .leg2-cols { grid-template-columns:1fr; }
+  .leg2-col-head { padding:10px 12px; border-right:none; }
+  .leg2-col-head + .leg2-col-head { display:none; }
+  .leg2-col-name { font-size:12px; line-height:1.35; }
+  .time-grid,
+  .time-grid-2col,
+  .leg2-times { grid-template-columns:1fr; }
+
+  .time-cell,
+  .time-grid-2col .time-cell,
+  .leg2-time-item {
+    font-size:19px; padding:13px 10px;
+    border-right:none !important;
+    border-bottom:1px solid var(--border) !important;
+  }
+  .time-grid .time-cell:last-child,
+  .time-grid-2col .time-cell:last-child,
+  .leg2-time-item:last-child { border-bottom:none !important; }
+  .leg2-time-item.empty { display:none; }
+  .next-time { font-size:32px; }
+  .bus-list-item { align-items:flex-start; flex-wrap:wrap; gap:6px 8px; }
+  .bus-list-dir { width:100%; margin-left:0; }
+}
+
+/* ===== MODERN MOBILE MAP APP LAYOUT ===== */
+html, body { width:100%; min-height:100%; overflow:hidden; }
+body { background:#e7eef4; }
+.topbar, .info-strip, .test-mode-strip { display:none; }
+.map-page {
+  position:relative;
+  min-height:100vh;
+  height:100dvh;
+  overflow:hidden;
+  background:#dbe7ef;
+}
+.main {
+  max-width:none;
+  width:100%;
+  height:100%;
+  margin:0;
+  padding:0;
+}
+#map {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  min-height:100%;
+  margin:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+#map .ldc-map, #map canvas { border-radius:0; }
+.top-route-card {
+  position:absolute;
+  top:calc(14px + env(safe-area-inset-top));
+  left:50%;
+  z-index:20;
+  width:min(94vw,480px);
+  transform:translateX(-50%);
+  pointer-events:auto;
+}
+.route-select-card.top-route-card {
+  margin:0;
+  padding:14px;
+  border:1px solid rgba(226,232,240,.92);
+  border-radius:18px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 18px 38px rgba(15,23,42,.18),0 3px 10px rgba(15,23,42,.08);
+  backdrop-filter:blur(12px);
+}
+.rs-title { margin-bottom:10px; color:#334155; letter-spacing:.6px; }
+.rs-row { align-items:center; gap:9px; }
+.rs-group { gap:4px; }
+.rs-label { font-size:11px; color:#64748b; }
+.rs-select {
+  min-height:42px;
+  padding:9px 32px 9px 11px;
+  border-radius:12px;
+  border-color:#dbe4ee;
+  background-color:#f8fafc;
+  font-size:14px;
+}
+.rs-select:focus {
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+}
+.rs-arrow { padding:18px 0 0; color:#2563eb; }
+.follow-user-btn {
+  position:absolute;
+  right:16px;
+  bottom:calc(178px + env(safe-area-inset-bottom));
+  z-index:18;
+  width:auto;
+  min-width:46px;
+  height:46px;
+  padding:0 13px;
+  margin:0;
+  border:1px solid rgba(203,213,225,.9);
+  border-radius:999px;
+  background:#ffffff;
+  color:#1d4ed8;
+  box-shadow:0 10px 24px rgba(15,23,42,.18);
+  font-size:0;
+}
+.follow-user-btn::before { content:"◎"; font-size:23px; line-height:1; }
+.follow-user-btn.is-off { background:#ffffff; color:#64748b; }
+.bottom-sheet {
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:19;
+  max-height:82dvh;
+  padding:0 14px calc(14px + env(safe-area-inset-bottom));
+  border-radius:24px 24px 0 0;
+  background:rgba(248,250,252,.98);
+  box-shadow:0 -18px 42px rgba(15,23,42,.22);
+  transform:translateY(calc(100% - var(--sheet-collapsed-height, 172px)));
+  transition:transform .28s ease;
+  touch-action:none;
+  overflow:hidden;
+}
+.bottom-sheet.sheet-expanded { transform:translateY(0); }
+.bottom-sheet-header {
+  position:sticky;
+  top:0;
+  z-index:2;
+  margin:0 -14px;
+  padding:9px 14px 10px;
+  background:rgba(248,250,252,.98);
+  border-radius:24px 24px 0 0;
+  border-bottom:1px solid rgba(226,232,240,.88);
+  cursor:pointer;
+}
+.sheet-handle {
+  width:42px;
+  height:5px;
+  margin:0 auto 10px;
+  border-radius:999px;
+  background:#cbd5e1;
+}
+.sheet-summary-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.sheet-route-name {
+  font-size:16px;
+  font-weight:800;
+  color:#0f172a;
+  line-height:1.25;
+}
+.sheet-route-sub {
+  margin-top:3px;
+  font-size:12px;
+  font-weight:500;
+  color:#64748b;
+  line-height:1.35;
+}
+.sheet-chip {
+  flex-shrink:0;
+  border:1px solid #bfdbfe;
+  border-radius:999px;
+  padding:6px 10px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-family:'Chakra Petch',sans-serif;
+  font-size:14px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.bottom-sheet-content {
+  max-height:calc(82dvh - 92px);
+  overflow-y:auto;
+  padding:12px 0 8px;
+  -webkit-overflow-scrolling:touch;
+}
+.bottom-sheet-content > .route-card,
+.bottom-sheet-content > .status-card,
+.bottom-sheet-content > .next-bus,
+.bottom-sheet-content > .sched-card,
+.bottom-sheet-content > .leg2-card,
+.bottom-sheet-content > .booking-tab,
+.bottom-sheet-content > .footer {
+  margin-left:0;
+  margin-right:0;
+}
+.bottom-sheet:not(.sheet-expanded) .sheet-expanded-only,
+.bottom-sheet:not(.sheet-expanded) .sec-label,
+.bottom-sheet:not(.sheet-expanded) #schedWrapper,
+.bottom-sheet:not(.sheet-expanded) .booking-tab,
+.bottom-sheet:not(.sheet-expanded) .footer {
+  display:none;
+}
+.bottom-sheet:not(.sheet-expanded) .route-card {
+  max-height:72px;
+  overflow:hidden;
+}
+.bottom-sheet:not(.sheet-expanded) .route-visual-scroll { display:none; }
+.bottom-sheet .route-card,
+.bottom-sheet .status-card,
+.bottom-sheet .next-bus,
+.bottom-sheet .sched-card,
+.bottom-sheet .leg2-card {
+  border-radius:16px;
+  box-shadow:0 1px 8px rgba(15,23,42,.08);
+}
+.bottom-sheet .route-card { margin-bottom:10px; }
+.bottom-sheet .status-card,
+.bottom-sheet .next-bus { margin-bottom:10px; }
+.bottom-sheet .sec-label { margin-top:2px; }
+.map-stop-icon, .map-stop-label, .map-bus-icon, .map-bus-label { cursor:pointer; }
+@media (min-width:720px) {
+  .bottom-sheet {
+    left:50%;
+    right:auto;
+    width:min(520px,94vw);
+    transform:translate(-50%, calc(100% - var(--sheet-collapsed-height, 172px)));
+    border-radius:24px 24px 0 0;
+  }
+  .bottom-sheet.sheet-expanded { transform:translate(-50%,0); }
+}
+@media (max-width:360px) {
+  .route-select-card.top-route-card { padding:12px; border-radius:16px; }
+  .rs-row { display:grid; grid-template-columns:1fr; }
+  .rs-arrow { display:none; }
+  .bottom-sheet { --sheet-collapsed-height:166px; }
+  .sheet-route-name { font-size:15px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="header-main">ตารางเวลาและบริการเส้นรถประจำทาง</div>
+  <div class="header-sub">Smart Transit · ระบบขนส่งมวลชนอัจฉริยะ</div>
+</div>
+
+<!-- ข้อ 5: วันเวลาซ้าย / อัปเดตขวา -->
+<div class="info-strip">
+  <div class="left">
+    <div class="time" id="clock">--:--:--</div>
+    <div class="date" id="dateText"></div>
+  </div>
+  <div class="right">
+    <span class="live-dot"></span>อัปเดตเรียลไทม์<br>
+    <span id="lastUpdate" style="font-weight:400;color:var(--muted)">รอข้อมูล</span>
+  </div>
+</div>
+
+<div class="test-mode-strip" id="testModeStrip">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง</div>
+<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังเช็คระบบเสมือนผู้โดยสารจริง</div>
+
+<div class="map-page">
+<div class="main">
+
+  <!-- ลำดับใหม่: เลือกเส้นทาง → แผนที่ -->
+  <div class="route-select-card top-route-card">
+    <div class="rs-title">เลือกเส้นทาง</div>
+    <div class="rs-row">
+      <div class="rs-group">
+        <div class="rs-label">ต้นทาง</div>
+        <select id="selOrigin" class="rs-select"></select>
+      </div>
+      <div class="rs-arrow">→</div>
+      <div class="rs-group">
+        <div class="rs-label">ปลายทาง</div>
+        <select id="selDest" class="rs-select"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งฉัน</button>
+
+  <!-- ตำแหน่งรถ — รองรับหลายคัน -->
+  <section class="bottom-sheet sheet-collapsed" id="routeBottomSheet" aria-live="polite">
+    <div class="bottom-sheet-header" id="bottomSheetHeader" role="button" tabindex="0" aria-expanded="false">
+      <div class="sheet-handle"></div>
+      <div class="sheet-summary-row">
+        <div>
+          <div class="sheet-route-name" id="sheetRouteName">เลือกต้นทางและปลายทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">แผนที่และตารางเวลาจะอัปเดตตามเส้นทางที่เลือก</div>
+        </div>
+        <div class="sheet-chip" id="sheetEtaChip">--:--</div>
+      </div>
+    </div>
+    <div class="bottom-sheet-content">
+
+  <div class="sec-label">ตารางเวลา</div>
+  <div id="schedWrapper"></div>
+
+  <a href="booking.html" class="booking-tab">
+    <span class="booking-tab-icon">🎫</span>
+    <span class="booking-tab-text">จองตั๋วออนไลน์</span>
+    <span class="booking-tab-arrow">→</span>
+  </a>
+
+  <div class="footer">
+    <span class="note-title">หมายเหตุ :</span><br>
+    ตารางเวลาเดินรถอาจมีการคลาดเคลื่อนจากสภาพการจราจร สภาพอากาศ หรือเหตุสุดวิสัย  ขออภัยในความไม่สะดวกมา ณ โอกาสนี้
+  </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script>
+// ===== Firebase =====
+const firebaseConfig = {
+  apiKey: "AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI",
+  authDomain: "bus-line1-ba0ea.firebaseapp.com",
+  databaseURL: "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bus-line1-ba0ea",
+  storageBucket: "bus-line1-ba0ea.firebasestorage.app",
+  messagingSenderId: "511401517598",
+  appId: "1:511401517598:web:5605ee3777619dffe1c40f"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+let TEST_MODE = false;
+const ADMIN_TESTER_PHONE = '0929383999';
+function applyAdminTesterMode(){
+  let on = new URLSearchParams(location.search).get('admin') === '1';
+  try { on = on || localStorage.getItem('adminTesterMode') === '1'; } catch(e) {}
+  const el = document.getElementById('adminTesterStrip');
+  if (el) el.style.display = on ? 'block' : 'none';
+}
+
+// ===== DATA (คงไว้สำหรับ GPS/Map/Status) =====
+// STOPS รองรับจุดจอดทั้งหมด (ใช้โดย Map/Strip)
+const STOPS_GO = [
+  { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
+  { name:'สี่แยกโคนม',        lat:13.436666, lng:102.200895 },
+  { name:'ทุ่งกบินทร์',         lat:13.439877, lng:102.083043 },
+  { name:'ไพจิตร',           lat:13.416310, lng:102.020767 },
+  { name:'หนองเรือ',          lat:13.420494, lng:101.995365 },
+  { name:'คลองตะเคียน',       lat:13.420264, lng:101.765445 },
+  { name:'หนองคอก',         lat:13.381579, lng:101.708016 },
+  { name:'ท่าตะเกียบ',         lat:13.443342, lng:101.610222 },
+  { name:'ท่ารถสนามชัยเขต',    lat:13.659022, lng:101.437482 },
+  { name:'พนมสารคาม',        lat:13.745082, lng:101.355993 },
+  { name:'ขนส่งฉะเชิงเทรา',     lat:13.692477, lng:101.054105 },
+];
+const STOPS_BACK = [
+  { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
+  { name:'สี่แยกโคนม',        lat:13.436666, lng:102.200895 },
+  { name:'ทุ่งกบินทร์',         lat:13.439877, lng:102.083043 },
+  { name:'ไพจิตร',           lat:13.416310, lng:102.020767 },
+  { name:'หนองเรือ',          lat:13.420494, lng:101.995365 },
+  { name:'คลองตะเคียน',       lat:13.420264, lng:101.765445 },
+  { name:'หนองคอก',         lat:13.381579, lng:101.708016 },
+  { name:'ท่าตะเกียบ',         lat:13.443342, lng:101.610222 },
+  { name:'ท่ารถสนามชัยเขต',    lat:13.659022, lng:101.437482 },
+  { name:'พนมสารคาม',        lat:13.745082, lng:101.355993 },
+  { name:'ขนส่งฉะเชิงเทรา',     lat:13.692477, lng:101.054105 },
+];
+
+// ===== ROUTES DATA — แยกข้อมูลจาก UI =====
+const ROUTES = {
+  'ท่ารถสนามชัยเขต':        { times: ['06:20','07:20','09:00','10:40','12:10','13:40','14:00'] },
+  'พนมสารคาม':            { times: ['06:40','07:40','09:20','11:40','12:30','14:30','15:00'] },
+  'คลองหาด':              { times: ['08:00','11:30'] },
+  'หนองคอก':              { times: ['06:20','09:30','13:00'] },
+  'ท่าตะเกียบ':              { times: ['06:35','09:45','13:15'] },
+  'ทุ่งกบินทร์':              { times: ['08:20','12:10'] },
+  'ไพจิตร':                { times: ['08:30','12:10'] },
+  'หนองเรือ':              { times: ['08:40','12:20'] },
+  'คลองตะเคียน':           { times: ['09:10','12:40'] },
+  'ฉะเชิงเทรา (แปดริ้ว)':     { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
+  'สี่แยกโคนม':             { times: ['08:10','12:00'] },
+};
+
+// LEG2: เส้นทางต่อรถผ่านฉะเชิงเทรา (แปดริ้ว)
+// leg2Times = เวลาออกจากขนส่งฉะเชิงเทรา
+// leg2Label = กลุ่มที่แสดงใน dropdown
+const LEG2_TIMES_EAST     = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
+const LEG2_TIMES_MINBURI  = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
+const LEG2_TIMES_EKAMAI   = ['06:30','08:30','10:30','15:30','17:30'];
+const LEG2_TIMES_MOCHIT   = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
+
+const LEG2_DESTINATIONS = {
+  'ตลาดหนองมน':    { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'บางแสน':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ศรีราชา':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ม.เกษตร':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'อ่าวอุดม':      { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'แหลมฉบัง':      { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'พัทยา':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'แยกอัยการ':     { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'สัตหีบ':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'กม.10':         { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'บ้านฉาง':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ระยอง':         { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ตลาดมีนบุรี':   { leg2Times: LEG2_TIMES_MINBURI, group: 'พัทยา-ระยอง-มีนบุรี' },
+  'BTS จตุจักร':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'แยกลาดพร้าว':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'เอกมัย':        { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'โฮมโปร':        { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'บางนา':         { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'หมอชิต':        { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS บางจาก':    { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS พระโขนง':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS อ่อนนุช':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+};
+
+const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
+const ADMIN_ROUTE_TIMES = {};
+let ADMIN_ROUTE_SOURCE_LOADED = false;
+
+// ต้นทางและปลายทางตรง
+const ORIGIN_LIST = [
+  'ฉะเชิงเทรา (แปดริ้ว)',
+  'พนมสารคาม',
+  'ท่ารถสนามชัยเขต',
+  'ท่าตะเกียบ',
+  'หนองคอก',
+  'คลองตะเคียน',
+  'หนองเรือ',
+  'ไพจิตร',
+  'ทุ่งกบินทร์',
+  'สี่แยกโคนม',
+  'คลองหาด',
+];
+
+const DEST_NORMAL = [
+  'ฉะเชิงเทรา (แปดริ้ว)',
+  'พนมสารคาม',
+  'ท่ารถสนามชัยเขต',
+  'ท่าตะเกียบ',
+  'หนองคอก',
+  'คลองตะเคียน',
+  'หนองเรือ',
+  'ไพจิตร',
+  'ทุ่งกบินทร์',
+  'สี่แยกโคนม',
+  'คลองหาด',
+];
+
+let lastPos=null;
+let allBusPositions={};
+let rawBusPositions={};
+let liveVehiclePositions={};
+// คง viewDir ไว้สำหรับ GPS/Map
+let viewDir='go';
+let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false;
+let stationMarkerOverlays=[];
+let routeRenderSeq=0;
+let mapInitPromise=null;
+let userMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
+let followUser=true;
+let busFollowMode=true, busCentered=false;
+let selectedMapFocus = null;
+let programmaticMapMoveUntil = 0;
+
+// ===== HELPERS =====
+function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
+function nowMin(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+function curStops(){return viewDir==='go'?STOPS_GO:STOPS_BACK;}
+
+function normalizeMapPoint(point) {
+  if (!point) return null;
+  var lat = Number(point.lat ?? point.latitude);
+  var lon = Number(point.lon ?? point.lng ?? point.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null;
+  return { lon: lon, lat: lat };
+}
+
+function vehicleStatusMessage(pos) {
+  var status = pos && pos.status ? String(pos.status) : '';
+  if (pos && pos.online === false) return 'รถออฟไลน์อยู่ ระบบจะอัปเดตเมื่อคนขับกลับมาออนไลน์';
+  if (status === 'locating') return 'คนขับออนไลน์แล้ว กำลังค้นหาสัญญาณ GPS';
+  if (status === 'low_accuracy') return 'กำลังรอสัญญาณ GPS ให้แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
+  if (status === 'gps_error') return 'GPS ของคนขับมีปัญหา กรุณารอสักครู่';
+  if (status === 'moving') return 'ตำแหน่งรถอัปเดตแบบเรียลไทม์';
+  return '';
+}
+
+function mergeVehicleFeeds() {
+  var merged = Object.assign({}, rawBusPositions || {});
+  Object.keys(liveVehiclePositions || {}).forEach(function(id) {
+    merged[id] = Object.assign({}, merged[id] || {}, liveVehiclePositions[id] || {});
+  });
+  allBusPositions = merged;
+  lastPos = choosePrimaryBus(allBusPositions);
+  renderStatus(lastPos);
+  renderRouteStrip(lastPos);
+  renderSched();
+  renderNextBus();
+  updateBottomSheetSummary();
+  updateLastUpdate(lastPos);
+  if (mapReady && Object.keys(allBusPositions).length) {
+    updateAllBusesOnMap(allBusPositions);
+  }
+}
+
+function focusMap(point, zoomLevel, animate) {
+  if (!mapObj || !point) return;
+  try {
+    var shouldAnimate = animate === true;
+    programmaticMapMoveUntil = Date.now() + 900;
+    console.log('map focus', { point: point, zoom: zoomLevel || null, animate: shouldAnimate });
+    mapObj.location(point, shouldAnimate);
+    if (zoomLevel) setTimeout(function(){ mapObj.zoom(zoomLevel, shouldAnimate); }, 80);
+  } catch(e) { console.warn('Longdo focus failed:', e); }
+}
+
+function pauseFollowForManualMapUse(reason) {
+  if (Date.now() < programmaticMapMoveUntil) return;
+  if (!followUser) return;
+  followUser = false;
+  console.log('followUser paused by map interaction', reason || '');
+  updateFollowUserButton();
+}
+
+function getStopByName(name) {
+  return STOPS_GO.concat(STOPS_BACK).find(function(s){ return s.name === name; }) || null;
+}
+
+function focusSelectedOrigin() {
+  var stop = getStopByName(selOrigin);
+  if (stop) focusMap(normalizeMapPoint(stop), 14);
+}
+
+function fitSelectedRouteOnMap() {
+  if (!mapReady || !mapObj) return;
+  var originStop = getStopByName(selOrigin);
+  var destStop = getStopByName(selDest);
+  var points = [originStop, destStop].map(normalizeMapPoint).filter(Boolean);
+  if (points.length >= 2) {
+    var center = { lon: (points[0].lon + points[1].lon) / 2, lat: (points[0].lat + points[1].lat) / 2 };
+    var distance = distanceMeters(points[0].lat, points[0].lon, points[1].lat, points[1].lon);
+    var zoom = distance > 90000 ? 9 : distance > 45000 ? 10 : distance > 18000 ? 11 : 13;
+    focusMap(center, zoom);
+  } else if (points.length === 1) focusMap(points[0], 14);
+}
+
+function updateFollowUserButton() {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn) return;
+  btn.classList.toggle('is-off', !followUser);
+  btn.textContent = followUser ? 'กำลังติดตามตำแหน่งฉัน' : 'ติดตามตำแหน่งฉัน';
+}
+
+function setFollowUser(nextValue) {
+  followUser = nextValue === true;
+  console.log('followUser changed', followUser);
+  updateFollowUserButton();
+  if (followUser && passengerPos) {
+    focusMap(passengerPos, 15, false);
+  } else if (followUser) {
+    requestPassengerCurrentLocation(true, false);
+  }
+}
+
+function bindFollowUserButton() {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn || btn.dataset.bound === '1') return;
+  btn.addEventListener('click', function() {
+    setFollowUser(true);
+    if (passengerPos) {
+      focusMap(passengerPos, 15, false);
+    } else {
+      requestPassengerCurrentLocation(true, false);
+    }
+  });
+  btn.dataset.bound = '1';
+  updateFollowUserButton();
+}
+
+function setBottomSheetState(expanded) {
+  var sheet = document.getElementById('routeBottomSheet');
+  var header = document.getElementById('bottomSheetHeader');
+  if (!sheet) return;
+  sheet.classList.toggle('sheet-expanded', expanded === true);
+  sheet.classList.toggle('sheet-collapsed', expanded !== true);
+  if (header) header.setAttribute('aria-expanded', expanded === true ? 'true' : 'false');
+  refreshMapSizeSafely();
+}
+
+function toggleBottomSheet() {
+  var sheet = document.getElementById('routeBottomSheet');
+  setBottomSheetState(!(sheet && sheet.classList.contains('sheet-expanded')));
+}
+
+function bindBottomSheet() {
+  var sheet = document.getElementById('routeBottomSheet');
+  var header = document.getElementById('bottomSheetHeader');
+  if (!sheet || !header || sheet.dataset.bound === '1') return;
+
+  var startY = 0;
+  var dragging = false;
+
+  header.addEventListener('click', toggleBottomSheet);
+  header.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleBottomSheet();
+    }
+  });
+  sheet.addEventListener('touchstart', function(e) {
+    if (!e.touches || !e.touches.length) return;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }, { passive:true });
+  sheet.addEventListener('touchend', function(e) {
+    if (!dragging || !e.changedTouches || !e.changedTouches.length) return;
+    var delta = e.changedTouches[0].clientY - startY;
+    dragging = false;
+    if (Math.abs(delta) < 26) return;
+    setBottomSheetState(delta < 0);
+  }, { passive:true });
+
+  sheet.dataset.bound = '1';
+}
+
+function updateBottomSheetSummary() {
+  var routeName = document.getElementById('sheetRouteName');
+  var routeSub = document.getElementById('sheetRouteSub');
+  var etaChip = document.getElementById('sheetEtaChip');
+  if (!routeName || !routeSub || !etaChip) return;
+
+  if (!selOrigin || !selDest) {
+    routeName.textContent = 'เลือกต้นทางและปลายทาง';
+    routeSub.textContent = 'แผนที่และตารางเวลาจะอัปเดตตามเส้นทางที่เลือก';
+    etaChip.textContent = '--:--';
+    return;
+  }
+
+  routeName.textContent = selOrigin + ' → ' + selDest;
+
+  var statusTitle = document.getElementById('statusTitle');
+  var nextDetail = document.getElementById('nextDetail');
+  var nextTime = document.getElementById('nextTime');
+  var focusText = selectedMapFocus ? selectedMapFocus : '';
+  var statusInfo = getStatusInfo(lastPos);
+  var statusText = statusTitle && statusTitle.textContent ? statusTitle.textContent : statusInfo.title;
+  var nextText = nextDetail && nextDetail.textContent ? nextDetail.textContent : '';
+  routeSub.textContent = focusText || (statusText + (nextText ? ' · ' + nextText : ''));
+  etaChip.textContent = nextTime && nextTime.textContent ? nextTime.textContent.replace(' น.', '') : getNextBusSummaryTime();
+}
+
+function choosePrimaryBus(buses) {
+  var best = null;
+  Object.keys(buses || {}).forEach(function(id) {
+    var pos = buses[id];
+    if (!pos) return;
+    if (!best || Number(pos.ts || 0) > Number(best.ts || 0)) {
+      best = Object.assign({ carId: id }, pos);
+    }
+  });
+  return best;
+}
+
+function requestPassengerCurrentLocation(forceCenter, showBusy) {
+  if (!navigator.geolocation) {
+    console.warn('Passenger geolocation is not supported.');
+    return Promise.resolve(null);
+  }
+
+  return new Promise(function(resolve) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      var current = normalizeMapPoint({
+        lon: pos.coords.longitude,
+        lat: pos.coords.latitude
+      });
+      console.log('GPS received', current);
+      passengerPos = current;
+      updatePassengerOnMap(current, forceCenter);
+      resolve(current);
+    }, function(err) {
+      console.log('GPS error', err && err.message ? err.message : err);
+      console.warn('Passenger current location error:', err && err.message ? err.message : err);
+      resolve(null);
+    }, {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 0
+    });
+  });
+}
+
+// ===== ROUTE SELECTION STATE =====
+let selOrigin = 'ท่ารถสนามชัยเขต';
+let selDest   = 'ฉะเชิงเทรา (แปดริ้ว)';
+
+function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
+
+function cleanRouteLabel(label) {
+  return String(label || '').replace(/\s+/g, '').toLowerCase();
+}
+
+function normalizeRouteAlias(label) {
+  const clean = cleanRouteLabel(label);
+  if (!clean) return '';
+  if (clean.indexOf('ขนส่งฉะเชิงเทรา') >= 0 || clean.indexOf('ฉะเชิงเทรา') >= 0 || clean.indexOf('แปดริ้ว') >= 0) return 'ฉะเชิงเทรา (แปดริ้ว)';
+  if (clean.indexOf('สนามชัย') >= 0) return 'ท่ารถสนามชัยเขต';
+  if (clean.indexOf('btsบางฉาง') >= 0 || clean.indexOf('บางฉาง') >= 0) return 'BTS บางจาก';
+  return '';
+}
+
+function findKnownRouteLabel(label, collections) {
+  const alias = normalizeRouteAlias(label);
+  if (alias) return alias;
+  const clean = cleanRouteLabel(label);
+  if (!clean) return '';
+  for (const collection of collections) {
+    const match = Object.keys(collection).find(function(key) {
+      const keyClean = cleanRouteLabel(key);
+      return keyClean === clean || keyClean.indexOf(clean) >= 0 || clean.indexOf(keyClean) >= 0;
+    });
+    if (match) return match;
+  }
+  return String(label || '').trim();
+}
+
+function addUnique(list, value) {
+  if (value && list.indexOf(value) === -1) list.push(value);
+}
+
+function isMainRouteLabel(label) {
+  return ORIGIN_LIST.indexOf(label) !== -1 || DEST_NORMAL.indexOf(label) !== -1;
+}
+
+function getPairTimes(from, to) {
+  if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to];
+  return null;
+}
+
+function getLeg1Times(){
+  const pairTimes = getPairTimes(selOrigin, selDest);
+  if (pairTimes) return pairTimes;
+  if (ADMIN_ROUTE_SOURCE_LOADED) return [];
+  if(ROUTES[selOrigin]) return ROUTES[selOrigin].times;
+  return [];
+}
+
+function getLeg1TimesToTransferHub(origin, transferHubLabel) {
+  const pairTimes = getPairTimes(origin, transferHubLabel);
+  if (pairTimes) return pairTimes;
+  if (ADMIN_ROUTE_SOURCE_LOADED) return [];
+  if (ROUTES[origin]) return ROUTES[origin].times;
+  return [];
+}
+
+function applyPassengerRouteSettings(data) {
+  const routesData = data && data.routes ? data.routes : null;
+  if (!routesData) return;
+
+  ADMIN_ROUTE_SOURCE_LOADED = true;
+  Object.keys(ADMIN_ROUTE_TIMES).forEach(function(key){ delete ADMIN_ROUTE_TIMES[key]; });
+  Object.keys(ROUTES).forEach(function(key){ delete ROUTES[key]; });
+  Object.keys(LEG2_DESTINATIONS).forEach(function(key){ delete LEG2_DESTINATIONS[key]; });
+  ORIGIN_LIST.length = 0;
+  DEST_NORMAL.length = 0;
+  DEST_LEG2.length = 0;
+
+  Object.entries(routesData).forEach(function(entry) {
+    const group = entry[1];
+    if (!group || !Array.isArray(group.routes)) return;
+    if (group.isActive === false) return;
+    const groupName = group.name || entry[0] || '';
+    const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
+    group.routes.forEach(function(route) {
+      if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
+      if (route.isActive === false) return;
+
+      const from = String(route.from || '').trim();
+      const to = String(route.to || '').trim();
+      const disabledTimes = Array.isArray(route.disabledTimes) ? route.disabledTimes : [];
+      const times = route.times.filter(function(t){ return t && disabledTimes.indexOf(t) === -1; }).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
+      if (!from || !to) return;
+
+      if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
+      ADMIN_ROUTE_TIMES[from][to] = times;
+
+      if (!ROUTES[from]) ROUTES[from] = { times: [] };
+      if (to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ROUTES[from].times.length) ROUTES[from].times = times.slice();
+      addUnique(ORIGIN_LIST, from);
+      addUnique(DEST_NORMAL, from);
+
+      if (isLeg2Group) {
+        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: groupName || 'ต่อรถ' };
+        addUnique(DEST_LEG2, to);
+      } else {
+        if (!ROUTES[to]) ROUTES[to] = { times: [] };
+        addUnique(ORIGIN_LIST, to);
+        addUnique(DEST_NORMAL, to);
+      }
+    });
+  });
+
+  buildDropdowns();
+  renderSched();
+  renderNextBus();
+  updateBottomSheetSummary();
+}
+
+function applyTestModeUI() {
+  const strip = document.getElementById('testModeStrip');
+  if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
+}
+
+window.selectPassengerStop = function(stopIndex) {
+  var stop = curStops()[stopIndex];
+  if (!stop) return;
+  selectedMapFocus = 'ป้ายที่เลือก: ' + stop.name;
+  updateBottomSheetSummary();
+  setBottomSheetState(true);
+  focusMap(normalizeMapPoint(stop), 14);
+};
+
+window.selectPassengerBus = function(carId) {
+  var pos = allBusPositions && allBusPositions[carId];
+  if (!pos) return;
+  var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
+  var stopName = dir[pos.stopIdx]?.name || '?';
+  var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
+  var point = normalizeMapPoint(pos) || normalizeMapPoint(dir[pos.stopIdx]);
+  selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
+  updateBottomSheetSummary();
+  setBottomSheetState(true);
+  if (point) focusMap(point, 14);
+};
+
+function forceFocusSelectedOriginAfterMapReady() {
+  if (!mapReady || !mapObj) return;
+
+  const stop = getStopByName(selOrigin);
+  if (!stop) return;
+
+  const point = normalizeMapPoint(stop);
+  if (!point) return;
+
+  setTimeout(function () {
+    try {
+      focusMap(point, 14);
+    } catch (e) {
+      console.warn('Force focus selected origin failed:', e);
+    }
+  }, 500);
+}
+
+// ===== LONGDO MAP =====
+function applyMobileMapPaint() {
+  // Longdo base map is used; overlays are styled with CSS/HTML markers.
+}
+
+function initMap() {
+  if (mapInitPromise) return mapInitPromise;
+  try {
+    stationMarkerOverlays = [];
+    mapObj = new longdo.Map({ placeholder: document.getElementById('map'), zoom: 10, location: { lon:101.245, lat:13.710 } });
+    mapReady = false;
+    mapInitPromise = new Promise(function(resolve) {
+      var resolved = false;
+      function finishMapReady() {
+        if (resolved) return;
+        resolved = true;
+        mapReady = true;
+        try { mapObj.Ui.DPad.visible(false); } catch(e){}
+        try { mapObj.Ui.Zoombar.visible(false); } catch(e){}
+        try { mapObj.Ui.Toolbar.visible(false); } catch(e){}
+        try { mapObj.Ui.LayerSelector.visible(false); } catch(e){}
+        try { mapObj.Ui.Fullscreen.visible(false); } catch(e){}
+        try { mapObj.Ui.Scale.visible(false); } catch(e){}
+        try { mapObj.Ui.Crosshair.visible(false); } catch(e){}
+        try { mapObj.Ui.Geolocation.visible(false); } catch(e){}
+        console.log('Longdo map loaded');
+        refreshMapSizeSafely();
+        bindManualMapInteractionPause();
+        if (Object.keys(allBusPositions).length) updateAllBusesOnMap(allBusPositions);
+        resolve(mapObj);
+      }
+      try { mapObj.Event.bind('ready', finishMapReady); } catch(e) {}
+      try { mapObj.Event.bind('idle', finishMapReady); } catch(e) {}
+      setTimeout(finishMapReady, 1500);
+    });
+  } catch(e) { console.error('Map error:', e); mapInitPromise = Promise.resolve(null); }
+  return mapInitPromise;
+}
+
+function bindManualMapInteractionPause() {
+  if (!mapObj || mapObj.__manualFollowPauseBound) return;
+  mapObj.__manualFollowPauseBound = true;
+
+  var eventNames = [];
+  if (window.longdo && longdo.EventName) {
+    ['Drag', 'Wheel', 'Zoom'].forEach(function(name) {
+      if (longdo.EventName[name]) eventNames.push(longdo.EventName[name]);
+    });
+  }
+  eventNames.concat(['drag', 'wheel', 'zoom']).forEach(function(eventName) {
+    try {
+      mapObj.Event.bind(eventName, function() {
+        pauseFollowForManualMapUse(eventName);
+      });
+    } catch(e) {}
+  });
+
+  var mapEl = document.getElementById('map');
+  if (mapEl) {
+    ['touchstart', 'pointerdown', 'wheel'].forEach(function(eventName) {
+      mapEl.addEventListener(eventName, function() {
+        pauseFollowForManualMapUse(eventName);
+      }, { passive:true });
+    });
+  }
+}
+
+function initPassengerMap() {
+  return new Promise(function(resolve) {
+    (function waitLongdoReady(){
+      if (window.longdo) { initMap().then(resolve); return; }
+      setTimeout(waitLongdoReady, 300);
+    })();
+  });
+}
+
+function loadPassengerRouteData() {
+  return Promise.resolve({
+    stations: curStops().slice()
+  });
+}
+
+function renderRoutePolyline(routeData) {
+  return drawRoute(routeData);
+}
+
+async function refreshPassengerMapRoute() {
+  if (!mapReady || !mapObj) return;
+  const routeData = await loadPassengerRouteData();
+  await renderRoutePolyline(routeData);
+  renderStationMarkers(routeData);
+  refreshMapSizeSafely();
+}
+
+function clearStationMarkers() {
+  if (!mapObj || !stationMarkerOverlays) return;
+  stationMarkerOverlays.forEach(function(overlay) { try { mapObj.Overlays.remove(overlay); } catch(e){} });
+  stationMarkerOverlays = [];
+}
+
+function renderStationMarkers(routeData, skipEnsure) {
+  if (!mapReady || !mapObj || !routeData || !Array.isArray(routeData.stations)) return;
+  clearStationMarkers();
+  routeData.stations.forEach(function(s, i) {
+    var point = normalizeMapPoint(s);
+    if (!point) return;
+    var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+    try {
+      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">&#128655;</div>', offset: { x: 17, y: 17 } } });
+      mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
+    } catch(e) { console.warn('Stop marker error:', e); }
+    try {
+      var label = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-label" onclick="window.selectPassengerStop(' + i + ')">' + safeName + '</div>', offset: { x: 10, y: -10 } } });
+      mapObj.Overlays.add(label); stationMarkerOverlays.push(label);
+    } catch(e) { console.warn('Stop label error:', e); }
+  });
+  if (!skipEnsure) ensureStationMarkersVisible(routeData, 0);
+}
+
+function refreshMapSizeSafely() {
+  if (!mapObj) return;
+  setTimeout(function() { try { if (typeof mapObj.resize === 'function') mapObj.resize(); if (typeof mapObj.repaint === 'function') mapObj.repaint(); } catch(e){} }, 300);
+}
+
+function ensureStationMarkersVisible(routeData, attempt) {
+  if (!mapObj || !routeData || !Array.isArray(routeData.stations)) return;
+  if (attempt >= 3) return;
+  setTimeout(function() {
+    if (stationMarkerOverlays.length < routeData.stations.length * 2) {
+      renderStationMarkers(routeData, true); refreshMapSizeSafely(); ensureStationMarkersVisible(routeData, attempt + 1);
+    }
+  }, attempt === 0 ? 300 : 800);
+}
+
+function startPassengerLocation() {
+  if (!navigator.geolocation) return Promise.resolve(null);
+  if (passengerWatchId !== null) return Promise.resolve(passengerPos);
+
+  var initialLocationPromise = requestPassengerCurrentLocation(true, false);
+
+  passengerWatchId = navigator.geolocation.watchPosition(function(pos) {
+    var next = normalizeMapPoint({
+      lon: pos.coords.longitude,
+      lat: pos.coords.latitude
+    });
+    if (!next) return;
+    console.log('GPS received', next);
+
+    if (passengerPos && distanceMeters(passengerPos.lat, passengerPos.lon, next.lat, next.lon) < 10) {
+      passengerPos = next;
+      updatePassengerOnMap(next, false);
+      if (followUser) {
+        focusMap(next, 15, false);
+        passengerCentered = true;
+      }
+      return;
+    }
+
+    passengerPos = next;
+    updatePassengerOnMap(next, true);
+  }, function(err) {
+    console.log('GPS error', err && err.message ? err.message : err);
+    console.warn('Passenger location error:', err && err.message ? err.message : err);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 5000
+  });
+
+  return initialLocationPromise;
+}
+
+// ===== SMOOTH PASSENGER MARKER =====
+var _userAnimFrom=null,_userAnimTo=null,_userAnimStart=null,_userAnimFrame=null;
+var USER_ANIM_DURATION=1800;
+function _uLerp(a,b,t){return a+(b-a)*t;}
+function _uEase(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
+function _uDist(a,b){var R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function placeUserMarkerAt(p){if(!mapReady||!mapObj||!p)return;try{if(userMarker)mapObj.Overlays.remove(userMarker);}catch(e){}userMarker=new longdo.Marker(p,{title:'ตำแหน่งของคุณ',icon:{html:'<div class="map-passenger-marker"></div>',offset:{x:13,y:13}}});mapObj.Overlays.add(userMarker);}
+function updatePassengerOnMap(latlng, forceCenter) {
+  latlng = normalizeMapPoint(latlng);
+  if (!mapReady || !mapObj || !latlng) return;
+  if (_userAnimFrame){cancelAnimationFrame(_userAnimFrame);_userAnimFrame=null;}
+  var from=_userAnimTo||latlng;
+  var dist=_uDist(from,latlng);
+  if(dist<3){placeUserMarkerAt(latlng);_userAnimTo=latlng;}
+  else{
+    var duration=Math.min(USER_ANIM_DURATION,Math.max(500,dist*15));
+    _userAnimFrom={lat:from.lat,lon:from.lon};_userAnimTo=latlng;_userAnimStart=null;
+    function step(ts){
+      if(!_userAnimStart)_userAnimStart=ts;
+      var t=Math.min((ts-_userAnimStart)/duration,1),te=_uEase(t);
+      placeUserMarkerAt({lat:_uLerp(_userAnimFrom.lat,_userAnimTo.lat,te),lon:_uLerp(_userAnimFrom.lon,_userAnimTo.lon,te)});
+      if(t<1){_userAnimFrame=requestAnimationFrame(step);}else{_userAnimFrame=null;placeUserMarkerAt(_userAnimTo);}
+    }
+    _userAnimFrame=requestAnimationFrame(step);
+  }
+  console.log('user marker animating', latlng);
+  if ((forceCenter || !passengerCentered) && followUser) { focusMap(latlng, 15, false); passengerCentered = true; }
+}
+
+function drawRoute(routeData) {
+  if (!mapReady) return Promise.resolve();
+  const stops = routeData && Array.isArray(routeData.stations) ? routeData.stations : (viewDir==='go' ? STOPS_GO : STOPS_BACK);
+  const coords = stops.map(function(s){ return s.lng + ',' + s.lat; }).join(';');
+  const renderSeq = ++routeRenderSeq;
+  function setRouteLine(coordinates) {
+    if (renderSeq !== routeRenderSeq) return;
+    const pts = coordinates.map(function(c) { return Array.isArray(c) ? { lon:c[0], lat:c[1] } : normalizeMapPoint(c); }).filter(Boolean);
+    try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
+    routeLine = new longdo.Polyline(pts, { lineColor: viewDir==='go' ? '#1e40af' : '#dc2626', lineWidth: 5, lineOpacity: 0.82 });
+    mapObj.Overlays.add(routeLine);
+  }
+  return fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson')
+    .then(r=>r.json()).then(data=>{ if (data.routes?.[0]) setRouteLine(data.routes[0].geometry.coordinates); })
+    .catch(()=>{ const pts = stops.map(s=>({ lon:s.lng, lat:s.lat })); setRouteLine(pts); });
+}
+
+// ===== KALMAN FILTER FOR BUS POSITION =====
+var busKalman = {}; // เก็บ state แยกตาม carId
+var busLastTs = {}; // เก็บ timestamp ล่าสุดของรถแต่ละคัน (stale packet guard)
+
+// แปลง timestamp หลาย field และรองรับ seconds/milliseconds
+function getVehicleTs(pos) {
+  var raw = pos.ts || pos.lastUpdated || pos.updatedAt || pos.timestamp || null;
+  if (raw === null || raw === undefined) {
+    console.warn('[getVehicleTs] missing timestamp field', pos);
+    return null;
+  }
+  var n = Number(raw);
+  if (isNaN(n)) return null;
+  // ถ้า < 10000000000 ถือว่าเป็น seconds → คูณ 1000
+  if (n < 10000000000) n = n * 1000;
+  return n;
+}
+
+function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
+    var Q = 8, R = 8;
+    if (!busKalman[carId]) {
+        busKalman[carId] = { lat: lat, lng: lng, acc: accuracy || 10, ts: timestamp, init: true };
+        return { lat: lat, lng: lng };
+    }
+    var k = busKalman[carId];
+
+    // Speed check — กรองถ้าเคลื่อนที่เร็วเกิน 150 กม./ชม.
+    if (k.ts > 0) {
+        var dtSec = (timestamp - k.ts) / 1000;
+        if (dtSec > 0) {
+            var dLat = lat - k.lat, dLng = lng - k.lng;
+            var distM = Math.sqrt(dLat * dLat + dLng * dLng) * 111000;
+            var speedMs = distM / dtSec;
+            if (speedMs > 42) {
+                var ageSec = (Date.now() - timestamp) / 1000;
+                console.log('[kalmanFilter] FILTERED OUT - speed too high', {
+                  carId: carId, lat: lat, lng: lng, accuracy: accuracy,
+                  tsUsed: timestamp, ageSec: ageSec.toFixed(1),
+                  speedKmh: (speedMs * 3.6).toFixed(1), reason: 'speed > 150 km/h'
+                });
+                return null;
+            }
+        }
+    }
+
+    // Accuracy check
+    if (accuracy && accuracy > 80) {
+        var ageSec2 = (Date.now() - timestamp) / 1000;
+        console.log('[kalmanFilter] FILTERED OUT - low accuracy', {
+          carId: carId, lat: lat, lng: lng, accuracy: accuracy,
+          tsUsed: timestamp, ageSec: ageSec2.toFixed(1), reason: 'accuracy > 80m'
+        });
+        return null;
+    }
+
+    var dt = k.ts > 0 ? (timestamp - k.ts) / 1000 : 1;
+    var predicted = k.acc + Q * Math.max(dt, 1);
+    var rawAcc = accuracy || 10;
+    var gain = predicted / (predicted + R + rawAcc);
+
+    k.lat += gain * (lat - k.lat);
+    k.lng += gain * (lng - k.lng);
+    k.acc = (1 - gain) * predicted;
+    k.ts = timestamp;
+
+    return { lat: k.lat, lng: k.lng };
+}
+
+// ===== SMOOTH BUS ANIMATION =====
+var busCurrentPos = {};      // ตำแหน่งปัจจุบันของ marker แต่ละคัน
+var busTargetPos = {};        // ตำแหน่งเป้าหมาย
+var busAnimFrames = {};       // requestAnimationFrame id
+
+var BUS_ANIM_DURATION = 1000; // ms — ลดให้ marker ตามตำแหน่งจริงไวขึ้น
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
+function animateBusMarker(carId, fromPos, toPos) {
+  // ยกเลิก animation เก่าถ้ามี
+  if (busAnimFrames[carId]) cancelAnimationFrame(busAnimFrames[carId]);
+
+  var startTime = null;
+  var dist = distanceMeters(fromPos.lat, fromPos.lon, toPos.lat, toPos.lon);
+
+  // ถ้าระยะทางน้อยกว่า 5 เมตร ไม่ต้อง animate
+  if (dist < 5) {
+    placeBusMarkerAt(carId, toPos);
+    busCurrentPos[carId] = toPos;
+    return;
+  }
+
+  // ถ้าระยะเกิน 250 เมตร → instant place ทันที ไม่ animate
+  // เพื่อกันรถลาก marker ข้ามแม่น้ำหรือตามหลังมากเมื่อข้อมูลมาช้า
+  if (dist > 250) {
+    console.log('[animateBusMarker] instant place (dist > 250m)', carId, dist.toFixed(0) + 'm');
+    busAnimFrames[carId] = null;
+    placeBusMarkerAt(carId, toPos);
+    busCurrentPos[carId] = toPos;
+    return;
+  }
+
+  // ปรับความเร็ว animation ตามระยะทาง (ใกล้ = เร็ว, ไกล = ช้า)
+  var duration = Math.min(BUS_ANIM_DURATION, Math.max(800, dist * 20));
+
+  function step(timestamp) {
+    if (!startTime) startTime = timestamp;
+    var elapsed = timestamp - startTime;
+    var t = Math.min(elapsed / duration, 1);
+    var te = easeInOut(t);
+
+    var current = {
+      lat: lerp(fromPos.lat, toPos.lat, te),
+      lon: lerp(fromPos.lon, toPos.lon, te)
+    };
+
+    placeBusMarkerAt(carId, current);
+    busCurrentPos[carId] = current;
+
+    if (t < 1) {
+      busAnimFrames[carId] = requestAnimationFrame(step);
+    } else {
+      busCurrentPos[carId] = toPos;
+      busAnimFrames[carId] = null;
+    }
+  }
+  busAnimFrames[carId] = requestAnimationFrame(step);
+}
+
+function placeBusMarkerAt(carId, latlng) {
+  if (!mapReady || !mapObj || !latlng) return;
+  var safeCarId = String(carId).replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+  var label = String(carId).replace(/^car/i, 'รถ ');
+  try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e){}
+  try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e){}
+  busMarkers[carId] = new longdo.Marker(latlng, {
+    title: 'รถโดยสาร ' + label,
+    weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
+    icon: { html: '<div class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">&#128652;</div>', offset: { x: 20, y: 20 } }
+  });
+  mapObj.Overlays.add(busMarkers[carId]);
+  busTagMarkers[carId] = new longdo.Marker(latlng, {
+    weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
+    icon: { html: '<div class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">&#128652; ' + label + '</div>', offset: { x: 10, y: -20 } }
+  });
+  mapObj.Overlays.add(busTagMarkers[carId]);
+}
+
+function updateAllBusesOnMap(buses) {
+  if (!mapReady || !mapObj) return;
+  Object.keys(buses || {}).forEach(function(id) {
+    updateBusOnMap(buses[id], id, false);
+  });
+}
+
+function updateBusOnMap(pos, carId, shouldFocus) {
+  if (!mapReady || !mapObj) return;
+  var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
+  carId = carId || pos.carId || 'car1';
+
+  var newPos = normalizeMapPoint(pos);
+  if (!newPos && pos.stopIdx !== undefined && dir[pos.stopIdx]) newPos = normalizeMapPoint(dir[pos.stopIdx]);
+  if (!newPos) return;
+
+  // ใช้ Kalman Filter กรองตำแหน่งก่อน animate
+  var ts = getVehicleTs(pos);
+  if (!ts) {
+    console.warn('[updateBusOnMap] vehicle missing timestamp', carId, pos);
+    ts = Date.now();
+  }
+
+  // Stale packet guard — ข้ามถ้า timestamp ใหม่เก่ากว่า timestamp ล่าสุด
+  if (busLastTs[carId] && ts < busLastTs[carId]) {
+    console.log('[updateBusOnMap] skip old vehicle packet', carId,
+      'packetTs:', ts, 'lastTs:', busLastTs[carId],
+      'diff:', ((busLastTs[carId] - ts) / 1000).toFixed(1) + 's old');
+    return;
+  }
+  busLastTs[carId] = ts;
+
+  var acc = pos.accuracy || pos.acc || null;
+  var filtered = kalmanFilter(carId, newPos.lat, newPos.lon, acc, ts);
+  if (!filtered) {
+    console.log('[updateBusOnMap] vehicle position filtered out', carId);
+    return;
+  }
+  var filteredPos = { lat: filtered.lat, lon: filtered.lng };
+
+  busTargetPos[carId] = filteredPos;
+  var fromPos = busCurrentPos[carId] || filteredPos;
+  var distFromPrev = busCurrentPos[carId]
+    ? distanceMeters(fromPos.lat, fromPos.lon, filteredPos.lat, filteredPos.lon)
+    : 0;
+  var ageSec = ((Date.now() - ts) / 1000).toFixed(1);
+  var isInstant = distFromPrev > 250 || distFromPrev < 5;
+  console.log('[updateBusOnMap] update', carId, {
+    rawLat: newPos.lat, rawLng: newPos.lon,
+    filtLat: filteredPos.lat, filtLng: filteredPos.lon,
+    ts: ts, ageSec: ageSec,
+    distFromPrev: distFromPrev.toFixed(1) + 'm',
+    mode: isInstant ? 'instant' : 'animate'
+  });
+
+  // Smooth animate จากตำแหน่งเดิม → ใหม่
+  animateBusMarker(carId, fromPos, filteredPos);
+
+  console.log('vehicle marker animating', carId, fromPos, '->', newPos);
+  if (shouldFocus && (busFollowMode || !busCentered)) { focusMap(newPos, 14); busCentered = true; }
+}
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ===== STATUS =====
+function getStatusInfo(pos) {
+  if (pos) {
+    var statusNote = vehicleStatusMessage(pos);
+    if (pos.online === false || pos.status === 'locating' || pos.status === 'low_accuracy' || pos.status === 'gps_error') {
+      return {cls:'stopped', icon:'รถ', title:statusNote, sub:'สถานะจากแอพคนขับ'};
+    }
+  }
+  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
+  const elapsed=(Date.now()-pos.ts)/1000;
+  const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
+  const stopName=dir[pos.stopIdx]?.name||'?';
+  const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
+  const dirLabel=pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+  const timeAgo=Math.round(elapsed/60);
+  const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
+  if (pos.status==='at'||elapsed>120)
+    return {cls:'stopped', icon:'🛑', title:`จอดที่ ${stopName}`, sub:dirLabel};
+  if (pos.status==='towards'&&nextStop)
+    return {cls:'arriving', icon:'🚍', title:`กำลังมุ่งหน้า ${nextStop}`, sub:dirLabel};
+  return {cls:'running', icon:'🚌', title:`กำลังวิ่ง · ออกจาก ${stopName}`, sub:dirLabel};
+}
+
+// ===== RENDER =====
+function renderStatus(pos) {
+  const card = document.getElementById('statusCard');
+  if (!card) {
+    updateBottomSheetSummary();
+    return;
+  }
+  const info = getStatusInfo(pos);
+  card.className = `status-card ${info.cls}`;
+  document.getElementById('statusIcon').textContent = info.icon;
+  document.getElementById('statusTitle').textContent = info.title;
+  const sub = document.getElementById('statusSub');
+  if (sub) sub.textContent = info.sub;
+  updateBottomSheetSummary();
+}
+
+function renderRouteStrip(pos) {
+  const stops=curStops();
+  const stopIdx=(pos&&pos.direction===viewDir)?pos.stopIdx:null;
+  const dirLabel=pos&&pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+  const badge=document.getElementById('routeDirBadge');
+  if(badge) badge.textContent=pos?dirLabel:'—';
+
+  // Bus list — รองรับหลายคัน (ขณะนี้ใช้ car1 ต่อไปจะ loop จาก allCars)
+  const busListWrapper=document.getElementById('busListWrapper');
+  if(busListWrapper){
+    const busRows = Object.keys(allBusPositions || {}).map(function(id){
+      const p = allBusPositions[id] || {};
+      const stopName=p.direction==='back'
+        ? (STOPS_BACK[p.stopIdx]?.name||'?')
+        : (STOPS_GO[p.stopIdx]?.name||'?');
+      const dir=p.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+      const label=String(id).replace(/^car/i,'รถคันที่ ');
+      return `<div class="bus-list-item">
+        <span class="bus-list-id">${label}</span>
+        <span class="bus-list-loc">${stopName}</span>
+        <span class="bus-list-dir">${dir}</span>
+      </div>`;
+    }).join('');
+    if(busRows){
+      busListWrapper.innerHTML=`<div class="bus-list">${busRows}</div>`;
+    } else {
+      busListWrapper.innerHTML='';
+    }
+  }
+
+  const routeVisual = document.getElementById('routeVisual');
+  if (!routeVisual) return;
+
+  routeVisual.innerHTML=stops.map((s,i)=>{
+    const isA=i===stopIdx, isP=stopIdx!==null&&i<stopIdx;
+    return `<div class="stop-col">
+      <div class="stop-dot-w">
+        ${isA?'<div class="bus-anim">🚌</div>':''}
+        <div class="stop-dot ${isA?'active':isP?'passed':''}"></div>
+      </div>
+      <div class="sn ${isA?'active':''}">${s.name}</div>
+    </div>${i<stops.length-1?`<div class="line-seg ${isP?'passed':''}"></div>`:''}`;
+  }).join('');
+}
+
+function renderNextBus() {
+  const nextTimeEl = document.getElementById('nextTime');
+  const nextDetailEl = document.getElementById('nextDetail');
+  if (!nextTimeEl || !nextDetailEl) {
+    updateBottomSheetSummary();
+    return;
+  }
+
+  const now = nowMin();
+  let times, label;
+
+  // ถ้าต้นทางเป็น ฉะเชิงเทรา และปลายทางเป็น LEG2 ให้ใช้เวลา LEG2
+  if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
+    times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
+    label = `→ ${selDest}`;
+  } else {
+    times = getLeg1Times();
+    label = selOrigin !== selDest ? `→ ${selDest}` : '';
+  }
+
+  let nextTime = null;
+  for(let i=0;i<times.length;i++){
+    if(toMin(times[i])>now){ nextTime=times[i]; break; }
+  }
+  if(!nextTime){
+    nextTimeEl.textContent='--:--';
+    nextDetailEl.textContent='ไม่มีรถแล้วในวันนี้';
+    return;
+  }
+  const diff = toMin(nextTime)-now;
+  nextTimeEl.textContent=nextTime+' น.';
+  nextDetailEl.textContent=
+    diff<=0?`กำลังจะออก! ${label}`.trim():`อีก ${diff} นาที ${label}`.trim();
+}
+
+function getNextBusSummaryTime() {
+  const now = nowMin();
+  let times;
+  if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
+    times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
+  } else {
+    times = getLeg1Times();
+  }
+  if (!Array.isArray(times)) return '--:--';
+  for(let i=0;i<times.length;i++){
+    if(toMin(times[i])>now) return times[i];
+  }
+  return '--:--';
+}
+
+function buildTimeCell(t, extraClass='') {
+  const now = nowMin();
+  const isNow = now >= toMin(t)-5 && now <= toMin(t)+15;
+  const cls = ['time-cell', isNow?'now-cell':'', extraClass].filter(Boolean).join(' ');
+  return `<div class="${cls}">${t}${isNow?'<span class="now-badge">กำลังวิ่ง</span>':''}</div>`;
+}
+
+function buildLeg2TimeItem(t) {
+  if(!t) return `<div class="leg2-time-item empty"></div>`;
+  const now = nowMin();
+  const isNow = now >= toMin(t)-5 && now <= toMin(t)+15;
+  return `<div class="leg2-time-item${isNow?' now-cell':''}">${t}${isNow?'<span class="now-badge">วิ่งอยู่</span>':''}</div>`;
+}
+
+// แบ่ง array เป็น 2 คอลัมน์ สมดุล (ซ้ายมากกว่าได้ 1 ถ้าคี่)
+function splitBalanced(arr) {
+  const half = Math.ceil(arr.length / 2);
+  return [arr.slice(0, half), arr.slice(half)];
+}
+
+function renderSched() {
+  const wrapper = document.getElementById('schedWrapper');
+  const origin = selOrigin, dest = selDest;
+
+  if(isLeg2Dest(dest)){
+    const transferHubLabel = 'ฉะเชิงเทรา (แปดริ้ว)';
+    const startsAtTransferHub = normalizeRouteAlias(origin) === transferHubLabel || cleanRouteLabel(origin) === cleanRouteLabel(transferHubLabel);
+    const leg1Times = startsAtTransferHub ? [] : getLeg1TimesToTransferHub(origin, transferHubLabel);
+    const leg2Times = getPairTimes(transferHubLabel, dest) || getPairTimes(origin, dest) || LEG2_DESTINATIONS[dest].leg2Times;
+
+    // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
+    const [l1a, l1b] = splitBalanced(leg1Times);
+    const [l2a, l2b] = splitBalanced(leg2Times);
+    const maxL1 = Math.max(l1a.length, l1b.length);
+    const maxL2 = Math.max(l2a.length, l2b.length);
+
+    function buildTwoColItems(colA, colB, maxR) {
+      let html = '';
+      for(let i=0;i<maxR;i++){
+        html += buildLeg2TimeItem(colA[i]||null) + buildLeg2TimeItem(colB[i]||null);
+      }
+      return html;
+    }
+
+    const leg1Html = startsAtTransferHub ? '' : `
+      <div class="leg2-cols" style="background:#f8faff;">
+        <div class="leg2-col-head" style="background:#f0f6ff;">
+          <div class="leg2-col-sub">เที่ยวที่ 1</div>
+          <div class="leg2-col-name" style="color:#1e3a8a;">${origin} → แปดริ้ว</div>
+        </div>
+        <div class="leg2-col-head" style="background:#f0f6ff;border-right:none;">
+          <div class="leg2-col-sub">&nbsp;</div>
+          <div class="leg2-col-name">&nbsp;</div>
+        </div>
+      </div>
+      <div class="leg2-times">${buildTwoColItems(l1a, l1b, maxL1)}</div>`;
+
+    // leg2 section
+    const leg2Html = `
+      <div class="leg2-cols">
+        <div class="leg2-col-head">
+          <div class="leg2-col-sub">เที่ยวที่ 2</div>
+          <div class="leg2-col-name">${startsAtTransferHub ? origin : transferHubLabel} → ${dest}</div>
+          <div class="leg2-col-note">ต่อรถที่ชานชาลา 6</div>
+        </div>
+        <div class="leg2-col-head" style="border-right:none;">
+          <div class="leg2-col-sub">&nbsp;</div>
+          <div class="leg2-col-name">&nbsp;</div>
+        </div>
+      </div>
+      <div class="leg2-times">${buildTwoColItems(l2a, l2b, maxL2)}</div>`;
+
+    wrapper.innerHTML = `
+      <div class="leg2-card">
+        <div class="leg2-header">
+          <div class="leg2-header-top">เส้นทางต่อรถ</div>
+          <div class="leg2-header-route">${origin} → ${dest}</div>
+        </div>
+        ${leg1Html}
+        ${startsAtTransferHub ? '' : '<div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>'}
+        ${leg2Html}
+      </div>`;
+  } else {
+    // เส้นทางตรง — 3-col grid
+    const times = getLeg1Times();
+    wrapper.innerHTML = `
+      <div class="sched-card">
+        <div class="sched-route-header">
+          <div class="sched-route-from">เส้นทาง</div>
+          <div class="sched-route-name">${origin} → ${dest}</div>
+        </div>
+        <div class="time-grid">${times.map(t=>buildTimeCell(t)).join('')}</div>
+      </div>`;
+  }
+}
+
+function updateLastUpdate(pos) {
+  document.getElementById('lastUpdate').textContent=
+    pos?`เมื่อ ${new Date(pos.ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
+}
+
+function fullRender(pos) {
+  renderStatus(pos);
+  renderRouteStrip(pos);
+  renderSched();
+  renderNextBus();
+  updateBottomSheetSummary();
+  updateLastUpdate(pos);
+  if (Object.keys(allBusPositions).length && mapReady) updateAllBusesOnMap(allBusPositions);
+}
+
+// ===== DROPDOWN INIT =====
+function buildDropdowns(){
+  const originSel = document.getElementById('selOrigin');
+  const destSel   = document.getElementById('selDest');
+  originSel.innerHTML = '';
+
+  // ต้นทาง
+  ORIGIN_LIST.forEach(o=>{
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o;
+    if(o===selOrigin) opt.selected=true;
+    originSel.appendChild(opt);
+  });
+
+  // ปลายทาง — แยกกลุ่ม LEG2 ตาม group
+  function buildDestOptions(){
+    destSel.innerHTML = '';
+
+    // เส้นทางตรง
+    const grp0 = document.createElement('optgroup');
+    grp0.label = '— เส้นทางหลัก —';
+    DEST_NORMAL.forEach(d=>{
+      if(d===selOrigin) return;
+      const opt = document.createElement('option');
+      opt.value=d; opt.textContent=d;
+      if(d===selDest) opt.selected=true;
+      grp0.appendChild(opt);
+    });
+    destSel.appendChild(grp0);
+
+    // LEG2 แยกตาม group
+    const groups = {};
+    DEST_LEG2.forEach(d=>{
+      const g = LEG2_DESTINATIONS[d].group || 'ต่อรถ';
+      if(!groups[g]) groups[g] = [];
+      groups[g].push(d);
+    });
+    Object.keys(groups).forEach(gLabel=>{
+      const grp = document.createElement('optgroup');
+      grp.label = `— ${gLabel} —`;
+      groups[gLabel].forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value=d; opt.textContent=d;
+        if(d===selDest) opt.selected=true;
+        grp.appendChild(opt);
+      });
+      destSel.appendChild(grp);
+    });
+  }
+  buildDestOptions();
+
+  if (originSel.dataset.bound !== '1') {
+    originSel.addEventListener('change', function(){
+      selOrigin = this.value;
+      if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
+      buildDestOptions();
+      selectedMapFocus = null;
+      renderSched(); renderNextBus();
+      refreshPassengerMapRoute();
+      fitSelectedRouteOnMap();
+      updateBottomSheetSummary();
+    });
+    originSel.dataset.bound = '1';
+  }
+
+  if (destSel.dataset.bound !== '1') {
+    destSel.addEventListener('change', function(){
+      selDest = this.value;
+      selectedMapFocus = null;
+      renderSched(); renderNextBus();
+      refreshPassengerMapRoute();
+      fitSelectedRouteOnMap();
+      updateBottomSheetSummary();
+    });
+    destSel.dataset.bound = '1';
+  }
+}
+buildDropdowns();
+applyAdminTesterMode();
+
+db.ref('settings').on('value', function(snap) {
+  const settings = snap.val() || {};
+  TEST_MODE = settings.testMode === true;
+  applyTestModeUI();
+  applyPassengerRouteSettings(settings);
+}, function(err) {
+  console.error('Passenger settings load failed:', err && err.message ? err.message : err);
+});
+
+// Firebase — bus/car1, bus/car2, ... รองรับรถหลายคันจากแอพคนขับ
+db.ref('bus').on('value', function(snap){
+  rawBusPositions = snap.val() || {};
+  mergeVehicleFeeds();
+}, function(error) {
+  console.error('Firebase bus listener error:', error && error.message ? error.message : error);
+});
+
+db.ref('liveVehicles').on('value', function(snap){
+  liveVehiclePositions = snap.val() || {};
+  mergeVehicleFeeds();
+}, function(error) {
+  console.error('Firebase liveVehicles listener error:', error && error.message ? error.message : error);
+});
+
+// Clock
+function tick() {
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=
+    `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  renderNextBus();
+  updateBottomSheetSummary();
+}
+tick(); setInterval(tick,1000);
+fullRender(null);
+
+// Map init — รอ Longdo พร้อม แล้ว retry แสดงตำแหน่งรถ
+document.addEventListener('DOMContentLoaded', async function(){
+  bindFollowUserButton();
+  bindBottomSheet();
+  await initPassengerMap();
+  const routeData = await loadPassengerRouteData();
+  await renderRoutePolyline(routeData);
+  renderStationMarkers(routeData);
+  updateBottomSheetSummary();
+  refreshMapSizeSafely();
+  const initialPassengerLocation = await startPassengerLocation();
+  if (!followUser || !initialPassengerLocation) {
+    fitSelectedRouteOnMap();
+  }
+
+  window.addEventListener('resize', refreshMapSizeSafely);
+
+  var retryCount = 0;
+  var retryTimer = setInterval(function(){
+    retryCount++;
+    renderStationMarkers(routeData);
+    refreshMapSizeSafely();
+    if (mapReady && Object.keys(allBusPositions).length) {
+      updateAllBusesOnMap(allBusPositions);
+      clearInterval(retryTimer);
+    }
+    if (retryCount > 15) clearInterval(retryTimer);
+  }, 2000);
+});
+</script>
+</body>
+</html>
