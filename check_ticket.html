@@ -341,6 +341,7 @@
     .tracking-info-copy { min-width: 0; }
     .tracking-actions { display: grid; gap: 8px; }
     .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 56px; }
+    .tracking-actions .btn-new-ticket { background: #475569; }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van { background: #16a34a; color: #fff; }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
@@ -449,6 +450,7 @@
           </div>
           <div class="tracking-actions">
             <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
+            <button class="btn-new-ticket" type="button" onclick="searchNewTicket()">ค้นหาตั๋วใหม่</button>
           </div>
         </div>
       </div>
@@ -834,6 +836,49 @@
       } catch (err) {}
     }
 
+    function searchNewTicket() {
+      clearRememberedTicket();
+      stopTrackingSubscription();
+      if (watchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      watchId = null;
+      currentBooking = null;
+      currentCode = null;
+      lastPosition = null;
+      stationaryAnchor = null;
+      stationarySince = null;
+      enterFiveKmAt = null;
+      currentDistanceKm = null;
+      currentSpeedKmh = null;
+      currentEtaMinutes = null;
+      suggestedNextTrip = null;
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = null;
+      originAutoCheckinDone = false;
+      originArrivalDismissed = false;
+      originArrivalNoticeShown = false;
+      originCheckinAnchor = null;
+      pickupStopLocation = null;
+      transferPointLocation = null;
+      destinationLocation = null;
+      relevantRouteStops = [];
+      passengerAutoFocused = false;
+      trackingUserInteracted = false;
+      resetFlexibleTracking();
+      clearTrackingMapState();
+      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
+      show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingLocateButton', false); show('trackingPage', false);
+      show('lookupPanel', true); showTopbar(true); setTrackingActive(false);
+      hideStatus('lookupStatus');
+      var input = document.getElementById('lookupValue');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      if (history.replaceState) history.replaceState(null, '', location.pathname);
+    }
+
     function bookingSortTime(booking) {
       var candidates = [
         booking.ts,
@@ -1188,6 +1233,23 @@
       trackingLiveVehicleFeed = {};
       trackingVehicleId = '';
       vanLocation = null;
+    }
+
+    function clearTrackingMapState() {
+      [trackingVanMarker, trackingPassengerMarker, trackingPickupMarker, trackingTransferMarker].forEach(function(marker) {
+        if (marker) marker.remove();
+      });
+      trackingVanMarker = null;
+      trackingPassengerMarker = null;
+      trackingPickupMarker = null;
+      trackingTransferMarker = null;
+      trackingRouteStopMarkers.forEach(function(marker) {
+        if (marker) marker.remove();
+      });
+      trackingRouteStopMarkers = [];
+      if (trackingMapReady && trackingRouteSourceReady && trackingMap && trackingMap.getSource('trackingRouteLine')) {
+        trackingMap.getSource('trackingRouteLine').setData({ type: 'FeatureCollection', features: [] });
+      }
     }
 
     function subscribeVanLocationForTicket() {
@@ -1672,6 +1734,7 @@
       var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
       lastPosition = next;
       focusPassengerLocation(next, false);
+      if (!currentBooking) return;
       if (currentBooking) renderPassengerTrackingCard();
       currentDistanceKm = getCheckinDistanceKm(next);
       currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(previous, next) : pos.coords.speed * 3.6;
