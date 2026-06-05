@@ -207,6 +207,13 @@ tr:hover td{background:#fafafa;}
 .control-card span{display:block;color:var(--muted);font-size:11px;line-height:1.45;}
 .control-card select{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;color:var(--ink);outline:none;min-width:132px;}
 .test-mode-banner{display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:12px;}
+.sim-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px;}
+.sim-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
+.sim-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.sim-status-item{background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px 10px;min-width:0;}
+.sim-status-item .sl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.35px;margin-bottom:4px;}
+.sim-status-item .sv{font-size:12px;font-weight:700;color:var(--navy);word-break:break-word;}
+.sim-status-item.error .sv{color:var(--red);}
 
 /* ── REVENUE ── */
 .rev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -271,6 +278,8 @@ tr:hover td{background:#fafafa;}
   .header-control-group{gap:7px;}
   .booking-wrap span{display:none;}
   .control-grid{grid-template-columns:1fr;}
+  .sim-grid{grid-template-columns:1fr;}
+  .sim-status-grid{grid-template-columns:1fr;}
   .bar-chart{gap:7px;padding-left:8px;padding-right:8px;}
 }
 </style>
@@ -414,6 +423,31 @@ tr:hover td{background:#fafafa;}
         <div class="test-mode-banner" id="testModeBanner">TEST MODE เปิดอยู่: ระบบจะใช้ข้อมูลจำลองและบันทึก mock logs เท่านั้น</div>
         <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียมและการชำระเงิน</button>
       </div>
+      <div class="card"><h2>&#x1F6F0;&#xFE0F; ทดสอบจำลองตำแหน่งรถ</h2>
+        <div class="alert alert-info">เขียนตำแหน่งทดสอบเข้า Firebase เฉพาะ <b>liveVehicles/test_car_*</b> เพื่อให้ passenger.html เห็นเหมือนรถจริง โดยไม่แตะรถจริง</div>
+        <div class="sim-grid">
+          <div class="fg"><label>เลือกรถจำลอง</label><select id="simCarId"><option value="test_car_1" selected>test_car_1</option><option value="test_car_2">test_car_2</option></select></div>
+          <div class="fg"><label>เลือกเส้นทางจำลอง</label><select id="simRoute"><option value="sck_to_ccs" selected>ท่ารถสนามชัยเขต → พนมสารคาม → ฉะเชิงเทรา (แปดริ้ว)</option></select></div>
+          <div class="fg"><label>ความถี่ส่งข้อมูล</label><select id="simInterval"><option value="10000" selected>10 วินาที: จำลอง App เก่า</option><option value="5000">5 วินาที: จำลอง App ใหม่ระดับกลาง</option><option value="3000">3 วินาที: จำลอง App ใหม่ตอนรถวิ่ง</option></select></div>
+          <div class="fg"><label>Scenario</label><select id="simScenario"><option value="normal" selected>normal</option><option value="delay">delay</option><option value="jump">jump</option><option value="offline">offline</option><option value="low_accuracy">low_accuracy</option></select></div>
+        </div>
+        <div class="sim-actions">
+          <button class="btn btn-success btn-sm" onclick="startVehicleSimulator()">เริ่มจำลอง</button>
+          <button class="btn btn-ghost btn-sm" onclick="stopVehicleSimulator()">หยุดจำลอง</button>
+          <button class="btn btn-dark btn-sm" onclick="resetVehicleSimulator()">รีเซ็ตตำแหน่ง</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSimVehicle()">ลบรถจำลองออกจาก Firebase</button>
+        </div>
+        <div class="sim-status-grid">
+          <div class="sim-status-item"><div class="sl">สถานะ</div><div class="sv" id="simStatusText">หยุดแล้ว</div></div>
+          <div class="sim-status-item"><div class="sl">carId</div><div class="sv" id="simCarLabel">test_car_1</div></div>
+          <div class="sim-status-item"><div class="sl">scenario</div><div class="sv" id="simScenarioLabel">normal</div></div>
+          <div class="sim-status-item"><div class="sl">packet ล่าสุด</div><div class="sv" id="simPacketLabel">0</div></div>
+          <div class="sim-status-item"><div class="sl">lat/lng ล่าสุด</div><div class="sv" id="simLatLngLabel">-</div></div>
+          <div class="sim-status-item"><div class="sl">ส่งทุกกี่วินาที</div><div class="sv" id="simIntervalLabel">10</div></div>
+          <div class="sim-status-item"><div class="sl">Firebase path</div><div class="sv" id="simPathLabel">liveVehicles/test_car_1</div></div>
+          <div class="sim-status-item error"><div class="sl">error</div><div class="sv" id="simErrorLabel">-</div></div>
+        </div>
+      </div>
       <div class="card"><h2>&#x1F6CF;&#xFE0F; กลุ่มชานชาลา</h2>
         <div id="pgWrap"></div>
         <div style="margin-top:8px;display:flex;gap:7px">
@@ -555,6 +589,16 @@ var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsi
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
 var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={};
+var VEHICLE_SIM_PATH='liveVehicles';
+var SIM_ALLOWED_CARS=['test_car_1','test_car_2'];
+var SIM_ROUTE_POINTS={
+  sck_to_ccs:[
+    {name:'ท่ารถสนามชัยเขต',lat:13.659022,lng:101.437482},
+    {name:'พนมสารคาม',lat:13.745082,lng:101.355993},
+    {name:'ขนส่งฉะเชิงเทรา',lat:13.692477,lng:101.054105}
+  ]
+};
+var vehicleSim={timer:null,running:false,packet:0,segment:0,progress:0,lastPacket:null,lastError:'',delayUntil:0,delayPacket:0,offlineUntil:0,offlineTriggered:false};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -628,6 +672,258 @@ function initApp(){
   var last=sessionStorage.getItem('adminPage');
   if(last&&document.getElementById('sec-'+last))showPage(last);
 }
+
+function isValidSimCarId(carId){
+  carId=String(carId||'').trim();
+  return SIM_ALLOWED_CARS.indexOf(carId)!==-1 && /^test_car_[12]$/.test(carId);
+}
+function getVehicleSimConfig(){
+  var carSel=document.getElementById('simCarId');
+  var routeSel=document.getElementById('simRoute');
+  var intervalSel=document.getElementById('simInterval');
+  var scenarioSel=document.getElementById('simScenario');
+  var carId=carSel?carSel.value:'test_car_1';
+  var intervalMs=Number(intervalSel?intervalSel.value:10000)||10000;
+  return {
+    carId:carId,
+    routeId:routeSel?routeSel.value:'sck_to_ccs',
+    intervalMs:intervalMs,
+    scenario:scenarioSel?scenarioSel.value:'normal',
+    path:VEHICLE_SIM_PATH+'/'+carId
+  };
+}
+function updateVehicleSimStatus(statusText,errorText){
+  var cfg=getVehicleSimConfig();
+  if(errorText!==undefined)vehicleSim.lastError=errorText||'';
+  var last=vehicleSim.lastPacket||{};
+  var latLng=last.lat&&last.lng?(Number(last.lat).toFixed(6)+', '+Number(last.lng).toFixed(6)):'-';
+  var pairs=[
+    ['simStatusText',statusText||(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว')],
+    ['simCarLabel',cfg.carId],
+    ['simScenarioLabel',cfg.scenario],
+    ['simPacketLabel',String(vehicleSim.packet||0)],
+    ['simLatLngLabel',latLng],
+    ['simIntervalLabel',String(Math.round(cfg.intervalMs/1000))],
+    ['simPathLabel',cfg.path],
+    ['simErrorLabel',vehicleSim.lastError||'-']
+  ];
+  pairs.forEach(function(pair){var el=document.getElementById(pair[0]);if(el)el.textContent=pair[1];});
+}
+function vehicleSimDistanceMeters(lat1,lng1,lat2,lng2){
+  var R=6371000;
+  var dLat=(lat2-lat1)*Math.PI/180;
+  var dLng=(lng2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function vehicleSimBearing(a,b){
+  var lat1=a.lat*Math.PI/180,lat2=b.lat*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;
+  var y=Math.sin(dLng)*Math.cos(lat2);
+  var x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function vehicleSimRand(min,max){return min+Math.random()*(max-min);}
+function vehicleSimPoint(){
+  var points=SIM_ROUTE_POINTS.sck_to_ccs;
+  var step=.12;
+  var a=points[vehicleSim.segment]||points[0];
+  var b=points[vehicleSim.segment+1]||points[1];
+  var t=Math.min(vehicleSim.progress,1);
+  var lat=a.lat+(b.lat-a.lat)*t;
+  var lng=a.lng+(b.lng-a.lng)*t;
+  var heading=vehicleSimBearing(a,b);
+  var segmentDistance=vehicleSimDistanceMeters(a.lat,a.lng,b.lat,b.lng);
+  vehicleSim.progress+=step;
+  if(vehicleSim.progress>=1){
+    vehicleSim.segment=(vehicleSim.segment+1)%(points.length-1);
+    vehicleSim.progress=0;
+  }
+  return {lat:lat,lng:lng,heading:heading,stopIdx:vehicleSim.segment,distance:segmentDistance};
+}
+function buildVehicleSimPacket(cfg){
+  var p=vehicleSimPoint();
+  var now=Date.now();
+  var accuracy=Math.round(vehicleSimRand(5,15));
+  var status='moving';
+  var speed=Math.round(vehicleSimRand(42,62));
+  if(cfg.scenario==='jump'&&vehicleSim.packet>0&&vehicleSim.packet%5===0){
+    var jumpMeters=vehicleSimRand(300,600);
+    var sign=Math.random()>.5?1:-1;
+    p.lat+=sign*(jumpMeters/111320);
+    p.lng-=sign*(jumpMeters/(111320*Math.cos(p.lat*Math.PI/180)));
+  }
+  if(cfg.scenario==='low_accuracy'){
+    accuracy=Math.round(vehicleSimRand(100,200));
+    status='low_accuracy';
+    speed=Math.round(vehicleSimRand(20,38));
+  }
+  return {
+    carId:cfg.carId,
+    lat:Number(p.lat.toFixed(6)),
+    lng:Number(p.lng.toFixed(6)),
+    lon:Number(p.lng.toFixed(6)),
+    ts:now,
+    sentTs:now,
+    gpsTs:now,
+    speed:speed,
+    heading:Math.round(p.heading),
+    accuracy:accuracy,
+    status:status,
+    online:true,
+    direction:'go',
+    stopIdx:p.stopIdx,
+    routeId:cfg.routeId,
+    routeLabel:'ท่ารถสนามชัยเขต → พนมสารคาม → ฉะเชิงเทรา (แปดริ้ว)',
+    isTest:true,
+    source:'admin_simulator'
+  };
+}
+function writeVehicleSimPacket(packet,cfg,label){
+  vehicleSim.lastPacket=packet;
+  updateVehicleSimStatus(label||'กำลังส่ง...');
+  console.log('admin vehicle simulator packet', {
+    packetNumber:vehicleSim.packet,
+    carId:packet.carId,
+    scenario:cfg.scenario,
+    lat:packet.lat,
+    lng:packet.lng,
+    speed:packet.speed,
+    heading:packet.heading,
+    accuracy:packet.accuracy,
+    status:packet.status,
+    firebasePath:cfg.path
+  });
+  return db.ref(cfg.path).set(packet).then(function(){
+    console.log('admin vehicle simulator write success', cfg.path);
+    updateVehicleSimStatus(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว','');
+  }).catch(function(e){
+    var msg=e&&e.message?e.message:String(e);
+    console.error('admin vehicle simulator write error', cfg.path, e);
+    updateVehicleSimStatus(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว',msg);
+  });
+}
+function tickVehicleSimulator(){
+  var cfg=getVehicleSimConfig();
+  if(!vehicleSim.running)return;
+  if(!isValidSimCarId(cfg.carId)){
+    stopVehicleSimulator();
+    updateVehicleSimStatus('หยุดแล้ว','carId ไม่ปลอดภัย ต้องใช้ test_car_1 หรือ test_car_2 เท่านั้น');
+    return;
+  }
+  var now=Date.now();
+  if(cfg.scenario==='offline'){
+    if(vehicleSim.packet>=4&&!vehicleSim.offlineTriggered){
+      vehicleSim.offlineTriggered=true;
+      vehicleSim.offlineUntil=now+60000;
+      updateVehicleSimStatus('จำลอง offline 60 วินาที');
+      console.log('admin vehicle simulator offline pause', {carId:cfg.carId,scenario:cfg.scenario,firebasePath:cfg.path});
+      return;
+    }
+    if(vehicleSim.offlineUntil&&now<vehicleSim.offlineUntil){
+      updateVehicleSimStatus('จำลอง offline 60 วินาที');
+      return;
+    }
+    if(vehicleSim.offlineUntil&&now>=vehicleSim.offlineUntil){
+      vehicleSim.offlineUntil=0;
+      vehicleSim.offlineTriggered=false;
+      vehicleSim.packet=0;
+    }
+  }
+  if(cfg.scenario==='delay'){
+    if(vehicleSim.delayUntil&&now<vehicleSim.delayUntil){
+      updateVehicleSimStatus('จำลอง delay 15-20 วินาที');
+      return;
+    }
+    if(vehicleSim.packet>0&&vehicleSim.packet%6===0&&!vehicleSim.delayUntil&&vehicleSim.delayPacket!==vehicleSim.packet){
+      vehicleSim.delayUntil=now+Math.round(vehicleSimRand(15000,20000));
+      vehicleSim.delayPacket=vehicleSim.packet;
+      updateVehicleSimStatus('จำลอง delay 15-20 วินาที');
+      console.log('admin vehicle simulator delay pause', {carId:cfg.carId,scenario:cfg.scenario,firebasePath:cfg.path});
+      return;
+    }
+    if(vehicleSim.delayUntil&&now>=vehicleSim.delayUntil)vehicleSim.delayUntil=0;
+  }
+  vehicleSim.packet++;
+  writeVehicleSimPacket(buildVehicleSimPacket(cfg),cfg,'กำลังจำลอง');
+}
+function startVehicleSimulator(){
+  var cfg=getVehicleSimConfig();
+  if(!isValidSimCarId(cfg.carId)){
+    updateVehicleSimStatus('หยุดแล้ว','carId ไม่ปลอดภัย ต้องใช้ test_car_1 หรือ test_car_2 เท่านั้น');
+    return;
+  }
+  if(vehicleSim.timer)clearInterval(vehicleSim.timer);
+  vehicleSim.running=true;
+  vehicleSim.delayUntil=0;
+  vehicleSim.delayPacket=0;
+  vehicleSim.offlineUntil=0;
+  vehicleSim.offlineTriggered=false;
+  console.log('admin vehicle simulator started', {carId:cfg.carId,scenario:cfg.scenario,intervalMs:cfg.intervalMs,firebasePath:cfg.path});
+  tickVehicleSimulator();
+  vehicleSim.timer=setInterval(tickVehicleSimulator,cfg.intervalMs);
+  updateVehicleSimStatus('กำลังจำลอง','');
+}
+function stopVehicleSimulator(){
+  if(vehicleSim.timer)clearInterval(vehicleSim.timer);
+  vehicleSim.timer=null;
+  vehicleSim.running=false;
+  vehicleSim.delayUntil=0;
+  vehicleSim.delayPacket=0;
+  vehicleSim.offlineUntil=0;
+  vehicleSim.offlineTriggered=false;
+  console.log('admin vehicle simulator stopped');
+  updateVehicleSimStatus('หยุดแล้ว','');
+}
+function resetVehicleSimulator(){
+  var cfg=getVehicleSimConfig();
+  if(!isValidSimCarId(cfg.carId)){
+    updateVehicleSimStatus('หยุดแล้ว','carId ไม่ปลอดภัย ต้องใช้ test_car_1 หรือ test_car_2 เท่านั้น');
+    return;
+  }
+  vehicleSim.packet=0;
+  vehicleSim.segment=0;
+  vehicleSim.progress=0;
+  vehicleSim.delayUntil=0;
+  vehicleSim.delayPacket=0;
+  vehicleSim.offlineUntil=0;
+  vehicleSim.offlineTriggered=false;
+  vehicleSim.packet++;
+  console.log('admin vehicle simulator reset', {carId:cfg.carId,firebasePath:cfg.path});
+  writeVehicleSimPacket(buildVehicleSimPacket(cfg),cfg,vehicleSim.running?'กำลังจำลอง':'รีเซ็ตตำแหน่งแล้ว');
+}
+function deleteSimVehicle(){
+  var cfg=getVehicleSimConfig();
+  if(!isValidSimCarId(cfg.carId)){
+    updateVehicleSimStatus(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว','ลบไม่ได้: carId ต้องเป็น test_car_1 หรือ test_car_2');
+    return;
+  }
+  if(!confirm('ลบรถจำลอง '+cfg.carId+' ออกจาก '+cfg.path+' ?'))return;
+  db.ref(cfg.path).once('value').then(function(snap){
+    var data=snap.val();
+    if(data&&data.isTest!==true&&!String(cfg.carId).startsWith('test_')){
+      throw new Error('ลบไม่ได้: node นี้ไม่ใช่ข้อมูลทดสอบ');
+    }
+    return db.ref(cfg.path).remove();
+  }).then(function(){
+    vehicleSim.lastPacket=null;
+    console.log('admin vehicle simulator deleted test vehicle', {carId:cfg.carId,firebasePath:cfg.path});
+    updateVehicleSimStatus(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว','');
+  }).catch(function(e){
+    var msg=e&&e.message?e.message:String(e);
+    console.error('admin vehicle simulator delete error', cfg.path, e);
+    updateVehicleSimStatus(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว',msg);
+  });
+}
+window.addEventListener('beforeunload',function(){if(vehicleSim.timer)clearInterval(vehicleSim.timer);});
+document.addEventListener('change',function(e){
+  if(e.target&&/^sim(CarId|Route|Interval|Scenario)$/.test(e.target.id)){
+    updateVehicleSimStatus();
+    if(vehicleSim.running&&e.target.id==='simInterval'){
+      if(vehicleSim.timer)clearInterval(vehicleSim.timer);
+      vehicleSim.timer=setInterval(tickVehicleSimulator,getVehicleSimConfig().intervalMs);
+    }
+  }
+});
 function loadFees(){
   db.ref('settings').on('value',function(snap){
     var settings=snap.val()||{};
