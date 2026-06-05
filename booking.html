@@ -2130,7 +2130,7 @@ function submitBooking() {
           fetch('https://sendline-cdkiyp34fa-uc.a.run.app', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookingId: code, booking: booking })
+            body: JSON.stringify(booking)
           }).catch(function(e){ console.warn('LINE notify error', e); });
           return booking;
         }
