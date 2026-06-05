@@ -341,7 +341,6 @@
     .tracking-info-copy { min-width: 0; }
     .tracking-actions { display: grid; gap: 8px; }
     .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 56px; }
-    .tracking-actions .btn-new-ticket { background: #475569; }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van { background: #16a34a; color: #fff; }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
@@ -450,7 +449,6 @@
           </div>
           <div class="tracking-actions">
             <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
-            <button class="btn-new-ticket" type="button" onclick="searchNewTicket()">ค้นหาตั๋วใหม่</button>
           </div>
         </div>
       </div>
@@ -810,7 +808,7 @@
     function rememberLastTicket(code) {
       if (!code) return;
       try {
-        localStorage.setItem(LAST_TICKET_STORAGE_KEY, JSON.stringify({
+        sessionStorage.setItem(LAST_TICKET_STORAGE_KEY, JSON.stringify({
           code: code,
           testMode: TEST_MODE === true,
           savedAt: Date.now()
@@ -820,7 +818,7 @@
 
     function getRememberedTicket() {
       try {
-        var raw = localStorage.getItem(LAST_TICKET_STORAGE_KEY);
+        var raw = sessionStorage.getItem(LAST_TICKET_STORAGE_KEY);
         if (!raw) return '';
         var saved = JSON.parse(raw);
         if (!saved || !saved.code || saved.testMode !== (TEST_MODE === true)) return '';
@@ -832,16 +830,26 @@
 
     function clearRememberedTicket() {
       try {
-        localStorage.removeItem(LAST_TICKET_STORAGE_KEY);
+        sessionStorage.removeItem(LAST_TICKET_STORAGE_KEY);
       } catch (err) {}
     }
 
-    function searchNewTicket() {
-      clearRememberedTicket();
-      stopTrackingSubscription();
-      if (watchId !== null && navigator.geolocation) {
-        navigator.geolocation.clearWatch(watchId);
+    function getNavigationType() {
+      try {
+        var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        return nav && nav.type ? nav.type : '';
+      } catch (err) {
+        return '';
       }
+    }
+
+    function shouldRestoreRememberedTicket() {
+      return getNavigationType() === 'reload';
+    }
+
+    function resetTicketViewAfterExit() {
+      stopTrackingSubscription();
+      if (watchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId);
       watchId = null;
       currentBooking = null;
       currentCode = null;
@@ -853,30 +861,15 @@
       currentSpeedKmh = null;
       currentEtaMinutes = null;
       suggestedNextTrip = null;
-      if (countdownTimer) clearInterval(countdownTimer);
-      countdownTimer = null;
-      originAutoCheckinDone = false;
-      originArrivalDismissed = false;
-      originArrivalNoticeShown = false;
-      originCheckinAnchor = null;
-      pickupStopLocation = null;
-      transferPointLocation = null;
-      destinationLocation = null;
-      relevantRouteStops = [];
       passengerAutoFocused = false;
       trackingUserInteracted = false;
       resetFlexibleTracking();
-      clearTrackingMapState();
       show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
       show('trackingBottomSheet', false); show('cancelTicketButton', false); show('trackingLocateButton', false); show('trackingPage', false);
       show('lookupPanel', true); showTopbar(true); setTrackingActive(false);
       hideStatus('lookupStatus');
       var input = document.getElementById('lookupValue');
-      if (input) {
-        input.value = '';
-        input.focus();
-      }
-      if (history.replaceState) history.replaceState(null, '', location.pathname);
+      if (input) input.value = '';
     }
 
     function bookingSortTime(booking) {
@@ -1233,23 +1226,6 @@
       trackingLiveVehicleFeed = {};
       trackingVehicleId = '';
       vanLocation = null;
-    }
-
-    function clearTrackingMapState() {
-      [trackingVanMarker, trackingPassengerMarker, trackingPickupMarker, trackingTransferMarker].forEach(function(marker) {
-        if (marker) marker.remove();
-      });
-      trackingVanMarker = null;
-      trackingPassengerMarker = null;
-      trackingPickupMarker = null;
-      trackingTransferMarker = null;
-      trackingRouteStopMarkers.forEach(function(marker) {
-        if (marker) marker.remove();
-      });
-      trackingRouteStopMarkers = [];
-      if (trackingMapReady && trackingRouteSourceReady && trackingMap && trackingMap.getSource('trackingRouteLine')) {
-        trackingMap.getSource('trackingRouteLine').setData({ type: 'FeatureCollection', features: [] });
-      }
     }
 
     function subscribeVanLocationForTicket() {
@@ -2505,11 +2481,19 @@
       if (e.key === 'Enter') lookupTicket();
     });
     var params = new URLSearchParams(location.search);
-    var initial = params.get('code') || params.get('phone') || getRememberedTicket();
+    var urlInitial = params.get('code') || params.get('phone');
+    if (!urlInitial && !shouldRestoreRememberedTicket()) clearRememberedTicket();
+    var initial = urlInitial || (shouldRestoreRememberedTicket() ? getRememberedTicket() : '');
     if (initial) {
       document.getElementById('lookupValue').value = normalizeLookup(initial);
       lookupTicket();
     }
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted || getNavigationType() === 'back_forward') {
+        clearRememberedTicket();
+        resetTicketViewAfterExit();
+      }
+    });
   </script>
 </body>
 </html>
