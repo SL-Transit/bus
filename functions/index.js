@@ -12,6 +12,12 @@ function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
 }
 
+function formatThaiDate(date) {
+  const value = String(date || "");
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : (value || "-");
+}
+
 function isCheckinEvent(booking) {
   return booking.notificationOnly === true ||
     booking.notificationType === "checkin" ||
@@ -36,12 +42,10 @@ function buildCheckinMessage(booking) {
 
 function buildBookingMessage(booking) {
   const lines = [
-    `👤 ชื่อ: ${booking.name || "-"}`,
-    `📞 โทร: ${booking.phone || "-"}`,
-    `🏠 เส้นทาง: ${booking.route || "-"}`,
-    `🗓 วันที่: ${booking.date || "-"} เวลา ${booking.time || "-"} น.`,
-    `🚌 ที่นั่ง: ${booking.seats || 1} ที่`,
-    `💰 ยอด: ฿${money(booking.price)}`
+    `รหัส: ${booking.code || "-"}`,
+    `👤 ชื่อ: ${booking.name || "-"}    📞 โทร: ${booking.phone || "-"}`,
+    `🗓 วันที่: ${formatThaiDate(booking.date)} เวลา ${booking.time || "-"} น.`,
+    `🚌 จำนวน: ${booking.seats || 1} คน  💰 ราคา: ${money(booking.price)} บาท`
   ];
   if (booking.slip) lines.push(`🖼 สลิป: ${booking.slip}`);
   return lines.join("\n");
