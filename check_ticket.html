@@ -1903,18 +1903,18 @@
     }
 
     function updateActionAvailability() {
+      var adminBypass = canAdminBypassCheckin();
       var disabledByStatus = currentBooking && (
         currentBooking.status === 'cancelled' ||
-        currentBooking.status === 'checked_in' ||
+        (currentBooking.status === 'checked_in' && !adminBypass) ||
         currentBooking.status === 'waiting_admin_approval' ||
         currentBooking.status === 'pending_admin_approval'
       );
-      var adminBypass = canAdminBypassCheckin();
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
       var canCheck = (adminBypass || (nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000))) && !disabledByStatus && !checkinSubmitLock;
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
-      if (currentBooking && currentBooking.status === 'checked_in') btn.textContent = 'เช็คอินแล้ว';
+      if (currentBooking && currentBooking.status === 'checked_in' && !adminBypass) btn.textContent = 'เช็คอินแล้ว';
       else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
       else if (adminBypass) btn.textContent = 'แอดมินทดสอบเช็คอิน';
       else btn.textContent = 'เช็คอินถึงจุดต่อรถ';
@@ -1959,7 +1959,7 @@
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
       var adminBypass = canAdminBypassCheckin();
-      if (checkinSubmitLock || currentBooking.status === 'checked_in') {
+      if (checkinSubmitLock || (currentBooking.status === 'checked_in' && !adminBypass)) {
         setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
         updateActionAvailability();
         return;
@@ -1978,6 +1978,7 @@
         status: 'checked_in',
         checkedInAt: checkedInAt,
         adminBypassCheckin: adminBypass,
+        adminCheckinTestAt: adminBypass ? checkedInAt : '',
         testerId: adminBypass ? ADMIN_TESTER_ID : (currentBooking.testerId || ''),
         testerRole: adminBypass ? 'admin' : (currentBooking.testerRole || ''),
         testerNotice: adminBypass ? ADMIN_TESTER_NOTICE : (currentBooking.testerNotice || ''),
@@ -2238,7 +2239,7 @@
       var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
       return ref.transaction(function(existing) {
         if (!existing) return;
-        if (eventName === 'checkin' && existing.status === 'checked_in') return;
+        if (eventName === 'checkin' && existing.status === 'checked_in' && !isAdminTesterBooking(existing)) return;
         return Object.assign({}, existing, payload);
       }).then(function(result) {
         if (!result.committed) {
