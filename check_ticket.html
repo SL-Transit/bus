@@ -701,6 +701,9 @@
     function isAdminTesterBooking(booking) {
       return !!(booking && (booking.isAdminTester === true || booking.testerId === ADMIN_TESTER_ID || String(booking.phone || '').replace(/[^0-9]/g, '') === ADMIN_TESTER_PHONE));
     }
+    function canAdminBypassCheckin() {
+      return isAdminTesterBooking(currentBooking);
+    }
     function show(el, yes) { document.getElementById(el).classList.toggle('hidden', !yes); }
     function setStatus(id, type, text) { var el = document.getElementById(id); el.className = 'status ' + type; el.textContent = text; el.classList.remove('hidden'); }
     function hideStatus(id) { document.getElementById(id).classList.add('hidden'); }
@@ -1696,7 +1699,7 @@
       var target = document.getElementById('trackingCheckinButton');
       if (!source || !target) return;
       var routeInfo = currentBooking ? connectionRouteInfo(currentBooking.route) : { type: 'main_route' };
-      show('trackingCheckinButton', routeInfo.type === 'secondary_connection');
+      show('trackingCheckinButton', routeInfo.type === 'secondary_connection' || canAdminBypassCheckin());
       target.disabled = source.disabled;
       target.textContent = source.textContent;
     }
@@ -1906,12 +1909,14 @@
         currentBooking.status === 'waiting_admin_approval' ||
         currentBooking.status === 'pending_admin_approval'
       );
+      var adminBypass = canAdminBypassCheckin();
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var canCheck = nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000) && !disabledByStatus && !checkinSubmitLock;
+      var canCheck = (adminBypass || (nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000))) && !disabledByStatus && !checkinSubmitLock;
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
       if (currentBooking && currentBooking.status === 'checked_in') btn.textContent = 'เช็คอินแล้ว';
       else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
+      else if (adminBypass) btn.textContent = 'แอดมินทดสอบเช็คอิน';
       else btn.textContent = 'เช็คอินถึงจุดต่อรถ';
       renderCheckinButtonState();
       updateFlexiblePanel();
@@ -1953,12 +1958,13 @@
 
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
+      var adminBypass = canAdminBypassCheckin();
       if (checkinSubmitLock || currentBooking.status === 'checked_in') {
         setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
         updateActionAvailability();
         return;
       }
-      if (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM) {
+      if (!adminBypass && (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM)) {
         setStatus('lookupStatus', 'bad', 'ยังอยู่นอกรัศมีเช็คอิน ' + CHECKIN_RADIUS_KM + ' กม.');
         updateActionAvailability();
         return;
@@ -1967,18 +1973,24 @@
       updateActionAvailability();
       var checkedInAt = Date.now();
       var transferAdjustment = calculateCheckinTransferAdjustment(checkedInAt);
+      var checkinDistanceKm = currentDistanceKm === null || isNaN(currentDistanceKm) ? 0 : currentDistanceKm;
       var payload = {
         status: 'checked_in',
         checkedInAt: checkedInAt,
+        adminBypassCheckin: adminBypass,
+        testerId: adminBypass ? ADMIN_TESTER_ID : (currentBooking.testerId || ''),
+        testerRole: adminBypass ? 'admin' : (currentBooking.testerRole || ''),
+        testerNotice: adminBypass ? ADMIN_TESTER_NOTICE : (currentBooking.testerNotice || ''),
         checkin: {
           lat: lastPosition ? lastPosition.lat : null,
           lng: lastPosition ? lastPosition.lng : null,
-          distanceKm: currentDistanceKm,
+          distanceKm: checkinDistanceKm,
           speedKmh: currentSpeedKmh,
           etaMinutes: currentEtaMinutes,
-          checkedInAt: checkedInAt
+          checkedInAt: checkedInAt,
+          adminBypass: adminBypass
         },
-        officialStatus: 'เช็คอินแล้วที่ระยะ ' + currentDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
+        officialStatus: adminBypass ? 'ADMIN CHECK: เช็คอินทดสอบโดยไม่ต้องรอเข้ารัศมี' : 'เช็คอินแล้วที่ระยะ ' + checkinDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
       };
       if (transferAdjustment) {
         Object.assign(payload, transferAdjustment);
@@ -2177,6 +2189,7 @@
         distanceKm: distanceKm,
         speedKmh: speedKmh,
         etaMinutes: etaMinutes,
+        adminBypassCheckin: update.adminBypassCheckin === true || checkin.adminBypass === true,
         legSchedule: legSchedule,
         timestamp: new Date(eventAt).toISOString()
       };
