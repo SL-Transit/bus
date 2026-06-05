@@ -791,9 +791,31 @@ function vehicleStatusMessage(pos) {
   return '';
 }
 
+function getVehicleTs(pos) {
+  if (!pos) return null;
+  var raw = pos.ts || pos.lastUpdated || pos.updatedAt || pos.timestamp || null;
+  if (raw === null || raw === undefined) return null;
+  var n = Number(raw);
+  if (isNaN(n)) return null;
+  if (n < 10000000000) n = n * 1000;
+  return n;
+}
+
+function getVehicleAgeSec(pos) {
+  var ts = getVehicleTs(pos);
+  return ts ? (Date.now() - ts) / 1000 : 0;
+}
+
+function isVehicleOfflineOrDelayed(pos) {
+  if (!pos) return true;
+  return pos.online === false || getVehicleAgeSec(pos) > 15;
+}
+
 function sanitizeVehicleData(pos) {
   if (!pos) return {};
+  var ts = getVehicleTs(pos) || Date.now();
   return Object.assign({}, pos, {
+    ts: ts,
     online:   pos.online   !== undefined && pos.online   !== null ? Boolean(pos.online)  : true,
     accuracy: pos.accuracy !== undefined && pos.accuracy !== null ? Number(pos.accuracy) :
               pos.acc      !== undefined && pos.acc      !== null ? Number(pos.acc)      : 10,
@@ -807,6 +829,9 @@ function mergeVehicleFeeds() {
     merged[id] = sanitizeVehicleData(
       Object.assign({}, merged[id] || {}, liveVehiclePositions[id] || {})
     );
+  });
+  Object.keys(merged || {}).forEach(function(id) {
+    merged[id] = sanitizeVehicleData(merged[id]);
   });
   allBusPositions = merged;
   lastPos = choosePrimaryBus(allBusPositions);
@@ -1390,20 +1415,6 @@ function drawRoute(routeData) {
 var busKalman = {}; // เก็บ state แยกตาม carId
 var busLastTs = {}; // เก็บ timestamp ล่าสุดของรถแต่ละคัน (stale packet guard)
 
-// แปลง timestamp หลาย field และรองรับ seconds/milliseconds
-function getVehicleTs(pos) {
-  var raw = pos.ts || pos.lastUpdated || pos.updatedAt || pos.timestamp || null;
-  if (raw === null || raw === undefined) {
-    console.warn('[getVehicleTs] missing timestamp field', pos);
-    return null;
-  }
-  var n = Number(raw);
-  if (isNaN(n)) return null;
-  // ถ้า < 10000000000 ถือว่าเป็น seconds → คูณ 1000
-  if (n < 10000000000) n = n * 1000;
-  return n;
-}
-
 function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
     var Q = 8, R = 8;
     if (!busKalman[carId]) {
@@ -1458,8 +1469,14 @@ function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
 var busCurrentPos = {};      // ตำแหน่งปัจจุบันของ marker แต่ละคัน
 var busTargetPos = {};        // ตำแหน่งเป้าหมาย
 var busAnimFrames = {};       // requestAnimationFrame id
+var busPredictionFrames = {};
+var busLastPacketPos = {};
 
-var BUS_ANIM_DURATION = 1000; // ms — ลดให้ marker ตามตำแหน่งจริงไวขึ้น
+var BUS_ANIM_DURATION = 900; // ms — ลดให้ marker ตามตำแหน่งจริงไวขึ้น
+var BUS_PREDICT_MAX_MS = 6000;
+var BUS_PREDICT_MAX_METERS = 120;
+var BUS_DELAYED_SEC = 15;
+var BUS_OFFLINE_SEC = 60;
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -1467,7 +1484,52 @@ function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
+function stopBusPrediction(carId) {
+  if (busPredictionFrames[carId]) cancelAnimationFrame(busPredictionFrames[carId]);
+  busPredictionFrames[carId] = null;
+}
+
+function projectPoint(lat, lon, headingDeg, meters) {
+  var R = 6371000;
+  var brng = headingDeg * Math.PI / 180;
+  var lat1 = lat * Math.PI / 180;
+  var lon1 = lon * Math.PI / 180;
+  var d = meters / R;
+  var lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+  var lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+  return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
+}
+
+function startBusPrediction(carId, packetPos, pos) {
+  stopBusPrediction(carId);
+  if (!packetPos || isVehicleOfflineOrDelayed(pos)) return;
+  var speed = Number(pos.speed || pos.velocity || 0);
+  var heading = Number(pos.heading || pos.bearing);
+  if (!isFinite(speed) || speed <= 0 || !isFinite(heading)) return;
+  if (speed > 25) speed = 25;
+  var ts = getVehicleTs(pos) || Date.now();
+  function step() {
+    if (isVehicleOfflineOrDelayed(pos)) {
+      stopBusPrediction(carId);
+      return;
+    }
+    var ageMs = Date.now() - ts;
+    var predictMs = Math.min(Math.max(ageMs, 0), BUS_PREDICT_MAX_MS);
+    var meters = Math.min(speed * (predictMs / 1000), BUS_PREDICT_MAX_METERS);
+    var next = projectPoint(packetPos.lat, packetPos.lon, heading, meters);
+    placeBusMarkerAt(carId, next);
+    busCurrentPos[carId] = next;
+    if (predictMs < BUS_PREDICT_MAX_MS && meters < BUS_PREDICT_MAX_METERS) {
+      busPredictionFrames[carId] = requestAnimationFrame(step);
+    } else {
+      stopBusPrediction(carId);
+    }
+  }
+  busPredictionFrames[carId] = requestAnimationFrame(step);
+}
+
 function animateBusMarker(carId, fromPos, toPos) {
+  stopBusPrediction(carId);
   // ยกเลิก animation เก่าถ้ามี
   if (busAnimFrames[carId]) cancelAnimationFrame(busAnimFrames[carId]);
 
@@ -1478,21 +1540,21 @@ function animateBusMarker(carId, fromPos, toPos) {
   if (dist < 5) {
     placeBusMarkerAt(carId, toPos);
     busCurrentPos[carId] = toPos;
-    return;
+    return 0;
   }
 
-  // ถ้าระยะเกิน 250 เมตร → instant place ทันที ไม่ animate
+  // ถ้าระยะเกิน 600 เมตร → instant place ทันที ไม่ animate
   // เพื่อกันรถลาก marker ข้ามแม่น้ำหรือตามหลังมากเมื่อข้อมูลมาช้า
-  if (dist > 250) {
-    console.log('[animateBusMarker] instant place (dist > 250m)', carId, dist.toFixed(0) + 'm');
+  if (dist > 600) {
+    console.log('[animateBusMarker] instant place (dist > 600m)', carId, dist.toFixed(0) + 'm');
     busAnimFrames[carId] = null;
     placeBusMarkerAt(carId, toPos);
     busCurrentPos[carId] = toPos;
-    return;
+    return 0;
   }
 
-  // ปรับความเร็ว animation ตามระยะทาง (ใกล้ = เร็ว, ไกล = ช้า)
-  var duration = Math.min(BUS_ANIM_DURATION, Math.max(800, dist * 20));
+  // ปรับความเร็ว animation ตามระยะทาง: ไกลให้ขยับเร็วขึ้นเพื่อลดอาการค้างตามหลัง
+  var duration = dist > 250 ? 450 : dist > 120 ? 650 : Math.min(BUS_ANIM_DURATION, Math.max(350, dist * 14));
 
   function step(timestamp) {
     if (!startTime) startTime = timestamp;
@@ -1516,6 +1578,7 @@ function animateBusMarker(carId, fromPos, toPos) {
     }
   }
   busAnimFrames[carId] = requestAnimationFrame(step);
+  return duration;
 }
 
 function placeBusMarkerAt(carId, latlng) {
@@ -1577,13 +1640,15 @@ function updateBusOnMap(pos, carId, shouldFocus) {
     return;
   }
   var filteredPos = { lat: filtered.lat, lon: filtered.lng };
+  var ageSecNum = (Date.now() - ts) / 1000;
 
   busTargetPos[carId] = filteredPos;
+  busLastPacketPos[carId] = filteredPos;
   var fromPos = busCurrentPos[carId] || filteredPos;
   var distFromPrev = busCurrentPos[carId]
     ? distanceMeters(fromPos.lat, fromPos.lon, filteredPos.lat, filteredPos.lon)
     : 0;
-  var ageSec = ((Date.now() - ts) / 1000).toFixed(1);
+  var ageSec = ageSecNum.toFixed(1);
   var isInstant = distFromPrev > 250 || distFromPrev < 5;
   console.log('[updateBusOnMap] update', carId, {
     rawLat: newPos.lat, rawLng: newPos.lon,
@@ -1594,7 +1659,14 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   });
 
   // Smooth animate จากตำแหน่งเดิม → ใหม่
-  animateBusMarker(carId, fromPos, filteredPos);
+  var animMs = animateBusMarker(carId, fromPos, filteredPos);
+  if (ageSecNum <= BUS_DELAYED_SEC && pos.online !== false) {
+    setTimeout(function() {
+      if (busLastTs[carId] === ts) startBusPrediction(carId, filteredPos, pos);
+    }, Math.max(0, animMs || 0));
+  } else {
+    stopBusPrediction(carId);
+  }
 
   console.log('vehicle marker animating', carId, fromPos, '->', newPos);
   if (shouldFocus && (busFollowMode || !busCentered)) { focusMap(newPos, 14); busCentered = true; }
@@ -1619,13 +1691,17 @@ function getStatusInfo(pos) {
     }
   }
   if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
-  const elapsed=(Date.now()-pos.ts)/1000;
+  const elapsed=getVehicleAgeSec(pos);
   const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
   const stopName=dir[pos.stopIdx]?.name||'?';
   const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
   const dirLabel=pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
   const timeAgo=Math.round(elapsed/60);
   const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
+  if (elapsed > BUS_OFFLINE_SEC)
+    return {cls:'stopped', icon:'🚌', title:'ตำแหน่งล่าสุดก่อนออฟไลน์', sub:`${timeStr} · ${dirLabel}`};
+  if (elapsed > BUS_DELAYED_SEC)
+    return {cls:'stopped', icon:'🚌', title:'ตำแหน่งล่าช้า', sub:`${timeStr} · ${dirLabel}`};
   if (pos.status==='at'||elapsed>120)
     return {cls:'stopped', icon:'🛑', title:`จอดที่ ${stopName}`, sub:dirLabel};
   if (pos.status==='towards'&&nextStop)
@@ -1841,8 +1917,9 @@ function renderSched() {
 }
 
 function updateLastUpdate(pos) {
+  var ts = getVehicleTs(pos);
   document.getElementById('lastUpdate').textContent=
-    pos?`เมื่อ ${new Date(pos.ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
+    ts?`เมื่อ ${new Date(ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
 }
 
 function fullRender(pos) {
@@ -1967,6 +2044,8 @@ function tick() {
   const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   document.getElementById('dateText').textContent=
     `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  renderStatus(lastPos);
+  updateLastUpdate(lastPos);
   renderNextBus();
   updateBottomSheetSummary();
 }
