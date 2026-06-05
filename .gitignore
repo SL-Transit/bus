@@ -1,0 +1,6 @@
+.gradle/
+driver-android/build/
+functions/node_modules/
+migration-backups/
+firebase-debug.log
+firebase-debug.*.log

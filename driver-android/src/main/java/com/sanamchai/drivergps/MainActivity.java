@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_ERROR = "last_error";
     static final String KEY_VEHICLE_ID = "vehicle_id";
 
-    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
 
     private static final String[] VEHICLE_IDS = {
         "car1", "car2", "car3", "car4", "car5"
@@ -94,10 +94,10 @@ public class MainActivity extends Activity {
         try {
             if (FirebaseApp.getApps(this).isEmpty()) {
                 FirebaseOptions options = new FirebaseOptions.Builder()
-                        .setApiKey("AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI")
-                        .setApplicationId("1:511401517598:web:5605ee3777619dffe1c40f")
+                        .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
+                        .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
                         .setDatabaseUrl(DB_URL)
-                        .setProjectId("bus-line1-ba0ea")
+                        .setProjectId("bus-booking-1d68c")
                         .build();
                 FirebaseApp.initializeApp(this, options);
             }

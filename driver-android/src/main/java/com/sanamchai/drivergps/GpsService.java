@@ -37,7 +37,7 @@ public class GpsService extends Service {
     static final String ACTION_STOP  = "com.sanamchai.drivergps.STOP";
 
     private static final String CHANNEL_ID          = "gps_sender";
-    private static final String DB_URL              = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String DB_URL              = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
     private static final long   SEND_INTERVAL_MS    = 10000;
     private static final float  MAX_ACCURATE_METERS = 80f;
     private static boolean persistenceConfigured    = false;
@@ -144,10 +144,10 @@ public class GpsService extends Service {
         queueId = prefs.getString(MainActivity.KEY_VEHICLE_ID, "car1");
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseOptions opts = new FirebaseOptions.Builder()
-                    .setApiKey("AIzaSyD3HmQyRJfpw931mr_6eL19xzFk2bbqfVI")
-                    .setApplicationId("1:511401517598:web:5605ee3777619dffe1c40f")
+                    .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
+                    .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
                     .setDatabaseUrl(DB_URL)
-                    .setProjectId("bus-line1-ba0ea")
+                    .setProjectId("bus-booking-1d68c")
                     .build();
             FirebaseApp.initializeApp(this, opts);
         }
