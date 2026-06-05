@@ -2127,7 +2127,7 @@ function submitBooking() {
       // ============================================================
       return db.ref(bookingPath + code).set(booking).then(function() {
         if (!TEST_MODE) {
-          fetch('https://sendlineonbooking-mjsbteufra-as.a.run.app', {
+          fetch('https://sendline-cdkiyp34fa-uc.a.run.app', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ bookingId: code, booking: booking })
