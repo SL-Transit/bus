@@ -36,6 +36,10 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > driver-android/keystore.jks
       
       - name: Build release APK
+        env:
+          KEYSTORE_PATH: keystore.jks
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: gradle :driver-android:assembleRelease
 
       - name: Upload APK
