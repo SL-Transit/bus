@@ -36,20 +36,14 @@ function buildCheckinMessage(booking) {
 
 function buildBookingMessage(booking) {
   const lines = [
-    "มีการจองใหม่",
-    `รหัส: ${booking.code || "-"}`,
-    `ชื่อ: ${booking.name || "-"}`,
-    `โทร: ${booking.phone || "-"}`,
-    `เส้นทาง: ${booking.route || "-"}`,
-    `วันเวลา: ${booking.date || "-"} ${booking.time || "-"} น.`,
-    `จำนวน: ${booking.seats || 1} ที่นั่ง`,
-    `ราคา: ${money(booking.price)} บาท`
+    `👤 ชื่อ: ${booking.name || "-"}`,
+    `📞 โทร: ${booking.phone || "-"}`,
+    `🏠 เส้นทาง: ${booking.route || "-"}`,
+    `🗓 วันที่: ${booking.date || "-"} เวลา ${booking.time || "-"} น.`,
+    `🚌 ที่นั่ง: ${booking.seats || 1} ที่`,
+    `💰 ยอด: ฿${money(booking.price)}`
   ];
-  if (booking.queueNumber) lines.push(`ลำดับคิว: ${booking.queueNumber}`);
-  if (booking.platform) lines.push(`ชานชาลา: ${booking.platform}`);
-  if (booking.leg1Route) lines.push(`เส้นทางแรก: ${booking.leg1Route} ${booking.leg1Time || ""}`);
-  if (booking.leg2Route) lines.push(`เส้นทางที่สอง: ${booking.leg2Route} ${booking.leg2Time || ""}`);
-  if (booking.paymentMode === "transfer") lines.push(`สลิป: ${booking.slip || "-"}`);
+  if (booking.slip) lines.push(`🖼 สลิป: ${booking.slip}`);
   return lines.join("\n");
 }
 
