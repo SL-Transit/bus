@@ -2072,6 +2072,7 @@
     }
 
     function canCancelTicket() {
+      if (canAdminBypassCheckin()) return currentBooking && currentBooking.status !== 'cancelled';
       var dep = departureDate();
       if (!dep) return false;
       return dep.getTime() - Date.now() >= 60 * 60000;
@@ -2283,11 +2284,6 @@
       if (isEffectiveTestMode()) {
         return mockLineSend(linePayload, updatePayload, eventName);
       }
-      fetch('https://sendline-cdkiyp34fa-uc.a.run.app', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(linePayload)
-    }).catch(function(e) { console.warn('LINE notify error', e); });
       return createLineMessagingTrigger(linePayload, updatePayload, eventName);
     }
   
