@@ -791,10 +791,22 @@ function vehicleStatusMessage(pos) {
   return '';
 }
 
+function sanitizeVehicleData(pos) {
+  if (!pos) return {};
+  return Object.assign({}, pos, {
+    online:   pos.online   !== undefined && pos.online   !== null ? Boolean(pos.online)  : true,
+    accuracy: pos.accuracy !== undefined && pos.accuracy !== null ? Number(pos.accuracy) :
+              pos.acc      !== undefined && pos.acc      !== null ? Number(pos.acc)      : 10,
+    stopIdx:  pos.stopIdx  !== undefined && pos.stopIdx  !== null ? Number(pos.stopIdx)  : 0,
+  });
+}
+
 function mergeVehicleFeeds() {
   var merged = Object.assign({}, rawBusPositions || {});
   Object.keys(liveVehiclePositions || {}).forEach(function(id) {
-    merged[id] = Object.assign({}, merged[id] || {}, liveVehiclePositions[id] || {});
+    merged[id] = sanitizeVehicleData(
+      Object.assign({}, merged[id] || {}, liveVehiclePositions[id] || {})
+    );
   });
   allBusPositions = merged;
   lastPos = choosePrimaryBus(allBusPositions);
@@ -1557,7 +1569,8 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   }
   busLastTs[carId] = ts;
 
-  var acc = pos.accuracy || pos.acc || null;
+  var acc = (pos.accuracy != null ? Number(pos.accuracy) :
+             pos.acc      != null ? Number(pos.acc)      : 10);
   var filtered = kalmanFilter(carId, newPos.lat, newPos.lon, acc, ts);
   if (!filtered) {
     console.log('[updateBusOnMap] vehicle position filtered out', carId);
