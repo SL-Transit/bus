@@ -1323,6 +1323,14 @@
       return Object.assign({}, point, { lat: lat, lng: lng });
     }
 
+    function isValidMapPoint(point) {
+      return !!point && isFinite(Number(point.lat)) && isFinite(Number(point.lng));
+    }
+
+    function isValidMapCoord(coord) {
+      return Array.isArray(coord) && coord.length >= 2 && isFinite(Number(coord[0])) && isFinite(Number(coord[1]));
+    }
+
     function normalizeTrackingStatusOnly(point) {
       point = point || {};
       if (!point.status && point.online !== false) return null;
@@ -1396,6 +1404,7 @@
     }
 
     function renderVanMarker(location) {
+      location = normalizeTrackingPoint(location);
       if (!trackingMapReady || !trackingMap || !location) return;
       if (!trackingVanMarker) {
         trackingVanMarker = new mapboxgl.Marker({ element: createTrackingMarker('van', 'รถ') })
@@ -1409,7 +1418,7 @@
     }
 
     function renderPickupMarker() {
-      if (!trackingMapReady || !trackingMap || !pickupStopLocation) return;
+      if (!trackingMapReady || !trackingMap || !isValidMapPoint(pickupStopLocation)) return;
       if (!trackingPickupMarker) {
         trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ป้าย') })
           .setLngLat([pickupStopLocation.lng, pickupStopLocation.lat])
@@ -1422,7 +1431,7 @@
 
     function renderTransferMarker() {
       var point = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
-      if (!trackingMapReady || !trackingMap || !point) return;
+      if (!trackingMapReady || !trackingMap || !isValidMapPoint(point)) return;
       if (!trackingTransferMarker) {
         trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ถึง') })
           .setLngLat([point.lng, point.lat])
@@ -1440,12 +1449,13 @@
     function updateTrackingRouteLine() {
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
       var coords = [];
-      if (vanLocation) coords.push([vanLocation.lng, vanLocation.lat]);
+      if (isValidMapPoint(vanLocation)) coords.push([vanLocation.lng, vanLocation.lat]);
       (relevantRouteStops.length ? relevantRouteStops : [pickupStopLocation]).forEach(function(stop) {
-        if (stop) coords.push([stop.lng, stop.lat]);
+        if (isValidMapPoint(stop)) coords.push([stop.lng, stop.lat]);
       });
       var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
-      if (target && !coords.some(function(c) { return Math.abs(c[0] - target.lng) < 0.00001 && Math.abs(c[1] - target.lat) < 0.00001; })) coords.push([target.lng, target.lat]);
+      if (isValidMapPoint(target) && !coords.some(function(c) { return Math.abs(c[0] - target.lng) < 0.00001 && Math.abs(c[1] - target.lat) < 0.00001; })) coords.push([target.lng, target.lat]);
+      coords = coords.filter(isValidMapCoord);
       if (coords.length >= 2) {
         updateTrackingRoadRoute(coords);
         return;
@@ -1468,6 +1478,7 @@
     }
 
     function requestMapboxRouteGeometry(coords) {
+      coords = (coords || []).filter(isValidMapCoord);
       if (!MAPBOX_ACCESS_TOKEN || coords.length < 2) return Promise.reject(new Error('missing route inputs'));
       var clean = coords.map(function(c) { return Number(c[0]).toFixed(6) + ',' + Number(c[1]).toFixed(6); }).join(';');
       var url = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + clean +
@@ -1492,6 +1503,7 @@
     }
 
     function focusPassengerLocation(position, force) {
+      position = normalizeTrackingPoint(position);
       if (!trackingMapReady || !trackingMap || !position) return;
       renderPassengerMarker(position);
       if (force || (!passengerAutoFocused && !trackingUserInteracted)) {
@@ -1501,6 +1513,7 @@
     }
 
     function renderPassengerMarker(position) {
+      position = normalizeTrackingPoint(position);
       if (!trackingMapReady || !trackingMap || !position) return;
       if (!trackingPassengerMarker) {
         trackingPassengerMarker = new mapboxgl.Marker({ element: createTrackingMarker('passenger', 'คุณ') })
@@ -1546,7 +1559,7 @@
     function focusTrackingMap() {
       if (!trackingMap || !trackingMapReady) return;
       var target = currentBooking && connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
-      var points = [vanLocation, pickupStopLocation, target].filter(Boolean);
+      var points = [vanLocation, pickupStopLocation, target].filter(isValidMapPoint);
       if (!points.length) return;
       var bounds = new mapboxgl.LngLatBounds();
       points.forEach(function(p) { bounds.extend([p.lng, p.lat]); });
