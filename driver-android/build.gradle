@@ -1,22 +1,37 @@
 plugins {
-    id "com.android.application"
+    id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
 
 android {
-    namespace "com.sanamchai.drivergps"
-    compileSdk 35
+    namespace 'com.sanamchai.drivergps'
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.sanamchai.drivergps"
-        minSdk 26
-        targetSdk 35
-        versionCode 6
-        versionName "1.5"
+        minSdk 21
+        targetSdk 34
+        versionCode 8
+        versionName "1.8"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 }
 
 dependencies {
-    implementation platform("com.google.firebase:firebase-bom:33.7.0")
-    implementation "com.google.firebase:firebase-auth"
-    implementation "com.google.firebase:firebase-database"
+    implementation platform('com.google.firebase:firebase-bom:33.0.0')
+    implementation 'com.google.firebase:firebase-database'
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
 }
