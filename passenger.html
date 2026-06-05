@@ -1477,6 +1477,7 @@ var BUS_PREDICT_MAX_MS = 6000;
 var BUS_PREDICT_MAX_METERS = 120;
 var BUS_DELAYED_SEC = 15;
 var BUS_OFFLINE_SEC = 60;
+var BUS_ROUTE_MAX_DISTANCE_METERS = 8000;
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -1526,6 +1527,21 @@ function startBusPrediction(carId, packetPos, pos) {
     }
   }
   busPredictionFrames[carId] = requestAnimationFrame(step);
+}
+
+function nearestRouteDistanceMeters(point) {
+  if (!point) return Infinity;
+  var stops = STOPS_GO.concat(STOPS_BACK).map(normalizeMapPoint).filter(Boolean);
+  var best = Infinity;
+  stops.forEach(function(stop) {
+    var d = distanceMeters(point.lat, point.lon, stop.lat, stop.lon);
+    if (d < best) best = d;
+  });
+  return best;
+}
+
+function isVehiclePointOnKnownRoute(point) {
+  return nearestRouteDistanceMeters(point) <= BUS_ROUTE_MAX_DISTANCE_METERS;
 }
 
 function animateBusMarker(carId, fromPos, toPos) {
@@ -1615,6 +1631,15 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   var newPos = normalizeMapPoint(pos);
   if (!newPos && pos.stopIdx !== undefined && dir[pos.stopIdx]) newPos = normalizeMapPoint(dir[pos.stopIdx]);
   if (!newPos) return;
+  if (!isVehiclePointOnKnownRoute(newPos)) {
+    console.warn('[updateBusOnMap] skip off-route vehicle point', carId, {
+      lat: newPos.lat,
+      lon: newPos.lon,
+      nearestRouteM: nearestRouteDistanceMeters(newPos).toFixed(0)
+    });
+    stopBusPrediction(carId);
+    return;
+  }
 
   // ใช้ Kalman Filter กรองตำแหน่งก่อน animate
   var ts = getVehicleTs(pos);
@@ -1629,6 +1654,10 @@ function updateBusOnMap(pos, carId, shouldFocus) {
       'packetTs:', ts, 'lastTs:', busLastTs[carId],
       'diff:', ((busLastTs[carId] - ts) / 1000).toFixed(1) + 's old');
     return;
+  }
+  if (busLastTs[carId] === ts && busTargetPos[carId]) {
+    var repeatedDist = distanceMeters(newPos.lat, newPos.lon, busTargetPos[carId].lat, busTargetPos[carId].lon);
+    if (repeatedDist < 3) return;
   }
   busLastTs[carId] = ts;
 
