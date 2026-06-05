@@ -2126,7 +2126,14 @@ function submitBooking() {
       // ห้ามเปลี่ยน 'bookings/' เป็นชื่ออื่น และห้ามลบบรรทัด set(booking)
       // ============================================================
       return db.ref(bookingPath + code).set(booking).then(function() {
-        if (!TEST_MODE) return booking;
+        if (!TEST_MODE) {
+          fetch('https://sendlineonbooking-mjsbteufra-as.a.run.app', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId: code, booking: booking })
+          }).catch(function(e){ console.warn('LINE notify error', e); });
+          return booking;
+        }
         var linePayload = buildBookingLinePayload(booking);
         linePayload.test_mode = true;
         return Promise.all([
