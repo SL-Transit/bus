@@ -2213,14 +2213,19 @@
         return { success: true, mock: true };
       });
     }
-
+    
     function realLineSend(linePayload, updatePayload, eventName) {
       if (isEffectiveTestMode()) {
         return mockLineSend(linePayload, updatePayload, eventName);
       }
+      fetch('https://sendline-cdkiyp34fa-uc.a.run.app', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(linePayload)
+    }).catch(function(e) { console.warn('LINE notify error', e); });
       return createLineMessagingTrigger(linePayload, updatePayload, eventName);
     }
-
+  
     function sendLineMessage(linePayload, updatePayload, eventName) {
       if (isEffectiveTestMode()) {
         return mockLineSend(linePayload, updatePayload, eventName);
