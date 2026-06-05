@@ -591,6 +591,8 @@ var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhano
 var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={};
 var VEHICLE_SIM_PATH='liveVehicles';
 var SIM_ALLOWED_CARS=['test_car_1','test_car_2'];
+var simulatorSpeedKmh=50;
+var SIM_ROUTE_CACHE={};
 var SIM_ROUTE_POINTS={
   sck_to_ccs:[
     {name:'ท่ารถสนามชัยเขต',lat:13.659022,lng:101.437482},
@@ -598,7 +600,7 @@ var SIM_ROUTE_POINTS={
     {name:'ขนส่งฉะเชิงเทรา',lat:13.692477,lng:101.054105}
   ]
 };
-var vehicleSim={timer:null,running:false,packet:0,segment:0,progress:0,lastPacket:null,lastError:'',delayUntil:0,delayPacket:0,offlineUntil:0,offlineTriggered:false};
+var vehicleSim={timer:null,running:false,packet:0,segment:0,progress:0,distanceMeters:0,lastPacket:null,lastError:'',delayUntil:0,delayPacket:0,offlineUntil:0,offlineTriggered:false};
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -723,41 +725,106 @@ function vehicleSimBearing(a,b){
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
 function vehicleSimRand(min,max){return min+Math.random()*(max-min);}
-function vehicleSimPoint(){
-  var points=SIM_ROUTE_POINTS.sck_to_ccs;
-  var step=.12;
-  var a=points[vehicleSim.segment]||points[0];
-  var b=points[vehicleSim.segment+1]||points[1];
-  var t=Math.min(vehicleSim.progress,1);
-  var lat=a.lat+(b.lat-a.lat)*t;
-  var lng=a.lng+(b.lng-a.lng)*t;
-  var heading=vehicleSimBearing(a,b);
-  var segmentDistance=vehicleSimDistanceMeters(a.lat,a.lng,b.lat,b.lng);
-  vehicleSim.progress+=step;
-  if(vehicleSim.progress>=1){
-    vehicleSim.segment=(vehicleSim.segment+1)%(points.length-1);
-    vehicleSim.progress=0;
+function buildVehicleSimRoute(routeId){
+  routeId=routeId||'sck_to_ccs';
+  if(SIM_ROUTE_CACHE[routeId])return SIM_ROUTE_CACHE[routeId];
+  var control=SIM_ROUTE_POINTS[routeId]||SIM_ROUTE_POINTS.sck_to_ccs;
+  var dense=[],cumulative=[],total=0,targetStepMeters=60;
+  control.forEach(function(point,i){
+    if(i===0){
+      dense.push({name:point.name,lat:point.lat,lng:point.lng,controlIndex:0});
+      cumulative.push(0);
+      return;
+    }
+    var prev=control[i-1];
+    var dist=vehicleSimDistanceMeters(prev.lat,prev.lng,point.lat,point.lng);
+    var pieces=Math.max(1,Math.ceil(dist/targetStepMeters));
+    for(var j=1;j<=pieces;j++){
+      var t=j/pieces;
+      var lat=prev.lat+(point.lat-prev.lat)*t;
+      var lng=prev.lng+(point.lng-prev.lng)*t;
+      var last=dense[dense.length-1];
+      total+=vehicleSimDistanceMeters(last.lat,last.lng,lat,lng);
+      dense.push({name:point.name,lat:lat,lng:lng,controlIndex:i});
+      cumulative.push(total);
+    }
+  });
+  SIM_ROUTE_CACHE[routeId]={points:dense,cumulative:cumulative,totalMeters:total};
+  return SIM_ROUTE_CACHE[routeId];
+}
+function vehicleSimPointAtDistance(routeId,distanceMeters){
+  var route=buildVehicleSimRoute(routeId);
+  var points=route.points,cumulative=route.cumulative,total=route.totalMeters||1;
+  var dist=((distanceMeters%total)+total)%total;
+  for(var i=1;i<cumulative.length;i++){
+    if(cumulative[i]>=dist){
+      var a=points[i-1],b=points[i];
+      var segStart=cumulative[i-1],segEnd=cumulative[i];
+      var t=segEnd>segStart?(dist-segStart)/(segEnd-segStart):0;
+      var lat=a.lat+(b.lat-a.lat)*t;
+      var lng=a.lng+(b.lng-a.lng)*t;
+      return {lat:lat,lng:lng,heading:vehicleSimBearing(a,b),stopIdx:b.controlIndex||0,routePoints:points.length,routeDistanceMeters:total};
+    }
   }
-  return {lat:lat,lng:lng,heading:heading,stopIdx:vehicleSim.segment,distance:segmentDistance};
+  var last=points[points.length-1],first=points[0];
+  return {lat:last.lat,lng:last.lng,heading:vehicleSimBearing(last,first),stopIdx:last.controlIndex||0,routePoints:points.length,routeDistanceMeters:total};
+}
+function vehicleSimMaxNormalMove(intervalMs){
+  if(intervalMs<=3000)return 60;
+  if(intervalMs<=5000)return 90;
+  return 180;
+}
+function vehicleSimDistancePerPacket(cfg){
+  var intervalSeconds=(Number(cfg.intervalMs)||10000)/1000;
+  var raw=(simulatorSpeedKmh*1000/3600)*intervalSeconds;
+  return Math.min(raw,vehicleSimMaxNormalMove(cfg.intervalMs));
+}
+function vehicleSimPoint(cfg){
+  var moveMeters=vehicleSimDistancePerPacket(cfg);
+  vehicleSim.distanceMeters+=moveMeters;
+  var p=vehicleSimPointAtDistance(cfg.routeId,vehicleSim.distanceMeters);
+  p.distancePerPacket=moveMeters;
+  p.speedKmh=simulatorSpeedKmh;
+  return p;
 }
 function buildVehicleSimPacket(cfg){
-  var p=vehicleSimPoint();
+  var prev=vehicleSim.lastPacket||null;
+  var p=vehicleSimPoint(cfg);
   var now=Date.now();
   var accuracy=Math.round(vehicleSimRand(5,15));
   var status='moving';
-  var speed=Math.round(vehicleSimRand(42,62));
+  var speed=Math.round(Math.max(40,Math.min(60,simulatorSpeedKmh+vehicleSimRand(-4,4))));
   if(cfg.scenario==='jump'&&vehicleSim.packet>0&&vehicleSim.packet%5===0){
     var jumpMeters=vehicleSimRand(300,600);
-    var sign=Math.random()>.5?1:-1;
-    p.lat+=sign*(jumpMeters/111320);
-    p.lng-=sign*(jumpMeters/(111320*Math.cos(p.lat*Math.PI/180)));
+    var jumpAngle=Math.random()*Math.PI*2;
+    p.lat+=Math.cos(jumpAngle)*(jumpMeters/111320);
+    p.lng+=Math.sin(jumpAngle)*(jumpMeters/(111320*Math.cos(p.lat*Math.PI/180)));
   }
   if(cfg.scenario==='low_accuracy'){
     accuracy=Math.round(vehicleSimRand(100,200));
     status='low_accuracy';
-    speed=Math.round(vehicleSimRand(20,38));
+    speed=Math.round(Math.max(35,Math.min(50,simulatorSpeedKmh+vehicleSimRand(-6,2))));
   }
-  return {
+  var distanceFromPrevious=prev?vehicleSimDistanceMeters(prev.lat,prev.lng,p.lat,p.lng):0;
+  if(cfg.scenario==='normal'&&distanceFromPrevious>250){
+    console.warn('simulator normal packet too far', {
+      packetNumber:vehicleSim.packet,
+      intervalSeconds:(Number(cfg.intervalMs)||10000)/1000,
+      speedKmh:simulatorSpeedKmh,
+      distancePerPacket:p.distancePerPacket,
+      distanceFromPrevious:distanceFromPrevious,
+      routePoints:p.routePoints,
+      firebasePath:cfg.path
+    });
+    vehicleSim.distanceMeters-=p.distancePerPacket;
+    p.distancePerPacket=Math.min(p.distancePerPacket,vehicleSimMaxNormalMove(cfg.intervalMs));
+    vehicleSim.distanceMeters+=p.distancePerPacket;
+    p=vehicleSimPointAtDistance(cfg.routeId,vehicleSim.distanceMeters);
+    p.distancePerPacket=vehicleSimDistancePerPacket(cfg);
+    p.speedKmh=simulatorSpeedKmh;
+    distanceFromPrevious=prev?vehicleSimDistanceMeters(prev.lat,prev.lng,p.lat,p.lng):0;
+  }
+  var packet={
     carId:cfg.carId,
     lat:Number(p.lat.toFixed(6)),
     lng:Number(p.lng.toFixed(6)),
@@ -777,23 +844,44 @@ function buildVehicleSimPacket(cfg){
     isTest:true,
     source:'admin_simulator'
   };
+  packet._simMeta={
+    previousLat:prev?prev.lat:null,
+    previousLng:prev?prev.lng:null,
+    intervalSeconds:(Number(cfg.intervalMs)||10000)/1000,
+    speedKmh:simulatorSpeedKmh,
+    distancePerPacketMeters:p.distancePerPacket,
+    distanceFromPreviousMeters:distanceFromPrevious,
+    routePoints:p.routePoints,
+    routeDistanceMeters:p.routeDistanceMeters
+  };
+  return packet;
 }
 function writeVehicleSimPacket(packet,cfg,label){
-  vehicleSim.lastPacket=packet;
+  var meta=packet._simMeta||{};
+  var firebasePacket=Object.assign({},packet);
+  delete firebasePacket._simMeta;
+  vehicleSim.lastPacket=firebasePacket;
   updateVehicleSimStatus(label||'กำลังส่ง...');
   console.log('admin vehicle simulator packet', {
     packetNumber:vehicleSim.packet,
-    carId:packet.carId,
+    carId:firebasePacket.carId,
     scenario:cfg.scenario,
-    lat:packet.lat,
-    lng:packet.lng,
-    speed:packet.speed,
-    heading:packet.heading,
-    accuracy:packet.accuracy,
-    status:packet.status,
+    intervalSeconds:meta.intervalSeconds,
+    speedKmh:meta.speedKmh,
+    distancePerPacketMeters:Number((meta.distancePerPacketMeters||0).toFixed(1)),
+    lat:firebasePacket.lat,
+    lng:firebasePacket.lng,
+    previousLat:meta.previousLat,
+    previousLng:meta.previousLng,
+    distanceFromPreviousMeters:Number((meta.distanceFromPreviousMeters||0).toFixed(1)),
+    routePoints:meta.routePoints,
+    speed:firebasePacket.speed,
+    heading:firebasePacket.heading,
+    accuracy:firebasePacket.accuracy,
+    status:firebasePacket.status,
     firebasePath:cfg.path
   });
-  return db.ref(cfg.path).set(packet).then(function(){
+  return db.ref(cfg.path).set(firebasePacket).then(function(){
     console.log('admin vehicle simulator write success', cfg.path);
     updateVehicleSimStatus(vehicleSim.running?'กำลังจำลอง':'หยุดแล้ว','');
   }).catch(function(e){
@@ -883,6 +971,7 @@ function resetVehicleSimulator(){
   vehicleSim.packet=0;
   vehicleSim.segment=0;
   vehicleSim.progress=0;
+  vehicleSim.distanceMeters=-vehicleSimDistancePerPacket(cfg);
   vehicleSim.delayUntil=0;
   vehicleSim.delayPacket=0;
   vehicleSim.offlineUntil=0;
