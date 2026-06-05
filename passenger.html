@@ -760,6 +760,7 @@ let liveVehiclePositions={};
 let viewDir='go';
 let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false;
 let stationMarkerOverlays=[];
+let knownRouteLinePoints=[];
 let routeRenderSeq=0;
 let mapInitPromise=null;
 let userMarker=null, passengerWatchId=null, passengerPos=null, passengerCentered=false;
@@ -1402,6 +1403,7 @@ function drawRoute(routeData) {
   function setRouteLine(coordinates) {
     if (renderSeq !== routeRenderSeq) return;
     const pts = coordinates.map(function(c) { return Array.isArray(c) ? { lon:c[0], lat:c[1] } : normalizeMapPoint(c); }).filter(Boolean);
+    knownRouteLinePoints = pts;
     try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
     routeLine = new longdo.Polyline(pts, { lineColor: viewDir==='go' ? '#1e40af' : '#dc2626', lineWidth: 5, lineOpacity: 0.82 });
     mapObj.Overlays.add(routeLine);
@@ -1531,6 +1533,14 @@ function startBusPrediction(carId, packetPos, pos) {
 
 function nearestRouteDistanceMeters(point) {
   if (!point) return Infinity;
+  if (knownRouteLinePoints && knownRouteLinePoints.length > 1) {
+    var routeBest = Infinity;
+    for (var i = 1; i < knownRouteLinePoints.length; i++) {
+      var segDist = distanceToRouteSegmentMeters(point, knownRouteLinePoints[i - 1], knownRouteLinePoints[i]);
+      if (segDist < routeBest) routeBest = segDist;
+    }
+    if (routeBest < Infinity) return routeBest;
+  }
   var stops = STOPS_GO.concat(STOPS_BACK).map(normalizeMapPoint).filter(Boolean);
   var best = Infinity;
   stops.forEach(function(stop) {
@@ -1538,6 +1548,25 @@ function nearestRouteDistanceMeters(point) {
     if (d < best) best = d;
   });
   return best;
+}
+
+function distanceToRouteSegmentMeters(point, start, end) {
+  if (!point || !start || !end) return Infinity;
+  var lat = Number(point.lat), lon = Number(point.lon);
+  var lat1 = Number(start.lat), lon1 = Number(start.lon);
+  var lat2 = Number(end.lat), lon2 = Number(end.lon);
+  if (![lat,lon,lat1,lon1,lat2,lon2].every(Number.isFinite)) return Infinity;
+  var metersPerLat = 111320;
+  var metersPerLon = 111320 * Math.cos(lat * Math.PI / 180);
+  var px = lon * metersPerLon, py = lat * metersPerLat;
+  var ax = lon1 * metersPerLon, ay = lat1 * metersPerLat;
+  var bx = lon2 * metersPerLon, by = lat2 * metersPerLat;
+  var dx = bx - ax, dy = by - ay;
+  var len2 = dx * dx + dy * dy;
+  if (len2 <= 0) return Math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+  var t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  var projX = ax + t * dx, projY = ay + t * dy;
+  return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
 }
 
 function isVehiclePointOnKnownRoute(point) {
