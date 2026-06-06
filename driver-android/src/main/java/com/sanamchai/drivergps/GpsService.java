@@ -13,11 +13,13 @@ import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.util.Log;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -36,9 +38,25 @@ public class GpsService extends Service {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
     static final String ACTION_STOP  = "com.sanamchai.drivergps.STOP";
 
+    private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
     private static final String DB_URL              = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
-    private static final long   SEND_INTERVAL_MS    = 10000;
+    private static final String MODE_MOVING         = "moving";
+    private static final String MODE_SLOW           = "slow";
+    private static final String MODE_STOPPED        = "stopped";
+    private static final String MODE_LONG_STOPPED   = "long_stopped";
+    private static final long   MOVING_INTERVAL_MS  = 4000;
+    private static final long   SLOW_INTERVAL_MS    = 10000;
+    private static final long   SLOW_LOW_BATTERY_MS = 15000;
+    private static final long   STOPPED_INTERVAL_MS = 25000;
+    private static final long   STOPPED_LOW_BATT_MS = 30000;
+    private static final long   LONG_STOPPED_MS     = 60000;
+    private static final long   STOP_DETECT_MS      = 45000;
+    private static final long   LONG_STOP_DETECT_MS = 12 * 60 * 1000;
+    private static final float  MOVING_SPEED_KMH    = 10f;
+    private static final float  SLOW_SPEED_KMH      = 1f;
+    private static final float  STOP_RADIUS_METERS  = 20f;
+    private static final int    LOW_BATTERY_PERCENT = 20;
     private static final float  MAX_ACCURATE_METERS = 80f;
     private static boolean persistenceConfigured    = false;
 
@@ -51,9 +69,21 @@ public class GpsService extends Service {
     private boolean running        = false;
     private boolean reportingError = false;
     private long lastLocationSentAt = 0;
+    private long lastGpsUpdateAt    = 0;
+    private long stationarySinceAt  = 0;
+    private long currentGpsRequestMs = 0;
+    private long currentNetRequestMs = 0;
     private String gpsErrorMessage  = null;
+    private String trackingMode     = MODE_SLOW;
+    private int batteryLevel        = -1;
+    private boolean batteryLow      = false;
     private Map<String, Object> pendingData = null;
     private Location pendingLocation        = null;
+    private boolean pendingFullWrite        = false;
+    private Location lastFirebaseLocation   = null;
+    private Location lastModeLocation       = null;
+    private Location stationaryAnchor       = null;
+    private boolean forceNextLocationSend   = false;
     private String queueId = "car1";
 
     // ===== Wake Lock =====
@@ -101,7 +131,7 @@ public class GpsService extends Service {
         @Override public void run() {
             if (!running) return;
             sendHeartbeat();
-            handler.postDelayed(this, SEND_INTERVAL_MS);
+            scheduleNextHeartbeat();
         }
     };
 
@@ -111,6 +141,8 @@ public class GpsService extends Service {
             if (filtered == null) return;
             latestLocation = filtered;
             saveCoords(filtered);
+            updateTrackingMode(filtered);
+            lastGpsUpdateAt = System.currentTimeMillis();
             sendLocationUpdate(filtered);
         }
         @Override public void onProviderDisabled(String provider) {
@@ -178,10 +210,18 @@ public class GpsService extends Service {
         if (running) {
             setupDisconnectHandlers(); sendHeartbeat();
             handler.removeCallbacks(heartbeatTick);
-            handler.postDelayed(heartbeatTick, SEND_INTERVAL_MS);
+            scheduleNextHeartbeat();
             return;
         }
         running = true; gpsErrorMessage = null;
+        trackingMode = MODE_SLOW;
+        lastLocationSentAt = 0;
+        lastGpsUpdateAt = 0;
+        stationarySinceAt = 0;
+        lastFirebaseLocation = null;
+        lastModeLocation = null;
+        stationaryAnchor = null;
+        forceNextLocationSend = false;
         prefs.edit()
                 .putBoolean(MainActivity.KEY_ENABLED, true)
                 .putString(MainActivity.KEY_LAST_STATUS, "online / locating")
@@ -204,13 +244,10 @@ public class GpsService extends Service {
 
         setupDisconnectHandlers(); sendHeartbeat();
         handler.removeCallbacks(heartbeatTick);
-        handler.postDelayed(heartbeatTick, SEND_INTERVAL_MS);
+        scheduleNextHeartbeat();
 
         if (!hasLocationPermission()) { recordError("Location permission not granted"); return; }
-        try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,     SEND_INTERVAL_MS, 3f, listener);
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, SEND_INTERVAL_MS, 3f, listener);
-        } catch (SecurityException e) { recordError(e.getMessage()); }
+        configureLocationRequests(true);
     }
 
     private void stopTracking() {
@@ -220,6 +257,8 @@ public class GpsService extends Service {
                 .putString(MainActivity.KEY_LAST_STATUS, "stopped").apply();
         handler.removeCallbacks(heartbeatTick);
         try { locationManager.removeUpdates(listener); } catch (Exception ignored) {}
+        currentGpsRequestMs = 0;
+        currentNetRequestMs = 0;
         markOffline();
         releaseWakeLock();
         stopForeground(true);
@@ -232,25 +271,182 @@ public class GpsService extends Service {
                 || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    private void scheduleNextHeartbeat() {
+        handler.removeCallbacks(heartbeatTick);
+        if (!running) return;
+        handler.postDelayed(heartbeatTick, selectedFirebaseIntervalMs());
+    }
+
+    private long selectedFirebaseIntervalMs() {
+        refreshBatteryState(false);
+        if (MODE_MOVING.equals(trackingMode)) return batteryLow ? 5000 : MOVING_INTERVAL_MS;
+        if (MODE_SLOW.equals(trackingMode)) return batteryLow ? SLOW_LOW_BATTERY_MS : SLOW_INTERVAL_MS;
+        if (MODE_LONG_STOPPED.equals(trackingMode)) return LONG_STOPPED_MS;
+        return batteryLow ? STOPPED_LOW_BATT_MS : STOPPED_INTERVAL_MS;
+    }
+
+    private boolean isBatterySavingActive() {
+        return batteryLow || MODE_STOPPED.equals(trackingMode) || MODE_LONG_STOPPED.equals(trackingMode);
+    }
+
+    private void refreshBatteryState(boolean notifyDriver) {
+        Intent battery = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        if (battery == null) return;
+        int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+        if (level >= 0 && scale > 0) batteryLevel = Math.round(level * 100f / scale);
+        boolean wasLow = batteryLow;
+        batteryLow = batteryLevel >= 0 && batteryLevel < LOW_BATTERY_PERCENT;
+        if (notifyDriver && batteryLow && !wasLow) {
+            updateNotification("แบตต่ำ " + batteryLevel + "% - ยังส่งตำแหน่งต่อในโหมดประหยัด");
+        }
+    }
+
+    private void updateTrackingMode(Location loc) {
+        long now = System.currentTimeMillis();
+        float speedKmh = speedKmh(loc);
+        if (!loc.hasSpeed() && lastModeLocation != null) {
+            long dtMs = gpsTimeMs(loc) - gpsTimeMs(lastModeLocation);
+            if (dtMs <= 0) dtMs = now - lastGpsUpdateAt;
+            if (dtMs > 0) {
+                float dist = loc.distanceTo(lastModeLocation);
+                speedKmh = (dist / (dtMs / 1000f)) * 3.6f;
+            }
+        }
+
+        if (stationaryAnchor == null) stationaryAnchor = new Location(loc);
+        float anchorDistance = loc.distanceTo(stationaryAnchor);
+        String nextMode;
+        if (speedKmh > MOVING_SPEED_KMH) {
+            nextMode = MODE_MOVING;
+            stationarySinceAt = 0;
+            stationaryAnchor = new Location(loc);
+        } else if (speedKmh >= SLOW_SPEED_KMH) {
+            nextMode = MODE_SLOW;
+            stationarySinceAt = 0;
+            if (anchorDistance >= STOP_RADIUS_METERS) stationaryAnchor = new Location(loc);
+        } else if (anchorDistance >= STOP_RADIUS_METERS) {
+            nextMode = MODE_SLOW;
+            stationarySinceAt = 0;
+            stationaryAnchor = new Location(loc);
+        } else {
+            if (stationarySinceAt == 0) stationarySinceAt = now;
+            long stoppedMs = now - stationarySinceAt;
+            nextMode = stoppedMs >= LONG_STOP_DETECT_MS
+                    ? MODE_LONG_STOPPED
+                    : stoppedMs >= STOP_DETECT_MS ? MODE_STOPPED : MODE_SLOW;
+        }
+
+        lastModeLocation = new Location(loc);
+        applyTrackingMode(nextMode);
+    }
+
+    private void applyTrackingMode(String nextMode) {
+        if (nextMode == null || nextMode.equals(trackingMode)) {
+            configureLocationRequests(false);
+            return;
+        }
+        boolean wasStopped = MODE_STOPPED.equals(trackingMode) || MODE_LONG_STOPPED.equals(trackingMode);
+        trackingMode = nextMode;
+        if (wasStopped && (MODE_MOVING.equals(nextMode) || MODE_SLOW.equals(nextMode))) {
+            forceNextLocationSend = true;
+        }
+        configureLocationRequests(false);
+        logBatteryMode("mode_changed");
+    }
+
+    private void configureLocationRequests(boolean force) {
+        if (!running || !hasLocationPermission()) return;
+        refreshBatteryState(true);
+        long gpsMs;
+        long networkMs;
+        float minDistance;
+        if (MODE_MOVING.equals(trackingMode)) {
+            gpsMs = batteryLow ? 5000 : MOVING_INTERVAL_MS;
+            networkMs = SLOW_INTERVAL_MS;
+            minDistance = 3f;
+        } else if (MODE_SLOW.equals(trackingMode)) {
+            gpsMs = batteryLow ? SLOW_LOW_BATTERY_MS : SLOW_INTERVAL_MS;
+            networkMs = gpsMs;
+            minDistance = 5f;
+        } else if (MODE_LONG_STOPPED.equals(trackingMode)) {
+            gpsMs = 120000;
+            networkMs = LONG_STOPPED_MS;
+            minDistance = STOP_RADIUS_METERS;
+        } else {
+            gpsMs = 60000;
+            networkMs = batteryLow ? STOPPED_LOW_BATT_MS : STOPPED_INTERVAL_MS;
+            minDistance = 10f;
+        }
+        if (!force && gpsMs == currentGpsRequestMs && networkMs == currentNetRequestMs) return;
+        try {
+            locationManager.removeUpdates(listener);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, networkMs, minDistance, listener);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, gpsMs, minDistance, listener);
+            currentGpsRequestMs = gpsMs;
+            currentNetRequestMs = networkMs;
+            logBatteryMode("location_request");
+        } catch (SecurityException e) {
+            recordError(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            recordError("Location provider: " + e.getMessage());
+        }
+    }
+
+    private float speedKmh(Location loc) {
+        return loc != null && loc.hasSpeed() ? loc.getSpeed() * 3.6f : 0f;
+    }
+
+    private long gpsTimeMs(Location loc) {
+        if (loc == null) return 0;
+        return loc.getTime() > 0 ? loc.getTime() : System.currentTimeMillis();
+    }
+
+    private void logBatteryMode(String reason) {
+        Log.d(TAG, String.format(Locale.US,
+                "%s tracking mode=%s selectedIntervalMs=%d batterySavingActive=%s batteryLevel=%d lastFirebaseSendTime=%d lastGpsUpdateTime=%d",
+                reason, trackingMode, selectedFirebaseIntervalMs(), isBatterySavingActive(),
+                batteryLevel, lastLocationSentAt, lastGpsUpdateAt));
+    }
+
     private void sendHeartbeat() {
+        refreshBatteryState(true);
         if (gpsErrorMessage != null && latestLocation == null) {
-            writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null); return;
+            writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null, false); return;
         }
         if (latestLocation == null) {
             recordStatus("online / locating");
             updateNotification("รอสัญญาณ GPS... [" + queueId + "]");
-            writeData(buildStatusData(null, true, "locating", null), null); return;
+            writeData(buildStatusData(null, true, "locating", null), null, false); return;
         }
-        writeData(buildData(latestLocation, true), latestLocation);
+        updateTrackingMode(latestLocation);
+        if (MODE_STOPPED.equals(trackingMode) || MODE_LONG_STOPPED.equals(trackingMode)) {
+            writeData(buildHeartbeatData(trackingMode, latestLocation), null, false);
+        } else {
+            writeData(buildData(latestLocation, true), latestLocation, true);
+        }
     }
 
     private void sendLocationUpdate(Location loc) {
         if (!running || loc == null) return;
         gpsErrorMessage = null;
+        refreshBatteryState(true);
         long now = System.currentTimeMillis();
-        if (now - lastLocationSentAt < SEND_INTERVAL_MS) return;
-        lastLocationSentAt = now;
-        writeData(buildData(loc, true), loc);
+        if (!forceNextLocationSend && now - lastLocationSentAt < selectedFirebaseIntervalMs()) return;
+        forceNextLocationSend = false;
+
+        if (MODE_STOPPED.equals(trackingMode) || MODE_LONG_STOPPED.equals(trackingMode)) {
+            boolean movedEnough = lastFirebaseLocation == null
+                    || loc.distanceTo(lastFirebaseLocation) >= STOP_RADIUS_METERS;
+            if (movedEnough) {
+                writeData(buildData(loc, true), loc, true);
+            } else {
+                writeData(buildHeartbeatData(trackingMode, loc), null, false);
+            }
+            return;
+        }
+
+        writeData(buildData(loc, true), loc, true);
     }
 
     private void watchConnectionState() {
@@ -268,7 +464,7 @@ public class GpsService extends Service {
                 busRef.updateChildren(onlineNow);
                 liveVehicleRef.updateChildren(onlineNow);
                 setupDisconnectHandlers();
-                if (pendingData != null) writeData(pendingData, pendingLocation);
+                if (pendingData != null) writeData(pendingData, pendingLocation, pendingFullWrite);
                 else { lastLocationSentAt = 0; sendHeartbeat(); }
             }
             @Override public void onCancelled(DatabaseError error) {
@@ -278,36 +474,52 @@ public class GpsService extends Service {
     }
 
     private void writeData(Map<String, Object> data, Location loc) {
-        pendingData = new HashMap<>(data); pendingLocation = loc;
-        if (auth.getCurrentUser() != null) { writeAuthedData(data, loc); return; }
+        writeData(data, loc, loc != null);
+    }
+
+    private void writeData(Map<String, Object> data, Location loc, boolean fullLocationWrite) {
+        pendingData = new HashMap<>(data); pendingLocation = loc; pendingFullWrite = fullLocationWrite;
+        logBatteryMode(fullLocationWrite ? "firebase_location_send" : "firebase_heartbeat_send");
+        if (auth.getCurrentUser() != null) { writeAuthedData(data, loc, fullLocationWrite); return; }
         auth.signInAnonymously()
-                .addOnSuccessListener(r -> writeAuthedData(data, loc))
+                .addOnSuccessListener(r -> writeAuthedData(data, loc, fullLocationWrite))
                 .addOnFailureListener(e -> {
                     if ("gps_error".equals(String.valueOf(data.get("status")))) {
                         updateNotification("Firebase Auth: " + e.getMessage()); return;
                     }
-                    writeAuthedData(data, loc);
+                    writeAuthedData(data, loc, fullLocationWrite);
                     recordError("Firebase Auth: " + e.getMessage());
                 });
     }
 
-    private void writeAuthedData(Map<String, Object> data, Location loc) {
-        busRef.setValue(data, (err, ref) -> {
+    private void writeAuthedData(Map<String, Object> data, Location loc, boolean fullLocationWrite) {
+        DatabaseReference.CompletionListener completion = (err, ref) -> {
             if (err != null) {
                 if (!"gps_error".equals(String.valueOf(data.get("status"))))
                     recordError("Firebase " + err.getCode() + ": " + err.getMessage());
                 return;
             }
+            long now = System.currentTimeMillis();
+            lastLocationSentAt = now;
+            if (loc != null) lastFirebaseLocation = new Location(loc);
             prefs.edit()
-                    .putLong(MainActivity.KEY_LAST_SENT, System.currentTimeMillis())
-                    .putString(MainActivity.KEY_LAST_STATUS, loc == null ? String.valueOf(data.get("status")) : "sent")
+                    .putLong(MainActivity.KEY_LAST_SENT, now)
+                    .putString(MainActivity.KEY_LAST_STATUS, String.valueOf(data.get("status")))
                     .putString(MainActivity.KEY_LAST_ERROR, "").apply();
-            pendingData = null; pendingLocation = null;
+            pendingData = null; pendingLocation = null; pendingFullWrite = false;
             if (loc == null) updateNotification(String.valueOf(data.get("status")));
             else updateNotification(String.format(Locale.US, "[%s] %.5f, %.5f",
                     queueId, loc.getLatitude(), loc.getLongitude()));
+            logBatteryMode("firebase_send_success");
+        };
+        if (fullLocationWrite) busRef.setValue(data, completion);
+        else busRef.updateChildren(data, completion);
+        if (fullLocationWrite) liveVehicleRef.setValue(data, (err, ref) -> {
+            if (err != null)
+                prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
+                        "liveVehicles: " + err.getMessage()).apply();
         });
-        liveVehicleRef.setValue(data, (err, ref) -> {
+        else liveVehicleRef.updateChildren(data, (err, ref) -> {
             if (err != null)
                 prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
                         "liveVehicles: " + err.getMessage()).apply();
@@ -319,21 +531,29 @@ public class GpsService extends Service {
         Map<String, Object> d = new HashMap<>();
         d.put("online", false); d.put("status", "offline");
         d.put("appUpdatedAt", now); d.put("ts", now);
-        writeData(d, null);
+        d.put("sentTs", now);
+        writeData(d, null, false);
     }
 
     private void setupDisconnectHandlers() {
         long now = System.currentTimeMillis();
         Map<String, Object> d = new HashMap<>();
         d.put("online", false); d.put("status", "offline");
-        d.put("appUpdatedAt", now); d.put("ts", now);
+        d.put("appUpdatedAt", now); d.put("ts", now); d.put("sentTs", now);
         busRef.onDisconnect().updateChildren(d);
         try { liveVehicleRef.onDisconnect().updateChildren(d); } catch (Exception ignored) {}
     }
 
     private Map<String, Object> buildData(Location loc, boolean online) {
         boolean accurate = !loc.hasAccuracy() || loc.getAccuracy() <= MAX_ACCURATE_METERS;
-        return buildStatusData(loc, online, accurate ? "moving" : "low_accuracy", null);
+        return buildStatusData(loc, online, accurate ? trackingMode : "low_accuracy", null);
+    }
+
+    private Map<String, Object> buildHeartbeatData(String status, Location gpsLoc) {
+        Map<String, Object> data = buildStatusData(null, true, status, null);
+        if (gpsLoc != null) data.put("gpsTs", gpsTimeMs(gpsLoc));
+        data.put("heartbeatOnly", true);
+        return data;
     }
 
     private Map<String, Object> buildStatusData(Location loc, boolean online,
@@ -354,6 +574,7 @@ public class GpsService extends Service {
             data.put("accuracy",          loc.hasAccuracy() ? Math.round(loc.getAccuracy()) : 999);
             data.put("acc",               loc.hasAccuracy() ? Math.round(loc.getAccuracy()) : 999);
             data.put("locationUpdatedAt", now);
+            data.put("gpsTs",             gpsTimeMs(loc));
         }
         data.put("direction",    "go");
         data.put("queue",        1);
@@ -361,7 +582,12 @@ public class GpsService extends Service {
         data.put("status",       status);
         data.put("online",       online);
         data.put("source",       "gps-transit-apk");
+        data.put("trackingMode", trackingMode);
+        data.put("selectedIntervalMs", selectedFirebaseIntervalMs());
+        data.put("batterySavingActive", isBatterySavingActive());
+        data.put("batteryLevel", batteryLevel);
         data.put("appUpdatedAt", now);
+        data.put("sentTs",       now);
         data.put("ts",           now);
         if (errorMessage != null) data.put("errorMessage", errorMessage);
         return data;
