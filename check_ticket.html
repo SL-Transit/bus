@@ -286,22 +286,39 @@
       z-index: 3;
       width: min(92%, 560px);
       min-height: auto;
-      max-height: min(54%, 390px);
+      max-height: min(58%, 430px);
       overflow: auto;
       background: rgba(31, 41, 55, .96);
       color: #f8fafc;
       border: 1px solid rgba(255,255,255,.1);
       border-radius: 18px;
-      padding: 14px 16px 16px;
+      padding: 14px 16px calc(24px + env(safe-area-inset-bottom));
       box-shadow: 0 18px 44px rgba(15, 23, 42, .34);
       backdrop-filter: blur(10px);
       transition: transform .22s ease, max-height .22s ease;
     }
     .tracking-bottom-sheet.collapsed {
-      transform: translateX(-50%) translateY(calc(100% - 42px));
+      transform: translateX(-50%) translateY(calc(100% - 76px));
       overflow: hidden;
     }
     .tracking-bottom-sheet.collapsed .tracking-sheet-body { visibility: hidden; }
+    .tracking-sheet-peek {
+      display: none;
+      position: absolute;
+      inset: auto 14px calc(10px + env(safe-area-inset-bottom));
+      min-height: 54px;
+      border: 0;
+      border-radius: 16px;
+      padding: 9px 14px;
+      background: rgba(248,250,252,.96);
+      color: #1e3a8a;
+      box-shadow: 0 10px 22px rgba(15,23,42,.24);
+      text-align: left;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .tracking-sheet-peek small { display: block; color: #475569; font-size: 12px; font-weight: 700; margin-top: 2px; }
+    .tracking-bottom-sheet.collapsed .tracking-sheet-peek { display: block; }
     .tracking-sheet-handle {
       width: 100%;
       min-height: 18px;
@@ -326,7 +343,7 @@
     .tracking-title-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(255,255,255,.11); }
     .tracking-route { color: #cbd5e1; font-size: 15px; line-height: 1.5; }
     .tracking-summary { color: #f8fafc; font-size: 16px; font-weight: 800; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; }
-    .tracking-divider { height: 4px; border-radius: 999px; background: #22c55e; margin: 9px 0; }
+    .tracking-divider { height: 4px; border-radius: 999px; background: #2563eb; margin: 9px 0; }
     .tracking-person { display: none; }
     .tracking-person div { background: rgba(15,23,42,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; }
     .tracking-label { color: #94a3b8; font-size: 13px; font-weight: 700; }
@@ -337,11 +354,12 @@
     .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; max-height: 96px; opacity: 1; transform: translateX(0); overflow: hidden; transition: max-height .28s ease, opacity .22s ease, transform .28s ease, padding .28s ease; }
     .tracking-info-item.slide-out { max-height: 0; opacity: 0; transform: translateX(42px); padding-top: 0; padding-bottom: 0; pointer-events: none; }
     .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: #22c55e; border: 4px solid #334155; box-shadow: 0 0 0 1px rgba(255,255,255,.24); }
-    .tracking-dot.transfer { background: #fb7185; }
+    .tracking-dot.transfer { background: #facc15; }
+    .tracking-dot.transfer.near { background: #22c55e; }
     .tracking-dot.next { background: #60a5fa; }
     .tracking-info-copy { min-width: 0; }
     .tracking-actions { display: grid; gap: 8px; }
-    .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 56px; }
+    .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 58px; padding: 12px 18px; line-height: 1.25; white-space: normal; overflow: visible; }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van { background: #16a34a; color: #fff; }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
@@ -396,7 +414,7 @@
       .tracking-page { height: 100vh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
       .tracking-map { inset: 0; }
       .tracking-person { grid-template-columns: 1fr; }
-      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 50%; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
+      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 56%; padding: 12px 14px calc(28px + env(safe-area-inset-bottom)); }
       button, .btn { width: 100%; white-space: normal; }
       .tracking-cancel, .tracking-locate { width: auto; white-space: nowrap; }
     }
@@ -429,6 +447,10 @@
       <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
       <div id="trackingBottomSheet" class="tracking-bottom-sheet hidden">
         <button class="tracking-sheet-handle" type="button" onclick="toggleTrackingSheet()" aria-label="ย่อหรือขยายรายละเอียด"></button>
+        <button id="trackingSheetPeek" class="tracking-sheet-peek" type="button" onclick="setTrackingSheetCollapsed(false)">
+          <span id="trackingSheetPeekTitle">รายละเอียดการเดินทาง</span>
+          <small id="trackingSheetPeekSub">แตะเพื่อเปิดดู</small>
+        </button>
         <div class="tracking-sheet-body">
           <div class="tracking-sheet-head">
             <div>
@@ -1952,6 +1974,20 @@
       setTrackingSheetCollapsed(!sheet.classList.contains('collapsed'));
     }
 
+    function updateTrackingSheetPeek(title, sub) {
+      var titleEl = document.getElementById('trackingSheetPeekTitle');
+      var subEl = document.getElementById('trackingSheetPeekSub');
+      if (titleEl) titleEl.textContent = title || 'รายละเอียดการเดินทาง';
+      if (subEl) subEl.textContent = sub || 'แตะเพื่อเปิดดู';
+    }
+
+    function updateTransferDotState() {
+      var dot = document.querySelector('.tracking-dot.transfer');
+      if (!dot) return;
+      var nearTransfer = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
+      dot.classList.toggle('near', nearTransfer === true);
+    }
+
     function focusTrackingMap() {
       if (!trackingMap || !trackingMapReady) return;
       var target = currentBooking && connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
@@ -2116,6 +2152,7 @@
       var arrivalInfo = serviceArrivalInfo(currentBooking);
       var serviceEnded = isServiceEnded(currentBooking);
       var destEta = boarded ? calculateTransferOrDestinationEta() : null;
+      updateTransferDotState();
       show('trackingPickupItem', true);
       document.getElementById('trackingPickupItem').classList.toggle('slide-out', boarded && !serviceEnded);
       if (serviceEnded) {
@@ -2125,6 +2162,7 @@
         document.getElementById('trackingDestinationName').textContent = '';
         document.getElementById('trackingNextStep').textContent = '';
         document.getElementById('trackingPlatform').textContent = '';
+        updateTrackingSheetPeek('ขอบคุณที่ใช้บริการ', 'การเดินทางรายการนี้สิ้นสุดแล้ว');
         show('trackingCheckinButton', false);
         return;
       } else if (arrivalInfo) {
@@ -2151,17 +2189,20 @@
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : '';
         document.getElementById('trackingNextStep').textContent = routeInfo.type === 'secondary_connection' ? 'ต่อรถไป' + finalDestination + ' ได้ตามรอบหน้างาน' : 'เดินทางถึงปลายทางแล้ว';
         document.getElementById('trackingPlatform').textContent = 'ระบบจะจบการแสดงผลหลังผ่านไป 6 ชั่วโมง';
+        updateTrackingSheetPeek(arrivalInfo.label, routeInfo.type === 'secondary_connection' ? 'ยังดูข้อมูลต่อรถได้' : 'ยังดูข้อมูลตั๋วได้');
       } else if (!boarded) {
         document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
         document.getElementById('trackingNextStep').textContent = 'รอรถที่ป้ายต้นทาง';
         document.getElementById('trackingPlatform').textContent = routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
+        updateTrackingSheetPeek('รอรถที่ป้ายต้นทาง', originName + ' → ' + finalDestination);
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);
         document.getElementById('trackingDestinationName').textContent = journeyTargetName + (trackingJourneyEta && Date.now() - Number(trackingJourneyEta.ts || 0) <= 30000 ? ' · ระยะทางถนนจริง' : ' · ประเมินจากตำแหน่งล่าสุด');
         document.getElementById('trackingNextStep').textContent = renderNextStepText();
         document.getElementById('trackingPlatform').textContent = renderPlatformText(routeInfo, legs);
+        updateTrackingSheetPeek(journeyTargetName, destEta === null ? 'กำลังรอตำแหน่งล่าสุด' : 'ประมาณ ' + formatEtaDuration(destEta));
       }
     }
 
@@ -2478,6 +2519,7 @@
         var remain = Math.max(0, 60 * 60 * 1000 - (Date.now() - enterFiveKmAt));
         setStatus('checkinWindow', remain ? 'warn' : 'bad', 'เข้าสู่รัศมี ' + CHECKIN_RADIUS_KM + ' กม. แล้ว เหลือเวลาเช็คอิน ' + formatDuration(remain));
       }
+      updateTransferDotState();
       updateActionAvailability();
     }
 
