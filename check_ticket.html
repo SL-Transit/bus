@@ -1830,14 +1830,23 @@
     function calculateVehicleEtaToPickup(vehicleLocation, pickupLocation) {
       if (!normalizeTrackingPoint(vehicleLocation) || !pickupLocation) return null;
       var speed = Number(vehicleLocation.speed || vehicleLocation.speedKmh || 0);
+      if (!isFinite(speed) || speed < 2) {
+        return {
+          etaMinutes: null,
+          arrivalTimeText: '',
+          displayText: 'รถจอดอยู่ ยังประเมินเวลาไม่ได้',
+          status: 'stopped'
+        };
+      }
       var km = distanceKm(vehicleLocation.lat, vehicleLocation.lng, pickupLocation.lat, pickupLocation.lng) * ROAD_DISTANCE_FACTOR;
-      var etaMinutes = Math.max(1, Math.round((km / Math.max(speed, 24)) * 60));
+      var etaMinutes = Math.max(1, Math.round((km / speed) * 60));
       var arrival = new Date(Date.now() + etaMinutes * 60000);
       var arrivalTimeText = String(arrival.getHours()).padStart(2, '0') + ':' + String(arrival.getMinutes()).padStart(2, '0') + ' น.';
       return {
         etaMinutes: etaMinutes,
         arrivalTimeText: arrivalTimeText,
-        displayText: 'ประมาณ ' + formatEtaDuration(etaMinutes)
+        displayText: 'ประมาณ ' + formatEtaDuration(etaMinutes),
+        status: 'moving'
       };
     }
 
@@ -1884,6 +1893,9 @@
       } else if (pickupEtaInfo === null) {
         document.getElementById('trackingPickupEta').textContent = 'ยังไม่ถึง';
         document.getElementById('trackingPickupRoute').textContent = 'กำลังรอตำแหน่งรถเที่ยวที่จอง · ป้าย' + originName;
+      } else if (pickupEtaInfo.status === 'stopped') {
+        document.getElementById('trackingPickupEta').textContent = pickupEtaInfo.displayText;
+        document.getElementById('trackingPickupRoute').textContent = 'ยังไม่ถึง · ป้าย' + originName;
       } else {
         document.getElementById('trackingPickupEta').textContent = 'รถมาจะถึง' + pickupEtaInfo.displayText;
         document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName + ' · คาดว่าจะถึงเวลา ' + pickupEtaInfo.arrivalTimeText;
