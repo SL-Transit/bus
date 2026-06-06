@@ -9,10 +9,13 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
@@ -42,6 +45,7 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_COORDS = "last_coords";
     static final String KEY_LAST_ERROR = "last_error";
     static final String KEY_VEHICLE_ID = "vehicle_id";
+    static final String KEY_BATTERY_PROMPTED = "battery_prompted";
 
     private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
 
@@ -424,6 +428,7 @@ public class MainActivity extends Activity {
         intent.setAction(GpsService.ACTION_START);
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
         else startService(intent);
+        requestBatteryUnrestrictedIfNeeded();
         refreshUi();
     }
 
@@ -433,6 +438,24 @@ public class MainActivity extends Activity {
         startService(intent);
         prefs.edit().putBoolean(KEY_ENABLED, false).apply();
         refreshUi();
+    }
+
+    private void requestBatteryUnrestrictedIfNeeded() {
+        if (Build.VERSION.SDK_INT < 23) return;
+        if (prefs.getBoolean(KEY_BATTERY_PROMPTED, false)) return;
+        try {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null && pm.isIgnoringBatteryOptimizations(getPackageName())) return;
+            prefs.edit().putBoolean(KEY_BATTERY_PROMPTED, true).apply();
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception e) {
+            try {
+                Intent settings = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                startActivity(settings);
+            } catch (Exception ignored) {}
+        }
     }
 
     private void refreshUi() {

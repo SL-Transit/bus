@@ -265,6 +265,16 @@ public class GpsService extends Service {
         stopSelf();
     }
 
+    @Override public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        if (prefs != null && prefs.getBoolean(MainActivity.KEY_ENABLED, false)) {
+            Intent restart = new Intent(getApplicationContext(), GpsService.class);
+            restart.setAction(ACTION_START);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(restart);
+            else startService(restart);
+        }
+    }
+
     private boolean hasLocationPermission() {
         if (Build.VERSION.SDK_INT < 23) return true;
         return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)   == PackageManager.PERMISSION_GRANTED
@@ -649,8 +659,13 @@ public class GpsService extends Service {
         b.setContentTitle("GPS Transit [" + queueId + "]")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true);
+        if (Build.VERSION.SDK_INT < 26) b.setPriority(Notification.PRIORITY_LOW);
+        if (Build.VERSION.SDK_INT >= 31) {
+            b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        }
         if (pi != null) b.setContentIntent(pi);
         return b.build();
     }
