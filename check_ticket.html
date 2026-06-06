@@ -334,7 +334,8 @@
     .tracking-subvalue { color: #cbd5e1; font-size: 14px; font-weight: 600; line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
     .tracking-info { position: relative; display: grid; gap: 7px; margin-bottom: 10px; padding-left: 8px; }
     .tracking-info::before { content: ""; position: absolute; left: 16px; top: 19px; bottom: 19px; width: 2px; background: rgba(226,232,240,.38); }
-    .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; }
+    .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; max-height: 96px; opacity: 1; transform: translateX(0); overflow: hidden; transition: max-height .28s ease, opacity .22s ease, transform .28s ease, padding .28s ease; }
+    .tracking-info-item.slide-out { max-height: 0; opacity: 0; transform: translateX(42px); padding-top: 0; padding-bottom: 0; pointer-events: none; }
     .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: #22c55e; border: 4px solid #334155; box-shadow: 0 0 0 1px rgba(255,255,255,.24); }
     .tracking-dot.transfer { background: #fb7185; }
     .tracking-dot.next { background: #60a5fa; }
@@ -733,6 +734,8 @@
     var trackingRouteStopMarkers = [];
     var trackingRouteSourceReady = false;
     var trackingRouteRequestSeq = 0;
+    var trackingJourneyEtaRequestSeq = 0;
+    var trackingJourneyEta = null;
     var passengerAutoFocused = false;
     var trackingUserInteracted = false;
     var trackingBusRef = null;
@@ -1372,6 +1375,7 @@
       trackingVehicleId = '';
       trackingCurrentTrip = null;
       vanLocation = null;
+      trackingJourneyEta = null;
       if (trackingVanAnimFrame) cancelAnimationFrame(trackingVanAnimFrame);
       if (trackingPassengerAnimFrame) cancelAnimationFrame(trackingPassengerAnimFrame);
       trackingVanAnimFrame = null;
@@ -1424,6 +1428,7 @@
         trackingVanMarker = null;
         trackingVanMarkerPos = null;
       }
+      refreshJourneyRoadEta();
       renderPassengerTrackingCard();
     }
 
@@ -1710,17 +1715,31 @@
       return distanceKm(a.lat, a.lng, b.lat, b.lng) * 1000;
     }
 
+    function markerAnimState(name, value) {
+      if (value !== undefined) {
+        if (name === 'vanPos') trackingVanMarkerPos = value;
+        if (name === 'passengerPos') trackingPassengerMarkerPos = value;
+        if (name === 'vanFrame') trackingVanAnimFrame = value;
+        if (name === 'passengerFrame') trackingPassengerAnimFrame = value;
+      }
+      if (name === 'vanPos') return trackingVanMarkerPos;
+      if (name === 'passengerPos') return trackingPassengerMarkerPos;
+      if (name === 'vanFrame') return trackingVanAnimFrame;
+      if (name === 'passengerFrame') return trackingPassengerAnimFrame;
+      return null;
+    }
+
     function animateTrackingMarker(marker, stateName, frameName, toPos, options) {
       toPos = normalizeTrackingPoint(toPos);
       if (!marker || !toPos) return;
       options = options || {};
-      var fromPos = window[stateName] || toPos;
+      var fromPos = markerAnimState(stateName) || toPos;
       var dist = trackingPointMeters(fromPos, toPos);
-      if (window[frameName]) cancelAnimationFrame(window[frameName]);
+      if (markerAnimState(frameName)) cancelAnimationFrame(markerAnimState(frameName));
       if (dist < (options.minMeters || 5) || dist > (options.maxMeters || 600)) {
         marker.setLngLat([toPos.lng, toPos.lat]);
-        window[stateName] = toPos;
-        window[frameName] = null;
+        markerAnimState(stateName, toPos);
+        markerAnimState(frameName, null);
         return;
       }
       var duration = Math.min(options.maxDuration || 1200, Math.max(options.minDuration || 350, dist * (options.msPerMeter || 14)));
@@ -1734,16 +1753,16 @@
           lng: trackingLerp(fromPos.lng, toPos.lng, eased)
         };
         marker.setLngLat([current.lng, current.lat]);
-        window[stateName] = current;
+        markerAnimState(stateName, current);
         if (t < 1) {
-          window[frameName] = requestAnimationFrame(step);
+          markerAnimState(frameName, requestAnimationFrame(step));
         } else {
-          window[stateName] = toPos;
-          window[frameName] = null;
+          markerAnimState(stateName, toPos);
+          markerAnimState(frameName, null);
           marker.setLngLat([toPos.lng, toPos.lat]);
         }
       }
-      window[frameName] = requestAnimationFrame(step);
+      markerAnimState(frameName, requestAnimationFrame(step));
     }
 
     function renderPickupMarker() {
@@ -1779,7 +1798,7 @@
         trackingVanMarkerPos = location;
         return;
       }
-      animateTrackingMarker(trackingVanMarker, 'trackingVanMarkerPos', 'trackingVanAnimFrame', location, {
+      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, {
         minMeters: 5,
         maxMeters: 600,
         minDuration: 350,
@@ -1812,8 +1831,9 @@
 
     function updateTrackingRoadRoute(coords) {
       var seq = ++trackingRouteRequestSeq;
-      requestMapboxRouteGeometry(coords).then(function(routeCoords) {
+      requestMapboxRouteGeometry(coords).then(function(routeData) {
         if (seq !== trackingRouteRequestSeq) return;
+        var routeCoords = routeData && routeData.coordinates;
         setTrackingRouteGeometry(routeCoords && routeCoords.length >= 2 ? routeCoords : coords);
       }).catch(function() {
         if (seq !== trackingRouteRequestSeq) return;
@@ -1833,7 +1853,12 @@
       }).then(function(data) {
         var route = data && data.routes && data.routes[0];
         if (!route || !route.geometry || !route.geometry.coordinates) throw new Error('route not found');
-        return route.geometry.coordinates;
+        return {
+          coordinates: route.geometry.coordinates,
+          durationMinutes: route.duration ? Math.max(1, Math.round(route.duration / 60)) : null,
+          distanceKm: route.distance ? route.distance / 1000 : null,
+          source: 'mapbox_road'
+        };
       });
     }
 
@@ -1844,6 +1869,26 @@
         geometry: { type: 'LineString', coordinates: coords },
         properties: {}
       } : { type: 'FeatureCollection', features: [] });
+    }
+
+    function refreshJourneyRoadEta() {
+      if (!isOriginBoarded()) return;
+      if (trackingJourneyEta && Date.now() - Number(trackingJourneyEta.ts || 0) < 10000) return;
+      var source = journeyEtaSource();
+      var target = activeJourneyTarget();
+      if (!normalizeTrackingPoint(source) || !isValidMapPoint(target)) return;
+      var seq = ++trackingJourneyEtaRequestSeq;
+      var coords = [[source.lng, source.lat], [target.lng, target.lat]];
+      requestMapboxRouteGeometry(coords).then(function(routeData) {
+        if (seq !== trackingJourneyEtaRequestSeq || !routeData || routeData.durationMinutes === null) return;
+        trackingJourneyEta = {
+          etaMinutes: routeData.durationMinutes,
+          distanceKm: routeData.distanceKm,
+          source: routeData.source,
+          ts: Date.now()
+        };
+        renderPassengerTrackingCard();
+      }).catch(function(){});
     }
 
     function focusPassengerLocation(position, force) {
@@ -1865,7 +1910,7 @@
           .addTo(trackingMap);
         trackingPassengerMarkerPos = position;
       } else {
-        animateTrackingMarker(trackingPassengerMarker, 'trackingPassengerMarkerPos', 'trackingPassengerAnimFrame', position, {
+        animateTrackingMarker(trackingPassengerMarker, 'passengerPos', 'passengerFrame', position, {
           minMeters: 3,
           maxMeters: 600,
           minDuration: 500,
@@ -2023,6 +2068,9 @@
     function calculateTransferOrDestinationEta() {
       var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
       var source = shouldUsePassengerForJourneyEta() ? lastPosition : vanLocation;
+      if (trackingJourneyEta && Date.now() - Number(trackingJourneyEta.ts || 0) <= 30000) {
+        return trackingJourneyEta.etaMinutes;
+      }
       if (!normalizeTrackingPoint(source) || !target) return scheduledJourneyEtaMinutes();
       var speed = Number(source.speed || (vanLocation && vanLocation.speed) || 0);
       var km = distanceKm(source.lat, source.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
@@ -2069,6 +2117,7 @@
       var serviceEnded = isServiceEnded(currentBooking);
       var destEta = boarded ? calculateTransferOrDestinationEta() : null;
       show('trackingPickupItem', true);
+      document.getElementById('trackingPickupItem').classList.toggle('slide-out', boarded && !serviceEnded);
       if (serviceEnded) {
         document.getElementById('trackingPickupEta').textContent = 'ขอบคุณที่ใช้บริการ';
         document.getElementById('trackingPickupRoute').textContent = 'การเดินทางรายการนี้สิ้นสุดแล้ว';
@@ -2110,7 +2159,7 @@
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);
-        document.getElementById('trackingDestinationName').textContent = journeyTargetName;
+        document.getElementById('trackingDestinationName').textContent = journeyTargetName + (trackingJourneyEta && Date.now() - Number(trackingJourneyEta.ts || 0) <= 30000 ? ' · ระยะทางถนนจริง' : ' · ประเมินจากตำแหน่งล่าสุด');
         document.getElementById('trackingNextStep').textContent = renderNextStepText();
         document.getElementById('trackingPlatform').textContent = renderPlatformText(routeInfo, legs);
       }
@@ -2257,6 +2306,7 @@
       focusPassengerLocation(next, false);
       if (!currentBooking) return;
       if (currentBooking) renderPassengerTrackingCard();
+      refreshJourneyRoadEta();
       currentDistanceKm = getCheckinDistanceKm(next);
       currentSpeedKmh = pos.coords.speed === null || pos.coords.speed < 0 ? estimateSpeedKmh(previous, next) : pos.coords.speed * 3.6;
       updateStationaryTracking(next);
