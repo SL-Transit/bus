@@ -674,6 +674,8 @@
     var MAX_SEATS = 3;
     var CHECKIN_RADIUS_KM = 2.5;
     var CHECKIN_ETA_MINUTES = 5;
+    var TRANSFER_TRIP_BUFFER_MINUTES = 5;
+    var SERVICE_END_AFTER_MS = 6 * 60 * 60 * 1000;
     var FLEX_STATIONARY_RADIUS_KM = 1;
     var FLEX_STATIONARY_MIN_MS = 40 * 60 * 1000;
     var CHECKIN_LINE_GROUP_ID = 'C82be942d9b9050132509cf0fa4ea66f9';
@@ -1232,6 +1234,9 @@
         changed: 'เปลี่ยนเวลาแล้ว',
         cancelled: 'ยกเลิกแล้ว',
         checked_in: 'เช็คอินแล้ว',
+        transfer_nearby_notified: 'แจ้งใกล้ถึงแปดริ้วแล้ว',
+        arrived_transfer_point: 'ถึงจุดต่อรถแล้ว',
+        arrived_destination: 'ถึงปลายทางแล้ว',
         pending_admin_approval: 'รอแอดมินอนุมัติ',
         waiting_admin_approval: 'รอแอดมินอนุมัติ'
       };
@@ -1275,8 +1280,16 @@
       renderTransferMarker();
       renderRouteStopMarkers();
       renderPassengerTrackingCard();
-      subscribeVanLocationForTicket();
       renderCheckinButtonState();
+      if (isServiceEnded(currentBooking)) {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        stopTrackingSubscription();
+        return;
+      }
+      subscribeVanLocationForTicket();
       autoStartPassengerGps();
       setTimeout(function() {
         if (trackingMap) trackingMap.resize();
@@ -1854,20 +1867,103 @@
       return !!(originAutoCheckinDone || (currentBooking && currentBooking.originCheckin && currentBooking.originCheckin.status === 'boarded'));
     }
 
+    function serviceArrivalInfo(booking) {
+      if (!booking) return null;
+      if (booking.arrivedTransferPoint && booking.arrivedTransferPoint.ts) {
+        return { type: 'transfer', ts: Number(booking.arrivedTransferPoint.ts), label: 'ถึงจุดต่อรถแปดริ้วแล้ว' };
+      }
+      if (booking.arrivedDestination && booking.arrivedDestination.ts) {
+        return { type: 'destination', ts: Number(booking.arrivedDestination.ts), label: 'ถึงปลายทางแล้ว' };
+      }
+      return null;
+    }
+
+    function isServiceEnded(booking) {
+      var info = serviceArrivalInfo(booking);
+      return !!(info && info.ts && Date.now() - info.ts >= SERVICE_END_AFTER_MS);
+    }
+
+    function activeJourneyTarget() {
+      if (!currentBooking) return null;
+      return connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
+    }
+
+    function journeyEtaSource() {
+      if (shouldUsePassengerForJourneyEta()) return lastPosition;
+      return normalizeTrackingPoint(vanLocation) ? vanLocation : lastPosition;
+    }
+
+    function expectedTransferTripText(etaMinutes) {
+      if (!currentBooking || connectionRouteInfo(currentBooking.route).type !== 'secondary_connection') return '';
+      var arrival = etaMinutes === null || etaMinutes === undefined ? null : new Date(Date.now() + etaMinutes * 60000);
+      var arrivalTime = arrival ? String(arrival.getHours()).padStart(2, '0') + ':' + String(arrival.getMinutes()).padStart(2, '0') : (currentBooking.leg2Time || currentBooking.transferTime || currentBooking.connectionTime || '');
+      var min = toMin(arrivalTime || currentBooking.time || '00:00') + TRANSFER_TRIP_BUFFER_MINUTES;
+      var times = getLeg2TimesForBooking(currentBooking);
+      var next = times.find(function(t) { return toMin(t) >= min; }) || '';
+      return next ? 'รอบที่คาดว่าจะทัน ' + next + ' น.' : 'ยังไม่พบรอบต่อรถที่คาดว่าจะทัน';
+    }
+
+    function maybeMarkServiceArrival() {
+      if (!currentBooking || !isOriginBoarded() || serviceArrivalInfo(currentBooking)) return;
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      var target = activeJourneyTarget();
+      var source = journeyEtaSource();
+      if (!target || !normalizeTrackingPoint(source)) return;
+      var eta = calculateTransferOrDestinationEta();
+      var near = distanceKm(source.lat, source.lng, target.lat, target.lng) <= 0.35;
+      if (!near && !(eta !== null && eta <= 1)) return;
+      var now = Date.now();
+      var update = routeInfo.type === 'secondary_connection' ? {
+        status: 'arrived_transfer_point',
+        arrivedTransferPoint: {
+          status: 'arrived_transfer_point',
+          ts: now,
+          vehicleId: trackingVehicleId || '',
+          etaMinutes: eta
+        }
+      } : {
+        status: 'arrived_destination',
+        arrivedDestination: {
+          status: 'arrived_destination',
+          ts: now,
+          vehicleId: trackingVehicleId || '',
+          etaMinutes: eta
+        }
+      };
+      currentBooking = Object.assign({}, currentBooking, update);
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code).update(update).catch(function(){});
+    }
+
     function calculateTransferOrDestinationEta() {
       var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
       var source = shouldUsePassengerForJourneyEta() ? lastPosition : vanLocation;
-      if (!normalizeTrackingPoint(source) || !target) return null;
+      if (!normalizeTrackingPoint(source) || !target) return scheduledJourneyEtaMinutes();
       var speed = Number(source.speed || (vanLocation && vanLocation.speed) || 0);
       var km = distanceKm(source.lat, source.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
       return Math.max(1, Math.round((km / Math.max(speed, 28)) * 60));
     }
 
+    function scheduledJourneyEtaMinutes() {
+      if (!currentBooking || !currentBooking.time) return null;
+      var legs = getLegSchedule(currentBooking);
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      var origin = getRouteOrigin(currentBooking, legs);
+      var buffer = routeInfo.type === 'secondary_connection' ? getTransferBufferMinutes(origin) : null;
+      if (buffer === null) return null;
+      var arrival = new Date();
+      var parts = addMinutesToTime(currentBooking.time, buffer).split(':');
+      arrival.setHours(Number(parts[0] || 0), Number(parts[1] || 0), 0, 0);
+      return Math.max(0, Math.round((arrival.getTime() - Date.now()) / 60000));
+    }
+
     function shouldUsePassengerForJourneyEta() {
       if (!lastPosition || !pickupStopLocation || !currentBooking) return false;
-      var dep = departureDate();
-      var movedKm = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng);
-      return !!(originAutoCheckinDone && dep && Date.now() >= dep.getTime() && movedKm > 2);
+      var age = lastPosition.ts ? Date.now() - Number(lastPosition.ts) : 0;
+      return !!(isOriginBoarded() && age <= 2 * 60 * 1000);
     }
 
     function renderPassengerTrackingCard() {
@@ -1876,6 +1972,7 @@
       var routeInfo = connectionRouteInfo(currentBooking.route);
       var originName = pickupStopLocation ? pickupStopLocation.name : getRouteOrigin(currentBooking, legs);
       var finalDestination = routeInfo.destination || currentBooking.destination || currentBooking.to || '-';
+      var journeyTargetName = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถแปดริ้ว' : 'ปลายทาง ' + finalDestination;
       document.getElementById('trackingCode').textContent = currentBooking.code || '-';
       document.getElementById('trackingName').textContent = displayPassengerName(currentBooking.name);
       document.getElementById('trackingPhone').textContent = currentBooking.phone || '-';
@@ -1884,10 +1981,28 @@
         displayPassengerName(currentBooking.name) + ' เบอร์ ' + (currentBooking.phone || '-') + ' ' + originName + ' → ' + finalDestination;
       var pickupEtaInfo = calculateVehicleEtaToPickup(vanLocation, pickupStopLocation);
       updateOriginArrivalState();
+      maybeMarkServiceArrival();
       var boarded = isOriginBoarded();
+      var arrivalInfo = serviceArrivalInfo(currentBooking);
+      var serviceEnded = isServiceEnded(currentBooking);
       var destEta = boarded ? calculateTransferOrDestinationEta() : null;
       show('trackingPickupItem', true);
-      if (boarded || isVanAtOrPastPickup()) {
+      if (serviceEnded) {
+        document.getElementById('trackingPickupEta').textContent = 'ขอบคุณที่ใช้บริการ';
+        document.getElementById('trackingPickupRoute').textContent = 'การเดินทางรายการนี้สิ้นสุดแล้ว';
+        document.getElementById('trackingDestinationEta').textContent = '-';
+        document.getElementById('trackingDestinationName').textContent = '';
+        document.getElementById('trackingNextStep').textContent = '';
+        document.getElementById('trackingPlatform').textContent = '';
+        show('trackingCheckinButton', false);
+        return;
+      } else if (arrivalInfo) {
+        document.getElementById('trackingPickupEta').textContent = arrivalInfo.label;
+        document.getElementById('trackingPickupRoute').textContent = 'ยังดูข้อมูลตั๋วและข้อมูลต่อรถได้';
+      } else if (boarded) {
+        document.getElementById('trackingPickupEta').textContent = routeInfo.type === 'secondary_connection' ? 'กำลังเดินทางไปจุดต่อรถแปดริ้ว' : 'กำลังเดินทางไปปลายทาง';
+        document.getElementById('trackingPickupRoute').textContent = journeyTargetName;
+      } else if (isVanAtOrPastPickup()) {
         document.getElementById('trackingPickupEta').textContent = 'ถึงแล้ว';
         document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName;
       } else if (pickupEtaInfo === null) {
@@ -1900,7 +2015,12 @@
         document.getElementById('trackingPickupEta').textContent = 'รถมาจะถึง' + pickupEtaInfo.displayText;
         document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName + ' · คาดว่าจะถึงเวลา ' + pickupEtaInfo.arrivalTimeText;
       }
-      if (!boarded) {
+      if (arrivalInfo) {
+        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
+        document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : '';
+        document.getElementById('trackingNextStep').textContent = routeInfo.type === 'secondary_connection' ? 'ต่อรถไป' + finalDestination + ' ได้ตามรอบหน้างาน' : 'เดินทางถึงปลายทางแล้ว';
+        document.getElementById('trackingPlatform').textContent = 'ระบบจะจบการแสดงผลหลังผ่านไป 6 ชั่วโมง';
+      } else if (!boarded) {
         document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
         document.getElementById('trackingNextStep').textContent = 'รอรถที่ป้ายต้นทาง';
@@ -1908,7 +2028,7 @@
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);
-        document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถแปดริ้ว' : 'ปลายทาง ' + finalDestination;
+        document.getElementById('trackingDestinationName').textContent = journeyTargetName;
         document.getElementById('trackingNextStep').textContent = renderNextStepText();
         document.getElementById('trackingPlatform').textContent = renderPlatformText(routeInfo, legs);
       }
@@ -1961,6 +2081,9 @@
         origin: pickupStopLocation.name,
         lat: lastPosition.lat,
         lng: lastPosition.lng,
+        vehicleId: trackingVehicleId || '',
+        queueNo: trackingCurrentTrip ? trackingCurrentTrip.queueNo : '',
+        tripIndex: trackingCurrentTrip ? trackingCurrentTrip.tripIndex : '',
         ts: firebase.database.ServerValue.TIMESTAMP
       }).catch(function(){});
     }
@@ -1989,7 +2112,7 @@
       if (!vanLocation) return 'กำลังรอตำแหน่งรถจากคนขับ';
       if (age !== null && age > 2 * 60 * 1000) return 'ตำแหน่งรถอาจไม่เป็นปัจจุบัน · อัปเดตล่าสุด ' + formatAgo(age);
       if (routeInfo.type === 'secondary_connection') {
-        return 'เมื่อถึงแปดริ้ว ให้ต่อรถเที่ยว ' + formatTimeText(legs.leg2Time) + ' ไป' + routeInfo.destination;
+        return 'เมื่อถึงแปดริ้ว ให้ต่อรถไป' + routeInfo.destination;
       }
       return 'อัปเดตตำแหน่งล่าสุด ' + formatAgo(age || 0);
     }
@@ -2005,7 +2128,7 @@
     function renderPlatformText(routeInfo, legs) {
       if (routeInfo.type !== 'secondary_connection') return 'ไม่ต้องต่อรถ · ติดตามตำแหน่งรถจนถึงปลายทาง';
       var platform = platformForDestination(routeInfo.destination);
-      return 'ชานชาลา ' + platform + ' · รอบต่อรถ ' + formatTimeText(legs.leg2Time);
+      return 'ชานชาลา ' + platform + ' · ' + (expectedTransferTripText(calculateTransferOrDestinationEta()) || ('รอบที่คาดว่าจะทัน ' + formatTimeText(legs.leg2Time)));
     }
 
     function platformForDestination(destination) {
@@ -2022,7 +2145,8 @@
       var target = document.getElementById('trackingCheckinButton');
       if (!source || !target) return;
       var routeInfo = currentBooking ? connectionRouteInfo(currentBooking.route) : { type: 'main_route' };
-      show('trackingCheckinButton', routeInfo.type === 'secondary_connection' || canAdminBypassCheckin());
+      var showManualCheckin = !isServiceEnded(currentBooking) && !serviceArrivalInfo(currentBooking) && (routeInfo.type === 'secondary_connection' || canAdminBypassCheckin());
+      show('trackingCheckinButton', showManualCheckin);
       target.disabled = source.disabled;
       target.textContent = source.textContent;
     }
@@ -2227,20 +2351,28 @@
 
     function updateActionAvailability() {
       var adminBypass = canAdminBypassCheckin();
+      var routeInfo = currentBooking ? connectionRouteInfo(currentBooking.route) : { type: 'main_route' };
+      var serviceEnded = isServiceEnded(currentBooking);
       var disabledByStatus = currentBooking && (
         currentBooking.status === 'cancelled' ||
-        (currentBooking.status === 'checked_in' && !adminBypass) ||
+        ((currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) ||
+        currentBooking.status === 'arrived_transfer_point' ||
+        currentBooking.status === 'arrived_destination' ||
         currentBooking.status === 'waiting_admin_approval' ||
         currentBooking.status === 'pending_admin_approval'
       );
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var canCheck = (adminBypass || (nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000))) && !disabledByStatus && !checkinSubmitLock;
+      var canManualCheckin = routeInfo.type === 'secondary_connection' && nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000);
+      var canCheck = (adminBypass || canManualCheckin) && !disabledByStatus && !checkinSubmitLock && !serviceEnded;
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
-      if (currentBooking && currentBooking.status === 'checked_in' && !adminBypass) btn.textContent = 'เช็คอินแล้ว';
+      if (routeInfo.type !== 'secondary_connection' && !adminBypass) {
+        btn.textContent = 'ไม่ต้องเช็คอินจุดต่อรถ';
+      } else if (currentBooking && (currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) btn.textContent = 'แจ้งใกล้ถึงแปดริ้วแล้ว';
       else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
       else if (adminBypass) btn.textContent = 'แอดมินทดสอบเช็คอิน';
-      else btn.textContent = 'เช็คอินถึงจุดต่อรถ';
+      else if (!nearTransferPoint) btn.textContent = 'ใช้ได้เมื่อใกล้ถึงแปดริ้ว';
+      else btn.textContent = 'แจ้งใกล้ถึงแปดริ้ว';
       renderCheckinButtonState();
       updateFlexiblePanel();
     }
@@ -2254,7 +2386,7 @@
       var routeInfo = connectionRouteInfo(currentBooking.route);
       var status = currentBooking.status || 'confirmed';
       var waitingApproval = status === 'waiting_admin_approval' || status === 'pending_admin_approval';
-      var lockedStatus = status === 'cancelled' || status === 'checked_in' || status === 'changed';
+      var lockedStatus = status === 'cancelled' || status === 'checked_in' || status === 'transfer_nearby_notified' || status === 'arrived_transfer_point' || status === 'arrived_destination' || status === 'changed';
       var stationaryElapsed = stationarySince ? Date.now() - stationarySince : 0;
       var eligible = routeInfo.type === 'secondary_connection' && stationaryElapsed >= FLEX_STATIONARY_MIN_MS && !lockedStatus && !waitingApproval;
       var btn = document.getElementById('btnChangeTrip');
@@ -2282,7 +2414,13 @@
     function checkIn() {
       if (!currentBooking || document.getElementById('btnCheckin').disabled) return;
       var adminBypass = canAdminBypassCheckin();
-      if (checkinSubmitLock || (currentBooking.status === 'checked_in' && !adminBypass)) {
+      var routeInfo = connectionRouteInfo(currentBooking.route);
+      if (!adminBypass && routeInfo.type !== 'secondary_connection') {
+        setStatus('lookupStatus', 'warn', 'เส้นทางหลักไม่ต้องเช็คอินจุดต่อรถ');
+        updateActionAvailability();
+        return;
+      }
+      if (checkinSubmitLock || ((currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass)) {
         setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
         updateActionAvailability();
         return;
@@ -2298,8 +2436,9 @@
       var transferAdjustment = calculateCheckinTransferAdjustment(checkedInAt);
       var checkinDistanceKm = currentDistanceKm === null || isNaN(currentDistanceKm) ? 0 : currentDistanceKm;
       var payload = {
-        status: 'checked_in',
+        status: 'transfer_nearby_notified',
         checkedInAt: checkedInAt,
+        transferNearbyNotifiedAt: checkedInAt,
         adminBypassCheckin: adminBypass,
         adminCheckinTestAt: adminBypass ? checkedInAt : '',
         testerId: adminBypass ? ADMIN_TESTER_ID : (currentBooking.testerId || ''),
@@ -2314,14 +2453,13 @@
           checkedInAt: checkedInAt,
           adminBypass: adminBypass
         },
-        officialStatus: adminBypass ? 'ADMIN CHECK: เช็คอินทดสอบโดยไม่ต้องรอเข้ารัศมี' : 'เช็คอินแล้วที่ระยะ ' + checkinDistanceKm.toFixed(2) + ' กม. จากแปดริ้ว'
+        officialStatus: adminBypass ? 'ADMIN CHECK: เช็คอินทดสอบโดยไม่ต้องรอเข้ารัศมี' : 'ผู้โดยสารใกล้ถึงแปดริ้ว ระยะ ' + checkinDistanceKm.toFixed(2) + ' กม.'
       };
       if (transferAdjustment) {
         Object.assign(payload, transferAdjustment);
-        payload.officialStatus += ' / รอบรถต่อที่ปรับได้เร็วที่สุด: ' + transferAdjustment.adjustedLeg2Time + ' น.' +
-          (transferAdjustment.backupLeg2Time ? ' / รอบถัดไปสำรอง: ' + transferAdjustment.backupLeg2Time + ' น.' : '');
+        payload.officialStatus += ' / รอบที่คาดว่าจะทัน: ' + transferAdjustment.adjustedLeg2Time + ' น.';
       }
-      updateBookingAndNotify(payload, 'checkin', 'เช็คอินสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
+      updateBookingAndNotify(payload, 'checkin', 'แจ้งใกล้ถึงแปดริ้วสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
         .then(function(){ checkinSubmitLock = false; updateActionAvailability(); })
         .catch(function(){ checkinSubmitLock = false; updateActionAvailability(); });
     }
@@ -2331,20 +2469,32 @@
       var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
       if (routeInfo.type !== 'secondary_connection' || !nearTransferPoint) return null;
 
-      var checkinTime = timeFromTimestamp(checkedInAt);
-      var pair = getDestinationTimePairAfter(checkinTime, currentBooking);
-      if (!pair.first) return null;
+      var eta = currentEtaMinutes === null || currentEtaMinutes === undefined ? 0 : Number(currentEtaMinutes || 0);
+      var arrivalAt = checkedInAt + eta * 60000;
+      var arrivalTime = timeFromTimestamp(arrivalAt);
+      var min = toMin(arrivalTime) + TRANSFER_TRIP_BUFFER_MINUTES;
+      var times = getLeg2TimesForBooking(currentBooking);
+      var first = '';
+      var backup = '';
+      for (var i = 0; i < times.length; i++) {
+        if (toMin(times[i]) >= min) {
+          if (!first) first = times[i];
+          else { backup = times[i]; break; }
+        }
+      }
+      if (!first) return null;
       return {
-        adjustedLeg2Time: pair.first,
-        leg2Time: pair.first,
-        backupLeg2Time: pair.backup,
+        adjustedLeg2Time: first,
+        leg2Time: first,
+        backupLeg2Time: backup,
         transferAdjustedAt: checkedInAt,
         transferAdjustmentReason: 'checkin_within_radius',
         transferAdjustment: {
-          status: 'adjusted_on_checkin',
-          checkinTime: checkinTime,
-          fastestTime: pair.first,
-          backupTime: pair.backup,
+          status: 'expected_after_checkin',
+          checkinTime: timeFromTimestamp(checkedInAt),
+          expectedArrivalTime: arrivalTime,
+          fastestTime: first,
+          backupTime: backup,
           distanceKm: currentDistanceKm,
           etaMinutes: currentEtaMinutes,
           adjustedAt: checkedInAt
@@ -2591,7 +2741,7 @@
       var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
       return ref.transaction(function(existing) {
         if (!existing) return;
-        if (eventName === 'checkin' && existing.status === 'checked_in' && !isAdminTesterBooking(existing)) return;
+        if (eventName === 'checkin' && (existing.status === 'checked_in' || existing.status === 'transfer_nearby_notified') && !isAdminTesterBooking(existing)) return;
         return Object.assign({}, existing, payload);
       }).then(function(result) {
         if (!result.committed) {
@@ -2697,15 +2847,19 @@
 
     function buildLineMessage(data) {
       if (data.eventName === 'checkin') {
+        var legs = getLegSchedule(currentBooking);
+        var origin = getRouteOrigin(currentBooking, legs);
+        var destination = connectionRouteInfo(currentBooking.route).destination || currentBooking.destination || '-';
+        var etaText = data.etaMinutes === null || data.etaMinutes === undefined ? '-' : 'อีกประมาณ ' + Math.max(0, Math.round(Number(data.etaMinutes || 0))) + ' นาที';
         return [
-          'ผู้โดยสารเช็คอินใกล้ถึงจุดหมาย',
+          'ผู้โดยสารใกล้ถึงแปดริ้ว ' + etaText,
           '',
+          'รหัสตั๋ว: ' + (currentBooking.code || '-'),
           'ชื่อ: ' + (currentBooking.name || '-'),
           'เบอร์โทร: ' + (currentBooking.phone || '-'),
-          'เส้นทาง: ' + (currentBooking.route || '-'),
-          'วันเวลา: ' + (currentBooking.date || '-') + ' ' + (data.time || currentBooking.time || '-'),
-          'จำนวน: ' + (currentBooking.seats || 1),
-          'ใกล้ถึงจุดหมายอีก 3 นาที'
+          'ต้นทาง: ' + origin,
+          'ปลายทาง: ' + destination,
+          'จำนวนที่นั่ง: ' + (currentBooking.seats || 1)
         ].join('\n');
       }
 
