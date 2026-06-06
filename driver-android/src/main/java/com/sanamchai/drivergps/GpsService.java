@@ -43,7 +43,7 @@ public class GpsService extends Service {
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
-    private static final String DB_URL              = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String DB_URL              = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
     private static final String MODE_MOVING         = "moving";
     private static final String MODE_SLOW           = "slow";
     private static final String MODE_STOPPED        = "stopped";
