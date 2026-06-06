@@ -724,6 +724,10 @@
     var trackingMapReady = false;
     var trackingVanMarker = null;
     var trackingPassengerMarker = null;
+    var trackingVanMarkerPos = null;
+    var trackingPassengerMarkerPos = null;
+    var trackingVanAnimFrame = null;
+    var trackingPassengerAnimFrame = null;
     var trackingPickupMarker = null;
     var trackingTransferMarker = null;
     var trackingRouteStopMarkers = [];
@@ -1368,6 +1372,12 @@
       trackingVehicleId = '';
       trackingCurrentTrip = null;
       vanLocation = null;
+      if (trackingVanAnimFrame) cancelAnimationFrame(trackingVanAnimFrame);
+      if (trackingPassengerAnimFrame) cancelAnimationFrame(trackingPassengerAnimFrame);
+      trackingVanAnimFrame = null;
+      trackingPassengerAnimFrame = null;
+      trackingVanMarkerPos = null;
+      trackingPassengerMarkerPos = null;
     }
 
     function subscribeVanLocationForTicket() {
@@ -1408,11 +1418,11 @@
       vanLocation = match && match.location ? match.location : null;
       trackingCurrentTrip = match && match.currentTrip ? match.currentTrip : null;
       if (vanLocation && normalizeTrackingPoint(vanLocation)) {
-        renderVanMarker(vanLocation);
         updateVanMarkerSmoothly(vanLocation);
       } else if (trackingVanMarker) {
         trackingVanMarker.remove();
         trackingVanMarker = null;
+        trackingVanMarkerPos = null;
       }
       renderPassengerTrackingCard();
     }
@@ -1682,8 +1692,58 @@
       } else {
         trackingVanMarker.setLngLat([location.lng, location.lat]);
       }
+      trackingVanMarkerPos = location;
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
+    }
+
+    function trackingLerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function trackingEaseInOut(t) {
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    function trackingPointMeters(a, b) {
+      if (!a || !b) return Infinity;
+      return distanceKm(a.lat, a.lng, b.lat, b.lng) * 1000;
+    }
+
+    function animateTrackingMarker(marker, stateName, frameName, toPos, options) {
+      toPos = normalizeTrackingPoint(toPos);
+      if (!marker || !toPos) return;
+      options = options || {};
+      var fromPos = window[stateName] || toPos;
+      var dist = trackingPointMeters(fromPos, toPos);
+      if (window[frameName]) cancelAnimationFrame(window[frameName]);
+      if (dist < (options.minMeters || 5) || dist > (options.maxMeters || 600)) {
+        marker.setLngLat([toPos.lng, toPos.lat]);
+        window[stateName] = toPos;
+        window[frameName] = null;
+        return;
+      }
+      var duration = Math.min(options.maxDuration || 1200, Math.max(options.minDuration || 350, dist * (options.msPerMeter || 14)));
+      var started = null;
+      function step(ts) {
+        if (!started) started = ts;
+        var t = Math.min((ts - started) / duration, 1);
+        var eased = trackingEaseInOut(t);
+        var current = {
+          lat: trackingLerp(fromPos.lat, toPos.lat, eased),
+          lng: trackingLerp(fromPos.lng, toPos.lng, eased)
+        };
+        marker.setLngLat([current.lng, current.lat]);
+        window[stateName] = current;
+        if (t < 1) {
+          window[frameName] = requestAnimationFrame(step);
+        } else {
+          window[stateName] = toPos;
+          window[frameName] = null;
+          marker.setLngLat([toPos.lng, toPos.lat]);
+        }
+      }
+      window[frameName] = requestAnimationFrame(step);
     }
 
     function renderPickupMarker() {
@@ -1712,7 +1772,22 @@
     }
 
     function updateVanMarkerSmoothly(location) {
-      renderVanMarker(location);
+      location = normalizeTrackingPoint(location);
+      if (!trackingMapReady || !trackingMap || !location) return;
+      if (!trackingVanMarker) {
+        renderVanMarker(location);
+        trackingVanMarkerPos = location;
+        return;
+      }
+      animateTrackingMarker(trackingVanMarker, 'trackingVanMarkerPos', 'trackingVanAnimFrame', location, {
+        minMeters: 5,
+        maxMeters: 600,
+        minDuration: 350,
+        maxDuration: 900,
+        msPerMeter: 14
+      });
+      if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
+      updateTrackingRouteLine();
     }
 
     function updateTrackingRouteLine() {
@@ -1788,8 +1863,15 @@
         trackingPassengerMarker = new mapboxgl.Marker({ element: createTrackingMarker('passenger', 'คุณ') })
           .setLngLat([position.lng, position.lat])
           .addTo(trackingMap);
+        trackingPassengerMarkerPos = position;
       } else {
-        trackingPassengerMarker.setLngLat([position.lng, position.lat]);
+        animateTrackingMarker(trackingPassengerMarker, 'trackingPassengerMarkerPos', 'trackingPassengerAnimFrame', position, {
+          minMeters: 3,
+          maxMeters: 600,
+          minDuration: 500,
+          maxDuration: 1800,
+          msPerMeter: 15
+        });
       }
     }
 
