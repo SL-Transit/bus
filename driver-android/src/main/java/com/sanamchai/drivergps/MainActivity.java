@@ -51,7 +51,7 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_GPS_AT       = "last_gps_at";
     static final String KEY_FIREBASE_STATUS   = "firebase_status";
 
-    private static final String DB_URL = "https://bus-line1-ba0ea-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String DB_URL = ล"https://bus-booking-1d68c-default-rtdb.firebaseio.com";
 
     private static final String[] VEHICLE_IDS = {
         "car1", "car2", "car3", "car4", "car5"
