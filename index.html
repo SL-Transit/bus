@@ -11,54 +11,241 @@
 
     body {
       font-family: 'Sarabun', sans-serif;
-      background-color: #cce5ff;
-      color: #2c3e50;
+      background:
+        linear-gradient(90deg, rgba(246,250,255,0.92), rgba(246,250,255,0.70), rgba(246,250,255,0.92)),
+        radial-gradient(circle at 8% 78%, rgba(24,169,153,0.10), transparent 26%),
+        linear-gradient(135deg, #f4f9ff 0%, #eaf4fb 45%, #f8fbff 100%);
+      color: #17212b;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 20px;
+      padding: 22px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto auto 0 0;
+      width: 42vw;
+      max-width: 620px;
+      height: 42vh;
+      pointer-events: none;
+      opacity: 0.30;
+      z-index: -1;
+    }
+    body::before {
+      background:
+        linear-gradient(180deg, transparent 0 42%, rgba(15,58,95,0.18) 43% 45%, transparent 46%),
+        linear-gradient(90deg, transparent 0 8%, rgba(15,58,95,0.38) 9% 76%, transparent 77%),
+        radial-gradient(circle at 20% 72%, #0f3a5f 0 4%, transparent 4.3%),
+        radial-gradient(circle at 63% 72%, #0f3a5f 0 4%, transparent 4.3%);
+      clip-path: polygon(4% 48%, 18% 24%, 70% 24%, 86% 45%, 92% 70%, 4% 70%);
+      transform: translate(-5%, 6%);
+    }
+    body::after {
+      left: auto;
+      right: 0;
+      width: 38vw;
+      background:
+        linear-gradient(180deg, rgba(15,58,95,0.12), rgba(15,58,95,0.02)),
+        repeating-linear-gradient(90deg, transparent 0 34px, rgba(15,58,95,0.12) 35px 37px);
+      clip-path: polygon(8% 22%, 100% 0, 100% 100%, 0 100%);
+      transform: translate(8%, 4%);
     }
 
     .container {
       width: 100%;
-      max-width: 480px;
-      background: #ffffff;
-      padding: 40px 30px;
-      border-radius: 30px;
-      box-shadow: 0 15px 35px rgba(0,50,130,0.14);
+      max-width: 1060px;
+      background: rgba(255,255,255,0.94);
+      padding: 30px 28px 22px;
+      border-radius: 24px;
+      box-shadow: 0 18px 50px rgba(15,58,95,0.14);
       text-align: center;
-      border: 1px solid rgba(0,0,0,0.03);
+      border: 1px solid rgba(15,58,95,0.08);
+      backdrop-filter: blur(10px);
+      animation: cardIn 0.55s ease both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .header-icon {
-      width: 80px; height: 80px;
-      background: #c0d8fd;
+      width: 72px; height: 72px;
+      background: #0f3a5f;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 20px;
-      font-size: 40px;
+      margin: -64px auto 16px;
+      font-size: 34px;
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(15,58,95,0.30);
+      animation: floatVan 3s ease-in-out infinite;
+    }
+    @keyframes floatVan {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
     }
 
-    h1 { font-size: 24px; font-weight: 700; color: #0d2a50; margin-bottom: 12px; line-height: 1.4; }
-    .subtitle { font-size: 18px; color: #3d5368; margin-bottom: 35px; font-weight: 400; }
+    h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 700; color: #0d2a50; margin-bottom: 6px; line-height: 1.25; }
+    .subtitle { font-size: clamp(16px, 2vw, 20px); color: #435468; margin-bottom: 18px; font-weight: 600; }
+
+    .route-card {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #071f3a, #0d3157);
+      border-radius: 20px;
+      padding: 22px 24px 20px;
+      margin-bottom: 20px;
+      color: #fff;
+      min-height: 230px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .route-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, transparent 40%, rgba(24,169,153,0.10)),
+        repeating-linear-gradient(90deg, transparent 0 52px, rgba(255,255,255,0.035) 53px 55px);
+      opacity: 0.9;
+    }
+    .ticket-badge {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      align-self: center;
+      background: linear-gradient(135deg, #78ead7, #36c7b7);
+      color: #073a3d;
+      padding: 10px 26px;
+      border-radius: 999px;
+      font-size: 20px;
+      font-weight: 700;
+      box-shadow: 0 10px 28px rgba(54,199,183,0.28);
+      margin-bottom: 24px;
+      z-index: 1;
+    }
+    .route-line {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      gap: 18px;
+      z-index: 1;
+    }
+    .route-line::before {
+      content: "";
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: 40px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #44f3dd, #8ffcef, #44f3dd);
+      box-shadow: 0 0 26px rgba(68,243,221,0.9);
+      animation: routeGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes routeGlow {
+      0%, 100% { opacity: 0.75; }
+      50% { opacity: 1; }
+    }
+    .van-track {
+      position: absolute;
+      left: 20%;
+      top: 6px;
+      z-index: 2;
+      font-size: 34px;
+      animation: vanMove 4.5s ease-in-out infinite;
+    }
+    @keyframes vanMove {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(80px); }
+    }
+    .stop {
+      position: relative;
+      min-width: 0;
+      padding-top: 66px;
+    }
+    .stop-icon {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: #fff;
+      color: #18a999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 34px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.20);
+      position: relative;
+      z-index: 1;
+    }
+    .stop-name {
+      display: block;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .stop-role {
+      display: block;
+      font-size: 14px;
+      color: rgba(255,255,255,0.68);
+    }
+    .feature-chips {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 10px 18px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #e9fffb;
+    }
+
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 14px;
+    }
 
     .btn {
-      display: flex; align-items: center;
-      width: 100%; padding: 22px 25px; margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      min-height: 136px; padding: 18px 16px;
       font-size: 22px; font-weight: 600; color: white;
       text-decoration: none; border-radius: 18px;
-      transition: all 0.3s ease; border: none; cursor: pointer; text-align: left;
+      transition: all 0.3s ease; border: none; cursor: pointer; text-align: center;
+      position: relative;
+      overflow: hidden;
     }
-    .btn:active { transform: translateY(2px); filter: brightness(0.9); }
+    .btn:hover { transform: translateY(-4px); }
+    .btn:active { transform: translateY(1px); filter: brightness(0.9); }
 
-    .btn-blue { background: linear-gradient(135deg, #2e85e8, #1a63c0); box-shadow: 0 8px 24px rgba(30,100,220,0.35); }
-    .btn-red  { background: linear-gradient(135deg, #f03030, #d01818); box-shadow: 0 8px 24px rgba(210,20,20,0.35); }
-    .btn-dark { background: linear-gradient(135deg, #2e6080, #1c3a4a); box-shadow: 0 8px 24px rgba(20,55,75,0.35); }
+    .btn-blue { background: linear-gradient(135deg, #1265c8, #0f3a5f); box-shadow: 0 10px 26px rgba(15,58,95,0.24); }
+    .btn-red  { background: linear-gradient(135deg, #16a59f, #078f93); box-shadow: 0 10px 26px rgba(7,143,147,0.25); }
+    .btn-dark { background: linear-gradient(135deg, #3f87ea, #2269d8); box-shadow: 0 10px 26px rgba(34,105,216,0.25); }
     .btn-line {
-      background: #00c300;
-      box-shadow: 0 8px 24px rgba(0,168,68,0.35);
+      background: linear-gradient(135deg, #38b462, #159447);
+      box-shadow: 0 10px 26px rgba(21,148,71,0.25);
     }
     .line-logo {
       width: 38px;
@@ -74,15 +261,30 @@
     }
 
     .icon-box {
-      background: rgba(255,255,255,0.2); width: 45px; height: 45px;
-      border-radius: 12px; display: flex; align-items: center; justify-content: center;
-      margin-right: 20px; font-size: 24px;
+      background: #fff; color: #1265c8; width: 60px; height: 60px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px; font-size: 28px;
     }
     .icon-box img { max-width: 36px; max-height: 36px; display: block; border-radius: 9px; }
-    .btn-text { flex: 1; }
-    .arrow { font-size: 18px; opacity: 0.7; }
+    .btn-text { line-height: 1.35; }
+    .arrow { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 20px; opacity: 0.7; }
 
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+    .service-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #f7f9fc;
+      border: 1px solid #dce5ef;
+      border-radius: 18px;
+      padding: 12px 16px;
+      color: #5d6d7e;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .service-note strong { color: #d64545; font-weight: 700; }
+
+    .footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; }
     .footer-text { font-size: 14px; color: #8fa0ad; letter-spacing: 0.5px; }
     .footer-link {
       display: inline-block;
@@ -94,10 +296,24 @@
       font-weight: 300;
     }
 
-    @media (max-width: 400px) {
-      .container { padding: 30px 20px; }
-      h1 { font-size: 22px; }
-      .btn { font-size: 19px; padding: 18px 20px; }
+    @media (max-width: 820px) {
+      body { padding: 74px 14px 18px; justify-content: flex-start; }
+      body::before, body::after { opacity: 0.14; width: 80vw; }
+      .container { padding: 28px 16px 20px; border-radius: 22px; }
+      .header-icon { margin-top: -56px; }
+      .route-card { min-height: 0; padding: 20px 14px; }
+      .route-line { gap: 6px; }
+      .route-line::before { left: 11%; right: 11%; top: 34px; height: 6px; }
+      .van-track { top: 1px; left: 18%; font-size: 27px; }
+      .stop { padding-top: 62px; }
+      .stop-icon { width: 58px; height: 58px; font-size: 26px; }
+      .stop-name { font-size: 16px; }
+      .stop-role { font-size: 12px; }
+      .chip { font-size: 13px; padding: 8px 10px; }
+      .actions-grid { grid-template-columns: 1fr; gap: 12px; }
+      .btn { min-height: 82px; flex-direction: row; justify-content: flex-start; text-align: left; font-size: 19px; padding: 16px 46px 16px 18px; }
+      .icon-box { width: 48px; height: 48px; margin: 0 16px 0 0; font-size: 24px; flex-shrink: 0; }
+      .service-note { align-items: flex-start; text-align: left; font-size: 13px; }
       .line-logo { width: 34px; height: 27px; }
     }
 
@@ -256,38 +472,72 @@
 
   <!-- ══ เนื้อหาหลัก ══ -->
   <div class="container">
-    <div class="header-icon">🚍</div>
+    <div class="header-icon">🚐</div>
     <h1>ระบบบริการผู้โดยสารอัจฉริยะ</h1>
-    <p class="subtitle">เริ่มต้นการเดินทางที่สมาร์ทไปกับเรา</p>
+    <p class="subtitle">ตั๋วเดียว พร้อมระบบช่วยแนะนำการต่อรถตามสถานะการเดินทางจริง</p>
 
-    <a href="passenger.html" class="btn btn-blue" id="btn1">
-      <div class="icon-box">📋</div>
-      <span class="btn-text">ข้อมูลเที่ยวรถ/สถานะบริการ</span>
-      <span class="arrow">❯</span>
-    </a>
-
-    <a href="booking.html" class="btn btn-red" id="btn2">
-      <div class="icon-box">🎫</div>
-      <span class="btn-text">จองตั๋วออนไลน์</span>
-      <span class="arrow">❯</span>
-    </a>
-
-    <a href="check_ticket.html" class="btn btn-dark" id="btn3">
-      <div class="icon-box">🔍</div>
-      <span class="btn-text">ตรวจสอบข้อมูลตั๋ว</span>
-      <span class="arrow">❯</span>
-    </a>
-
-    <a href="https://lin.ee/NVTjxBR" class="btn btn-line" id="btn4">
-      <div class="icon-box">
-      <svg class="line-logo" viewBox="0 0 124 90" aria-hidden="true">
-        <path fill="#fff" d="M62 6c33.1 0 60 19.1 60 42.6 0 21-21.6 38.4-50 41.9-1.9.4-4.5 1.2-5.1 2.8-.6 1.4-.4 3.6-.2 5 0 0 .7 4.3.9 5.2.3 1.5 1.2 5.8-5.2 3.2-6.4-2.7-34.5-20.3-47.1-34.8C6.7 62.6 2 56 2 48.6 2 25.1 28.9 6 62 6z"/>
-        <text x="62" y="56" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#00c300">LINE</text>
-      </svg>
+    <section class="route-card" aria-label="ภาพรวมการเดินทางแบบ Smart Transit">
+      <div class="ticket-badge">🎟️ ตั๋วเดียว</div>
+      <div class="route-line">
+        <div class="van-track">🚐</div>
+        <div class="stop">
+          <div class="stop-icon">📍</div>
+          <span class="stop-name">ต้นทาง</span>
+          <span class="stop-role">จุดเริ่มต้น</span>
+        </div>
+        <div class="stop">
+          <div class="stop-icon">🏢</div>
+          <span class="stop-name">ฉะเชิงเทรา</span>
+          <span class="stop-role">จุดต่อรถ</span>
+        </div>
+        <div class="stop">
+          <div class="stop-icon">🏁</div>
+          <span class="stop-name">ปลายทาง</span>
+          <span class="stop-role">จุดหมาย</span>
+        </div>
       </div>
-      <span class="btn-text">แอดไลน์</span>
-      <span class="arrow">❯</span>
-    </a>
+      <div class="feature-chips">
+        <span class="chip">📍 ติดตามสถานะ</span>
+        <span class="chip">🔀 แนะนำเที่ยวต่อ</span>
+        <span class="chip">🕘 ปรับตามรอบเดินรถ</span>
+      </div>
+    </section>
+
+    <div class="actions-grid">
+      <a href="booking.html" class="btn btn-blue" id="btn1">
+        <div class="icon-box">🎫</div>
+        <span class="btn-text">จองตั๋วโดยสารออนไลน์</span>
+        <span class="arrow">❯</span>
+      </a>
+
+      <a href="check_ticket.html" class="btn btn-red" id="btn2">
+        <div class="icon-box">🔍</div>
+        <span class="btn-text">ตรวจสอบตั๋วและติดตามการเดินทาง</span>
+        <span class="arrow">❯</span>
+      </a>
+
+      <a href="passenger.html" class="btn btn-dark" id="btn3">
+        <div class="icon-box">🚐</div>
+        <span class="btn-text">ข้อมูลเที่ยวรถและสถานะบริการ</span>
+        <span class="arrow">❯</span>
+      </a>
+
+      <a href="https://lin.ee/NVTjxBR" class="btn btn-line" id="btn4">
+        <div class="icon-box">
+        <svg class="line-logo" viewBox="0 0 124 90" aria-hidden="true">
+          <path fill="#00c300" d="M62 6c33.1 0 60 19.1 60 42.6 0 21-21.6 38.4-50 41.9-1.9.4-4.5 1.2-5.1 2.8-.6 1.4-.4 3.6-.2 5 0 0 .7 4.3.9 5.2.3 1.5 1.2 5.8-5.2 3.2-6.4-2.7-34.5-20.3-47.1-34.8C6.7 62.6 2 56 2 48.6 2 25.1 28.9 6 62 6z"/>
+          <text x="62" y="56" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#fff">LINE</text>
+        </svg>
+        </div>
+        <span class="btn-text">เพิ่มเพื่อน LINE Official</span>
+        <span class="arrow">❯</span>
+      </a>
+    </div>
+
+    <div class="service-note">
+      <span>ⓘ</span>
+      <span>เที่ยวรถต่ออาจปรับตามรอบเดินรถของแต่ละท่ารถในแต่ละวัน <strong>ระบบจะแนะนำเที่ยวที่เหมาะสมเมื่อมีการจองและยืนยันข้อมูลบริการแล้ว</strong></span>
+    </div>
 
     <div class="footer">
       <p class="footer-text">SMART PASSENGER SERVICE SYSTEM</p>
