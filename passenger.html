@@ -599,15 +599,14 @@ body { background:#edf6f8; }
       <div class="sheet-handle"></div>
       <div class="sheet-summary-row">
         <div>
-          <div class="sheet-route-name" id="sheetRouteName">กรุณาเลือกต้นทางและปลายทาง</div>
-          <div class="sheet-route-sub" id="sheetRouteSub">แผนที่และตารางเวลาเดินรถจะอัปเดตตามเส้นทางที่เลือก</div>
+          <div class="sheet-route-name" id="sheetRouteName">ตารางเวลารถโดยสารประจำทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ</div>
         </div>
         <div class="sheet-chip" id="sheetEtaChip">--:--</div>
       </div>
     </div>
     <div class="bottom-sheet-content">
 
-  <div class="sec-label">ตารางเวลาเดินรถ</div>
   <div id="schedWrapper"></div>
 
   <a href="booking.html" class="booking-tab">
@@ -977,24 +976,19 @@ function updateBottomSheetSummary() {
   var routeSub = document.getElementById('sheetRouteSub');
   var etaChip = document.getElementById('sheetEtaChip');
   if (!routeName || !routeSub || !etaChip) return;
+  var scheduleNote = 'ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ';
 
   if (!selOrigin || !selDest) {
-    routeName.textContent = 'กรุณาเลือกต้นทางและปลายทาง';
-    routeSub.textContent = 'แผนที่และตารางเวลาเดินรถจะอัปเดตตามเส้นทางที่เลือก';
+    routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
+    routeSub.textContent = 'กรุณาเลือกต้นทางและปลายทางเพื่อดูตารางเวลาเดินรถ';
     etaChip.textContent = '--:--';
     return;
   }
 
-  routeName.textContent = selOrigin + ' → ' + selDest;
+  routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
+  routeSub.textContent = scheduleNote;
 
-  var statusTitle = document.getElementById('statusTitle');
-  var nextDetail = document.getElementById('nextDetail');
   var nextTime = document.getElementById('nextTime');
-  var focusText = selectedMapFocus ? selectedMapFocus : '';
-  var statusInfo = getStatusInfo(lastPos);
-  var statusText = statusTitle && statusTitle.textContent ? statusTitle.textContent : statusInfo.title;
-  var nextText = nextDetail && nextDetail.textContent ? nextDetail.textContent : '';
-  routeSub.textContent = focusText || (statusText + (nextText ? ' · ' + nextText : ''));
   etaChip.textContent = nextTime && nextTime.textContent ? nextTime.textContent.replace(' น.', '') : getNextBusSummaryTime();
 }
 
