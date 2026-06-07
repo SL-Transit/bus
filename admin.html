@@ -413,6 +413,10 @@ tr:hover td{background:#fafafa;}
             <div><strong>Test Mode</strong><span>ทดสอบโหลด/จองคิวโดยไม่ส่ง LINE จริงและไม่สร้างธุรกรรมจริง</span></div>
             <label class="tog"><input type="checkbox" id="testModeToggle" onchange="toggleTestMode(this.checked)"><span class="tog-sl"></span></label>
           </div>
+          <div class="control-card">
+            <div><strong>Simulator</strong><span>เปิด simulator.html สำหรับทดสอบระบบทั้งหมด</span></div>
+            <button class="btn btn-dark btn-sm" onclick="location.href='simulator.html'">เปิดหน้าทดสอบ</button>
+          </div>
         </div>
         <div class="test-mode-banner" id="testModeBanner">TEST MODE เปิดอยู่: ระบบจะใช้ข้อมูลจำลองและบันทึก mock logs เท่านั้น</div>
         <button class="btn btn-primary btn-sm" onclick="saveFees()">&#x1F4BE; บันทึกค่าธรรมเนียมและการชำระเงิน</button>
