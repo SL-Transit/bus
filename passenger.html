@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ตารางเวลาและบริการเส้นรถประจำทาง – Smart Transit</title>
+<title>ข้อมูลเที่ยวรถและสถานะบริการ – Smart Transit</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -11,47 +11,49 @@
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 :root {
-  --bg:#f0f4f8;
+  --bg:#f4f9fb;
   --card:#ffffff;
-  --text:#1a2332;
-  --muted:#5a6a7e;
-  --border:#d1dbe8;
-  --blue:#1d4ed8;
-  --blue-dark:#1e3a8a;
-  --blue-light:#eff6ff;
-  --green:#15803d;
-  --red:#b91c1c;
+  --text:#17212b;
+  --muted:#5f7083;
+  --border:#d8e5ee;
+  --blue:#0f3a5f;
+  --blue-dark:#0f3a5f;
+  --blue-light:#eef8fb;
+  --teal:#18a999;
+  --teal-dark:#078f93;
+  --green:#159447;
+  --red:#d64545;
 }
 body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:16px; }
 
 /* ===== HEADER ===== */
 .topbar {
-  background:var(--blue-dark);
+  background:linear-gradient(135deg,#0f3a5f,#123f68);
   padding:18px 20px 15px;
   text-align:center;
-  border-bottom:3px solid #2563eb;
+  border-bottom:3px solid var(--teal);
 }
 .header-main {
   font-size:18px; font-weight:700; color:#ffffff;
   letter-spacing:0.2px; line-height:1.35;
 }
 .header-sub {
-  font-size:11px; color:#93c5fd; font-weight:400;
+  font-size:11px; color:#b9f2ea; font-weight:400;
   margin-top:4px; letter-spacing:1.2px; text-transform:uppercase;
 }
 
 /* ===== INFO STRIP ===== */
 .info-strip {
-  background:#1d4ed8;
+  background:#123f68;
   padding:9px 18px;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
 .info-strip .time { font-family:'Chakra Petch',sans-serif; font-size:18px; color:#ffffff; letter-spacing:2px; font-weight:700; }
-.info-strip .date { font-size:11px; color:#bfdbfe; font-weight:500; margin-top:2px; }
-.info-strip .right { font-size:11px; color:#bbf7d0; font-weight:600; text-align:right; }
-.live-dot { display:inline-block; width:7px; height:7px; background:#4ade80; border-radius:50%; margin-right:5px; animation:blink 1.4s infinite; }
+.info-strip .date { font-size:11px; color:#d7ecf7; font-weight:500; margin-top:2px; }
+.info-strip .right { font-size:11px; color:#b9f2ea; font-weight:600; text-align:right; }
+.live-dot { display:inline-block; width:7px; height:7px; background:var(--teal); border-radius:50%; margin-right:5px; animation:blink 1.4s infinite; }
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 .test-mode-strip{display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;}
 .admin-test-strip{display:none;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;line-height:1.6;}
@@ -66,8 +68,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   border-left:4px solid #d1dbe8;
 }
 .status-card.stopped  { border-left-color:#d97706; background:var(--card); }
-.status-card.arriving { border-left-color:#15803d; background:#f0fdf4; }
-.status-card.running  { border-left-color:#1d4ed8; background:#eff6ff; }
+.status-card.arriving { border-left-color:var(--teal); background:#f0fffc; }
+.status-card.running  { border-left-color:var(--blue); background:#eef8fb; }
 .status-icon { font-size:28px; flex-shrink:0; }
 .status-text strong { display:block; font-size:16px; font-weight:700; color:var(--text); }
 .status-text span { font-size:13px; color:var(--muted); margin-top:3px; display:block; }
@@ -78,14 +80,14 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 #map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
 #map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
 #map .ldmap-crosshair { display:none !important; }
-.map-stop-icon { width:34px; height:34px; border-radius:50%; background:#1e3a8a; border:3px solid #fff; box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(30,58,138,.18); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; line-height:1; }
+.map-stop-icon { width:34px; height:34px; border-radius:50%; background:var(--blue); border:3px solid #fff; box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(15,58,95,.18); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; line-height:1; }
 .map-stop-label { background:rgba(15,23,42,.9); color:#fff; font-size:11px; font-weight:700; padding:4px 8px; border-radius:12px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.24); border:1px solid rgba(255,255,255,.82); }
-.map-bus-icon { width:40px; height:40px; border-radius:50%; background:#16a34a; border:4px solid #fff; box-shadow:0 6px 16px rgba(15,23,42,.38),0 0 0 4px rgba(22,163,74,.2); display:flex; align-items:center; justify-content:center; overflow:hidden; line-height:1; }
+.map-bus-icon { width:40px; height:40px; border-radius:50%; background:var(--teal); border:4px solid #fff; box-shadow:0 6px 16px rgba(15,23,42,.38),0 0 0 4px rgba(24,169,153,.22); display:flex; align-items:center; justify-content:center; overflow:hidden; line-height:1; }
 .map-bus-icon img { width:36px; height:30px; object-fit:contain; display:block; }
-.map-bus-label { background:#15803d; color:#fff; font-size:12px; font-weight:700; padding:6px 11px; border-radius:16px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.3); border:1px solid rgba(255,255,255,.78); }
+.map-bus-label { background:var(--teal-dark); color:#fff; font-size:12px; font-weight:700; padding:6px 11px; border-radius:16px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.3); border:1px solid rgba(255,255,255,.78); }
 .map-bus-label img { width:20px; height:14px; object-fit:contain; vertical-align:-2px; margin-right:4px; }
 .map-passenger-marker { width:26px; height:26px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 5px rgba(37,99,235,.24),0 4px 12px rgba(15,23,42,.34); }
-.follow-user-btn { width:100%; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:10px; padding:9px 12px; margin:-4px 0 12px; font-family:'Kanit',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.08); }
+.follow-user-btn { width:100%; border:1px solid #bceee7; background:#eefdfa; color:var(--teal-dark); border-radius:10px; padding:9px 12px; margin:-4px 0 12px; font-family:'Kanit',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.08); }
 .follow-user-btn.is-off { background:#fff; color:#5a6a7e; border-color:#d1dbe8; }
 
 /* ===== ROUTE STRIP ===== */
@@ -100,8 +102,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 }
 .route-label { font-size:12px; color:var(--muted); font-weight:600; letter-spacing:0.8px; text-transform:uppercase; }
 .route-dir-badge {
-  font-size:12px; font-weight:700; color:#1d4ed8;
-  background:#eff6ff; border:1px solid #bfdbfe;
+  font-size:12px; font-weight:700; color:var(--teal-dark);
+  background:#eefdfa; border:1px solid #bceee7;
   padding:4px 11px; border-radius:20px;
 }
 /* เลื่อนซ้ายขวาได้ — จุดไม่ล้น */
@@ -116,26 +118,26 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .stop-col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:72px; }
 .stop-dot-w { position:relative; width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
 .stop-dot { width:14px; height:14px; border-radius:50%; background:#d1dbe8; border:2px solid #94a3b8; transition:all 0.3s; }
-.stop-dot.active { background:#1d4ed8; border-color:#1d4ed8; box-shadow:0 0 0 5px rgba(29,78,216,0.15); width:18px; height:18px; }
-.stop-dot.passed { background:#93c5fd; border-color:#3b82f6; }
+.stop-dot.active { background:var(--teal); border-color:var(--teal); box-shadow:0 0 0 5px rgba(24,169,153,0.16); width:18px; height:18px; }
+.stop-dot.passed { background:#8de6da; border-color:var(--teal); }
 .bus-anim { position:absolute; top:-24px; animation:bob 1.8s ease-in-out infinite; }
 .bus-anim img { width:30px; height:22px; object-fit:contain; display:block; }
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .line-seg { flex:1; height:3px; background:#e2e8f0; margin-top:16px; border-radius:2px; }
-.line-seg.passed { background:#3b82f6; }
+.line-seg.passed { background:var(--teal); }
 .sn { font-size:11px; font-weight:600; text-align:center; margin-top:6px; line-height:1.3; color:var(--muted); }
-.sn.active { color:#1d4ed8; font-weight:700; }
+.sn.active { color:var(--teal-dark); font-weight:700; }
 
 /* ===== NEXT BUS ===== */
 .next-bus {
   background:var(--card); border:1px solid var(--border);
-  border-left:4px solid #1d4ed8;
+  border-left:4px solid var(--teal);
   border-radius:12px; padding:16px 18px; margin-bottom:12px;
   display:flex; align-items:center; gap:16px;
 }
 .next-bus-left { flex:1; }
 .next-label { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
-.next-time { font-family:'Chakra Petch',sans-serif; font-size:36px; font-weight:700; color:#1e3a8a; letter-spacing:2px; line-height:1; }
+.next-time { font-family:'Chakra Petch',sans-serif; font-size:36px; font-weight:700; color:var(--blue); letter-spacing:2px; line-height:1; }
 .next-detail { font-size:13px; color:var(--muted); margin-top:5px; }
 .next-icon { font-size:32px; flex-shrink:0; opacity:0.7; }
 
@@ -162,8 +164,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   background-repeat:no-repeat; background-position:right 10px center;
   padding-right:34px; min-height:46px; line-height:1.35;
 }
-.rs-select:focus { border-color:#1d4ed8; }
-.rs-arrow { font-size:20px; font-weight:700; color:#1d4ed8; padding-bottom:12px; flex-shrink:0; }
+.rs-select:focus { border-color:var(--teal); }
+.rs-arrow { font-size:20px; font-weight:700; color:var(--teal-dark); padding-bottom:12px; flex-shrink:0; }
 
 /* ===== SECTION LABEL ===== */
 .sec-label {
@@ -181,7 +183,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .sched-route-header {
   background:var(--blue-dark); padding:14px 18px;
 }
-.sched-route-from { font-size:11px; color:#93c5fd; font-weight:500; margin-bottom:3px; letter-spacing:0.5px; text-transform:uppercase; }
+.sched-route-from { font-size:11px; color:#b9f2ea; font-weight:500; margin-bottom:3px; letter-spacing:0.5px; text-transform:uppercase; }
 .sched-route-name { font-size:17px; font-weight:700; color:#ffffff; }
 
 /* กริด 3 คอลัมน์ — เวลาใหญ่ อ่านง่าย */
@@ -200,10 +202,10 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .time-grid .time-cell:nth-last-child(1),
 .time-grid .time-cell:nth-last-child(2),
 .time-grid .time-cell:nth-last-child(3) { border-bottom:none; }
-.time-cell.now-cell { background:#eff6ff; color:#1d4ed8; }
+.time-cell.now-cell { background:#eefdfa; color:var(--teal-dark); }
 .now-badge {
   display:block; font-family:'Kanit',sans-serif;
-  font-size:9px; font-weight:700; color:#1d4ed8;
+  font-size:9px; font-weight:700; color:var(--teal-dark);
   letter-spacing:0.5px; margin-top:4px;
 }
 
@@ -216,7 +218,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .leg2-header {
   background:var(--blue-dark); padding:14px 18px;
 }
-.leg2-header-top { font-size:11px; color:#93c5fd; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+.leg2-header-top { font-size:11px; color:#b9f2ea; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
 .leg2-header-route { font-size:17px; font-weight:700; color:#ffffff; }
 
 /* Column headers */
@@ -226,9 +228,9 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   border-right:1px solid rgba(255,255,255,0.12);
 }
 .leg2-col-head:last-child { border-right:none; }
-.leg2-col-sub { font-size:10px; color:#93c5fd; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
+.leg2-col-sub { font-size:10px; color:#b9f2ea; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
 .leg2-col-name { font-size:13px; font-weight:700; color:#ffffff; margin-top:2px; }
-.leg2-col-note { font-size:10px; color:#bfdbfe; margin-top:2px; }
+.leg2-col-note { font-size:10px; color:#d7ecf7; margin-top:2px; }
 
 /* Time rows side-by-side */
 .leg2-times { display:grid; grid-template-columns:1fr 1fr; }
@@ -242,7 +244,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   min-width:0;
 }
 .leg2-time-item:last-child { border-bottom:none; }
-.leg2-time-item.now-cell { background:#eff6ff; color:#1d4ed8; }
+.leg2-time-item.now-cell { background:#eefdfa; color:var(--teal-dark); }
 .leg2-time-item.empty { background:#fafbfc; min-height:58px; }
 
 /* ===== BUS LIST (multi-bus) ===== */
@@ -252,23 +254,23 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
 }
 .bus-list-item:last-child { border-bottom:none; }
-.bus-list-id { font-weight:700; color:#1d4ed8; font-size:13px; min-width:55px; }
+.bus-list-id { font-weight:700; color:var(--teal-dark); font-size:13px; min-width:55px; }
 .bus-list-loc { color:var(--text); font-weight:500; }
 .bus-list-dir { font-size:11px; color:var(--muted); margin-left:auto; }
 
 /* ===== BOOKING TAB ===== */
 .booking-tab {
   display:flex; align-items:center; gap:12px;
-  background:#1e3a8a; color:#ffffff;
+  background:linear-gradient(135deg,#0f3a5f,#078f93); color:#ffffff;
   border-radius:12px; padding:16px 20px;
   margin-bottom:14px; text-decoration:none;
   box-shadow:0 2px 8px rgba(30,58,138,0.25);
   transition:background 0.15s;
 }
-.booking-tab:active { background:#1d4ed8; }
+.booking-tab:active { filter:brightness(.92); }
 .booking-tab-icon { font-size:22px; flex-shrink:0; }
 .booking-tab-text { flex:1; font-size:16px; font-weight:700; letter-spacing:0.3px; }
-.booking-tab-arrow { font-size:18px; font-weight:700; color:#93c5fd; flex-shrink:0; }
+.booking-tab-arrow { font-size:18px; font-weight:700; color:#b9f2ea; flex-shrink:0; }
 
 /* ===== FOOTER ===== */
 .footer {
@@ -339,14 +341,14 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 
 /* ===== MODERN MOBILE MAP APP LAYOUT ===== */
 html, body { width:100%; min-height:100%; overflow:hidden; }
-body { background:#e7eef4; }
+body { background:#edf6f8; }
 .topbar, .info-strip, .test-mode-strip { display:none; }
 .map-page {
   position:relative;
   min-height:100vh;
   height:100dvh;
   overflow:hidden;
-  background:#dbe7ef;
+  background:linear-gradient(180deg,#edf8fa,#d9eaf0);
 }
 .main {
   max-width:none;
@@ -382,10 +384,10 @@ body { background:#e7eef4; }
   border:1px solid rgba(226,232,240,.92);
   border-radius:18px;
   background:rgba(255,255,255,.96);
-  box-shadow:0 18px 38px rgba(15,23,42,.18),0 3px 10px rgba(15,23,42,.08);
+  box-shadow:0 18px 38px rgba(15,58,95,.16),0 3px 10px rgba(15,58,95,.08);
   backdrop-filter:blur(12px);
 }
-.rs-title { margin-bottom:10px; color:#334155; letter-spacing:.6px; }
+.rs-title { margin-bottom:10px; color:#0f3a5f; letter-spacing:.6px; }
 .rs-row { align-items:center; gap:9px; }
 .rs-group { gap:4px; }
 .rs-label { font-size:11px; color:#64748b; }
@@ -393,15 +395,15 @@ body { background:#e7eef4; }
   min-height:42px;
   padding:9px 32px 9px 11px;
   border-radius:12px;
-  border-color:#dbe4ee;
+  border-color:#d8e5ee;
   background-color:#f8fafc;
   font-size:14px;
 }
 .rs-select:focus {
-  border-color:#2563eb;
-  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(24,169,153,.14);
 }
-.rs-arrow { padding:18px 0 0; color:#2563eb; }
+.rs-arrow { padding:18px 0 0; color:var(--teal-dark); }
 .follow-user-btn {
   position:absolute;
   right:16px;
@@ -415,7 +417,7 @@ body { background:#e7eef4; }
   border:1px solid rgba(203,213,225,.9);
   border-radius:999px;
   background:#ffffff;
-  color:#1d4ed8;
+  color:var(--teal-dark);
   box-shadow:0 10px 24px rgba(15,23,42,.18);
   font-size:0;
 }
@@ -430,8 +432,8 @@ body { background:#e7eef4; }
   max-height:82dvh;
   padding:0 14px calc(14px + env(safe-area-inset-bottom));
   border-radius:24px 24px 0 0;
-  background:rgba(248,250,252,.98);
-  box-shadow:0 -18px 42px rgba(15,23,42,.22);
+  background:rgba(248,252,252,.98);
+  box-shadow:0 -18px 42px rgba(15,58,95,.20);
   transform:translateY(calc(100% - var(--sheet-collapsed-height, 172px)));
   transition:transform .28s ease;
   touch-action:none;
@@ -444,7 +446,7 @@ body { background:#e7eef4; }
   z-index:2;
   margin:0 -14px;
   padding:9px 14px 10px;
-  background:rgba(248,250,252,.98);
+  background:rgba(248,252,252,.98);
   border-radius:24px 24px 0 0;
   border-bottom:1px solid rgba(226,232,240,.88);
   cursor:pointer;
@@ -465,7 +467,7 @@ body { background:#e7eef4; }
 .sheet-route-name {
   font-size:16px;
   font-weight:800;
-  color:#0f172a;
+  color:#0f3a5f;
   line-height:1.25;
 }
 .sheet-route-sub {
@@ -477,11 +479,11 @@ body { background:#e7eef4; }
 }
 .sheet-chip {
   flex-shrink:0;
-  border:1px solid #bfdbfe;
+  border:1px solid #bceee7;
   border-radius:999px;
   padding:6px 10px;
-  background:#eff6ff;
-  color:#1d4ed8;
+  background:#eefdfa;
+  color:var(--teal-dark);
   font-family:'Chakra Petch',sans-serif;
   font-size:14px;
   font-weight:700;
@@ -550,8 +552,8 @@ body { background:#e7eef4; }
 <body>
 
 <div class="topbar">
-  <div class="header-main">ตารางเวลาและบริการเส้นรถประจำทาง</div>
-  <div class="header-sub">Smart Transit · ระบบขนส่งมวลชนอัจฉริยะ</div>
+  <div class="header-main">ข้อมูลเที่ยวรถและสถานะบริการ</div>
+  <div class="header-sub">Smart Transit · ระบบบริการผู้โดยสารอัจฉริยะ</div>
 </div>
 
 <!-- ข้อ 5: วันเวลาซ้าย / อัปเดตขวา -->
@@ -561,20 +563,20 @@ body { background:#e7eef4; }
     <div class="date" id="dateText"></div>
   </div>
   <div class="right">
-    <span class="live-dot"></span>อัปเดตเรียลไทม์<br>
+    <span class="live-dot"></span>ข้อมูลอัปเดตแบบเรียลไทม์<br>
     <span id="lastUpdate" style="font-weight:400;color:var(--muted)">รอข้อมูล</span>
   </div>
 </div>
 
-<div class="test-mode-strip" id="testModeStrip">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง</div>
-<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังเช็คระบบเสมือนผู้โดยสารจริง</div>
+<div class="test-mode-strip" id="testModeStrip">โหมดทดสอบเปิดอยู่ - ระบบจะไม่ส่งข้อความ LINE จริง</div>
+<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังตรวจสอบระบบในสถานะผู้โดยสารจริง</div>
 
 <div class="map-page">
 <div class="main">
 
   <!-- ลำดับใหม่: เลือกเส้นทาง → แผนที่ -->
   <div class="route-select-card top-route-card">
-    <div class="rs-title">เลือกเส้นทาง</div>
+    <div class="rs-title">เลือกเส้นทางการเดินทาง</div>
     <div class="rs-row">
       <div class="rs-group">
         <div class="rs-label">ต้นทาง</div>
@@ -589,7 +591,7 @@ body { background:#e7eef4; }
   </div>
 
   <div id="map"></div>
-  <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งฉัน</button>
+  <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งของฉัน</button>
 
   <!-- ตำแหน่งรถ — รองรับหลายคัน -->
   <section class="bottom-sheet sheet-collapsed" id="routeBottomSheet" aria-live="polite">
@@ -597,26 +599,26 @@ body { background:#e7eef4; }
       <div class="sheet-handle"></div>
       <div class="sheet-summary-row">
         <div>
-          <div class="sheet-route-name" id="sheetRouteName">เลือกต้นทางและปลายทาง</div>
-          <div class="sheet-route-sub" id="sheetRouteSub">แผนที่และตารางเวลาจะอัปเดตตามเส้นทางที่เลือก</div>
+          <div class="sheet-route-name" id="sheetRouteName">กรุณาเลือกต้นทางและปลายทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">แผนที่และตารางเวลาเดินรถจะอัปเดตตามเส้นทางที่เลือก</div>
         </div>
         <div class="sheet-chip" id="sheetEtaChip">--:--</div>
       </div>
     </div>
     <div class="bottom-sheet-content">
 
-  <div class="sec-label">ตารางเวลา</div>
+  <div class="sec-label">ตารางเวลาเดินรถ</div>
   <div id="schedWrapper"></div>
 
   <a href="booking.html" class="booking-tab">
     <span class="booking-tab-icon">🎫</span>
-    <span class="booking-tab-text">จองตั๋วออนไลน์</span>
+    <span class="booking-tab-text">จองตั๋วโดยสารออนไลน์</span>
     <span class="booking-tab-arrow">→</span>
   </a>
 
   <div class="footer">
     <span class="note-title">หมายเหตุ :</span><br>
-    ตารางเวลาเดินรถอาจมีการคลาดเคลื่อนจากสภาพการจราจร สภาพอากาศ หรือเหตุสุดวิสัย  ขออภัยในความไม่สะดวกมา ณ โอกาสนี้
+    ตารางเวลาเดินรถอาจเปลี่ยนแปลงหรือคลาดเคลื่อนจากสภาพการจราจร สภาพอากาศ หรือเหตุสุดวิสัย ขออภัยในความไม่สะดวกมา ณ โอกาสนี้
   </div>
     </div>
   </section>
@@ -788,11 +790,11 @@ function normalizeMapPoint(point) {
 
 function vehicleStatusMessage(pos) {
   var status = pos && pos.status ? String(pos.status) : '';
-  if (pos && pos.online === false) return 'รถออฟไลน์อยู่ ระบบจะอัปเดตเมื่อคนขับกลับมาออนไลน์';
-  if (status === 'locating') return 'คนขับออนไลน์แล้ว กำลังค้นหาสัญญาณ GPS';
-  if (status === 'low_accuracy') return 'กำลังรอสัญญาณ GPS ให้แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
-  if (status === 'gps_error') return 'GPS ของคนขับมีปัญหา กรุณารอสักครู่';
-  if (status === 'moving') return 'ตำแหน่งรถอัปเดตแบบเรียลไทม์';
+  if (pos && pos.online === false) return 'รถโดยสารออฟไลน์ชั่วคราว ระบบจะอัปเดตเมื่อกลับมาออนไลน์';
+  if (status === 'locating') return 'ระบบกำลังค้นหาสัญญาณ GPS ของรถโดยสาร';
+  if (status === 'low_accuracy') return 'ระบบกำลังรอสัญญาณ GPS ที่แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
+  if (status === 'gps_error') return 'ระบบ GPS ของรถโดยสารขัดข้องชั่วคราว กรุณารอสักครู่';
+  if (status === 'moving') return 'ตำแหน่งรถโดยสารอัปเดตแบบเรียลไทม์';
   return '';
 }
 
@@ -895,7 +897,7 @@ function updateFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn) return;
   btn.classList.toggle('is-off', !followUser);
-  btn.textContent = followUser ? 'กำลังติดตามตำแหน่งฉัน' : 'ติดตามตำแหน่งฉัน';
+  btn.textContent = followUser ? 'กำลังติดตามตำแหน่งของฉัน' : 'ติดตามตำแหน่งของฉัน';
 }
 
 function setFollowUser(nextValue) {
@@ -977,8 +979,8 @@ function updateBottomSheetSummary() {
   if (!routeName || !routeSub || !etaChip) return;
 
   if (!selOrigin || !selDest) {
-    routeName.textContent = 'เลือกต้นทางและปลายทาง';
-    routeSub.textContent = 'แผนที่และตารางเวลาจะอัปเดตตามเส้นทางที่เลือก';
+    routeName.textContent = 'กรุณาเลือกต้นทางและปลายทาง';
+    routeSub.textContent = 'แผนที่และตารางเวลาเดินรถจะอัปเดตตามเส้นทางที่เลือก';
     etaChip.textContent = '--:--';
     return;
   }
@@ -1775,10 +1777,10 @@ function getStatusInfo(pos) {
   if (pos) {
     var statusNote = vehicleStatusMessage(pos);
     if (pos.online === false || pos.status === 'locating' || pos.status === 'low_accuracy' || pos.status === 'gps_error') {
-      return {cls:'stopped', icon:'รถ', title:statusNote, sub:'สถานะจากแอพคนขับ'};
+      return {cls:'stopped', icon:'รถ', title:statusNote, sub:'สถานะจากแอปคนขับ'};
     }
   }
-  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่ง',sub:'รอคนขับเปิดหน้าคนขับ'};
+  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่งรถ',sub:'ระบบกำลังรอข้อมูลจากแอปคนขับ'};
   const elapsed=getVehicleAgeSec(pos);
   const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
   const stopName=dir[pos.stopIdx]?.name||'?';
@@ -1884,7 +1886,7 @@ function renderNextBus() {
   }
   if(!nextTime){
     nextTimeEl.textContent='--:--';
-    nextDetailEl.textContent='ไม่มีรถแล้วในวันนี้';
+    nextDetailEl.textContent='ไม่มีเที่ยวรถเพิ่มเติมในวันนี้';
     return;
   }
   const diff = toMin(nextTime)-now;
@@ -1971,7 +1973,7 @@ function renderSched() {
         <div class="leg2-col-head">
           <div class="leg2-col-sub">เที่ยวที่ 2</div>
           <div class="leg2-col-name">${startsAtTransferHub ? origin : transferHubLabel} → ${dest}</div>
-          <div class="leg2-col-note">ต่อรถที่ชานชาลา 6</div>
+          <div class="leg2-col-note">จุดต่อรถ: ชานชาลา 6</div>
         </div>
         <div class="leg2-col-head" style="border-right:none;">
           <div class="leg2-col-sub">&nbsp;</div>
@@ -1983,7 +1985,7 @@ function renderSched() {
     wrapper.innerHTML = `
       <div class="leg2-card">
         <div class="leg2-header">
-          <div class="leg2-header-top">เส้นทางต่อรถ</div>
+          <div class="leg2-header-top">ข้อมูลเส้นทางต่อรถ</div>
           <div class="leg2-header-route">${origin} → ${dest}</div>
         </div>
         ${leg1Html}
