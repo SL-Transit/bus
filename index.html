@@ -58,10 +58,106 @@
       transform: translate(8%, 4%);
     }
 
+    .bg-scene {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bg-scene::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 34vh;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(218,232,244,0.70)),
+        repeating-linear-gradient(90deg, rgba(15,58,95,0.10) 0 2px, transparent 2px 64px);
+      border-top: 1px solid rgba(15,58,95,0.10);
+    }
+    .bg-van {
+      position: absolute;
+      left: 0;
+      bottom: 72px;
+      width: min(38vw, 520px);
+      height: 170px;
+      opacity: 0.70;
+      filter: drop-shadow(0 22px 36px rgba(15,58,95,0.18));
+    }
+    .bg-van::before {
+      content: "";
+      position: absolute;
+      inset: 34px 0 24px;
+      border-radius: 46px 60px 24px 22px;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.88), rgba(238,248,255,0.95) 58%, rgba(209,232,247,0.92)),
+        linear-gradient(180deg, transparent 0 62%, rgba(18,101,200,0.34) 63% 100%);
+      border: 2px solid rgba(15,58,95,0.14);
+    }
+    .bg-van::after {
+      content: "สนามชัย";
+      position: absolute;
+      left: 8%;
+      bottom: 54px;
+      color: rgba(18,101,200,0.78);
+      font-size: clamp(18px, 2vw, 26px);
+      font-weight: 700;
+    }
+    .van-window {
+      position: absolute;
+      top: 54px;
+      left: 24%;
+      width: 54%;
+      height: 42px;
+      border-radius: 18px 28px 10px 10px;
+      background: linear-gradient(90deg, rgba(15,58,95,0.20), rgba(65,140,205,0.22));
+      box-shadow: 86px 0 0 rgba(15,58,95,0.16);
+    }
+    .van-wheel {
+      position: absolute;
+      bottom: 16px;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #f7fbff 0 31%, #0f3a5f 32% 52%, rgba(15,58,95,0.18) 53%);
+    }
+    .van-wheel.left { left: 18%; }
+    .van-wheel.right { right: 18%; }
+    .bg-terminal {
+      position: absolute;
+      right: 0;
+      bottom: 46px;
+      width: min(42vw, 630px);
+      height: 330px;
+      opacity: 0.52;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.64), rgba(255,255,255,0.22)),
+        repeating-linear-gradient(90deg, rgba(15,58,95,0.20) 0 3px, transparent 3px 76px);
+      clip-path: polygon(8% 24%, 100% 2%, 100% 100%, 0 100%);
+      border-bottom: 10px solid rgba(15,58,95,0.13);
+    }
+    .bg-sign {
+      position: absolute;
+      right: 12%;
+      bottom: 210px;
+      min-width: 160px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: rgba(18,101,200,0.62);
+      color: #fff;
+      font-size: clamp(18px, 2vw, 26px);
+      font-weight: 700;
+      text-align: center;
+      transform: rotate(-4deg);
+      box-shadow: 0 14px 30px rgba(15,58,95,0.15);
+    }
+
     .container {
       width: 100%;
-      max-width: 1060px;
-      background: rgba(255,255,255,0.94);
+      max-width: 980px;
+      background: rgba(255,255,255,0.92);
       padding: 30px 28px 22px;
       border-radius: 24px;
       box-shadow: 0 18px 50px rgba(15,58,95,0.14);
@@ -299,6 +395,9 @@
     @media (max-width: 820px) {
       body { padding: 74px 14px 18px; justify-content: flex-start; }
       body::before, body::after { opacity: 0.14; width: 80vw; }
+      .bg-van { width: 82vw; left: -35vw; bottom: 50px; opacity: 0.34; }
+      .bg-terminal { width: 86vw; right: -48vw; opacity: 0.28; }
+      .bg-sign { right: 4%; bottom: 150px; font-size: 16px; min-width: 120px; }
       .container { padding: 28px 16px 20px; border-radius: 22px; }
       .header-icon { margin-top: -56px; }
       .route-card { min-height: 0; padding: 20px 14px; }
@@ -440,6 +539,16 @@
 </head>
 
 <body>
+
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-van">
+      <span class="van-window"></span>
+      <span class="van-wheel left"></span>
+      <span class="van-wheel right"></span>
+    </div>
+    <div class="bg-terminal"></div>
+    <div class="bg-sign">ฉะเชิงเทรา</div>
+  </div>
 
   <!-- ══ LINE Warning Overlay (แสดงทันทีถ้าอยู่ใน LINE browser) ══ -->
   <div id="line-overlay">
