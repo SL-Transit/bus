@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🚐 ST Transit ซิมูเลเตอร์</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0f1a;
+  --panel: #0d1520;
+  --panel2: #111c2e;
+  --border: #1e3a5f;
+  --border2: #0f2440;
+  --green: #00ff88;
+  --green2: #00c864;
+  --green-dim: #00ff8820;
+  --blue: #00aaff;
+  --blue-dim: #00aaff18;
+  --yellow: #ffdd00;
+  --yellow-dim: #ffdd0020;
+  --red: #ff4466;
+  --red-dim: #ff446618;
+  --orange: #ff8800;
+  --cyan: #00eeff;
+  --muted: #4a6a8a;
+  --text: #c8ddf0;
+  --text2: #7a9ab8;
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Orbitron', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;}
+
+/* ===== SCANLINE overlay ===== */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);
+}
+
+/* ===== LAYOUT ===== */
+#app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:340px 1fr 280px;height:100vh;gap:2px;background:#060b14;}
+
+/* ===== HEADER ===== */
+#header{
+  grid-column:1/-1;grid-row:1;
+  background:var(--panel);border-bottom:2px solid var(--border);
+  padding:8px 14px;display:flex;align-items:center;gap:16px;
+  font-family:var(--display);
+}
+.hdr-title{font-size:18px;font-weight:900;color:var(--green);letter-spacing:2px;text-shadow:0 0 20px var(--green);}
+.hdr-title span{color:var(--cyan);font-size:12px;font-weight:400;letter-spacing:1px;margin-left:8px;}
+.hdr-badge{
+  background:var(--red-dim);border:1px solid var(--red);color:var(--red);
+  border-radius:4px;padding:3px 10px;font-size:10px;font-family:var(--mono);
+  animation:pulse-badge 2s infinite;
+}
+@keyframes pulse-badge{0%,100%{opacity:1}50%{opacity:.5}}
+.hdr-path{flex:1;text-align:right;font-size:10px;color:var(--muted);}
+.hdr-path b{color:var(--yellow);}
+
+/* ===== LEFT PANEL ===== */
+#left-panel{
+  grid-column:1;grid-row:2;
+  background:var(--panel);border-right:2px solid var(--border2);
+  overflow-y:auto;overflow-x:hidden;
+  padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+}
+
+/* ===== MAP ===== */
+#map-area{
+  grid-column:2;grid-row:2;
+  position:relative;background:#0a1520;
+}
+#map{width:100%;height:100%;}
+
+/* ===== RIGHT PANEL ===== */
+#right-panel{
+  grid-column:3;grid-row:2;
+  background:var(--panel);border-left:2px solid var(--border2);
+  overflow-y:auto;overflow-x:hidden;
+  padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+}
+
+/* ===== SECTION ===== */
+.sec{
+  background:var(--panel2);border:1px solid var(--border2);border-radius:6px;
+  overflow:hidden;
+}
+.sec-hdr{
+  padding:6px 10px;background:rgba(0,170,255,.08);border-bottom:1px solid var(--border2);
+  font-family:var(--display);font-size:9px;font-weight:700;letter-spacing:2px;color:var(--blue);
+  display:flex;align-items:center;gap:6px;
+}
+.sec-hdr .dot{width:6px;height:6px;border-radius:50%;background:var(--blue);box-shadow:0 0 6px var(--blue);}
+.sec-body{padding:8px 10px;}
+
+/* ===== FORM ELEMENTS ===== */
+.field-row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+.field-row:last-child{margin-bottom:0;}
+.field-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.field-input,.field-select{
+  background:#0a1520;border:1px solid var(--border);border-radius:4px;
+  color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;
+  width:100%;outline:none;
+}
+.field-input:focus,.field-select:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(0,170,255,.15);}
+.field-select option{background:#0a1520;}
+.field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+
+/* ===== BUTTONS ===== */
+.btn{
+  border:1px solid var(--border);border-radius:4px;background:transparent;
+  color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 10px;
+  cursor:pointer;transition:all .12s;white-space:nowrap;
+}
+.btn:hover{background:rgba(255,255,255,.05);}
+.btn:active{transform:scale(.97);}
+.btn-green{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+.btn-green:hover{background:rgba(0,255,136,.15);}
+.btn-blue{border-color:var(--blue);color:var(--blue);background:var(--blue-dim);}
+.btn-blue:hover{background:rgba(0,170,255,.15);}
+.btn-yellow{border-color:var(--yellow);color:var(--yellow);background:var(--yellow-dim);}
+.btn-yellow:hover{background:rgba(255,221,0,.15);}
+.btn-red{border-color:var(--red);color:var(--red);background:var(--red-dim);}
+.btn-red:hover{background:rgba(255,68,102,.15);}
+.btn-orange{border-color:var(--orange);color:var(--orange);}
+.btn-full{width:100%;}
+.btn-sm{padding:4px 8px;font-size:10px;}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.btn-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+
+/* ===== STATUS LIGHTS ===== */
+.status-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.status-light{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.light-green{background:var(--green);box-shadow:0 0 8px var(--green);}
+.light-red{background:var(--red);box-shadow:0 0 8px var(--red);}
+.light-yellow{background:var(--yellow);box-shadow:0 0 8px var(--yellow);}
+.light-blue{background:var(--blue);box-shadow:0 0 8px var(--blue);}
+.light-off{background:var(--muted);}
+
+/* ===== DEBUG ROWS ===== */
+.debug-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.debug-row:last-child{border-bottom:none;}
+.debug-k{color:var(--muted);font-size:10px;}
+.debug-v{color:var(--cyan);font-size:11px;font-weight:bold;text-align:right;}
+.debug-v.ok{color:var(--green);}
+.debug-v.warn{color:var(--yellow);}
+.debug-v.bad{color:var(--red);}
+
+/* ===== TIME SCALE ===== */
+.timescale-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.ts-btn{
+  border:1px solid var(--border);border-radius:4px;background:transparent;
+  color:var(--muted);font-family:var(--display);font-size:10px;font-weight:700;
+  padding:5px 0;cursor:pointer;text-align:center;transition:all .12s;
+}
+.ts-btn.active{border-color:var(--yellow);color:var(--yellow);background:var(--yellow-dim);}
+.ts-btn:hover:not(.active){background:rgba(255,255,255,.05);}
+
+/* ===== DPAD ===== */
+.dpad{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:3px;width:100px;margin:0 auto;}
+.dpad-btn{
+  border:1px solid var(--border);border-radius:4px;background:rgba(0,170,255,.07);
+  color:var(--blue);font-size:16px;padding:6px;cursor:pointer;text-align:center;
+  font-family:var(--mono);transition:all .1s;user-select:none;
+}
+.dpad-btn:active{background:rgba(0,170,255,.25);transform:scale(.95);}
+.dpad-center{background:rgba(255,68,102,.1);border-color:var(--red);color:var(--red);font-size:9px;}
+.dpad-center:active{background:rgba(255,68,102,.25);}
+.dpad-empty{border:none;background:transparent;cursor:default;}
+
+/* ===== SCENARIO BTNS ===== */
+.scenario-btn{
+  border:1px solid var(--border);border-radius:4px;background:var(--panel);
+  color:var(--text2);font-family:var(--mono);font-size:10px;padding:6px 8px;
+  cursor:pointer;transition:all .12s;text-align:left;line-height:1.5;
+  width:100%;margin-bottom:5px;
+}
+.scenario-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+.scenario-num{font-family:var(--display);color:var(--yellow);font-size:9px;margin-right:4px;}
+
+/* ===== FIREBASE PATH DISPLAY ===== */
+.path-chip{
+  background:#060e1a;border:1px solid var(--border2);border-radius:3px;
+  font-size:9px;color:var(--green);padding:3px 7px;font-family:var(--mono);
+  word-break:break-all;line-height:1.5;margin-top:4px;
+}
+.path-chip b{color:var(--yellow);}
+
+/* ===== WARNING STRIP ===== */
+.warn-strip{
+  background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.3);
+  border-radius:4px;padding:8px 10px;font-size:10px;color:var(--red);
+  line-height:1.6;
+}
+.warn-strip b{color:#fff;}
+
+/* ===== WRITE MODE SELECTOR ===== */
+.write-mode-row{display:flex;gap:4px;flex-wrap:wrap;}
+.mode-btn{
+  border:1px solid var(--border);border-radius:3px;background:transparent;
+  color:var(--muted);font-size:9px;font-family:var(--mono);padding:3px 7px;cursor:pointer;
+}
+.mode-btn.active{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+
+/* ===== SPEED DISPLAY ===== */
+.big-num{
+  font-family:var(--display);font-size:28px;font-weight:900;
+  color:var(--green);text-shadow:0 0 20px var(--green);
+  text-align:center;line-height:1;padding:4px 0;
+}
+.big-label{font-size:9px;color:var(--muted);text-align:center;letter-spacing:1px;}
+
+/* ===== MAP MARKERS ===== */
+.marker-bus{font-size:24px;line-height:1;filter:drop-shadow(0 0 6px #00ff88);}
+.marker-npc{font-size:20px;line-height:1;filter:drop-shadow(0 0 5px #00aaff);}
+.marker-stop{font-size:16px;line-height:1;}
+.marker-home{font-size:16px;line-height:1;}
+
+/* ===== DIVIDER ===== */
+.divider{height:1px;background:var(--border2);margin:6px 0;}
+
+/* ===== STATUS TAG ===== */
+.tag{display:inline-block;border-radius:3px;padding:2px 7px;font-size:9px;font-family:var(--mono);}
+.tag-green{background:var(--green-dim);border:1px solid var(--green);color:var(--green);}
+.tag-yellow{background:var(--yellow-dim);border:1px solid var(--yellow);color:var(--yellow);}
+.tag-red{background:var(--red-dim);border:1px solid var(--red);color:var(--red);}
+.tag-blue{background:var(--blue-dim);border:1px solid var(--blue);color:var(--blue);}
+.tag-muted{background:rgba(74,106,138,.15);border:1px solid var(--muted);color:var(--muted);}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ===== NPC STATUS ===== */
+.npc-status-box{
+  background:#060e1a;border:1px solid var(--border2);border-radius:4px;
+  padding:6px 8px;font-size:10px;color:var(--green2);margin-top:4px;
+}
+
+/* ===== TOGGLE ===== */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.toggle-lbl{font-size:10px;color:var(--muted);}
+.toggle{
+  width:32px;height:16px;border-radius:8px;border:1px solid var(--border);
+  background:#060e1a;cursor:pointer;position:relative;transition:.2s;
+}
+.toggle.on{background:var(--green);border-color:var(--green);}
+.toggle::after{
+  content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;
+  border-radius:50%;background:#fff;transition:.2s;
+}
+.toggle.on::after{left:18px;}
+
+/* ===== LOG ===== */
+.log-box{
+  background:#060e1a;border:1px solid var(--border2);border-radius:4px;
+  height:80px;overflow-y:auto;padding:4px 6px;font-size:9px;
+  color:var(--green2);line-height:1.6;
+}
+.log-box .log-entry{border-bottom:1px solid rgba(255,255,255,.03);padding:1px 0;}
+.log-box .log-ts{color:var(--muted);}
+
+/* ===== AUTO ROUTE PROGRESS ===== */
+.route-progress{
+  background:#060e1a;border:1px solid var(--border2);border-radius:4px;
+  padding:5px 8px;margin-top:4px;
+}
+.route-progress-bar{
+  height:4px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden;
+}
+.route-progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s;}
+
+/* ===== MAPBOX override ===== */
+.leaflet-container{background:#0a1520;}
+.leaflet-tile{filter:brightness(.7) saturate(.6) hue-rotate(200deg);}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- ======= HEADER ======= -->
+<div id="header">
+  <div class="hdr-title">ST TRANSIT ซิมูเลเตอร์ <span>v1.1 · ระยะทางถนนจริง</span></div>
+  <div class="hdr-badge">⚠ ซิมูเลเตอร์</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+    <div style="font-size:10px;color:var(--muted)">PATH:</div>
+    <div id="hdrPathDisplay" class="path-chip" style="margin:0;font-size:10px;">liveVehicles/car1 + bus/car1</div>
+    <div id="fbStatusLight" class="status-light light-off" style="margin-left:6px;"></div>
+    <div id="fbStatusText" style="font-size:10px;color:var(--muted)">Firebase...</div>
+  </div>
+</div>
+
+<!-- ======= LEFT PANEL ======= -->
+<div id="left-panel">
+
+  <!-- Test Setup -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot"></div>ตั้งค่าการทดสอบ</div>
+    <div class="sec-body">
+      <div class="field-row">
+        <div class="field-label">รหัสตั๋ว</div>
+        <input id="ticketCode" class="field-input" value="TB000001" placeholder="BK123456 / TB123456">
+      </div>
+      <div class="field-row-2">
+        <div class="field-row" style="margin:0">
+          <div class="field-label">รถ</div>
+          <select id="vehicleSel" class="field-select">
+            <option value="car1">car1</option>
+            <option value="car2">car2</option>
+            <option value="car3">car3</option>
+            <option value="car4">car4</option>
+          </select>
+        </div>
+        <div class="field-row" style="margin:0">
+          <div class="field-label">คิว</div>
+          <select id="queueSel" class="field-select" onchange="onQueueChange()">
+            <option value="1">คิว 1</option>
+            <option value="2">คิว 2</option>
+            <option value="3">คิว 3</option>
+            <option value="4">คิว 4</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">เที่ยว</div>
+        <select id="tripSel" class="field-select" onchange="onTripChange()"></select>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row" style="margin:0">
+          <div class="field-label">ความเร็วรถ (กม./ชม.)</div>
+          <input id="vehicleSpeed" class="field-input" type="number" value="60" min="1" max="120">
+        </div>
+        <div class="field-row" style="margin:0">
+          <div class="field-label">ความเร็ว NPC (กม./ชม.)</div>
+          <input id="npcSpeed" class="field-input" type="number" value="4" min="1" max="20">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">อัตราเวลา</div>
+        <div class="timescale-row">
+          <button class="ts-btn" onclick="setTimeScale(1)">×1</button>
+          <button class="ts-btn active" onclick="setTimeScale(10)">×10</button>
+          <button class="ts-btn" onclick="setTimeScale(50)">×50</button>
+          <button class="ts-btn" onclick="setTimeScale(100)">×100</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Write Mode -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot"></div>โหมดเขียน FIREBASE</div>
+    <div class="sec-body">
+      <div class="field-label" style="margin-bottom:5px">ข้อมูลรถ → Firebase</div>
+      <div class="write-mode-row" id="vehicleWriteMode">
+        <button class="mode-btn" onclick="setVehicleWriteMode('liveVehicles')">liveVehicles เท่านั้น</button>
+        <button class="mode-btn" onclick="setVehicleWriteMode('bus')">bus เท่านั้น</button>
+        <button class="mode-btn active" onclick="setVehicleWriteMode('both')">ทั้งคู่ (ค่าเริ่มต้น)</button>
+      </div>
+      <div class="divider"></div>
+      <div class="field-label" style="margin-bottom:5px">ข้อมูล NPC/ผู้โดยสาร → Firebase</div>
+      <div class="write-mode-row" id="ticketWriteMode">
+        <button class="mode-btn" onclick="setTicketWriteMode('ticketLocations')">ticketLocations</button>
+        <button class="mode-btn" onclick="setTicketWriteMode('testTicketLocations')">testTicketLocations</button>
+        <button class="mode-btn active" onclick="setTicketWriteMode('both')">ทั้งคู่ (ค่าเริ่มต้น)</button>
+      </div>
+      <div id="currentPathDisplay" class="path-chip">
+        <b>Vehicle:</b> liveVehicles/car1 + bus/car1<br>
+        <b>NPC:</b> ticketLocations/TB000001 + testTicketLocations/TB000001
+      </div>
+    </div>
+  </div>
+
+  <!-- Warning -->
+  <div class="warn-strip">
+    ⚠️ <b>Simulator เขียนข้อมูลเข้า Firebase จริง</b><br>
+    ควรใช้กับตั๋วทดสอบ (TB...) หรือ TEST_MODE เท่านั้น<br>
+    ห้ามส่ง LINE จาก simulator โดยตรง
+  </div>
+
+  <!-- Scenarios -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--yellow);box-shadow:0 0 6px var(--yellow)"></div>สถานการณ์ทดสอบ</div>
+    <div class="sec-body" style="padding:6px 8px">
+      <button class="scenario-btn" onclick="runScenario(1)">
+        <span class="scenario-num">S1</span> NPC อยู่บ้าน รถกำลังมาป้าย 3 กม.
+      </button>
+      <button class="scenario-btn" onclick="runScenario(2)">
+        <span class="scenario-num">S2</span> NPC อยู่ป้าย รถยังห่าง 1 กม.
+      </button>
+      <button class="scenario-btn" onclick="runScenario(3)">
+        <span class="scenario-num">S3</span> รถ+NPC อยู่ป้ายพร้อมกัน (auto check-in test)
+      </button>
+      <button class="scenario-btn" onclick="runScenario(4)">
+        <span class="scenario-num">S4</span> รถผ่านป้ายแล้ว NPC ยังไม่ถึง
+      </button>
+      <button class="scenario-btn" onclick="runScenario(5)">
+        <span class="scenario-num">S5</span> ใกล้แปดริ้ว 2.5 กม. (manual check-in test)
+      </button>
+      <button class="scenario-btn" onclick="runScenario(6)">
+        <span class="scenario-num">S6</span> Full flow: NPC+รถออกจากป้าย → แปดริ้ว
+      </button>
+    </div>
+  </div>
+
+  <!-- Clear / Reset -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--red);box-shadow:0 0 6px var(--red)"></div>ล้างข้อมูล / รีเซ็ต</div>
+    <div class="sec-body">
+      <div class="btn-grid" style="gap:4px">
+        <button class="btn btn-sm btn-red" onclick="clearVehicleData()">ล้างข้อมูลรถ</button>
+        <button class="btn btn-sm btn-red" onclick="clearNpcData()">ล้างข้อมูล NPC</button>
+        <button class="btn btn-sm btn-yellow" onclick="resetAll()">รีเซ็ตทั้งหมด</button>
+        <button class="btn btn-sm btn-red" onclick="clearAllData()">ล้าง Firebase ทั้งหมด</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ======= MAP ======= -->
+<div id="map-area">
+  <div id="map"></div>
+</div>
+
+<!-- ======= RIGHT PANEL ======= -->
+<div id="right-panel">
+
+  <!-- Vehicle Controls -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>ควบคุมรถ</div>
+    <div class="sec-body">
+
+      <div class="big-num" id="vehicleSpeedDisplay">0</div>
+      <div class="big-label">กม./ชม.</div>
+      <div class="divider"></div>
+
+      <!-- Quick Place -->
+      <div class="field-label" style="margin-bottom:4px">วางตำแหน่งด่วน</div>
+      <div class="btn-grid" style="margin-bottom:6px">
+        <button class="btn btn-sm btn-green" onclick="placeVehicle('pickup')">📍 ป้ายต้นทาง</button>
+        <button class="btn btn-sm" onclick="placeVehicle('before1')">← 1 กม.</button>
+        <button class="btn btn-sm" onclick="placeVehicle('before3')">← 3 กม.</button>
+        <button class="btn btn-sm" onclick="placeVehicle('past')">↓ เลยป้ายแล้ว</button>
+        <button class="btn btn-sm btn-yellow" onclick="placeVehicle('near_terminal')">⚡ ใกล้แปดริ้ว 2.5</button>
+        <button class="btn btn-sm btn-yellow" onclick="placeVehicle('terminal')">🏁 แปดริ้ว</button>
+      </div>
+
+      <!-- D-Pad -->
+      <div class="field-label" style="margin-bottom:4px">บังคับด้วยตนเอง</div>
+      <div class="dpad">
+        <div class="dpad-empty"></div>
+        <div class="dpad-btn" onmousedown="startDpad('fwd')" onmouseup="stopDpad()" ontouchstart="startDpad('fwd')" ontouchend="stopDpad()">▲</div>
+        <div class="dpad-empty"></div>
+        <div class="dpad-btn" onmousedown="startDpad('left')" onmouseup="stopDpad()" ontouchstart="startDpad('left')" ontouchend="stopDpad()">◄</div>
+        <div class="dpad-btn dpad-center" onmousedown="stopVehicle()" ontouchstart="stopVehicle()">หยุด</div>
+        <div class="dpad-btn" onmousedown="startDpad('right')" onmouseup="stopDpad()" ontouchstart="startDpad('right')" ontouchend="stopDpad()">►</div>
+        <div class="dpad-empty"></div>
+        <div class="dpad-btn" onmousedown="startDpad('back')" onmouseup="stopDpad()" ontouchstart="startDpad('back')" ontouchend="stopDpad()">▼</div>
+        <div class="dpad-empty"></div>
+      </div>
+      <div class="btn-grid" style="margin-top:5px">
+        <button class="btn btn-sm" onclick="changeSpeed(-10)">ความเร็ว −</button>
+        <button class="btn btn-sm" onclick="changeSpeed(10)">ความเร็ว +</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Auto Route -->
+      <div class="field-label" style="margin-bottom:4px">เส้นทางอัตโนมัติ</div>
+      <div id="autoRouteProgress" class="route-progress" style="display:none">
+        <div style="font-size:9px;color:var(--muted)">ความคืบหน้า: <span id="routeProgressText">0/0</span></div>
+        <div class="route-progress-bar"><div id="routeProgressFill" class="route-progress-fill" style="width:0%"></div></div>
+      </div>
+      <div class="btn-grid-3" style="margin-top:5px">
+        <button class="btn btn-sm btn-green" onclick="startAutoRoute()">▶ เริ่ม</button>
+        <button class="btn btn-sm btn-yellow" onclick="pauseAutoRoute()">⏸ พัก</button>
+        <button class="btn btn-sm btn-red" onclick="stopAutoRoute()">■ หยุด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NPC Controls -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>ควบคุม NPC</div>
+    <div class="sec-body">
+      <div class="npc-status-box" id="npcStatusBox">
+        สถานะ: <span id="npcStatusText" style="color:var(--yellow)">idle</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field-label" style="margin-bottom:4px">วางตำแหน่งด่วน</div>
+      <div class="btn-grid" style="margin-bottom:6px">
+        <button class="btn btn-sm btn-blue" onclick="placeNpc('home')">🏠 บ้าน</button>
+        <button class="btn btn-sm" onclick="placeNpc('before300')">← 300 ม.</button>
+        <button class="btn btn-sm btn-green" onclick="placeNpc('pickup')">📍 ป้ายต้นทาง</button>
+        <button class="btn btn-sm btn-yellow" onclick="placeNpc('near_terminal')">⚡ ใกล้แปดริ้ว 2.5</button>
+        <button class="btn btn-sm btn-yellow" onclick="placeNpc('terminal')">🏁 แปดริ้ว</button>
+        <button class="btn btn-sm btn-red" onclick="resetNpc()">⟲ รีเซ็ต NPC</button>
+      </div>
+
+      <div class="field-label" style="margin-bottom:4px">NPC อัตโนมัติ</div>
+      <div class="btn-grid" style="margin-bottom:4px">
+        <button class="btn btn-sm btn-green btn-full" onclick="startNpcWalk()" style="grid-column:1/-1">🚶 เดินไปป้ายต้นทาง</button>
+      </div>
+      <div class="btn-grid">
+        <button class="btn btn-sm btn-blue" onclick="startFollowVehicle()">ตามรถ</button>
+        <button class="btn btn-sm btn-red" onclick="stopNpc()">หยุด NPC</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Debug - Vehicle -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>ดีบักสดๆ — รถ</div>
+    <div class="sec-body">
+      <div class="debug-row"><div class="debug-k">รหัสรถ</div><div class="debug-v" id="dbgVehicleId">-</div></div>
+      <div class="debug-row"><div class="debug-k">คิวที่</div><div class="debug-v" id="dbgQueueNo">-</div></div>
+      <div class="debug-row"><div class="debug-k">เที่ยวที่</div><div class="debug-v" id="dbgTripIndex">-</div></div>
+      <div class="debug-row"><div class="debug-k">lat / lng</div><div class="debug-v" id="dbgVehicleLatLng">-</div></div>
+      <div class="debug-row"><div class="debug-k">ความเร็ว</div><div class="debug-v" id="dbgVehicleSpeed">-</div></div>
+      <div class="debug-row"><div class="debug-k">ทิศทาง</div><div class="debug-v" id="dbgVehicleHeading">-</div></div>
+      <div class="debug-row"><div class="debug-k">→ ระยะป้าย <span id="dbgPickupMode" style="font-size:8px;color:var(--muted)">(เส้นตรง)</span></div><div class="debug-v" id="dbgDistToPickup">-</div></div>
+      <div class="debug-row"><div class="debug-k">→ ETA ป้าย</div><div class="debug-v" id="dbgEtaPickup">-</div></div>
+      <div class="debug-row"><div class="debug-k">→ ระยะแปดริ้ว <span id="dbgTerminalMode" style="font-size:8px;color:var(--muted)">(เส้นตรง)</span></div><div class="debug-v" id="dbgDistToTerminal">-</div></div>
+      <div class="debug-row"><div class="debug-k">→ ETA แปดริ้ว</div><div class="debug-v" id="dbgEtaTerminal">-</div></div>
+      <div class="debug-row"><div class="debug-k">แหล่งข้อมูล</div><div class="debug-v ok">ซิมูเลเตอร์</div></div>
+      <div class="debug-row"><div class="debug-k">อัปเดตล่าสุด</div><div class="debug-v" id="dbgVehicleUpdate">-</div></div>
+    </div>
+  </div>
+
+  <!-- Live Debug - NPC -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div>ดีบักสดๆ — NPC</div>
+    <div class="sec-body">
+      <div class="debug-row"><div class="debug-k">รหัสตั๋ว</div><div class="debug-v" id="dbgTicketCode">-</div></div>
+      <div class="debug-row"><div class="debug-k">สถานะ</div><div class="debug-v" id="dbgNpcStatus">-</div></div>
+      <div class="debug-row"><div class="debug-k">lat / lng</div><div class="debug-v" id="dbgNpcLatLng">-</div></div>
+      <div class="debug-row"><div class="debug-k">ความเร็ว</div><div class="debug-v" id="dbgNpcSpeed">-</div></div>
+      <div class="debug-row"><div class="debug-k">→ ระยะป้าย</div><div class="debug-v" id="dbgNpcDistPickup">-</div></div>
+      <div class="debug-row"><div class="debug-k">→ ระยะแปดริ้ว</div><div class="debug-v" id="dbgNpcDistTerminal">-</div></div>
+      <div class="debug-row"><div class="debug-k">อัปเดตล่าสุด</div><div class="debug-v" id="dbgNpcUpdate">-</div></div>
+    </div>
+  </div>
+
+  <!-- Expected Check Ticket -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot" style="background:var(--yellow);box-shadow:0 0 6px var(--yellow)"></div>คาดการณ์ CHECK_TICKET</div>
+    <div class="sec-body">
+      <div class="debug-row"><div class="debug-k">ETA รถถึงป้าย</div><div class="debug-v" id="expEtaPickup">-</div></div>
+      <div class="debug-row"><div class="debug-k">NPC อยู่ป้าย?</div><div class="debug-v" id="expNpcAtPickup">-</div></div>
+      <div class="debug-row"><div class="debug-k">รถถึงป้าย?</div><div class="debug-v" id="expVanAtPickup">-</div></div>
+      <div class="debug-row"><div class="debug-k">Auto check-in</div><div class="debug-v" id="expAutoCheckin">-</div></div>
+      <div class="debug-row"><div class="debug-k">Manual check-in</div><div class="debug-v" id="expManualCheckin">-</div></div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="dot"></div>บันทึกกิจกรรม</div>
+    <div class="sec-body" style="padding:4px">
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ===== FIREBASE =====
+firebase.initializeApp({
+  apiKey: "AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw",
+  authDomain: "bus-booking-1d68c.firebaseapp.com",
+  databaseURL: "https://bus-booking-1d68c-default-rtdb.firebaseio.com",
+  projectId: "bus-booking-1d68c",
+  storageBucket: "bus-booking-1d68c.firebasestorage.app",
+  messagingSenderId: "481251007816",
+  appId: "1:481251007816:web:d8554178d954e7de16e77d"
+});
+const db = firebase.database();
+
+// ===== STOP LOCATIONS (same as check_ticket.html) =====
+const STOP_LOCATIONS = [
+  { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
+  { name:'สี่แยกโคนม',       lat:13.436666, lng:102.200895 },
+  { name:'ทุ่งกบินทร์',        lat:13.439877, lng:102.083043 },
+  { name:'ไพจิตร',            lat:13.416310, lng:102.020767 },
+  { name:'หนองเรือ',           lat:13.420494, lng:101.995365 },
+  { name:'คลองตะเคียน',        lat:13.420264, lng:101.765445 },
+  { name:'หนองคอก',           lat:13.381579, lng:101.708016 },
+  { name:'ท่าตะเกียบ',          lat:13.443342, lng:101.610222 },
+  { name:'ท่ารถสนามชัยเขต',     lat:13.659022, lng:101.437482 },
+  { name:'สนามชัยเขต',         lat:13.660000, lng:101.430000 },
+  { name:'พนมสารคาม',          lat:13.745082, lng:101.355993 },
+  { name:'แปดริ้ว',             lat:13.692477, lng:101.054105 },
+  { name:'ฉะเชิงเทรา',          lat:13.692477, lng:101.054105 },
+  { name:'ขนส่งฉะเชิงเทรา',     lat:13.692477, lng:101.054105 },
+];
+
+const TERMINAL = { lat:13.692477, lng:101.054105 };
+const CHECKIN_RADIUS_KM = 2.5;
+
+// ===== QUEUE TEMPLATES (same as check_ticket.html) =====
+const queueTemplates = {
+  1:{trips:[
+    {tripIndex:1,departTime:'09:00',from:'สนามชัยเขต',to:'แปดริ้ว',direction:'to_chachoengsao',routeStops:['สนามชัยเขต','ท่ารถสนามชัยเขต','พนมสารคาม','แปดริ้ว']},
+    {tripIndex:2,departTime:'11:20',from:'แปดริ้ว',to:'คลองหาด',direction:'from_chachoengsao',routeStops:['แปดริ้ว','พนมสารคาม','ท่ารถสนามชัยเขต','สนามชัยเขต','ท่าตะเกียบ','หนองคอก','คลองตะเคียน','หนองเรือ','ไพจิตร','ทุ่งกบินทร์','สี่แยกโคนม','คลองหาด']}
+  ]},
+  2:{trips:[
+    {tripIndex:1,departTime:'08:00',from:'คลองหาด',to:'แปดริ้ว',direction:'to_chachoengsao',routeStops:['คลองหาด','สี่แยกโคนม','ทุ่งกบินทร์','ไพจิตร','หนองเรือ','คลองตะเคียน','หนองคอก','ท่าตะเกียบ','สนามชัยเขต','ท่ารถสนามชัยเขต','พนมสารคาม','แปดริ้ว']},
+    {tripIndex:2,departTime:'12:20',from:'แปดริ้ว',to:'สนามชัยเขต',direction:'from_chachoengsao',routeStops:['แปดริ้ว','พนมสารคาม','ท่ารถสนามชัยเขต','สนามชัยเขต']},
+    {tripIndex:3,departTime:'13:40',from:'สนามชัยเขต',to:'แปดริ้ว',direction:'to_chachoengsao',routeStops:['สนามชัยเขต','ท่ารถสนามชัยเขต','พนมสารคาม','แปดริ้ว']},
+    {tripIndex:4,departTime:'15:20',from:'แปดริ้ว',to:'สนามชัยเขต',direction:'from_chachoengsao',routeStops:['แปดริ้ว','พนมสารคาม','ท่ารถสนามชัยเขต','สนามชัยเขต']}
+  ]},
+  3:{trips:[
+    {tripIndex:1,departTime:'06:20',from:'สนามชัยเขต',to:'แปดริ้ว',direction:'to_chachoengsao',routeStops:['สนามชัยเขต','ท่ารถสนามชัยเขต','พนมสารคาม','แปดริ้ว']},
+    {tripIndex:2,departTime:'09:40',from:'แปดริ้ว',to:'สนามชัยเขต',direction:'from_chachoengsao',routeStops:['แปดริ้ว','พนมสารคาม','ท่ารถสนามชัยเขต','สนามชัยเขต']},
+    {tripIndex:3,departTime:'12:20',from:'สนามชัยเขต',to:'แปดริ้ว',direction:'to_chachoengsao',routeStops:['สนามชัยเขต','ท่ารถสนามชัยเขต','พนมสารคาม','แปดริ้ว']},
+    {tripIndex:4,departTime:'14:00',from:'แปดริ้ว',to:'คลองหาด',direction:'from_chachoengsao',routeStops:['แปดริ้ว','พนมสารคาม','ท่ารถสนามชัยเขต','สนามชัยเขต','ท่าตะเกียบ','หนองคอก','คลองตะเคียน','หนองเรือ','ไพจิตร','ทุ่งกบินทร์','สี่แยกโคนม','คลองหาด']}
+  ]},
+  4:{trips:[
+    {tripIndex:1,departTime:'11:30',from:'คลองหาด',to:'แปดริ้ว',direction:'to_chachoengsao',routeStops:['คลองหาด','สี่แยกโคนม','ทุ่งกบินทร์','ไพจิตร','หนองเรือ','คลองตะเคียน','หนองคอก','ท่าตะเกียบ','สนามชัยเขต','ท่ารถสนามชัยเขต','พนมสารคาม','แปดริ้ว']},
+    {tripIndex:2,departTime:'16:20',from:'แปดริ้ว',to:'สนามชัยเขต',direction:'from_chachoengsao',routeStops:['แปดริ้ว','พนมสารคาม','ท่ารถสนามชัยเขต','สนามชัยเขต']}
+  ]}
+};
+
+// ===== STATE =====
+let timeScale = 10;
+let vehicleWriteMode = 'both';
+let ticketWriteMode = 'both';
+let simInterval = null;
+let npcInterval = null;
+let autoRouteInterval = null;
+let dpadInterval = null;
+let autoRoutePaused = false;
+
+let vehicle = {
+  lat: 13.659022, lng: 101.437482, heading: 90, speed: 0, active: false
+};
+let npc = {
+  lat: 13.670000, lng: 101.450000, heading: 90, speed: 0,
+  status: 'idle', active: false, homePos: null
+};
+let autoRoute = {
+  running: false, stops: [], currentStopIdx: 0
+};
+
+let busMarker = null, npcMarker = null, homeMarker = null;
+let stopMarkers = [], routePolyline = null, npcPolyline = null;
+let map = null;
+
+// ===== HELPERS =====
+// Haversine (straight-line) - ใช้เป็น fallback เท่านั้น
+function distanceKmStraight(lat1,lng1,lat2,lng2){
+  const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// Cache สำหรับระยะทางถนน
+const roadDistCache = {};
+let roadDistPending = {};
+
+// ขอระยะทางถนนจาก OSRM (asynchronous)
+async function fetchRoadDistanceKm(lat1,lng1,lat2,lng2){
+  const key=`${lat1.toFixed(4)},${lng1.toFixed(4)};${lat2.toFixed(4)},${lng2.toFixed(4)}`;
+  if(roadDistCache[key]!==undefined) return roadDistCache[key];
+  if(roadDistPending[key]) return null; // กำลังรอผล
+  roadDistPending[key]=true;
+  try{
+    const url=`https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`;
+    const res=await fetch(url);
+    const j=await res.json();
+    if(j.routes&&j.routes[0]){
+      const km=j.routes[0].distance/1000;
+      roadDistCache[key]=km;
+      delete roadDistPending[key];
+      return km;
+    }
+  }catch(e){}
+  delete roadDistPending[key];
+  roadDistCache[key]=null;
+  return null;
+}
+
+// ระยะทางถนนจาก cache หรือ fallback เส้นตรง (synchronous)
+function distanceKm(lat1,lng1,lat2,lng2){
+  const key=`${lat1.toFixed(4)},${lng1.toFixed(4)};${lat2.toFixed(4)},${lng2.toFixed(4)}`;
+  if(roadDistCache[key]!==undefined&&roadDistCache[key]!==null) return roadDistCache[key];
+  // ถ้ายังไม่มี cache ให้ fetch แล้ว return เส้นตรงก่อน
+  fetchRoadDistanceKm(lat1,lng1,lat2,lng2);
+  return distanceKmStraight(lat1,lng1,lat2,lng2);
+}
+
+// Pre-fetch ระยะทางถนนระหว่างจุดสำคัญ
+async function prefetchRoadDistances(){
+  const pickup=getPickupStop();
+  if(!pickup)return;
+  const pairs=[
+    [vehicle.lat,vehicle.lng,pickup.lat,pickup.lng],
+    [vehicle.lat,vehicle.lng,TERMINAL.lat,TERMINAL.lng],
+    [npc.lat,npc.lng,pickup.lat,pickup.lng],
+    [npc.lat,npc.lng,TERMINAL.lat,TERMINAL.lng],
+  ];
+  for(const [a,b,c,d] of pairs){
+    await fetchRoadDistanceKm(a,b,c,d);
+  }
+  // อัปเดต debug หลัง fetch เสร็จ
+  updateDebugVehicle();updateDebugNpc();
+  // แสดงว่าใช้ระยะทางถนนแล้ว
+  document.querySelectorAll('[id^="dbg"][id$="Mode"]').forEach(el=>el.textContent='(ถนนจริง)');
+}
+
+// เริ่ม pre-fetch ทุก 8 วินาที (เมื่อตำแหน่งเปลี่ยน)
+let lastPrefetchPos='';
+setInterval(()=>{
+  const pos=`${vehicle.lat.toFixed(3)},${vehicle.lng.toFixed(3)},${npc.lat.toFixed(3)},${npc.lng.toFixed(3)}`;
+  if(pos!==lastPrefetchPos){lastPrefetchPos=pos;prefetchRoadDistances();}
+},8000);
+function bearing(lat1,lng1,lat2,lng2){
+  const dLng=(lng2-lng1)*Math.PI/180;
+  const y=Math.sin(dLng)*Math.cos(lat2*Math.PI/180);
+  const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLng);
+  return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
+}
+function moveTowards(lat,lng,targetLat,targetLng,distMeters){
+  const R=6371000,d=distMeters/R,brng=bearing(lat,lng,targetLat,targetLng)*Math.PI/180;
+  const lat1=lat*Math.PI/180,lon1=lng*Math.PI/180;
+  const lat2=Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.cos(brng));
+  const lng2=lon1+Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
+  return{lat:lat2*180/Math.PI,lng:lng2*180/Math.PI};
+}
+function calcEtaMin(distKm,speedKmh){if(!speedKmh||speedKmh<1)return null;return Math.max(1,Math.round(distKm/speedKmh*60));}
+function fmtEta(min){if(min===null)return'หยุด';if(min<60)return min+'m';return Math.floor(min/60)+'h'+min%60+'m';}
+function fmtTime(min){if(min===null)return'--';const h=Math.floor(min/60)%24;const m=min%60;const d=new Date();d.setHours(h,m,0,0);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function findStop(name){return STOP_LOCATIONS.find(s=>s.name===name)||null;}
+function ts(){return new Date().toTimeString().slice(0,8);}
+function log(msg){const b=document.getElementById('logBox');const d=document.createElement('div');d.className='log-entry';d.innerHTML=`<span class="log-ts">[${ts()}]</span> ${msg}`;b.insertBefore(d,b.firstChild);while(b.children.length>50)b.removeChild(b.lastChild);}
+
+// ===== FIREBASE STATUS =====
+db.ref('.info/connected').on('value',snap=>{
+  const ok=snap.val();
+  document.getElementById('fbStatusLight').className='status-light '+(ok?'light-green':'light-red');
+  document.getElementById('fbStatusText').textContent=ok?'Firebase OK':'Offline';
+});
+
+// ===== MAP INIT =====
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+
+  // Center on route midpoint
+  map.setView([13.55,101.68],9);
+
+  // Stop markers
+  STOP_LOCATIONS.forEach((s,i)=>{
+    if(s.name==='ฉะเชิงเทรา'||s.name==='ขนส่งฉะเชิงเทรา')return;// dedup
+    const ic=L.divIcon({html:`<div class="marker-stop" title="${s.name}">🚏</div>`,iconSize:[20,20],iconAnchor:[10,10],className:''});
+    const m=L.marker([s.lat,s.lng],{icon:ic,draggable:false,title:s.name}).addTo(map);
+    m.bindTooltip(s.name,{permanent:false,direction:'top',offset:[0,-8]});
+    stopMarkers.push(m);
+  });
+
+  // Bus marker (draggable)
+  const busIc=L.divIcon({html:`<div class="marker-bus" id="busMarkerEl">🚐</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+  busMarker=L.marker([vehicle.lat,vehicle.lng],{icon:busIc,draggable:true,zIndexOffset:1000}).addTo(map);
+  busMarker.on('dragend',()=>{
+    const p=busMarker.getLatLng();
+    vehicle.lat=p.lat;vehicle.lng=p.lng;
+    writeVehicleToFirebase();
+    log('🚐 Drag vehicle → '+p.lat.toFixed(5)+','+p.lng.toFixed(5));
+  });
+
+  // NPC marker (draggable)
+  const npcIc=L.divIcon({html:`<div class="marker-npc" id="npcMarkerEl">🧍</div>`,iconSize:[24,24],iconAnchor:[12,12],className:''});
+  npcMarker=L.marker([npc.lat,npc.lng],{icon:npcIc,draggable:true,zIndexOffset:900}).addTo(map);
+  npcMarker.on('dragend',()=>{
+    const p=npcMarker.getLatLng();
+    npc.lat=p.lat;npc.lng=p.lng;
+    npc.active=true;
+    writeNpcToFirebase();
+    log('🧍 Drag NPC → '+p.lat.toFixed(5)+','+p.lng.toFixed(5));
+  });
+
+  // Home marker
+  const homeIc=L.divIcon({html:`<div class="marker-home">🏠</div>`,iconSize:[20,20],iconAnchor:[10,10],className:''});
+  homeMarker=L.marker([npc.lat,npc.lng],{icon:homeIc,draggable:false,opacity:.7}).addTo(map);
+}
+
+// ===== DROPDOWN BUILDERS =====
+function onQueueChange(){
+  buildTripDropdown();
+  onTripChange();
+}
+function buildTripDropdown(){
+  const q=+document.getElementById('queueSel').value;
+  const sel=document.getElementById('tripSel');
+  sel.innerHTML='';
+  (queueTemplates[q]||{trips:[]}).trips.forEach(t=>{
+    const op=document.createElement('option');
+    op.value=t.tripIndex;
+    op.textContent=`${t.departTime} ${t.from} → ${t.to}`;
+    sel.appendChild(op);
+  });
+}
+function onTripChange(){
+  updatePathDisplay();
+  drawRoutePolyline();
+}
+function getCurrentTrip(){
+  const q=+document.getElementById('queueSel').value;
+  const ti=+document.getElementById('tripSel').value;
+  return (queueTemplates[q]||{trips:[]}).trips.find(t=>t.tripIndex===ti)||queueTemplates[q].trips[0];
+}
+function getPickupStop(){
+  const trip=getCurrentTrip();
+  if(!trip)return STOP_LOCATIONS[8];
+  return findStop(trip.from)||STOP_LOCATIONS[8];
+}
+
+// ===== PATH DISPLAY =====
+function updatePathDisplay(){
+  const vid=document.getElementById('vehicleSel').value;
+  const code=document.getElementById('ticketCode').value||'TB000001';
+  let vPaths=[];
+  if(vehicleWriteMode==='liveVehicles'||vehicleWriteMode==='both') vPaths.push(`liveVehicles/${vid}`);
+  if(vehicleWriteMode==='bus'||vehicleWriteMode==='both') vPaths.push(`bus/${vid}`);
+  let nPaths=[];
+  if(ticketWriteMode==='ticketLocations'||ticketWriteMode==='both') nPaths.push(`ticketLocations/${code}`);
+  if(ticketWriteMode==='testTicketLocations'||ticketWriteMode==='both') nPaths.push(`testTicketLocations/${code}`);
+  document.getElementById('currentPathDisplay').innerHTML=
+    `<b>Vehicle:</b> ${vPaths.join(' + ')}<br><b>NPC:</b> ${nPaths.join(' + ')}`;
+  document.getElementById('hdrPathDisplay').textContent=vPaths.join(' + ');
+}
+
+// ===== WRITE MODE SETTERS =====
+function setVehicleWriteMode(mode){
+  vehicleWriteMode=mode;
+  document.querySelectorAll('#vehicleWriteMode .mode-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  updatePathDisplay();
+}
+function setTicketWriteMode(mode){
+  ticketWriteMode=mode;
+  document.querySelectorAll('#ticketWriteMode .mode-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  updatePathDisplay();
+}
+
+// ===== TIME SCALE =====
+function setTimeScale(n){
+  timeScale=n;
+  document.querySelectorAll('.ts-btn').forEach(b=>{b.classList.remove('active');if(b.textContent==='×'+n)b.classList.add('active');});
+  log(`⏱ อัตราเวลา → ×${n}`);
+}
+
+// ===== FIREBASE WRITE VEHICLE =====
+function writeVehicleToFirebase(){
+  if(!vehicle.active&&vehicle.speed===0)return;
+  const vid=document.getElementById('vehicleSel').value;
+  const q=+document.getElementById('queueSel').value;
+  const ti=+document.getElementById('tripSel').value;
+  const now=Date.now();
+  const data={
+    lat:vehicle.lat, lng:vehicle.lng,
+    speed:vehicle.speed,
+    heading:vehicle.heading,
+    queueNo:q, tripIndex:ti,
+    updatedAt:now, ts:now,
+    source:'simulator', simulator:true, enabled:true
+  };
+  const writes=[];
+  if(vehicleWriteMode==='liveVehicles'||vehicleWriteMode==='both')
+    writes.push(db.ref(`liveVehicles/${vid}`).set(data));
+  if(vehicleWriteMode==='bus'||vehicleWriteMode==='both')
+    writes.push(db.ref(`bus/${vid}`).set(data));
+  Promise.all(writes).catch(e=>log('❌ FB vehicle write error: '+e.message));
+  updateDebugVehicle();
+}
+
+// ===== FIREBASE WRITE NPC =====
+function writeNpcToFirebase(){
+  const code=document.getElementById('ticketCode').value||'TB000001';
+  const now=Date.now();
+  const data={
+    lat:npc.lat, lng:npc.lng,
+    speed:npc.speed,
+    heading:npc.heading,
+    distanceKm:distanceKm(npc.lat,npc.lng,TERMINAL.lat,TERMINAL.lng),
+    updatedAt:now, ts:now,
+    source:'simulator', simulator:true,
+    status:npc.status
+  };
+  const writes=[];
+  if(ticketWriteMode==='ticketLocations'||ticketWriteMode==='both')
+    writes.push(db.ref(`ticketLocations/${code}`).set(data));
+  if(ticketWriteMode==='testTicketLocations'||ticketWriteMode==='both')
+    writes.push(db.ref(`testTicketLocations/${code}`).set(data));
+  Promise.all(writes).catch(e=>log('❌ FB NPC write error: '+e.message));
+  updateDebugNpc();
+}
+
+// ===== PLACE VEHICLE =====
+function placeVehicle(preset){
+  const pickup=getPickupStop();
+  const terminal={lat:TERMINAL.lat,lng:TERMINAL.lng};
+  stopAutoRoute();
+  let pos;
+  switch(preset){
+    case 'pickup':     pos={lat:pickup.lat,lng:pickup.lng};break;
+    case 'before1':    pos=moveTowards(pickup.lat,pickup.lng,pickup.lat,pickup.lng+2,1000);break;
+    case 'before3':    pos=moveTowards(pickup.lat,pickup.lng,pickup.lat,pickup.lng+2,3000);break;
+    case 'past':       pos=moveTowards(pickup.lat,pickup.lng,terminal.lat,terminal.lng,2000);break;
+    case 'near_terminal': {
+      const bear=bearing(terminal.lat,terminal.lng,pickup.lat,pickup.lng);
+      const np=moveTowards(terminal.lat,terminal.lng,pickup.lat,pickup.lng,2500);
+      pos={lat:np.lat,lng:np.lng};break;}
+    case 'terminal':   pos={lat:terminal.lat,lng:terminal.lng};break;
+    default: pos=pickup;
+  }
+  vehicle.lat=pos.lat; vehicle.lng=pos.lng; vehicle.active=true;
+  busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+  map.panTo([vehicle.lat,vehicle.lng]);
+  writeVehicleToFirebase();
+  log(`🚐 Place vehicle: ${preset} → ${pos.lat.toFixed(5)},${pos.lng.toFixed(5)}`);
+}
+
+// ===== PLACE NPC =====
+function placeNpc(preset){
+  const pickup=getPickupStop();
+  const terminal={lat:TERMINAL.lat,lng:TERMINAL.lng};
+  stopNpc();
+  let pos;
+  switch(preset){
+    case 'home':
+      if(!npc.homePos)npc.homePos={lat:pickup.lat+0.005,lng:pickup.lng+0.008};
+      pos=npc.homePos;npc.status='at_home';break;
+    case 'before300': pos=moveTowards(pickup.lat,pickup.lng,pickup.lat,pickup.lng+2,300);npc.status='walking_to_pickup';break;
+    case 'pickup':    pos={lat:pickup.lat,lng:pickup.lng};npc.status='waiting_at_pickup';break;
+    case 'near_terminal':{const np=moveTowards(terminal.lat,terminal.lng,pickup.lat,pickup.lng,2500);pos={lat:np.lat,lng:np.lng};npc.status='moving_to_transfer';break;}
+    case 'terminal':  pos={lat:terminal.lat,lng:terminal.lng};npc.status='arrived_transfer';break;
+    default: pos=pickup;npc.status='idle';
+  }
+  npc.lat=pos.lat;npc.lng=pos.lng;npc.active=true;
+  npcMarker.setLatLng([npc.lat,npc.lng]);
+  if(preset==='home'){homeMarker.setLatLng([npc.lat,npc.lng]);npc.homePos={lat:npc.lat,lng:npc.lng};}
+  writeNpcToFirebase();
+  updateNpcStatusUI();
+  log(`🧍 Place NPC: ${preset} → ${pos.lat.toFixed(5)},${pos.lng.toFixed(5)}`);
+}
+
+// ===== NPC WALK =====
+function startNpcWalk(){
+  stopNpc();
+  npc.status='walking_to_pickup';
+  npc.active=true;
+  const pickup=getPickupStop();
+  log(`🚶 NPC เริ่มเดินไป ${pickup.name}`);
+  npcInterval=setInterval(()=>{
+    const spd=+document.getElementById('npcSpeed').value||4;
+    const dtSec=(1000/1000)*timeScale;
+    const distM=spd/3.6*dtSec;
+    const distKmToPickup=distanceKm(npc.lat,npc.lng,pickup.lat,pickup.lng);
+    if(distKmToPickup<0.05){
+      npc.lat=pickup.lat;npc.lng=pickup.lng;
+      npc.speed=0;npc.status='waiting_at_pickup';
+      clearInterval(npcInterval);npcInterval=null;
+      log(`🧍 NPC ถึงป้ายต้นทาง: ${pickup.name}`);
+    } else {
+      const np=moveTowards(npc.lat,npc.lng,pickup.lat,pickup.lng,distM);
+      npc.heading=bearing(npc.lat,npc.lng,pickup.lat,pickup.lng);
+      npc.lat=np.lat;npc.lng=np.lng;
+      npc.speed=spd;
+    }
+    npcMarker.setLatLng([npc.lat,npc.lng]);
+    writeNpcToFirebase();
+    updateNpcStatusUI();
+  },1000);
+}
+
+function startFollowVehicle(){
+  stopNpc();
+  npc.status='boarded';
+  npc.active=true;
+  log('🧍 NPC ขึ้นรถแล้ว (ตามรถ)');
+  npcInterval=setInterval(()=>{
+    npc.lat=vehicle.lat;npc.lng=vehicle.lng;
+    npcMarker.setLatLng([npc.lat,npc.lng]);
+    writeNpcToFirebase();
+  },2000);
+}
+
+function stopNpc(){
+  if(npcInterval){clearInterval(npcInterval);npcInterval=null;}
+  npc.speed=0;
+  updateNpcStatusUI();
+}
+function resetNpc(){
+  stopNpc();
+  npc.status='idle';npc.active=false;
+  updateNpcStatusUI();
+}
+
+// ===== AUTO ROUTE =====
+function drawRoutePolyline(){
+  if(routePolyline){map.removeLayer(routePolyline);routePolyline=null;}
+  const trip=getCurrentTrip();
+  if(!trip)return;
+  const pts=trip.routeStops.map(n=>findStop(n)).filter(Boolean).map(s=>[s.lat,s.lng]);
+  if(pts.length<2)return;
+  routePolyline=L.polyline(pts,{color:'#00ff88',weight:3,opacity:.6,dashArray:'8,4'}).addTo(map);
+}
+
+function startAutoRoute(){
+  stopAutoRoute();
+  const trip=getCurrentTrip();
+  if(!trip){log('❌ ยังไม่ได้เลือกเที่ยว');return;}
+  const stops=trip.routeStops.map(n=>findStop(n)).filter(Boolean);
+  if(stops.length<2){log('❌ จำนวนป้ายไม่พอ');return;}
+  autoRoute.stops=stops;
+  autoRoute.currentStopIdx=0;
+  autoRoute.running=true;
+  autoRoutePaused=false;
+  vehicle.active=true;
+  const startStop=stops[0];
+  vehicle.lat=startStop.lat;vehicle.lng=startStop.lng;
+  busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+  document.getElementById('autoRouteProgress').style.display='block';
+  log(`▶ เริ่มเส้นทางอัตโนมัติ: ${trip.from} → ${trip.to} (${stops.length} ป้าย)`);
+  updateRouteProgress();
+  autoRouteInterval=setInterval(autoRouteTick,500);
+}
+
+function autoRouteTick(){
+  if(!autoRoute.running||autoRoutePaused)return;
+  const stops=autoRoute.stops;
+  const targetIdx=autoRoute.currentStopIdx+1;
+  if(targetIdx>=stops.length){
+    stopAutoRoute();
+    log('🏁 เดินทางครบเส้นทางแล้ว');
+    return;
+  }
+  const target=stops[targetIdx];
+  const spd=+document.getElementById('vehicleSpeed').value||60;
+  const dtSec=(0.5)*timeScale;
+  const distM=spd/3.6*dtSec;
+  const distToTarget=distanceKm(vehicle.lat,vehicle.lng,target.lat,target.lng)*1000;
+  vehicle.speed=spd;
+  if(distToTarget<100){
+    vehicle.lat=target.lat;vehicle.lng=target.lng;
+    autoRoute.currentStopIdx=targetIdx;
+    log(`📍 ถึง: ${stops[targetIdx].name}`);
+    updateRouteProgress();
+  } else {
+    vehicle.heading=bearing(vehicle.lat,vehicle.lng,target.lat,target.lng);
+    const np=moveTowards(vehicle.lat,vehicle.lng,target.lat,target.lng,distM);
+    vehicle.lat=np.lat;vehicle.lng=np.lng;
+  }
+  busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+  writeVehicleToFirebase();
+}
+
+function pauseAutoRoute(){autoRoutePaused=!autoRoutePaused;log(autoRoutePaused?'⏸ หยุดชั่วคราว':'▶ เดินเส้นทางต่อ');}
+function stopAutoRoute(){
+  if(autoRouteInterval){clearInterval(autoRouteInterval);autoRouteInterval=null;}
+  autoRoute.running=false;autoRoutePaused=false;vehicle.speed=0;
+  document.getElementById('autoRouteProgress').style.display='none';
+  writeVehicleToFirebase();
+}
+function updateRouteProgress(){
+  const total=autoRoute.stops.length-1;
+  const done=autoRoute.currentStopIdx;
+  document.getElementById('routeProgressText').textContent=`${done}/${total}`;
+  document.getElementById('routeProgressFill').style.width=total?(done/total*100)+'%':'0%';
+}
+
+// ===== DPAD =====
+function startDpad(dir){
+  stopDpad();
+  vehicle.active=true;
+  dpadInterval=setInterval(()=>{
+    const spd=+document.getElementById('vehicleSpeed').value||60;
+    const dtSec=0.1*timeScale;
+    const distM=spd/3.6*dtSec;
+    vehicle.speed=spd;
+    switch(dir){
+      case'fwd':{const np=moveTowards(vehicle.lat,vehicle.lng,
+        vehicle.lat+Math.cos(vehicle.heading*Math.PI/180)*0.01,
+        vehicle.lng+Math.sin(vehicle.heading*Math.PI/180)*0.01,distM);
+        vehicle.lat=np.lat;vehicle.lng=np.lng;break;}
+      case'back':{const np=moveTowards(vehicle.lat,vehicle.lng,
+        vehicle.lat-Math.cos(vehicle.heading*Math.PI/180)*0.01,
+        vehicle.lng-Math.sin(vehicle.heading*Math.PI/180)*0.01,distM);
+        vehicle.lat=np.lat;vehicle.lng=np.lng;break;}
+      case'left':vehicle.heading=(vehicle.heading-5+360)%360;break;
+      case'right':vehicle.heading=(vehicle.heading+5)%360;break;
+    }
+    busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+    writeVehicleToFirebase();
+  },100);
+}
+function stopDpad(){if(dpadInterval){clearInterval(dpadInterval);dpadInterval=null;}}
+function stopVehicle(){stopDpad();vehicle.speed=0;writeVehicleToFirebase();}
+function changeSpeed(delta){
+  const inp=document.getElementById('vehicleSpeed');
+  inp.value=Math.max(1,Math.min(120,(+inp.value||60)+delta));
+}
+
+// ===== SCENARIO PRESETS =====
+function runScenario(n){
+  resetAll(true);
+  const pickup=getPickupStop();
+  log(`🎬 สถานการณ์ที่ ${n} เริ่มต้น`);
+  switch(n){
+    case 1:
+      placeNpc('home');
+      setTimeout(()=>{
+        const np=moveTowards(pickup.lat,pickup.lng,pickup.lat,pickup.lng+2,3000);
+        vehicle.lat=np.lat;vehicle.lng=np.lng;vehicle.active=true;
+        busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+        writeVehicleToFirebase();
+        startAutoRoute();
+        log('S1: NPC อยู่บ้าน รถห่างป้าย 3 กม. เริ่มเส้นทางอัตโนมัติ');
+      },200);
+      break;
+    case 2:
+      placeNpc('pickup');
+      setTimeout(()=>{
+        const np=moveTowards(pickup.lat,pickup.lng,pickup.lat,pickup.lng+2,1000);
+        vehicle.lat=np.lat;vehicle.lng=np.lng;vehicle.active=true;
+        busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+        writeVehicleToFirebase();
+        log('S2: NPC อยู่ป้าย รถห่าง 1 กม.');
+      },200);
+      break;
+    case 3:
+      placeNpc('pickup');
+      setTimeout(()=>placeVehicle('pickup'),200);
+      log('S3: ทั้งคู่อยู่ป้าย → ควรเกิด auto check-in');
+      break;
+    case 4:
+      placeNpc('before300');
+      setTimeout(()=>placeVehicle('past'),200);
+      log('S4: รถผ่านป้ายแล้ว NPC ยังไม่ถึง → ไม่ควรเกิด auto check-in');
+      break;
+    case 5:
+      placeNpc('near_terminal');
+      setTimeout(()=>placeVehicle('near_terminal'),200);
+      log('S5: ทั้งคู่ใกล้แปดริ้ว 2.5 กม. → ควรเปิด manual check-in');
+      break;
+    case 6:
+      placeNpc('pickup');
+      setTimeout(()=>{
+        placeVehicle('pickup');
+        setTimeout(()=>{
+          startAutoRoute();
+          setTimeout(()=>{startFollowVehicle();log('S6: เริ่ม Full flow แล้ว');},1000);
+        },500);
+      },200);
+      break;
+  }
+}
+
+// ===== CLEAR / RESET =====
+function clearVehicleData(){
+  const vid=document.getElementById('vehicleSel').value;
+  const writes=[];
+  writes.push(db.ref(`liveVehicles/${vid}`).remove());
+  writes.push(db.ref(`bus/${vid}`).remove());
+  Promise.all(writes).then(()=>log(`🗑 Cleared vehicle FB: ${vid}`)).catch(e=>log('❌ '+e.message));
+}
+function clearNpcData(){
+  const code=document.getElementById('ticketCode').value||'TB000001';
+  const writes=[];
+  writes.push(db.ref(`ticketLocations/${code}`).remove());
+  writes.push(db.ref(`testTicketLocations/${code}`).remove());
+  Promise.all(writes).then(()=>log(`🗑 Cleared NPC FB: ${code}`)).catch(e=>log('❌ '+e.message));
+}
+function clearAllData(){clearVehicleData();clearNpcData();}
+function resetAll(silent=false){
+  stopAutoRoute();stopNpc();stopDpad();
+  vehicle={lat:13.659022,lng:101.437482,heading:90,speed:0,active:false};
+  npc={lat:13.670000,lng:101.450000,heading:90,speed:0,status:'idle',active:false,homePos:null};
+  busMarker&&busMarker.setLatLng([vehicle.lat,vehicle.lng]);
+  npcMarker&&npcMarker.setLatLng([npc.lat,npc.lng]);
+  updateNpcStatusUI();
+  if(!silent)log('⟲ รีเซ็ตสถานะทั้งหมด');
+}
+
+// ===== DEBUG UPDATE =====
+function updateDebugVehicle(){
+  const vid=document.getElementById('vehicleSel').value;
+  const q=document.getElementById('queueSel').value;
+  const ti=document.getElementById('tripSel').value;
+  const pickup=getPickupStop();
+  document.getElementById('dbgVehicleId').textContent=vid;
+  document.getElementById('dbgQueueNo').textContent=q;
+  document.getElementById('dbgTripIndex').textContent=ti;
+  document.getElementById('dbgVehicleLatLng').textContent=vehicle.lat.toFixed(5)+', '+vehicle.lng.toFixed(5);
+  document.getElementById('dbgVehicleSpeed').textContent=vehicle.speed.toFixed(0)+' กม./ชม.';
+  document.getElementById('dbgVehicleHeading').textContent=vehicle.heading.toFixed(0)+'°';
+  document.getElementById('vehicleSpeedDisplay').textContent=vehicle.speed.toFixed(0);
+  if(pickup){
+    const keyPickup=`${vehicle.lat.toFixed(4)},${vehicle.lng.toFixed(4)};${pickup.lat.toFixed(4)},${pickup.lng.toFixed(4)}`;
+    const dPickup=distanceKm(vehicle.lat,vehicle.lng,pickup.lat,pickup.lng);
+    const isRoadPickup=roadDistCache[keyPickup]!==undefined&&roadDistCache[keyPickup]!==null;
+    const etaPickup=calcEtaMin(dPickup,vehicle.speed);
+    document.getElementById('dbgDistToPickup').textContent=dPickup.toFixed(2)+' กม.'+(isRoadPickup?' 🛣':'');
+    document.getElementById('dbgEtaPickup').textContent=fmtEta(etaPickup);
+    document.getElementById('expEtaPickup').textContent=vehicle.speed>0?(etaPickup+'ม. ('+fmtTime(new Date().getHours()*60+new Date().getMinutes()+(etaPickup||0))+')'):'หยุด';
+    const vanAtPickup=dPickup<0.35;
+    document.getElementById('expVanAtPickup').textContent=vanAtPickup?'✅ ถึงแล้ว':'❌ ยังไม่ถึง';
+    document.getElementById('expVanAtPickup').className='debug-v '+(vanAtPickup?'ok':'warn');
+  }
+  const keyTerminal=`${vehicle.lat.toFixed(4)},${vehicle.lng.toFixed(4)};${TERMINAL.lat.toFixed(4)},${TERMINAL.lng.toFixed(4)}`;
+  const dTerminal=distanceKm(vehicle.lat,vehicle.lng,TERMINAL.lat,TERMINAL.lng);
+  const isRoadTerminal=roadDistCache[keyTerminal]!==undefined&&roadDistCache[keyTerminal]!==null;
+  const etaTerminal=calcEtaMin(dTerminal,vehicle.speed);
+  document.getElementById('dbgDistToTerminal').textContent=dTerminal.toFixed(2)+' กม.'+(isRoadTerminal?' 🛣':'');
+  document.getElementById('dbgEtaTerminal').textContent=fmtEta(etaTerminal);
+  document.getElementById('dbgVehicleUpdate').textContent=ts();
+  updateExpectedCheckin();
+}
+
+function updateDebugNpc(){
+  const code=document.getElementById('ticketCode').value||'TB000001';
+  const pickup=getPickupStop();
+  document.getElementById('dbgTicketCode').textContent=code;
+  document.getElementById('dbgNpcStatus').textContent=npc.status;
+  document.getElementById('dbgNpcLatLng').textContent=npc.lat.toFixed(5)+', '+npc.lng.toFixed(5);
+  document.getElementById('dbgNpcSpeed').textContent=npc.speed.toFixed(1)+' กม./ชม.';
+  if(pickup){
+    const keyPickup=`${npc.lat.toFixed(4)},${npc.lng.toFixed(4)};${pickup.lat.toFixed(4)},${pickup.lng.toFixed(4)}`;
+    const dPickup=distanceKm(npc.lat,npc.lng,pickup.lat,pickup.lng);
+    const isRoad=roadDistCache[keyPickup]!==undefined&&roadDistCache[keyPickup]!==null;
+    document.getElementById('dbgNpcDistPickup').textContent=dPickup.toFixed(3)+' กม.'+(isRoad?' 🛣':'');
+    const npcAtPickup=dPickup<0.1;
+    document.getElementById('expNpcAtPickup').textContent=npcAtPickup?'✅ อยู่ที่ป้าย':'❌ ยังไม่ถึงป้าย';
+    document.getElementById('expNpcAtPickup').className='debug-v '+(npcAtPickup?'ok':'warn');
+  }
+  const keyTerm=`${npc.lat.toFixed(4)},${npc.lng.toFixed(4)};${TERMINAL.lat.toFixed(4)},${TERMINAL.lng.toFixed(4)}`;
+  const dTerminal=distanceKm(npc.lat,npc.lng,TERMINAL.lat,TERMINAL.lng);
+  const isRoadT=roadDistCache[keyTerm]!==undefined&&roadDistCache[keyTerm]!==null;
+  document.getElementById('dbgNpcDistTerminal').textContent=dTerminal.toFixed(2)+' กม.'+(isRoadT?' 🛣':'');
+  document.getElementById('dbgNpcUpdate').textContent=ts();
+  updateExpectedCheckin();
+}
+
+function updateExpectedCheckin(){
+  const pickup=getPickupStop();
+  if(!pickup)return;
+  const npcAtPickup=distanceKm(npc.lat,npc.lng,pickup.lat,pickup.lng)<0.1;
+  const vanAtPickup=distanceKm(vehicle.lat,vehicle.lng,pickup.lat,pickup.lng)<0.35;
+  const autoOk=npcAtPickup&&vanAtPickup;
+  const dTerminal=distanceKm(npc.lat,npc.lng,TERMINAL.lat,TERMINAL.lng);
+  const manualOk=dTerminal<=CHECKIN_RADIUS_KM;
+  document.getElementById('expAutoCheckin').textContent=autoOk?'✅ ควรเกิด':'❌ ยังไม่ครบเงื่อนไข';
+  document.getElementById('expAutoCheckin').className='debug-v '+(autoOk?'ok':'bad');
+  document.getElementById('expManualCheckin').textContent=manualOk?`✅ เปิด (${dTerminal.toFixed(2)}km)`:('❌ ปิด ('+dTerminal.toFixed(2)+'km > '+CHECKIN_RADIUS_KM+'km)');
+  document.getElementById('expManualCheckin').className='debug-v '+(manualOk?'ok':'warn');
+}
+
+function updateNpcStatusUI(){
+  document.getElementById('npcStatusText').textContent=npc.status;
+  const colorMap={idle:'var(--muted)',at_home:'var(--blue)',walking_to_pickup:'var(--yellow)',waiting_at_pickup:'var(--green)',boarded:'var(--green2)',moving_to_transfer:'var(--orange)',arrived_transfer:'var(--cyan)'};
+  document.getElementById('npcStatusText').style.color=colorMap[npc.status]||'var(--text)';
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap();
+  buildTripDropdown();
+  onTripChange();
+  updatePathDisplay();
+  updateNpcStatusUI();
+  log('🚀 ซิมูเลเตอร์พร้อมใช้งาน');
+  log('⚠ ข้อมูลจะเขียนเข้า Firebase จริง ใช้ตั๋วทดสอบ TB... เท่านั้น');
+  log('🛣 กำลังโหลดระยะทางถนนจาก OSRM...');
+  setTimeout(prefetchRoadDistances,1000);
+
+  // Live debug ticker
+  setInterval(()=>{
+    if(vehicle.active) updateDebugVehicle();
+    if(npc.active) updateDebugNpc();
+  },500);
+
+  // Sync ticket code change
+  document.getElementById('ticketCode').addEventListener('input',updatePathDisplay);
+  document.getElementById('vehicleSel').addEventListener('change',()=>{updatePathDisplay();updateDebugVehicle();});
+});
+</script>
+</body>
+</html>
