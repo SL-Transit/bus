@@ -401,8 +401,8 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
       <h4>💳 วิธีชำระเงิน</h4>
       <p id="paymentDescription">โอนเงินมาที่บัญชีด้านล่าง แล้วถ่ายรูปสลิป และแนบรูปในช่องด้านล่างได้เลย</p>
       <div class="bank-box" id="bankBox">
-        <div class="bank-name">🏦 ธนาคารกสิกรไทย (KBank)</div>
-        <div class="bank-acc">xxx-x-xxxxx-x</div>
+        <div class="bank-name" id="paymentBankName">🏦 ธนาคารกสิกรไทย (KBank)</div>
+        <div class="bank-acc" id="paymentAccountNo">xxx-x-xxxxx-x</div>
         <div class="bank-owner">ชื่อเจ้าของบัญชี</div>
       </div>
     </div>
@@ -672,8 +672,12 @@ function _applySettings(snap) {
 
   if (data.payment && data.payment.mode) {
     PAYMENT_MODE = data.payment.mode === 'transfer' ? 'transfer' : 'onsite';
+    PAYMENT_BANK_NAME = data.payment.bankName || PAYMENT_BANK_NAME;
+    PAYMENT_ACCOUNT_NO = data.payment.accountNo || PAYMENT_ACCOUNT_NO;
   } else if (data.payments && data.payments.mode) {
     PAYMENT_MODE = data.payments.mode === 'transfer' ? 'transfer' : 'onsite';
+    PAYMENT_BANK_NAME = data.payments.bankName || PAYMENT_BANK_NAME;
+    PAYMENT_ACCOUNT_NO = data.payments.accountNo || PAYMENT_ACCOUNT_NO;
   }
   applyPaymentModeUI();
 
@@ -1006,6 +1010,8 @@ var SERVICE_FEE_AMOUNT = 5;
 var SERVICE_FEE_ENABLED = false; // เตรียมไว้ก่อน ช่วงทดลองยังไม่บวกเงินจริง
 var SERVICE_FEE_VISIBLE = false;  // ซ่อนค่าบริการจนกว่าจะเปิดจาก admin/settings
 var PAYMENT_MODE = 'onsite';      // onsite = จ่ายหน้างาน, transfer = โอนเงินและแนบสลิป
+var PAYMENT_BANK_NAME = 'ธนาคารกสิกรไทย (KBank)';
+var PAYMENT_ACCOUNT_NO = 'xxx-x-xxxxx-x';
 var BOOKING_OPEN = true;
 var TEST_MODE = false;
 var ROUTE_CLOSED_STOPS = {};
@@ -1405,6 +1411,8 @@ function applyPaymentModeUI() {
   var paymentTitle = document.querySelector('#paymentInfo h4');
   var paymentDesc = document.getElementById('paymentDescription');
   var bankBox = document.getElementById('bankBox');
+  var bankName = document.getElementById('paymentBankName');
+  var accountNo = document.getElementById('paymentAccountNo');
   var slipCard = document.getElementById('slipUploadCard');
   var confirmNote = document.getElementById('confirmNote');
   if (paymentTitle) paymentTitle.textContent = transfer ? '💳 วิธีชำระเงิน' : '💳 จ่ายเงินตามหน้างานแต่ละท่ารถ';
@@ -1413,6 +1421,8 @@ function applyPaymentModeUI() {
       ? 'โอนเงินมาที่บัญชีด้านล่าง แล้วถ่ายรูปสลิป และแนบรูปในช่องด้านล่างได้เลย'
       : 'สำหรับช่วงทดลองระบบ ผู้โดยสารสามารถยืนยันการจองผ่านระบบได้ทันที และจ่ายเงินตามหน้างานแต่ละท่ารถในวันเดินทาง';
   }
+  if (bankName) bankName.textContent = '🏦 ' + (PAYMENT_BANK_NAME || 'ธนาคารกสิกรไทย (KBank)');
+  if (accountNo) accountNo.textContent = PAYMENT_ACCOUNT_NO || 'xxx-x-xxxxx-x';
   if (bankBox) bankBox.style.display = transfer ? 'block' : 'none';
   if (slipCard) slipCard.style.display = transfer ? 'block' : 'none';
   if (confirmNote) {
