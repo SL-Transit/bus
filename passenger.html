@@ -588,7 +588,7 @@ body { background:#edf6f8; }
       <div class="sheet-summary-row">
         <div>
           <div class="sheet-route-name" id="sheetRouteName">ตารางเวลารถโดยสารประจำทาง</div>
-          <div class="sheet-route-sub" id="sheetRouteSub">กรุณาเลือกต้นทางและปลายทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ</div>
         </div>
       </div>
     </div>
@@ -602,10 +602,6 @@ body { background:#edf6f8; }
     <span class="booking-tab-arrow">→</span>
   </a>
 
-  <div class="footer">
-    <span class="note-title">หมายเหตุ :</span><br>
-    ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ
-  </div>
     </div>
   </section>
 </div>
@@ -962,15 +958,16 @@ function updateBottomSheetSummary() {
   var routeName = document.getElementById('sheetRouteName');
   var routeSub = document.getElementById('sheetRouteSub');
   if (!routeName || !routeSub) return;
+  var scheduleNote = 'ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ';
 
   if (!selOrigin || !selDest) {
     routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
-    routeSub.textContent = 'กรุณาเลือกต้นทางและปลายทาง';
+    routeSub.textContent = scheduleNote;
     return;
   }
 
   routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
-  routeSub.textContent = selOrigin + ' → ' + selDest;
+  routeSub.textContent = scheduleNote;
 }
 
 function choosePrimaryBus(buses) {
