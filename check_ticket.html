@@ -1501,7 +1501,15 @@
         if (booking && booking[key]) ids.push(String(booking[key]));
       });
       var queueNo = Number(booking && (booking.queueNo || booking.queue || booking.queueIndex));
+      if (queueNo) {
+        Object.keys(trackingDailyAssignments || {}).forEach(function(id) {
+          var assigned = trackingDailyAssignments[id] || {};
+          var assignedQueue = Number(assigned.queueNo || assigned.queue || assigned.queueIndex || 0);
+          if (assignedQueue === queueNo) ids.push(String(id));
+        });
+      }
       if (queueNo && queueNo >= 1 && queueNo <= 4) ids.push('car' + queueNo);
+      if (booking && booking.plannedVehicleId) ids.push(String(booking.plannedVehicleId));
       return ids.filter(function(id, index) {
         return isRotatingVehicle(id) && ids.indexOf(id) === index;
       });
