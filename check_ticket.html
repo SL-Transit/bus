@@ -1492,7 +1492,56 @@
           best = { id: id, location: pos, currentTrip: currentTrip, pickupEta: eta, score: score };
         }
       });
+      if (!best) {
+        orderedKeys.forEach(function(id) {
+          var vehicle = buses[id];
+          var pos = normalizeTrackingPoint(vehicle);
+          if (!isActiveVehicle(id, vehicle) || !pos) return;
+          var fallbackTrip = buildFallbackTripForBooking(id, vehicle, booking, routeInfo, origin, destination);
+          if (!fallbackTrip) return;
+          var pickupState = vehiclePickupProgress(fallbackTrip, pos, origin);
+          if (pickupState.passed) return;
+          var eta = calculateVehicleEtaToStop(pos, origin);
+          var preferredVehicle = preferredIds.indexOf(id) !== -1;
+          var score = 0.35 + (preferredVehicle ? 0.2 : 0) - (pickupState.uncertain ? 0.1 : 0);
+          if (!best || eta < best.pickupEta || (eta === best.pickupEta && score > best.score)) {
+            best = { id: id, location: pos, currentTrip: fallbackTrip, pickupEta: eta, score: score };
+          }
+        });
+      }
       return best;
+    }
+
+    function buildFallbackTripForBooking(vehicleId, vehicle, booking, routeInfo, origin, destination) {
+      var bookingDir = routeInfo.type === 'secondary_connection' ? 'to_chachoengsao' : bookingDirectionForStops(origin, destination);
+      var vehicleDir = normalizeVehicleDirection(vehicle && vehicle.direction);
+      if (bookingDir && vehicleDir && bookingDir !== vehicleDir) return null;
+      var target = routeInfo.type === 'secondary_connection' ? 'แปดริ้ว' : destination;
+      var startIdx = mainRouteStopIndex(origin);
+      var endIdx = mainRouteStopIndex(target);
+      if (startIdx < 0 || endIdx < 0 || startIdx === endIdx) return null;
+      var from = Math.min(startIdx, endIdx);
+      var to = Math.max(startIdx, endIdx);
+      var stops = MAIN_ROUTE_STOPS.slice(from, to + 1);
+      if (startIdx > endIdx) stops.reverse();
+      return {
+        vehicleId: vehicleId,
+        queueNo: Number(booking && (booking.queueNo || booking.queue || 0)) || '',
+        tripIndex: booking && booking.tripIndex || '',
+        departTime: booking && (booking.departTime || booking.time) || '',
+        direction: bookingDir || (startIdx < endIdx ? 'to_chachoengsao' : 'from_chachoengsao'),
+        routeStops: stops,
+        status: 'running',
+        confidence: 0.35,
+        source: 'active_vehicle_fallback'
+      };
+    }
+
+    function normalizeVehicleDirection(direction) {
+      var clean = String(direction || '').toLowerCase();
+      if (clean === 'go' || clean === 'to_chachoengsao') return 'to_chachoengsao';
+      if (clean === 'back' || clean === 'from_chachoengsao') return 'from_chachoengsao';
+      return '';
     }
 
     function getPreferredVehicleIdsForBooking(booking) {
