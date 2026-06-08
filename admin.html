@@ -392,6 +392,7 @@ tr:hover td{background:#fafafa;}
           <div class="fg"><label>ธนาคารสำหรับชำระเงิน</label><select id="paymentBank"><option value="ธนาคารกสิกรไทย (KBank)">ธนาคารกสิกรไทย (KBank)</option><option value="ธนาคารไทยพาณิชย์ (SCB)">ธนาคารไทยพาณิชย์ (SCB)</option><option value="ธนาคารกรุงเทพ (BBL)">ธนาคารกรุงเทพ (BBL)</option><option value="ธนาคารกรุงไทย (KTB)">ธนาคารกรุงไทย (KTB)</option><option value="ธนาคารกรุงศรีอยุธยา (BAY)">ธนาคารกรุงศรีอยุธยา (BAY)</option><option value="ธนาคารทหารไทยธนชาต (ttb)">ธนาคารทหารไทยธนชาต (ttb)</option><option value="ธนาคารออมสิน (GSB)">ธนาคารออมสิน (GSB)</option><option value="พร้อมเพย์">พร้อมเพย์</option></select></div>
           <div class="fg"><label>หมายเลขบัญชี/พร้อมเพย์</label><input type="text" id="paymentAccount" inputmode="numeric" placeholder="กรอกหมายเลขบัญชี"></div>
           <div class="fg"><label>ชื่อบัญชี</label><input type="text" id="paymentAccountName" placeholder="กรอกชื่อบัญชี"></div>
+          <div class="fg"><label>ปิดรับจองก่อนรถออก (นาที)</label><input type="number" id="bookingCutoffMinutes" min="0" step="5" value="60"></div>
         </div>
         <div class="control-grid">
           <div class="control-card">
@@ -558,7 +559,7 @@ firebase.initializeApp({
 });
 var db=firebase.database(),auth=firebase.auth();
 var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
-var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',PAYMENT_BANK='ธนาคารกสิกรไทย (KBank)',PAYMENT_ACCOUNT='',PAYMENT_ACCOUNT_NAME='',TEST_MODE=false;
+var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',PAYMENT_BANK='ธนาคารกสิกรไทย (KBank)',PAYMENT_ACCOUNT='',PAYMENT_ACCOUNT_NAME='',BOOKING_CUTOFF_MINUTES=60,TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
 var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={};
@@ -647,6 +648,8 @@ function loadFees(){
     PAYMENT_BANK=(settings.payment&&settings.payment.bankName)||PAYMENT_BANK;
     PAYMENT_ACCOUNT=(settings.payment&&settings.payment.accountNo)||'';
     PAYMENT_ACCOUNT_NAME=(settings.payment&&settings.payment.accountName)||'';
+    BOOKING_CUTOFF_MINUTES=Number(settings.bookingCutoffMinutes);
+    if(!isFinite(BOOKING_CUTOFF_MINUTES)||BOOKING_CUTOFF_MINUTES<0)BOOKING_CUTOFF_MINUTES=60;
     TEST_MODE=settings.testMode===true;
     document.getElementById('feeService').value=FEE_SVC;
     document.getElementById('feeAgent').value=FEE_AGENT;
@@ -656,6 +659,7 @@ function loadFees(){
     document.getElementById('paymentBank').value=PAYMENT_BANK;
     document.getElementById('paymentAccount').value=PAYMENT_ACCOUNT;
     document.getElementById('paymentAccountName').value=PAYMENT_ACCOUNT_NAME;
+    document.getElementById('bookingCutoffMinutes').value=BOOKING_CUTOFF_MINUTES;
     document.getElementById('testModeToggle').checked=TEST_MODE;
     document.getElementById('testModeBanner').style.display=TEST_MODE?'block':'none';
     document.getElementById('payToggle').checked=PAYMENT_MODE==='transfer';
@@ -674,16 +678,19 @@ function saveFees(){
   PAYMENT_BANK=document.getElementById('paymentBank').value||'ธนาคารกสิกรไทย (KBank)';
   PAYMENT_ACCOUNT=document.getElementById('paymentAccount').value.trim();
   PAYMENT_ACCOUNT_NAME=document.getElementById('paymentAccountName').value.trim();
+  BOOKING_CUTOFF_MINUTES=Number(document.getElementById('bookingCutoffMinutes').value);
+  if(!isFinite(BOOKING_CUTOFF_MINUTES)||BOOKING_CUTOFF_MINUTES<0)BOOKING_CUTOFF_MINUTES=60;
   TEST_MODE=document.getElementById('testModeToggle').checked;
   db.ref('settings').update({
     fees:{service:FEE_SVC,agent:FEE_AGENT,serviceEnabled:FEE_ENABLED,serviceVisible:FEE_VISIBLE},
     payment:{mode:PAYMENT_MODE,bankName:PAYMENT_BANK,accountNo:PAYMENT_ACCOUNT,accountName:PAYMENT_ACCOUNT_NAME},
+    bookingCutoffMinutes:BOOKING_CUTOFF_MINUTES,
     testMode:TEST_MODE,
     testPaths:{checkTicket:{bookings:'testBookings',ticketLocations:'testTicketLocations',notifications:'mockLogs/checkTicketNotifications'}}
   }).then(function(){
     document.getElementById('svcFeeLabel').textContent='\u0e3f'+FEE_SVC;
     document.getElementById('agentFeeLabel').textContent='\u0e3f'+FEE_AGENT;
-    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE+' bank='+PAYMENT_BANK+' testMode='+TEST_MODE);
+    writeLog('edit_fees','บันทึกค่าธรรมเนียม svc='+FEE_SVC+' agent='+FEE_AGENT+' serviceEnabled='+FEE_ENABLED+' payment='+PAYMENT_MODE+' bank='+PAYMENT_BANK+' cutoff='+BOOKING_CUTOFF_MINUTES+' testMode='+TEST_MODE);
     alert('\u2705 บันทึกสำเร็จ');
   }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message+' (path: settings)');});
 }
