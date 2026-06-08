@@ -362,15 +362,16 @@
     .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 58px; padding: 12px 18px; line-height: 1.25; white-space: normal; overflow: visible; }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van {
-      width: 52px;
-      height: 52px;
+      width: 58px;
+      height: 60px;
       border-radius: 0;
-      background: transparent url('assets/van-marker.png') center / contain no-repeat;
+      background: transparent;
       color: transparent;
       font-size: 0;
       border: 0;
       box-shadow: none;
     }
+    .tracking-marker.van img { width: 100%; height: 100%; display: block; object-fit: contain; }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
     .tracking-marker.transfer { background: #f97316; color: #fff; }
     .tracking-marker.passenger { background: #3b82f6; color: #fff; box-shadow: 0 0 0 6px rgba(59,130,246,.25), 0 5px 14px rgba(15, 23, 42, .25); }
@@ -1781,7 +1782,14 @@
     function createTrackingMarker(className, text) {
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
-      el.textContent = text;
+      if (className === 'van') {
+        var img = document.createElement('img');
+        img.src = 'assets/van-marker.png';
+        img.alt = text || 'รถ';
+        el.appendChild(img);
+      } else {
+        el.textContent = text;
+      }
       return el;
     }
 
