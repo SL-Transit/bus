@@ -362,13 +362,14 @@
     .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 58px; padding: 12px 18px; line-height: 1.25; white-space: normal; overflow: visible; }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van {
-      width: 38px;
-      height: 38px;
-      border-radius: 999px;
-      background: #fff url('assets/van-marker.png') center / 34px auto no-repeat;
+      width: 52px;
+      height: 52px;
+      border-radius: 0;
+      background: transparent url('assets/van-marker.png') center / contain no-repeat;
       color: transparent;
       font-size: 0;
-      box-shadow: 0 0 0 5px rgba(34,197,94,.22), 0 5px 14px rgba(15, 23, 42, .25);
+      border: 0;
+      box-shadow: none;
     }
     .tracking-marker.pickup { background: #2563eb; color: #fff; }
     .tracking-marker.transfer { background: #f97316; color: #fff; }
