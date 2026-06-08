@@ -649,6 +649,7 @@
     var ROTATING_VEHICLE_IDS = ['car1', 'car2', 'car3', 'car4'];
     var ACTIVE_VEHICLE_MAX_AGE_MS = 3 * 60 * 1000;
     var CURRENT_TRIP_MIN_CONFIDENCE = 0.45;
+    var BOOKING_TRIP_MATCH_TOLERANCE_MINUTES = 45;
     var queueTemplates = {
       1: {
         endAt: 'คลองหาด',
@@ -1468,23 +1469,42 @@
       var routeInfo = connectionRouteInfo(booking.route);
       var origin = getRouteOrigin(booking, getLegSchedule(booking));
       var destination = routeInfo.destination || booking.destination || booking.to || '';
+      var preferredIds = getPreferredVehicleIdsForBooking(booking);
+      var orderedKeys = preferredIds.concat(keys.filter(function(id) {
+        return preferredIds.indexOf(id) === -1;
+      }));
       var best = null;
-      keys.forEach(function(id) {
+      orderedKeys.forEach(function(id) {
         var vehicle = buses[id];
         var pos = normalizeTrackingPoint(vehicle);
         if (!isActiveVehicle(id, vehicle) || !pos) return;
         var currentTrip = getCurrentTripForVehicle(id, vehicle, new Date());
         if (!currentTrip || currentTrip.confidence < CURRENT_TRIP_MIN_CONFIDENCE) return;
-        if (!isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, currentTrip)) return;
+        var exactTimeMatch = bookingTimeMatchesTrip(booking, currentTrip);
+        var preferredVehicle = preferredIds.indexOf(id) !== -1;
+        if (!exactTimeMatch && !preferredVehicle && !bookingTimeWithinTripTolerance(booking, currentTrip)) return;
+        if (!isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, currentTrip, { skipTimeCheck: true })) return;
         var pickupState = vehiclePickupProgress(currentTrip, pos, origin);
         if (pickupState.passed) return;
         var eta = calculateVehicleEtaToStop(pos, origin);
-        var score = currentTrip.confidence - (pickupState.uncertain ? 0.1 : 0);
+        var score = currentTrip.confidence - (pickupState.uncertain ? 0.1 : 0) + (preferredVehicle ? 0.2 : 0) + (exactTimeMatch ? 0.1 : 0);
         if (!best || eta < best.pickupEta || (eta === best.pickupEta && score > best.score)) {
           best = { id: id, location: pos, currentTrip: currentTrip, pickupEta: eta, score: score };
         }
       });
       return best;
+    }
+
+    function getPreferredVehicleIdsForBooking(booking) {
+      var ids = [];
+      ['vehicleId', 'queueId', 'carId', 'busId', 'assignedVehicleId', 'driverVehicleId'].forEach(function(key) {
+        if (booking && booking[key]) ids.push(String(booking[key]));
+      });
+      var queueNo = Number(booking && (booking.queueNo || booking.queue || booking.queueIndex));
+      if (queueNo && queueNo >= 1 && queueNo <= 4) ids.push('car' + queueNo);
+      return ids.filter(function(id, index) {
+        return isRotatingVehicle(id) && ids.indexOf(id) === index;
+      });
     }
 
     function routeDirectionForOrigin(origin) {
@@ -1598,8 +1618,13 @@
       return String(booking.time).slice(0, 5) === String(trip.departTime).slice(0, 5);
     }
 
-    function isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, trip) {
-      if (!bookingTimeMatchesTrip(booking, trip)) return false;
+    function bookingTimeWithinTripTolerance(booking, trip) {
+      if (!booking || !booking.time || !trip || !trip.departTime) return true;
+      return Math.abs(toMin(String(booking.time).slice(0, 5)) - toMin(String(trip.departTime).slice(0, 5))) <= BOOKING_TRIP_MATCH_TOLERANCE_MINUTES;
+    }
+
+    function isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, trip, options) {
+      if (!(options && options.skipTimeCheck) && !bookingTimeMatchesTrip(booking, trip)) return false;
       var originIdx = tripStopIndex(trip, origin);
       if (originIdx < 0) return false;
       if (routeInfo.type === 'secondary_connection') {
