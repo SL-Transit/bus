@@ -2299,7 +2299,7 @@
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);
-        document.getElementById('trackingDestinationName').textContent = journeyTargetName + (trackingJourneyEta && Date.now() - Number(trackingJourneyEta.ts || 0) <= 30000 ? ' · ระยะทางถนนจริง' : ' · ประเมินจากตำแหน่งล่าสุด');
+        document.getElementById('trackingDestinationName').textContent = journeyTargetName + (destEta === null ? '' : ' · คาดว่าจะถึง ' + timeFromTimestamp(Date.now() + destEta * 60000) + ' น.');
         document.getElementById('trackingNextStep').textContent = renderNextStepText();
         document.getElementById('trackingPlatform').textContent = renderPlatformText(routeInfo, legs);
         updateTrackingSheetPeek(journeyTargetName, destEta === null ? 'กำลังรอตำแหน่งล่าสุด' : 'ประมาณ ' + formatEtaDuration(destEta));
