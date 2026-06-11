@@ -1543,7 +1543,7 @@
       if (startIdx > endIdx) stops.reverse();
       return {
         vehicleId: vehicleId,
-        queueNo: Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || 0)) || ''
+        queueNo: Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || 0)) || '',
         tripIndex: booking && booking.tripIndex || '',
         departTime: booking && (booking.departTime || booking.time) || '',
         direction: bookingDir || (startIdx < endIdx ? 'to_chachoengsao' : 'from_chachoengsao'),
