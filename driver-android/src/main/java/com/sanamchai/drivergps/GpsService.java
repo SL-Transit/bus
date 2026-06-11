@@ -72,7 +72,9 @@ public class GpsService extends Service {
     private FusedLocationProviderClient fusedClient;
     private LocationCallback fusedCallback;
     private FirebaseAuth auth;
-    private DatabaseReference busRef, liveVehicleRef, connectedRef;
+    private DatabaseReference busRef, liveVehicleRef, connectedRef, remoteToggleRef;
+    private com.google.firebase.database.ValueEventListener remoteToggleListener;
+    private volatile boolean remoteEnabled = true;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Location latestLocation;
     private boolean running        = false;
@@ -144,10 +146,34 @@ public class GpsService extends Service {
         }
     };
 
+    // ===== Watchdog: ตรวจจับ Firebase WebSocket ค้าง (เช่นหลังถูกปัดทิ้งจาก recent apps แบบไม่ได้กดหยุดส่งก่อน) =====
+    private static final long WATCHDOG_CHECK_MS = 20000;  // เช็คทุก 20 วินาที
+    private static final long WATCHDOG_STALE_MS = 60000;  // ถ้าไม่มีการส่งสำเร็จเกิน 60 วินาที ถือว่าค้าง
+    private final Runnable connectionWatchdog = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            if (remoteEnabled && lastLocationSentAt > 0) {
+                long staleFor = System.currentTimeMillis() - lastLocationSentAt;
+                if (staleFor > WATCHDOG_STALE_MS) {
+                    Log.w(TAG, "Firebase ค้าง " + (staleFor / 1000) + "s — force reconnect");
+                    recordError("reconnecting (stale " + (staleFor / 1000) + "s)");
+                    try {
+                        FirebaseDatabase.getInstance().goOffline();
+                        FirebaseDatabase.getInstance().goOnline();
+                    } catch (Exception ignored) {}
+                    // กันไม่ให้ trigger ซ้ำทันทีระหว่างรอ reconnect — รอบถัดไปจะเช็คใหม่
+                    lastLocationSentAt = System.currentTimeMillis();
+                }
+            }
+            handler.postDelayed(this, WATCHDOG_CHECK_MS);
+        }
+    };
+
     private void initFusedCallback() {
         fusedCallback = new LocationCallback() {
             @Override public void onLocationResult(LocationResult result) {
                 if (result == null) return;
+                if (!remoteEnabled) return; // ✅ ถูกสั่งหยุดจาก admin — ไม่ส่งตำแหน่ง
                 Location location = result.getLastLocation();
                 if (location == null) return;
                 Location filtered = filterLocation(location);
@@ -209,6 +235,35 @@ public class GpsService extends Service {
         connectedRef   = db.getReference(".info/connected");
         // ไม่ใช้ keepSynced — ป้องกัน Firebase sync queue เก่าก่อนส่งข้อมูลใหม่
         watchConnectionState();
+        watchRemoteToggle();
+    }
+
+    // ✅ ฟัง settings/vehicles/{id}/trackingEnabled — ให้ admin สั่งหยุด/เริ่มส่งตำแหน่งจากระยะไกลได้
+    private void watchRemoteToggle() {
+        if (remoteToggleRef != null && remoteToggleListener != null) {
+            try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
+        }
+        remoteToggleRef = FirebaseDatabase.getInstance().getReference("settings/vehicles/" + queueId + "/trackingEnabled");
+        remoteToggleListener = new com.google.firebase.database.ValueEventListener() {
+            @Override public void onDataChange(com.google.firebase.database.DataSnapshot snapshot) {
+                Boolean val = snapshot.getValue(Boolean.class);
+                boolean enabled = (val == null) || val; // ถ้าไม่ได้ตั้งค่าไว้ ถือว่าเปิดใช้งานปกติ
+                boolean wasEnabled = remoteEnabled;
+                remoteEnabled = enabled;
+                if (!wasEnabled && enabled) {
+                    // กลับมาเปิดใช้งาน — ส่งข้อมูลทันที
+                    recordStatus("online / locating");
+                    sendHeartbeat();
+                } else if (wasEnabled && !enabled) {
+                    // ถูกสั่งปิดจาก admin — เคลียร์สถานะออนไลน์ แต่ service ยังทำงานต่อรอคำสั่งเปิดใหม่
+                    recordStatus("paused (admin)");
+                    markOffline();
+                    updateNotification("หยุดส่งตำแหน่งชั่วคราว (สั่งจากระบบ) [" + queueId + "]");
+                }
+            }
+            @Override public void onCancelled(com.google.firebase.database.DatabaseError error) {}
+        };
+        remoteToggleRef.addValueEventListener(remoteToggleListener);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -227,6 +282,8 @@ public class GpsService extends Service {
             FirebaseDatabase.getInstance().goOnline();
         } catch (Exception ignored) {}
         acquireWakeLock();
+        handler.removeCallbacks(connectionWatchdog);
+        handler.postDelayed(connectionWatchdog, WATCHDOG_CHECK_MS);
         if (running) {
             setupDisconnectHandlers(); sendHeartbeat();
             handler.removeCallbacks(heartbeatTick);
@@ -271,11 +328,15 @@ public class GpsService extends Service {
     }
 
     private void stopTracking() {
+        if (remoteToggleRef != null && remoteToggleListener != null) {
+            try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
+        }
         running = false;
         prefs.edit()
                 .putBoolean(MainActivity.KEY_ENABLED, false)
                 .putString(MainActivity.KEY_LAST_STATUS, "stopped").apply();
         handler.removeCallbacks(heartbeatTick);
+        handler.removeCallbacks(connectionWatchdog);
         try { fusedClient.removeLocationUpdates(fusedCallback); } catch (Exception ignored) {}
         currentGpsRequestMs = 0;
         currentNetRequestMs = 0;
@@ -470,6 +531,7 @@ public class GpsService extends Service {
     }
 
     private void sendHeartbeat() {
+        if (!remoteEnabled) return; // ✅ ถูกสั่งหยุดจาก admin
         refreshBatteryState(true);
         if (gpsErrorMessage != null && latestLocation == null) {
             writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null, false); return;
