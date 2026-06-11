@@ -1781,15 +1781,15 @@ function updateAllBusesOnMap(buses) {
 function updateBusOnMap(pos, carId, shouldFocus) {
   if (!mapReady || !mapObj) return;
 
-  // heartbeatOnly = แอปส่งแค่ ping ว่ายังออนไลน์ GPS ไม่ได้ fix ใหม่
-  // ห้าม animate marker เพราะ lat/lng เป็นค่าเดิม รถไม่ได้ขยับ
-  if (pos.heartbeatOnly === true) {
-    console.log('[updateBusOnMap] skip heartbeat-only packet', carId);
-    return;
-  }
-
   var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
   carId = carId || pos.carId || 'car1';
+
+  // heartbeatOnly = ping ว่ายังออนไลน์ แต่ยังมี lat/lng ล่าสุดอยู่
+  // ถ้ามี marker อยู่แล้ว ไม่ต้อง animate ซ้ำ; ถ้ายังไม่มี marker ให้ใช้ตำแหน่งล่าสุดวาดรถก่อน
+  if (pos.heartbeatOnly === true && busMarkers[carId]) {
+    console.log('[updateBusOnMap] keep existing heartbeat-only marker', carId);
+    return;
+  }
 
   var newPos = normalizeMapPoint(pos);
   if (!newPos && pos.stopIdx !== undefined && dir[pos.stopIdx]) newPos = normalizeMapPoint(dir[pos.stopIdx]);
