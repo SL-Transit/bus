@@ -1835,6 +1835,10 @@ function updateBusOnMap(pos, carId, shouldFocus) {
 
   busTargetPos[carId] = filteredPos;
   busLastPacketPos[carId] = filteredPos;
+  if (!busMarkers[carId]) {
+    placeBusMarkerAt(carId, filteredPos);
+    busCurrentPos[carId] = filteredPos;
+  }
   var fromPos = busCurrentPos[carId] || filteredPos;
   var distFromPrev = busCurrentPos[carId]
     ? distanceMeters(fromPos.lat, fromPos.lon, filteredPos.lat, filteredPos.lon)
