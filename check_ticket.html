@@ -1543,7 +1543,7 @@
       if (startIdx > endIdx) stops.reverse();
       return {
         vehicleId: vehicleId,
-        queueNo: Number(booking && (booking.queueNo || booking.queue || 0)) || '',
+        queueNo: Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || 0)) || ''
         tripIndex: booking && booking.tripIndex || '',
         departTime: booking && (booking.departTime || booking.time) || '',
         direction: bookingDir || (startIdx < endIdx ? 'to_chachoengsao' : 'from_chachoengsao'),
@@ -1566,7 +1566,7 @@
       ['vehicleId', 'queueId', 'carId', 'busId', 'assignedVehicleId', 'driverVehicleId'].forEach(function(key) {
         if (booking && booking[key]) ids.push(String(booking[key]));
       });
-      var queueNo = Number(booking && (booking.queueNo || booking.queue || booking.queueIndex));
+      var queueNo = Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex));
       if (queueNo) {
         Object.keys(trackingDailyAssignments || {}).forEach(function(id) {
           var assigned = trackingDailyAssignments[id] || {};
@@ -1617,7 +1617,7 @@
 
     function getQueueNoForVehicle(vehicleId, date) {
       var assigned = trackingDailyAssignments && trackingDailyAssignments[vehicleId];
-      var queueNo = Number((assigned && (assigned.queueNo || assigned.queue || assigned.queueIndex)) || 0);
+      var queueNo = Number((assigned && (assigned.queueNo || assigned.queueNumber || assigned.queue || assigned.queueIndex)) || 0);
       if (queueTemplates[queueNo]) return queueNo;
       var fallback = { car1: 1, car2: 2, car3: 3, car4: 4 };
       return fallback[vehicleId] || null;
@@ -2290,7 +2290,7 @@
       var boarded = isOriginBoarded();
       var arrivalInfo = serviceArrivalInfo(currentBooking);
       var serviceEnded = isServiceEnded(currentBooking);
-      var destEta = boarded ? calculateTransferOrDestinationEta() : null;
+      var showJourneyEta = boarded || (routeInfo.type !== 'secondary_connection' && normalizeTrackingPoint(vanLocation));`r`n      var destEta = showJourneyEta ? calculateTransferOrDestinationEta() : null;
       updateTransferDotState();
       show('trackingPickupItem', true);
       document.getElementById('trackingPickupItem').classList.toggle('slide-out', boarded && !serviceEnded);
@@ -2329,7 +2329,7 @@
         document.getElementById('trackingNextStep').textContent = routeInfo.type === 'secondary_connection' ? 'ต่อรถไป' + finalDestination + ' ได้ตามรอบหน้างาน' : 'เดินทางถึงปลายทางแล้ว';
         document.getElementById('trackingPlatform').textContent = 'ระบบจะจบการแสดงผลหลังผ่านไป 6 ชั่วโมง';
         updateTrackingSheetPeek(arrivalInfo.label, routeInfo.type === 'secondary_connection' ? 'ยังดูข้อมูลต่อรถได้' : 'ยังดูข้อมูลตั๋วได้');
-      } else if (!boarded) {
+      } else if (!showJourneyEta) {
         document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
         document.getElementById('trackingNextStep').textContent = 'รอรถที่ป้ายต้นทาง';
