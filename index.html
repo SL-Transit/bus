@@ -56,7 +56,7 @@
     }
 
     .header-icon {
-      width: 72px; height: 72px;
+      width: 76px; height: 76px;
       background: #ffffff;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
@@ -69,9 +69,9 @@
       overflow: hidden;
     }
     .header-icon img {
-      width: 76px;
-      height: 76px;
-      object-fit: contain;
+      width: 68px;
+      height: 68px;
+      object-fit: cover;
       display: block;
     }
     @keyframes floatVan {
@@ -150,16 +150,17 @@
     .van-track {
       position: absolute;
       left: 20%;
-      top: -2px;
+      top: -18px;
       z-index: 2;
-      width: 78px;
+      width: 86px;
       height: 42px;
       animation: vanMove 4.5s ease-in-out infinite;
+      overflow: hidden;
     }
     .van-track img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       display: block;
       filter: drop-shadow(0 8px 12px rgba(0,0,0,.28));
     }
@@ -271,7 +272,7 @@
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       margin: 0 auto 12px; font-size: 28px;
     }
-    .icon-box img { width: 54px; height: 54px; display: block; border-radius: 50%; object-fit: cover; }
+    .icon-box img { width: 54px; height: 54px; display: block; border-radius: 50%; object-fit: contain; }
     .btn-text { line-height: 1.35; }
     .arrow { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 20px; opacity: 0.7; }
 
@@ -316,7 +317,7 @@
       .route-card { min-height: 0; padding: 20px 14px; }
       .route-line { gap: 6px; }
       .route-line::before { left: 11%; right: 11%; top: 34px; height: 6px; }
-      .van-track { top: -2px; left: 18%; width: 62px; height: 34px; }
+      .van-track { top: -14px; left: 18%; width: 70px; height: 34px; }
       .stop { padding-top: 62px; }
       .stop-icon { width: 58px; height: 58px; font-size: 26px; }
       .stop-name { font-size: 16px; }
@@ -484,26 +485,26 @@
 
   <!-- ══ เนื้อหาหลัก ══ -->
   <div class="container">
-    <div class="header-icon"><img src="assets/index-van-icon.png" alt="รถโดยสาร"></div>
+    <div class="header-icon"><img src="assets/sl-main-logo.png" alt="S.L.Transit"></div>
     <h1>ระบบบริการผู้โดยสารอัจฉริยะ</h1>
     <p class="subtitle">ตั๋วเดียว พร้อมระบบช่วยแนะนำการต่อรถตามสถานะการเดินทางจริง</p>
 
     <section class="route-card" aria-label="ภาพรวมการเดินทางแบบ Smart Transit">
       <div class="ticket-badge">🎟️ ตั๋วเดียว</div>
       <div class="route-line">
-        <div class="van-track"><img src="assets/index-van-track.png" alt=""></div>
+        <div class="van-track"><img src="assets/sl-route-van-strip.png" alt=""></div>
         <div class="stop">
-          <div class="stop-icon"><img src="assets/index-origin-icon.png" alt="ต้นทาง"></div>
+          <div class="stop-icon"><img src="assets/sl-origin-stop-icon.png" alt="ต้นทาง"></div>
           <span class="stop-name">ต้นทาง</span>
-          <span class="stop-role">จุดเริ่มต้น</span>
+          <span class="stop-role">จุดขึ้นรถ</span>
         </div>
         <div class="stop">
-          <div class="stop-icon"><img src="assets/index-transfer-icon.png" alt="ฉะเชิงเทรา"></div>
-          <span class="stop-name">ฉะเชิงเทรา</span>
+          <div class="stop-icon"><img src="assets/sl-transfer-point-icon.png" alt="ปลายทาง"></div>
+          <span class="stop-name">ปลายทาง</span>
           <span class="stop-role">จุดต่อรถ</span>
         </div>
         <div class="stop">
-          <div class="stop-icon">🏁</div>
+          <div class="stop-icon"><img src="assets/sl-destination-icon.png" alt="ปลายทาง"></div>
           <span class="stop-name">ปลายทาง</span>
           <span class="stop-role">จุดหมาย</span>
         </div>
@@ -517,19 +518,19 @@
 
     <div class="actions-grid">
       <a href="booking.html" class="btn btn-blue" id="btn1">
-        <div class="icon-box">🎫</div>
+        <div class="icon-box"><img src="assets/sl-booking-icon.png" alt="จองตั๋วโดยสารออนไลน์"></div>
         <span class="btn-text">จองตั๋วโดยสารออนไลน์</span>
         <span class="arrow">❯</span>
       </a>
 
       <a href="check_ticket.html" class="btn btn-red" id="btn2">
-        <div class="icon-box"><img src="assets/index-check-ticket-icon.png" alt="ตรวจสอบตั๋ว"></div>
+        <div class="icon-box"><img src="assets/sl-check-ticket-icon.png" alt="ตรวจสอบตั๋ว"></div>
         <span class="btn-text">ตรวจสอบตั๋วและติดตามการเดินทาง</span>
         <span class="arrow">❯</span>
       </a>
 
       <a href="passenger.html" class="btn btn-dark" id="btn3">
-        <div class="icon-box"><img src="assets/index-service-status-icon.png" alt="ข้อมูลเที่ยวรถและสถานะบริการ"></div>
+        <div class="icon-box"><img src="assets/sl-service-status-icon.png" alt="ข้อมูลเที่ยวรถและสถานะบริการ"></div>
         <span class="btn-text">ข้อมูลเที่ยวรถและสถานะบริการ</span>
         <span class="arrow">❯</span>
       </a>
