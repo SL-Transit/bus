@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบสำรองที่นั่งรถโดยสารออนไลน์ – Smart Transit</title>
+<title>ระบบสำรองที่นั่งรถโดยสารออนไลน์ – S.L.Transit</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -11,15 +11,15 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --navy:#0f3a5f;--navy2:#123f68;--accent:#078f93;--teal:#18a999;
-  --bg:#edf6f8;--card:#fff;--text:#0f172a;--muted:#5a6a7e;--border:#d8e5ee;
-  --green:#059669;--red:#dc2626;--orange:#d97706;--gray:#94a3b8;
+  --navy:#0B1D3A;--navy2:#123A63;--accent:#00A7B5;--teal:#4DD3D9;
+  --bg:#eef7fb;--card:#fff;--text:#0f172a;--muted:#526172;--border:#d7e3ec;
+  --green:#059669;--red:#dc2626;--orange:#FF8A00;--gray:#94a3b8;
 }
-body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d9eaf0);color:var(--text);min-height:100vh;}
+body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e5f4f7);color:var(--text);min-height:100vh;}
  
 /* HEADER — เหมือน passenger.html */
-.header{background:linear-gradient(135deg,#0f3a5f,#123f68);padding:14px 18px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,.16);box-shadow:0 8px 22px rgba(15,58,95,.18);}
-.header-title-wrap{font-size:11px;font-weight:400;text-align:center;line-height:1.45;color:#b9f2ea;}
+.header{background:linear-gradient(135deg,#0B1D3A,#123A63);padding:14px 18px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(77,211,217,.22);box-shadow:0 8px 22px rgba(11,29,58,.22);}
+.header-title-wrap{font-size:11px;font-weight:400;text-align:center;line-height:1.45;color:#bdf7fb;}
 .header-title-wrap strong{font-size:18px;font-weight:700;color:#fff;display:block;}
  
 /* MAIN */
@@ -29,14 +29,14 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .steps{display:flex;align-items:center;margin-bottom:20px;}
 .step{display:flex;flex-direction:column;align-items:center;flex:1;}
 .step-num{width:32px;height:32px;border-radius:50%;background:var(--border);color:var(--muted);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .3s;}
-.step-num.active{background:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(24,169,153,.16);}
+.step-num.active{background:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(0,167,181,.16);}
 .step-num.done{background:var(--green);color:#fff;}
 .step-label{font-size:11px;color:var(--muted);margin-top:4px;text-align:center;}
 .step-line{flex:1;height:2px;background:var(--border);margin:0 4px;margin-bottom:14px;transition:background .3s;}
 .step-line.done{background:var(--green);}
  
 /* CARD */
-.card{background:rgba(255,255,255,.96);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 6px 18px rgba(15,58,95,.08),0 1px 4px rgba(15,23,42,.06);border:1px solid var(--border);}
+.card{background:rgba(255,255,255,.97);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 8px 22px rgba(11,29,58,.08),0 1px 4px rgba(15,23,42,.05);border:1px solid var(--border);}
 .card-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
  
 /* ROUTE SELECT — dropdown style */
@@ -44,15 +44,15 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .route-select-row{display:flex;flex-direction:column;gap:4px;}
 .route-select-label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.5px;}
 .route-select{width:100%;padding:13px 16px;border:2px solid var(--border);border-radius:12px;font-family:'Kanit',sans-serif;font-size:15px;font-weight:600;color:var(--text);background:#fff;outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;cursor:pointer;}
-.route-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(24,169,153,.12);}
-.route-select.active-select{border-color:var(--accent);background-color:#eefdfa;}
+.route-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,167,181,.12);}
+.route-select.active-select{border-color:var(--accent);background-color:#effcff;}
 .route-swap-icon{text-align:center;font-size:22px;color:var(--muted);}
  
 /* DATE FIELD */
 .field{margin-bottom:14px;}
 .field label{font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;}
 .field input,.field select{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'Kanit',sans-serif;font-size:15px;color:var(--text);background:#fff;outline:none;transition:border-color .2s;}
-.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(24,169,153,.12);}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,167,181,.12);}
 .field input.error{border-color:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.1);}
 .field-error{font-size:12px;color:var(--red);margin-top:5px;display:none;}
 .field-error.show{display:block;}
@@ -60,7 +60,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 /* TIME SLOTS — แบบตั๋วรถทัวร์ */
 .time-list{display:flex;flex-direction:column;gap:10px;}
 .time-card{background:#fff;border:2px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:space-between;}
-.time-card.active{border-color:var(--accent);background:#eefdfa;}
+.time-card.active{border-color:var(--accent);background:#effcff;}
 .time-card.closed{background:#f8fafc;cursor:not-allowed;opacity:.65;}
 .time-card.closed .time-main{text-decoration:line-through;color:var(--gray);}
 .time-left{display:flex;flex-direction:column;gap:3px;}
@@ -101,7 +101,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .bank-owner{font-size:13px;color:var(--muted);margin-top:3px;}
  
 /* BUTTONS */
-.btn-submit{width:100%;padding:17px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;font-family:'Kanit',sans-serif;font-size:17px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(7,143,147,.26);}
+.btn-submit{width:100%;padding:17px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;font-family:'Kanit',sans-serif;font-size:17px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,167,181,.26);}
 .btn-submit:active{transform:scale(.98);}
 .btn-submit:disabled{background:#94a3b8;box-shadow:none;cursor:not-allowed;}
 .btn-back{width:100%;padding:15px;border-radius:14px;border:2px solid var(--border);background:#fff;color:var(--text);font-family:'Kanit',sans-serif;font-size:16px;font-weight:600;cursor:pointer;}
@@ -127,7 +127,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .ticket-body{padding:18px 18px 20px;background:linear-gradient(180deg,#ffffff,#fbfdff);}
 .ticket-queue-prize{text-align:center;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:11px 14px;margin-bottom:14px;box-shadow:0 2px 8px rgba(154,52,18,.08);}
 .ticket-queue-prize .label{font-size:11px;font-weight:700;color:#c2410c;letter-spacing:.5px;}
-.ticket-queue-prize .num{font-family:'Chakra Petch',sans-serif;font-size:34px;font-weight:700;line-height:1.05;color:#0f3a5f;}
+.ticket-queue-prize .num{font-family:'Chakra Petch',sans-serif;font-size:34px;font-weight:700;line-height:1.05;color:#0B1D3A;}
 .ticket-lines{display:grid;gap:10px;margin-bottom:14px;}
 .ticket-line{background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:11px 12px;}
 .ticket-line .k{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px;}
@@ -139,7 +139,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .ticket-save-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:10000;align-items:center;justify-content:center;padding:20px;}
 .ticket-save-modal.show{display:flex;}
 .ticket-save-box{width:100%;max-width:360px;background:#fff;border-radius:18px;padding:24px 20px;text-align:center;box-shadow:0 24px 70px rgba(15,23,42,.32);border:1px solid var(--border);}
-.ticket-save-icon{width:54px;height:54px;border-radius:50%;background:#eefdfa;color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;}
+.ticket-save-icon{width:54px;height:54px;border-radius:50%;background:#effcff;color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;}
 .ticket-save-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px;}
 .ticket-save-desc{font-size:13px;color:var(--text);line-height:1.75;margin-bottom:18px;}
 .ticket-save-actions{display:flex;gap:10px;}
@@ -150,7 +150,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
  
 /* UPLOAD */
 .upload-area{border:2px dashed var(--border);border-radius:12px;padding:16px 14px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbff;position:relative;min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.upload-area:hover,.upload-area.dragover{border-color:var(--accent);background:#eefdfa;}
+.upload-area:hover,.upload-area.dragover{border-color:var(--accent);background:#effcff;}
 .upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .upload-area.locked{border-color:#bbf7d0;background:#f0fdf4;cursor:not-allowed;}
 .upload-area.locked input[type=file]{pointer-events:none;}
@@ -175,7 +175,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .line-browser-icon{font-size:52px;margin-bottom:12px;}
 .line-browser-title{font-size:18px;font-weight:700;color:var(--red);margin-bottom:10px;}
 .line-browser-desc{font-size:14px;color:var(--text);line-height:1.8;margin-bottom:18px;}
-.line-browser-steps{background:#eefdfa;border-radius:12px;padding:14px;text-align:left;font-size:13px;color:var(--navy);line-height:2;margin-bottom:18px;}
+.line-browser-steps{background:#effcff;border-radius:12px;padding:14px;text-align:left;font-size:13px;color:var(--navy);line-height:2;margin-bottom:18px;}
 .line-browser-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;}
 .booking-closed-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:9998;align-items:center;justify-content:center;padding:20px;}
 .booking-closed-box{width:100%;max-width:380px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:26px 22px;text-align:center;box-shadow:0 24px 70px rgba(15,23,42,.35);}
@@ -187,19 +187,19 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 .admin-test-note{display:none;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;line-height:1.65;margin-top:10px;}
  
 /* QUEUE NUMBER */
-.queue-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0f3a5f,#078f93);color:#fff;padding:8px 18px;border-radius:30px;font-size:15px;font-weight:700;margin-bottom:10px;}
+.queue-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0B1D3A,#00A7B5);color:#fff;padding:8px 18px;border-radius:30px;font-size:15px;font-weight:700;margin-bottom:10px;}
 .queue-number{font-family:'Chakra Petch',sans-serif;font-size:28px;font-weight:700;}
 </style>
 </head>
 <body>
 <!-- ===== UPDATE OVERLAY (ระบบกำลังอัพเดท) ===== -->
-<div id="_updateOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,37,87,0.82);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+<div id="_updateOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(11,29,58,0.86);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
   <div style="background:#fff;border-radius:18px;padding:32px 28px;text-align:center;max-width:320px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
     <div style="font-size:36px;margin-bottom:12px;">🔄</div>
-    <div style="font-size:17px;font-weight:700;color:#0f3a5f;margin-bottom:8px;">ระบบกำลังปรับปรุงข้อมูล</div>
+    <div style="font-size:17px;font-weight:700;color:#0B1D3A;margin-bottom:8px;">ระบบกำลังปรับปรุงข้อมูล</div>
     <div style="font-size:14px;color:#64748b;line-height:1.6;">กรุณารอสักครู่<br>ระบบจะกลับมาใช้งานได้โดยอัตโนมัติ</div>
     <div style="margin-top:16px;height:4px;background:#dde3f0;border-radius:999px;overflow:hidden;">
-      <div style="height:100%;background:#078f93;border-radius:999px;animation:_upd 1.2s ease-in-out infinite;"></div>
+      <div style="height:100%;background:#00A7B5;border-radius:999px;animation:_upd 1.2s ease-in-out infinite;"></div>
     </div>
   </div>
 </div>
@@ -233,10 +233,10 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
 
 <div class="header" style="position:relative">
   <div class="header-title-wrap">
-    <strong>Smart Transit</strong>
+    <strong>S.L.Transit</strong>
     ระบบสำรองที่นั่งรถโดยสารออนไลน์
   </div>
-  <a href="check_ticket.html" style="position:absolute;right:16px;font-size:12px;font-weight:600;color:#b9f2ea;text-decoration:none">🎫 ตรวจสอบตั๋ว</a>
+  <a href="check_ticket.html" style="position:absolute;right:16px;font-size:12px;font-weight:600;color:#bdf7fb;text-decoration:none">🎫 ตรวจสอบตั๋ว</a>
 </div>
 <div class="test-mode-strip" id="testModeStrip">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และข้อมูลการสำรองที่นั่งจะอยู่ในชุดทดสอบ</div>
  
@@ -439,8 +439,8 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
   <div class="page" id="page4">
     <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);margin-bottom:14px;">
       <!-- หัวตั๋ว -->
-      <div style="background:linear-gradient(135deg,#0f3a5f,#078f93);padding:16px;text-align:center;color:#fff;">
-        <div style="font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:2px;margin-bottom:4px">Smart Transit • ระบบสำรองที่นั่งรถโดยสารออนไลน์</div>
+      <div style="background:linear-gradient(135deg,#0B1D3A,#00A7B5);padding:16px;text-align:center;color:#fff;">
+        <div style="font-size:12px;color:rgba(255,255,255,0.78);letter-spacing:2px;margin-bottom:4px">S.L.Transit • ระบบสำรองที่นั่งรถโดยสารออนไลน์</div>
         <div style="font-size:22px;font-weight:700;margin-bottom:4px">ตั๋วโดยสาร</div>
         <div style="font-family:'Chakra Petch',sans-serif;font-size:24px;font-weight:700;letter-spacing:4px;background:rgba(255,255,255,0.15);padding:7px 18px;border-radius:10px;display:inline-block;margin-top:4px" id="bookingCode">-</div>
       </div>
@@ -465,7 +465,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
           <div class="ticket-mini"><div class="k">เวลาออก</div><div class="v" id="ticketMainTime">-</div></div>
           <div class="ticket-mini" id="ticketLeg2TimeWrap" style="display:none"><div class="k">เวลาต่อรถ</div><div class="v" id="ticketLeg2Time">-</div></div>
         </div>
-        <div id="platform6Notice" style="display:none;background:#0f3a5f;border-radius:12px;padding:14px;font-size:15px;color:#fff;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:0.5px;">🚏 กรุณารอขึ้นรถ ณ <span id="platformNumberLabel" style="font-size:20px;font-family:'Chakra Petch',sans-serif">ชานชาลาหมายเลข 6</span></div>
+        <div id="platform6Notice" style="display:none;background:#0B1D3A;border-radius:12px;padding:14px;font-size:15px;color:#fff;font-weight:700;text-align:center;margin-bottom:12px;letter-spacing:0.5px;">🚏 กรุณารอขึ้นรถ ณ <span id="platformNumberLabel" style="font-size:20px;font-family:'Chakra Petch',sans-serif">ชานชาลาหมายเลข 6</span></div>
         <div id="queueDisplay" style="display:none;text-align:center;margin-bottom:12px;">
           <div class="queue-badge">🎫 ลำดับที่ของคุณ <span class="queue-number" id="queueNumber">-</span></div>
           <div style="font-size:12px;color:var(--muted);">ในเที่ยวนี้ (ต้นทาง + ปลายทาง + เวลา)</div>
@@ -475,7 +475,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#edf8fa,#d
           📱 กรุณาแสดงรูปตั๋วหรือรหัสตั๋วเมื่อขึ้นรถ<br>
           <div class="checkin-notice">ก่อนถึงจุดเปลี่ยนรถฉะเชิงเทรา กรุณาเช็คอินผ่านระบบ เพื่อให้ระบบคำนวณเวลารถต่อที่เหมาะสม และแจ้งข้อมูลให้เจ้าหน้าที่รับทราบล่วงหน้า</div>
         </div>
-        <button onclick="downloadTicketImage()" style="width:100%;padding:13px;border-radius:12px;border:2px solid #078f93;background:#fff;color:#078f93;font-family:'Kanit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">💾 บันทึกตั๋วเป็นรูปภาพ</button>
+        <button onclick="downloadTicketImage()" style="width:100%;padding:13px;border-radius:12px;border:2px solid #00A7B5;background:#fff;color:#00A7B5;font-family:'Kanit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">💾 บันทึกตั๋วเป็นรูปภาพ</button>
         <button class="btn-submit" style="background:linear-gradient(135deg,#059669,#10b981)" id="btnCheckin" onclick="goCheckin()">🎫 ดูตั๋ว / เช็คอิน</button>
         <button class="btn-submit" style="margin-top:10px;background:#e2e8f0;color:#0f172a;box-shadow:none" onclick="newBooking()">+ สำรองที่นั่งเพิ่มเติม</button>
       </div>
@@ -2342,8 +2342,8 @@ async function downloadTicketImage() {
   ctx.shadowColor = 'transparent';
  
   var grad = ctx.createLinearGradient(70, 70, 830, 300);
-  grad.addColorStop(0, '#0f3a5f');
-  grad.addColorStop(1, '#078f93');
+  grad.addColorStop(0, '#0B1D3A');
+  grad.addColorStop(1, '#00A7B5');
   ctx.fillStyle = grad;
   drawRoundRect(ctx, 70, 70, 760, 250, 28);
   ctx.fill();
@@ -2386,7 +2386,7 @@ async function downloadTicketImage() {
     ctx.fillStyle = '#c2410c';
     ctx.font = '700 22px Kanit, sans-serif';
     ctx.fillText('ลำดับคิว', 450, y);
-    ctx.fillStyle = '#0f3a5f';
+    ctx.fillStyle = '#0B1D3A';
     ctx.font = '700 44px Chakra Petch, Kanit, sans-serif';
     ctx.fillText('ลำดับคิวที่ ' + booking.queueNumber, 450, y + 45);
     ctx.textAlign = 'left';
@@ -2428,7 +2428,7 @@ async function downloadTicketImage() {
   ctx.fillStyle = '#64748b';
   ctx.font = '700 20px Kanit, sans-serif';
   ctx.fillText('เวลาออกเดินทาง', 120 + timeCardW / 2, timeCardY + 36);
-  ctx.fillStyle = '#0f3a5f';
+  ctx.fillStyle = '#0B1D3A';
   ctx.font = '700 36px Chakra Petch, Kanit, sans-serif';
   ctx.fillText((booking.time || '-') + (booking.time ? ' น.' : ''), 120 + timeCardW / 2, timeCardY + 78);
   if (legSchedule.leg2) {
@@ -2442,7 +2442,7 @@ async function downloadTicketImage() {
     ctx.fillStyle = '#64748b';
     ctx.font = '700 20px Kanit, sans-serif';
     ctx.fillText('เวลาต่อรถ', 622.5, timeCardY + 36);
-    ctx.fillStyle = '#0f3a5f';
+    ctx.fillStyle = '#0B1D3A';
     ctx.font = '700 36px Chakra Petch, Kanit, sans-serif';
     ctx.fillText((legSchedule.leg2Time || '-') + (legSchedule.leg2Time ? ' น.' : ''), 622.5, timeCardY + 78);
   }
@@ -2466,7 +2466,7 @@ async function downloadTicketImage() {
   ctx.fillStyle = '#64748b';
   ctx.font = '500 20px Kanit, sans-serif';
   ctx.fillText('บันทึกจากระบบสำรองที่นั่งออนไลน์', 450, 1210);
-  ctx.fillText('Smart Transit', 450, 1244);
+  ctx.fillText('S.L.Transit', 450, 1244);
  
   var a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');

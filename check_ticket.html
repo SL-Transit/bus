@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ตรวจสอบและจัดการตั๋ว</title>
+  <title>ตรวจสอบตั๋วโดยสาร – S.L.Transit</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -12,17 +12,19 @@
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
   <style>
     :root {
-      --navy: #17324d;
-      --blue: #1d5f9f;
+      --navy: #0B1D3A;
+      --blue: #123A63;
+      --teal: #00A7B5;
+      --light-teal: #4DD3D9;
       --green: #15803d;
       --red: #b91c1c;
-      --orange: #b45309;
+      --orange: #FF8A00;
       --muted: #526172;
       --line: #cbd5e1;
-      --soft: #f6f8fb;
+      --soft: #f5f9fc;
       --card: #ffffff;
       --ink: #0f172a;
-      --border: #d7dee8;
+      --border: #d7e3ec;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,7 +32,7 @@
     body {
       min-height: 100vh;
       font-family: 'Kanit', sans-serif;
-      background: #eef2f7;
+      background: linear-gradient(180deg, #f7fbff, #e5f4f7);
       color: var(--ink);
       padding: 24px;
       font-size: 18px;
@@ -58,13 +60,13 @@
     }
 
     .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
-    .pill { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
+    .pill { color: var(--navy); background: #effcff; border: 1px solid rgba(0,167,181,.28); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
     .test-mode-strip { display: none; margin-bottom: 14px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 8px; padding: 11px 14px; font-size: 15px; font-weight: 700; text-align: center; }
     .panel {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 8px;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+      box-shadow: 0 10px 24px rgba(11, 29, 58, .08);
       padding: 24px;
       margin-bottom: 16px;
     }
@@ -90,14 +92,14 @@
     }
 
     input.code { font-family: 'Chakra Petch', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
-    input:focus, select:focus, textarea:focus { border-color: var(--blue); background: #fff; box-shadow: 0 0 0 4px rgba(37, 99, 235, .08); }
+    input:focus, select:focus, textarea:focus { border-color: var(--teal); background: #fff; box-shadow: 0 0 0 4px rgba(0, 167, 181, .10); }
 
     button, .btn {
       border: 0;
       border-radius: 8px;
       padding: 15px 18px;
       color: #fff;
-      background: var(--blue);
+      background: linear-gradient(135deg, var(--navy), var(--teal));
       font-family: 'Kanit', sans-serif;
       font-size: 19px;
       font-weight: 700;
@@ -128,7 +130,7 @@
       margin-top: 12px;
     }
 
-    .status.info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .status.info { background: #effcff; color: var(--navy); border: 1px solid rgba(0,167,181,.28); }
     .status.good { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     .status.warn { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
     .status.bad { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
@@ -146,9 +148,9 @@
     }
     .admin-test-status {
       display: none;
-      background: #eff6ff;
-      border: 2px solid #93c5fd;
-      color: #1e3a8a;
+      background: #effcff;
+      border: 2px solid rgba(0,167,181,.28);
+      color: var(--navy);
       border-radius: 8px;
       padding: 12px 16px;
       font-size: 17px;
@@ -164,7 +166,7 @@
     .row.wide { grid-column: 1 / -1; }
 
     .ticket-head {
-      background: var(--navy);
+      background: linear-gradient(135deg, var(--navy), var(--blue));
       color: #fff;
       border-radius: 8px;
       padding: 20px;
@@ -192,7 +194,7 @@
       height: min(760px, calc(100vh - 20px));
       min-height: 620px;
       overflow: hidden;
-      background: #101826;
+      background: #0B1D3A;
       border: 1px solid var(--border);
       border-radius: 8px;
       box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
@@ -227,9 +229,9 @@
       min-height: 52px;
       padding: 12px 14px;
     }
-    .lookup-panel input:focus { background: #fff; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
+    .lookup-panel input:focus { background: #fff; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,167,181,.16); }
     .lookup-panel button { min-height: 52px; padding: 12px 18px; }
-    .tracking-map { position: absolute; inset: 0; background: #101826; }
+    .tracking-map { position: absolute; inset: 0; background: #0B1D3A; }
     .tracking-map::after {
       display: none;
     }
@@ -311,7 +313,7 @@
       border-radius: 16px;
       padding: 9px 14px;
       background: rgba(248,250,252,.96);
-      color: #1e3a8a;
+      color: var(--navy);
       box-shadow: 0 10px 22px rgba(15,23,42,.24);
       text-align: left;
       font-weight: 800;
@@ -343,7 +345,7 @@
     .tracking-title-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(255,255,255,.11); }
     .tracking-route { color: #cbd5e1; font-size: 15px; line-height: 1.5; }
     .tracking-summary { color: #f8fafc; font-size: 16px; font-weight: 800; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; }
-    .tracking-divider { height: 4px; border-radius: 999px; background: #2563eb; margin: 9px 0; }
+    .tracking-divider { height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--teal), var(--orange)); margin: 9px 0; }
     .tracking-person { display: none; }
     .tracking-person div { background: rgba(15,23,42,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; }
     .tracking-label { color: #94a3b8; font-size: 13px; font-weight: 700; }
@@ -354,9 +356,9 @@
     .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; max-height: 96px; opacity: 1; transform: translateX(0); overflow: hidden; transition: max-height .28s ease, opacity .22s ease, transform .28s ease, padding .28s ease; }
     .tracking-info-item.slide-out { max-height: 0; opacity: 0; transform: translateX(42px); padding-top: 0; padding-bottom: 0; pointer-events: none; }
     .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: #22c55e; border: 4px solid #334155; box-shadow: 0 0 0 1px rgba(255,255,255,.24); }
-    .tracking-dot.transfer { background: #facc15; }
+    .tracking-dot.transfer { background: var(--orange); }
     .tracking-dot.transfer.near { background: #22c55e; }
-    .tracking-dot.next { background: #60a5fa; }
+    .tracking-dot.next { background: var(--light-teal); }
     .tracking-info-copy { min-width: 0; }
     .tracking-actions { display: grid; gap: 8px; }
     .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 58px; padding: 12px 18px; line-height: 1.25; white-space: normal; overflow: visible; }
@@ -373,9 +375,9 @@
       overflow: hidden;
     }
     .tracking-marker.van img { width: 100%; height: 100%; display: block; object-fit: contain; padding: 3px; }
-    .tracking-marker.pickup { background: #2563eb; color: #fff; }
-    .tracking-marker.transfer { background: #f97316; color: #fff; }
-    .tracking-marker.passenger { background: #3b82f6; color: #fff; box-shadow: 0 0 0 6px rgba(59,130,246,.25), 0 5px 14px rgba(15, 23, 42, .25); }
+    .tracking-marker.pickup { background: var(--teal); color: #fff; }
+    .tracking-marker.transfer { background: var(--orange); color: #fff; }
+    .tracking-marker.passenger { background: var(--blue); color: #fff; box-shadow: 0 0 0 6px rgba(0,167,181,.22), 0 5px 14px rgba(15, 23, 42, .25); }
 
     .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .reason-box { display: grid; gap: 12px; margin-top: 12px; }
@@ -435,12 +437,12 @@
   <main class="wrap">
     <div class="topbar">
       <a class="back" href="index.html">‹ กลับหน้าแรก</a>
-      <div class="pill">Ticket Center</div>
+      <div class="pill">S.L.Transit Ticket Center</div>
     </div>
     <div id="testModeStatus" class="test-mode-status">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และอ่าน/เขียนเฉพาะข้อมูลทดสอบ</div>
 
     <section id="lookupPanel" class="panel lookup-panel">
-      <h1>ตรวจสอบ / เช็คอิน / ยกเลิกตั๋ว</h1>
+      <h1>ตรวจสอบตั๋ว / เช็คอิน / ยกเลิกตั๋ว</h1>
       <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว ระบบจะแสดงเฉพาะข้อมูลการจองของผู้โดยสารคนนั้น</p>
       <div class="search-grid">
         <div class="field">
@@ -1291,7 +1293,7 @@
     function setTrackingMapFallback(text) {
       var el = document.getElementById('trackingMap');
       if (!el) return;
-      el.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:#17324d;font-weight:700;background:#dbe4ee">' + text + '</div>';
+      el.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:#0B1D3A;font-weight:700;background:#e5f4f7">' + text + '</div>';
     }
 
     function renderTrackingLayout() {
@@ -1384,7 +1386,7 @@
           id: 'trackingRouteLine',
           type: 'line',
           source: 'trackingRouteLine',
-          paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-opacity': 0.76 }
+          paint: { 'line-color': '#00A7B5', 'line-width': 4, 'line-opacity': 0.76 }
         });
         trackingRouteSourceReady = true;
         renderPickupMarker();
