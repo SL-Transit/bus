@@ -3,6 +3,13 @@ package com.sanamchai.drivergps;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
+import androidx.core.content.FileProvider;
+import androidx.core.content.ContextCompat;
+import java.io.File;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -97,6 +104,7 @@ public class MainActivity extends Activity {
             requestPermissionsThenStart();
         }
         uiHandler.post(uiTick);
+        checkForUpdate();
     }
 
     @Override protected void onDestroy() {
@@ -133,7 +141,89 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void buildUi() {
+    // ===== ตรวจสอบเวอร์ชันแอพใหม่จาก Firebase และอัพเดทอัตโนมัติ =====
+    private void checkForUpdate() {
+        try {
+            DatabaseReference ref = FirebaseDatabase.getInstance().getReference("settings/appUpdate");
+            ref.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot snapshot) {
+                    if (!snapshot.exists()) return;
+                    Long latest = snapshot.child("versionCode").getValue(Long.class);
+                    String apkUrl = snapshot.child("apkUrl").getValue(String.class);
+                    String note = snapshot.child("note").getValue(String.class);
+                    if (latest == null || apkUrl == null || apkUrl.isEmpty()) return;
+                    if (latest > BuildConfig.VERSION_CODE) {
+                        showUpdateDialog(apkUrl, note);
+                    }
+                }
+                @Override public void onCancelled(DatabaseError error) {}
+            });
+        } catch (Exception ignored) {}
+    }
+
+    private void showUpdateDialog(String apkUrl, String note) {
+        if (isFinishing()) return;
+        String message = "มีแอพเวอร์ชันใหม่ กรุณาอัพเดทเพื่อให้ระบบทำงานได้ถูกต้อง"
+                + (note != null && !note.isEmpty() ? "\n\nรายละเอียด: " + note : "");
+        new AlertDialog.Builder(this)
+                .setTitle("\u2728 มีอัพเดทใหม่")
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton("ดาวน์โหลดและติดตั้ง", (d, w) -> downloadAndInstallApk(apkUrl))
+                .setNegativeButton("ภายหลัง", null)
+                .show();
+    }
+
+    private void downloadAndInstallApk(String apkUrl) {
+        try {
+            File outFile = new File(getExternalFilesDir("Download"), "driver-update.apk");
+            if (outFile.exists()) outFile.delete();
+
+            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
+            request.setTitle("กำลังอัพเดทแอพคนขับ");
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationUri(Uri.fromFile(outFile));
+            request.setMimeType("application/vnd.android.package-archive");
+
+            final long downloadId = dm.enqueue(request);
+
+            BroadcastReceiver receiver = new BroadcastReceiver() {
+                @Override public void onReceive(Context context, Intent intent) {
+                    long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                    if (id != downloadId) return;
+                    try { unregisterReceiver(this); } catch (Exception ignored) {}
+                    installApk(outFile);
+                }
+            };
+            ContextCompat.registerReceiver(this, receiver,
+                    new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                    ContextCompat.RECEIVER_EXPORTED);
+        } catch (Exception e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("ดาวน์โหลดไม่สำเร็จ")
+                    .setMessage(e.getMessage())
+                    .setPositiveButton("ตกลง", null).show();
+        }
+    }
+
+    private void installApk(File apkFile) {
+        try {
+            Uri apkUri = FileProvider.getUriForFile(this,
+                    getPackageName() + ".fileprovider", apkFile);
+            Intent installIntent = new Intent(Intent.ACTION_VIEW);
+            installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(installIntent);
+        } catch (Exception e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("ติดตั้งไม่สำเร็จ")
+                    .setMessage(e.getMessage())
+                    .setPositiveButton("ตกลง", null).show();
+        }
+    }
+
+
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Color.rgb(10, 14, 26));
