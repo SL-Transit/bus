@@ -8,13 +8,26 @@
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --deep-navy: #0B1D3A;
+      --ocean-blue: #123A63;
+      --teal: #00A7B5;
+      --light-teal: #4DD3D9;
+      --orange: #FF8A00;
+      --ink: #0B1D3A;
+      --muted: #526174;
+      --panel: rgba(255,255,255,0.94);
+      --line: rgba(11,29,58,0.10);
+    }
 
     body {
       font-family: 'Sarabun', sans-serif;
       background:
-        linear-gradient(90deg, rgba(246,250,255,0.20), rgba(246,250,255,0.06), rgba(246,250,255,0.20)),
+        radial-gradient(circle at 12% 18%, rgba(77,211,217,0.22), transparent 32%),
+        radial-gradient(circle at 88% 8%, rgba(255,138,0,0.14), transparent 26%),
+        linear-gradient(90deg, rgba(255,255,255,0.30), rgba(244,249,252,0.10), rgba(255,255,255,0.24)),
         url("assets/smart-transit-bg.png") center center / cover no-repeat fixed;
-      color: #17212b;
+      color: var(--ink);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -28,13 +41,13 @@
     .container {
       width: 100%;
       max-width: 980px;
-      background: rgba(255,255,255,0.92);
+      background: var(--panel);
       padding: 30px 28px 22px;
       border-radius: 24px;
-      box-shadow: 0 18px 50px rgba(15,58,95,0.14);
+      box-shadow: 0 26px 70px rgba(11,29,58,0.18), 0 4px 18px rgba(0,167,181,0.10);
       text-align: center;
-      border: 1px solid rgba(15,58,95,0.08);
-      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.76);
+      backdrop-filter: blur(14px);
       animation: cardIn 0.55s ease both;
     }
     @keyframes cardIn {
@@ -44,13 +57,14 @@
 
     .header-icon {
       width: 72px; height: 72px;
-      background: rgba(255,255,255,0.96);
+      background: #ffffff;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       margin: -64px auto 16px;
       font-size: 34px;
       color: #fff;
-      box-shadow: 0 12px 28px rgba(15,58,95,0.30);
+      box-shadow: 0 14px 32px rgba(11,29,58,0.28), 0 0 0 4px rgba(0,167,181,0.14);
+      border: 2px solid rgba(77,211,217,0.42);
       animation: floatVan 3s ease-in-out infinite;
       overflow: hidden;
     }
@@ -65,13 +79,15 @@
       50% { transform: translateY(-5px); }
     }
 
-    h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 700; color: #0d2a50; margin-bottom: 6px; line-height: 1.25; }
-    .subtitle { font-size: clamp(16px, 2vw, 20px); color: #435468; margin-bottom: 18px; font-weight: 600; }
+    h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 700; color: var(--deep-navy); margin-bottom: 6px; line-height: 1.25; letter-spacing: 0; }
+    .subtitle { font-size: clamp(16px, 2vw, 20px); color: var(--muted); margin-bottom: 18px; font-weight: 600; }
 
     .route-card {
       position: relative;
       overflow: hidden;
-      background: linear-gradient(135deg, #071f3a, #0d3157);
+      background:
+        radial-gradient(circle at 78% 16%, rgba(77,211,217,0.22), transparent 28%),
+        linear-gradient(135deg, var(--deep-navy), var(--ocean-blue) 66%, #08233e);
       border-radius: 20px;
       padding: 22px 24px 20px;
       margin-bottom: 20px;
@@ -86,7 +102,8 @@
       position: absolute;
       inset: 0;
       background:
-        linear-gradient(180deg, transparent 40%, rgba(24,169,153,0.10)),
+        linear-gradient(120deg, transparent 0 50%, rgba(255,138,0,0.15) 50% 54%, transparent 54%),
+        linear-gradient(180deg, transparent 40%, rgba(0,167,181,0.16)),
         repeating-linear-gradient(90deg, transparent 0 52px, rgba(255,255,255,0.035) 53px 55px);
       opacity: 0.9;
     }
@@ -96,13 +113,13 @@
       align-items: center;
       gap: 10px;
       align-self: center;
-      background: linear-gradient(135deg, #78ead7, #36c7b7);
-      color: #073a3d;
+      background: linear-gradient(135deg, #ffffff, var(--light-teal));
+      color: var(--deep-navy);
       padding: 10px 26px;
       border-radius: 999px;
       font-size: 20px;
       font-weight: 700;
-      box-shadow: 0 10px 28px rgba(54,199,183,0.28);
+      box-shadow: 0 10px 28px rgba(0,167,181,0.28);
       margin-bottom: 24px;
       z-index: 1;
     }
@@ -122,8 +139,8 @@
       top: 40px;
       height: 8px;
       border-radius: 999px;
-      background: linear-gradient(90deg, #44f3dd, #8ffcef, #44f3dd);
-      box-shadow: 0 0 26px rgba(68,243,221,0.9);
+      background: linear-gradient(90deg, var(--teal), var(--light-teal), var(--orange), var(--light-teal));
+      box-shadow: 0 0 26px rgba(77,211,217,0.72);
       animation: routeGlow 2.4s ease-in-out infinite;
     }
     @keyframes routeGlow {
@@ -160,13 +177,13 @@
       height: 76px;
       border-radius: 50%;
       background: #fff;
-      color: #18a999;
+      color: var(--teal);
       display: flex;
       align-items: center;
       justify-content: center;
       margin: 0 auto 10px;
       font-size: 34px;
-      box-shadow: 0 12px 28px rgba(0,0,0,0.20);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.20), 0 0 0 3px rgba(77,211,217,0.18);
       position: relative;
       z-index: 1;
       overflow: hidden;
@@ -186,7 +203,7 @@
     .stop-role {
       display: block;
       font-size: 14px;
-      color: rgba(255,255,255,0.68);
+      color: rgba(255,255,255,0.72);
     }
     .feature-chips {
       position: relative;
@@ -201,13 +218,13 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.13);
+      border: 1px solid rgba(77,211,217,0.22);
       border-radius: 14px;
       padding: 10px 18px;
       font-size: 16px;
       font-weight: 700;
-      color: #e9fffb;
+      color: #f3fffd;
     }
 
     .actions-grid {
@@ -229,12 +246,12 @@
     .btn:hover { transform: translateY(-4px); }
     .btn:active { transform: translateY(1px); filter: brightness(0.9); }
 
-    .btn-blue { background: linear-gradient(135deg, #1265c8, #0f3a5f); box-shadow: 0 10px 26px rgba(15,58,95,0.24); }
-    .btn-red  { background: linear-gradient(135deg, #16a59f, #078f93); box-shadow: 0 10px 26px rgba(7,143,147,0.25); }
-    .btn-dark { background: linear-gradient(135deg, #3f87ea, #2269d8); box-shadow: 0 10px 26px rgba(34,105,216,0.25); }
+    .btn-blue { background: linear-gradient(135deg, var(--deep-navy), var(--ocean-blue)); box-shadow: 0 10px 26px rgba(11,29,58,0.28); }
+    .btn-red  { background: linear-gradient(135deg, var(--teal), #087c90); box-shadow: 0 10px 26px rgba(0,167,181,0.25); }
+    .btn-dark { background: linear-gradient(135deg, var(--ocean-blue), #1c6ba8); box-shadow: 0 10px 26px rgba(18,58,99,0.25); }
     .btn-line {
-      background: linear-gradient(135deg, #38b462, #159447);
-      box-shadow: 0 10px 26px rgba(21,148,71,0.25);
+      background: linear-gradient(135deg, #1db45a, #0a8f48);
+      box-shadow: 0 10px 26px rgba(10,143,72,0.25);
     }
     .line-logo {
       width: 38px;
@@ -250,7 +267,7 @@
     }
 
     .icon-box {
-      background: #fff; color: #1265c8; width: 60px; height: 60px;
+      background: #fff; color: var(--teal); width: 60px; height: 60px;
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       margin: 0 auto 12px; font-size: 28px;
     }
@@ -263,23 +280,23 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      background: #f7f9fc;
-      border: 1px solid #dce5ef;
+      background: linear-gradient(90deg, rgba(11,29,58,0.04), rgba(0,167,181,0.06));
+      border: 1px solid var(--line);
       border-radius: 18px;
       padding: 12px 16px;
-      color: #5d6d7e;
+      color: var(--muted);
       font-size: 15px;
       line-height: 1.6;
     }
-    .service-note strong { color: #d64545; font-weight: 700; }
+    .service-note strong { color: var(--orange); font-weight: 700; }
 
-    .footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; }
-    .footer-text { font-size: 14px; color: #8fa0ad; letter-spacing: 0.5px; }
+    .footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .footer-text { font-size: 14px; color: #74869a; letter-spacing: 0.5px; }
     .footer-link {
       display: inline-block;
       margin-top: 8px;
       font-size: 13px;
-      color: #b8c3cc;
+      color: #8fa0ad;
       letter-spacing: 0.5px;
       text-decoration: none;
       font-weight: 300;
@@ -290,7 +307,8 @@
         padding: 74px 14px 18px;
         justify-content: flex-start;
         background:
-          linear-gradient(180deg, rgba(246,250,255,0.14), rgba(246,250,255,0.40)),
+          radial-gradient(circle at 16% 12%, rgba(77,211,217,0.18), transparent 34%),
+          linear-gradient(180deg, rgba(255,255,255,0.18), rgba(246,250,255,0.44)),
           url("assets/smart-transit-bg-mobile.png") center top / cover no-repeat fixed;
       }
       .container { padding: 28px 16px 20px; border-radius: 22px; }
