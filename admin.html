@@ -429,6 +429,14 @@ tr:hover td{background:#fafafa;}
           <button class="btn btn-primary btn-sm" onclick="savePlatformGroups()">&#x1F4BE; บันทึก</button>
         </div>
       </div>
+      <div class="card"><h2>&#x1F69A; ควบคุมแอพคนขับ</h2>
+        <div id="vehicleTrackWrap" class="control-grid"></div>
+        <hr style="margin:14px 0;border:none;border-top:1px solid #e5e7eb">
+        <div class="fg"><label>เวอร์ชันแอพล่าสุด (versionCode)</label><input type="number" id="appUpdateVersionCode" min="1" step="1" placeholder="เช่น 11"></div>
+        <div class="fg"><label>ลิงก์ดาวน์โหลด APK (apkUrl)</label><input type="text" id="appUpdateApkUrl" placeholder="https://github.com/.../driver-android-release.apk"></div>
+        <div class="fg"><label>หมายเหตุอัพเดท (แสดงให้คนขับเห็น)</label><input type="text" id="appUpdateNote" placeholder="เช่น แก้ไขปัญหาสัญญาณ GPS"></div>
+        <button class="btn btn-primary btn-sm" onclick="saveAppUpdate()">&#x1F4BE; บันทึกเวอร์ชันอัพเดท</button>
+      </div>
       <div class="card"><h2>&#x1F5FA;&#xFE0F; กลุ่มเส้นทาง</h2>
         <div id="routeGroupsWrap"></div>
         <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
@@ -630,7 +638,7 @@ function initApp(){
   document.getElementById('bkDate').value=today;
   document.getElementById('logDate').value=today;
   document.getElementById('revDate').value=today.slice(0,7);
-  loadFees();loadDashboard();loadAllBookings();loadAnnouncements();loadBookingToggle();loadRouteData();loadPlatformGroups();
+  loadFees();loadDashboard();loadAllBookings();loadAnnouncements();loadBookingToggle();loadRouteData();loadPlatformGroups();loadVehicleControls();
   if(isAdmin()){loadRefunds();loadRevenue();loadUsers();}
   if(isSA())loadLogs();
   var last=sessionStorage.getItem('adminPage');
@@ -1456,6 +1464,46 @@ function saveRouteSettings(successMsg,logDetail){
 }
 function saveRoutes(){
   saveRouteSettings('บันทึกสำเร็จ','บันทึกข้อมูลเส้นทาง');
+}
+var VEHICLE_LIST=[{id:'car1',label:'รถคันที่ 1'},{id:'car2',label:'รถคันที่ 2'}];
+function loadVehicleControls(){
+  var wrap=document.getElementById('vehicleTrackWrap');
+  if(!wrap)return;
+  wrap.innerHTML=VEHICLE_LIST.map(function(v){
+    return '<div class="control-card">'+
+      '<div><strong>'+esc(v.label)+'</strong><span>เปิด/ปิดการส่งตำแหน่งของแอพคนขับคันนี้</span></div>'+
+      '<label class="tog"><input type="checkbox" id="track_'+v.id+'" checked onchange="setVehicleTracking(\''+v.id+'\',this.checked)"><span class="tog-sl"></span></label>'+
+      '</div>';
+  }).join('');
+  VEHICLE_LIST.forEach(function(v){
+    db.ref('settings/vehicles/'+v.id+'/trackingEnabled').on('value',function(snap){
+      var val=snap.val();
+      var enabled=(val===null||val===undefined)?true:!!val;
+      var el=document.getElementById('track_'+v.id);
+      if(el)el.checked=enabled;
+    });
+  });
+  db.ref('settings/appUpdate').once('value').then(function(snap){
+    var d=snap.val()||{};
+    if(d.versionCode)document.getElementById('appUpdateVersionCode').value=d.versionCode;
+    if(d.apkUrl)document.getElementById('appUpdateApkUrl').value=d.apkUrl;
+    if(d.note)document.getElementById('appUpdateNote').value=d.note;
+  });
+}
+function setVehicleTracking(id,enabled){
+  db.ref('settings/vehicles/'+id+'/trackingEnabled').set(enabled).then(function(){
+    writeLog('toggle_tracking',(enabled?'เปิด':'ปิด')+'การส่งตำแหน่งรถ '+id);
+  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
+}
+function saveAppUpdate(){
+  var vc=parseInt(document.getElementById('appUpdateVersionCode').value,10);
+  var url=document.getElementById('appUpdateApkUrl').value.trim();
+  var note=document.getElementById('appUpdateNote').value.trim();
+  if(!vc||!url){alert('กรอกเวอร์ชันและลิงก์ APK ให้ครบ');return;}
+  db.ref('settings/appUpdate').set({versionCode:vc,apkUrl:url,note:note}).then(function(){
+    writeLog('app_update','ตั้งค่าอัพเดทแอพคนขับเป็นเวอร์ชัน '+vc);
+    alert('\u2705 บันทึกสำเร็จ — แอพคนขับจะแจ้งเตือนอัพเดทเมื่อเปิดแอพครั้งถัดไป');
+  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
 }
 function loadPlatformGroups(){
   db.ref('settings/platformGroups').once('value').then(function(snap){
