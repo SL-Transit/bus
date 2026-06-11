@@ -27,7 +27,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir _site
-          cp -R *.html *.js README.md .nojekyll driver-android _site/
+          cp -R *.html *.js README.md .nojekyll assets driver-android _site/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
