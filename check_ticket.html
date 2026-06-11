@@ -1574,7 +1574,10 @@
           if (assignedQueue === queueNo) ids.push(String(id));
         });
       }
-      if (queueNo && queueNo >= 1 && queueNo <= 4) ids.push('car' + queueNo);
+      if (queueNo && queueNo >= 1 && queueNo <= 4) {
+        var vehicleForQueue = getVehicleIdForQueue(queueNo, getServiceDateForBooking(booking));
+        if (vehicleForQueue) ids.push(vehicleForQueue);
+      }
       if (booking && booking.plannedVehicleId) ids.push(String(booking.plannedVehicleId));
       return ids.filter(function(id, index) {
         return isRotatingVehicle(id) && ids.indexOf(id) === index;
@@ -1615,12 +1618,40 @@
       return !!(ts && (Number(now || Date.now()) - ts <= ACTIVE_VEHICLE_MAX_AGE_MS));
     }
 
+    function getRotationDayOffset(date) {
+      var value = String(date || getServiceDateForBooking(currentBooking) || '');
+      var match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      var target = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date();
+      var base = new Date(2026, 5, 12); // 2026-06-12: car1=queue3, car2=queue1, car3=queue2, car4=queue4
+      return Math.floor((target.getTime() - base.getTime()) / 86400000);
+    }
+
+    function rotateQueueNo(queueNo, offset) {
+      queueNo = Number(queueNo || 0);
+      if (!queueNo) return null;
+      return ((queueNo - 1 + offset) % 4 + 4) % 4 + 1;
+    }
+
+    function fallbackQueueNoForVehicle(vehicleId, date) {
+      var base = { car1: 3, car2: 1, car3: 2, car4: 4 };
+      return rotateQueueNo(base[String(vehicleId || '')], getRotationDayOffset(date));
+    }
+
+    function getVehicleIdForQueue(queueNo, date) {
+      queueNo = Number(queueNo || 0);
+      if (!queueNo) return '';
+      for (var i = 0; i < ROTATING_VEHICLE_IDS.length; i++) {
+        var id = ROTATING_VEHICLE_IDS[i];
+        if (fallbackQueueNoForVehicle(id, date) === queueNo) return id;
+      }
+      return '';
+    }
+
     function getQueueNoForVehicle(vehicleId, date) {
       var assigned = trackingDailyAssignments && trackingDailyAssignments[vehicleId];
       var queueNo = Number((assigned && (assigned.queueNo || assigned.queueNumber || assigned.queue || assigned.queueIndex)) || 0);
       if (queueTemplates[queueNo]) return queueNo;
-      var fallback = { car1: 1, car2: 2, car3: 3, car4: 4 };
-      return fallback[vehicleId] || null;
+      return fallbackQueueNoForVehicle(vehicleId, date);
     }
 
     function getCurrentTripForVehicle(vehicleId, vehicleData, now) {
