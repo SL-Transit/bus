@@ -1502,7 +1502,7 @@
         if (!exactTimeMatch && !preferredVehicle && !bookingTimeWithinTripTolerance(booking, currentTrip)) return;
         if (!isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, currentTrip, { skipTimeCheck: true })) return;
         var pickupState = vehiclePickupProgress(currentTrip, pos, origin);
-        if (pickupState.passed) return;
+        if (pickupState.passed && !preferredVehicle) return;
         var eta = calculateVehicleEtaToStop(pos, origin);
         var score = currentTrip.confidence - (pickupState.uncertain ? 0.1 : 0) + (preferredVehicle ? 0.2 : 0) + (exactTimeMatch ? 0.1 : 0);
         if (!best || eta < best.pickupEta || (eta === best.pickupEta && score > best.score)) {
@@ -1517,7 +1517,7 @@
           var fallbackTrip = buildFallbackTripForBooking(id, vehicle, booking, routeInfo, origin, destination);
           if (!fallbackTrip) return;
           var pickupState = vehiclePickupProgress(fallbackTrip, pos, origin);
-          if (pickupState.passed) return;
+          if (pickupState.passed && !preferredVehicle) return;
           var eta = calculateVehicleEtaToStop(pos, origin);
           var preferredVehicle = preferredIds.indexOf(id) !== -1;
           var score = 0.35 + (preferredVehicle ? 0.2 : 0) - (pickupState.uncertain ? 0.1 : 0);
