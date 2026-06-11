@@ -1928,6 +1928,7 @@ function verifySlipPayment(bookingId, imageUrl) {
   }).then(function(res) {
     return res.json().catch(function() { return {}; }).then(function(body) {
       if (!res.ok) {
+        if (body && body.paymentStatus) return body;
         var err = new Error(body.message || 'ตรวจสอบสลิปไม่ได้');
         err.verifyBody = body;
         throw err;
@@ -2179,7 +2180,7 @@ function submitBooking() {
           return verifySlipPayment(code, imageUrl).then(function(verifyResult) {
             booking.paymentStatus = verifyResult.paymentStatus || '';
             booking.slipVerifyStatus = verifyResult.slipVerifyStatus || '';
-            booking.slipVerifyMessage = verifyResult.slipVerifyMessage || '';
+            booking.slipVerifyMessage = verifyResult.slipVerifyMessage || verifyResult.message || '';
             if (booking.paymentStatus !== 'payment_verified') {
               var verifyErr = new Error('SLIP_VERIFY_FAILED');
               verifyErr.userMessage = booking.slipVerifyMessage || 'สลิปไม่ผ่านการตรวจสอบ';

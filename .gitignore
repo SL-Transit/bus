@@ -1,6 +1,7 @@
 .gradle/
 driver-android/build/
 functions/node_modules/
+functions/.env*
 migration-backups/
 firebase-debug.log
 firebase-debug.*.log
