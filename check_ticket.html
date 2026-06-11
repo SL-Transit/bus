@@ -290,12 +290,13 @@
       min-height: auto;
       max-height: min(58%, 430px);
       overflow: auto;
-      background: rgba(31, 41, 55, .96);
+      background:
+        linear-gradient(135deg, rgba(11,29,58,.98), rgba(18,58,99,.96) 68%, rgba(0,167,181,.92));
       color: #f8fafc;
-      border: 1px solid rgba(255,255,255,.1);
+      border: 1px solid rgba(77,211,217,.24);
       border-radius: 18px;
       padding: 14px 16px calc(24px + env(safe-area-inset-bottom));
-      box-shadow: 0 18px 44px rgba(15, 23, 42, .34);
+      box-shadow: 0 18px 44px rgba(11, 29, 58, .38);
       backdrop-filter: blur(10px);
       transition: transform .22s ease, max-height .22s ease;
     }
@@ -312,14 +313,14 @@
       border: 0;
       border-radius: 16px;
       padding: 9px 14px;
-      background: rgba(248,250,252,.96);
+      background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(239,252,255,.96));
       color: var(--navy);
-      box-shadow: 0 10px 22px rgba(15,23,42,.24);
+      box-shadow: 0 10px 22px rgba(11,29,58,.24);
       text-align: left;
       font-weight: 800;
       cursor: pointer;
     }
-    .tracking-sheet-peek small { display: block; color: #475569; font-size: 12px; font-weight: 700; margin-top: 2px; }
+    .tracking-sheet-peek small { display: block; color: var(--blue); font-size: 12px; font-weight: 700; margin-top: 2px; }
     .tracking-bottom-sheet.collapsed .tracking-sheet-peek { display: block; }
     .tracking-sheet-handle {
       width: 100%;
@@ -336,32 +337,32 @@
       width: 42px;
       height: 4px;
       border-radius: 999px;
-      background: #cbd5e1;
+      background: rgba(77,211,217,.82);
       opacity: .8;
     }
     .tracking-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
     .tracking-sheet-head h2 { margin-bottom: 0; color: #fff; font-size: 20px; }
     .tracking-title { display: inline-flex; align-items: center; gap: 8px; }
-    .tracking-title-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(255,255,255,.11); }
-    .tracking-route { color: #cbd5e1; font-size: 15px; line-height: 1.5; }
+    .tracking-title-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(77,211,217,.18); border: 1px solid rgba(77,211,217,.24); }
+    .tracking-route { color: rgba(239,252,255,.86); font-size: 15px; line-height: 1.5; }
     .tracking-summary { color: #f8fafc; font-size: 16px; font-weight: 800; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; }
     .tracking-divider { height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--teal), var(--orange)); margin: 9px 0; }
     .tracking-person { display: none; }
-    .tracking-person div { background: rgba(15,23,42,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 10px 12px; }
-    .tracking-label { color: #94a3b8; font-size: 13px; font-weight: 700; }
+    .tracking-person div { background: rgba(11,29,58,.42); border: 1px solid rgba(77,211,217,.18); border-radius: 8px; padding: 10px 12px; }
+    .tracking-label { color: rgba(189,247,251,.82); font-size: 13px; font-weight: 700; }
     .tracking-value { color: #fff; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
-    .tracking-subvalue { color: #cbd5e1; font-size: 14px; font-weight: 600; line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
+    .tracking-subvalue { color: rgba(239,252,255,.82); font-size: 14px; font-weight: 600; line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
     .tracking-info { position: relative; display: grid; gap: 7px; margin-bottom: 10px; padding-left: 8px; }
-    .tracking-info::before { content: ""; position: absolute; left: 16px; top: 19px; bottom: 19px; width: 2px; background: rgba(226,232,240,.38); }
+    .tracking-info::before { content: ""; position: absolute; left: 16px; top: 19px; bottom: 19px; width: 2px; background: rgba(77,211,217,.36); }
     .tracking-info-item { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 2px 0; max-height: 96px; opacity: 1; transform: translateX(0); overflow: hidden; transition: max-height .28s ease, opacity .22s ease, transform .28s ease, padding .28s ease; }
     .tracking-info-item.slide-out { max-height: 0; opacity: 0; transform: translateX(42px); padding-top: 0; padding-bottom: 0; pointer-events: none; }
-    .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: #22c55e; border: 4px solid #334155; box-shadow: 0 0 0 1px rgba(255,255,255,.24); }
+    .tracking-dot { position: relative; z-index: 1; width: 18px; height: 18px; margin-top: 5px; border-radius: 999px; background: var(--teal); border: 4px solid var(--navy); box-shadow: 0 0 0 1px rgba(77,211,217,.42); }
     .tracking-dot.transfer { background: var(--orange); }
-    .tracking-dot.transfer.near { background: #22c55e; }
+    .tracking-dot.transfer.near { background: var(--light-teal); }
     .tracking-dot.next { background: var(--light-teal); }
     .tracking-info-copy { min-width: 0; }
     .tracking-actions { display: grid; gap: 8px; }
-    .tracking-actions button { border-radius: 999px; background: #16a34a; min-height: 58px; padding: 12px 18px; line-height: 1.25; white-space: normal; overflow: visible; }
+    .tracking-actions button { border-radius: 999px; background: linear-gradient(135deg, var(--teal), var(--blue)); min-height: 58px; padding: 12px 18px; line-height: 1.25; white-space: normal; overflow: visible; box-shadow: 0 10px 24px rgba(0,167,181,.24); }
     .tracking-marker { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; font-size: 17px; box-shadow: 0 5px 14px rgba(15, 23, 42, .25); border: 2px solid #fff; }
     .tracking-marker.van {
       width: 42px;
@@ -371,7 +372,7 @@
       color: transparent;
       font-size: 0;
       border: 2px solid #fff;
-      box-shadow: 0 0 0 5px rgba(34,197,94,.22), 0 5px 14px rgba(15, 23, 42, .25);
+      box-shadow: 0 0 0 5px rgba(0,167,181,.22), 0 5px 14px rgba(15, 23, 42, .25);
       overflow: hidden;
     }
     .tracking-marker.van img { width: 100%; height: 100%; display: block; object-fit: contain; padding: 3px; }
