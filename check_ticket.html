@@ -2290,7 +2290,8 @@
       var boarded = isOriginBoarded();
       var arrivalInfo = serviceArrivalInfo(currentBooking);
       var serviceEnded = isServiceEnded(currentBooking);
-      var showJourneyEta = boarded || (routeInfo.type !== 'secondary_connection' && normalizeTrackingPoint(vanLocation));`r`n      var destEta = showJourneyEta ? calculateTransferOrDestinationEta() : null;
+      var showJourneyEta = boarded || (routeInfo.type !== 'secondary_connection' && normalizeTrackingPoint(vanLocation));
+      var destEta = showJourneyEta ? calculateTransferOrDestinationEta() : null;
       updateTransferDotState();
       show('trackingPickupItem', true);
       document.getElementById('trackingPickupItem').classList.toggle('slide-out', boarded && !serviceEnded);
