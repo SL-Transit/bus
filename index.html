@@ -543,67 +543,46 @@
   (function () {
     'use strict';
 
-    /* ══ ตรวจ userAgent ทุกครั้งที่โหลดหน้า ไม่ง้อ flag ใดๆ ══ */
     var ua = navigator.userAgent || '';
     var isInApp = /\bLine\b/i.test(ua) || /FBAN|FBAV|FB_IAB/i.test(ua);
 
-    if (isInApp) {
-      /* 1. แสดง overlay ทันที (ก่อน DOMContentLoaded ก็ได้) */
-      document.addEventListener('DOMContentLoaded', function () {
-        document.getElementById('line-overlay').classList.add('show');
-
-        /* 2. บล็อกปุ่มทุกปุ่ม ไม่ให้นำทางออก */
-        ['btn1','btn2','btn3'].forEach(function (id) {
-          var el = document.getElementById(id);
-          if (!el) return;
-          el.classList.add('blocked');
-          el.addEventListener('click', function (e) { e.preventDefault(); }, true);
-        });
-      });
-
-      /* 3. ลอง redirect อัตโนมัติทันที (ป้องกัน loop ด้วย hash) */
-      if (location.hash !== '#noredir') {
-        var url = location.href.split('#')[0] + '#noredir';
-
-        if (/Android/i.test(ua)) {
-          location.href = 'intent://' +
-            url.replace(/^https?:\/\//, '') +
-            '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
-            ';package=com.android.chrome' +
-            ';S.browser_fallback_url=' + encodeURIComponent(url) +
-            ';end';
-        } else if (/iPhone|iPad|iPod/i.test(ua)) {
-          /* ลอง Chrome iOS ก่อน */
-          location.href = url.replace(/^https?/, 'googlechromes');
-          /* fallback Safari */
-          setTimeout(function () { location.href = 'x-safari-' + url; }, 700);
-        }
-      }
+    function cleanUrl() {
+      return location.href.split('#')[0];
     }
 
-    /* ══ ปุ่ม "เปิดใน Browser ภายนอก" ══ */
-    window.doOpenExternal = function () {
-      var url = location.href.split('#')[0];
+    function androidIntentUrl(url) {
+      return 'intent://' +
+        url.replace(/^https?:\/\//, '') +
+        '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
+        ';action=android.intent.action.VIEW' +
+        ';category=android.intent.category.BROWSABLE' +
+        ';S.browser_fallback_url=' + encodeURIComponent(url) +
+        ';end';
+    }
+
+    function openExternal(url) {
       if (/Android/i.test(ua)) {
-        location.href = 'intent://' +
-          url.replace(/^https?:\/\//, '') +
-          '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
-          ';package=com.android.chrome' +
-          ';S.browser_fallback_url=' + encodeURIComponent(url) +
-          ';end';
+        location.replace(androidIntentUrl(url));
       } else if (/iPhone|iPad|iPod/i.test(ua)) {
         location.href = url.replace(/^https?/, 'googlechromes');
-        setTimeout(function () { location.href = 'x-safari-' + url; }, 800);
+        setTimeout(function () { location.href = 'x-safari-' + url; }, 700);
       } else {
         window.open(url, '_blank');
       }
+    }
+
+    if (isInApp && !location.hash.includes('external-opened')) {
+      openExternal(cleanUrl() + '#external-opened');
+    }
+
+    window.doOpenExternal = function () {
+      openExternal(cleanUrl());
     };
 
-    /* ══ ปุ่ม "คัดลอก URL" ══ */
     window.doCopyUrl = function () {
-      var url = location.href.split('#')[0];
+      var url = cleanUrl();
       var ok  = document.getElementById('copy-ok');
-      function showOK() { ok.textContent = '✅ คัดลอกแล้ว! นำไปวางใน Chrome / Safari ได้เลย'; }
+      function showOK() { if (ok) ok.textContent = '✅ คัดลอกแล้ว! นำไปวางใน Chrome / Safari ได้เลย'; }
       function fallback() {
         try {
           var t = document.createElement('textarea');
@@ -614,7 +593,7 @@
           document.execCommand('copy');
           document.body.removeChild(t);
           showOK();
-        } catch (e) { ok.textContent = '⚠️ กรุณาคัดลอก URL ด้วยตนเอง'; }
+        } catch (e) { if (ok) ok.textContent = '⚠️ กรุณาคัดลอก URL ด้วยตนเอง'; }
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(showOK).catch(fallback);
