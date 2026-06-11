@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
         }
     }
 
-
+    private void buildUi() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Color.rgb(10, 14, 26));
