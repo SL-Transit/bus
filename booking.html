@@ -2222,6 +2222,7 @@ function submitBooking() {
         alert(err.userMessage || 'สลิปไม่ผ่านการตรวจสอบ');
         btn.disabled = true;
         btn.textContent = '❌ ตรวจสอบสลิปไม่ผ่าน';
+        return;
       } else {
         alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
       }
