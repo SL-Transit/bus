@@ -1484,6 +1484,9 @@ var busCurrentPos = {};      // ตำแหน่งปัจจุบันข
 var busTargetPos = {};        // ตำแหน่งเป้าหมาย
 var busAnimFrames = {};       // requestAnimationFrame id
 var busPredictionFrames = {};
+var busPredictionSeq = {};
+var busMotionState = {};
+var busRenderFrames = {};
 var busLastPacketPos = {};
 
 var BUS_ANIM_DURATION = 600; // ms — ลดให้ marker ตามตำแหน่งจริงไวขึ้น
@@ -1502,6 +1505,7 @@ function easeInOut(t) {
 function stopBusPrediction(carId) {
   if (busPredictionFrames[carId]) cancelAnimationFrame(busPredictionFrames[carId]);
   busPredictionFrames[carId] = null;
+  busPredictionSeq[carId] = (busPredictionSeq[carId] || 0) + 1;
 }
 
 function projectPoint(lat, lon, headingDeg, meters) {
@@ -1719,6 +1723,108 @@ function placeBusMarkerAt(carId, latlng) {
   mapObj.Overlays.add(busTagMarkers[carId]);
 }
 
+function bearingBetweenPoints(fromPos, toPos) {
+  if (!fromPos || !toPos) return NaN;
+  var lat1 = fromPos.lat * Math.PI / 180;
+  var lat2 = toPos.lat * Math.PI / 180;
+  var dLon = (toPos.lon - fromPos.lon) * Math.PI / 180;
+  var y = Math.sin(dLon) * Math.cos(lat2);
+  var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function normalizedVehicleSpeedMs(pos, derivedSpeedMs) {
+  var raw = Number(pos && (pos.speed != null ? pos.speed : pos.velocity));
+  var fromPacket = Number.isFinite(raw) && raw > 0.5 ? raw / 3.6 : 0;
+  var speed = fromPacket || (Number.isFinite(derivedSpeedMs) ? derivedSpeedMs : 0);
+  return Math.max(0, Math.min(speed, 27.8));
+}
+
+function stopBusRenderLoop(carId) {
+  if (busRenderFrames[carId]) cancelAnimationFrame(busRenderFrames[carId]);
+  busRenderFrames[carId] = null;
+}
+
+function ensureBusRenderLoop(carId) {
+  if (busRenderFrames[carId]) return;
+  var lastFrameMs = 0;
+  function frame(nowMs) {
+    var state = busMotionState[carId];
+    if (!state || state.online === false) { stopBusRenderLoop(carId); return; }
+    if (!lastFrameMs) lastFrameMs = nowMs;
+    var dtSec = Math.min(Math.max((nowMs - lastFrameMs) / 1000, 0), 0.25);
+    lastFrameMs = nowMs;
+
+    var ageMs = Math.max(0, Date.now() - state.lastGpsTs);
+    if (ageMs > 30000) { stopBusRenderLoop(carId); return; }
+
+    var target = state.anchor;
+    if (state.speedMs > 0.4 && Number.isFinite(state.heading) && ageMs <= BUS_PREDICT_MAX_MS) {
+      var meters = Math.min(state.speedMs * (ageMs / 1000), BUS_PREDICT_MAX_METERS);
+      target = projectPoint(state.anchor.lat, state.anchor.lon, state.heading, meters);
+    }
+
+    var display = state.display || target;
+    var dist = distanceMeters(display.lat, display.lon, target.lat, target.lon);
+    var alpha = Math.min(0.24, Math.max(0.06, dtSec * 1.8));
+    if (dist > 180) alpha = 0.08;
+    if (dist < 1.5) display = target;
+    else display = { lat: lerp(display.lat, target.lat, alpha), lon: lerp(display.lon, target.lon, alpha) };
+
+    state.display = display;
+    busCurrentPos[carId] = display;
+    placeBusMarkerAt(carId, display);
+
+    if (state.speedMs > 0.4 || dist > 1.5 || ageMs < 12000) busRenderFrames[carId] = requestAnimationFrame(frame);
+    else stopBusRenderLoop(carId);
+  }
+  busRenderFrames[carId] = requestAnimationFrame(frame);
+}
+
+function updateBusMotionTarget(carId, gpsPos, pos, gpsTs, shouldFocus) {
+  var state = busMotionState[carId] || null;
+  if (state && gpsTs < state.lastGpsTs) {
+    console.log('[busMotion] ignore stale gps packet', carId, gpsTs, state.lastGpsTs);
+    return;
+  }
+
+  var derivedSpeedMs = 0;
+  var derivedHeading = NaN;
+  if (state && gpsTs > state.lastGpsTs) {
+    var dtSec = Math.max((gpsTs - state.lastGpsTs) / 1000, 0.001);
+    var movedM = distanceMeters(state.anchor.lat, state.anchor.lon, gpsPos.lat, gpsPos.lon);
+    var impliedSpeedMs = movedM / dtSec;
+    if (impliedSpeedMs > 45) {
+      console.log('[busMotion] ignore impossible gps jump', carId, movedM.toFixed(0) + 'm', (impliedSpeedMs * 3.6).toFixed(0) + 'km/h');
+      return;
+    }
+    derivedSpeedMs = impliedSpeedMs;
+    if (movedM >= 3) derivedHeading = bearingBetweenPoints(state.anchor, gpsPos);
+  }
+
+  var packetHeading = Number(pos && (pos.heading != null ? pos.heading : pos.bearing));
+  var heading = Number.isFinite(packetHeading) ? packetHeading : derivedHeading;
+  if (!Number.isFinite(heading) && state) heading = state.heading;
+  var speedMs = normalizedVehicleSpeedMs(pos, derivedSpeedMs);
+  if (speedMs < 0.4 && derivedSpeedMs > 0.4) speedMs = Math.min(derivedSpeedMs, 27.8);
+
+  if (!state) {
+    state = { anchor: gpsPos, display: busCurrentPos[carId] || gpsPos, lastGpsTs: gpsTs, speedMs: speedMs, heading: heading, online: pos.online !== false };
+  } else {
+    state.anchor = gpsPos;
+    state.lastGpsTs = gpsTs;
+    state.speedMs = speedMs;
+    state.heading = heading;
+    state.online = pos.online !== false;
+    state.display = state.display || busCurrentPos[carId] || gpsPos;
+  }
+  busMotionState[carId] = state;
+  busTargetPos[carId] = gpsPos;
+  busLastPacketPos[carId] = gpsPos;
+  ensureBusRenderLoop(carId);
+  if (shouldFocus && (busFollowMode || !busCentered)) { focusMap(state.display || gpsPos, 14); busCentered = true; }
+}
+
 // ===== SNAP-TO-ROAD (OSRM Match API) =====
 // Cache snap result ต่อ carId เพื่อไม่ call OSRM ซ้ำถ้าตำแหน่งไม่เปลี่ยน
 var snapCache = {}; // { carId: { lat, lon, snappedLat, snappedLon, ts } }
@@ -1807,76 +1913,40 @@ function updateBusOnMap(pos, carId, shouldFocus) {
     });
   }
 
-  // ใช้ Kalman Filter กรองตำแหน่งก่อน animate
-  var ts = getVehicleTs(pos);
-  if (!ts) {
-    console.warn('[updateBusOnMap] vehicle missing timestamp', carId, pos);
-    ts = Date.now();
-  }
-
-  // Stale packet guard — ข้ามถ้า timestamp ใหม่เก่ากว่า timestamp ล่าสุด
-  if (busLastTs[carId] && ts < busLastTs[carId]) {
-    console.log('[updateBusOnMap] skip old vehicle packet', carId,
-      'packetTs:', ts, 'lastTs:', busLastTs[carId],
-      'diff:', ((busLastTs[carId] - ts) / 1000).toFixed(1) + 's old');
+  var acc = (pos.accuracy != null ? Number(pos.accuracy) :
+             pos.acc      != null ? Number(pos.acc)      : 10);
+  if (acc && acc > 80) {
+    console.log('[updateBusOnMap] skip low accuracy gps', carId, acc + 'm');
     return;
   }
-  if (busLastTs[carId] === ts && busTargetPos[carId]) {
+
+  var gpsTs = getVehicleTs(pos);
+  if (!gpsTs) {
+    console.warn('[updateBusOnMap] vehicle missing gps timestamp', carId, pos);
+    gpsTs = Date.now();
+  }
+
+  if (busLastTs[carId] && gpsTs < busLastTs[carId]) {
+    console.log('[updateBusOnMap] skip old vehicle packet', carId,
+      'packetTs:', gpsTs, 'lastTs:', busLastTs[carId],
+      'diff:', ((busLastTs[carId] - gpsTs) / 1000).toFixed(1) + 's old');
+    return;
+  }
+  if (busLastTs[carId] === gpsTs && busTargetPos[carId]) {
     var repeatedDist = distanceMeters(newPos.lat, newPos.lon, busTargetPos[carId].lat, busTargetPos[carId].lon);
     if (repeatedDist < 3) return;
   }
-  busLastTs[carId] = ts;
+  busLastTs[carId] = gpsTs;
 
-  var acc = (pos.accuracy != null ? Number(pos.accuracy) :
-             pos.acc      != null ? Number(pos.acc)      : 10);
-  var filtered = kalmanFilter(carId, newPos.lat, newPos.lon, acc, ts);
-  if (!filtered) {
-    console.log('[updateBusOnMap] vehicle position filtered out', carId);
-    return;
-  }
-  var filteredPos = { lat: filtered.lat, lon: filtered.lng };
-  var ageSecNum = (Date.now() - ts) / 1000;
-
-  busTargetPos[carId] = filteredPos;
-  busLastPacketPos[carId] = filteredPos;
-  if (!busMarkers[carId]) {
-    placeBusMarkerAt(carId, filteredPos);
-    busCurrentPos[carId] = filteredPos;
-  }
-  var fromPos = busCurrentPos[carId] || filteredPos;
-  var distFromPrev = busCurrentPos[carId]
-    ? distanceMeters(fromPos.lat, fromPos.lon, filteredPos.lat, filteredPos.lon)
-    : 0;
-  var ageSec = ageSecNum.toFixed(1);
-  var isInstant = distFromPrev > 250 || distFromPrev < 5;
-  console.log('[updateBusOnMap] update', carId, {
+  var ageSecNum = (Date.now() - gpsTs) / 1000;
+  console.log('[updateBusOnMap] motion update', carId, {
     rawLat: newPos.lat, rawLng: newPos.lon,
-    filtLat: filteredPos.lat, filtLng: filteredPos.lon,
-    ts: ts, ageSec: ageSec,
-    distFromPrev: distFromPrev.toFixed(1) + 'm',
-    mode: isInstant ? 'instant' : 'animate'
+    ts: gpsTs, ageSec: ageSecNum.toFixed(1),
+    speed: pos.speed, heading: pos.heading,
+    mode: 'motion-state'
   });
 
-  // Snap-to-road: call OSRM ใน background → animate ไปตำแหน่งบนถนน
-  // ถ้า OSRM ยังไม่ตอบหรือล่ม → ใช้ filteredPos ไปก่อน ไม่มีการรอ
-  snapToRoad(carId, filteredPos.lat, filteredPos.lon, function(snappedPos) {
-    if (busLastTs[carId] !== ts) return;
-    busTargetPos[carId] = snappedPos;
-    busLastPacketPos[carId] = snappedPos;
-    // อ่าน busCurrentPos ณ เวลา callback มาถึง ไม่ใช้ fromPos ที่ capture ไว้ก่อน
-    // ป้องกันรถถอยหลังเมื่อ OSRM ตอบช้า และ marker ขยับไปแล้วระหว่างรอ
-    var currentFrom = busCurrentPos[carId] || filteredPos;
-    var animMs = animateBusMarker(carId, currentFrom, snappedPos);
-    if (ageSecNum <= BUS_DELAYED_SEC && pos.online !== false) {
-      setTimeout(function() {
-        if (busLastTs[carId] === ts) startBusPrediction(carId, snappedPos, pos);
-      }, Math.max(0, animMs || 0));
-    } else {
-      stopBusPrediction(carId);
-    }
-  });
-
-  if (shouldFocus && (busFollowMode || !busCentered)) { focusMap(filteredPos, 14); busCentered = true; }
+  updateBusMotionTarget(carId, newPos, pos, gpsTs, shouldFocus);
 }
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
