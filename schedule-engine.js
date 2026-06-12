@@ -20,6 +20,11 @@
   };
 
   var MAIN_STOP_KEYS = ['klonghat','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var STOP_NAMES = {
+    klonghat: 'คลองหาด', siyaekkhonom: 'สี่แยกโคนม', thoengkabintr: 'ทุ่งกบินทร์', phaijit: 'ไพจิตร',
+    nongruea: 'หนองเรือ', khlongtakien: 'คลองตะเคียน', nongkhok: 'หนองคอก', tatakiab: 'ท่าตะเกียบ',
+    sanamchai: 'ท่ารถสนามชัยเขต', phanom: 'พนมสารคาม', chachoengsao: 'ฉะเชิงเทรา (แปดริ้ว)'
+  };
 
   var QUEUE_TRIPS = [
     { queueNo: 1, tripIndex: 1, departTime: '09:00', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
@@ -30,10 +35,26 @@
     { queueNo: 2, tripIndex: 4, departTime: '15:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
     { queueNo: 3, tripIndex: 1, departTime: '06:20', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
     { queueNo: 3, tripIndex: 2, departTime: '09:40', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-    { queueNo: 3, tripIndex: 3, departTime: '12:10', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
+    { queueNo: 3, tripIndex: 3, departTime: '12:10', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao', stopTimes: { sanamchai: '12:10', phanom: '12:30', chachoengsao: '13:00' } },
     { queueNo: 3, tripIndex: 4, departTime: '14:00', from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao' },
     { queueNo: 4, tripIndex: 1, departTime: '11:30', from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao' },
     { queueNo: 4, tripIndex: 2, departTime: '16:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' }
+  ];
+
+  var STOP_TIME_OVERRIDES = [
+    {
+      from: 'chachoengsao',
+      to: 'phanom',
+      bookingTimes: ['12:20', '12:30'],
+      queueNo: 3,
+      tripIndex: 3,
+      departTime: '12:10',
+      pickupTime: '12:30',
+      pickupStop: 'phanom',
+      direction: 'to_chachoengsao',
+      routeStops: ['sanamchai', 'phanom', 'chachoengsao'],
+      assignmentSource: 'schedule_engine_stop_time_override'
+    }
   ];
 
   function cleanStop(value) {
@@ -95,6 +116,44 @@
     return fromIdx >= originIdx && destIdx >= toIdx;
   }
 
+  function routeStopsForTrip(trip) {
+    var fromIdx = mainStopIndex(trip.from);
+    var toIdx = mainStopIndex(trip.to);
+    if (fromIdx < 0 || toIdx < 0) return [];
+    var stops = MAIN_STOP_KEYS.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1);
+    return fromIdx > toIdx ? stops.reverse() : stops;
+  }
+
+  function decorateAssignment(data, serviceDate) {
+    var queueNo = Number(data.queueNo || 0);
+    var pickupStopKey = normalizeStopKey(data.pickupStop || data.pickupStopKey || data.origin || data.from || '');
+    var routeStops = (data.routeStops && data.routeStops.length ? data.routeStops : routeStopsForTrip(data)).map(normalizeStopKey);
+    return {
+      serviceDate: serviceDate,
+      queueNo: queueNo,
+      plannedVehicleId: vehicleIdForQueueOnDate(queueNo, serviceDate),
+      tripIndex: data.tripIndex,
+      departTime: data.departTime,
+      pickupTime: data.pickupTime || (data.stopTimes && data.stopTimes[pickupStopKey]) || data.departTime,
+      pickupStopKey: pickupStopKey,
+      pickupStopName: STOP_NAMES[pickupStopKey] || pickupStopKey,
+      routeDirection: data.direction,
+      routeStops: routeStops,
+      routeStopNames: routeStops.map(function(key) { return STOP_NAMES[key] || key; }),
+      assignmentSource: data.assignmentSource || 'schedule_engine'
+    };
+  }
+
+  function findStopTimeOverride(origin, target, departTime) {
+    for (var i = 0; i < STOP_TIME_OVERRIDES.length; i++) {
+      var item = STOP_TIME_OVERRIDES[i];
+      if (normalizeStopKey(item.from) !== origin || normalizeStopKey(item.to) !== target) continue;
+      if (item.bookingTimes.indexOf(departTime) === -1) continue;
+      return item;
+    }
+    return null;
+  }
+
   function resolveTripAssignment(input) {
     input = input || {};
     var serviceDate = input.serviceDate || input.date || '';
@@ -105,23 +164,23 @@
     var target = requiresTransfer ? transferKey : destination;
     var departTime = String(input.departTime || input.time || input.leg1Time || '').slice(0, 5);
     var direction = routeDirection(origin, target);
-    if (!origin || !target || !departTime || !direction) return null;
+    if (!origin || !target || !departTime) return null;
+
+    var override = findStopTimeOverride(origin, target, departTime);
+    if (override) return decorateAssignment(override, serviceDate);
+
+    if (!direction) return null;
 
     for (var i = 0; i < QUEUE_TRIPS.length; i++) {
       var trip = QUEUE_TRIPS[i];
-      if (trip.departTime !== departTime || trip.direction !== direction) continue;
+      var originPickupTime = trip.stopTimes && trip.stopTimes[origin];
+      var timeMatches = trip.departTime === departTime || originPickupTime === departTime;
+      if (!timeMatches || trip.direction !== direction) continue;
       if (!tripCovers(trip, origin, target)) continue;
-      var queueNo = Number(trip.queueNo);
-      return {
-        serviceDate: serviceDate,
-        queueNo: queueNo,
-        plannedVehicleId: vehicleIdForQueueOnDate(queueNo, serviceDate),
-        tripIndex: trip.tripIndex,
-        departTime: trip.departTime,
-        routeDirection: trip.direction,
-        routeStops: (function() { var fromIdx = mainStopIndex(trip.from); var toIdx = mainStopIndex(trip.to); var stops = MAIN_STOP_KEYS.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1); return fromIdx > toIdx ? stops.reverse() : stops; })(),
-        assignmentSource: 'schedule_engine'
-      };
+      return decorateAssignment(Object.assign({}, trip, {
+        pickupStop: origin,
+        pickupTime: originPickupTime || trip.departTime
+      }), serviceDate);
     }
     return null;
   }
@@ -130,6 +189,7 @@
     baseDate: BASE_DATE,
     rotatingVehicles: ROTATING_VEHICLES.slice(),
     queueTrips: QUEUE_TRIPS.slice(),
+    stopTimeOverrides: STOP_TIME_OVERRIDES.slice(),
     normalizeStopKey: normalizeStopKey,
     mainStopIndex: mainStopIndex,
     rotateQueueNo: rotateQueueNo,
