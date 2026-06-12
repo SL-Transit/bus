@@ -2117,6 +2117,10 @@ function submitBooking() {
         leg2Time: transferInfo ? (transferInfo.transferTime || '') : ''
       };
       var tripAssignment = resolveBookingTripAssignment(selOrigin, selDest, selTime, requiresTransfer);
+      if (!tripAssignment.queueNo) {
+        tripAssignment = resolveBookingTripAssignmentByLabel(fromName, toName, selTime, requiresTransfer);
+      }
+      var vehicleQueueNum = Number(tripAssignment.queueNo || 0);
       var isAdminTester = isAdminTesterPhone(safePhone);
       if(isAdminTester)setAdminTesterSession(true);
 
@@ -2139,7 +2143,7 @@ function submitBooking() {
         leg2Route:   legSchedule.leg2,
         leg2Time:    legSchedule.leg2Time,
         legSchedule: legSchedule,
-        queueNo:     tripAssignment.queueNo || '',
+        queueNo:     vehicleQueueNum || '',
         plannedVehicleId: tripAssignment.plannedVehicleId || '',
         tripIndex:   tripAssignment.tripIndex || '',
         departTime:  tripAssignment.departTime || selTime,
@@ -2162,8 +2166,9 @@ function submitBooking() {
           slipVerifyStatus: (!TEST_MODE && isTransferPayment()) ? 'pending' : '',
           slipVerifyMessage: '',
         dupKey:      dupKey,
-        queueNumber: queueNum,
-        lineQueueText: 'ลำดับคิว: ' + queueNum,
+        queueNumber: vehicleQueueNum || queueNum,
+        bookingSequenceNumber: queueNum,
+        lineQueueText: 'ลำดับคิว: ' + (vehicleQueueNum || queueNum),
         transfer:    transferInfo,
         platform:    platformNum,          // ชานชาลา (1, 6, หรือ null) → Firebase Function ส่งใน LINE
         ts:          firebase.database.ServerValue.TIMESTAMP // server timestamp เสมอ
@@ -2278,6 +2283,32 @@ var BOOKING_QUEUE_TRIPS = [
 
 function mainStopIndexForBooking(key) {
   return MAIN_TRIP_STOP_KEYS.indexOf(String(key || ''));
+}
+
+function normalizeBookingStopKey(value) {
+  var raw = String(value || '').replace(/\s+/g, '').toLowerCase();
+  var map = {
+    'ฉะเชิงเทรา(แปดริ้ว)': 'chachoengsao',
+    'ฉะเชิงเทราแปดริ้ว': 'chachoengsao',
+    'แปดริ้ว': 'chachoengsao',
+    'ท่ารถสนามชัยเขต': 'sanamchai',
+    'สนามชัยเขต': 'sanamchai',
+    'พนมสารคาม': 'phanom',
+    'คลองหาด': 'klonghat',
+    'ท่าตะเกียบ': 'tatakiab',
+    'หนองคอก': 'nongkhok',
+    'คลองตะเคียน': 'khlongtakien',
+    'หนองเรือ': 'nongruea',
+    'ไพจิตร': 'phaijit',
+    'ทุ่งกบินทร์': 'thoengkabintr',
+    'สี่แยกโคนม': 'siyaekkhonom'
+  };
+  if (map[raw]) return map[raw];
+  return String(value || '');
+}
+
+function resolveBookingTripAssignmentByLabel(originLabel, destLabel, time, requiresTransfer) {
+  return resolveBookingTripAssignment(normalizeBookingStopKey(originLabel), normalizeBookingStopKey(destLabel), time, requiresTransfer);
 }
 
 function resolveBookingTripAssignment(origin, dest, time, requiresTransfer) {
