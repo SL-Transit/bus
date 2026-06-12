@@ -60,6 +60,14 @@ public class MainActivity extends Activity {
 
     private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
 
+    // ===== S.L.Transit Theme =====
+    private static final int COLOR_NAVY       = Color.parseColor("#0B1D3A");
+    private static final int COLOR_OCEAN      = Color.parseColor("#123A63");
+    private static final int COLOR_TEAL       = Color.parseColor("#00A7B5");
+    private static final int COLOR_LIGHT_TEAL = Color.parseColor("#4DD3D9");
+    private static final int COLOR_ORANGE     = Color.parseColor("#FF8A00");
+    static final String KEY_DIAG_VISIBLE = "diag_visible";
+
     private static final String[] VEHICLE_IDS = {
         "car1", "car2", "car3", "car4", "car5"
     };
@@ -72,6 +80,9 @@ public class MainActivity extends Activity {
     private TextView sentTimeText;
     private TextView errorText;
     private TextView diagPanel;
+    private TextView diagToggle;
+    private TextView updateBadge;
+    private boolean diagVisible;
 
     private String lastCoords = "";
     private String lastStatus = "";
@@ -153,6 +164,7 @@ public class MainActivity extends Activity {
                     String note = snapshot.child("note").getValue(String.class);
                     if (latest == null || apkUrl == null || apkUrl.isEmpty()) return;
                     if (latest > BuildConfig.VERSION_CODE) {
+                        if (updateBadge != null) updateBadge.setVisibility(android.view.View.VISIBLE);
                         showUpdateDialog(apkUrl, note);
                     }
                 }
@@ -224,45 +236,82 @@ public class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        diagVisible = prefs.getBoolean(KEY_DIAG_VISIBLE, false);
+
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(Color.rgb(10, 14, 26));
+        scroll.setBackgroundColor(COLOR_NAVY);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
         root.setPadding(dp(20), dp(40), dp(20), dp(40));
-        root.setBackgroundColor(Color.rgb(10, 14, 26));
+        root.setBackgroundColor(COLOR_NAVY);
         // ให้ root สูงเต็มหน้าจอเพื่อให้ content อยู่กึ่งกลางได้
         root.setMinimumHeight(getResources().getDisplayMetrics().heightPixels);
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.MATCH_PARENT));
 
-        ImageView cover = new ImageView(this);
-        cover.setImageResource(getResources().getIdentifier("app_cover", "drawable", getPackageName()));
-        cover.setAdjustViewBounds(true);
-        cover.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams(dp(100), dp(100));
-        coverLp.gravity = Gravity.CENTER_HORIZONTAL;
-        coverLp.setMargins(0, 0, 0, dp(16));
-        root.addView(cover, coverLp);
+        // ===== หัวข้อ S.L.TRANSIT + ไอคอนแจ้งเตือนอัพเดท =====
+        LinearLayout headerRow = new LinearLayout(this);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        android.view.View spacerLeft = new android.view.View(this);
+        LinearLayout.LayoutParams spacerLp = new LinearLayout.LayoutParams(dp(28), dp(1));
+        headerRow.addView(spacerLeft, spacerLp);
 
         TextView title = new TextView(this);
-        title.setText("GPS Transit");
+        title.setText("S.L.TRANSIT");
         title.setTextColor(Color.WHITE);
-        title.setTextSize(26);
+        title.setTextSize(24);
         title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setLetterSpacing(0.05f);
         title.setGravity(Gravity.CENTER);
-        root.addView(title);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        headerRow.addView(title, titleLp);
 
-        TextView sub = new TextView(this);
-        sub.setText("ส่งตำแหน่งทุก 10 วินาที");
-        sub.setTextColor(Color.rgb(100, 116, 139));
-        sub.setTextSize(13);
-        sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, dp(4), 0, dp(28));
-        root.addView(sub);
+        // ไอคอนกระดิ่งแจ้งเตือนเมื่อมีอัพเดทแอพใหม่
+        updateBadge = new TextView(this);
+        updateBadge.setText("🔔");
+        updateBadge.setTextSize(20);
+        updateBadge.setTextColor(COLOR_ORANGE);
+        updateBadge.setVisibility(android.view.View.GONE);
+        updateBadge.setGravity(Gravity.CENTER);
+        updateBadge.setOnClickListener(v -> checkForUpdate());
+        LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        headerRow.addView(updateBadge, badgeLp);
+
+        LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        headerLp.setMargins(0, 0, 0, dp(16));
+        root.addView(headerRow, headerLp);
+
+        // ===== แบนเนอร์ "เดินทางปลอดภัยทุกเส้นทาง" =====
+        LinearLayout banner = new LinearLayout(this);
+        banner.setOrientation(LinearLayout.VERTICAL);
+        banner.setGravity(Gravity.CENTER);
+        banner.setPadding(dp(20), dp(22), dp(20), dp(22));
+        GradientDrawable bannerBg = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{COLOR_OCEAN, COLOR_TEAL});
+        bannerBg.setCornerRadius(dp(16));
+        banner.setBackground(bannerBg);
+
+        TextView bannerText = new TextView(this);
+        bannerText.setText("เดินทางปลอดภัยทุกเส้นทาง");
+        bannerText.setTextColor(Color.WHITE);
+        bannerText.setTextSize(16);
+        bannerText.setTypeface(Typeface.DEFAULT_BOLD);
+        bannerText.setGravity(Gravity.CENTER);
+        banner.addView(bannerText);
+
+        LinearLayout.LayoutParams bannerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        bannerLp.setMargins(0, 0, 0, dp(28));
+        root.addView(banner, bannerLp);
 
         TextView vehicleLabel = new TextView(this);
         vehicleLabel.setText("รหัสรถ");
@@ -281,9 +330,9 @@ public class MainActivity extends Activity {
         vehiclePickerText.setText(prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + "  ▾");
 
         GradientDrawable pickerBg = new GradientDrawable();
-        pickerBg.setColor(Color.rgb(17, 24, 39));
+        pickerBg.setColor(COLOR_OCEAN);
         pickerBg.setCornerRadius(dp(14));
-        pickerBg.setStroke(dp(1), Color.rgb(55, 65, 81));
+        pickerBg.setStroke(dp(1), COLOR_TEAL);
         vehiclePickerText.setBackground(pickerBg);
         vehiclePickerText.setOnClickListener(v -> {
             animateTap(vehiclePickerText);
@@ -300,9 +349,9 @@ public class MainActivity extends Activity {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(20), dp(20), dp(20), dp(20));
         GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(Color.rgb(17, 24, 39));
+        cardBg.setColor(COLOR_OCEAN);
         cardBg.setCornerRadius(dp(20));
-        cardBg.setStroke(dp(1), Color.rgb(31, 41, 55));
+        cardBg.setStroke(dp(1), COLOR_TEAL);
         card.setBackground(cardBg);
 
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
@@ -368,17 +417,33 @@ public class MainActivity extends Activity {
         errorText.setVisibility(android.view.View.GONE);
         root.addView(errorText);
 
+        // ===== ปุ่มเปิด/ปิดแผงตรวจสอบปัญหา (ซ่อนไว้เป็นค่าเริ่มต้น) =====
+        diagToggle = new TextView(this);
+        diagToggle.setText(diagVisible ? "▲ ซ่อนข้อมูลการวินิจฉัย" : "▼ แสดงข้อมูลการวินิจฉัย");
+        diagToggle.setTextColor(COLOR_LIGHT_TEAL);
+        diagToggle.setTextSize(12);
+        diagToggle.setGravity(Gravity.CENTER);
+        diagToggle.setPadding(0, dp(4), 0, dp(8));
+        diagToggle.setOnClickListener(v -> {
+            diagVisible = !diagVisible;
+            prefs.edit().putBoolean(KEY_DIAG_VISIBLE, diagVisible).apply();
+            diagToggle.setText(diagVisible ? "▲ ซ่อนข้อมูลการวินิจฉัย" : "▼ แสดงข้อมูลการวินิจฉัย");
+            refreshDiagnostics();
+        });
+        root.addView(diagToggle);
+
         // ===== Diagnostic Panel =====
         diagPanel = new TextView(this);
-        diagPanel.setTextColor(Color.rgb(100, 116, 139));
+        diagPanel.setTextColor(Color.rgb(148, 188, 210));
         diagPanel.setTextSize(11);
         diagPanel.setTypeface(Typeface.MONOSPACE);
         diagPanel.setPadding(dp(12), dp(10), dp(12), dp(10));
         GradientDrawable diagBg = new GradientDrawable();
-        diagBg.setColor(Color.rgb(10, 14, 26));
+        diagBg.setColor(COLOR_NAVY);
         diagBg.setCornerRadius(dp(10));
-        diagBg.setStroke(dp(1), Color.rgb(31, 41, 55));
+        diagBg.setStroke(dp(1), COLOR_OCEAN);
         diagPanel.setBackground(diagBg);
+        diagPanel.setVisibility(android.view.View.GONE);
         LinearLayout.LayoutParams diagLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         diagLp.setMargins(0, 0, 0, dp(12));
@@ -398,22 +463,6 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         root.addView(mainButton, btnLp);
-
-        TextView note = new TextView(this);
-        note.setText("ปิดหน้าแอพได้หลังเริ่มส่ง · ห้าม Force stop");
-        note.setTextColor(Color.rgb(55, 65, 81));
-        note.setTextSize(12);
-        note.setGravity(Gravity.CENTER);
-        note.setPadding(0, dp(20), 0, 0);
-        root.addView(note);
-
-        TextView version = new TextView(this);
-        version.setText("v1.9");
-        version.setTextColor(Color.rgb(31, 41, 55));
-        version.setTextSize(11);
-        version.setGravity(Gravity.CENTER);
-        version.setPadding(0, dp(8), 0, 0);
-        root.addView(version);
 
         setContentView(scroll);
         refreshUi();
@@ -585,7 +634,7 @@ public class MainActivity extends Activity {
     private void refreshDiagnostics() {
         if (diagPanel == null) return;
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        if (!enabled) { diagPanel.setVisibility(android.view.View.GONE); return; }
+        if (!enabled || !diagVisible) { diagPanel.setVisibility(android.view.View.GONE); return; }
         diagPanel.setVisibility(android.view.View.VISIBLE);
 
         // 1. GPS Health
@@ -654,7 +703,27 @@ public class MainActivity extends Activity {
         if (errSb.length() > 0) {
             errorText.setText(errSb.toString().trim());
             errorText.setVisibility(android.view.View.VISIBLE);
+            logIssueToFirebase(errSb.toString().trim());
         }
+    }
+
+    // ===== "กล่องดำ" — ส่งบันทึกปัญหาขึ้น Firebase ให้ admin ตรวจสอบได้ =====
+    private long lastIssueLogAt = 0;
+    private void logIssueToFirebase(String message) {
+        long now = System.currentTimeMillis();
+        if (now - lastIssueLogAt < 5 * 60 * 1000) return; // กันสแปม ส่งซ้ำห่างกันอย่างน้อย 5 นาที
+        lastIssueLogAt = now;
+        try {
+            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            DatabaseReference logRef = FirebaseDatabase.getInstance()
+                    .getReference("driverLogs/" + vehicleId).push();
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", message.replace("⚠ ", "").replace("\n", " | "));
+            data.put("timestamp", now);
+            data.put("device", Build.MANUFACTURER + " " + Build.MODEL + " (Android " + Build.VERSION.RELEASE + ")");
+            data.put("appVersion", BuildConfig.VERSION_NAME);
+            logRef.setValue(data);
+        } catch (Exception ignored) {}
     }
 
     private void refreshUi() {
@@ -712,7 +781,7 @@ public class MainActivity extends Activity {
     private void setButtonStyle(boolean isStop) {
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(16));
-        bg.setColor(isStop ? Color.rgb(220, 38, 38) : Color.rgb(22, 163, 74));
+        bg.setColor(isStop ? Color.rgb(220, 38, 38) : COLOR_ORANGE);
         mainButton.setBackground(bg);
     }
 }
