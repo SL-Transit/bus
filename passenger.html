@@ -1518,6 +1518,8 @@ function projectPoint(lat, lon, headingDeg, meters) {
 function startBusPrediction(carId, packetPos, pos) {
   stopBusPrediction(carId);
   if (!packetPos || isVehicleOfflineOrDelayed(pos)) return;
+  var predictSeq = (busPredictionSeq[carId] || 0) + 1;
+  busPredictionSeq[carId] = predictSeq;
   var speed = Number(pos.speed || pos.velocity || 0) / 3.6; // km/h → m/s
   var heading = Number(pos.heading || pos.bearing);
   if (!isFinite(speed) || speed <= 0 || !isFinite(heading)) return;
@@ -1682,8 +1684,21 @@ function animateBusMarker(carId, fromPos, toPos) {
   return duration;
 }
 
+function moveLongdoMarker(marker, latlng) {
+  if (!marker || !latlng) return false;
+  try {
+    if (typeof marker.move === 'function') { marker.move(latlng); return true; }
+    if (typeof marker.location === 'function') { marker.location(latlng); return true; }
+  } catch(e) {}
+  return false;
+}
+
 function placeBusMarkerAt(carId, latlng) {
   if (!mapReady || !mapObj || !latlng) return;
+  var existingBus = busMarkers[carId];
+  var existingTag = busTagMarkers[carId];
+  if (existingBus && existingTag && moveLongdoMarker(existingBus, latlng) && moveLongdoMarker(existingTag, latlng)) return;
+
   var safeCarId = String(carId).replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
   var busImgHtml = '<img src="' + BUS_ICON_SRC + '" alt="">';
   var label = String(carId).replace(/^car/i, 'รถ ');
@@ -1743,22 +1758,9 @@ function snapToRoad(carId, lat, lon, callback) {
         var snappedLat = snapped[1], snappedLon = snapped[0];
         // เก็บ cache
         snapCache[carId] = { lat: lat, lon: lon, snappedLat: snappedLat, snappedLon: snappedLon, ts: now };
-        // อัปเดต marker ด้วยตำแหน่งที่ snap แล้ว (background update)
-        var snappedPos = { lat: snappedLat, lon: snappedLon };
-        if (busCurrentPos[carId]) {
-          var snapDist = distanceMeters(busCurrentPos[carId].lat, busCurrentPos[carId].lon, snappedLat, snappedLon);
-          // snap ได้ตำแหน่งที่ต่างจากที่แสดงอยู่ → อัปเดต
-          if (snapDist > 3 && snapDist < 100) {
-            if (!busAnimFrames[carId]) {
-              // ไม่มี animation วิ่งอยู่ → animate ไปตำแหน่งที่ snap ได้
-              animateBusMarker(carId, busCurrentPos[carId], snappedPos);
-            } else {
-              // มี animation วิ่งอยู่ → แค่อัปเดต target เงียบ ๆ ไม่กระตุก
-              busTargetPos[carId] = snappedPos;
-            }
-          }
-        }
-        callback(snappedPos);
+        // snapToRoad คืนค่าอย่างเดียว; ห้ามขยับ marker จาก callback เก่าเอง
+        // เพื่อกันผล OSRM ที่มาช้ากว่าดึงรถกลับไปตำแหน่งก่อนหน้า
+        callback({ lat: snappedLat, lon: snappedLon });
       } else {
         // OSRM snap ไม่ได้ (นอกถนน, timeout) → ใช้ตำแหน่งดิบ
         callback({ lat: lat, lon: lon });
