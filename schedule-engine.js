@@ -119,7 +119,7 @@
         tripIndex: trip.tripIndex,
         departTime: trip.departTime,
         routeDirection: trip.direction,
-        routeStops: MAIN_STOP_KEYS.slice(Math.min(mainStopIndex(trip.from), mainStopIndex(trip.to)), Math.max(mainStopIndex(trip.from), mainStopIndex(trip.to)) + 1),
+        routeStops: (function() { var fromIdx = mainStopIndex(trip.from); var toIdx = mainStopIndex(trip.to); var stops = MAIN_STOP_KEYS.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1); return fromIdx > toIdx ? stops.reverse() : stops; })(),
         assignmentSource: 'schedule_engine'
       };
     }
