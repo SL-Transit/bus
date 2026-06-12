@@ -10,6 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
+  <script src="schedule-engine.js?v=20260612a"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -1568,7 +1569,7 @@
       return Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
     }
 
-    function inferQueueNoFromBookingTrip(booking) {
+    function resolveSharedScheduleAssignmentForBooking(booking) {`n      if (!booking || !window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;`n      var routeInfo = connectionRouteInfo(booking.route);`n      var origin = getRouteOrigin(booking, getLegSchedule(booking));`n      var destination = routeInfo.destination || booking.destination || booking.to || '';`n      return window.SLTransitSchedule.resolveTripAssignment({`n        serviceDate: getServiceDateForBooking(booking),`n        origin: origin,`n        destination: destination,`n        departTime: booking.departTime || booking.time || booking.leg1Time || '',`n        requiresTransfer: routeInfo.type === 'secondary_connection',`n        transferPoint: 'แปดริ้ว'`n      });`n    }`n`n    function inferQueueNoFromBookingTrip(booking) {
       if (!booking) return 0;
       var time = String(booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
       if (!time) return 0;
