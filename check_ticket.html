@@ -1515,12 +1515,12 @@
           var vehicle = buses[id];
           var pos = normalizeTrackingPoint(vehicle);
           if (!isActiveVehicle(id, vehicle) || !pos) return;
-          var fallbackTrip = buildFallbackTripForBooking(id, vehicle, booking, routeInfo, origin, destination);
+          var preferredVehicle = preferredIds.indexOf(id) !== -1;
+          var fallbackTrip = buildFallbackTripForBooking(id, vehicle, booking, routeInfo, origin, destination, { preferredVehicle: preferredVehicle });
           if (!fallbackTrip) return;
           var pickupState = vehiclePickupProgress(fallbackTrip, pos, origin);
           if (pickupState.passed && !preferredVehicle) return;
           var eta = calculateVehicleEtaToStop(pos, origin);
-          var preferredVehicle = preferredIds.indexOf(id) !== -1;
           var score = 0.35 + (preferredVehicle ? 0.2 : 0) - (pickupState.uncertain ? 0.1 : 0);
           if (!best || eta < best.pickupEta || (eta === best.pickupEta && score > best.score)) {
             best = { id: id, location: pos, currentTrip: fallbackTrip, pickupEta: eta, score: score };
@@ -1530,10 +1530,10 @@
       return best;
     }
 
-    function buildFallbackTripForBooking(vehicleId, vehicle, booking, routeInfo, origin, destination) {
+    function buildFallbackTripForBooking(vehicleId, vehicle, booking, routeInfo, origin, destination, options) {
       var bookingDir = routeInfo.type === 'secondary_connection' ? 'to_chachoengsao' : bookingDirectionForStops(origin, destination);
       var vehicleDir = normalizeVehicleDirection(vehicle && vehicle.direction);
-      if (bookingDir && vehicleDir && bookingDir !== vehicleDir) return null;
+      if (!(options && options.preferredVehicle) && bookingDir && vehicleDir && bookingDir !== vehicleDir) return null;
       var target = routeInfo.type === 'secondary_connection' ? 'แปดริ้ว' : destination;
       var startIdx = mainRouteStopIndex(origin);
       var endIdx = mainRouteStopIndex(target);
@@ -1544,7 +1544,7 @@
       if (startIdx > endIdx) stops.reverse();
       return {
         vehicleId: vehicleId,
-        queueNo: Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || 0)) || '',
+        queueNo: getBookingQueueNo(booking) || '',
         tripIndex: booking && booking.tripIndex || '',
         departTime: booking && (booking.departTime || booking.time) || '',
         direction: bookingDir || (startIdx < endIdx ? 'to_chachoengsao' : 'from_chachoengsao'),
@@ -1562,12 +1562,37 @@
       return '';
     }
 
+    function getBookingQueueNo(booking) {
+      var inferred = inferQueueNoFromBookingTrip(booking);
+      if (inferred) return inferred;
+      return Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
+    }
+
+    function inferQueueNoFromBookingTrip(booking) {
+      if (!booking) return 0;
+      var time = String(booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
+      if (!time) return 0;
+      var routeInfo = connectionRouteInfo(booking.route);
+      var origin = getRouteOrigin(booking, getLegSchedule(booking));
+      var destination = routeInfo.destination || booking.destination || booking.to || '';
+      for (var queueNo in queueTemplates) {
+        var template = queueTemplates[queueNo];
+        var trips = template && template.trips || [];
+        for (var i = 0; i < trips.length; i++) {
+          var trip = trips[i];
+          if (String(trip.departTime).slice(0, 5) !== time) continue;
+          if (isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, trip, { skipTimeCheck: true })) return Number(queueNo);
+        }
+      }
+      return 0;
+    }
+
     function getPreferredVehicleIdsForBooking(booking) {
       var ids = [];
       ['vehicleId', 'queueId', 'carId', 'busId', 'assignedVehicleId', 'driverVehicleId'].forEach(function(key) {
         if (booking && booking[key]) ids.push(String(booking[key]));
       });
-      var queueNo = Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex));
+      var queueNo = getBookingQueueNo(booking);
       if (queueNo) {
         Object.keys(trackingDailyAssignments || {}).forEach(function(id) {
           var assigned = trackingDailyAssignments[id] || {};
