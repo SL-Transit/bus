@@ -316,12 +316,28 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 0;
-      margin: 8px auto 10px;
+      margin: 10px auto;
       max-width: 520px;
+      text-align: center;
     }
-    .footer-nav a,
+    .footer-nav a {
+      display: inline-block;
+      color: #607489;
+      font-size: clamp(10px, 2.7vw, 13px);
+      text-decoration: none;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .footer-nav a::before {
+      content: attr(data-label);
+    }
+    .footer-nav a:not(:last-child)::after {
+      content: "|";
+      margin: 0 7px;
+      color: #c1ccd6;
+    }
     .footer-staff-link {
       color: #607489;
       text-decoration: none;
@@ -330,10 +346,6 @@
     .footer-nav a:hover,
     .footer-staff-link:hover {
       color: var(--teal);
-    }
-    .footer-separator {
-      margin: 0 8px;
-      color: #c1ccd6;
     }
     .dbd-footer {
       margin: 8px auto 6px;
@@ -407,8 +419,6 @@
       .btn { min-height: 76px; flex-direction: row; justify-content: flex-start; text-align: left; font-size: 18px; padding: 14px 44px 14px 16px; }
       .icon-box { width: 40px; height: 40px; margin: 0 14px 0 0; font-size: 21px; flex-shrink: 0; }
       .icon-box img { width: 34px; height: 34px; }
-      .footer-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
-      .footer-separator { display: none; }
       .service-note { align-items: flex-start; text-align: left; font-size: 13px; }
       .line-logo { width: 29px; height: 23px; }
     }
@@ -421,6 +431,9 @@
       .btn { min-height: 72px; font-size: 17px; padding-left: 14px; }
       .icon-box { width: 36px; height: 36px; margin-right: 12px; }
       .icon-box img { width: 30px; height: 30px; }
+      .footer-nav a { font-size: 10px; }
+      .footer-nav a::before { content: attr(data-short); }
+      .footer-nav a:not(:last-child)::after { margin: 0 5px; }
     }
 
     /* ══════════════════════════════════════
@@ -651,13 +664,10 @@
       <p class="footer-subtitle">ระบบช่วยเดินทางสำหรับรถโดยสารท้องถิ่น</p>
 
       <nav class="footer-nav" aria-label="ข้อมูลเพิ่มเติม">
-        <a href="info.html#services">บริการของเรา</a>
-        <span class="footer-separator" aria-hidden="true">|</span>
-        <a href="info.html#help">ช่วยเหลือผู้โดยสาร</a>
-        <span class="footer-separator" aria-hidden="true">|</span>
-        <a href="info.html#policy">นโยบายและเงื่อนไข</a>
-        <span class="footer-separator" aria-hidden="true">|</span>
-        <a href="info.html#contact">ติดต่อเรา</a>
+        <a href="info.html#services" data-label="บริการของเรา" data-short="บริการ" aria-label="บริการของเรา"></a>
+        <a href="info.html#help" data-label="ช่วยเหลือผู้โดยสาร" data-short="ช่วยเหลือ" aria-label="ช่วยเหลือผู้โดยสาร"></a>
+        <a href="info.html#policy" data-label="นโยบายและเงื่อนไข" data-short="นโยบาย" aria-label="นโยบายและเงื่อนไข"></a>
+        <a href="info.html#contact" data-label="ติดต่อเรา" data-short="ติดต่อ" aria-label="ติดต่อเรา"></a>
       </nav>
 
       <div class="dbd-footer" aria-label="DBD Registered">
