@@ -1493,6 +1493,18 @@
         return preferredIds.indexOf(id) === -1;
       }));
       var best = null;
+      for (var p = 0; p < preferredIds.length; p++) {
+        var preferredId = preferredIds[p];
+        var preferredVehicle = buses[preferredId];
+        var preferredPos = normalizeTrackingPoint(preferredVehicle);
+        if (!isActiveVehicle(preferredId, preferredVehicle) || !preferredPos) continue;
+        var preferredTrip = buildFallbackTripForBooking(preferredId, preferredVehicle, booking, routeInfo, origin, destination, { preferredVehicle: true });
+        if (!preferredTrip) continue;
+        var preferredEta = calculateVehicleEtaToStop(preferredPos, origin);
+        best = { id: preferredId, location: preferredPos, currentTrip: preferredTrip, pickupEta: preferredEta, score: 0.9 };
+        break;
+      }
+      if (best) return best;
       orderedKeys.forEach(function(id) {
         var vehicle = buses[id];
         var pos = normalizeTrackingPoint(vehicle);
@@ -2465,8 +2477,8 @@
         document.getElementById('trackingPickupEta').textContent = routeInfo.type === 'secondary_connection' ? 'กำลังเดินทางไปจุดต่อรถแปดริ้ว' : 'กำลังเดินทางไปปลายทาง';
         document.getElementById('trackingPickupRoute').textContent = journeyTargetName;
       } else if (isVanAtOrPastPickup()) {
-        document.getElementById('trackingPickupEta').textContent = 'ถึงแล้ว';
-        document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName;
+        document.getElementById('trackingPickupEta').textContent = 'รถถึงป้ายต้นทางแล้ว';
+        document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName + ' · เตรียมขึ้นรถได้';
       } else if (pickupEtaInfo === null) {
         document.getElementById('trackingPickupEta').textContent = 'ยังไม่ถึง';
         document.getElementById('trackingPickupRoute').textContent = 'กำลังรอตำแหน่งรถเที่ยวที่จอง · ป้าย' + originName;
@@ -2484,11 +2496,12 @@
         document.getElementById('trackingPlatform').textContent = 'ระบบจะจบการแสดงผลหลังผ่านไป 6 ชั่วโมง';
         updateTrackingSheetPeek(arrivalInfo.label, routeInfo.type === 'secondary_connection' ? 'ยังดูข้อมูลต่อรถได้' : 'ยังดูข้อมูลตั๋วได้');
       } else if (!showJourneyEta) {
+        var vanAtPickupNow = isVanAtOrPastPickup();
         document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
-        document.getElementById('trackingNextStep').textContent = 'รอรถที่ป้ายต้นทาง';
+        document.getElementById('trackingNextStep').textContent = vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : 'รอรถที่ป้ายต้นทาง';
         document.getElementById('trackingPlatform').textContent = routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
-        updateTrackingSheetPeek('รอรถที่ป้ายต้นทาง', originName + ' → ' + finalDestination);
+        updateTrackingSheetPeek(vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : 'รอรถที่ป้ายต้นทาง', originName + ' → ' + finalDestination);
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);
