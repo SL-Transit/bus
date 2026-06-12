@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ข้อมูลบริการและช่วยเหลือ - S.L. Transit</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0B1D3A;
+  --blue: #123A63;
+  --teal: #00A7B5;
+  --light: #effcff;
+  --bg: #f5f9fc;
+  --card: #ffffff;
+  --text: #17212b;
+  --muted: #607489;
+  --line: #d7e3ec;
+  --orange: #FF8A00;
+}
+html { scroll-behavior: smooth; }
+body {
+  min-height: 100vh;
+  font-family: 'Kanit', sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(77,211,217,0.18), transparent 32%),
+    linear-gradient(180deg, #f7fbff, #e8f4f7);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.75;
+}
+a { color: inherit; }
+.page {
+  width: min(100%, 880px);
+  margin: 0 auto;
+  padding: 22px 16px 34px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.back-link,
+.top-nav a,
+.bottom-back {
+  text-decoration: none;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid rgba(0,167,181,.22);
+  border-radius: 999px;
+  background: rgba(255,255,255,.8);
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 700;
+}
+.top-pill {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+.hero {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 18px;
+  box-shadow: 0 12px 30px rgba(11,29,58,.08);
+}
+.hero h1 {
+  color: var(--navy);
+  font-size: clamp(25px, 5vw, 36px);
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.hero p {
+  color: var(--muted);
+  font-size: 16px;
+}
+.top-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+.top-nav a {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.78);
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+}
+.info-section {
+  scroll-margin-top: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 18px;
+  margin-top: 14px;
+  box-shadow: 0 8px 22px rgba(11,29,58,.06);
+}
+.info-section h2 {
+  color: var(--navy);
+  font-size: 22px;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+.lead {
+  color: var(--navy);
+  background: var(--light);
+  border-left: 4px solid var(--teal);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.info-section p {
+  color: #334155;
+  margin-bottom: 10px;
+}
+ul,
+ol {
+  padding-left: 22px;
+  color: #334155;
+}
+li { margin: 7px 0; }
+.contact-list {
+  display: grid;
+  gap: 10px;
+  padding-left: 0;
+  list-style: none;
+}
+.contact-list li {
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfdff;
+}
+.contact-list strong {
+  color: var(--navy);
+}
+.contact-list a {
+  color: var(--teal);
+  font-weight: 700;
+}
+.page-footer {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.bottom-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--navy), var(--teal));
+  color: #fff;
+  font-weight: 700;
+}
+@media (max-width: 640px) {
+  .page { padding: 16px 12px 28px; }
+  .topbar { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .top-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero,
+  .info-section { border-radius: 12px; padding: 18px 15px; }
+}
+</style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <a class="back-link" href="index.html">กลับหน้าแรก</a>
+      <div class="top-pill">S.L. Transit Info</div>
+    </div>
+
+    <section class="hero" aria-labelledby="infoTitle">
+      <h1 id="infoTitle">ข้อมูลบริการและช่วยเหลือ</h1>
+      <p>รวมรายละเอียดบริการ การช่วยเหลือผู้โดยสาร นโยบายเบื้องต้น และช่องทางติดต่อของ S.L. Transit</p>
+    </section>
+
+    <nav class="top-nav" aria-label="หัวข้อข้อมูล">
+      <a href="#services">บริการของเรา</a>
+      <a href="#help">ช่วยเหลือผู้โดยสาร</a>
+      <a href="#policy">นโยบายและเงื่อนไข</a>
+      <a href="#contact">ติดต่อเรา</a>
+    </nav>
+
+    <section class="info-section" id="services">
+      <h2>บริการของเรา</h2>
+      <p class="lead">S.L. Transit คือระบบช่วยเดินทางสำหรับรถโดยสารท้องถิ่น ที่ช่วยให้ผู้โดยสารจองตั๋ว ตรวจสอบรถ ติดตามการเดินทาง และรับคำแนะนำสำหรับการต่อรถได้สะดวกยิ่งขึ้น</p>
+      <p>S.L. Transit ไม่ใช่แค่เว็บจองตั๋ว แต่เป็นระบบช่วยเดินทางสำหรับผู้โดยสารรถโดยสารท้องถิ่น โดยช่วยให้ผู้โดยสาร:</p>
+      <ul>
+        <li>จองตั๋วโดยสาร</li>
+        <li>ตรวจสอบตั๋ว</li>
+        <li>ดูสถานะรถ</li>
+        <li>ติดตามเวลารถถึงป้ายโดยประมาณ</li>
+        <li>ดูว่าต้องขึ้นรถคันไหน</li>
+        <li>ช่วยวางแผนกรณีต้องต่อรถ</li>
+      </ul>
+    </section>
+
+    <section class="info-section" id="help">
+      <h2>ช่วยเหลือผู้โดยสาร</h2>
+      <ol>
+        <li>วิธีจองตั๋ว: กดเมนูจองตั๋วโดยสารออนไลน์ กรอกข้อมูลการเดินทางและข้อมูลผู้โดยสารให้ครบถ้วน แล้วทำตามขั้นตอนบนหน้าจอ</li>
+        <li>วิธีตรวจสอบตั๋ว: กดเมนูตรวจสอบตั๋วและติดตามการเดินทาง แล้วกรอกเบอร์โทรหรือรหัสตั๋ว</li>
+        <li>วิธีดูตำแหน่งรถ: เปิดหน้าข้อมูลเที่ยวรถและสถานะบริการ เพื่อดูตำแหน่งรถและสถานะล่าสุด</li>
+        <li>กรณีรถล่าช้า: โปรดตรวจสอบสถานะในระบบอีกครั้ง เนื่องจากเวลาอาจเปลี่ยนตามสภาพการจราจรและรอบเดินรถจริง</li>
+        <li>กรณีต้องต่อรถ: ระบบจะแนะนำข้อมูลการต่อรถจากสถานะ ณ เวลานั้น โปรดตรวจสอบข้อมูลก่อนเดินทางเสมอ</li>
+        <li>กรณีมีปัญหา: ติดต่อเจ้าหน้าที่ผ่านช่องทางที่กำหนดในหัวข้อติดต่อเรา</li>
+      </ol>
+    </section>
+
+    <section class="info-section" id="policy">
+      <h2>นโยบายและเงื่อนไข</h2>
+      <ul>
+        <li>การจองจะสมบูรณ์เมื่อผู้โดยสารกรอกข้อมูลถูกต้อง และระบบหรือเจ้าหน้าที่ได้ยืนยันข้อมูลตามเงื่อนไขของบริการ</li>
+        <li>ตำแหน่งรถและเวลาโดยประมาณเป็นข้อมูลจากระบบติดตาม อาจคลาดเคลื่อนได้จากสัญญาณ GPS สภาพการจราจร อุปกรณ์ของรถ หรือการเปลี่ยนแปลงรอบเดินรถ</li>
+        <li>เที่ยวรถต่อหรือคำแนะนำการต่อรถเป็นข้อมูลที่ระบบช่วยประเมินจากสถานะ ณ เวลานั้น อาจมีการเปลี่ยนแปลงตามสถานการณ์จริง</li>
+        <li>การยกเลิกและคืนเงินให้เป็นไปตามเงื่อนไขที่ผู้ให้บริการกำหนด</li>
+        <li>ข้อมูลชื่อ เบอร์โทร ข้อมูลการจอง และหลักฐานการชำระเงิน จะถูกใช้เพื่อยืนยันตั๋ว ประสานงานการเดินทาง และให้บริการผู้โดยสารเท่านั้น</li>
+      </ul>
+    </section>
+
+    <section class="info-section" id="contact">
+      <h2>ติดต่อเรา</h2>
+      <ul class="contact-list">
+        <li><strong>โทร:</strong> xxx-xxx-xxxx</li>
+        <li><strong>LINE Official:</strong> <a href="https://lin.ee/NVTjxBR" target="_blank" rel="noopener">ติดต่อผ่าน LINE Official</a></li>
+        <li><strong>เวลาทำการ:</strong> 06:00-18:00 น.</li>
+        <li><strong>พื้นที่ให้บริการ:</strong> สนามชัยเขต - แปดริ้ว และจุดต่อรถปลายทาง</li>
+      </ul>
+    </section>
+
+    <footer class="page-footer">
+      <a class="bottom-back" href="index.html">กลับหน้าแรก</a>
+    </footer>
+  </main>
+</body>
+</html>
