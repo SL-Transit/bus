@@ -1564,6 +1564,8 @@
     }
 
     function getBookingQueueNo(booking) {
+      var shared = resolveSharedScheduleAssignmentForBooking(booking);
+      if (shared && shared.queueNo) return Number(shared.queueNo);
       var inferred = inferQueueNoFromBookingTrip(booking);
       if (inferred) return inferred;
       return Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
@@ -1676,6 +1678,9 @@
     }
 
     function fallbackQueueNoForVehicle(vehicleId, date) {
+      if (window.SLTransitSchedule && typeof window.SLTransitSchedule.queueForVehicleOnDate === 'function') {
+        return window.SLTransitSchedule.queueForVehicleOnDate(vehicleId, date);
+      }
       var base = { car1: 3, car2: 1, car3: 2, car4: 4 };
       return rotateQueueNo(base[String(vehicleId || '')], getRotationDayOffset(date));
     }
@@ -1683,6 +1688,9 @@
     function getVehicleIdForQueue(queueNo, date) {
       queueNo = Number(queueNo || 0);
       if (!queueNo) return '';
+      if (window.SLTransitSchedule && typeof window.SLTransitSchedule.vehicleIdForQueueOnDate === 'function') {
+        return window.SLTransitSchedule.vehicleIdForQueueOnDate(queueNo, date) || '';
+      }
       for (var i = 0; i < ROTATING_VEHICLE_IDS.length; i++) {
         var id = ROTATING_VEHICLE_IDS[i];
         if (fallbackQueueNoForVehicle(id, date) === queueNo) return id;
@@ -1725,7 +1733,9 @@
     function getCurrentTripForVehicle(vehicleId, vehicleData, now) {
       now = now || new Date();
       if (!isActiveVehicle(vehicleId, vehicleData, now.getTime ? now.getTime() : now)) return null;
-      var queueNo = getQueueNoForVehicle(vehicleId, getServiceDateForBooking(currentBooking));
+      var preferredQueueNo = currentBooking && getBookingQueueNo(currentBooking);
+      var preferredVehicleId = preferredQueueNo ? getVehicleIdForQueue(preferredQueueNo, getServiceDateForBooking(currentBooking)) : '';
+      var queueNo = String(vehicleId) === String(preferredVehicleId) ? preferredQueueNo : getQueueNoForVehicle(vehicleId, getServiceDateForBooking(currentBooking));
       var template = queueNo && queueTemplates[queueNo];
       if (!template || !template.trips || !template.trips.length) return null;
       var nowMin = now instanceof Date ? now.getHours() * 60 + now.getMinutes() : toMin(now);
