@@ -1599,8 +1599,8 @@
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking || !window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
       var routeInfo = connectionRouteInfo(booking.route);
-      var origin = getTrackingPickupStopName(booking);
-      var destination = getTrackingRouteTargetName(booking);
+      var origin = getRouteOrigin(booking, getLegSchedule(booking));
+      var destination = routeInfo.destination || booking.destination || booking.to || '';
       return window.SLTransitSchedule.resolveTripAssignment({
         serviceDate: getServiceDateForBooking(booking),
         origin: origin,
