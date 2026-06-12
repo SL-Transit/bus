@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="schedule-engine.js?v=20260612c"></script>
+<script src="schedule-engine.js?v=20260612d"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -2162,7 +2162,12 @@ function submitBooking() {
         plannedVehicleId: tripAssignment.plannedVehicleId || '',
         tripIndex:   tripAssignment.tripIndex || '',
         departTime:  tripAssignment.departTime || selTime,
+        pickupTime:  tripAssignment.pickupTime || selTime,
+        pickupStopKey: tripAssignment.pickupStopKey || '',
+        pickupStopName: tripAssignment.pickupStopName || fromName,
         routeDirection: tripAssignment.routeDirection || '',
+        routeStops: tripAssignment.routeStops || [],
+        routeStopNames: tripAssignment.routeStopNames || [],
         seats:       seats,
         price:       bookingTotal, // ราคาจาก server เท่านั้น + ค่าบริการเมื่อเปิดใช้งาน
         fare:        serverPrice * seats,
@@ -2322,15 +2327,15 @@ function normalizeBookingStopKey(value) {
   return String(value || '');
 }
 
-function resolveBookingTripAssignmentByLabel(originLabel, destLabel, time, requiresTransfer) {
-  return resolveBookingTripAssignment(normalizeBookingStopKey(originLabel), normalizeBookingStopKey(destLabel), time, requiresTransfer);
+function resolveBookingTripAssignmentByLabel(originLabel, destLabel, time, requiresTransfer, serviceDate) {
+  return resolveBookingTripAssignment(normalizeBookingStopKey(originLabel), normalizeBookingStopKey(destLabel), time, requiresTransfer, serviceDate);
 }
 
 function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serviceDate) {
   if (window.SLTransitSchedule && typeof window.SLTransitSchedule.resolveTripAssignment === 'function') {
     var shared = window.SLTransitSchedule.resolveTripAssignment({ serviceDate: serviceDate, origin: origin, destination: dest, departTime: time, requiresTransfer: requiresTransfer, transferPoint: TRANSFER_POINT_KEY });
     if (shared && shared.queueNo) {
-      return { queueNo: shared.queueNo, plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, routeDirection: shared.routeDirection || '', assignmentSource: shared.assignmentSource || 'schedule_engine' };
+      return { queueNo: shared.queueNo, plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || '', pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], assignmentSource: shared.assignmentSource || 'schedule_engine' };
     }
   }
   var target = requiresTransfer ? TRANSFER_POINT_KEY : dest;
