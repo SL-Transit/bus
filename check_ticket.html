@@ -1569,7 +1569,22 @@
       return Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
     }
 
-    function resolveSharedScheduleAssignmentForBooking(booking) {`n      if (!booking || !window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;`n      var routeInfo = connectionRouteInfo(booking.route);`n      var origin = getRouteOrigin(booking, getLegSchedule(booking));`n      var destination = routeInfo.destination || booking.destination || booking.to || '';`n      return window.SLTransitSchedule.resolveTripAssignment({`n        serviceDate: getServiceDateForBooking(booking),`n        origin: origin,`n        destination: destination,`n        departTime: booking.departTime || booking.time || booking.leg1Time || '',`n        requiresTransfer: routeInfo.type === 'secondary_connection',`n        transferPoint: 'แปดริ้ว'`n      });`n    }`n`n    function inferQueueNoFromBookingTrip(booking) {
+    function resolveSharedScheduleAssignmentForBooking(booking) {
+      if (!booking || !window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
+      var routeInfo = connectionRouteInfo(booking.route);
+      var origin = getRouteOrigin(booking, getLegSchedule(booking));
+      var destination = routeInfo.destination || booking.destination || booking.to || '';
+      return window.SLTransitSchedule.resolveTripAssignment({
+        serviceDate: getServiceDateForBooking(booking),
+        origin: origin,
+        destination: destination,
+        departTime: booking.departTime || booking.time || booking.leg1Time || '',
+        requiresTransfer: routeInfo.type === 'secondary_connection',
+        transferPoint: 'แปดริ้ว'
+      });
+    }
+
+    function inferQueueNoFromBookingTrip(booking) {
       if (!booking) return 0;
       var time = String(booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
       if (!time) return 0;
