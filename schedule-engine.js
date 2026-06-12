@@ -30,7 +30,7 @@
     { queueNo: 2, tripIndex: 4, departTime: '15:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
     { queueNo: 3, tripIndex: 1, departTime: '06:20', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
     { queueNo: 3, tripIndex: 2, departTime: '09:40', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-    { queueNo: 3, tripIndex: 3, departTime: '12:20', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
+    { queueNo: 3, tripIndex: 3, departTime: '12:10', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
     { queueNo: 3, tripIndex: 4, departTime: '14:00', from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao' },
     { queueNo: 4, tripIndex: 1, departTime: '11:30', from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao' },
     { queueNo: 4, tripIndex: 2, departTime: '16:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' }
