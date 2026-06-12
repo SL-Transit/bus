@@ -770,6 +770,7 @@
     var trackingTransferMarker = null;
     var trackingRouteStopMarkers = [];
     var trackingRouteSourceReady = false;
+    var trackingRouteGeometry = [];
     var trackingRouteRequestSeq = 0;
     var trackingJourneyEtaRequestSeq = 0;
     var trackingJourneyEta = null;
@@ -1883,7 +1884,7 @@
     }
 
     function renderVanMarker(location) {
-      location = normalizeTrackingPoint(location);
+      location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
       if (!trackingVanMarker) {
         trackingVanMarker = new mapboxgl.Marker({ element: createTrackingMarker('van', 'รถ') })
@@ -1908,6 +1909,41 @@
     function trackingPointMeters(a, b) {
       if (!a || !b) return Infinity;
       return distanceKm(a.lat, a.lng, b.lat, b.lng) * 1000;
+    }
+
+    function trackingRouteProjection(point, start, end) {
+      point = normalizeTrackingPoint(point);
+      if (!point || !Array.isArray(start) || !Array.isArray(end)) return null;
+      var lat = Number(point.lat), lng = Number(point.lng);
+      var lng1 = Number(start[0]), lat1 = Number(start[1]);
+      var lng2 = Number(end[0]), lat2 = Number(end[1]);
+      if (![lat,lng,lat1,lng1,lat2,lng2].every(Number.isFinite)) return null;
+      var metersPerLat = 111320;
+      var metersPerLng = 111320 * Math.cos(lat * Math.PI / 180);
+      var px = lng * metersPerLng, py = lat * metersPerLat;
+      var ax = lng1 * metersPerLng, ay = lat1 * metersPerLat;
+      var bx = lng2 * metersPerLng, by = lat2 * metersPerLat;
+      var dx = bx - ax, dy = by - ay;
+      var len2 = dx * dx + dy * dy;
+      var t = len2 <= 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+      var projX = ax + t * dx, projY = ay + t * dy;
+      return {
+        lat: projY / metersPerLat,
+        lng: projX / metersPerLng,
+        distance: Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY))
+      };
+    }
+
+    function snapTrackingPointToRoute(point, maxMeters) {
+      point = normalizeTrackingPoint(point);
+      if (!point || !trackingRouteGeometry || trackingRouteGeometry.length < 2) return point;
+      var best = null;
+      for (var i = 1; i < trackingRouteGeometry.length; i++) {
+        var projected = trackingRouteProjection(point, trackingRouteGeometry[i - 1], trackingRouteGeometry[i]);
+        if (projected && (!best || projected.distance < best.distance)) best = projected;
+      }
+      if (!best || best.distance > (maxMeters || 140)) return point;
+      return Object.assign({}, point, { lat: best.lat, lng: best.lng });
     }
 
     function markerAnimState(name, value) {
@@ -1986,7 +2022,7 @@
     }
 
     function updateVanMarkerSmoothly(location) {
-      location = normalizeTrackingPoint(location);
+      location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
       // heartbeatOnly = แอปส่งแค่ ping GPS ไม่ได้ fix ใหม่ ไม่ต้อง animate
       // แต่ถ้ายังไม่มี marker เลย → วาง marker ตำแหน่งล่าสุดโดยไม่ animate
@@ -2082,11 +2118,20 @@
 
     function setTrackingRouteGeometry(coords) {
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
+      coords = (coords || []).filter(isValidMapCoord);
+      trackingRouteGeometry = coords;
       trackingMap.getSource('trackingRouteLine').setData(coords.length >= 2 ? {
         type: 'Feature',
         geometry: { type: 'LineString', coordinates: coords },
         properties: {}
       } : { type: 'FeatureCollection', features: [] });
+      if (trackingVanMarker && trackingVanMarkerPos && coords.length >= 2) {
+        var snapped = snapTrackingPointToRoute(trackingVanMarkerPos, 180);
+        if (snapped && trackingPointMeters(trackingVanMarkerPos, snapped) > 1) {
+          trackingVanMarker.setLngLat([snapped.lng, snapped.lat]);
+          trackingVanMarkerPos = snapped;
+        }
+      }
     }
 
     function refreshJourneyRoadEta() {
