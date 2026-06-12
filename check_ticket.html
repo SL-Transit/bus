@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-  <script src="schedule-engine.js?v=20260612c"></script>
+  <script src="schedule-engine.js?v=20260612d"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -1499,8 +1499,8 @@
       var keys = Object.keys(buses || {});
       if (!booking || !keys.length) return null;
       var routeInfo = connectionRouteInfo(booking.route);
-      var origin = getRouteOrigin(booking, getLegSchedule(booking));
-      var destination = routeInfo.destination || booking.destination || booking.to || '';
+      var origin = getTrackingPickupStopName(booking);
+      var destination = getTrackingRouteTargetName(booking);
       var preferredIds = getPreferredVehicleIdsForBooking(booking);
       var orderedKeys = preferredIds.concat(keys.filter(function(id) {
         return preferredIds.indexOf(id) === -1;
@@ -1599,8 +1599,8 @@
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking || !window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
       var routeInfo = connectionRouteInfo(booking.route);
-      var origin = getRouteOrigin(booking, getLegSchedule(booking));
-      var destination = routeInfo.destination || booking.destination || booking.to || '';
+      var origin = getTrackingPickupStopName(booking);
+      var destination = getTrackingRouteTargetName(booking);
       return window.SLTransitSchedule.resolveTripAssignment({
         serviceDate: getServiceDateForBooking(booking),
         origin: origin,
@@ -1611,13 +1611,27 @@
       });
     }
 
+    function getTrackingPickupStopName(booking) {
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking);
+      return (assignment && assignment.pickupStopName) || getRouteOrigin(booking, getLegSchedule(booking));
+    }
+
+    function getTrackingRouteTargetName(booking) {
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking);
+      if (assignment && assignment.routeStopNames && assignment.routeStopNames.length) {
+        return assignment.routeStopNames[assignment.routeStopNames.length - 1];
+      }
+      var routeInfo = connectionRouteInfo(booking && booking.route);
+      return routeInfo.destination || (booking && (booking.destination || booking.to)) || '';
+    }
+
     function inferQueueNoFromBookingTrip(booking) {
       if (!booking) return 0;
       var time = String(booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
       if (!time) return 0;
       var routeInfo = connectionRouteInfo(booking.route);
-      var origin = getRouteOrigin(booking, getLegSchedule(booking));
-      var destination = routeInfo.destination || booking.destination || booking.to || '';
+      var origin = getTrackingPickupStopName(booking);
+      var destination = getTrackingRouteTargetName(booking);
       for (var queueNo in queueTemplates) {
         var template = queueTemplates[queueNo];
         var trips = template && template.trips || [];
@@ -1896,7 +1910,7 @@
     }
 
     function resolvePickupStopLocation(booking) {
-      var origin = getRouteOrigin(booking, getLegSchedule(booking));
+      var origin = getTrackingPickupStopName(booking);
       return findStopLocation(origin) || STOP_LOCATIONS[0];
     }
 
@@ -1916,8 +1930,12 @@
     }
 
     function resolveRelevantRouteStops(booking) {
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking);
+      if (assignment && assignment.routeStopNames && assignment.routeStopNames.length) {
+        return assignment.routeStopNames.map(findStopLocation).filter(Boolean);
+      }
       var legs = getLegSchedule(booking);
-      var origin = findStopLocation(getRouteOrigin(booking, legs));
+      var origin = findStopLocation(getTrackingPickupStopName(booking));
       var routeInfo = connectionRouteInfo(booking.route);
       var target = routeInfo.type === 'secondary_connection' ? findStopLocation('แปดริ้ว') : resolveDestinationLocation(booking);
       if (!origin || !target) return [origin || target].filter(Boolean);
@@ -2331,7 +2349,8 @@
 
     function scheduledPickupEtaForBooking(booking) {
       if (!booking) return null;
-      var time = String(booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking) || null;
+      var time = String((assignment && assignment.pickupTime) || booking.pickupTime || booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
       if (!time) return null;
       var dateText = String(booking.date || getServiceDateForBooking(booking));
       var parts = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
