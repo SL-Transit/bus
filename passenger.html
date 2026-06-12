@@ -827,9 +827,9 @@ function mergeVehicleFeeds() {
     if (!a && !b) return;
     if (!a) { merged[id] = sanitizeVehicleData(b); return; }
     if (!b) { merged[id] = sanitizeVehicleData(a); return; }
-    // เลือก source ที่ gpsTs ใหม่กว่า — ป้องกันข้อมูลเก่าทับข้อมูลใหม่
-    var gpsA = Number(a.gpsTs || a.gpsts || a.ts || 0);
-    var gpsB = Number(b.gpsTs || b.gpsts || b.ts || 0);
+    // เลือก source จาก timestamp ที่ normalize แล้ว ป้องกัน ts ms/sec หรือ heartbeat ใหม่ทับ GPS เก่าแบบผิด source
+    var gpsA = getVehicleTs(a) || 0;
+    var gpsB = getVehicleTs(b) || 0;
     merged[id] = sanitizeVehicleData(gpsB > gpsA ? b : a);
   });
   allBusPositions = merged;
@@ -1552,6 +1552,7 @@ function startBusPrediction(carId, packetPos, pos) {
         snapToRoad(carId, snapNext.lat, snapNext.lon, function(snappedNext) {
           // อัปเดต currentPredictPos เฉพาะถ้ายัง predict อยู่ (ไม่ได้ถูก cancel)
           if (busPredictionFrames[carId] !== null) {
+            if (busPredictionSeq[carId] !== predictSeq) return;
             currentPredictPos = snappedNext;
             placeBusMarkerAt(carId, snappedNext);
             busCurrentPos[carId] = snappedNext;
@@ -1565,6 +1566,7 @@ function startBusPrediction(carId, packetPos, pos) {
         lat: lerp(currentPredictPos.lat, next.lat, lerpT * 0.3),
         lon: lerp(currentPredictPos.lon, next.lon, lerpT * 0.3)
       };
+      if (busPredictionSeq[carId] !== predictSeq) return;
       placeBusMarkerAt(carId, smoothNext);
       busCurrentPos[carId] = smoothNext;
     }
@@ -1858,6 +1860,7 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   // Snap-to-road: call OSRM ใน background → animate ไปตำแหน่งบนถนน
   // ถ้า OSRM ยังไม่ตอบหรือล่ม → ใช้ filteredPos ไปก่อน ไม่มีการรอ
   snapToRoad(carId, filteredPos.lat, filteredPos.lon, function(snappedPos) {
+    if (busLastTs[carId] !== ts) return;
     busTargetPos[carId] = snappedPos;
     busLastPacketPos[carId] = snappedPos;
     // อ่าน busCurrentPos ณ เวลา callback มาถึง ไม่ใช้ fromPos ที่ capture ไว้ก่อน
