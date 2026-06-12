@@ -134,6 +134,12 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+.dbd-footer{width:100%;max-width:640px;margin:24px auto 16px;padding:16px 12px;text-align:center;color:#526172;font-family:'Kanit',Arial,sans-serif;font-size:13px;line-height:1.7;clear:both;}
+.dbd-footer a{display:inline-flex;align-items:center;justify-content:center;max-width:100%;line-height:0;}
+.dbd-footer img{display:block;width:auto;max-width:min(240px,80vw);height:auto;border:0;margin:0 auto;}
+.dbd-footer p{margin:9px auto 0;max-width:520px;font-weight:500;}
+@media(max-width:480px){.dbd-footer{margin-top:18px;padding:14px 16px;font-size:12px;}.dbd-footer img{max-width:min(220px,78vw);}}
 </style>
 </head>
 <body>
@@ -270,6 +276,12 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;
     </div>
   </div>
 
+  <footer class="dbd-footer" aria-label="DBD Registered">
+    <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
+      <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
+    </a>
+    <p>เว็บไซต์ S.L. Transit ได้รับเครื่องหมาย DBD Registered จากกรมพัฒนาธุรกิจการค้า</p>
+  </footer>
 </div>
 
 <!-- MAP -->
