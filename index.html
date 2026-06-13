@@ -293,12 +293,28 @@
 
     .footer {
       margin-top: 16px;
-      padding-top: 14px;
+      padding-top: 12px;
       border-top: 1px solid var(--line);
       color: #74869a;
       font-size: 12px;
       line-height: 1.65;
-      text-align: center;
+      text-align: left;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .footer-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .footer-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      flex-wrap: wrap;
     }
     .footer-brand {
       margin: 0;
@@ -318,9 +334,9 @@
       align-items: center;
       flex-wrap: nowrap;
       gap: 0;
-      margin: 10px auto;
-      max-width: 520px;
-      text-align: center;
+      margin: 0;
+      max-width: none;
+      text-align: left;
     }
     .footer-nav a {
       display: inline-block;
@@ -333,10 +349,8 @@
     .footer-nav a::before {
       content: attr(data-label);
     }
-    .footer-nav a:not(:last-child)::after {
-      content: "|";
-      margin: 0 7px;
-      color: #c1ccd6;
+    .footer-nav a:not(:last-child) {
+      margin-right: 12px;
     }
     .footer-staff-link {
       color: #607489;
@@ -348,15 +362,17 @@
       color: var(--teal);
     }
     .dbd-footer {
-      margin: 8px auto 6px;
+      width: 170px;
+      flex: 0 0 170px;
+      margin: 0;
       padding: 0;
-      text-align: center;
+      text-align: right;
       color: #607489;
       font-size: 11px;
-      line-height: 1.55;
+      line-height: 1.45;
     }
     .dbd-footer-title {
-      margin: 0 0 5px;
+      margin: 0 0 4px;
       color: #526172;
       font-size: 11px;
       font-weight: 700;
@@ -372,14 +388,14 @@
     .dbd-footer img {
       display: block;
       width: auto;
-      max-width: min(150px, 48vw);
+      max-width: 132px;
       height: auto;
       border: 0;
-      margin: 0 auto;
+      margin: 0 0 0 auto;
     }
     .dbd-footer p {
-      margin: 5px auto 0;
-      max-width: 320px;
+      margin: 4px 0 0 auto;
+      max-width: 170px;
       font-weight: 400;
     }
     .footer-copy {
@@ -419,6 +435,11 @@
       .btn { min-height: 76px; flex-direction: row; justify-content: flex-start; text-align: left; font-size: 18px; padding: 14px 44px 14px 16px; }
       .icon-box { width: 40px; height: 40px; margin: 0 14px 0 0; font-size: 21px; flex-shrink: 0; }
       .icon-box img { width: 34px; height: 34px; }
+      .footer-inner { gap: 10px; }
+      .footer-heading { gap: 8px; }
+      .footer-nav a:not(:last-child) { margin-right: 8px; }
+      .dbd-footer { flex-basis: 142px; width: 142px; font-size: 10px; }
+      .dbd-footer img { max-width: 118px; }
       .service-note { align-items: flex-start; text-align: left; font-size: 13px; }
       .line-logo { width: 29px; height: 23px; }
     }
@@ -431,9 +452,15 @@
       .btn { min-height: 72px; font-size: 17px; padding-left: 14px; }
       .icon-box { width: 36px; height: 36px; margin-right: 12px; }
       .icon-box img { width: 30px; height: 30px; }
+      .footer { font-size: 11px; }
+      .footer-inner { flex-direction: column; align-items: stretch; }
+      .footer-heading { align-items: center; }
       .footer-nav a { font-size: 10px; }
       .footer-nav a::before { content: attr(data-short); }
-      .footer-nav a:not(:last-child)::after { margin: 0 5px; }
+      .footer-nav a:not(:last-child) { margin-right: 8px; }
+      .dbd-footer { width: 100%; flex-basis: auto; text-align: left; }
+      .dbd-footer img,
+      .dbd-footer p { margin-left: 0; margin-right: auto; }
     }
 
     /* ══════════════════════════════════════
@@ -660,26 +687,30 @@
     </div>
 
     <footer class="footer" aria-label="ข้อมูลเว็บไซต์">
-      <p class="footer-brand">S.L. Transit</p>
-      <p class="footer-subtitle">ระบบช่วยเดินทางสำหรับรถโดยสารท้องถิ่น</p>
+      <div class="footer-inner">
+        <div class="footer-main">
+          <div class="footer-heading">
+            <p class="footer-brand">S.L. Transit</p>
+            <nav class="footer-nav" aria-label="ข้อมูลเพิ่มเติม">
+              <a href="info.html#services" data-label="บริการของเรา" data-short="บริการ" aria-label="บริการของเรา"></a>
+              <a href="info.html#help" data-label="ช่วยเหลือผู้โดยสาร" data-short="ช่วยเหลือ" aria-label="ช่วยเหลือผู้โดยสาร"></a>
+              <a href="info.html#policy" data-label="นโยบายและเงื่อนไข" data-short="นโยบาย" aria-label="นโยบายและเงื่อนไข"></a>
+              <a href="info.html#contact" data-label="ติดต่อเรา" data-short="ติดต่อ" aria-label="ติดต่อเรา"></a>
+            </nav>
+          </div>
+          <p class="footer-subtitle">ระบบช่วยเดินทางสำหรับรถโดยสารท้องถิ่น</p>
+          <p class="footer-copy">© 2026 S.L. Transit</p>
+          <a href="admin.html" class="footer-staff-link">สำหรับเจ้าหน้าที่</a>
+        </div>
 
-      <nav class="footer-nav" aria-label="ข้อมูลเพิ่มเติม">
-        <a href="info.html#services" data-label="บริการของเรา" data-short="บริการ" aria-label="บริการของเรา"></a>
-        <a href="info.html#help" data-label="ช่วยเหลือผู้โดยสาร" data-short="ช่วยเหลือ" aria-label="ช่วยเหลือผู้โดยสาร"></a>
-        <a href="info.html#policy" data-label="นโยบายและเงื่อนไข" data-short="นโยบาย" aria-label="นโยบายและเงื่อนไข"></a>
-        <a href="info.html#contact" data-label="ติดต่อเรา" data-short="ติดต่อ" aria-label="ติดต่อเรา"></a>
-      </nav>
-
-      <div class="dbd-footer" aria-label="DBD Registered">
-        <p class="dbd-footer-title">DBD Registered</p>
-        <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
-          <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
-        </a>
-        <p>เว็บไซต์นี้ได้รับเครื่องหมาย DBD Registered<br>จากกรมพัฒนาธุรกิจการค้า</p>
+        <div class="dbd-footer" aria-label="DBD Registered">
+          <p class="dbd-footer-title">DBD Registered</p>
+          <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
+            <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
+          </a>
+          <p>เว็บไซต์นี้ได้รับเครื่องหมาย DBD Registered<br>จากกรมพัฒนาธุรกิจการค้า</p>
+        </div>
       </div>
-
-      <p class="footer-copy">© 2026 S.L. Transit</p>
-      <a href="admin.html" class="footer-staff-link">สำหรับเจ้าหน้าที่</a>
     </footer>
   </div>
 
