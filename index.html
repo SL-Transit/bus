@@ -445,7 +445,11 @@
       .line-logo { width: 29px; height: 23px; }
     }
 
-    @media (max-width: 380px) {
+
+    @media (max-width: 480px) {
+      .footer-nav a::before { content: attr(data-short); }
+      .footer-nav a:not(:last-child)::after { margin: 0 7px; }
+    }    @media (max-width: 380px) {
       body { padding-left: 10px; padding-right: 10px; }
       .container { padding-left: 12px; padding-right: 12px; }
       .stop-icon { width: 46px; height: 46px; }
