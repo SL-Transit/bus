@@ -1156,10 +1156,20 @@ var ORIGIN_TIMES = {
   'phanom':       {label:'พนมสารคาม',          times:['06:40','07:40','09:20','11:40','12:30','14:30','15:00']},
   'tatakiab':     {label:'ท่าตะเกียบ',            times:['06:35','09:45','13:15']},
   'thoengkabintr':{label:'ทุ่งกบินทร์',            times:['08:20','12:10']},
-  'khlongtakien': {label:'คลองตะเคียน',          times:['09:10','12:40']},
+  'khlongtakien': {label:'คลองตะเคียน',          times:['09:20','12:40']},
   'phaijit':      {label:'ไพจิตร',                times:['08:30','12:10']},
   'siyaekkhonom': {label:'สี่แยกโคนม',             times:['08:10','12:00']},
   'nongruea':     {label:'หนองเรือ',              times:['08:40','12:20']}
+};
+
+var CONFIRMED_TO_CHACHOENGSAO_TIMES = {
+  'klonghat': ['08:00','11:30'],
+  'siyaekkhonom': ['08:10','12:00'],
+  'thoengkabintr': ['08:20','12:10'],
+  'phaijit': ['08:30','12:10'],
+  'nongruea': ['08:40','12:20'],
+  'khlongtakien': ['09:20','12:40'],
+  'nongkhok': ['06:20','09:30','13:00']
 };
 
 var CHACHOENGSAO_TIMES = {
@@ -1409,6 +1419,9 @@ function shouldRequireTransfer(origin, destination) {
 }
 
 function getDirectSchedules(origin, destination) {
+  if (destination === TRANSFER_POINT_KEY && CONFIRMED_TO_CHACHOENGSAO_TIMES[origin]) {
+    return CONFIRMED_TO_CHACHOENGSAO_TIMES[origin].slice();
+  }
   if (ADMIN_ROUTE_TIMES[origin] && ADMIN_ROUTE_TIMES[origin][destination]) {
     return ADMIN_ROUTE_TIMES[origin][destination];
   }

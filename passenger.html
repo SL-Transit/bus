@@ -682,9 +682,19 @@ const ROUTES = {
   'ทุ่งกบินทร์':              { times: ['08:20','12:10'] },
   'ไพจิตร':                { times: ['08:30','12:10'] },
   'หนองเรือ':              { times: ['08:40','12:20'] },
-  'คลองตะเคียน':           { times: ['09:10','12:40'] },
+  'คลองตะเคียน':           { times: ['09:20','12:40'] },
   'ฉะเชิงเทรา (แปดริ้ว)':     { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
   'สี่แยกโคนม':             { times: ['08:10','12:00'] },
+};
+
+const CONFIRMED_TO_CHACHOENGSAO_TIMES = {
+  'คลองหาด': ['08:00','11:30'],
+  'สี่แยกโคนม': ['08:10','12:00'],
+  'ทุ่งกบินทร์': ['08:20','12:10'],
+  'ไพจิตร': ['08:30','12:10'],
+  'หนองเรือ': ['08:40','12:20'],
+  'คลองตะเคียน': ['09:20','12:40'],
+  'หนองคอก': ['06:20','09:30','13:00']
 };
 
 // LEG2: เส้นทางต่อรถผ่านฉะเชิงเทรา (แปดริ้ว)
@@ -1077,6 +1087,9 @@ function isMainRouteLabel(label) {
 }
 
 function getPairTimes(from, to) {
+  if (to === 'ฉะเชิงเทรา (แปดริ้ว)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
+    return CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice();
+  }
   if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to];
   return null;
 }
@@ -1129,7 +1142,11 @@ function applyPassengerRouteSettings(data) {
       ADMIN_ROUTE_TIMES[from][to] = times;
 
       if (!ROUTES[from]) ROUTES[from] = { times: [] };
-      if (to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ROUTES[from].times.length) ROUTES[from].times = times.slice();
+      if (to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ROUTES[from].times.length) {
+        ROUTES[from].times = (CONFIRMED_TO_CHACHOENGSAO_TIMES[from] && to === 'ฉะเชิงเทรา (แปดริ้ว)')
+          ? CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice()
+          : times.slice();
+      }
       addUnique(ORIGIN_LIST, from);
       addUnique(DEST_NORMAL, from);
 
