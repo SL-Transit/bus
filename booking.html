@@ -1172,6 +1172,17 @@ var CONFIRMED_TO_CHACHOENGSAO_TIMES = {
   'nongkhok': ['06:20','09:30','13:00']
 };
 
+function confirmedScheduleKey(value) {
+  var candidates = [value];
+  if (ORIGIN_TIMES[value] && ORIGIN_TIMES[value].label) candidates.push(ORIGIN_TIMES[value].label);
+  if (LEG2_DEST[value] && LEG2_DEST[value].label) candidates.push(LEG2_DEST[value].label);
+  for (var i = 0; i < candidates.length; i++) {
+    var key = normalizeBookingStopKey(candidates[i]);
+    if (key === 'chachoengsao' || CONFIRMED_TO_CHACHOENGSAO_TIMES[key]) return key;
+  }
+  return normalizeBookingStopKey(value);
+}
+
 var CHACHOENGSAO_TIMES = {
   'sanamchai':     ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'],
   'klonghat':      ['11:20','14:00'],
@@ -1419,8 +1430,10 @@ function shouldRequireTransfer(origin, destination) {
 }
 
 function getDirectSchedules(origin, destination) {
-  if (destination === TRANSFER_POINT_KEY && CONFIRMED_TO_CHACHOENGSAO_TIMES[origin]) {
-    return CONFIRMED_TO_CHACHOENGSAO_TIMES[origin].slice();
+  var originKey = confirmedScheduleKey(origin);
+  var destinationKey = confirmedScheduleKey(destination);
+  if (destinationKey === 'chachoengsao' && CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey]) {
+    return CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey].slice();
   }
   if (ADMIN_ROUTE_TIMES[origin] && ADMIN_ROUTE_TIMES[origin][destination]) {
     return ADMIN_ROUTE_TIMES[origin][destination];
