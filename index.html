@@ -326,12 +326,12 @@
       font-weight: 400;
     }
     .footer-dbd-heading {
-      margin: 0;
+      margin: 0 0 5px;
       color: #6d7f91;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: .2px;
-      text-align: right;
+      text-align: center;
       white-space: nowrap;
     }
     .footer-nav {
@@ -362,8 +362,7 @@
       margin: 0 11px;
       background: rgba(96, 116, 137, .28);
     }
-    .footer-nav a:hover,
-    .footer-staff-link:hover {
+    .footer-nav a:hover {
       color: var(--teal);
     }
     .footer-copy {
@@ -371,24 +370,20 @@
       color: #8b9aa8;
       font-size: 11px;
     }
-    .footer-staff-link {
-      display: inline-block;
-      margin-top: 2px;
-      color: #9aa8b5;
-      font-size: 10.5px;
-      font-weight: 400;
-      text-decoration: none;
-    }
-    .dbd-footer {
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
-      gap: 8px;
+    .footer-right {
       min-width: 178px;
+      text-align: center;
+    }
+    .footer-dbd-block {
       color: #74869a;
       font-size: 10.5px;
       line-height: 1.42;
-      text-align: left;
+      text-align: center;
+    }
+    .dbd-footer {
+      display: grid;
+      justify-items: center;
+      gap: 5px;
     }
     .dbd-footer a {
       display: inline-flex;
@@ -439,7 +434,8 @@
       .footer-inner { gap: 11px; }
       .footer-top, .footer-bottom { gap: 14px; }
       .footer-nav a:not(:last-child)::after { margin: 0 8px; }
-      .dbd-footer { min-width: 158px; font-size: 10px; }
+      .footer-right { min-width: 152px; }
+      .footer-dbd-block { font-size: 10px; }
       .dbd-footer img { width: 62px; max-width: 62px; }
       .service-note { align-items: flex-start; text-align: left; font-size: 13px; }
       .line-logo { width: 29px; height: 23px; }
@@ -449,7 +445,9 @@
     @media (max-width: 480px) {
       .footer-nav a::before { content: attr(data-short); }
       .footer-nav a:not(:last-child)::after { margin: 0 7px; }
-    }    @media (max-width: 380px) {
+    }
+
+    @media (max-width: 380px) {
       body { padding-left: 10px; padding-right: 10px; }
       .container { padding-left: 12px; padding-right: 12px; }
       .stop-icon { width: 46px; height: 46px; }
@@ -466,9 +464,11 @@
       .footer-nav a { font-size: 10px; }
       .footer-nav a::before { content: attr(data-short); }
       .footer-nav a:not(:last-child)::after { height: 10px; margin: 0 7px; }
-      .dbd-footer { min-width: 152px; gap: 7px; font-size: 9.8px; }
+      .footer-right { min-width: 130px; }
+      .footer-dbd-block { font-size: 9.8px; }
+      .dbd-footer { gap: 5px; }
       .dbd-footer img { width: 58px; max-width: 58px; }
-      .dbd-footer p { max-width: 88px; }
+      .dbd-footer p { max-width: 112px; }
     }
 
     /* ══════════════════════════════════════
@@ -701,7 +701,9 @@
             <p class="footer-brand">S.L. Transit</p>
             <p class="footer-subtitle">ระบบช่วยเดินทางสำหรับรถโดยสารท้องถิ่น</p>
           </div>
-          <p class="footer-dbd-heading">DBD Registered</p>
+          <div class="footer-right">
+            <p class="footer-dbd-heading">DBD Registered</p>
+          </div>
         </div>
 
         <nav class="footer-nav" aria-label="ข้อมูลเพิ่มเติม">
@@ -709,18 +711,20 @@
           <a href="info.html#help" data-label="ช่วยเหลือผู้โดยสาร" data-short="ช่วยเหลือ" aria-label="ช่วยเหลือผู้โดยสาร"></a>
           <a href="info.html#policy" data-label="นโยบายและเงื่อนไข" data-short="นโยบาย" aria-label="นโยบายและเงื่อนไข"></a>
           <a href="info.html#contact" data-label="ติดต่อเรา" data-short="ติดต่อ" aria-label="ติดต่อเรา"></a>
+          <a href="admin.html" data-label="สำหรับเจ้าหน้าที่" data-short="เจ้าหน้าที่" aria-label="สำหรับเจ้าหน้าที่"></a>
         </nav>
 
         <div class="footer-bottom">
           <div>
             <p class="footer-copy">© 2026 S.L. Transit</p>
-            <a href="admin.html" class="footer-staff-link">สำหรับเจ้าหน้าที่</a>
           </div>
-          <div class="dbd-footer" aria-label="DBD Registered">
-            <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
-              <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
-            </a>
-            <p>เว็บไซต์นี้ได้รับเครื่องหมาย DBD Registered<br>จากกรมพัฒนาธุรกิจการค้า</p>
+          <div class="footer-right footer-dbd-block" aria-label="DBD Registered">
+            <div class="dbd-footer">
+              <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
+                <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
+              </a>
+              <p>เว็บไซต์นี้ได้รับเครื่องหมาย DBD Registered<br>จากกรมพัฒนาธุรกิจการค้า</p>
+            </div>
           </div>
         </div>
       </div>
