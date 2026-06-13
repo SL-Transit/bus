@@ -2377,7 +2377,19 @@
       var queueNo = Number((assignment && assignment.queueNo) || getBookingQueueNo(booking) || 0);
       var plannedVehicleId = String((assignment && assignment.plannedVehicleId) || booking.plannedVehicleId || (queueNo ? getVehicleIdForQueue(queueNo, getServiceDateForBooking(booking)) : '') || '');
       var vehicle = plannedVehicleId ? ((trackingLiveVehicleFeed && trackingLiveVehicleFeed[plannedVehicleId]) || (trackingBusFeed && trackingBusFeed[plannedVehicleId]) || null) : null;
-      return { assignment: assignment, queueNo: queueNo, plannedVehicleId: plannedVehicleId, vehicle: vehicle, hasLivePosition: !!normalizeTrackingPoint(vehicle) };
+      var hasAnyPosition = !!normalizeTrackingPoint(vehicle);
+      var hasFreshPosition = !!(plannedVehicleId && isActiveVehicle(plannedVehicleId, vehicle));
+      var isStalePosition = !!(hasAnyPosition && !hasFreshPosition);
+      return {
+        assignment: assignment,
+        queueNo: queueNo,
+        plannedVehicleId: plannedVehicleId,
+        vehicle: vehicle,
+        hasAnyPosition: hasAnyPosition,
+        hasFreshPosition: hasFreshPosition,
+        isStalePosition: isStalePosition,
+        hasLivePosition: hasFreshPosition
+      };
     }
 
     function scheduledPickupEtaForBooking(booking) {
@@ -2572,9 +2584,14 @@
       } else if (pickupEtaInfo === null) {
         var expectedVehicle = expectedVehicleStatusForBooking(currentBooking);
         var scheduledPickup = scheduledPickupEtaForBooking(currentBooking);
-        if (expectedVehicle && expectedVehicle.plannedVehicleId && !expectedVehicle.hasLivePosition) {
-          document.getElementById('trackingPickupEta').textContent = 'ยังไม่พบตำแหน่งรถคันนี้';
-          document.getElementById('trackingPickupRoute').textContent = 'คนขับอาจยังไม่เปิดแอป หรือ GPS ยังไม่ส่งข้อมูล · ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง' + (scheduledPickup ? ' · ' + scheduledPickup.displayText : '');
+        if (expectedVehicle && expectedVehicle.plannedVehicleId && !expectedVehicle.hasFreshPosition) {
+          if (expectedVehicle.isStalePosition) {
+            document.getElementById('trackingPickupEta').textContent = 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว';
+            document.getElementById('trackingPickupRoute').textContent = 'ข้อมูล GPS ล่าสุดเก่าเกิน 3 นาที คนขับอาจปิดแอปหรือสัญญาณขาดหาย · ระบบจะอัปเดตเมื่อรถคันนี้ส่งตำแหน่งใหม่' + (scheduledPickup ? ' · ' + scheduledPickup.displayText : '');
+          } else {
+            document.getElementById('trackingPickupEta').textContent = 'ยังไม่พบตำแหน่งรถคันนี้';
+            document.getElementById('trackingPickupRoute').textContent = 'คนขับอาจยังไม่เปิดแอป หรือ GPS ยังไม่ส่งข้อมูล · ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง' + (scheduledPickup ? ' · ' + scheduledPickup.displayText : '');
+          }
         } else {
           document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : 'ยังไม่ถึง';
           document.getElementById('trackingPickupRoute').textContent = 'กำลังรอตำแหน่งรถเที่ยวที่จอง · ป้าย' + originName;
@@ -2596,12 +2613,13 @@
         var vanAtPickupNow = isVanAtOrPastPickup();
         var expectedVehicleForPeek = expectedVehicleStatusForBooking(currentBooking);
         var scheduledPickupForPeek = scheduledPickupEtaForBooking(currentBooking);
-        var waitingForExpectedVehicle = expectedVehicleForPeek && expectedVehicleForPeek.plannedVehicleId && !expectedVehicleForPeek.hasLivePosition;
+        var waitingForExpectedVehicle = expectedVehicleForPeek && expectedVehicleForPeek.plannedVehicleId && !expectedVehicleForPeek.hasFreshPosition;
+        var staleExpectedVehicle = waitingForExpectedVehicle && expectedVehicleForPeek.isStalePosition;
         document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
-        document.getElementById('trackingNextStep').textContent = vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? 'ยังไม่พบตำแหน่งรถคันนี้' : 'รอรถที่ป้ายต้นทาง');
-        document.getElementById('trackingPlatform').textContent = waitingForExpectedVehicle ? 'ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง' : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง');
-        updateTrackingSheetPeek(vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? 'ยังไม่พบตำแหน่งรถคันนี้' : 'รอรถที่ป้ายต้นทาง'), waitingForExpectedVehicle ? ('คิว ' + (expectedVehicleForPeek.queueNo || '-') + ' · ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' → ' + finalDestination));
+        document.getElementById('trackingNextStep').textContent = vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว' : 'ยังไม่พบตำแหน่งรถคันนี้') : 'รอรถที่ป้ายต้นทาง');
+        document.getElementById('trackingPlatform').textContent = waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ระบบจะอัปเดตเมื่อรถคันนี้ส่งตำแหน่งใหม่' : 'ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง') : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง');
+        updateTrackingSheetPeek(vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว' : 'ยังไม่พบตำแหน่งรถคันนี้') : 'รอรถที่ป้ายต้นทาง'), waitingForExpectedVehicle ? ('คิว ' + (expectedVehicleForPeek.queueNo || '-') + ' · ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' → ' + finalDestination));
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);
