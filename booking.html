@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="schedule-engine.js?v=20260612d"></script>
+<script src="schedule-engine.js?v=20260614a"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -2371,9 +2371,13 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
       : fromIdx >= originIdx && targetIdx >= toIdx;
   });
   if (!match) return {};
+  var plannedVehicleId = '';
+  if (window.SLTransitSchedule && typeof window.SLTransitSchedule.vehicleIdForQueueOnDate === 'function') {
+    plannedVehicleId = window.SLTransitSchedule.vehicleIdForQueueOnDate(match.queueNo, serviceDate) || '';
+  }
   return {
     queueNo: match.queueNo,
-    plannedVehicleId: match.vehicleId,
+    plannedVehicleId: plannedVehicleId,
     tripIndex: match.tripIndex,
     departTime: match.departTime,
     routeDirection: match.direction

@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-  <script src="schedule-engine.js?v=20260612d"></script>
+  <script src="schedule-engine.js?v=20260614a"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -1497,10 +1497,41 @@
 
     function resolveVehicleForBooking(booking, buses) {
       var keys = Object.keys(buses || {});
-      if (!booking || !keys.length) return null;
+      if (!booking) return null;
       var routeInfo = connectionRouteInfo(booking.route);
       var origin = getTrackingPickupStopName(booking);
       var destination = getTrackingRouteTargetName(booking);
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking) || null;
+      var assignedVehicleId = String((assignment && assignment.plannedVehicleId) || '');
+      if (assignedVehicleId) {
+        var assignedVehicle = buses[assignedVehicleId];
+        var assignedPos = normalizeTrackingPoint(assignedVehicle);
+        if (!isActiveVehicle(assignedVehicleId, assignedVehicle) || !assignedPos) {
+          return {
+            id: assignedVehicleId,
+            location: null,
+            currentTrip: null,
+            pickupEta: null,
+            status: 'missing_assigned_vehicle'
+          };
+        }
+        var assignedTrip = buildFallbackTripForBooking(assignedVehicleId, assignedVehicle, booking, routeInfo, origin, destination, { preferredVehicle: true });
+        if (!assignedTrip && assignment) {
+          assignedTrip = {
+            vehicleId: assignedVehicleId,
+            queueNo: assignment.queueNo || '',
+            tripIndex: assignment.tripIndex || '',
+            departTime: assignment.departTime || '',
+            direction: assignment.routeDirection || '',
+            routeStops: assignment.routeStopNames || [],
+            status: 'running',
+            confidence: 1,
+            source: 'schedule_engine'
+          };
+        }
+        return { id: assignedVehicleId, location: assignedPos, currentTrip: assignedTrip, pickupEta: calculateVehicleEtaToStop(assignedPos, origin), score: 1 };
+      }
+      if (!keys.length) return null;
       var preferredIds = getPreferredVehicleIdsForBooking(booking);
       var orderedKeys = preferredIds.concat(keys.filter(function(id) {
         return preferredIds.indexOf(id) === -1;
@@ -1646,9 +1677,8 @@
 
     function getPreferredVehicleIdsForBooking(booking) {
       var ids = [];
-      ['vehicleId', 'queueId', 'carId', 'busId', 'assignedVehicleId', 'driverVehicleId'].forEach(function(key) {
-        if (booking && booking[key]) ids.push(String(booking[key]));
-      });
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking) || null;
+      if (assignment && assignment.plannedVehicleId) ids.push(String(assignment.plannedVehicleId));
       var queueNo = getBookingQueueNo(booking);
       if (queueNo) {
         Object.keys(trackingDailyAssignments || {}).forEach(function(id) {
@@ -1658,11 +1688,14 @@
         });
       }
       if (queueNo && queueNo >= 1 && queueNo <= 4) {
-        getVehicleIdsForLiveQueue(queueNo).forEach(function(id) { ids.push(id); });
         var vehicleForQueue = getVehicleIdForQueue(queueNo, getServiceDateForBooking(booking));
         if (vehicleForQueue) ids.push(vehicleForQueue);
+        getVehicleIdsForLiveQueue(queueNo).forEach(function(id) { ids.push(id); });
       }
       if (booking && booking.plannedVehicleId) ids.push(String(booking.plannedVehicleId));
+      ['vehicleId', 'queueId', 'carId', 'busId', 'assignedVehicleId', 'driverVehicleId'].forEach(function(key) {
+        if (booking && booking[key]) ids.push(String(booking[key]));
+      });
       return ids.filter(function(id, index) {
         return isRotatingVehicle(id) && ids.indexOf(id) === index;
       });
@@ -2540,8 +2573,8 @@
         var expectedVehicle = expectedVehicleStatusForBooking(currentBooking);
         var scheduledPickup = scheduledPickupEtaForBooking(currentBooking);
         if (expectedVehicle && expectedVehicle.plannedVehicleId && !expectedVehicle.hasLivePosition) {
-          document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : 'ยังไม่ได้รับตำแหน่งรถคันที่จอง';
-          document.getElementById('trackingPickupRoute').textContent = 'รอสัญญาณรถคิว ' + (expectedVehicle.queueNo || '-') + ' (' + expectedVehicle.plannedVehicleId + ') · ป้าย' + originName;
+          document.getElementById('trackingPickupEta').textContent = 'ยังไม่พบตำแหน่งรถคันนี้';
+          document.getElementById('trackingPickupRoute').textContent = 'คนขับอาจยังไม่เปิดแอป หรือ GPS ยังไม่ส่งข้อมูล · ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง' + (scheduledPickup ? ' · ' + scheduledPickup.displayText : '');
         } else {
           document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : 'ยังไม่ถึง';
           document.getElementById('trackingPickupRoute').textContent = 'กำลังรอตำแหน่งรถเที่ยวที่จอง · ป้าย' + originName;
@@ -2566,9 +2599,9 @@
         var waitingForExpectedVehicle = expectedVehicleForPeek && expectedVehicleForPeek.plannedVehicleId && !expectedVehicleForPeek.hasLivePosition;
         document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
-        document.getElementById('trackingNextStep').textContent = vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? 'รอสัญญาณรถคิว ' + (expectedVehicleForPeek.queueNo || '-') + ' (' + expectedVehicleForPeek.plannedVehicleId + ')' : 'รอรถที่ป้ายต้นทาง');
-        document.getElementById('trackingPlatform').textContent = waitingForExpectedVehicle && scheduledPickupForPeek ? scheduledPickupForPeek.displayText : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง');
-        updateTrackingSheetPeek(vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? 'ยังไม่ได้รับตำแหน่งรถคันที่จอง' : 'รอรถที่ป้ายต้นทาง'), waitingForExpectedVehicle ? ('คิว ' + (expectedVehicleForPeek.queueNo || '-') + ' · ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' → ' + finalDestination));
+        document.getElementById('trackingNextStep').textContent = vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? 'ยังไม่พบตำแหน่งรถคันนี้' : 'รอรถที่ป้ายต้นทาง');
+        document.getElementById('trackingPlatform').textContent = waitingForExpectedVehicle ? 'ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง' : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง');
+        updateTrackingSheetPeek(vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? 'ยังไม่พบตำแหน่งรถคันนี้' : 'รอรถที่ป้ายต้นทาง'), waitingForExpectedVehicle ? ('คิว ' + (expectedVehicleForPeek.queueNo || '-') + ' · ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' → ' + finalDestination));
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
           'ประมาณ ' + formatEtaDuration(destEta);

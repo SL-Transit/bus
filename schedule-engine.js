@@ -1,9 +1,9 @@
 (function(global) {
   'use strict';
 
-  var BASE_DATE = '2026-06-12';
+  var BASE_DATE = '2026-06-14';
   var ROTATING_VEHICLES = ['car1', 'car2', 'car3', 'car4'];
-  var BASE_CAR_QUEUE = { car1: 3, car2: 1, car3: 2, car4: 4 };
+  var BASE_CAR_QUEUE = { car1: 1, car2: 2, car3: 3, car4: 4 };
 
   var STOP_ALIASES = {
     'klonghat': 'klonghat', 'คลองหาด': 'klonghat',
