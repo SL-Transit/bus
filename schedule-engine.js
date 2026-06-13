@@ -26,19 +26,110 @@
     sanamchai: 'ท่ารถสนามชัยเขต', phanom: 'พนมสารคาม', chachoengsao: 'ฉะเชิงเทรา (แปดริ้ว)'
   };
 
+  var MAIN_ROUTE_TO_CHACHOENGSAO = MAIN_STOP_KEYS.slice();
+  var MAIN_ROUTE_FROM_CHACHOENGSAO = MAIN_STOP_KEYS.slice().reverse();
+
   var QUEUE_TRIPS = [
-    { queueNo: 1, tripIndex: 1, departTime: '09:00', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-    { queueNo: 1, tripIndex: 2, departTime: '11:20', from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao' },
-    { queueNo: 2, tripIndex: 1, departTime: '08:00', from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao' },
-    { queueNo: 2, tripIndex: 2, departTime: '12:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-    { queueNo: 2, tripIndex: 3, departTime: '13:40', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-    { queueNo: 2, tripIndex: 4, departTime: '15:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-    { queueNo: 3, tripIndex: 1, departTime: '06:20', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-    { queueNo: 3, tripIndex: 2, departTime: '09:40', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-    { queueNo: 3, tripIndex: 3, departTime: '12:10', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao', stopTimes: { sanamchai: '12:10', phanom: '12:30', chachoengsao: '13:00' } },
-    { queueNo: 3, tripIndex: 4, departTime: '14:00', from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao' },
-    { queueNo: 4, tripIndex: 1, departTime: '11:30', from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao' },
-    { queueNo: 4, tripIndex: 2, departTime: '16:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' }
+    {
+      queueNo: 1, tripIndex: 1, serviceType: 'normal', departTime: '09:00',
+      from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: ['sanamchai','phanom','chachoengsao'],
+      stopTimes: { sanamchai: '09:00', phanom: '09:20' }
+    },
+    {
+      queueNo: 1, tripIndex: 2, serviceType: 'normal', departTime: '11:20',
+      from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao',
+      routeStops: MAIN_ROUTE_FROM_CHACHOENGSAO,
+      stopTimes: {
+        chachoengsao: '11:20', phanom: '12:00', sanamchai: '12:20', tatakiab: '12:50',
+        nongkhok: '13:05', nongruea: '13:35', khlongtakien: '13:35',
+        phaijit: '13:37', thoengkabintr: '13:43', siyaekkhonom: '13:53'
+      }
+    },
+    {
+      queueNo: 2, tripIndex: 1, serviceType: 'normal', departTime: '08:00',
+      from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: MAIN_ROUTE_TO_CHACHOENGSAO,
+      stopTimes: {
+        klonghat: '08:00', siyaekkhonom: '08:10', thoengkabintr: '08:20',
+        phaijit: '08:30', nongruea: '08:40', khlongtakien: '09:20',
+        nongkhok: '09:30', tatakiab: '09:45', sanamchai: '10:40', phanom: '11:40'
+      }
+    },
+    {
+      queueNo: 2, tripIndex: 2, serviceType: 'normal', departTime: '12:20',
+      from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao',
+      routeStops: ['chachoengsao','phanom','sanamchai'],
+      stopTimes: { chachoengsao: '12:20', phanom: '13:00' }
+    },
+    {
+      queueNo: 2, tripIndex: 3, serviceType: 'normal', departTime: '13:40',
+      from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: ['sanamchai','phanom','chachoengsao'],
+      stopTimes: { sanamchai: '13:40', phanom: '14:30' }
+    },
+    {
+      queueNo: 2, tripIndex: 4, serviceType: 'normal', departTime: '15:20',
+      from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao',
+      routeStops: ['chachoengsao','phanom','sanamchai'],
+      stopTimes: { chachoengsao: '15:20', phanom: '16:00' }
+    },
+    {
+      queueNo: 3, tripIndex: 1, serviceType: 'normal', departTime: '06:20',
+      from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: ['sanamchai','phanom','chachoengsao'],
+      stopTimes: { sanamchai: '06:20', phanom: '06:40' }
+    },
+    {
+      queueNo: 3, tripIndex: 2, serviceType: 'normal', departTime: '09:40',
+      from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao',
+      routeStops: ['chachoengsao','phanom','sanamchai'],
+      stopTimes: { chachoengsao: '09:40' }
+    },
+    {
+      queueNo: 3, tripIndex: 3, serviceType: 'normal', departTime: '12:10',
+      from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: ['sanamchai','phanom','chachoengsao'],
+      stopTimes: { sanamchai: '12:10', phanom: '12:30', chachoengsao: '13:00' }
+    },
+    {
+      queueNo: 3, tripIndex: 4, serviceType: 'normal', departTime: '14:00',
+      from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao',
+      routeStops: MAIN_ROUTE_FROM_CHACHOENGSAO,
+      stopTimes: {
+        chachoengsao: '14:00', phanom: '14:40', sanamchai: '15:00', tatakiab: '15:30',
+        nongkhok: '15:45', nongruea: '16:15', khlongtakien: '16:15',
+        phaijit: '16:17', thoengkabintr: '16:23', siyaekkhonom: '16:33'
+      }
+    },
+    {
+      queueNo: 4, tripIndex: 1, serviceType: 'normal', departTime: '11:30',
+      from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: MAIN_ROUTE_TO_CHACHOENGSAO,
+      stopTimes: {
+        klonghat: '11:30', siyaekkhonom: '12:00', thoengkabintr: '12:10',
+        phaijit: '12:10', nongruea: '12:20', khlongtakien: '12:40',
+        nongkhok: '13:00', tatakiab: '13:15', phanom: '14:30'
+      }
+    },
+    {
+      queueNo: 4, tripIndex: 2, serviceType: 'normal', departTime: '16:20',
+      from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao',
+      routeStops: ['chachoengsao','phanom','sanamchai'],
+      stopTimes: { chachoengsao: '16:20', phanom: '17:00' }
+    },
+    {
+      queueNo: 5, tripIndex: 1, serviceType: 'schedule-only', noLiveTracking: true, scheduleOnly: true,
+      departTime: '06:20', from: 'nongkhok', to: 'chachoengsao', direction: 'to_chachoengsao',
+      routeStops: ['nongkhok','tatakiab','sanamchai','phanom','chachoengsao'],
+      stopTimes: { nongkhok: '06:20', tatakiab: '06:35', sanamchai: '07:20', phanom: '07:40' }
+    },
+    {
+      queueNo: 5, tripIndex: 2, serviceType: 'schedule-only', noLiveTracking: true, scheduleOnly: true,
+      departTime: '17:20', from: 'chachoengsao', to: 'nongkhok', direction: 'from_chachoengsao',
+      routeStops: ['chachoengsao','phanom','sanamchai','tatakiab','nongkhok'],
+      stopTimes: { chachoengsao: '17:20', phanom: '18:00', sanamchai: '18:20', tatakiab: '18:50' }
+    }
   ];
 
   var STOP_TIME_OVERRIDES = [
@@ -107,13 +198,10 @@
   }
 
   function tripCovers(trip, originKey, destKey) {
-    var originIdx = mainStopIndex(originKey);
-    var destIdx = mainStopIndex(destKey);
-    var fromIdx = mainStopIndex(trip.from);
-    var toIdx = mainStopIndex(trip.to);
-    if (originIdx < 0 || destIdx < 0 || fromIdx < 0 || toIdx < 0) return false;
-    if (trip.direction === 'to_chachoengsao') return fromIdx <= originIdx && destIdx <= toIdx;
-    return fromIdx >= originIdx && destIdx >= toIdx;
+    var stops = (trip.routeStops && trip.routeStops.length ? trip.routeStops : routeStopsForTrip(trip)).map(normalizeStopKey);
+    var originIdx = stops.indexOf(originKey);
+    var destIdx = stops.indexOf(destKey);
+    return originIdx >= 0 && destIdx >= 0 && originIdx < destIdx;
   }
 
   function routeStopsForTrip(trip) {
@@ -128,20 +216,24 @@
     var queueNo = Number(data.queueNo || 0);
     var pickupStopKey = normalizeStopKey(data.pickupStop || data.pickupStopKey || data.origin || data.from || '');
     var routeStops = (data.routeStops && data.routeStops.length ? data.routeStops : routeStopsForTrip(data)).map(normalizeStopKey);
-    return {
+    var assignment = {
       serviceDate: serviceDate,
       queueNo: queueNo,
-      plannedVehicleId: vehicleIdForQueueOnDate(queueNo, serviceDate),
+      serviceType: data.serviceType || 'normal',
+      plannedVehicleId: queueNo >= 1 && queueNo <= 4 ? vehicleIdForQueueOnDate(queueNo, serviceDate) : '',
       tripIndex: data.tripIndex,
       departTime: data.departTime,
       pickupTime: data.pickupTime || (data.stopTimes && data.stopTimes[pickupStopKey]) || data.departTime,
       pickupStopKey: pickupStopKey,
       pickupStopName: STOP_NAMES[pickupStopKey] || pickupStopKey,
-      routeDirection: data.direction,
+      routeDirection: data.routeDirection || data.direction,
       routeStops: routeStops,
       routeStopNames: routeStops.map(function(key) { return STOP_NAMES[key] || key; }),
       assignmentSource: data.assignmentSource || 'schedule_engine'
     };
+    if (data.noLiveTracking === true) assignment.noLiveTracking = true;
+    if (data.scheduleOnly === true || data.serviceType === 'schedule-only') assignment.scheduleOnly = true;
+    return assignment;
   }
 
   function findStopTimeOverride(origin, target, departTime) {
@@ -162,11 +254,11 @@
     var transferKey = normalizeStopKey(input.transferPoint || 'chachoengsao');
     var requiresTransfer = !!input.requiresTransfer;
     var target = requiresTransfer ? transferKey : destination;
-    var departTime = String(input.departTime || input.time || input.leg1Time || '').slice(0, 5);
+    var pickupTime = String(input.pickupTime || input.selectedTime || input.time || input.departTime || input.leg1Time || '').slice(0, 5);
     var direction = routeDirection(origin, target);
-    if (!origin || !target || !departTime) return null;
+    if (!origin || !target || !pickupTime) return null;
 
-    var override = findStopTimeOverride(origin, target, departTime);
+    var override = findStopTimeOverride(origin, target, pickupTime);
     if (override) return decorateAssignment(override, serviceDate);
 
     if (!direction) return null;
@@ -174,12 +266,12 @@
     for (var i = 0; i < QUEUE_TRIPS.length; i++) {
       var trip = QUEUE_TRIPS[i];
       var originPickupTime = trip.stopTimes && trip.stopTimes[origin];
-      var timeMatches = trip.departTime === departTime || originPickupTime === departTime;
+      var timeMatches = originPickupTime === pickupTime;
       if (!timeMatches || trip.direction !== direction) continue;
       if (!tripCovers(trip, origin, target)) continue;
       return decorateAssignment(Object.assign({}, trip, {
         pickupStop: origin,
-        pickupTime: originPickupTime || trip.departTime
+        pickupTime: originPickupTime
       }), serviceDate);
     }
     return null;
