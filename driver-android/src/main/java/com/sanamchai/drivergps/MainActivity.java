@@ -844,8 +844,8 @@ public class MainActivity extends Activity {
     private void refreshDiagnostics() {
         if (diagPanel == null) return;
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        if (!enabled || !diagVisible) { diagPanel.setVisibility(android.view.View.GONE); return; }
-        diagPanel.setVisibility(android.view.View.VISIBLE);
+        if (!enabled) { diagPanel.setVisibility(android.view.View.GONE); return; }
+        diagPanel.setVisibility(diagVisible ? android.view.View.VISIBLE : android.view.View.GONE);
 
         // 1. GPS Health
         long lastGpsAt = prefs.getLong(KEY_LAST_GPS_AT, 0);
@@ -910,16 +910,57 @@ public class MainActivity extends Activity {
         if (gpsAgoSec > 90) errSb.append("⚠ GPS หาย กรุณาตรวจสอบสัญญาณ\n");
         if (fbAgoSec > 90)  errSb.append("⚠ Firebase ขาดการเชื่อมต่อ ตรวจสอบอินเทอร์เน็ต\n");
         if (restartCount >= 3) errSb.append("⚠ แอปถูก kill บ่อย ตรวจสอบการตั้งค่า Battery\n");
+        // ===== บันทึกสถิติ "สัญญาณหาย" รายวัน เพื่อดูว่าทำงานครบทั้งวันไหม =====
+        trackDailyUptime(gpsAgoSec > 90, fbAgoSec > 90);
+
         if (errSb.length() > 0) {
             errorText.setText(errSb.toString().trim());
             errorText.setVisibility(android.view.View.VISIBLE);
-            logIssueToFirebase(errSb.toString().trim());
+            logIssueToFirebase(errSb.toString().trim(), gpsAgoSec, fbAgoSec);
         }
+    }
+
+    // ===== สถิติสัญญาณหายรายวัน (เช็คว่าทำงานต่อเนื่องตลอดวันไหม) =====
+    private long lastDailyStatsWriteAt = 0;
+    private void trackDailyUptime(boolean gpsDown, boolean fbDown) {
+        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+        String dateKey = prefs.getString("daily_stats_date", "");
+        int gpsDownSec = prefs.getInt("daily_gps_down_sec", 0);
+        int fbDownSec  = prefs.getInt("daily_fb_down_sec", 0);
+        int activeSec  = prefs.getInt("daily_active_sec", 0);
+        if (!today.equals(dateKey)) {
+            dateKey = today; gpsDownSec = 0; fbDownSec = 0; activeSec = 0;
+        }
+        activeSec += 1; // tick ทุก 1 วินาที (เรียกจาก refreshUi/uiTick)
+        if (gpsDown) gpsDownSec += 1;
+        if (fbDown) fbDownSec += 1;
+        prefs.edit()
+                .putString("daily_stats_date", dateKey)
+                .putInt("daily_gps_down_sec", gpsDownSec)
+                .putInt("daily_fb_down_sec", fbDownSec)
+                .putInt("daily_active_sec", activeSec)
+                .apply();
+
+        long now = System.currentTimeMillis();
+        if (now - lastDailyStatsWriteAt < 30000) return; // เขียนขึ้น Firebase ทุก 30 วินาที
+        lastDailyStatsWriteAt = now;
+        try {
+            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            Map<String, Object> data = new HashMap<>();
+            data.put("date", dateKey);
+            data.put("activeSec", activeSec);
+            data.put("gpsDownSec", gpsDownSec);
+            data.put("fbDownSec", fbDownSec);
+            data.put("updatedAt", now);
+            FirebaseDatabase.getInstance()
+                    .getReference("settings/vehicles/" + vehicleId + "/dailyStats")
+                    .setValue(data);
+        } catch (Exception ignored) {}
     }
 
     // ===== "กล่องดำ" — ส่งบันทึกปัญหาขึ้น Firebase ให้ admin ตรวจสอบได้ =====
     private long lastIssueLogAt = 0;
-    private void logIssueToFirebase(String message) {
+    private void logIssueToFirebase(String message, long gpsAgoSec, long fbAgoSec) {
         long now = System.currentTimeMillis();
         if (now - lastIssueLogAt < 5 * 60 * 1000) return; // กันสแปม ส่งซ้ำห่างกันอย่างน้อย 5 นาที
         lastIssueLogAt = now;
@@ -932,6 +973,40 @@ public class MainActivity extends Activity {
             data.put("timestamp", now);
             data.put("device", Build.MANUFACTURER + " " + Build.MODEL + " (Android " + Build.VERSION.RELEASE + ")");
             data.put("appVersion", BuildConfig.VERSION_NAME);
+            data.put("gpsAgoSec", gpsAgoSec);
+            data.put("fbAgoSec", fbAgoSec);
+            data.put("restartCount", prefs.getInt(KEY_RESTART_COUNT, 0));
+
+            // แบตเตอรี่ %
+            try {
+                android.content.IntentFilter ifilter = new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent batteryStatus = registerReceiver(null, ifilter);
+                if (batteryStatus != null) {
+                    int level = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+                    if (level >= 0 && scale > 0) data.put("batteryPct", Math.round(level * 100f / scale));
+                }
+            } catch (Exception ignored2) {}
+
+            // สถานะ battery optimization
+            if (Build.VERSION.SDK_INT >= 23) {
+                PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                boolean ignored3 = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+                data.put("batteryUnrestricted", ignored3);
+            }
+
+            // ประเภทเน็ตขณะนั้น
+            try {
+                android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+                android.net.NetworkCapabilities caps = cm != null ? cm.getNetworkCapabilities(cm.getActiveNetwork()) : null;
+                String net = "ไม่มีเน็ต";
+                if (caps != null) {
+                    if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)) net = "WiFi";
+                    else if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)) net = "Mobile Data";
+                }
+                data.put("network", net);
+            } catch (Exception ignored4) {}
+
             logRef.setValue(data);
         } catch (Exception ignored) {}
     }
