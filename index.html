@@ -312,6 +312,9 @@
       justify-content: space-between;
       gap: 18px;
     }
+    .footer-top {
+      justify-content: flex-end;
+    }
     .footer-brand {
       margin: 0;
       color: #233a51;
@@ -433,6 +436,7 @@
       .icon-box img { width: 34px; height: 34px; }
       .footer-inner { gap: 11px; }
       .footer-top, .footer-bottom { gap: 14px; }
+      .footer-top { justify-content: flex-end; }
       .footer-nav a:not(:last-child)::after { margin: 0 8px; }
       .footer-right { min-width: 152px; }
       .footer-dbd-block { font-size: 10px; }
@@ -697,12 +701,14 @@
     <footer class="footer" aria-label="ข้อมูลเว็บไซต์">
       <div class="footer-inner">
         <div class="footer-top">
-          <div>
-            <p class="footer-brand">S.L. Transit</p>
-            <p class="footer-subtitle">ระบบช่วยเดินทางสำหรับรถโดยสารท้องถิ่น</p>
-          </div>
-          <div class="footer-right">
+          <div class="footer-right footer-dbd-block" aria-label="DBD Registered">
             <p class="footer-dbd-heading">DBD Registered</p>
+            <div class="dbd-footer">
+              <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
+                <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
+              </a>
+              <p>เว็บไซต์นี้ได้รับเครื่องหมาย DBD Registered<br>จากกรมพัฒนาธุรกิจการค้า</p>
+            </div>
           </div>
         </div>
 
@@ -715,18 +721,7 @@
         </nav>
 
         <div class="footer-bottom">
-          <div>
-            <p class="footer-copy">© 2026 S.L. Transit</p>
-          </div>
-          <div class="footer-right footer-dbd-block" aria-label="DBD Registered">
-            <p class="footer-dbd-heading">DBD Registered</p>
-            <div class="dbd-footer">
-              <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
-                <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
-              </a>
-              <p>เว็บไซต์นี้ได้รับเครื่องหมาย DBD Registered<br>จากกรมพัฒนาธุรกิจการค้า</p>
-            </div>
-          </div>
+          <p class="footer-copy">© 2026 S.L. Transit</p>
         </div>
       </div>
     </footer>
