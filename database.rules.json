@@ -6,7 +6,8 @@
     },
     "bookings": {
       ".read": true,
-      ".write": true
+      ".write": true,
+      ".indexOn": ["dupKey", "date"]
     },
     "settings": {
       ".read": true,
@@ -26,7 +27,7 @@
     },
     "bus": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": true
     },
     "line_sent": {
       ".read": "auth != null",
@@ -61,6 +62,14 @@
       ".write": true
     },
     "mockLogs": {
+      ".read": "auth != null",
+      ".write": true
+    },
+    "driverLogs": {
+      ".read": "auth != null",
+      ".write": true
+    },
+    "sosAlerts": {
       ".read": "auth != null",
       ".write": true
     }
