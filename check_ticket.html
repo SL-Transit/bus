@@ -62,6 +62,9 @@
 
     .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
     .pill { color: var(--navy); background: #effcff; border: 1px solid rgba(0,167,181,.28); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
+    .dbd-top-badge { display: inline-flex; align-items: center; justify-content: center; line-height: 0; text-decoration: none; }
+    .dbd-top-badge img { display: block; width: 72px; max-width: 72px; height: auto; border: 0; object-fit: contain; }
+    @media (max-width: 640px) { .dbd-top-badge img { width: 64px; max-width: 64px; } }
     .test-mode-strip { display: none; margin-bottom: 14px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 8px; padding: 11px 14px; font-size: 15px; font-weight: 700; text-align: center; }
     .panel {
       background: var(--card);
@@ -445,7 +448,7 @@
   <main class="wrap">
     <div class="topbar">
       <a class="back" href="index.html">‹ กลับหน้าแรก</a>
-      <div class="pill">S.L.Transit Ticket Center</div>
+      <a class="dbd-top-badge" href="https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20" target="_blank" rel="noopener" aria-label="DBD Registered"><img src="https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20" alt="DBD Registered"></a>
     </div>
     <div id="testModeStatus" class="test-mode-status">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และอ่าน/เขียนเฉพาะข้อมูลทดสอบ</div>
 
@@ -571,14 +574,7 @@
         🚫 ยกเลิกตั๋ว (ขั้นตอนที่ 1/2)
       </button>
     </section>
-
-<footer class="dbd-footer" aria-label="DBD Registered">
-  <a href='https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' target="_blank" rel="noopener">
-    <img src='https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20' alt="DBD Registered">
-  </a>
-  <p>เว็บไซต์ S.L. Transit ได้รับเครื่องหมาย DBD Registered จากกรมพัฒนาธุรกิจการค้า</p>
-</footer>
-  </main>
+</main>
 
   <div id="cancelModal" class="modal hidden">
     <div class="modal-card">
