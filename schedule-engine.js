@@ -249,8 +249,8 @@
   function resolveTripAssignment(input) {
     input = input || {};
     var serviceDate = input.serviceDate || input.date || '';
-    var origin = normalizeStopKey(input.origin || input.from);
-    var destination = normalizeStopKey(input.destination || input.to);
+    var origin = normalizeStopKey(input.originStopKey || input.origin || input.from);
+    var destination = normalizeStopKey(input.destinationStopKey || input.destination || input.to);
     var transferKey = normalizeStopKey(input.transferPoint || 'chachoengsao');
     var requiresTransfer = !!input.requiresTransfer;
     var target = requiresTransfer ? transferKey : destination;
