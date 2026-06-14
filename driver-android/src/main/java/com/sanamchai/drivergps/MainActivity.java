@@ -84,6 +84,7 @@ public class MainActivity extends Activity {
     private TextView diagPanel;
     private TextView diagToggle;
     private TextView updateBadge;
+    private TextView versionLabel;
     private boolean diagVisible;
 
     private String lastCoords = "";
@@ -105,7 +106,9 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
-            prefs.edit().putString(KEY_VEHICLE_ID, VEHICLE_IDS[0]).apply();
+            // ติดตั้งใหม่ — เช็ค Firebase ว่า car ไหนว่างอยู่ แล้ว auto-select
+            prefs.edit().putString(KEY_VEHICLE_ID, VEHICLE_IDS[0]).apply(); // default ชั่วคราว
+            autoSelectAvailableVehicle();
         }
         initFirebaseListener();
         buildUi();
@@ -121,7 +124,44 @@ public class MainActivity extends Activity {
         reportVersionToFirebase();
     }
 
-    // ===== รายงานเวอร์ชันแอพปัจจุบันไปที่ Firebase ให้ admin ดูได้ว่ารถไหนยังไม่อัพเดท =====
+    // ===== เลือก car ที่ว่างอัตโนมัติตอนติดตั้งใหม่ =====
+    private void autoSelectAvailableVehicle() {
+        long staleMs = 30 * 60 * 1000; // ถือว่า "ว่าง" ถ้าไม่มีการส่งสัญญาณนานกว่า 30 นาที
+        long now = System.currentTimeMillis();
+        FirebaseDatabase.getInstance().getReference("liveVehicles")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                for (String id : VEHICLE_IDS) {
+                    DataSnapshot v = snap.child(id);
+                    boolean online = Boolean.TRUE.equals(v.child("online").getValue(Boolean.class));
+                    Long ts = v.child("sentTs").getValue(Long.class);
+                    boolean recentlyActive = ts != null && (now - ts) < staleMs;
+                    if (!online && !recentlyActive) {
+                        // เจอ car ที่ว่าง — ตั้งค่าและอัพเดท UI
+                        prefs.edit().putString(KEY_VEHICLE_ID, id).apply();
+                        runOnUiThread(() -> {
+                            if (vehiclePickerText != null)
+                                vehiclePickerText.setText(id + "  ▾");
+                            if (versionLabel != null)
+                                versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + id + ")");
+                        });
+                        return;
+                    }
+                }
+                // ถ้าทุก car ถูกใช้อยู่ — คง car1 ไว้แต่แสดงเตือน
+                runOnUiThread(() -> {
+                    if (vehiclePickerText != null)
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("⚠️ รถทุกคันถูกใช้งานอยู่")
+                                .setMessage("กรุณาเลือกรหัสรถด้วยตนเอง")
+                                .setPositiveButton("ตกลง", null).show();
+                });
+            }
+            @Override public void onCancelled(DatabaseError e) {}
+        });
+    }
+
+
     private void reportVersionToFirebase() {
         try {
             String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
@@ -472,7 +512,7 @@ public class MainActivity extends Activity {
         headerLp.setMargins(0, 0, 0, dp(16));
         root.addView(headerRow, headerLp);
 
-        TextView versionLabel = new TextView(this);
+        versionLabel = new TextView(this);
         versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + ")");
         versionLabel.setTextColor(Color.rgb(110, 140, 170));
         versionLabel.setTextSize(11);
@@ -923,38 +963,45 @@ public class MainActivity extends Activity {
     // ===== สถิติสัญญาณหายรายวัน (เช็คว่าทำงานต่อเนื่องตลอดวันไหม) =====
     private long lastDailyStatsWriteAt = 0;
     private void trackDailyUptime(boolean gpsDown, boolean fbDown) {
-        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        String dateKey = prefs.getString("daily_stats_date", "");
-        int gpsDownSec = prefs.getInt("daily_gps_down_sec", 0);
-        int fbDownSec  = prefs.getInt("daily_fb_down_sec", 0);
-        int activeSec  = prefs.getInt("daily_active_sec", 0);
-        if (!today.equals(dateKey)) {
-            dateKey = today; gpsDownSec = 0; fbDownSec = 0; activeSec = 0;
-        }
-        activeSec += 1; // tick ทุก 1 วินาที (เรียกจาก refreshUi/uiTick)
-        if (gpsDown) gpsDownSec += 1;
-        if (fbDown) fbDownSec += 1;
-        prefs.edit()
-                .putString("daily_stats_date", dateKey)
-                .putInt("daily_gps_down_sec", gpsDownSec)
-                .putInt("daily_fb_down_sec", fbDownSec)
-                .putInt("daily_active_sec", activeSec)
-                .apply();
-
-        long now = System.currentTimeMillis();
-        if (now - lastDailyStatsWriteAt < 30000) return; // เขียนขึ้น Firebase ทุก 30 วินาที
-        lastDailyStatsWriteAt = now;
         try {
-            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-            Map<String, Object> data = new HashMap<>();
-            data.put("date", dateKey);
-            data.put("activeSec", activeSec);
-            data.put("gpsDownSec", gpsDownSec);
-            data.put("fbDownSec", fbDownSec);
-            data.put("updatedAt", now);
-            FirebaseDatabase.getInstance()
-                    .getReference("settings/vehicles/" + vehicleId + "/dailyStats")
-                    .setValue(data);
+            String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+            String dateKey = prefs.getString("daily_stats_date", "");
+            int gpsDownSec = prefs.getInt("daily_gps_down_sec", 0);
+            int fbDownSec  = prefs.getInt("daily_fb_down_sec", 0);
+            int activeSec  = prefs.getInt("daily_active_sec", 0);
+            if (!today.equals(dateKey)) {
+                dateKey = today; gpsDownSec = 0; fbDownSec = 0; activeSec = 0;
+            }
+            activeSec += 1;
+            if (gpsDown) gpsDownSec += 1;
+            if (fbDown)  fbDownSec  += 1;
+
+            // เขียน SharedPreferences ทุก 10 วินาที (ไม่ใช่ทุก 1 วินาที — ลด I/O บน Android รุ่นเก่า)
+            if (activeSec % 10 == 0) {
+                prefs.edit()
+                        .putString("daily_stats_date", dateKey)
+                        .putInt("daily_gps_down_sec", gpsDownSec)
+                        .putInt("daily_fb_down_sec",  fbDownSec)
+                        .putInt("daily_active_sec",   activeSec)
+                        .apply();
+            }
+
+            // เขียนขึ้น Firebase ทุก 30 วินาที
+            long now = System.currentTimeMillis();
+            if (now - lastDailyStatsWriteAt < 30000) return;
+            lastDailyStatsWriteAt = now;
+            try {
+                String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+                Map<String, Object> data = new HashMap<>();
+                data.put("date", dateKey);
+                data.put("activeSec", activeSec);
+                data.put("gpsDownSec", gpsDownSec);
+                data.put("fbDownSec",  fbDownSec);
+                data.put("updatedAt",  now);
+                FirebaseDatabase.getInstance()
+                        .getReference("settings/vehicles/" + vehicleId + "/dailyStats")
+                        .setValue(data);
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
     }
 
@@ -977,10 +1024,11 @@ public class MainActivity extends Activity {
             data.put("fbAgoSec", fbAgoSec);
             data.put("restartCount", prefs.getInt(KEY_RESTART_COUNT, 0));
 
-            // แบตเตอรี่ %
+            // แบตเตอรี่ % — อ่านจาก sticky broadcast (ปลอดภัยบน Android 14+)
             try {
-                android.content.IntentFilter ifilter = new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-                Intent batteryStatus = registerReceiver(null, ifilter);
+                Intent batteryStatus = getApplicationContext()
+                        .registerReceiver(null,
+                                new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
                 if (batteryStatus != null) {
                     int level = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
                     int scale = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
