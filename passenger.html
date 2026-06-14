@@ -697,6 +697,12 @@ const CONFIRMED_TO_CHACHOENGSAO_TIMES = {
   'หนองคอก': ['06:20','09:30','13:00']
 };
 
+const CONFIRMED_PAIR_TIMES = {
+  'หนองคอก': {
+    'คลองหาด': ['13:05','15:45']
+  }
+};
+
 // LEG2: เส้นทางต่อรถผ่านฉะเชิงเทรา (แปดริ้ว)
 // leg2Times = เวลาออกจากขนส่งฉะเชิงเทรา
 // leg2Label = กลุ่มที่แสดงใน dropdown
@@ -1089,6 +1095,9 @@ function isMainRouteLabel(label) {
 function getPairTimes(from, to) {
   if (to === 'ฉะเชิงเทรา (แปดริ้ว)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
     return CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice();
+  }
+  if (CONFIRMED_PAIR_TIMES[from] && CONFIRMED_PAIR_TIMES[from][to]) {
+    return CONFIRMED_PAIR_TIMES[from][to].slice();
   }
   if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to];
   return null;
