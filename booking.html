@@ -140,7 +140,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
 .consent-scroll-hint{font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px;transition:opacity .3s;}
 .consent-btn-accept{width:100%;padding:15px;border-radius:13px;border:none;background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,167,181,.25);}
 .consent-btn-accept:disabled{background:#94a3b8;box-shadow:none;cursor:not-allowed;}
-.consent-btn-cancel{width:100%;padding:11px;border-radius:13px;border:2px solid var(--border);background:#fff;color:var(--muted);font-family:'Kanit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
+.consent-btn-cancel{width:100%;padding:11px;border-radius:13px;border:2px solid #e2e8f0;background:#fff;color:#64748b;font-family:'Kanit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
 .consent-trigger-btn{width:100%;padding:14px;border-radius:13px;border:2px solid var(--accent);background:#effcff;color:var(--navy);font-family:'Kanit',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;}
 .consent-trigger-btn.accepted{background:#f0fdf4;border-color:#22c55e;color:#16a34a;}
 .transfer-note{font-size:12px;color:var(--red);line-height:1.7;margin-top:10px;padding:10px 12px;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;}
@@ -456,9 +456,10 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
       <div class="summary-row total"><span>💰 ยอดชำระทั้งหมด</span><span class="val" id="sumTotal2">-</span></div>
     </div>
 
-    <button class="consent-trigger-btn" id="consentTriggerBtn" onclick="openConsentPopup()">
-      📋 อ่านและยอมรับข้อตกลงการใช้บริการ
-    </button>
+    <!-- สถานะ consent แสดงผล -->
+    <div id="consentStatusBar" style="display:none;background:#f0fdf4;border:1.5px solid #22c55e;border-radius:13px;padding:12px 15px;margin-bottom:14px;font-size:13px;color:#16a34a;font-weight:600;">
+      ✅ อ่านและยอมรับข้อตกลงแล้ว
+    </div>
 
     <!-- CONSENT POPUP -->
     <div class="consent-popup-overlay" id="consentPopupOverlay">
@@ -474,7 +475,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
         <div class="consent-popup-footer">
           <div class="consent-scroll-hint" id="consentScrollHint">⬇️ เลื่อนอ่านจนสุดก่อนกดยืนยัน</div>
           <button class="consent-btn-accept" id="consentBtnAccept" onclick="acceptConsent()" disabled>✅ ข้าพเจ้าอ่านและยอมรับข้อตกลงทั้งหมด</button>
-          <button class="consent-btn-cancel" onclick="closeConsentPopup()">ปิด</button>
+          <button class="consent-btn-cancel" onclick="declineConsent()">← ยกเลิกและย้อนกลับ</button>
         </div>
       </div>
     </div>
@@ -1820,6 +1821,9 @@ function _navigatePage(p) {
   document.getElementById('page' + p).classList.add('active');
   updateSteps(p);
   window.scrollTo(0, 0);
+  if (p === 3 && !_consentAccepted) {
+    openConsentPopup();
+  }
 }
 
 function updateSteps(p) {
@@ -2109,20 +2113,20 @@ function openConsentPopup() {
         var parser = new DOMParser();
         var doc = parser.parseFromString(html, 'text/html');
         var policySection = doc.getElementById('policy');
-        var content = '';
+        var policyContent = '';
         if (policySection) {
           var full = policySection.querySelector('.policy-full');
-          content = full ? full.innerHTML : policySection.innerHTML;
+          policyContent = full ? full.innerHTML : policySection.innerHTML;
         }
         document.getElementById('consentLoading').style.display = 'none';
         var contentEl = document.getElementById('consentPolicyContent');
-        contentEl.innerHTML = content || '<p>ไม่สามารถโหลดข้อความนโยบายได้ กรุณาเปิด <a href="info.html#policy" target="_blank">info.html</a> เพื่ออ่านนโยบาย</p>';
+        contentEl.innerHTML = policyContent || '<p>ไม่สามารถโหลดข้อความนโยบายได้ กรุณาเปิด <a href="info.html#policy" target="_blank">info.html</a> เพื่ออ่านนโยบาย</p>';
         contentEl.style.display = 'block';
         _consentLoaded = true;
         body.dispatchEvent(new Event('scroll'));
       })
       .catch(function() {
-        document.getElementById('consentLoading').innerHTML = '⚠️ โหลดไม่ได้ กรุณา <a href="info.html#policy" target="_blank" style="color:var(--accent)">คลิกอ่านที่นี่</a> แล้วกลับมากด ปิด แล้วลองใหม่';
+        document.getElementById('consentLoading').innerHTML = '⚠️ โหลดไม่ได้ กรุณา <a href="info.html#policy" target="_blank" style="color:var(--accent)">คลิกอ่านที่นี่</a> แล้วกลับมาลองใหม่';
       });
   }
 }
@@ -2132,11 +2136,16 @@ function closeConsentPopup() {
   if (overlay) overlay.classList.remove('show');
 }
 
+function declineConsent() {
+  closeConsentPopup();
+  _navigatePage(2);
+}
+
 function acceptConsent() {
   _consentAccepted = true;
   closeConsentPopup();
-  var btn = document.getElementById('consentTriggerBtn');
-  if (btn) { btn.classList.add('accepted'); btn.textContent = '✅ ยอมรับข้อตกลงแล้ว'; }
+  var bar = document.getElementById('consentStatusBar');
+  if (bar) bar.style.display = 'block';
 }
 
 // ===== SUBMIT =====
@@ -2754,8 +2763,8 @@ function newBooking() {
   document.getElementById('routeTo').value = 'sanamchai';
   _consentAccepted = false;
   _consentLoaded = false;
-  var _cBtn = document.getElementById('consentTriggerBtn');
-  if (_cBtn) { _cBtn.classList.remove('accepted'); _cBtn.textContent = '📋 อ่านและยอมรับข้อตกลงการใช้บริการ'; }
+  var _cBar = document.getElementById('consentStatusBar');
+  if (_cBar) _cBar.style.display = 'none';
   applyPaymentModeUI();
   applyBookingAvailability();
   renderTimes();
