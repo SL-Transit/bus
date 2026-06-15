@@ -190,6 +190,14 @@ tr:hover td{background:#fafafa;}
 .chip{display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;}
 .chip .cx{cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;font-weight:400;}
 .chip .cx:hover{color:var(--red);}
+.chip.chip-off{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;text-decoration:line-through;}
+.chip-row-preview{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.route-search-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+.route-search-bar input{flex:1;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-family:'Kanit',sans-serif;font-size:13px;outline:none;background:#fff;}
+.route-search-bar input:focus{border-color:var(--blue);}
+.route-search-clear{font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;}
+.route-search-clear:hover{color:var(--red);border-color:#fecaca;}
+.route-search-empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 10px;}
 .route-section-label{font-size:11px;font-weight:700;color:var(--navy);margin:2px 0 7px;}
 .time-edit-list{display:grid;gap:7px;margin-bottom:8px;}
 .time-edit-row{display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:8px;}
@@ -471,6 +479,10 @@ tr:hover td{background:#fafafa;}
         <button class="btn btn-primary btn-sm" onclick="saveAppUpdate()">&#x1F4BE; บันทึกเวอร์ชันอัพเดท</button>
       </div>
       <div class="card"><h2>&#x1F5FA;&#xFE0F; กลุ่มเส้นทาง</h2>
+        <div class="route-search-bar">
+          <input type="text" id="routeSearchInput" placeholder="ค้นหาเส้นทาง เช่น สนามชัยเขต, ทุ่งกบินทร์..." oninput="onRouteSearchInput(this.value)">
+          <span class="route-search-clear" id="routeSearchClear" onclick="clearRouteSearch()" style="display:none">&#x2715; ล้าง</span>
+        </div>
         <div id="routeGroupsWrap"></div>
         <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
           <button class="btn btn-dark btn-sm" onclick="addRouteGroup()">+ กลุ่มเส้นทางใหม่</button>
@@ -610,7 +622,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',PAYMENT_BANK='ธนาคารกสิกรไทย (KBank)',PAYMENT_ACCOUNT='',PAYMENT_ACCOUNT_NAME='',BOOKING_CUTOFF_MINUTES=60,TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={};
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={},routeFilterText='';
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -1182,12 +1194,23 @@ function getDefaultRoutes(){
     ]}
   };
 }
+function routeMatchesFilter(r,q){
+  if(!q)return true;
+  var hay=(String(r.from||'')+' '+String(r.to||'')).toLowerCase();
+  return hay.indexOf(q)!==-1;
+}
 function renderRouteGroups(){
   routeData=normalizeRouteGroups(routeData);
   var html='';
+  var q=String(routeFilterText||'').trim().toLowerCase();
+  var anyMatch=false;
   Object.entries(routeData).forEach(function(entry,gi){
     var gname=entry[0],gdata=entry[1];
     if(!gdata.routes)gdata.routes=[];
+    var groupHasMatch=!q||gdata.routes.some(function(r){return routeMatchesFilter(r,q);});
+    if(q&&!groupHasMatch)return;
+    if(groupHasMatch)anyMatch=true;
+    var forceOpen=!!q&&groupHasMatch;
     html+='<div class="rgroup"><div class="rgroup-header" onclick="toggleRG('+gi+')">';
     html+='<span class="rg-title">'+esc(gname)+'</span><span class="rg-count">'+gdata.routes.length+' เส้นทาง</span>';
     html+='<label class="stop-close-control" onclick="event.stopPropagation()"><input type="checkbox" '+(gdata.isActive===false?'':'checked')+' onchange="setRouteGroupActive(\''+esc(gname)+'\',this.checked)"> ใช้งานกลุ่ม</label>';
@@ -1195,24 +1218,43 @@ function renderRouteGroups(){
     html+='<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveRouteGroup('+gi+',1)">▼</button>';
     html+='<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();renameRouteGroup(\''+esc(gname)+'\')">แก้ชื่อ</button>';
     html+='<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDel(\'ลบกลุ่มเส้นทาง &ldquo;'+esc(gname)+'&rdquo;?\',function(){deleteRouteGroup(\''+esc(gname)+'\')})">\ud83d\uddd1\ufe0f ลบกลุ่ม</button>';
-    html+='</div><div class="rgroup-body '+(openRouteGroups[gname]?'open':'')+'" id="rgb_'+gi+'">';
+    html+='</div><div class="rgroup-body '+((openRouteGroups[gname]||forceOpen)?'open':'')+'" id="rgb_'+gi+'">';
     if(isMainRouteGroup(gname,gdata)){
       groupMainRoutesByOrigin(gdata.routes).forEach(function(subgroup,si){
+        var visibleItems=q?subgroup.routes.filter(function(item){return routeMatchesFilter(item.route,q);}):subgroup.routes;
+        if(q&&!visibleItems.length)return;
         var subgroupKey=mainSubgroupKey(subgroup.name);
-        var subgroupOpen=openMainSubgroups[subgroupKey]!==false;
+        var subgroupOpen=q?true:(openMainSubgroups[subgroupKey]!==false);
         html+='<div class="route-subgroup"><div class="route-subgroup-header" onclick="toggleMainSubgroup(\''+esc(subgroupKey)+'\')">';
-        html+='<span class="route-subgroup-title">'+esc(subgroup.name)+'</span><span class="route-subgroup-count">'+subgroup.routes.length+' เส้นทาง</span><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleMainSubgroup(\''+esc(subgroupKey)+'\')">'+(subgroupOpen?'▲':'▼')+'</button>';
+        html+='<span class="route-subgroup-title">'+esc(subgroup.name)+'</span><span class="route-subgroup-count">'+visibleItems.length+' เส้นทาง</span><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleMainSubgroup(\''+esc(subgroupKey)+'\')">'+(subgroupOpen?'▲':'▼')+'</button>';
         html+='</div><div class="route-subgroup-body '+(subgroupOpen?'open':'')+'">';
-        subgroup.routes.forEach(function(item){html+=renderRouteRow(gname,gdata,item.route,item.index,gi);});
+        visibleItems.forEach(function(item){html+=renderRouteRow(gname,gdata,item.route,item.index,gi);});
         html+='</div></div>';
       });
     }else{
-      gdata.routes.forEach(function(r,ri){html+=renderRouteRow(gname,gdata,r,ri,gi);});
+      gdata.routes.forEach(function(r,ri){
+        if(q&&!routeMatchesFilter(r,q))return;
+        html+=renderRouteRow(gname,gdata,r,ri,gi);
+      });
     }
     html+='<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-dark btn-sm" onclick="addRoute(\''+esc(gname)+'\')">+ เพิ่มเส้นทาง</button><button class="btn btn-primary btn-sm" onclick="addPlaceToGroup(\''+esc(gname)+'\')">+ เพิ่มสถานที่ในกลุ่ม</button></div>';
     html+='</div></div>';
   });
+  if(q&&!anyMatch){
+    html='<div class="route-search-empty">ไม่พบเส้นทางที่ตรงกับ "'+esc(routeFilterText)+'"</div>';
+  }
   document.getElementById('routeGroupsWrap').innerHTML=html;
+}
+function onRouteSearchInput(val){
+  routeFilterText=val;
+  document.getElementById('routeSearchClear').style.display=val?'inline-block':'none';
+  renderRouteGroups();
+}
+function clearRouteSearch(){
+  routeFilterText='';
+  document.getElementById('routeSearchInput').value='';
+  document.getElementById('routeSearchClear').style.display='none';
+  renderRouteGroups();
 }
 function isMainRouteGroup(gname,gdata){return (gdata&&gdata.id)==='main'||gname==='เส้นทางหลัก';}
 var MAIN_ROUTE_ORDER=['แปดริ้ว','ฉะเชิงเทรา','พนมสารคาม','ท่ารถสนามชัยเขต','ท่าตะเกียบ','หนองคอก','คลองตะเคียน','หนองเรือ','ไพจิตร','ทุ่งกบินทร์','สี่แยกโคนม','สี่แยกโจนม','คลองหาด'];
@@ -1254,6 +1296,17 @@ function renderRouteRow(gname,gdata,r,ri,gi){
   html+='<button class="btn btn-dark btn-sm" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">แก้ไข</button>';
   html+='<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">ลบ</button>';
   html+='</div></div>';
+  if(!scheduleOpen){
+    var times=r.times||[];
+    if(times.length){
+      html+='<div class="chip-row-preview">'+times.map(function(t){
+        var bookingOn=isTimeBookingEnabled(r,t);
+        return '<span class="chip'+(bookingOn?'':' chip-off')+'" title="'+(bookingOn?'เปิดจอง':'ปิดจอง')+' (คลิก \u201cตารางเวลา\u201d เพื่อแก้ไข)">'+esc(formatTimeForDisplay(t))+'</span>';
+      }).join('')+'</div>';
+    }else{
+      html+='<div class="chip-row-preview"><span class="route-section-label" style="margin:0;color:var(--muted);font-weight:600;">ยังไม่มีเวลาออกเดินทาง</span></div>';
+    }
+  }
   if(scheduleOpen){
     html+='<div class="route-schedule-panel"><div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
       var bookingOn=isTimeBookingEnabled(r,t);
