@@ -814,75 +814,13 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33 &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             permissions.add(Manifest.permission.POST_NOTIFICATIONS);
-        if (permissions.isEmpty()) {
-            checkAndRequestHighAccuracyMode();
-        } else requestPermissions(permissions.toArray(new String[0]), 10);
-    }
-
-    // ===== เช็ค Location Mode — ต้องเป็น High Accuracy เท่านั้น =====
-    // ป้องกัน HONOR/Xiaomi ตัด GPS ขณะแอพทำงานพื้นหลัง
-    private void checkAndRequestHighAccuracyMode() {
-        try {
-            int mode = android.provider.Settings.Secure.getInt(
-                    getContentResolver(),
-                    android.provider.Settings.Secure.LOCATION_MODE);
-            // LOCATION_MODE_HIGH_ACCURACY = 3
-            if (mode != android.provider.Settings.Secure.LOCATION_MODE_HIGH_ACCURACY) {
-                // โหมดไม่ถูก — แจ้งเตือนและพาไปตั้งค่าเอง
-                new AlertDialog.Builder(this)
-                        .setTitle("⚠️ ต้องเปิด GPS แบบแม่นยำสูง")
-                        .setMessage("กรุณาเปลี่ยนโหมด Location เป็น \"ความแม่นยำสูง\" (High Accuracy)\n\nเพื่อให้ GPS ทำงานได้ต่อเนื่องขณะขับรถ\n\nกด \"ไปตั้งค่า\" แล้วเลือก \"ความแม่นยำสูง\"")
-                        .setCancelable(false)
-                        .setPositiveButton("ไปตั้งค่า", (d, w) -> {
-                            startActivityForResult(
-                                    new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS),
-                                    50);
-                        })
-                        .setNegativeButton("ข้ามไปก่อน", (d, w) -> startGpsService())
-                        .show();
-                return;
-            }
-        } catch (Exception ignored) {}
-        startGpsService();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 50) {
-            // กลับจากหน้า Location Settings — เช็คอีกรอบ
-            try {
-                int mode = android.provider.Settings.Secure.getInt(
-                        getContentResolver(),
-                        android.provider.Settings.Secure.LOCATION_MODE);
-                if (mode == android.provider.Settings.Secure.LOCATION_MODE_HIGH_ACCURACY) {
-                    startGpsService();
-                } else {
-                    // ยังไม่เปลี่ยน — แจ้งเตือนอีกครั้ง
-                    new AlertDialog.Builder(this)
-                            .setTitle("⚠️ ยังไม่ได้เปลี่ยนโหมด")
-                            .setMessage("GPS อาจหายระหว่างขับรถ กรุณาเปลี่ยนเป็น \"ความแม่นยำสูง\" เพื่อให้ระบบทำงานได้ถูกต้อง")
-                            .setPositiveButton("ไปตั้งค่าอีกครั้ง", (d, w) ->
-                                    startActivityForResult(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS), 50))
-                            .setNegativeButton("ใช้งานต่อ", (d, w) -> startGpsService())
-                            .show();
-                }
-            } catch (Exception ignored) {
-                startGpsService();
-            }
-            return;
-        }
-        // QR scanner result
-        com.google.zxing.integration.android.IntentResult result =
-                com.google.zxing.integration.android.IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null && result.getContents() != null) {
-            handleScannedTicket(result.getContents().trim());
-        }
+        if (permissions.isEmpty()) startGpsService();
+        else requestPermissions(permissions.toArray(new String[0]), 10);
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grants) {
         super.onRequestPermissionsResult(requestCode, permissions, grants);
-        if (requestCode == 10 && hasLocationPermission()) checkAndRequestHighAccuracyMode();
+        if (requestCode == 10 && hasLocationPermission()) startGpsService();
         else if (requestCode == 30) {
             if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED) openQrScanner();
         }
