@@ -43,6 +43,10 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 
 public class GpsService extends Service implements SensorEventListener {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
@@ -103,6 +107,9 @@ public class GpsService extends Service implements SensorEventListener {
 
     // ===== Wake Lock =====
     private PowerManager.WakeLock wakeLock;
+
+    // ===== Network Callback =====
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     // ===== Accelerometer Dead Reckoning =====
     // ใช้ accelerometer ประมาณตำแหน่งระหว่าง GPS gap แทน GPS ที่มาช้า
@@ -278,6 +285,73 @@ public class GpsService extends Service implements SensorEventListener {
         }
     };
 
+    // ===== GPS Watchdog: ตรวจจับ GPS หายเงียบ แล้วขอ location ใหม่ทันที =====
+    private static final long GPS_STALE_MS = 90000; // GPS ไม่มาเกิน 90 วิ ถือว่าหาย
+    private final Runnable gpsWatchdog = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            if (lastGpsUpdateAt > 0) {
+                long gpsAgoMs = System.currentTimeMillis() - lastGpsUpdateAt;
+                if (gpsAgoMs > GPS_STALE_MS) {
+                    Log.w(TAG, "GPS หาย " + (gpsAgoMs / 1000) + "s — recreate FusedLocationClient");
+                    // recreate FusedLocationClient ใหม่ทั้งหมด เหมือน restart GPS
+                    try {
+                        fusedClient.removeLocationUpdates(fusedCallback);
+                    } catch (Exception ignored) {}
+                    fusedClient = LocationServices.getFusedLocationProviderClient(GpsService.this);
+                    currentGpsRequestMs = 0;
+                    currentNetRequestMs = 0;
+                    configureLocationRequests(true);
+                    Log.d(TAG, "GPS watchdog: recreated FusedLocationClient");
+                }
+            }
+            handler.postDelayed(this, GPS_STALE_MS / 3); // เช็คทุก 30 วิ
+        }
+    };
+
+    private void registerNetworkCallback() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            if (cm == null) return;
+            unregisterNetworkCallback();
+            networkCallback = new ConnectivityManager.NetworkCallback() {
+                @Override public void onAvailable(Network network) {
+                    handler.post(() -> {
+                        if (!running) return;
+                        Log.d(TAG, "NetworkCallback: เน็ตกลับมา — force reconnect Firebase");
+                        try {
+                            FirebaseDatabase.getInstance().goOffline();
+                            FirebaseDatabase.getInstance().goOnline();
+                        } catch (Exception ignored) {}
+                        lastLocationSentAt = System.currentTimeMillis();
+                    });
+                }
+                @Override public void onLost(Network network) {
+                    handler.post(() -> {
+                        if (!running) return;
+                        Log.w(TAG, "NetworkCallback: เน็ตหาย");
+                    });
+                }
+            };
+            NetworkRequest req = new NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build();
+            cm.registerNetworkCallback(req, networkCallback);
+        } catch (Exception e) {
+            Log.e(TAG, "registerNetworkCallback failed: " + e.getMessage());
+        }
+    }
+
+    private void unregisterNetworkCallback() {
+        try {
+            if (networkCallback != null) {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+                if (cm != null) cm.unregisterNetworkCallback(networkCallback);
+                networkCallback = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void initFusedCallback() {
         fusedCallback = new LocationCallback() {
             @Override public void onLocationResult(LocationResult result) {
@@ -412,8 +486,11 @@ public class GpsService extends Service implements SensorEventListener {
             FirebaseDatabase.getInstance().goOnline();
         } catch (Exception ignored) {}
         acquireWakeLock();
+        registerNetworkCallback();
         handler.removeCallbacks(connectionWatchdog);
+        handler.removeCallbacks(gpsWatchdog);
         handler.postDelayed(connectionWatchdog, WATCHDOG_CHECK_MS);
+        handler.postDelayed(gpsWatchdog, GPS_STALE_MS / 3);
         if (running) {
             setupDisconnectHandlers(); sendHeartbeat();
             handler.removeCallbacks(heartbeatTick);
@@ -477,6 +554,8 @@ public class GpsService extends Service implements SensorEventListener {
                 .putString(MainActivity.KEY_LAST_STATUS, "stopped").apply();
         handler.removeCallbacks(heartbeatTick);
         handler.removeCallbacks(connectionWatchdog);
+        handler.removeCallbacks(gpsWatchdog);
+        unregisterNetworkCallback();
         try { fusedClient.removeLocationUpdates(fusedCallback); } catch (Exception ignored) {}
         currentGpsRequestMs = 0;
         currentNetRequestMs = 0;
