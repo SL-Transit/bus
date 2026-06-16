@@ -167,14 +167,26 @@ tr:hover td{background:#fafafa;}
 .rg-count{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:999px;padding:1px 8px;}
 .rgroup-body{padding:12px 14px;display:none;}
 .rgroup-body.open{display:block;}
-.route-row{padding:14px;background:#fff;border-radius:8px;margin-bottom:10px;border:1px solid var(--border);}
-.route-line{display:grid;grid-template-columns:minmax(180px,1fr) minmax(120px,170px) auto;gap:10px;align-items:center;}
-.route-main-text{min-width:0;}
-.route-dest-name{font-size:14px;font-weight:800;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.route-origin-name{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.route-price-inline{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);}
-.route-price-inline input{max-width:96px;text-align:right;}
-.route-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
+.route-row{padding:8px 10px;background:#fff;border-radius:7px;margin-bottom:5px;border:1px solid var(--border);}
+.route-row.route-inactive{opacity:.55;}
+.route-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.route-dest-name{font-size:13px;font-weight:800;color:var(--navy);flex:1;min-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.route-price-inline{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;}
+.route-price-inline input{max-width:64px;text-align:right;padding:4px 6px;font-size:12px;}
+.route-actions{display:flex;gap:3px;align-items:center;margin-left:auto;}
+.btn-icon{border:none;background:none;cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px;color:var(--muted);line-height:1;}
+.btn-icon:hover{background:var(--bg);color:var(--navy);}
+.btn-icon.danger:hover{background:#fef2f2;color:var(--red);}
+.chip-area{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center;}
+.chip-t{display:inline-flex;align-items:center;gap:2px;border-radius:4px;padding:3px 7px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;border:1px solid #bfdbfe;background:#eff6ff;color:var(--blue);transition:background .12s;}
+.chip-t:hover{background:#dbeafe;}
+.chip-t.off{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;text-decoration:line-through;}
+.chip-t .cx{margin-left:3px;font-size:12px;color:#94a3b8;font-weight:400;line-height:1;}
+.chip-t .cx:hover{color:var(--red);}
+.chip-t.editing{background:#fff;border-color:var(--blue);padding:2px 4px;}
+.chip-t input.chip-input{width:62px;border:none;outline:none;font-size:12px;font-weight:600;font-family:'Kanit',sans-serif;background:transparent;color:var(--blue);text-align:center;padding:0;}
+.chip-add-btn{display:inline-flex;align-items:center;gap:2px;border:1px dashed #93c5fd;background:#fff;color:var(--blue);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700;cursor:pointer;}
+.chip-add-btn:hover{background:#eff6ff;}
 .route-schedule-panel{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
 .route-subgroup{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:#fbfdff;overflow:hidden;}
 .route-subgroup-header{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#eef6ff;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
@@ -187,10 +199,13 @@ tr:hover td{background:#fafafa;}
 .route-row input{border:1px solid var(--border);border-radius:5px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;outline:none;width:100%;}
 .route-row input:focus{border-color:var(--blue);}
 .time-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
-.chip{display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;}
-.chip .cx{cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;font-weight:400;}
+.chip{display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe;border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;}
+.chip:hover{border-color:var(--blue);}
+.chip .cx{cursor:pointer;color:#94a3b8;font-size:13px;line-height:1;font-weight:400;margin-left:2px;}
 .chip .cx:hover{color:var(--red);}
 .chip.chip-off{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;text-decoration:line-through;}
+.chip.chip-add{background:#fff;color:var(--blue);border:1px dashed #bfdbfe;text-decoration:none;font-weight:700;}
+.chip.chip-add:hover{background:#eff6ff;}
 .chip-row-preview{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
 .route-search-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
 .route-search-bar input{flex:1;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-family:'Kanit',sans-serif;font-size:13px;outline:none;background:#fff;}
@@ -215,6 +230,11 @@ tr:hover td{background:#fafafa;}
 .control-card span{display:block;color:var(--muted);font-size:11px;line-height:1.45;}
 .control-card select{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-family:'Kanit',sans-serif;font-size:13px;background:#fff;color:var(--ink);outline:none;min-width:132px;}
 .test-mode-banner{display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:12px;}
+.schedule-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.schedule-row label{font-size:11px;color:#64748b;white-space:nowrap;}
+.schedule-row input[type=time]{border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:12px;font-family:'Kanit',sans-serif;background:#fff;color:var(--ink);width:90px;}
+.schedule-row .sch-save{font-size:11px;padding:4px 10px;border-radius:6px;border:none;background:#3b82f6;color:#fff;cursor:pointer;white-space:nowrap;}
+.schedule-status{font-size:11px;margin-top:4px;}
 
 /* ── REVENUE ── */
 .rev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -1284,40 +1304,46 @@ function toggleMainSubgroup(key){
   renderRouteGroups();
 }
 function renderRouteRow(gname,gdata,r,ri,gi){
-  var scheduleKey=routeScheduleKey(gname,r);
-  var scheduleOpen=!!openRouteSchedules[scheduleKey];
-  var html='<div class="route-row"><div class="route-line">';
-  html+='<div class="route-main-text"><div class="route-dest-name">'+esc(r.to||'ยังไม่ระบุปลายทาง')+'</div><div class="route-origin-name">'+esc(r.from||'ยังไม่ระบุต้นทาง')+' → '+esc(r.to||'')+'</div></div>';
-  html+='<label class="route-price-inline">ราคา <input type="number" value="'+esc(r.price||0)+'" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"> บาท</label>';
+  var inactive=r.isActive===false;
+  var html='<div class="route-row'+(inactive?' route-inactive':'')+'">';
+  /* ── บรรทัดบน: ชื่อปลายทาง + ราคา + ปุ่ม ── */
+  html+='<div class="route-line">';
+  html+='<span class="route-dest-name" title="'+esc((r.from||'?')+' → '+(r.to||'?'))+'">'+esc(r.to||'ยังไม่ระบุปลายทาง')+'</span>';
+  html+='<label class="route-price-inline">฿<input type="number" value="'+esc(r.price||0)+'" title="แก้ราคา" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></label>';
   html+='<div class="route-actions">';
-  html+='<label class="stop-close-control"><input type="checkbox" '+(r.isActive===false?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked)"> ใช้งาน</label>';
-  html+='<button class="btn btn-primary btn-sm" onclick="toggleRouteSchedule(\''+esc(gname)+'\','+ri+')">ตารางเวลา '+(scheduleOpen?'▲':'▼')+'</button>';
-  html+='<button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">▲</button><button class="btn btn-ghost btn-sm" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">▼</button>';
-  html+='<button class="btn btn-dark btn-sm" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">แก้ไข</button>';
-  html+='<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' \u2192 '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">ลบ</button>';
+  /* toggle ใช้งาน */
+  html+='<label class="stop-close-control" title="เปิด/ปิดเส้นทางนี้" onclick="event.stopPropagation()"><input type="checkbox" '+(inactive?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked);renderRouteGroups()"></label>';
+  /* ปุ่มรอง (icon) */
+  html+='<button class="btn-icon" title="ย้ายขึ้น" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">↑</button>';
+  html+='<button class="btn-icon" title="ย้ายลง" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">↓</button>';
+  html+='<button class="btn-icon" title="แก้ชื่อต้นทาง/ปลายทาง" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">✏️</button>';
+  html+='<button class="btn-icon danger" title="ลบเส้นทางนี้" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' → '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">🗑</button>';
   html+='</div></div>';
-  if(!scheduleOpen){
-    var times=r.times||[];
-    if(times.length){
-      html+='<div class="chip-row-preview">'+times.map(function(t){
-        var bookingOn=isTimeBookingEnabled(r,t);
-        return '<span class="chip'+(bookingOn?'':' chip-off')+'" title="'+(bookingOn?'เปิดจอง':'ปิดจอง')+' (คลิก \u201cตารางเวลา\u201d เพื่อแก้ไข)">'+esc(formatTimeForDisplay(t))+'</span>';
-      }).join('')+'</div>';
-    }else{
-      html+='<div class="chip-row-preview"><span class="route-section-label" style="margin:0;color:var(--muted);font-weight:600;">ยังไม่มีเวลาออกเดินทาง</span></div>';
-    }
-  }
-  if(scheduleOpen){
-    html+='<div class="route-schedule-panel"><div class="time-edit-list">'+(r.times||[]).map(function(t,ti){
-      var bookingOn=isTimeBookingEnabled(r,t);
-      return'<div class="time-edit-row"><input class="time-display-input" type="text" value="'+esc(formatTimeForDisplay(t))+'" onchange="updateTime(\''+esc(gname)+'\','+ri+','+ti+',this.value)">'+
-        '<label class="stop-close-control"><input type="checkbox" '+(bookingOn?'checked':'')+' onchange="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\',this.checked)"> เปิด/ปิดเวลาจอง <span>'+(bookingOn?'เปิดจอง':'ปิดจอง')+'</span></label>'+
-        '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบเวลา '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">&#x00D7;</button></div>';
-    }).join('')+'</div>';
-    html+='<div class="add-chip-row"><input type="text" id="tc_'+gi+'_'+ri+'" placeholder="10:20 AM"><button class="btn btn-primary btn-sm" onclick="addTime(\''+esc(gname)+'\','+ri+',\'tc_'+gi+'_'+ri+'\')">+ เพิ่มเวลา</button>';
-    html+='<button class="btn btn-dark btn-sm" onclick="moveRouteToGroup(\''+esc(gname)+'\','+ri+')">ย้ายกลุ่ม</button></div></div>';
-  }
+  /* ── แถวล่าง: chip เวลา interactive ── */
+  var times=r.times||[];
+  html+='<div class="chip-area">';
+  times.forEach(function(t){
+    var on=isTimeBookingEnabled(r,t);
+    html+='<span class="chip-t'+(on?'':' off')+'" title="'+(on?'เปิดจอง — คลิกเพื่อปิด':'ปิดจอง — คลิกเพื่อเปิด')+'" onclick="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\','+(on?'false':'true')+')">'+
+      esc(formatTimeForDisplay(t))+
+      '<span class="cx" title="ลบเวลานี้" onclick="event.stopPropagation();confirmDel(\'ลบ '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">×</span>'+
+    '</span>';
+  });
+  if(!times.length)html+='<span style="font-size:11px;color:var(--muted);">ยังไม่มีเวลาออกเดินทาง</span>';
+  html+='<span class="chip-add-btn" title="เพิ่มเวลา" onclick="promptAddTime(\''+esc(gname)+'\','+ri+')">+ เวลา</span>';
+  html+='</div>';
   return html+'</div>';
+}
+function promptAddTime(gname,ri){
+  var val=prompt('เพิ่มเวลาออกเดินทาง เช่น 10:20 AM หรือ 13:00');
+  if(val===null)return;
+  var t=parseTimeForSave(val);
+  if(!t){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 10:20 AM หรือ 13:00');return;}
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var times=routeData[gname].routes[ri].times||[];
+  if(times.indexOf(t)!==-1){alert('เวลานี้มีอยู่แล้ว');return;}
+  times.push(t);times.sort();routeData[gname].routes[ri].times=times;
+  renderRouteGroups();
 }
 function toggleRG(i){
   var entry=Object.entries(routeData)[i];
@@ -1647,7 +1673,15 @@ function loadVehicleControls(){
   wrap.innerHTML=VEHICLE_LIST.map(function(v){
     return '<div class="control-card">'+
       '<div><strong>'+esc(v.label)+'</strong><span>เปิด/ปิดการส่งตำแหน่งของแอพคนขับคันนี้</span>'+
-      '<div id="ver_'+v.id+'" style="font-size:12px;color:#94a3b8;margin-top:4px">เวอร์ชัน: -</div></div>'+
+      '<div id="ver_'+v.id+'" style="font-size:12px;color:#94a3b8;margin-top:4px">เวอร์ชัน: -</div>'+
+      '<div id="bat_'+v.id+'" style="font-size:12px;color:#94a3b8;margin-top:2px">🔋 แบต: -</div>'+
+      '<div class="schedule-row">'+
+        '<label>⏰ เปิด</label><input type="time" id="sch_on_'+v.id+'" value="05:30">'+
+        '<label>ปิด</label><input type="time" id="sch_off_'+v.id+'" value="21:00">'+
+        '<button class="sch-save" onclick="saveSchedule(\''+v.id+'\')">บันทึก</button>'+
+      '</div>'+
+      '<div id="sch_status_'+v.id+'" class="schedule-status" style="color:#94a3b8">-</div>'+
+      '</div>'+
       '<label class="tog"><input type="checkbox" id="track_'+v.id+'" checked onchange="setVehicleTracking(\''+v.id+'\',this.checked)"><span class="tog-sl"></span></label>'+
       '</div>';
   }).join('');
@@ -1668,6 +1702,18 @@ function loadVehicleControls(){
       window['_verData_'+v.id]=d;
       renderVehicleVersion(v.id,latestVersionCode);
     });
+    db.ref('driverLogs/'+v.id).limitToLast(1).on('value',function(snap){
+      var el=document.getElementById('bat_'+v.id);
+      if(!el)return;
+      var d=snap.val();
+      if(!d){el.textContent='🔋 แบต: -';el.style.color='#94a3b8';return;}
+      var last=d[Object.keys(d)[0]];
+      var pct=last&&last.batteryPct!=null?last.batteryPct:null;
+      if(pct===null){el.textContent='🔋 แบต: -';el.style.color='#94a3b8';return;}
+      var low=pct<30;
+      el.textContent='🔋 แบต: '+pct+'%'+(low?' ⚠️':'');
+      el.style.color=low?'#ef4444':'#22c55e';
+    });
   });
   db.ref('settings/appUpdate').once('value').then(function(snap){
     var d=snap.val()||{};
@@ -1675,6 +1721,61 @@ function loadVehicleControls(){
     if(d.apkUrl)document.getElementById('appUpdateApkUrl').value=d.apkUrl;
     if(d.note)document.getElementById('appUpdateNote').value=d.note;
   });
+  loadSchedules();
+  runScheduler();
+}
+function saveSchedule(id){
+  var on=document.getElementById('sch_on_'+id).value;
+  var off=document.getElementById('sch_off_'+id).value;
+  if(!on||!off){alert('กรอกเวลาให้ครบ');return;}
+  db.ref('settings/vehicles/'+id+'/schedule').set({on:on,off:off}).then(function(){
+    var el=document.getElementById('sch_status_'+id);
+    if(el){el.textContent='✅ บันทึกแล้ว เปิด '+on+' / ปิด '+off;el.style.color='#22c55e';}
+  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
+}
+function loadSchedules(){
+  VEHICLE_LIST.forEach(function(v){
+    db.ref('settings/vehicles/'+v.id+'/schedule').once('value').then(function(snap){
+      var d=snap.val();
+      if(!d)return;
+      var elOn=document.getElementById('sch_on_'+v.id);
+      var elOff=document.getElementById('sch_off_'+v.id);
+      var elSt=document.getElementById('sch_status_'+v.id);
+      if(elOn&&d.on)elOn.value=d.on;
+      if(elOff&&d.off)elOff.value=d.off;
+      if(elSt){elSt.textContent='⏰ เปิด '+d.on+' / ปิด '+d.off;elSt.style.color='#94a3b8';}
+    });
+  });
+}
+var _schedulerTimer=null;
+function runScheduler(){
+  if(_schedulerTimer)clearInterval(_schedulerTimer);
+  function tick(){
+    var now=new Date();
+    var hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    VEHICLE_LIST.forEach(function(v){
+      db.ref('settings/vehicles/'+v.id+'/schedule').once('value').then(function(snap){
+        var d=snap.val();
+        if(!d||!d.on||!d.off)return;
+        var shouldBeOn=(hhmm>=d.on&&hhmm<d.off);
+        db.ref('settings/vehicles/'+v.id+'/trackingEnabled').once('value').then(function(tSnap){
+          var cur=tSnap.val();
+          var curEnabled=(cur===null||cur===undefined)?true:!!cur;
+          if(shouldBeOn&&!curEnabled){
+            db.ref('settings/vehicles/'+v.id+'/trackingEnabled').set(true);
+            var el=document.getElementById('sch_status_'+v.id);
+            if(el){el.textContent='🟢 เปิดอัตโนมัติ '+hhmm;el.style.color='#22c55e';}
+          } else if(!shouldBeOn&&curEnabled){
+            db.ref('settings/vehicles/'+v.id+'/trackingEnabled').set(false);
+            var el2=document.getElementById('sch_status_'+v.id);
+            if(el2){el2.textContent='🔴 ปิดอัตโนมัติ '+hhmm;el2.style.color='#ef4444';}
+          }
+        });
+      });
+    });
+  }
+  tick();
+  _schedulerTimer=setInterval(tick,60000);
 }
 function setVehicleTracking(id,enabled){
   db.ref('settings/vehicles/'+id+'/trackingEnabled').set(enabled).then(function(){
