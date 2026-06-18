@@ -1,9 +1,42 @@
 (function(global) {
   'use strict';
 
+  // ===== ค่าคิวพื้นฐาน (fallback) — ใช้ถ้า Firebase ยังโหลดไม่เสร็จหรือขัดข้อง =====
   var BASE_DATE = '2026-06-14';
   var ROTATING_VEHICLES = ['car1', 'car2', 'car3', 'car4'];
   var BASE_CAR_QUEUE = { car1: 1, car2: 2, car3: 3, car4: 4 };
+
+  // ===== โหลดค่าคิวจาก Firebase (settings/queueRotation) ถ้ามี — override ค่า fallback ด้านบน =====
+  // เพื่อให้ admin แก้ไข base date / ลำดับคิวเริ่มต้นได้ในอนาคตโดยไม่ต้องแก้โค้ดไฟล์นี้
+  function applyRotationConfig(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    if (cfg.baseDate && /^\d{4}-\d{2}-\d{2}$/.test(cfg.baseDate)) {
+      BASE_DATE = cfg.baseDate;
+    }
+    if (cfg.carQueueOnBaseDate && typeof cfg.carQueueOnBaseDate === 'object') {
+      ROTATING_VEHICLES.forEach(function(carId) {
+        var q = Number(cfg.carQueueOnBaseDate[carId]);
+        if (q >= 1 && q <= 4) BASE_CAR_QUEUE[carId] = q;
+      });
+    }
+  }
+
+  function loadRotationConfigFromFirebase() {
+    try {
+      if (!global.firebase || !global.firebase.database) return;
+      global.firebase.database().ref('settings/queueRotation').once('value')
+        .then(function(snap) {
+          applyRotationConfig(snap.val());
+        })
+        .catch(function() {
+          // เงียบไว้ — ใช้ค่า fallback hardcode ต่อไปถ้าโหลดไม่ได้
+        });
+    } catch (e) {
+      // เงียบไว้ — ใช้ค่า fallback hardcode ต่อไปถ้า firebase ยังไม่พร้อม
+    }
+  }
+
+  loadRotationConfigFromFirebase();
 
   var STOP_ALIASES = {
     'klonghat': 'klonghat', 'คลองหาด': 'klonghat',
@@ -278,7 +311,7 @@
   }
 
   global.SLTransitSchedule = {
-    baseDate: BASE_DATE,
+    get baseDate() { return BASE_DATE; },
     rotatingVehicles: ROTATING_VEHICLES.slice(),
     queueTrips: QUEUE_TRIPS.slice(),
     stopTimeOverrides: STOP_TIME_OVERRIDES.slice(),
@@ -287,6 +320,11 @@
     rotateQueueNo: rotateQueueNo,
     queueForVehicleOnDate: queueForVehicleOnDate,
     vehicleIdForQueueOnDate: vehicleIdForQueueOnDate,
-    resolveTripAssignment: resolveTripAssignment
+    resolveTripAssignment: resolveTripAssignment,
+    // ===== เพิ่มใหม่: เผื่อ admin.html อยากเช็ค/รีโหลดค่า rotation จาก Firebase เอง =====
+    getBaseDate: function() { return BASE_DATE; },
+    getBaseCarQueue: function() { return Object.assign({}, BASE_CAR_QUEUE); },
+    reloadRotationConfig: loadRotationConfigFromFirebase
   };
 })(window);
+
