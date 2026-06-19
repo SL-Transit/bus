@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
     static final String KEY_FIREBASE_STATUS   = "firebase_status";
 
     private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
-    private static final String ST_TRANSIT_PHONE = "0XXXXXXXXX"; // TODO: ใส่เบอร์สำนักงาน ST Transit จริง
+    private static final String ST_TRANSIT_PHONE = "0XXXXXXXXX"; // TODO: ???????????????? ST Transit ????
 
     // ===== S.L.Transit Theme =====
     private static final int COLOR_NAVY       = Color.parseColor("#0B1D3A");
@@ -84,14 +84,14 @@ public class MainActivity extends Activity {
     private static final int COLOR_TEAL       = Color.parseColor("#00A7B5");
     private static final int COLOR_LIGHT_TEAL = Color.parseColor("#4DD3D9");
     private static final int COLOR_ORANGE     = Color.parseColor("#FF8A00");
-    // ===== ธีมใหม่: พื้นหลังขาว (ข้อ 1) =====
+    // ===== ???????: ??????????? (??? 1) =====
     private static final int COLOR_BG_PAGE    = Color.parseColor("#F4F7FA");
     private static final int COLOR_TEXT_MUTED = Color.rgb(100, 116, 139);
     private static final int COLOR_GREEN      = Color.rgb(22, 163, 74);
     private static final int COLOR_RED        = Color.rgb(220, 38, 38);
     static final String KEY_DIAG_VISIBLE = "diag_visible";
-    static final String KEY_SERVICE_STATUS = "service_status"; // "available" | "unavailable" — ข้อ 3
-    // ===== OSRM road-routing สำหรับ ETA ตามเส้นทางจริง (ข้อ 6.2) =====
+    static final String KEY_SERVICE_STATUS = "service_status"; // "available" | "unavailable" ? ??? 3
+    // ===== OSRM road-routing ?????? ETA ?????????????? (??? 6.2) =====
     private static final String OSRM_BASE = "https://router.project-osrm.org/route/v1/driving/";
 
     private static final String[] VEHICLE_IDS = {
@@ -119,8 +119,7 @@ public class MainActivity extends Activity {
     private int unreadNotifCount = 0;
     private final java.util.List<String> notifMessages = new ArrayList<>();
 
-    // ===== ข้อ 3: การ์ดคิว/เส้นทาง/รอบถัดไป + สถานะให้บริการ =====
-    private static final String KEY_QUEUE_NO = "selected_queue_no";
+    // ===== ??? 3: ????????/???????/???????? + ?????????????? =====
     private TextView queueValueText;
     private TextView routeValueText;
     private TextView nextRoundValueText;
@@ -128,14 +127,14 @@ public class MainActivity extends Activity {
     private TextView serviceStatusLabel;
     private boolean serviceAvailable = true;
 
-    // ===== ข้อมูลจริงจากตารางคิว/ป้าย/เวลา (Firebase: routeData/stops, routeData/queues) =====
+    // ===== ?????????????????????/????/???? (Firebase: routeData/stops, routeData/queues) =====
     private final Map<String, double[]> stopCoordsCache = new HashMap<>();
     private final Map<String, String> stopNameCache = new HashMap<>();
     private boolean stopsCacheLoaded = false;
     private final java.util.List<Trip> cachedTrips = new ArrayList<>();
     private Trip activeTrip = null;
 
-    // โครงสร้างป้ายภายใน 1 รอบ (trip) ของคิวนั้นๆ
+    // ?????????????????? 1 ??? (trip) ???????????
     private static class TripStop {
         String stopKey, stopTh, time, eventType;
         boolean isConditional;
@@ -144,7 +143,7 @@ public class MainActivity extends Activity {
             this.eventType = eventType; this.isConditional = isConditional;
         }
     }
-    // โครงสร้าง 1 รอบ (trip) — ไป/กลับ 1 เที่ยว พร้อมลำดับป้ายทั้งหมด
+    // ????????? 1 ??? (trip) ? ??/???? 1 ?????? ?????????????????????
     private static class Trip {
         String tripNo, direction, routeKey, routeNameTh;
         java.util.List<TripStop> stops = new ArrayList<>();
@@ -158,27 +157,27 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ===== ข้อ 6.1: การ์ดความพร้อมการเดินทาง (เช็ค GPS + Firebase) =====
+    // ===== ??? 6.1: ???????????????????????? (???? GPS + Firebase) =====
     private TextView readinessBadge;
     private TextView readinessReasonText;
 
-    // ===== ข้อ 6.2: ป้ายตำแหน่งปัจจุบัน/จุดหมายถัดไป + เวลาโดยประมาณ =====
+    // ===== ??? 6.2: ???????????????????/???????????? + ????????????? =====
     private TextView currentStopLabel;
     private TextView nextStopLabel;
     private TextView etaText;
     private LinearLayout travelCard;
     private double[] nextStopCoords = null;
-    private String lastEtaKey = ""; // กันยิง OSRM ซ้ำถ้าตำแหน่งไม่เปลี่ยน
+    private String lastEtaKey = ""; // ?????? OSRM ???????????????????????
 
-    // ===== ข้อ 5: ปุ่ม "เริ่มงาน/หยุดงาน" แบบไอคอนในตาราง action =====
+    // ===== ??? 5: ???? "????????/???????" ??????????????? action =====
     private LinearLayout startWorkButton;
     private TextView startWorkIcon;
     private TextView startWorkLabel;
     private GradientDrawable startWorkIconBg;
 
-    // ===== ข้อ 8: Bottom Navigation =====
-    private static final String[] NAV_LABELS = {"หน้าหลัก", "รายงานวันนี้", "รายงาน", "แจ้งเตือน", "บัญชี"};
-    private static final String[] NAV_ICONS  = {"🏠", "📋", "📊", "🔔", "👤"};
+    // ===== ??? 8: Bottom Navigation =====
+    private static final String[] NAV_LABELS = {"????????", "????????????", "??????", "?????????", "?????"};
+    private static final String[] NAV_ICONS  = {"??", "??", "??", "??", "??"};
     private static final int COLOR_DEEP_NAVY = Color.parseColor("#0B1D3A");
     private FrameLayout contentContainer;
     private ScrollView homeScroll;
@@ -190,11 +189,11 @@ public class MainActivity extends Activity {
     private String lastCoords = "";
     private String lastStatus = "";
 
-    // auto-refresh สำหรับหน้า diagnostic
+    // auto-refresh ?????????? diagnostic
     private final Handler diagHandler = new Handler(Looper.getMainLooper());
     private Runnable diagRefreshRunnable;
 
-    // Firebase สำหรับตรวจสอบสถานะรถ
+    // Firebase ????????????????????
     private DatabaseReference liveVehiclesRef;
     private final Map<String, Boolean> vehicleOnlineMap = new HashMap<>();
 
@@ -204,7 +203,7 @@ public class MainActivity extends Activity {
         @Override public void run() {
             refreshUi();
             uiTickCount++;
-            if (uiTickCount % 60 == 0) refreshTodaySchedule(); // รีเฟรชคิว/เส้นทาง ทุก 60 วินาที
+            if (uiTickCount % 60 == 0) refreshTodaySchedule(); // ?????????/??????? ??? 60 ??????
             uiHandler.postDelayed(this, 1000);
         }
     };
@@ -214,13 +213,13 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
         if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
-            // ติดตั้งใหม่ — ยังไม่เลือกรถ ไม่ default เป็น car1
+            // ??????????? ? ????????????? ??? default ???? car1
             autoSelectAvailableVehicle();
         }
         initFirebaseListener();
         buildUi();
-        // ถ้า Service วิ่งอยู่แล้ว (ปิด app แล้วเปิดใหม่) — ไม่ต้อง start ซ้ำ
-        // การ start ซ้ำทำให้ Firebase goOffline/goOnline กลางอากาศ → connection ค้าง
+        // ??? Service ???????????? (??? app ????????????) ? ??????? start ???
+        // ??? start ???????? Firebase goOffline/goOnline ????????? ? connection ????
         if (prefs.getBoolean(KEY_ENABLED, false)) {
             refreshUi();
         } else {
@@ -232,9 +231,9 @@ public class MainActivity extends Activity {
         refreshTodaySchedule();
     }
 
-    // ===== เลือก car ที่ว่างอัตโนมัติตอนติดตั้งใหม่ =====
+    // ===== ????? car ?????????????????????????????? =====
     private void autoSelectAvailableVehicle() {
-        long staleMs = 30 * 60 * 1000; // ถือว่า "ว่าง" ถ้าไม่มีการส่งสัญญาณนานกว่า 30 นาที
+        long staleMs = 30 * 60 * 1000; // ?????? "????" ??????????????????????????? 30 ????
         long now = System.currentTimeMillis();
         FirebaseDatabase.getInstance().getReference("liveVehicles")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -245,24 +244,25 @@ public class MainActivity extends Activity {
                     Long ts = v.child("sentTs").getValue(Long.class);
                     boolean recentlyActive = ts != null && (now - ts) < staleMs;
                     if (!online && !recentlyActive) {
-                        // เจอ car ที่ว่าง — ตั้งค่าและอัพเดท UI
+                        // ??? car ??????? ? ???????????????? UI
                         prefs.edit().putString(KEY_VEHICLE_ID, id).apply();
                         runOnUiThread(() -> {
                             if (vehiclePickerText != null)
-                                vehiclePickerText.setText(id + "\n▾");
+                                vehiclePickerText.setText(id + "\n?");
                             if (versionLabel != null)
                                 versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + id + ")");
+                            refreshTodaySchedule();
                         });
                         return;
                     }
                 }
-                // ถ้าทุก car ถูกใช้อยู่ — คง car1 ไว้แต่แสดงเตือน
+                // ?????? car ?????????? ? ?? car1 ???????????????
                 runOnUiThread(() -> {
                     if (vehiclePickerText != null)
                         new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("⚠️ รถทุกคันถูกใช้งานอยู่")
-                                .setMessage("กรุณาเลือกรหัสรถด้วยตนเอง")
-                                .setPositiveButton("ตกลง", null).show();
+                                .setTitle("?? ?????????????????????")
+                                .setMessage("?????????????????????????")
+                                .setPositiveButton("????", null).show();
                 });
             }
             @Override public void onCancelled(DatabaseError e) {}
@@ -288,7 +288,7 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    // ---- เชื่อม Firebase ฟัง online status ของทุกคัน ----
+    // ---- ?????? Firebase ??? online status ????????? ----
     private void initFirebaseListener() {
         try {
             if (FirebaseApp.getApps(this).isEmpty()) {
@@ -313,11 +313,11 @@ public class MainActivity extends Activity {
                 @Override public void onCancelled(DatabaseError error) {}
             });
         } catch (Exception e) {
-            // Firebase init ล้มเหลว ปล่อยให้ใช้งานได้ปกติ
+            // Firebase init ??????? ?????????????????????
         }
     }
 
-    // ===== ตรวจสอบเวอร์ชันแอพใหม่จาก Firebase และอัพเดทอัตโนมัติ =====
+    // ===== ????????????????????????? Firebase ?????????????????? =====
     private void checkForUpdate() {
         try {
             DatabaseReference ref = FirebaseDatabase.getInstance().getReference("settings/appUpdate");
@@ -329,7 +329,7 @@ public class MainActivity extends Activity {
                     String note = snapshot.child("note").getValue(String.class);
                     if (latest == null || apkUrl == null || apkUrl.isEmpty()) return;
                     if (latest > BuildConfig.VERSION_CODE) {
-                        addNotification("✨ มีแอพเวอร์ชันใหม่ (v" + latest + ") — แตะเพื่ออัพเดท");
+                        addNotification("? ????????????????? (v" + latest + ") ? ??????????????");
                         showUpdateDialog(apkUrl, note);
                     }
                 }
@@ -338,10 +338,10 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
-    // ===== ระบบแจ้งเตือนแบบกระดิ่ง (ไม่หาย แสดงตัวเลขค้างไว้เหมือน Facebook) =====
+    // ===== ??????????????????????? (?????? ??????????????????????? Facebook) =====
     private void addNotification(String message) {
-        // ลบข้อความเดิมที่ซ้ำออกก่อน แล้วเพิ่มใหม่ไว้บนสุด — ทำให้ปัญหาที่หายแล้วกลับมาเกิดซ้ำ
-        // จะถูกแจ้งเตือนใหม่อีกครั้งแทนที่จะถูกกันซ้ำตลอดไป
+        // ?????????????????????????? ????????????????????? ? ?????????????????????????????????
+        // ?????????????????????????????????????????????????
         notifMessages.remove(message);
         notifMessages.add(0, message);
         if (notifMessages.size() > 20) notifMessages.remove(notifMessages.size() - 1);
@@ -364,24 +364,24 @@ public class MainActivity extends Activity {
     private void showNotificationCenter() {
         unreadNotifCount = 0;
         updateNotifBubble();
-        String msg = notifMessages.isEmpty() ? "ไม่มีการแจ้งเตือน" : String.join("\n\n", notifMessages);
+        String msg = notifMessages.isEmpty() ? "?????????????????" : String.join("\n\n", notifMessages);
         new AlertDialog.Builder(this)
-                .setTitle("🔔 การแจ้งเตือน")
+                .setTitle("?? ????????????")
                 .setMessage(msg)
-                .setPositiveButton("ปิด", null)
+                .setPositiveButton("???", null)
                 .show();
     }
 
     private void showUpdateDialog(String apkUrl, String note) {
         if (isFinishing()) return;
-        String message = "มีแอพเวอร์ชันใหม่ กรุณาอัพเดทเพื่อให้ระบบทำงานได้ถูกต้อง"
-                + (note != null && !note.isEmpty() ? "\n\nรายละเอียด: " + note : "");
+        String message = "????????????????? ??????????????????????????????????????"
+                + (note != null && !note.isEmpty() ? "\n\n??????????: " + note : "");
         new AlertDialog.Builder(this)
-                .setTitle("\u2728 มีอัพเดทใหม่")
+                .setTitle("\u2728 ????????????")
                 .setMessage(message)
                 .setCancelable(false)
-                .setPositiveButton("ดาวน์โหลดและติดตั้ง", (d, w) -> downloadAndInstallApk(apkUrl))
-                .setNegativeButton("ภายหลัง", null)
+                .setPositiveButton("???????????????????", (d, w) -> downloadAndInstallApk(apkUrl))
+                .setNegativeButton("???????", null)
                 .show();
     }
 
@@ -392,7 +392,7 @@ public class MainActivity extends Activity {
 
             DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
-            request.setTitle("กำลังอัพเดทแอพคนขับ");
+            request.setTitle("???????????????????");
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setDestinationUri(Uri.fromFile(outFile));
             request.setMimeType("application/vnd.android.package-archive");
@@ -412,13 +412,13 @@ public class MainActivity extends Activity {
                     ContextCompat.RECEIVER_EXPORTED);
         } catch (Exception e) {
             new AlertDialog.Builder(this)
-                    .setTitle("ดาวน์โหลดไม่สำเร็จ")
+                    .setTitle("??????????????????")
                     .setMessage(e.getMessage())
-                    .setPositiveButton("ตกลง", null).show();
+                    .setPositiveButton("????", null).show();
         }
     }
 
-    // ===== ช่องตัวเลขในแถบสรุปผู้โดยสาร (ไอคอนวงกลมสี + จำนวน + ป้ายชื่อ) บนพื้นการ์ดสีขาว =====
+    // ===== ???????????????????????????? (???????????? + ????? + ????????) ???????????????? =====
     private LinearLayout buildSummaryColumn(String icon, TextView countView, String label, int accentColor) {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -464,7 +464,7 @@ public class MainActivity extends Activity {
         return div;
     }
 
-    // ===== ดึงยอดผู้โดยสารวันนี้: จอง / เช็คอินแล้ว / ยังไม่มาเช็คอิน =====
+    // ===== ?????????????????????: ??? / ??????????? / ??????????????? =====
     private void refreshPassengerSummary() {
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
         FirebaseDatabase.getInstance().getReference("bookings")
@@ -489,10 +489,10 @@ public class MainActivity extends Activity {
         });
     }
 
-    // ===== ข้อ 3: ดึงข้อมูลจริงจาก routeData/stops + routeData/queues/{คิว}/trips =====
-    // โครงสร้างที่ใช้ (มาจากตาราง Excel ที่พี่ทำ — import เป็น JSON ตามที่ผมส่งให้):
+    // ===== ??? 3: ???????????????? routeData/stops + routeData/queues/{???}/trips =====
+    // ??????????????? (?????????? Excel ???????? ? import ???? JSON ??????????????):
     //   routeData/stops/{stopKey}            = { name, lat, lng, type, bookingEnabled, note }
-    //   routeData/queues/{คิว}/trips/{tripNo} = { direction, routeKey, routeNameTh, stops: [{order, stopKey, stopTh, time, eventType, isConditional, note}, ...] }
+    //   routeData/queues/{???}/trips/{tripNo} = { direction, routeKey, routeNameTh, stops: [{order, stopKey, stopTh, time, eventType, isConditional, note}, ...] }
     private void fetchStopsCacheIfNeeded(Runnable then) {
         if (stopsCacheLoaded) { if (then != null) then.run(); return; }
         FirebaseDatabase.getInstance().getReference("routeData/stops")
@@ -515,11 +515,75 @@ public class MainActivity extends Activity {
     }
 
     private void refreshTodaySchedule() {
-        String queueNo = prefs.getString(KEY_QUEUE_NO, "1");
+        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        if (vehicleId == null) {
+            showUnassignedQueue("????????????????");
+            return;
+        }
+        FirebaseDatabase.getInstance().getReference("settings/queueRotation")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                String baseDate = snap.child("baseDate").getValue(String.class);
+                if (baseDate == null || !baseDate.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    baseDate = "2026-06-14";
+                }
+                Long configuredBaseQueue = snap.child("carQueueOnBaseDate")
+                        .child(vehicleId).getValue(Long.class);
+                int baseQueue = configuredBaseQueue != null
+                        ? configuredBaseQueue.intValue()
+                        : fallbackBaseQueue(vehicleId);
+                loadTodayScheduleForQueue(vehicleId, calculateTodayQueue(baseDate, baseQueue));
+            }
+            @Override public void onCancelled(DatabaseError error) {
+                loadTodayScheduleForQueue(vehicleId,
+                        calculateTodayQueue("2026-06-14", fallbackBaseQueue(vehicleId)));
+            }
+        });
+    }
+
+    private int fallbackBaseQueue(String vehicleId) {
+        if ("car1".equals(vehicleId)) return 1;
+        if ("car2".equals(vehicleId)) return 2;
+        if ("car3".equals(vehicleId)) return 3;
+        if ("car4".equals(vehicleId)) return 4;
+        return -1;
+    }
+
+    private int calculateTodayQueue(String baseDate, int baseQueue) {
+        if (baseQueue < 1 || baseQueue > 4) return -1;
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd", java.util.Locale.US);
+            java.util.Date base = sdf.parse(baseDate);
+            java.util.Date today = sdf.parse(sdf.format(new java.util.Date()));
+            if (base == null || today == null) return baseQueue;
+            int diffDays = (int) ((today.getTime() - base.getTime()) / 86400000L);
+            return ((baseQueue - 1 + diffDays) % 4 + 4) % 4 + 1;
+        } catch (Exception e) {
+            return baseQueue;
+        }
+    }
+
+    private void showUnassignedQueue(String message) {
+        runOnUiThread(() -> {
+            cachedTrips.clear();
+            activeTrip = null;
+            if (queueValueText != null) queueValueText.setText("???????????");
+            if (routeValueText != null) routeValueText.setText(message);
+            if (nextRoundValueText != null) nextRoundValueText.setText("?");
+        });
+    }
+
+    private void loadTodayScheduleForQueue(String vehicleId, int queueNo) {
+        if (queueNo < 1 || queueNo > 4) {
+            showUnassignedQueue("???????????????????? " + vehicleId);
+            return;
+        }
         fetchStopsCacheIfNeeded(null);
         FirebaseDatabase.getInstance().getReference("routeData/queues/" + queueNo + "/trips")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
+                if (!vehicleId.equals(prefs.getString(KEY_VEHICLE_ID, null))) return;
                 java.util.List<Trip> trips = new ArrayList<>();
                 for (DataSnapshot tripSnap : snap.getChildren()) {
                     Trip trip = new Trip();
@@ -544,19 +608,21 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     cachedTrips.clear();
                     cachedTrips.addAll(trips);
-                    computeActiveTripAndUpdateCard(queueNo);
+                    computeActiveTripAndUpdateCard(String.valueOf(queueNo));
                 });
             }
-            @Override public void onCancelled(DatabaseError error) {}
+            @Override public void onCancelled(DatabaseError error) {
+                showUnassignedQueue("?????????????????????");
+            }
         });
     }
 
-    // หาว่า "ตอนนี้" อยู่ในรอบ (trip) ไหนของคิวที่เลือก โดยเทียบกับเวลานาฬิกาจริง
+    // ????? "??????" ????????? (trip) ????????????????? ?????????????????????????
     private void computeActiveTripAndUpdateCard(String queueNo) {
-        if (queueValueText != null) queueValueText.setText("คิว " + queueNo + "  ▾");
+        if (queueValueText != null) queueValueText.setText("??? " + queueNo);
         if (cachedTrips.isEmpty()) {
-            if (routeValueText != null) routeValueText.setText("ยังไม่มีข้อมูลเที่ยววิ่งของคิวนี้");
-            if (nextRoundValueText != null) nextRoundValueText.setText("—");
+            if (routeValueText != null) routeValueText.setText("?????????????????????????????????");
+            if (nextRoundValueText != null) nextRoundValueText.setText("?");
             activeTrip = null;
             return;
         }
@@ -578,82 +644,42 @@ public class MainActivity extends Activity {
         activeTrip = current;
         if (routeValueText != null) {
             if (current != null) routeValueText.setText(current.routeNameTh);
-            else routeValueText.setText(next != null ? "รอรอบถัดไป" : "หมดรอบวันนี้แล้ว");
+            else routeValueText.setText(next != null ? "??????????" : "????????????????");
         }
         if (nextRoundValueText != null) {
             if (next != null) {
                 TripStop firstStop = next.stops.get(0);
-                nextRoundValueText.setText(firstStop.time + " น.  (" + next.routeNameTh + ")");
+                nextRoundValueText.setText(firstStop.time + " ?.  (" + next.routeNameTh + ")");
             } else {
-                nextRoundValueText.setText("หมดรอบวันนี้แล้ว");
+                nextRoundValueText.setText("????????????????");
             }
         }
     }
 
-    // ===== ข้อ 3: แตะแถวคิว → เลือกว่าวันนี้วิ่งคิวไหน (ดึงรายชื่อคิวที่มีจริงจาก Firebase ไม่ hardcode) =====
-    private void showQueuePickerDialog() {
-        FirebaseDatabase.getInstance().getReference("routeData/queues")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot snap) {
-                java.util.List<String> keys = new ArrayList<>();
-                for (DataSnapshot s : snap.getChildren()) keys.add(s.getKey());
-                Collections.sort(keys, (a, b) -> {
-                    try { return Integer.parseInt(a) - Integer.parseInt(b); }
-                    catch (Exception e) { return a.compareTo(b); }
-                });
-                runOnUiThread(() -> {
-                    if (keys.isEmpty()) {
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("ยังไม่มีข้อมูลคิว")
-                                .setMessage("ยังไม่พบข้อมูลคิวใน Firebase (routeData/queues)")
-                                .setPositiveButton("ตกลง", null).show();
-                        return;
-                    }
-                    String current = prefs.getString(KEY_QUEUE_NO, "1");
-                    String[] labels = new String[keys.size()];
-                    int currentIdx = 0;
-                    for (int i = 0; i < keys.size(); i++) {
-                        labels[i] = "คิว " + keys.get(i);
-                        if (keys.get(i).equals(current)) currentIdx = i;
-                    }
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("เลือกคิววันนี้")
-                            .setSingleChoiceItems(labels, currentIdx, (d, which) -> {
-                                prefs.edit().putString(KEY_QUEUE_NO, keys.get(which)).apply();
-                                d.dismiss();
-                                refreshTodaySchedule();
-                            })
-                            .setNegativeButton("ยกเลิก", null).show();
-                });
-            }
-            @Override public void onCancelled(DatabaseError error) {}
-        });
-    }
-
     private String strOrDash(Object v) {
-        if (v == null) return "—";
+        if (v == null) return "?";
         String s = String.valueOf(v);
-        return (s.isEmpty() || s.equals("null")) ? "—" : s;
+        return (s.isEmpty() || s.equals("null")) ? "?" : s;
     }
 
-    // ===== ข้อ 3: แตะเปลี่ยนสถานะ "กำลังให้บริการ / ไม่ให้บริการ" =====
+    // ===== ??? 3: ??????????????? "?????????????? / ????????????" =====
     private void showServiceStatusDialog() {
-        String[] options = {"🟢 กำลังให้บริการ", "⚪ ไม่ให้บริการ (หยุดชั่วคราว)"};
+        String[] options = {"?? ??????????????", "? ???????????? (????????????)"};
         int current = serviceAvailable ? 0 : 1;
         new AlertDialog.Builder(this)
-                .setTitle("สถานะให้บริการ")
+                .setTitle("??????????????")
                 .setSingleChoiceItems(options, current, (d, which) -> {
                     setServiceAvailable(which == 0);
                     d.dismiss();
                 })
-                .setNegativeButton("ปิด", null).show();
+                .setNegativeButton("???", null).show();
     }
 
     private void setServiceAvailable(boolean available) {
         serviceAvailable = available;
         prefs.edit().putString(KEY_SERVICE_STATUS, available ? "available" : "unavailable").apply();
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-        // เขียนขึ้น liveVehicles ด้วย เพื่อให้แผนที่ผู้โดยสารรู้ว่ารถนี้ไม่พร้อมรับ แม้ GPS ยังส่งอยู่
+        // ????????? liveVehicles ???? ????????????????????????????????????????????? ??? GPS ??????????
         FirebaseDatabase.getInstance().getReference("liveVehicles/" + vehicleId + "/serviceStatus")
                 .setValue(available ? "available" : "unavailable");
         updateServiceStatusPill();
@@ -667,16 +693,16 @@ public class MainActivity extends Activity {
         bg.setCornerRadius(dp(20));
         serviceStatusPill.setBackground(bg);
         serviceStatusLabel.setTextColor(color);
-        serviceStatusLabel.setText(serviceAvailable ? "● กำลังให้บริการ" : "● ไม่ให้บริการ");
+        serviceStatusLabel.setText(serviceAvailable ? "? ??????????????" : "? ????????????");
     }
 
-    // ===== ข้อ 6.1: "การเดินทางปัจจุบัน" พร้อม/ไม่พร้อม — อิงสถานะ GPS + Firebase เดียวกับ diagnostic =====
+    // ===== ??? 6.1: "??????????????????" ?????/???????? ? ???????? GPS + Firebase ???????? diagnostic =====
     private void updateReadinessCard(long gpsAgoSec, long fbAgoSec) {
         if (readinessBadge == null) return;
         boolean gpsOk = gpsAgoSec >= 0 && gpsAgoSec < 30;
         boolean fbOk  = fbAgoSec  >= 0 && fbAgoSec  < 30;
         boolean ready = gpsOk && fbOk;
-        readinessBadge.setText(ready ? "ออนไลน์" : "ออฟไลน์");
+        readinessBadge.setText(ready ? "???????" : "???????");
         readinessBadge.setTextColor(Color.WHITE);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(ready ? COLOR_GREEN : COLOR_RED);
@@ -686,13 +712,13 @@ public class MainActivity extends Activity {
         if (ready) {
             readinessReasonText.setVisibility(android.view.View.GONE);
         } else {
-            String reason = !gpsOk ? "สัญญาณ GPS อ่อนหรือขาดหาย" : "การเชื่อมต่อ Firebase ช้าหรือขาดหาย";
+            String reason = !gpsOk ? "?????? GPS ??????????????" : "???????????? Firebase ?????????????";
             readinessReasonText.setText(reason);
             readinessReasonText.setVisibility(android.view.View.VISIBLE);
         }
     }
 
-    // ===== ข้อ 6.2: ป้ายตำแหน่งปัจจุบัน/จุดหมายถัดไป + ETA ตามเส้นทางจริง (OSRM) — ใช้ป้าย/พิกัดจริงจาก activeTrip =====
+    // ===== ??? 6.2: ???????????????????/???????????? + ETA ?????????????? (OSRM) ? ???????/???????????? activeTrip =====
     private void refreshRouteProgress() {
         if (currentStopLabel == null) return;
         String coords = prefs.getString(KEY_LAST_COORDS, "");
@@ -705,8 +731,8 @@ public class MainActivity extends Activity {
         } catch (Exception e) { return; }
 
         if (activeTrip == null || activeTrip.stops.isEmpty() || !stopsCacheLoaded) {
-            currentStopLabel.setText("—");
-            nextStopLabel.setText("—");
+            currentStopLabel.setText("?");
+            nextStopLabel.setText("?");
             return;
         }
 
@@ -734,7 +760,7 @@ public class MainActivity extends Activity {
                 }
             }
         } else if (etaText != null) {
-            etaText.setText("เวลาโดยประมาณถึง : ถึงปลายทางแล้ว");
+            etaText.setText("???????????????? : ??????????????");
         }
     }
 
@@ -748,7 +774,7 @@ public class MainActivity extends Activity {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // เรียก OSRM (เส้นทางถนนจริง ไม่ใช่เส้นตรง) — รันบน background thread เอง ไม่ใช้ library เพิ่ม
+    // ????? OSRM (?????????????? ?????????????) ? ????? background thread ??? ?????? library ?????
     private void fetchRoadEta(double lat1, double lon1, double lat2, double lon2) {
         new Thread(() -> {
             try {
@@ -766,18 +792,18 @@ public class MainActivity extends Activity {
                 double durationSec = routes.getJSONObject(0).getDouble("duration");
                 int minutes = Math.max(1, (int) Math.round(durationSec / 60));
                 runOnUiThread(() -> {
-                    if (etaText != null) etaText.setText("เวลาโดยประมาณถึง : " + minutes + " นาที");
+                    if (etaText != null) etaText.setText("???????????????? : " + minutes + " ????");
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    if (etaText != null) etaText.setText("เวลาโดยประมาณถึง : —");
+                    if (etaText != null) etaText.setText("???????????????? : ?");
                 });
             }
         }).start();
     }
 
-    // ===== สร้างปุ่มไอคอน 1 ช่อง (สแกน QR / ผู้โดยสาร / SOS) =====
-    // ===== ปุ่มไอคอนสไตล์การ์ดขาว + วงกลมสี (ตามดีไซน์ต้นแบบ) =====
+    // ===== ?????????????? 1 ???? (???? QR / ????????? / SOS) =====
+    // ===== ?????????????????????? + ??????? (???????????????) =====
     private LinearLayout buildActionButton(String icon, String label, int accentColor, android.view.View.OnClickListener onClick) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -817,7 +843,7 @@ public class MainActivity extends Activity {
         return box;
     }
 
-    // ===== 3.1) สแกน QR + เช็คอินผู้โดยสาร (เตรียมไว้สำหรับคิดยอดเงินเข้าคนขับในอนาคต) =====
+    // ===== 3.1) ???? QR + ???????????????? (?????????????????????????????????????????) =====
     private void openQrScanner() {
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, 30);
@@ -826,7 +852,7 @@ public class MainActivity extends Activity {
         IntentIntegrator integrator = new IntentIntegrator(this);
         integrator.setOrientationLocked(false);
         integrator.setBeepEnabled(true);
-        integrator.setPrompt("สแกน QR ตั๋วผู้โดยสารเพื่อเช็คอิน");
+        integrator.setPrompt("???? QR ?????????????????????????");
         integrator.initiateScan();
     }
 
@@ -841,7 +867,7 @@ public class MainActivity extends Activity {
 
     private void handleScannedTicket(String code) {
         if (code.isEmpty()) return;
-        // รองรับ QR ที่เป็นลิงก์ เช่น https://.../check_ticket.html?code=XXXX
+        // ?????? QR ???????????? ???? https://.../check_ticket.html?code=XXXX
         if (code.contains("code=")) {
             int idx = code.indexOf("code=");
             code = code.substring(idx + 5);
@@ -856,17 +882,17 @@ public class MainActivity extends Activity {
             @Override public void onDataChange(DataSnapshot snap) {
                 if (!snap.exists()) {
                     new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("ไม่พบตั๋ว")
-                            .setMessage("ไม่พบรหัสตั๋ว: " + finalCode)
-                            .setPositiveButton("ตกลง", null).show();
+                            .setTitle("?????????")
+                            .setMessage("?????????????: " + finalCode)
+                            .setPositiveButton("????", null).show();
                     return;
                 }
                 String checkinStatus = String.valueOf(snap.child("originCheckin").child("status").getValue());
                 if ("boarded".equals(checkinStatus)) {
                     new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("⚠ เช็คอินไปแล้ว")
-                            .setMessage("ตั๋ว " + finalCode + " ถูกเช็คอินไปก่อนหน้านี้แล้ว")
-                            .setPositiveButton("ตกลง", null).show();
+                            .setTitle("? ?????????????")
+                            .setMessage("???? " + finalCode + " ???????????????????????????")
+                            .setPositiveButton("????", null).show();
                     return;
                 }
                 String name  = String.valueOf(snap.child("name").getValue());
@@ -879,17 +905,17 @@ public class MainActivity extends Activity {
                 final double fare = price;
 
                 new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("✅ ตั๋ว " + finalCode)
-                        .setMessage("ชื่อ: " + name + "\nเบอร์: " + phone + "\nที่นั่ง: " + seats
-                                + "\nเส้นทาง: " + route
-                                + (fare > 0 ? "\nค่าโดยสาร: ฿" + (long) fare : ""))
-                        .setPositiveButton("เช็คอินขึ้นรถ", (d, w) -> {
+                        .setTitle("? ???? " + finalCode)
+                        .setMessage("????: " + name + "\n?????: " + phone + "\n???????: " + seats
+                                + "\n???????: " + route
+                                + (fare > 0 ? "\n?????????: ?" + (long) fare : ""))
+                        .setPositiveButton("?????????????", (d, w) -> {
                             Map<String, Object> data = new HashMap<>();
                             data.put("status", "boarded");
                             data.put("vehicleId", vehicleId);
                             data.put("checkedBy", "driver_qr");
                             data.put("ts", System.currentTimeMillis());
-                            // เตรียมฟิลด์ไว้สำหรับฟังก์ชันคิดยอดเงินเข้าคนขับอัตโนมัติในอนาคต
+                            // ???????????????????????????????????????????????????????????????
                             data.put("farePaidToDriver", fare);
                             data.put("fareSettled", false);
                             FirebaseDatabase.getInstance()
@@ -899,13 +925,13 @@ public class MainActivity extends Activity {
                                         refreshPassengerSummary();
                                     });
                         })
-                        .setNegativeButton("ปิด", null).show();
+                        .setNegativeButton("???", null).show();
             }
             @Override public void onCancelled(DatabaseError error) {}
         });
     }
 
-    // ===== 3.2) ข้อมูลผู้โดยสารที่จองของคันนี้วันนี้ =====
+    // ===== 3.2) ???????????????????????????????????? =====
     private void showPassengerList() {
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
         FirebaseDatabase.getInstance().getReference("bookings")
@@ -922,30 +948,30 @@ public class MainActivity extends Activity {
                     String seats = String.valueOf(child.child("seats").getValue());
                     String time  = String.valueOf(child.child("time").getValue());
                     String checkinStatus = String.valueOf(child.child("originCheckin").child("status").getValue());
-                    String mark = "boarded".equals(checkinStatus) ? "✅" : "⏳";
+                    String mark = "boarded".equals(checkinStatus) ? "?" : "?";
                     sb.append(mark).append(" ").append(time).append("  ").append(name)
-                      .append("  (").append(phone).append(")  ที่นั่ง ").append(seats).append("\n");
+                      .append("  (").append(phone).append(")  ??????? ").append(seats).append("\n");
                     count++;
                 }
-                String msg = count == 0 ? "ไม่มีผู้โดยสารจองวันนี้" : sb.toString();
+                String msg = count == 0 ? "???????????????????????" : sb.toString();
                 new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("👥 ผู้โดยสารวันนี้ (" + count + " รายการ)")
+                        .setTitle("?? ??????????????? (" + count + " ??????)")
                         .setMessage(msg)
-                        .setPositiveButton("ปิด", null).show();
+                        .setPositiveButton("???", null).show();
             }
             @Override public void onCancelled(DatabaseError error) {
                 new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("ดึงข้อมูลไม่สำเร็จ")
+                        .setTitle("??????????????????")
                         .setMessage(error.getMessage())
-                        .setPositiveButton("ตกลง", null).show();
+                        .setPositiveButton("????", null).show();
             }
         });
     }
 
-    // ===== ข้อ 4: โครงสร้างข้อมูลวินิจฉัย 1 แถว (ไอคอน/หัวข้อ/รายละเอียด/สาเหตุที่เป็นไปได้/ตั้งค่าที่เกี่ยวข้อง) =====
+    // ===== ??? 4: ??????????????????????? 1 ??? (?????/??????/??????????/??????????????????/????????????????????) =====
     private static class DiagItem {
         final String icon, title, detail, cause, settingsType;
-        final int severity; // 0 = ปกติ, 1 = เตือน, 2 = แดง
+        final int severity; // 0 = ????, 1 = ?????, 2 = ???
         DiagItem(String icon, String title, String detail, String cause, int severity, String settingsType) {
             this.icon = icon; this.title = title; this.detail = detail;
             this.cause = cause; this.severity = severity; this.settingsType = settingsType;
@@ -961,7 +987,7 @@ public class MainActivity extends Activity {
                 if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)) return "Mobile Data";
             }
         } catch (Exception ignored) {}
-        return "ไม่มีเน็ต";
+        return "?????????";
     }
 
     private java.util.List<DiagItem> buildDiagItems() {
@@ -970,61 +996,61 @@ public class MainActivity extends Activity {
         long lastGpsAt = prefs.getLong(KEY_LAST_GPS_AT, 0);
         long gpsAgoSec = lastGpsAt > 0 ? (System.currentTimeMillis() - lastGpsAt) / 1000 : -1;
         if (gpsAgoSec < 0) {
-            items.add(new DiagItem("🔴", "GPS", "ยังไม่ได้รับสัญญาณ", "เพิ่งเริ่มงาน หรือยังหาตำแหน่งดาวเทียมไม่เจอ", 2, "gps"));
+            items.add(new DiagItem("??", "GPS", "??????????????????", "????????????? ??????????????????????????????", 2, "gps"));
         } else if (gpsAgoSec < 30) {
-            items.add(new DiagItem("🟢", "GPS", "ปกติ (" + gpsAgoSec + "s ที่แล้ว)", null, 0, null));
+            items.add(new DiagItem("??", "GPS", "???? (" + gpsAgoSec + "s ???????)", null, 0, null));
         } else if (gpsAgoSec < 90) {
-            items.add(new DiagItem("🟡", "GPS", "สัญญาณอ่อน (" + gpsAgoSec + "s ที่แล้ว)", "อาจอยู่ในพื้นที่กำบัง เช่น ใต้สะพานหรืออาคารสูง", 1, "gps"));
+            items.add(new DiagItem("??", "GPS", "?????????? (" + gpsAgoSec + "s ???????)", "????????????????????? ???? ????????????????????", 1, "gps"));
         } else {
-            items.add(new DiagItem("🔴", "GPS", "ขาดหาย (" + gpsAgoSec + "s ที่แล้ว)", "ฝั่งฮาร์ดแวร์ GPS ของเครื่อง หรือสิ่งกีดขวางสัญญาณดาวเทียม", 2, "gps"));
+            items.add(new DiagItem("??", "GPS", "?????? (" + gpsAgoSec + "s ???????)", "????????????? GPS ?????????? ?????????????????????????????", 2, "gps"));
         }
 
         long sentAt = prefs.getLong(KEY_LAST_SENT, 0);
         long fbAgoSec = sentAt > 0 ? (System.currentTimeMillis() - sentAt) / 1000 : -1;
         String net = getCurrentNetworkType();
         if (fbAgoSec < 0) {
-            items.add(new DiagItem("🔴", "Firebase", "ยังไม่ได้ส่ง", "เครือข่ายขณะนี้: " + net, 2, "network"));
+            items.add(new DiagItem("??", "Firebase", "????????????", "???????????????: " + net, 2, "network"));
         } else if (fbAgoSec < 30) {
-            items.add(new DiagItem("🟢", "Firebase", "ปกติ (" + fbAgoSec + "s ที่แล้ว)", null, 0, null));
+            items.add(new DiagItem("??", "Firebase", "???? (" + fbAgoSec + "s ???????)", null, 0, null));
         } else if (fbAgoSec < 90) {
-            items.add(new DiagItem("🟡", "Firebase", "ช้า (" + fbAgoSec + "s ที่แล้ว)", "เครือข่ายขณะนี้: " + net, 1, "network"));
+            items.add(new DiagItem("??", "Firebase", "??? (" + fbAgoSec + "s ???????)", "???????????????: " + net, 1, "network"));
         } else {
-            String cause = net.equals("ไม่มีเน็ต")
-                    ? "ไม่มีสัญญาณอินเทอร์เน็ต — ฝั่งโทรศัพท์/พื้นที่"
-                    : "มีเน็ต (" + net + ") แต่ส่งข้อมูลไม่ได้ — อาจเป็นที่เซิร์ฟเวอร์หรือการเชื่อมต่อไม่เสถียร";
-            items.add(new DiagItem("🔴", "Firebase", "ขาดการเชื่อมต่อ (" + fbAgoSec + "s ที่แล้ว)", cause, 2, "network"));
+            String cause = net.equals("?????????")
+                    ? "??????????????????????? ? ????????????/???????"
+                    : "?????? (" + net + ") ?????????????????? ? ??????????????????????????????????????????????";
+            items.add(new DiagItem("??", "Firebase", "??????????????? (" + fbAgoSec + "s ???????)", cause, 2, "network"));
         }
 
         int restartCount = prefs.getInt(KEY_RESTART_COUNT, 0);
         if (restartCount == 0) {
-            items.add(new DiagItem("🟢", "Service", "ปกติ (ไม่เคยถูก kill)", null, 0, null));
+            items.add(new DiagItem("??", "Service", "???? (????????? kill)", null, 0, null));
         } else if (restartCount < 3) {
-            items.add(new DiagItem("🟡", "Service", "restart " + restartCount + " ครั้ง", "ระบบปฏิบัติการอาจปิดแอปเบื้องหลังเพื่อประหยัดแบตเตอรี่", 1, "battery"));
+            items.add(new DiagItem("??", "Service", "restart " + restartCount + " ?????", "??????????????????????????????????????????????????????", 1, "battery"));
         } else {
-            items.add(new DiagItem("🔴", "Service", "restart บ่อย " + restartCount + " ครั้ง", "ระบบปฏิบัติการปิดแอปเบื้องหลังบ่อยเกินไป — ต้องปลดล็อคการจำกัดแบตเตอรี่", 2, "battery"));
+            items.add(new DiagItem("??", "Service", "restart ???? " + restartCount + " ?????", "???????????????????????????????????????? ? ????????????????????????????", 2, "battery"));
         }
 
         if (Build.VERSION.SDK_INT >= 23) {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             boolean ignored = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
-            if (ignored) items.add(new DiagItem("🟢", "Battery", "ไม่จำกัด ✓", null, 0, null));
-            else items.add(new DiagItem("🔴", "Battery", "ถูกจำกัด", "ฝั่งโทรศัพท์ — ระบบประหยัดแบตจำกัดแอปทำงานเบื้องหลัง", 2, "battery"));
+            if (ignored) items.add(new DiagItem("??", "Battery", "???????? ?", null, 0, null));
+            else items.add(new DiagItem("??", "Battery", "????????", "???????????? ? ?????????????????????????????????????", 2, "battery"));
         } else {
-            items.add(new DiagItem("🟢", "Battery", "ไม่จำกัด ✓", null, 0, null));
+            items.add(new DiagItem("??", "Battery", "???????? ?", null, 0, null));
         }
 
         if (Build.VERSION.SDK_INT >= 29) {
             boolean hasBg = checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
-            if (hasBg) items.add(new DiagItem("🟢", "Location", "อนุญาตตลอดเวลา ✓", null, 0, null));
-            else items.add(new DiagItem("🟡", "Location", "อนุญาตเฉพาะตอนใช้งาน", "ฝั่งโทรศัพท์ — ต้องเปลี่ยนเป็น \"อนุญาตตลอดเวลา\" ในการตั้งค่าแอป", 1, "location"));
+            if (hasBg) items.add(new DiagItem("??", "Location", "?????????????? ?", null, 0, null));
+            else items.add(new DiagItem("??", "Location", "????????????????????", "???????????? ? ??????????????? \"??????????????\" ???????????????", 1, "location"));
         } else {
-            items.add(new DiagItem("🟢", "Location", "อนุญาตแล้ว ✓", null, 0, null));
+            items.add(new DiagItem("??", "Location", "?????????? ?", null, 0, null));
         }
 
         return items;
     }
 
-    // ===== ข้อ 4: กดแถวที่เป็นปัญหา → เด้งไปหน้าตั้งค่าที่เกี่ยวข้องโดยตรง ไม่ต้องเข้า settings เอง =====
+    // ===== ??? 4: ????????????????? ? ???????????????????????????????????? ??????????? settings ??? =====
     private void openRelevantSettings(String type) {
         try {
             Intent intent;
@@ -1053,7 +1079,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ===== 3.3) รายงานปัญหา app — พิกัดปัจจุบัน + ข้อมูลการวินิจฉัยทั้งหมด (ย้ายมาจากหน้าหลักเดิม) =====
+    // ===== 3.3) ??????????? app ? ????????????? + ???????????????????????? (?????????????????????) =====
     private void showDiagnosticReport() {
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
         String coords = prefs.getString(KEY_LAST_COORDS, "---.-----,  ---.-----");
@@ -1070,8 +1096,8 @@ public class MainActivity extends Activity {
         scroll.addView(container);
 
         TextView header = new TextView(this);
-        header.setText("รถ: " + vehicleId + "\nสถานะส่งตำแหน่ง: " + (enabled ? "กำลังส่ง" : "ปิดอยู่")
-                + "\nพิกัดปัจจุบัน: " + coords + "\nส่งล่าสุด: " + sentTime);
+        header.setText("??: " + vehicleId + "\n???????????????: " + (enabled ? "????????" : "???????")
+                + "\n?????????????: " + coords + "\n?????????: " + sentTime);
         header.setTextColor(COLOR_TEXT_MUTED);
         header.setTextSize(13);
         header.setPadding(0, 0, 0, dp(14));
@@ -1079,7 +1105,7 @@ public class MainActivity extends Activity {
 
         if (!enabled) {
             TextView empty = new TextView(this);
-            empty.setText("ยังไม่มีข้อมูลการวินิจฉัย (ต้องเปิดส่งตำแหน่งก่อน)");
+            empty.setText("????????????????????????? (??????????????????????)");
             empty.setTextColor(COLOR_TEXT_MUTED);
             container.addView(empty);
         } else {
@@ -1105,7 +1131,7 @@ public class MainActivity extends Activity {
 
                 if (item.cause != null) {
                     TextView causeView = new TextView(this);
-                    causeView.setText("สาเหตุที่เป็นไปได้: " + item.cause);
+                    causeView.setText("??????????????????: " + item.cause);
                     causeView.setTextColor(COLOR_TEXT_MUTED);
                     causeView.setTextSize(11);
                     causeView.setPadding(0, dp(4), 0, 0);
@@ -1114,7 +1140,7 @@ public class MainActivity extends Activity {
 
                 if (item.settingsType != null) {
                     TextView fixHint = new TextView(this);
-                    fixHint.setText("แตะเพื่อไปตั้งค่าที่เกี่ยวข้อง ▸");
+                    fixHint.setText("?????????????????????????????? ?");
                     fixHint.setTextColor(COLOR_TEAL);
                     fixHint.setTextSize(11);
                     fixHint.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1128,54 +1154,54 @@ public class MainActivity extends Activity {
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("🐞 รายงานปัญหา App")
+                .setTitle("?? ??????????? App")
                 .setView(scroll)
-                .setPositiveButton("ส่งรายงานเข้าระบบ", (d, w) -> {
-                    logIssueToFirebase("ผู้ใช้กดส่งรายงานปัญหาด้วยตนเอง", -1, -1, true);
+                .setPositiveButton("?????????????????", (d, w) -> {
+                    logIssueToFirebase("???????????????????????????????", -1, -1, true);
                     new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("ส่งแล้ว")
-                            .setMessage("รายงานปัญหาของ " + vehicleId + " ถูกส่งเข้าระบบแล้ว")
-                            .setPositiveButton("ตกลง", null).show();
+                            .setTitle("???????")
+                            .setMessage("?????????????? " + vehicleId + " ??????????????????")
+                            .setPositiveButton("????", null).show();
                 })
-                .setNegativeButton("ปิด", null).show();
+                .setNegativeButton("???", null).show();
     }
 
-    // ===== แจ้งเหตุขัดข้อง — เลือกประเภท แล้วส่ง SOS + โทรได้ทันที =====
+    // ===== ??????????????? ? ??????????? ??????? SOS + ??????????? =====
     private void showIncidentDialog() {
-        // ประเภทเหตุขัดข้องทางการ (อ้างอิง กรมการขนส่งทางบก / ระบบรถโดยสารสาธารณะ)
+        // ??????????????????????? (??????? ???????????????? / ???????????????????)
         final String[] incidentTypes = {
-            "🛞  ยางแตก / ยางรั่ว",
-            "💥  อุบัติเหตุชนกัน",
-            "🔥  รถเสีย / เครื่องยนต์ขัดข้อง",
-            "⚡  ระบบไฟฟ้า / แบตเตอรี่ขัดข้อง",
-            "🌊  น้ำท่วม / ถนนปิด",
-            "🚨  เหตุฉุกเฉินทางการแพทย์",
-            "🆘  ส่งสัญญาณ SOS (อื่นๆ)"
+            "??  ?????? / ???????",
+            "??  ???????????????",
+            "??  ?????? / ??????????????????",
+            "?  ????????? / ????????????????",
+            "??  ??????? / ??????",
+            "??  ??????????????????????",
+            "??  ????????? SOS (?????)"
         };
         new AlertDialog.Builder(this)
-            .setTitle("⚠️ แจ้งเหตุขัดข้อง — เลือกประเภท")
+            .setTitle("?? ??????????????? ? ???????????")
             .setItems(incidentTypes, (d, which) -> {
-                String incidentLabel = incidentTypes[which].substring(3).trim(); // ตัด emoji ออก
+                String incidentLabel = incidentTypes[which].substring(3).trim(); // ??? emoji ???
                 showIncidentConfirmDialog(incidentLabel);
             })
-            .setNegativeButton("ยกเลิก", null)
+            .setNegativeButton("??????", null)
             .show();
     }
 
     private void showIncidentConfirmDialog(String incidentType) {
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-        String coords = prefs.getString(KEY_LAST_COORDS, "ไม่มีพิกัด");
+        String coords = prefs.getString(KEY_LAST_COORDS, "??????????");
 
         new AlertDialog.Builder(this)
-            .setTitle("ยืนยันการแจ้งเหตุ")
-            .setMessage("รถ " + vehicleId + "\nเหตุ: " + incidentType
-                + "\nพิกัด: " + coords
-                + "\n\nระบบจะแจ้งแอดมินทันที")
-            .setPositiveButton("แจ้งเหตุ", (d, w) -> {
+            .setTitle("?????????????????")
+            .setMessage("?? " + vehicleId + "\n????: " + incidentType
+                + "\n?????: " + coords
+                + "\n\n?????????????????????")
+            .setPositiveButton("????????", (d, w) -> {
                 sendIncidentToFirebase(incidentType, coords, vehicleId);
                 showPostIncidentOptions();
             })
-            .setNegativeButton("ยกเลิก", null)
+            .setNegativeButton("??????", null)
             .show();
     }
 
@@ -1187,18 +1213,18 @@ public class MainActivity extends Activity {
         data.put("ts", System.currentTimeMillis());
         data.put("resolved", false);
         FirebaseDatabase.getInstance().getReference("sosAlerts/" + vehicleId).setValue(data);
-        addNotification("🆘 แจ้งเหตุ \"" + incidentType + "\" ถูกส่งเข้าระบบแล้ว");
+        addNotification("?? ???????? \"" + incidentType + "\" ??????????????????");
     }
 
     private void showPostIncidentOptions() {
         String[] options = {
-            "🚓  โทร 191 — ตำรวจ / เหตุฉุกเฉินทั่วไป",
-            "🚑  โทร 1669 — กู้ภัย / รถพยาบาล",
-            "✅  ปิด (แจ้งแอดมินแล้ว)"
+            "??  ??? 191 ? ????? / ?????????????????",
+            "??  ??? 1669 ? ?????? / ????????",
+            "?  ??? (??????????????)"
         };
         new AlertDialog.Builder(this)
-            .setTitle("✅ แจ้งเหตุเข้าระบบแล้ว")
-            .setMessage("ต้องการโทรเพิ่มเติมหรือไม่?")
+            .setTitle("? ????????????????????")
+            .setMessage("???????????????????????????")
             .setItems(options, (d, which) -> {
                 if (which == 0) callNumber("191");
                 else if (which == 1) callNumber("1669");
@@ -1206,7 +1232,7 @@ public class MainActivity extends Activity {
             .show();
     }
 
-    // ===== SOS signal เดิม (ยังใช้ใน sendIncidentToFirebase ผ่าน sosAlerts) =====
+    // ===== SOS signal ???? (???????? sendIncidentToFirebase ???? sosAlerts) =====
     private void showSosDialog() {
         showIncidentDialog();
     }
@@ -1226,9 +1252,9 @@ public class MainActivity extends Activity {
         data.put("resolved", false);
         FirebaseDatabase.getInstance().getReference("sosAlerts/" + vehicleId).setValue(data);
         new AlertDialog.Builder(this)
-                .setTitle("ส่งสัญญาณแล้ว")
-                .setMessage("ระบบได้รับแจ้งเหตุฉุกเฉินจากรถ " + vehicleId + " แล้ว")
-                .setPositiveButton("ตกลง", null).show();
+                .setTitle("?????????????")
+                .setMessage("?????????????????????????????? " + vehicleId + " ????")
+                .setPositiveButton("????", null).show();
     }
 
     private void installApk(File apkFile) {
@@ -1241,13 +1267,13 @@ public class MainActivity extends Activity {
             startActivity(installIntent);
         } catch (Exception e) {
             new AlertDialog.Builder(this)
-                    .setTitle("ติดตั้งไม่สำเร็จ")
+                    .setTitle("????????????????")
                     .setMessage(e.getMessage())
-                    .setPositiveButton("ตกลง", null).show();
+                    .setPositiveButton("????", null).show();
         }
     }
 
-    // ===== สร้างคำว่า "S.L.TRANSIT" แบบมีจุดสีเหมือนโลโก้ (เทียลและส้มสลับ) =====
+    // ===== ?????????? "S.L.TRANSIT" ????????????????????? (???????????????) =====
     private CharSequence buildWordmark() {
         String text = "S.L.TRANSIT";
         android.text.SpannableString span = new android.text.SpannableString(text);
@@ -1264,18 +1290,18 @@ public class MainActivity extends Activity {
     private void buildUi() {
         diagVisible = prefs.getBoolean(KEY_DIAG_VISIBLE, false);
 
-        // ===== ข้อ 8: outer container = หน้าเนื้อหา (สลับได้ตามแท็บ) + bottom nav คงที่ =====
+        // ===== ??? 8: outer container = ??????????? (??????????????) + bottom nav ????? =====
         LinearLayout outer = new LinearLayout(this);
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setBackgroundColor(COLOR_BG_PAGE);
-        // ไม่ต้องตั้ง fitsSystemWindows — ใช้ listener ด้านล่างแทน
+        // ??????????? fitsSystemWindows ? ??? listener ???????????
 
         contentContainer = new FrameLayout(this);
         LinearLayout.LayoutParams containerLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         outer.addView(contentContainer, containerLp);
 
-        // ===== หน้าหลัก (เนื้อหาเดิมทั้งหมด อยู่ใน ScrollView) =====
+        // ===== ???????? (?????????????????? ?????? ScrollView) =====
         homeScroll = new ScrollView(this);
         homeScroll.setFillViewport(true);
         homeScroll.setBackgroundColor(COLOR_BG_PAGE);
@@ -1283,7 +1309,7 @@ public class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(COLOR_BG_PAGE);
-        // ใช้ WindowInsets เพื่อดัน padding บนหนีสถานะบาร์ทุกขนาดหน้าจอ
+        // ??? WindowInsets ???????? padding ???????????????????????????
         if (Build.VERSION.SDK_INT >= 21) {
             outer.setOnApplyWindowInsetsListener((v, insets) -> {
                 int top = insets.getSystemWindowInsetTop();
@@ -1299,7 +1325,7 @@ public class MainActivity extends Activity {
                 ScrollView.LayoutParams.WRAP_CONTENT));
         contentContainer.addView(homeScroll);
 
-        // ===== ข้อ 2: หัวข้อ S.L.TRANSIT ชิดซ้ายสุด + กระดิ่งแจ้งเตือนชิดขวา =====
+        // ===== ??? 2: ?????? S.L.TRANSIT ?????????? + ?????????????????????? =====
         LinearLayout headerRow = new LinearLayout(this);
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -1315,11 +1341,11 @@ public class MainActivity extends Activity {
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         headerRow.addView(title, titleLp);
 
-        // ไอคอนกระดิ่งแจ้งเตือน พร้อมตัวเลขค้างไว้แบบ Facebook (ไม่หายเอง จนกว่าจะกดดู)
+        // ????????????????????? ????????????????????? Facebook (????????? ????????????)
         FrameLayout bellFrame = new FrameLayout(this);
 
         notifBell = new TextView(this);
-        notifBell.setText("🔔");
+        notifBell.setText("??");
         notifBell.setTextSize(20);
         notifBell.setGravity(Gravity.CENTER);
         notifBell.setOnClickListener(v -> {
@@ -1353,7 +1379,7 @@ public class MainActivity extends Activity {
         headerLp.setMargins(0, 0, 0, dp(14));
         root.addView(headerRow, headerLp);
 
-        // ===== ป้ายออนไลน์ (hidden — ยังคง ref ไว้ให้ refreshUi ใช้ แต่ไม่แสดงบนหน้าจอ) =====
+        // ===== ??????????? (hidden ? ????? ref ?????? refreshUi ??? ??????????????????) =====
         onlinePill = new LinearLayout(this);
         onlinePill.setVisibility(android.view.View.GONE);
         onlineDot = new TextView(this);
@@ -1361,23 +1387,23 @@ public class MainActivity extends Activity {
         onlinePill.addView(onlineDot);
         onlinePill.addView(onlineLabel);
 
-        // versionLabel สร้างไว้ก่อน จะ addView ที่ท้ายสุด (ข้อ 2)
+        // versionLabel ???????????? ?? addView ?????????? (??? 2)
         versionLabel = new TextView(this);
         versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + ")");
         versionLabel.setTextColor(COLOR_TEXT_MUTED);
         versionLabel.setTextSize(10);
         versionLabel.setGravity(Gravity.CENTER);
 
-        // vehiclePickerText สร้างไว้ก่อน จะ addView ในการ์ดคิว (ข้อ 1)
+        // vehiclePickerText ???????????? ?? addView ?????????? (??? 1)
         vehiclePickerText = new TextView(this);
         vehiclePickerText.setTextColor(COLOR_LIGHT_TEAL);
         vehiclePickerText.setTextSize(12);
         vehiclePickerText.setTypeface(Typeface.DEFAULT_BOLD);
         vehiclePickerText.setGravity(Gravity.CENTER);
         vehiclePickerText.setPadding(dp(10), dp(6), dp(10), dp(6));
-        // ถ้ายังไม่ได้เลือกรถ แสดง "เลือกรถ ▾" แทนค่า default
+        // ??????????????????? ???? "??????? ?" ?????? default
         String savedVehicle = prefs.getString(KEY_VEHICLE_ID, null);
-        vehiclePickerText.setText(savedVehicle != null ? savedVehicle + "\n▾" : "เลือกรถ\n▾");
+        vehiclePickerText.setText(savedVehicle != null ? savedVehicle + "\n?" : "???????\n?");
         GradientDrawable pickerBg = new GradientDrawable();
         pickerBg.setColor(Color.argb(50, 0, 167, 181));
         pickerBg.setCornerRadius(dp(10));
@@ -1387,7 +1413,7 @@ public class MainActivity extends Activity {
             showVehicleDialog();
         });
 
-        // ===== ข้อ 3: การ์ดคิววันนี้ / เส้นทาง / รอบถัดไป / สถานะให้บริการ =====
+        // ===== ??? 3: ?????????????? / ??????? / ???????? / ?????????????? =====
         LinearLayout queueCard = new LinearLayout(this);
         queueCard.setOrientation(LinearLayout.VERTICAL);
         queueCard.setPadding(dp(18), dp(18), dp(18), dp(16));
@@ -1401,28 +1427,28 @@ public class MainActivity extends Activity {
         queueTopRow.setOrientation(LinearLayout.HORIZONTAL);
         queueTopRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView busIcon = new TextView(this);
-        busIcon.setText("🚌");
+        busIcon.setText("??");
         busIcon.setTextSize(20);
         busIcon.setPadding(0, 0, dp(10), 0);
-        // ไม่มี onClick — คิวมาจาก Firebase อัตโนมัติ
+        // ????? onClick ? ???????? Firebase ?????????
         queueTopRow.addView(busIcon);
         queueValueText = new TextView(this);
-        queueValueText.setText("กำลังโหลดคิว…");
+        queueValueText.setText("?????????????");
         queueValueText.setTextColor(Color.WHITE);
         queueValueText.setTextSize(17);
         queueValueText.setTypeface(Typeface.DEFAULT_BOLD);
-        // ไม่มี onClick — ระบบดึงคิวจาก Firebase เอง
+        // ????? onClick ? ????????????? Firebase ???
         LinearLayout.LayoutParams queueValLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         queueTopRow.addView(queueValueText, queueValLp);
-        // ===== ข้อ 1: ปุ่มเลือกรหัสรถ ย้ายมาอยู่ในการ์ดคิว ขวาบน =====
+        // ===== ??? 1: ??????????????? ???????????????????? ????? =====
         LinearLayout.LayoutParams carPickerLp = new LinearLayout.LayoutParams(
                 dp(72), LinearLayout.LayoutParams.WRAP_CONTENT);
         queueTopRow.addView(vehiclePickerText, carPickerLp);
         queueCard.addView(queueTopRow);
 
         routeValueText = new TextView(this);
-        routeValueText.setText("—");
+        routeValueText.setText("?");
         routeValueText.setTextColor(Color.rgb(203, 224, 240));
         routeValueText.setTextSize(14);
         routeValueText.setPadding(dp(30), dp(4), 0, dp(14));
@@ -1438,12 +1464,12 @@ public class MainActivity extends Activity {
         LinearLayout nextRoundCol = new LinearLayout(this);
         nextRoundCol.setOrientation(LinearLayout.VERTICAL);
         TextView nextRoundLabel = new TextView(this);
-        nextRoundLabel.setText("รอบถัดไป");
+        nextRoundLabel.setText("????????");
         nextRoundLabel.setTextColor(Color.rgb(160, 190, 215));
         nextRoundLabel.setTextSize(10);
         nextRoundCol.addView(nextRoundLabel);
         nextRoundValueText = new TextView(this);
-        nextRoundValueText.setText("—");
+        nextRoundValueText.setText("?");
         nextRoundValueText.setTextColor(Color.WHITE);
         nextRoundValueText.setTextSize(14);
         nextRoundValueText.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1473,7 +1499,7 @@ public class MainActivity extends Activity {
         root.addView(queueCard, queueCardLp);
         updateServiceStatusPill();
 
-        // ===== ข้อ 6: การ์ด "การเดินทางปัจจุบัน" (พร้อม/ไม่พร้อม + ป้ายตำแหน่ง + ETA) =====
+        // ===== ??? 6: ????? "??????????????????" (?????/???????? + ??????????? + ETA) =====
         travelCard = new LinearLayout(this);
         travelCard.setOrientation(LinearLayout.VERTICAL);
         travelCard.setPadding(dp(18), dp(18), dp(18), dp(18));
@@ -1487,7 +1513,7 @@ public class MainActivity extends Activity {
         travelTitleRow.setOrientation(LinearLayout.HORIZONTAL);
         travelTitleRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView travelTitle = new TextView(this);
-        travelTitle.setText("การเดินทางปัจจุบัน");
+        travelTitle.setText("??????????????????");
         travelTitle.setTextColor(COLOR_NAVY);
         travelTitle.setTextSize(14);
         travelTitle.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1499,7 +1525,7 @@ public class MainActivity extends Activity {
         readinessBadge.setTextSize(12);
         readinessBadge.setTypeface(Typeface.DEFAULT_BOLD);
         readinessBadge.setPadding(dp(12), dp(5), dp(12), dp(5));
-        readinessBadge.setText("ออฟไลน์");
+        readinessBadge.setText("???????");
         travelTitleRow.addView(readinessBadge);
         travelCard.addView(travelTitleRow);
 
@@ -1513,7 +1539,7 @@ public class MainActivity extends Activity {
         travelCard.addView(buildStationBox());
 
         etaText = new TextView(this);
-        etaText.setText("เวลาโดยประมาณถึง : —");
+        etaText.setText("???????????????? : ?");
         etaText.setTextColor(COLOR_TEXT_MUTED);
         etaText.setTextSize(12);
         etaText.setPadding(0, dp(12), 0, 0);
@@ -1524,7 +1550,7 @@ public class MainActivity extends Activity {
         travelCardLp.setMargins(0, 0, 0, dp(16));
         root.addView(travelCard, travelCardLp);
 
-        // ===== ข้อ 7: การ์ดสรุปผู้โดยสาร (หัวข้ออยู่ในกรอบขาวเดียวกัน) =====
+        // ===== ??? 7: ?????????????????? (???????????????????????????) =====
         LinearLayout summaryCard = new LinearLayout(this);
         summaryCard.setOrientation(LinearLayout.VERTICAL);
         summaryCard.setPadding(dp(18), dp(16), dp(18), dp(16));
@@ -1535,7 +1561,7 @@ public class MainActivity extends Activity {
         summaryCard.setElevation(dp(2));
 
         TextView summaryTitle = new TextView(this);
-        summaryTitle.setText("สรุปผู้โดยสาร");
+        summaryTitle.setText("?????????????");
         summaryTitle.setTextColor(COLOR_NAVY);
         summaryTitle.setTextSize(13);
         summaryTitle.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1551,11 +1577,11 @@ public class MainActivity extends Activity {
         summaryCheckedCount = new TextView(this);
         summaryPendingCount = new TextView(this);
 
-        summaryRow.addView(buildSummaryColumn("👥", summaryBookedCount, "ผู้โดยสาร", COLOR_OCEAN));
+        summaryRow.addView(buildSummaryColumn("??", summaryBookedCount, "?????????", COLOR_OCEAN));
         summaryRow.addView(buildSummaryDivider());
-        summaryRow.addView(buildSummaryColumn("🎫", summaryCheckedCount, "เช็คตั๋วแล้ว", COLOR_TEAL));
+        summaryRow.addView(buildSummaryColumn("??", summaryCheckedCount, "????????????", COLOR_TEAL));
         summaryRow.addView(buildSummaryDivider());
-        summaryRow.addView(buildSummaryColumn("⏳", summaryPendingCount, "ยังไม่มาเช็คอิน", COLOR_ORANGE));
+        summaryRow.addView(buildSummaryColumn("?", summaryPendingCount, "???????????????", COLOR_ORANGE));
         summaryCard.addView(summaryRow);
 
         LinearLayout.LayoutParams summaryLp = new LinearLayout.LayoutParams(
@@ -1572,7 +1598,7 @@ public class MainActivity extends Activity {
         errorText.setVisibility(android.view.View.GONE);
         root.addView(errorText);
 
-        // ===== ตัวแปรที่ยังใช้ภายใน (ไม่แสดงผลบนหน้าจอแล้ว — ย้ายไปข้อ 6.1/รายงานปัญหาแทน) =====
+        // ===== ???????????????????? (????????????????????? ? ????????? 6.1/??????????????) =====
         diagPanel = new TextView(this);
         diagPanel.setVisibility(android.view.View.GONE);
         coordsText = new TextView(this);
@@ -1584,14 +1610,14 @@ public class MainActivity extends Activity {
         mainButton = new Button(this);
         mainButton.setVisibility(android.view.View.GONE);
 
-        // ===== ตาราง 2x2 ไอคอน =====
+        // ===== ????? 2x2 ????? =====
         LinearLayout actionsRowTop = new LinearLayout(this);
         actionsRowTop.setOrientation(LinearLayout.HORIZONTAL);
         actionsRowTop.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams actionsRowLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        actionsRowTop.addView(buildActionButton("🎫", "สแกนตั๋ว", COLOR_TEAL, v -> openQrScanner()));
-        actionsRowTop.addView(buildActionButton("📋", "ข้อมูล\nการจอง", COLOR_OCEAN, v -> showPassengerList()));
+        actionsRowTop.addView(buildActionButton("??", "????????", COLOR_TEAL, v -> openQrScanner()));
+        actionsRowTop.addView(buildActionButton("??", "??????\n??????", COLOR_OCEAN, v -> showPassengerList()));
         root.addView(actionsRowTop, actionsRowLp);
 
         LinearLayout actionsRowBottom = new LinearLayout(this);
@@ -1600,26 +1626,26 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams actionsRowBottomLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         actionsRowBottomLp.setMargins(0, dp(8), 0, dp(12));
-        actionsRowBottom.addView(buildActionButton("📡", "รายงาน\nสถานะ", COLOR_LIGHT_TEAL, v -> showDiagnosticPage()));
-        actionsRowBottom.addView(buildActionButton("⚠️", "แจ้งเหตุ\nขัดข้อง", COLOR_ORANGE, v -> showIncidentDialog()));
+        actionsRowBottom.addView(buildActionButton("??", "??????\n?????", COLOR_LIGHT_TEAL, v -> showDiagnosticPage()));
+        actionsRowBottom.addView(buildActionButton("??", "????????\n???????", COLOR_ORANGE, v -> showIncidentDialog()));
         root.addView(actionsRowBottom, actionsRowBottomLp);
 
-        // ===== ข้อ 3: แถบ เริ่มงาน/หยุดงาน แบบ full-width bar ใต้ไอคอน =====
+        // ===== ??? 3: ??? ????????/??????? ??? full-width bar ???????? =====
         root.addView(buildStartWorkBar());
 
-        // ===== ข้อ 2: version label อยู่ล่างสุด =====
+        // ===== ??? 2: version label ??????????? =====
         LinearLayout.LayoutParams versionLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         versionLp.setMargins(0, dp(16), 0, dp(8));
         root.addView(versionLabel, versionLp);
 
-        // ===== หน้า "เร็วๆนี้" สำหรับแท็บที่ยังไม่มีเนื้อหา (งานวันนี้ / รายงาน / บัญชี) =====
+        // ===== ???? "????????" ???????????????????????????? (????????? / ?????? / ?????) =====
         for (int i = 1; i < NAV_LABELS.length; i++) {
-            if (i == 3) continue; // แจ้งเตือน — ใช้ popup เดิม ไม่ต้องมีหน้าของตัวเอง
+            if (i == 3) continue; // ????????? ? ??? popup ???? ??????????????????????
             contentContainer.addView(buildComingSoonPage(NAV_LABELS[i]));
         }
 
-        // ===== ข้อ 8: Bottom Navigation =====
+        // ===== ??? 8: Bottom Navigation =====
         outer.addView(buildBottomNavBar());
 
         setContentView(outer);
@@ -1627,7 +1653,7 @@ public class MainActivity extends Activity {
         refreshUi();
     }
 
-    // ===== ข้อ 3: เส้นประ 4 ขีดจางๆ คั่นระหว่างเส้นทางกับรอบถัดไป (ตามดีไซน์ภาพ 2) =====
+    // ===== ??? 3: ??????? 4 ??????? ????????????????????????????? (???????????? 2) =====
     private LinearLayout buildDashDivider() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -1642,7 +1668,7 @@ public class MainActivity extends Activity {
         return row;
     }
 
-    // ===== ข้อ 6.2: กล่องเล็ก "ตำแหน่งปัจจุบัน → จุดหมายถัดไป" พร้อมเส้นถนน + ไอคอนรถ =====
+    // ===== ??? 6.2: ????????? "??????????????? ? ????????????" ???????????? + ??????? =====
     private LinearLayout buildStationBox() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.HORIZONTAL);
@@ -1660,12 +1686,12 @@ public class MainActivity extends Activity {
         LinearLayout leftCol = new LinearLayout(this);
         leftCol.setOrientation(LinearLayout.VERTICAL);
         TextView leftLabel = new TextView(this);
-        leftLabel.setText("ตำแหน่งปัจจุบัน");
+        leftLabel.setText("???????????????");
         leftLabel.setTextColor(COLOR_TEXT_MUTED);
         leftLabel.setTextSize(10);
         leftCol.addView(leftLabel);
         currentStopLabel = new TextView(this);
-        currentStopLabel.setText("—");
+        currentStopLabel.setText("?");
         currentStopLabel.setTextColor(COLOR_NAVY);
         currentStopLabel.setTextSize(14);
         currentStopLabel.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1679,7 +1705,7 @@ public class MainActivity extends Activity {
         box.addView(line1, line1Lp);
 
         TextView roadBus = new TextView(this);
-        roadBus.setText("🚌");
+        roadBus.setText("??");
         roadBus.setTextSize(16);
         box.addView(roadBus);
 
@@ -1693,13 +1719,13 @@ public class MainActivity extends Activity {
         rightCol.setOrientation(LinearLayout.VERTICAL);
         rightCol.setGravity(Gravity.END);
         TextView rightLabel = new TextView(this);
-        rightLabel.setText("จุดหมายถัดไป");
+        rightLabel.setText("????????????");
         rightLabel.setTextColor(COLOR_TEXT_MUTED);
         rightLabel.setTextSize(10);
         rightLabel.setGravity(Gravity.END);
         rightCol.addView(rightLabel);
         nextStopLabel = new TextView(this);
-        nextStopLabel.setText("—");
+        nextStopLabel.setText("?");
         nextStopLabel.setTextColor(COLOR_NAVY);
         nextStopLabel.setTextSize(14);
         nextStopLabel.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1710,7 +1736,7 @@ public class MainActivity extends Activity {
         return box;
     }
 
-    // ===== ข้อ 3: แถบ เริ่มงาน/หยุดงาน แบบ full-width bar =====
+    // ===== ??? 3: ??? ????????/??????? ??? full-width bar =====
     private LinearLayout buildStartWorkBar() {
         startWorkButton = new LinearLayout(this);
         startWorkButton.setOrientation(LinearLayout.HORIZONTAL);
@@ -1725,7 +1751,7 @@ public class MainActivity extends Activity {
         startWorkIconBg.setShape(GradientDrawable.OVAL);
         startWorkIconBg.setColor(COLOR_GREEN);
         startWorkIcon = new TextView(this);
-        startWorkIcon.setText("▶");
+        startWorkIcon.setText("?");
         startWorkIcon.setTextSize(18);
         startWorkIcon.setTextColor(Color.WHITE);
         startWorkIcon.setGravity(Gravity.CENTER);
@@ -1734,7 +1760,7 @@ public class MainActivity extends Activity {
         iconLp.setMargins(0, 0, dp(12), 0);
         startWorkButton.addView(startWorkIcon, iconLp);
         startWorkLabel = new TextView(this);
-        startWorkLabel.setText("เริ่มงาน");
+        startWorkLabel.setText("????????");
         startWorkLabel.setTextColor(Color.WHITE);
         startWorkLabel.setTextSize(16);
         startWorkLabel.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1750,7 +1776,7 @@ public class MainActivity extends Activity {
         return startWorkButton;
     }
 
-    // ===== ข้อ 3: รายงานปัญหาแอพ — เปิดหน้าใหม่เต็มจอ (ไม่ใช่ popup) =====
+    // ===== ??? 3: ?????????????? ? ?????????????????? (?????? popup) =====
     private void showDiagnosticPage() {
         String tag = "nav_page_diagnostic";
         android.view.View existing = contentContainer.findViewWithTag(tag);
@@ -1762,7 +1788,7 @@ public class MainActivity extends Activity {
         }
         android.view.View diagPage = contentContainer.findViewWithTag(tag);
         if (diagPage != null) diagPage.setVisibility(android.view.View.VISIBLE);
-        // deselect bottom nav — ใช้สีขาวจางเพราะ bg = Navy
+        // deselect bottom nav ? ???????????????? bg = Navy
         for (int i = 0; i < navTabs.length; i++) {
             navTabIcons[i].setTextColor(Color.argb(153, 255, 255, 255));
             navTabLabels[i].setTextColor(Color.argb(153, 255, 255, 255));
@@ -1771,7 +1797,7 @@ public class MainActivity extends Activity {
         }
         refreshDiagPageContent(diagPage);
 
-        // เริ่ม auto-refresh ทุก 3 วินาที
+        // ????? auto-refresh ??? 3 ??????
         stopDiagRefresh();
         diagRefreshRunnable = new Runnable() {
             @Override public void run() {
@@ -1802,10 +1828,10 @@ public class MainActivity extends Activity {
 
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(dp(20), dp(52), dp(20), dp(24)); // dp(52) เผื่อ status bar
+        container.setPadding(dp(20), dp(52), dp(20), dp(24)); // dp(52) ????? status bar
         container.setTag("diag_container");
 
-        // ===== ปุ่มกลับ (คงที่ ไม่ต้อง rebuild) =====
+        // ===== ???????? (????? ??????? rebuild) =====
         LinearLayout backRow = new LinearLayout(this);
         backRow.setOrientation(LinearLayout.HORIZONTAL);
         backRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -1813,14 +1839,14 @@ public class MainActivity extends Activity {
         backRow.setClickable(true);
         backRow.setOnClickListener(v -> { stopDiagRefresh(); selectNavTab(0); });
         TextView backBtn = new TextView(this);
-        backBtn.setText("← หน้าหลัก");
+        backBtn.setText("? ????????");
         backBtn.setTextColor(COLOR_TEAL);
         backBtn.setTextSize(14);
         backBtn.setTypeface(Typeface.DEFAULT_BOLD);
         backRow.addView(backBtn);
         container.addView(backRow);
 
-        // ===== หัวข้อ + นาฬิกา (refresh เฉพาะ clock) =====
+        // ===== ?????? + ?????? (refresh ????? clock) =====
         LinearLayout titleRow = new LinearLayout(this);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -1829,7 +1855,7 @@ public class MainActivity extends Activity {
         titleRowLp.setMargins(0, 0, 0, dp(14));
         titleRow.setLayoutParams(titleRowLp);
         TextView pageTitle = new TextView(this);
-        pageTitle.setText("📡 สถานะรถ & สัญญาณ");
+        pageTitle.setText("?? ??????? & ??????");
         pageTitle.setTextColor(COLOR_NAVY);
         pageTitle.setTextSize(18);
         pageTitle.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1842,7 +1868,7 @@ public class MainActivity extends Activity {
         titleRow.addView(clockTv);
         container.addView(titleRow);
 
-        // ===== การ์ดสถานะใหญ่ (icon/title/sub มี tag) =====
+        // ===== ?????????????? (icon/title/sub ?? tag) =====
         LinearLayout statusCard = new LinearLayout(this);
         statusCard.setOrientation(LinearLayout.HORIZONTAL);
         statusCard.setGravity(Gravity.CENTER_VERTICAL);
@@ -1875,43 +1901,43 @@ public class MainActivity extends Activity {
         statusCard.addView(statusTextCol);
         container.addView(statusCard);
 
-        // ===== row1: รหัสรถ + ส่งล่าสุด =====
+        // ===== row1: ?????? + ????????? =====
         LinearLayout row1 = new LinearLayout(this);
         row1.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams r1Lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         r1Lp.setMargins(0, 0, 0, dp(8));
         row1.setLayoutParams(r1Lp);
-        LinearLayout card1a = buildDiagMiniCardTagged("🚌  รหัสรถ", "diag_val_vehicle");
-        LinearLayout card1b = buildDiagMiniCardTagged("📡  ส่งล่าสุด", "diag_val_sent");
+        LinearLayout card1a = buildDiagMiniCardTagged("??  ??????", "diag_val_vehicle");
+        LinearLayout card1b = buildDiagMiniCardTagged("??  ?????????", "diag_val_sent");
         row1.addView(card1a, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row1.addView(new android.view.View(this), new LinearLayout.LayoutParams(dp(8), 1));
         row1.addView(card1b, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         container.addView(row1);
 
-        // ===== row2: พิกัด + แบต =====
+        // ===== row2: ????? + ??? =====
         LinearLayout row2 = new LinearLayout(this);
         row2.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams r2Lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         r2Lp.setMargins(0, 0, 0, dp(8));
         row2.setLayoutParams(r2Lp);
-        LinearLayout card2a = buildDiagMiniCardTagged("📍  พิกัดล่าสุด", "diag_val_coords");
-        LinearLayout card2b = buildDiagMiniCardTagged("🔋  แบตเตอรี่", "diag_val_battery");
+        LinearLayout card2a = buildDiagMiniCardTagged("??  ???????????", "diag_val_coords");
+        LinearLayout card2b = buildDiagMiniCardTagged("??  ?????????", "diag_val_battery");
         row2.addView(card2a, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row2.addView(new android.view.View(this), new LinearLayout.LayoutParams(dp(8), 1));
         row2.addView(card2b, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         container.addView(row2);
 
-        // ===== กล่อง DiagItems (rebuild ทุกรอบ เพราะ severity เปลี่ยนได้) =====
+        // ===== ????? DiagItems (rebuild ?????? ????? severity ??????????) =====
         LinearLayout diagItemsContainer = new LinearLayout(this);
         diagItemsContainer.setOrientation(LinearLayout.VERTICAL);
         diagItemsContainer.setTag("diag_items_container");
         container.addView(diagItemsContainer);
 
-        // ===== ปุ่มส่งรายงาน (คงที่) =====
+        // ===== ????????????? (?????) =====
         TextView sendBtn = new TextView(this);
-        sendBtn.setText("📤  ส่งรายงานเข้าระบบ");
+        sendBtn.setText("??  ?????????????????");
         sendBtn.setTextColor(Color.WHITE);
         sendBtn.setTextSize(15);
         sendBtn.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1927,11 +1953,11 @@ public class MainActivity extends Activity {
         sendBtn.setLayoutParams(sendLp);
         sendBtn.setOnClickListener(v -> {
             String vid = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-            logIssueToFirebase("ผู้ใช้กดส่งรายงานปัญหาด้วยตนเอง", -1, -1, true);
+            logIssueToFirebase("???????????????????????????????", -1, -1, true);
             new AlertDialog.Builder(this)
-                    .setTitle("ส่งแล้ว ✓")
-                    .setMessage("รายงานของ " + vid + " ถูกส่งเข้าระบบแล้ว")
-                    .setPositiveButton("ตกลง", null).show();
+                    .setTitle("??????? ?")
+                    .setMessage("????????? " + vid + " ??????????????????")
+                    .setPositiveButton("????", null).show();
         });
         container.addView(sendBtn);
 
@@ -1939,7 +1965,7 @@ public class MainActivity extends Activity {
         return sv;
     }
 
-    // Mini card ที่ label คงที่ แต่ value มี tag สำหรับ update
+    // Mini card ??? label ????? ??? value ?? tag ?????? update
     private LinearLayout buildDiagMiniCardTagged(String label, String valueTag) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -1971,18 +1997,18 @@ public class MainActivity extends Activity {
         LinearLayout container = (LinearLayout) sv.findViewWithTag("diag_container");
         if (container == null) return;
 
-        // ===== ดึงข้อมูลปัจจุบัน =====
+        // ===== ????????????????? =====
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-        String coords    = prefs.getString(KEY_LAST_COORDS, "—");
+        String coords    = prefs.getString(KEY_LAST_COORDS, "?");
         boolean enabled  = prefs.getBoolean(KEY_ENABLED, false);
         long sent = prefs.getLong(KEY_LAST_SENT, 0);
         long sentAgoMs   = sent > 0 ? System.currentTimeMillis() - sent : -1;
-        String sentAgo   = sentAgoMs >= 0 ? (sentAgoMs / 1000) + " วินาที" : "—";
+        String sentAgo   = sentAgoMs >= 0 ? (sentAgoMs / 1000) + " ??????" : "?";
         String nowTime   = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date());
 
-        // ===== อัพเดทค่าโดยตรง (ไม่ rebuild layout) =====
+        // ===== ??????????????? (??? rebuild layout) =====
         TextView clock = sv.findViewWithTag("diag_clock");
-        if (clock != null) clock.setText("🔄 " + nowTime);
+        if (clock != null) clock.setText("?? " + nowTime);
 
         // status card
         GradientDrawable statusBg = new GradientDrawable();
@@ -1991,30 +2017,30 @@ public class MainActivity extends Activity {
         android.view.View statusCard = sv.findViewWithTag("diag_status_card");
         if (statusCard != null) statusCard.setBackground(statusBg);
         TextView statusIcon = sv.findViewWithTag("diag_status_icon");
-        if (statusIcon != null) statusIcon.setText(enabled ? "🟢" : "🔴");
+        if (statusIcon != null) statusIcon.setText(enabled ? "??" : "??");
         TextView statusTitle = sv.findViewWithTag("diag_status_title");
-        if (statusTitle != null) statusTitle.setText(enabled ? "กำลังส่งสัญญาณ" : "ปิดการส่งสัญญาณ");
+        if (statusTitle != null) statusTitle.setText(enabled ? "??????????????" : "???????????????");
         TextView statusSub = sv.findViewWithTag("diag_status_sub");
-        if (statusSub != null) statusSub.setText(enabled ? "ระบบทำงานปกติ" : "กดปุ่ม 'เริ่มงาน' ที่หน้าหลัก");
+        if (statusSub != null) statusSub.setText(enabled ? "?????????????" : "?????? '????????' ???????????");
 
         // mini cards
         TextView valVehicle = sv.findViewWithTag("diag_val_vehicle");
         if (valVehicle != null) valVehicle.setText(vehicleId);
         TextView valSent = sv.findViewWithTag("diag_val_sent");
         if (valSent != null) valSent.setText(sentAgo);
-        String coordsShort = coords.length() > 16 ? coords.substring(0, 16) + "…" : coords;
+        String coordsShort = coords.length() > 16 ? coords.substring(0, 16) + "?" : coords;
         TextView valCoords = sv.findViewWithTag("diag_val_coords");
         if (valCoords != null) valCoords.setText(coordsShort);
         TextView valBattery = sv.findViewWithTag("diag_val_battery");
         if (valBattery != null) valBattery.setText(getBatteryPct() + "%");
 
-        // ===== DiagItems — rebuild เฉพาะกล่องนี้ =====
+        // ===== DiagItems ? rebuild ????????????? =====
         LinearLayout diagItemsContainer = sv.findViewWithTag("diag_items_container");
         if (diagItemsContainer != null) {
             diagItemsContainer.removeAllViews();
             if (enabled) {
                 TextView diagTitle = new TextView(this);
-                diagTitle.setText("การตรวจสอบระบบ");
+                diagTitle.setText("??????????????");
                 diagTitle.setTextColor(COLOR_NAVY);
                 diagTitle.setTextSize(14);
                 diagTitle.setTypeface(Typeface.DEFAULT_BOLD);
@@ -2073,7 +2099,7 @@ public class MainActivity extends Activity {
                     }
                     if (item.settingsType != null) {
                         TextView fixHint = new TextView(this);
-                        fixHint.setText("แตะเพื่อไปตั้งค่า ▸");
+                        fixHint.setText("????????????????? ?");
                         fixHint.setTextColor(COLOR_TEAL);
                         fixHint.setTextSize(12);
                         fixHint.setTypeface(Typeface.DEFAULT_BOLD);
@@ -2088,7 +2114,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ===== Helper: การ์ดสถานะใหญ่ =====
+    // ===== Helper: ?????????????? =====
     private LinearLayout buildDiagCard(String icon, String title, String sub, int bgColor) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
@@ -2128,7 +2154,7 @@ public class MainActivity extends Activity {
         return card;
     }
 
-    // ===== Helper: แถว 2 คอลัมน์ข้อมูล =====
+    // ===== Helper: ??? 2 ????????????? =====
     private LinearLayout buildDiagRow2Col(String ic1, String lbl1, String val1,
                                            String ic2, String lbl2, String val2) {
         LinearLayout row = new LinearLayout(this);
@@ -2170,7 +2196,7 @@ public class MainActivity extends Activity {
         return card;
     }
 
-    // ===== Helper: ดึง battery % =====
+    // ===== Helper: ??? battery % =====
     private int getBatteryPct() {
         android.content.Intent bi = registerReceiver(null,
             new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
@@ -2180,7 +2206,7 @@ public class MainActivity extends Activity {
         return scale > 0 ? (int)(level * 100f / scale) : -1;
     }
 
-    // ===== ข้อ 8: แถบ bottom nav 5 แท็บ =====
+    // ===== ??? 8: ??? bottom nav 5 ???? =====
     private LinearLayout buildBottomNavBar() {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
@@ -2230,7 +2256,7 @@ public class MainActivity extends Activity {
         return nav;
     }
 
-    // ===== ข้อ 8: หน้า "เร็วๆนี้" สำหรับแท็บที่ยังไม่มีเนื้อหา — กันแอป crash ตอนกดแท็บ =====
+    // ===== ??? 8: ???? "????????" ???????????????????????????? ? ?????? crash ????????? =====
     private LinearLayout buildComingSoonPage(String label) {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
@@ -2240,13 +2266,13 @@ public class MainActivity extends Activity {
         page.setTag("nav_page_" + label);
 
         TextView icon = new TextView(this);
-        icon.setText("🚧");
+        icon.setText("??");
         icon.setTextSize(40);
         icon.setGravity(Gravity.CENTER);
         page.addView(icon);
 
         TextView text = new TextView(this);
-        text.setText("หน้า \"" + label + "\" เร็วๆนี้");
+        text.setText("???? \"" + label + "\" ????????");
         text.setTextColor(COLOR_TEXT_MUTED);
         text.setTextSize(14);
         text.setPadding(0, dp(10), 0, 0);
@@ -2257,13 +2283,13 @@ public class MainActivity extends Activity {
         return page;
     }
 
-    // ===== ข้อ 8: สลับหน้าตามแท็บที่กด + ไฮไลท์แท็บที่เลือก =====
+    // ===== ??? 8: ???????????????????? + ?????????????????? =====
     private void selectNavTab(int index) {
         if (index == 3) {
             showNotificationCenter();
             return;
         }
-        // หยุด auto-refresh ถ้าออกจากหน้า diagnostic
+        // ???? auto-refresh ????????????? diagnostic
         if (currentNavIndex != index) stopDiagRefresh();
         currentNavIndex = index;
         for (int i = 0; i < contentContainer.getChildCount(); i++) {
@@ -2274,12 +2300,12 @@ public class MainActivity extends Activity {
         }
         for (int i = 0; i < navTabs.length; i++) {
             boolean active = (i == index);
-            // bg = Navy #0B1D3A → active=ขาว, inactive=ขาวจาง 60%
+            // bg = Navy #0B1D3A ? active=???, inactive=?????? 60%
             int color = active ? Color.WHITE : Color.argb(153, 255, 255, 255);
             navTabIcons[i].setTextColor(color);
             navTabLabels[i].setTextColor(color);
             navTabLabels[i].setTypeface(active ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
-            // underline indicator ใต้ไอคอน active
+            // underline indicator ???????? active
             if (active) {
                 GradientDrawable dot = new GradientDrawable();
                 dot.setShape(GradientDrawable.RECTANGLE);
@@ -2293,13 +2319,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ===== ข้อ 5: "นำทาง" — เปิด Google Maps มุ่งหน้าไปป้ายถัดไป (ถ้ามีข้อมูลพิกัดแล้ว) =====
+    // ===== ??? 5: "?????" ? ???? Google Maps ??????????????????? (????????????????????) =====
     private void openExternalNavigation() {
         if (nextStopCoords == null) {
             new AlertDialog.Builder(this)
-                    .setTitle("ยังไม่มีพิกัดจุดหมายถัดไป")
-                    .setMessage("ระบบยังไม่มีรายชื่อป้าย/พิกัดของเส้นทางนี้ กรุณารอข้อมูลจาก ST Transit")
-                    .setPositiveButton("ตกลง", null).show();
+                    .setTitle("?????????????????????????")
+                    .setMessage("???????????????????????/?????????????????? ???????????????? ST Transit")
+                    .setPositiveButton("????", null).show();
             return;
         }
         try {
@@ -2313,7 +2339,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ===== ข้อ 5: "ติดตามตำแหน่ง" — เลื่อนไปโชว์การ์ดการเดินทางปัจจุบัน =====
+    // ===== ??? 5: "?????????????" ? ??????????????????????????????????? =====
     private void scrollToTravelCard() {
         if (currentNavIndex != 0) selectNavTab(0);
         if (homeScroll != null && travelCard != null) {
@@ -2360,12 +2386,12 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    // ---- Dialog เลือกรถ + ล็อคคันที่ online อยู่ ----
+    // ---- Dialog ??????? + ?????????? online ???? ----
     private void showVehicleDialog() {
         String myCurrentId = prefs.getString(KEY_VEHICLE_ID, null);
         boolean iAmOnline = prefs.getBoolean(KEY_ENABLED, false);
 
-        // สร้าง label แต่ละตัวเลือก — ขีดค่าถ้าถูกใช้อยู่
+        // ????? label ????????????? ? ???????????????????
         android.text.SpannableString[] labels = new android.text.SpannableString[VEHICLE_IDS.length];
         boolean[] isBlocked = new boolean[VEHICLE_IDS.length];
         for (int i = 0; i < VEHICLE_IDS.length; i++) {
@@ -2373,7 +2399,7 @@ public class MainActivity extends Activity {
             boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(id))
                     && !(id.equals(myCurrentId) && iAmOnline);
             isBlocked[i] = onlineByOther;
-            String raw = onlineByOther ? id + "  (ใช้งานอยู่)" : id;
+            String raw = onlineByOther ? id + "  (??????????)" : id;
             android.text.SpannableString ss = new android.text.SpannableString(raw);
             if (onlineByOther) {
                 ss.setSpan(new android.text.style.StrikethroughSpan(), 0, raw.length(), 0);
@@ -2388,25 +2414,25 @@ public class MainActivity extends Activity {
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("เลือกรหัสรถ")
+                .setTitle("???????????")
                 .setSingleChoiceItems(labels, currentIdx, (dialog, which) -> {
                     if (isBlocked[which]) {
                         new AlertDialog.Builder(this)
-                                .setTitle("ไม่สามารถเลือกได้")
-                                .setMessage(VEHICLE_IDS[which] + " กำลังถูกใช้งานอยู่\nกรุณาเลือกรหัสรถอื่น")
-                                .setPositiveButton("ตกลง", null).show();
+                                .setTitle("?????????????????")
+                                .setMessage(VEHICLE_IDS[which] + " ??????????????????\n????????????????????")
+                                .setPositiveButton("????", null).show();
                         return;
                     }
                     String selectedId = VEHICLE_IDS[which];
                     prefs.edit().putString(KEY_VEHICLE_ID, selectedId).apply();
-                    vehiclePickerText.setText(selectedId + "\n▾");
+                    vehiclePickerText.setText(selectedId + "\n?");
                     if (versionLabel != null)
                         versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + selectedId + ")");
                     dialog.dismiss();
                     refreshTodaySchedule();
                     if (iAmOnline) { stopGpsService(); startGpsService(); }
                 })
-                .setNegativeButton("ยกเลิก", null)
+                .setNegativeButton("??????", null)
                 .show();
     }
 
@@ -2448,8 +2474,8 @@ public class MainActivity extends Activity {
 
     private void startGpsService() {
         prefs.edit().putBoolean(KEY_ENABLED, true).apply();
-        // Force reconnect Firebase WebSocket ก่อน start service
-        // ป้องกัน connection เก่าค้างจาก session ก่อนหน้า
+        // Force reconnect Firebase WebSocket ???? start service
+        // ??????? connection ??????????? session ????????
         try { FirebaseDatabase.getInstance().goOffline(); } catch (Exception ignored) {}
         uiHandler.postDelayed(() -> {
             try { FirebaseDatabase.getInstance().goOnline(); } catch (Exception ignored) {}
@@ -2499,37 +2525,37 @@ public class MainActivity extends Activity {
         long lastGpsAt = prefs.getLong(KEY_LAST_GPS_AT, 0);
         long gpsAgoSec = lastGpsAt > 0 ? (System.currentTimeMillis() - lastGpsAt) / 1000 : -1;
         String gpsIcon, gpsDiag;
-        if (gpsAgoSec < 0)       { gpsIcon = "🔴"; gpsDiag = "GPS: ยังไม่ได้รับสัญญาณ"; }
-        else if (gpsAgoSec < 30) { gpsIcon = "🟢"; gpsDiag = "GPS: ปกติ (" + gpsAgoSec + "s ที่แล้ว)"; }
-        else if (gpsAgoSec < 90) { gpsIcon = "🟡"; gpsDiag = "GPS: สัญญาณอ่อน (" + gpsAgoSec + "s ที่แล้ว)"; }
-        else                     { gpsIcon = "🔴"; gpsDiag = "GPS: หาย (" + gpsAgoSec + "s ที่แล้ว)"; }
+        if (gpsAgoSec < 0)       { gpsIcon = "??"; gpsDiag = "GPS: ??????????????????"; }
+        else if (gpsAgoSec < 30) { gpsIcon = "??"; gpsDiag = "GPS: ???? (" + gpsAgoSec + "s ???????)"; }
+        else if (gpsAgoSec < 90) { gpsIcon = "??"; gpsDiag = "GPS: ?????????? (" + gpsAgoSec + "s ???????)"; }
+        else                     { gpsIcon = "??"; gpsDiag = "GPS: ??? (" + gpsAgoSec + "s ???????)"; }
 
         // 2. Firebase Health
         long sentAt = prefs.getLong(KEY_LAST_SENT, 0);
         long fbAgoSec = sentAt > 0 ? (System.currentTimeMillis() - sentAt) / 1000 : -1;
         String fbIcon, fbDiag;
-        if (fbAgoSec < 0)        { fbIcon = "🔴"; fbDiag = "Firebase: ยังไม่ได้ส่ง"; }
-        else if (fbAgoSec < 30)  { fbIcon = "🟢"; fbDiag = "Firebase: ปกติ (" + fbAgoSec + "s ที่แล้ว)"; }
-        else if (fbAgoSec < 90)  { fbIcon = "🟡"; fbDiag = "Firebase: ช้า (" + fbAgoSec + "s ที่แล้ว)"; }
-        else                     { fbIcon = "🔴"; fbDiag = "Firebase: ขาดการเชื่อมต่อ (" + fbAgoSec + "s ที่แล้ว)"; }
+        if (fbAgoSec < 0)        { fbIcon = "??"; fbDiag = "Firebase: ????????????"; }
+        else if (fbAgoSec < 30)  { fbIcon = "??"; fbDiag = "Firebase: ???? (" + fbAgoSec + "s ???????)"; }
+        else if (fbAgoSec < 90)  { fbIcon = "??"; fbDiag = "Firebase: ??? (" + fbAgoSec + "s ???????)"; }
+        else                     { fbIcon = "??"; fbDiag = "Firebase: ??????????????? (" + fbAgoSec + "s ???????)"; }
 
         // 3. Service Health (kill detection)
         long lastRestart = prefs.getLong(KEY_LAST_RESTART, 0);
         int restartCount = prefs.getInt(KEY_RESTART_COUNT, 0);
         String svcIcon, svcDiag;
-        if (restartCount == 0)   { svcIcon = "🟢"; svcDiag = "Service: ปกติ (ไม่เคยถูก kill)"; }
-        else if (restartCount < 3) { svcIcon = "🟡"; svcDiag = "Service: restart " + restartCount + " ครั้ง"; }
-        else                     { svcIcon = "🔴"; svcDiag = "Service: restart บ่อย " + restartCount + " ครั้ง"; }
+        if (restartCount == 0)   { svcIcon = "??"; svcDiag = "Service: ???? (????????? kill)"; }
+        else if (restartCount < 3) { svcIcon = "??"; svcDiag = "Service: restart " + restartCount + " ?????"; }
+        else                     { svcIcon = "??"; svcDiag = "Service: restart ???? " + restartCount + " ?????"; }
 
         // 4. Battery Optimization
         String battIcon, battDiag;
         if (Build.VERSION.SDK_INT >= 23) {
             android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
             boolean ignored = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
-            battIcon = ignored ? "🟢" : "🔴";
-            battDiag = ignored ? "Battery: ไม่จำกัด ✓" : "Battery: ถูกจำกัด (กดเพื่อแก้ไข)";
+            battIcon = ignored ? "??" : "??";
+            battDiag = ignored ? "Battery: ???????? ?" : "Battery: ???????? (????????????)";
         } else {
-            battIcon = "🟢"; battDiag = "Battery: ไม่จำกัด ✓";
+            battIcon = "??"; battDiag = "Battery: ???????? ?";
         }
 
         // 5. Background Location
@@ -2537,10 +2563,10 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 29) {
             boolean hasBg = checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                     == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            bgLocIcon = hasBg ? "🟢" : "🟡";
-            bgLocDiag = hasBg ? "Location: อนุญาตตลอดเวลา ✓" : "Location: อนุญาตเฉพาะตอนใช้งาน";
+            bgLocIcon = hasBg ? "??" : "??";
+            bgLocDiag = hasBg ? "Location: ?????????????? ?" : "Location: ????????????????????";
         } else {
-            bgLocIcon = "🟢"; bgLocDiag = "Location: อนุญาตแล้ว ✓";
+            bgLocIcon = "??"; bgLocDiag = "Location: ?????????? ?";
         }
 
         StringBuilder sb = new StringBuilder();
@@ -2555,12 +2581,12 @@ public class MainActivity extends Activity {
         updateReadinessCard(gpsAgoSec, fbAgoSec);
         refreshRouteProgress();
 
-        // แจ้งเตือนถ้ามีปัญหา — แสดงผลในหน้าจอ + บันทึกขึ้น Firebase เท่านั้น (ไม่ขึ้นกระดิ่ง)
+        // ??????????????????? ? ?????????????? + ?????????? Firebase ???????? (??????????????)
         StringBuilder errSb = new StringBuilder();
-        if (gpsAgoSec > 90) errSb.append("⚠ GPS หาย กรุณาตรวจสอบสัญญาณ\n");
-        if (fbAgoSec > 90)  errSb.append("⚠ Firebase ขาดการเชื่อมต่อ ตรวจสอบอินเทอร์เน็ต\n");
-        if (restartCount >= 3) errSb.append("⚠ แอปถูก kill บ่อย ตรวจสอบการตั้งค่า Battery\n");
-        // ===== บันทึกสถิติ "สัญญาณหาย" รายวัน เพื่อดูว่าทำงานครบทั้งวันไหม =====
+        if (gpsAgoSec > 90) errSb.append("? GPS ??? ??????????????????\n");
+        if (fbAgoSec > 90)  errSb.append("? Firebase ??????????????? ???????????????????\n");
+        if (restartCount >= 3) errSb.append("? ?????? kill ???? ????????????????? Battery\n");
+        // ===== ??????????? "?????????" ?????? ???????????????????????????? =====
         trackDailyUptime(gpsAgoSec > 90, fbAgoSec > 90);
 
         if (errSb.length() > 0) {
@@ -2570,7 +2596,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ===== สถิติสัญญาณหายรายวัน (เช็คว่าทำงานต่อเนื่องตลอดวันไหม) =====
+    // ===== ???????????????????? (???????????????????????????????) =====
     private long lastDailyStatsWriteAt = 0;
     private void trackDailyUptime(boolean gpsDown, boolean fbDown) {
         try {
@@ -2586,7 +2612,7 @@ public class MainActivity extends Activity {
             if (gpsDown) gpsDownSec += 1;
             if (fbDown)  fbDownSec  += 1;
 
-            // เขียน SharedPreferences ทุก 10 วินาที (ไม่ใช่ทุก 1 วินาที — ลด I/O บน Android รุ่นเก่า)
+            // ????? SharedPreferences ??? 10 ?????? (????????? 1 ?????? ? ?? I/O ?? Android ????????)
             if (activeSec % 10 == 0) {
                 prefs.edit()
                         .putString("daily_stats_date", dateKey)
@@ -2596,11 +2622,11 @@ public class MainActivity extends Activity {
                         .apply();
             }
 
-            // เขียนขึ้น Firebase ทุก 30 วินาที
+            // ????????? Firebase ??? 30 ??????
             long now = System.currentTimeMillis();
             if (now - lastDailyStatsWriteAt < 30000) return;
             lastDailyStatsWriteAt = now;
-            refreshPassengerSummary(); // อัพเดทแถบสรุปผู้โดยสารพร้อมกันทุก 30 วินาที
+            refreshPassengerSummary(); // ????????????????????????????????? 30 ??????
             try {
                 String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
                 Map<String, Object> data = new HashMap<>();
@@ -2616,21 +2642,21 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
-    // ===== "กล่องดำ" — ส่งบันทึกปัญหาขึ้น Firebase ให้ admin ตรวจสอบได้ =====
+    // ===== "???????" ? ?????????????????? Firebase ??? admin ?????????? =====
     private long lastIssueLogAt = 0;
     private void logIssueToFirebase(String message, long gpsAgoSec, long fbAgoSec) {
         logIssueToFirebase(message, gpsAgoSec, fbAgoSec, false);
     }
     private void logIssueToFirebase(String message, long gpsAgoSec, long fbAgoSec, boolean force) {
         long now = System.currentTimeMillis();
-        if (!force && now - lastIssueLogAt < 5 * 60 * 1000) return; // กันสแปม ส่งซ้ำห่างกันอย่างน้อย 5 นาที (ยกเว้นรายงานที่คนขับกดส่งเอง)
+        if (!force && now - lastIssueLogAt < 5 * 60 * 1000) return; // ??????? ?????????????????????? 5 ???? (????????????????????????????)
         lastIssueLogAt = now;
         try {
             String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
             DatabaseReference logRef = FirebaseDatabase.getInstance()
                     .getReference("driverLogs/" + vehicleId).push();
             Map<String, Object> data = new HashMap<>();
-            data.put("message", message.replace("⚠ ", "").replace("\n", " | "));
+            data.put("message", message.replace("? ", "").replace("\n", " | "));
             data.put("timestamp", now);
             data.put("device", Build.MANUFACTURER + " " + Build.MODEL + " (Android " + Build.VERSION.RELEASE + ")");
             data.put("appVersion", BuildConfig.VERSION_NAME);
@@ -2638,7 +2664,7 @@ public class MainActivity extends Activity {
             data.put("fbAgoSec", fbAgoSec);
             data.put("restartCount", prefs.getInt(KEY_RESTART_COUNT, 0));
 
-            // แบตเตอรี่ % — อ่านจาก sticky broadcast (ปลอดภัยบน Android 14+)
+            // ????????? % ? ??????? sticky broadcast (????????? Android 14+)
             try {
                 Intent batteryStatus = getApplicationContext()
                         .registerReceiver(null,
@@ -2650,18 +2676,18 @@ public class MainActivity extends Activity {
                 }
             } catch (Exception ignored2) {}
 
-            // สถานะ battery optimization
+            // ????? battery optimization
             if (Build.VERSION.SDK_INT >= 23) {
                 PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
                 boolean ignored3 = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
                 data.put("batteryUnrestricted", ignored3);
             }
 
-            // ประเภทเน็ตขณะนั้น
+            // ?????????????????
             try {
                 android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
                 android.net.NetworkCapabilities caps = cm != null ? cm.getNetworkCapabilities(cm.getActiveNetwork()) : null;
-                String net = "ไม่มีเน็ต";
+                String net = "?????????";
                 if (caps != null) {
                     if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)) net = "WiFi";
                     else if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)) net = "Mobile Data";
@@ -2673,7 +2699,7 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
-    // ===== อัพเดทป้าย "ออนไลน์/ออฟไลน์" ใต้โลโก้ ให้ตรงกับสถานะส่งตำแหน่งจริง =====
+    // ===== ?????????? "???????/???????" ???????? ???????????????????????????? =====
     private void updateOnlinePill(boolean isOnline) {
         if (onlinePill == null) return;
         int dotColor   = isOnline ? Color.rgb(34, 197, 94)  : Color.rgb(148, 163, 184);
@@ -2681,7 +2707,7 @@ public class MainActivity extends Activity {
         int bgColor    = isOnline ? Color.argb(40, 34, 197, 94) : Color.argb(40, 100, 116, 139);
         onlineDot.setTextColor(dotColor);
         onlineLabel.setTextColor(textColor);
-        onlineLabel.setText(isOnline ? " ออนไลน์" : " ออฟไลน์");
+        onlineLabel.setText(isOnline ? " ???????" : " ???????");
         GradientDrawable pillBg = new GradientDrawable();
         pillBg.setColor(bgColor);
         pillBg.setCornerRadius(dp(20));
@@ -2691,22 +2717,22 @@ public class MainActivity extends Activity {
     private void refreshUi() {
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-        vehiclePickerText.setText(vehicleId + "\n▾");
+        vehiclePickerText.setText(vehicleId + "\n?");
 
         if (!hasLocationPermission()) {
-            animateStatusChange("⚠ ไม่มีสิทธิ์ตำแหน่ง", Color.rgb(248, 113, 113));
-            mainButton.setText("ขอสิทธิ์ตำแหน่ง");
+            animateStatusChange("? ??????????????????", Color.rgb(248, 113, 113));
+            mainButton.setText("???????????????");
             setButtonStyle(false);
             updateOnlinePill(false);
-            setStartWorkVisual(false, "ขอสิทธิ์");
+            setStartWorkVisual(false, "????????");
             if (readinessBadge != null) {
-                readinessBadge.setText("ออฟไลน์");
+                readinessBadge.setText("???????");
                 GradientDrawable bg = new GradientDrawable();
                 bg.setColor(COLOR_RED);
                 bg.setCornerRadius(dp(14));
                 readinessBadge.setBackground(bg);
                 readinessBadge.setTextColor(Color.WHITE);
-                readinessReasonText.setText("ยังไม่ได้อนุญาตสิทธิ์ตำแหน่ง (GPS)");
+                readinessReasonText.setText("???????????????????????????? (GPS)");
                 readinessReasonText.setVisibility(android.view.View.VISIBLE);
             }
             return;
@@ -2722,54 +2748,54 @@ public class MainActivity extends Activity {
                     : "--:--:--";
 
             if (status.equals("sent") || status.equals("moving")) {
-                animateStatusChange("● กำลังส่ง GPS", Color.rgb(34, 197, 94));
+                animateStatusChange("? ???????? GPS", Color.rgb(34, 197, 94));
             } else if (status.equals("locating") || status.contains("locating")) {
-                animateStatusChange("● กำลังหาสัญญาณ", Color.rgb(234, 179, 8));
+                animateStatusChange("? ?????????????", Color.rgb(234, 179, 8));
             } else {
-                animateStatusChange("● " + status, Color.rgb(148, 163, 184));
+                animateStatusChange("? " + status, Color.rgb(148, 163, 184));
             }
 
             if (!coords.equals("--")) animateCoordsChange(coords);
             animateSentTime(time);
 
             if (!error.isEmpty()) {
-                errorText.setText("⚠ " + error);
+                errorText.setText("? " + error);
                 errorText.setVisibility(android.view.View.VISIBLE);
             } else {
                 errorText.setVisibility(android.view.View.GONE);
             }
 
-            mainButton.setText("หยุดส่งตำแหน่ง");
+            mainButton.setText("??????????????");
             setButtonStyle(true);
             updateOnlinePill(true);
-            setStartWorkVisual(true, "หยุดงาน");
+            setStartWorkVisual(true, "???????");
             refreshDiagnostics();
         } else {
-            animateStatusChange("○ ไม่ได้ส่ง", Color.rgb(100, 116, 139));
+            animateStatusChange("? ?????????", Color.rgb(100, 116, 139));
             animateCoordsChange("---.-----,  ---.-----");
             animateSentTime("--:--:--");
             errorText.setVisibility(android.view.View.GONE);
-            mainButton.setText("เริ่มส่งตำแหน่ง");
+            mainButton.setText("???????????????");
             setButtonStyle(false);
             updateOnlinePill(false);
-            setStartWorkVisual(false, "เริ่มงาน");
+            setStartWorkVisual(false, "????????");
             if (readinessBadge != null) {
-                readinessBadge.setText("ออฟไลน์");
+                readinessBadge.setText("???????");
                 GradientDrawable bg = new GradientDrawable();
                 bg.setColor(COLOR_TEXT_MUTED);
                 bg.setCornerRadius(dp(14));
                 readinessBadge.setBackground(bg);
                 readinessBadge.setTextColor(Color.WHITE);
-                readinessReasonText.setText("ยังไม่ได้เริ่มงาน");
+                readinessReasonText.setText("?????????????????");
                 readinessReasonText.setVisibility(android.view.View.VISIBLE);
             }
         }
     }
 
-    // ===== ข้อ 5: อัพเดทไอคอน/ป้าย/สีของปุ่มเริ่มงาน-หยุดงาน =====
+    // ===== ??? 5: ???????????/????/?????????????????-??????? =====
     private void setStartWorkVisual(boolean isWorking, String label) {
         if (startWorkIcon == null) return;
-        startWorkIcon.setText(isWorking ? "■" : "▶");
+        startWorkIcon.setText(isWorking ? "?" : "?");
         int barColor = isWorking ? COLOR_RED : COLOR_GREEN;
         startWorkIconBg.setColor(Color.argb(80, 255, 255, 255));
         startWorkIcon.setBackground(startWorkIconBg);
