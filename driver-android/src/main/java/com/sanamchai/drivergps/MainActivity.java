@@ -26,6 +26,8 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.View;
+import android.view.WindowInsets;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
@@ -53,6 +55,10 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import android.text.SpannableString;
+import android.text.style.StrikethroughSpan;
+import android.text.style.ForegroundColorSpan;
+import android.os.BatteryManager;
 import java.util.Map;
 
 public class MainActivity extends Activity {
@@ -183,6 +189,11 @@ public class MainActivity extends Activity {
 
     private String lastCoords = "";
     private String lastStatus = "";
+    private int systemTopInset = 0; // status bar height (px)
+
+    // auto-refresh สำหรับหน้า diagnostic
+    private final Handler diagHandler = new Handler(Looper.getMainLooper());
+    private Runnable diagRefreshRunnable;
 
     // Firebase สำหรับตรวจสอบสถานะรถ
     private DatabaseReference liveVehiclesRef;
@@ -204,8 +215,7 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
         if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
-            // ติดตั้งใหม่ — เช็ค Firebase ว่า car ไหนว่างอยู่ แล้ว auto-select
-            prefs.edit().putString(KEY_VEHICLE_ID, VEHICLE_IDS[0]).apply(); // default ชั่วคราว
+            // ติดตั้งใหม่ — ยังไม่เลือกรถ ไม่ default เป็น car1
             autoSelectAvailableVehicle();
         }
         initFirebaseListener();
@@ -773,10 +783,10 @@ public class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
-        box.setPadding(dp(10), dp(16), dp(10), dp(14));
+        box.setPadding(dp(8), dp(12), dp(8), dp(10));
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.WHITE);
-        bg.setCornerRadius(dp(16));
+        bg.setCornerRadius(dp(14));
         box.setBackground(bg);
         box.setElevation(dp(1));
         box.setClickable(true);
@@ -784,26 +794,26 @@ public class MainActivity extends Activity {
 
         TextView iconView = new TextView(this);
         iconView.setText(icon);
-        iconView.setTextSize(20);
+        iconView.setTextSize(17);
         iconView.setGravity(Gravity.CENTER);
         GradientDrawable iconBg = new GradientDrawable();
         iconBg.setShape(GradientDrawable.OVAL);
         iconBg.setColor(accentColor);
         iconView.setBackground(iconBg);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(44), dp(44));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(36), dp(36));
         box.addView(iconView, iconLp);
 
         TextView labelView = new TextView(this);
         labelView.setText(label);
         labelView.setTextColor(COLOR_NAVY);
-        labelView.setTextSize(12);
+        labelView.setTextSize(10);
         labelView.setTypeface(Typeface.DEFAULT_BOLD);
         labelView.setGravity(Gravity.CENTER);
-        labelView.setPadding(0, dp(8), 0, 0);
+        labelView.setPadding(0, dp(6), 0, 0);
         box.addView(labelView);
 
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        lp.setMargins(dp(5), dp(5), dp(5), dp(5));
+        lp.setMargins(dp(4), dp(4), dp(4), dp(4));
         box.setLayoutParams(lp);
         return box;
     }
@@ -1131,27 +1141,75 @@ public class MainActivity extends Activity {
                 .setNegativeButton("ปิด", null).show();
     }
 
-    // ===== 3.4 / 3.5) แจ้งปัญหา — เบอร์ฉุกเฉินสำคัญ + ส่งสัญญาณ SOS + รายงานปัญหา App (ย้ายมารวมที่นี่ตามข้อ 5) =====
-    private void showSosDialog() {
-        String[] options = {
-                "🆘 ส่งสัญญาณ SOS เข้าระบบ (แจ้งแอดมิน)",
-                "🚓 โทร 191 — ตำรวจ / เหตุฉุกเฉินทั่วไป",
-                "🚑 โทร 1669 — กู้ภัย / รถพยาบาล",
-                "📞 โทร ST Transit — ติดต่อสำนักงาน",
-                "🐞 รายงานปัญหา App"
+    // ===== แจ้งเหตุขัดข้อง — เลือกประเภท แล้วส่ง SOS + โทรได้ทันที =====
+    private void showIncidentDialog() {
+        // ประเภทเหตุขัดข้องทางการ (อ้างอิง กรมการขนส่งทางบก / ระบบรถโดยสารสาธารณะ)
+        final String[] incidentTypes = {
+            "🛞  ยางแตก / ยางรั่ว",
+            "💥  อุบัติเหตุชนกัน",
+            "🔥  รถเสีย / เครื่องยนต์ขัดข้อง",
+            "⚡  ระบบไฟฟ้า / แบตเตอรี่ขัดข้อง",
+            "🌊  น้ำท่วม / ถนนปิด",
+            "🚨  เหตุฉุกเฉินทางการแพทย์",
+            "🆘  ส่งสัญญาณ SOS (อื่นๆ)"
         };
         new AlertDialog.Builder(this)
-                .setTitle("🆘 แจ้งปัญหา / เหตุฉุกเฉิน")
-                .setItems(options, (d, which) -> {
-                    switch (which) {
-                        case 0: sendSosSignal(); break;
-                        case 1: callNumber("191"); break;
-                        case 2: callNumber("1669"); break;
-                        case 3: callNumber(ST_TRANSIT_PHONE); break;
-                        case 4: showDiagnosticReport(); break;
-                    }
-                })
-                .setNegativeButton("ยกเลิก", null).show();
+            .setTitle("⚠️ แจ้งเหตุขัดข้อง — เลือกประเภท")
+            .setItems(incidentTypes, (d, which) -> {
+                String incidentLabel = incidentTypes[which].substring(3).trim(); // ตัด emoji ออก
+                showIncidentConfirmDialog(incidentLabel);
+            })
+            .setNegativeButton("ยกเลิก", null)
+            .show();
+    }
+
+    private void showIncidentConfirmDialog(String incidentType) {
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String coords = prefs.getString(KEY_LAST_COORDS, "ไม่มีพิกัด");
+
+        new AlertDialog.Builder(this)
+            .setTitle("ยืนยันการแจ้งเหตุ")
+            .setMessage("รถ " + vehicleId + "\nเหตุ: " + incidentType
+                + "\nพิกัด: " + coords
+                + "\n\nระบบจะแจ้งแอดมินทันที")
+            .setPositiveButton("แจ้งเหตุ", (d, w) -> {
+                sendIncidentToFirebase(incidentType, coords, vehicleId);
+                showPostIncidentOptions();
+            })
+            .setNegativeButton("ยกเลิก", null)
+            .show();
+    }
+
+    private void sendIncidentToFirebase(String incidentType, String coords, String vehicleId) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("vehicleId", vehicleId);
+        data.put("incidentType", incidentType);
+        data.put("coords", coords);
+        data.put("ts", System.currentTimeMillis());
+        data.put("resolved", false);
+        FirebaseDatabase.getInstance().getReference("sosAlerts/" + vehicleId).setValue(data);
+        addNotification("🆘 แจ้งเหตุ \"" + incidentType + "\" ถูกส่งเข้าระบบแล้ว");
+    }
+
+    private void showPostIncidentOptions() {
+        String[] options = {
+            "🚓  โทร 191 — ตำรวจ / เหตุฉุกเฉินทั่วไป",
+            "🚑  โทร 1669 — กู้ภัย / รถพยาบาล",
+            "✅  ปิด (แจ้งแอดมินแล้ว)"
+        };
+        new AlertDialog.Builder(this)
+            .setTitle("✅ แจ้งเหตุเข้าระบบแล้ว")
+            .setMessage("ต้องการโทรเพิ่มเติมหรือไม่?")
+            .setItems(options, (d, which) -> {
+                if (which == 0) callNumber("191");
+                else if (which == 1) callNumber("1669");
+            })
+            .show();
+    }
+
+    // ===== SOS signal เดิม (ยังใช้ใน sendIncidentToFirebase ผ่าน sosAlerts) =====
+    private void showSosDialog() {
+        showIncidentDialog();
     }
 
     private void callNumber(String number) {
@@ -1211,6 +1269,26 @@ public class MainActivity extends Activity {
         LinearLayout outer = new LinearLayout(this);
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setBackgroundColor(COLOR_BG_PAGE);
+        if (Build.VERSION.SDK_INT >= 21) {
+            outer.setFitsSystemWindows(false);
+        }
+        // รับ WindowInsets เพื่อหนีสถานะบาร์ (เวลา/แบต) ทุกขนาดจอ
+        outer.setOnApplyWindowInsetsListener((v, insets) -> {
+            if (android.os.Build.VERSION.SDK_INT >= 21) {
+                systemTopInset = insets.getSystemWindowInsetTop();
+                systemBottomInset = insets.getSystemWindowInsetBottom();
+                // อัพเดท padding ของ root content
+                if (homeScroll != null) {
+                    LinearLayout innerRoot = (LinearLayout) homeScroll.getChildAt(0);
+                    if (innerRoot != null)
+                        innerRoot.setPadding(dp(16), systemTopInset + dp(16), dp(16), dp(12));
+                }
+                // อัพเดท bottom nav padding
+                if (bottomNavRef != null)
+                    bottomNavRef.setPadding(0, dp(6), 0, Math.max(dp(10), systemBottomInset));
+            }
+            return insets;
+        });
 
         contentContainer = new FrameLayout(this);
         LinearLayout.LayoutParams containerLp = new LinearLayout.LayoutParams(
@@ -1224,8 +1302,18 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(28), dp(20), dp(28));
         root.setBackgroundColor(COLOR_BG_PAGE);
+        // ใช้ WindowInsets เพื่อดัน padding บนหนีสถานะบาร์ทุกขนาดหน้าจอ
+        if (Build.VERSION.SDK_INT >= 21) {
+            outer.setOnApplyWindowInsetsListener((v, insets) -> {
+                int top = insets.getSystemWindowInsetTop();
+                int bottom = insets.getSystemWindowInsetBottom();
+                root.setPadding(dp(16), top + dp(12), dp(16), dp(8));
+                return insets;
+            });
+        } else {
+            root.setPadding(dp(16), dp(28), dp(16), dp(8));
+        }
         homeScroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -1307,7 +1395,9 @@ public class MainActivity extends Activity {
         vehiclePickerText.setTypeface(Typeface.DEFAULT_BOLD);
         vehiclePickerText.setGravity(Gravity.CENTER);
         vehiclePickerText.setPadding(dp(10), dp(6), dp(10), dp(6));
-        vehiclePickerText.setText(prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + "\n▾");
+        // ถ้ายังไม่ได้เลือกรถ แสดง "เลือกรถ ▾" แทนค่า default
+        String savedVehicle = prefs.getString(KEY_VEHICLE_ID, null);
+        vehiclePickerText.setText(savedVehicle != null ? savedVehicle + "\n▾" : "เลือกรถ\n▾");
         GradientDrawable pickerBg = new GradientDrawable();
         pickerBg.setColor(Color.argb(50, 0, 167, 181));
         pickerBg.setCornerRadius(dp(10));
@@ -1334,14 +1424,14 @@ public class MainActivity extends Activity {
         busIcon.setText("🚌");
         busIcon.setTextSize(20);
         busIcon.setPadding(0, 0, dp(10), 0);
-        busIcon.setOnClickListener(v -> { animateTap(busIcon); showQueuePickerDialog(); });
+        // ไม่มี onClick — คิวมาจาก Firebase อัตโนมัติ
         queueTopRow.addView(busIcon);
         queueValueText = new TextView(this);
-        queueValueText.setText("คิว —  ▾");
+        queueValueText.setText("กำลังโหลดคิว…");
         queueValueText.setTextColor(Color.WHITE);
         queueValueText.setTextSize(17);
         queueValueText.setTypeface(Typeface.DEFAULT_BOLD);
-        queueValueText.setOnClickListener(v -> { animateTap(queueValueText); showQueuePickerDialog(); });
+        // ไม่มี onClick — ระบบดึงคิวจาก Firebase เอง
         LinearLayout.LayoutParams queueValLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         queueTopRow.addView(queueValueText, queueValLp);
@@ -1514,7 +1604,7 @@ public class MainActivity extends Activity {
         mainButton = new Button(this);
         mainButton.setVisibility(android.view.View.GONE);
 
-        // ===== ข้อ 3: ตารางไอคอน 3x2 (เรียงใหม่ตาม spec) + แถบ เริ่มงาน/หยุดงาน ด้านล่าง =====
+        // ===== ตาราง 2x2 ไอคอน =====
         LinearLayout actionsRowTop = new LinearLayout(this);
         actionsRowTop.setOrientation(LinearLayout.HORIZONTAL);
         actionsRowTop.setGravity(Gravity.CENTER);
@@ -1522,7 +1612,6 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         actionsRowTop.addView(buildActionButton("🎫", "สแกนตั๋ว", COLOR_TEAL, v -> openQrScanner()));
         actionsRowTop.addView(buildActionButton("📋", "ข้อมูล\nการจอง", COLOR_OCEAN, v -> showPassengerList()));
-        actionsRowTop.addView(buildActionButton("🐞", "รายงาน\nปัญหาแอพ", COLOR_LIGHT_TEAL, v -> showDiagnosticPage()));
         root.addView(actionsRowTop, actionsRowLp);
 
         LinearLayout actionsRowBottom = new LinearLayout(this);
@@ -1530,10 +1619,9 @@ public class MainActivity extends Activity {
         actionsRowBottom.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams actionsRowBottomLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        actionsRowBottomLp.setMargins(0, dp(10), 0, dp(16));
-        actionsRowBottom.addView(buildActionButton("📍", "ตำแหน่ง\nผู้โดยสาร", COLOR_LIGHT_TEAL, v -> scrollToTravelCard()));
-        actionsRowBottom.addView(buildActionButton("⚠️", "แจ้งเหตุ\nขัดข้อง", COLOR_ORANGE, v -> showSosDialog()));
-        actionsRowBottom.addView(buildActionButton("🆘", "แจ้งปัญหา", COLOR_RED, v -> showSosDialog()));
+        actionsRowBottomLp.setMargins(0, dp(8), 0, dp(12));
+        actionsRowBottom.addView(buildActionButton("📍", "ตำแหน่ง\nปัจจุบัน", COLOR_LIGHT_TEAL, v -> scrollToTravelCard()));
+        actionsRowBottom.addView(buildActionButton("⚠️", "แจ้งเหตุ\nขัดข้อง", COLOR_ORANGE, v -> showIncidentDialog()));
         root.addView(actionsRowBottom, actionsRowBottomLp);
 
         // ===== ข้อ 3: แถบ เริ่มงาน/หยุดงาน แบบ full-width bar ใต้ไอคอน =====
@@ -1684,25 +1772,44 @@ public class MainActivity extends Activity {
 
     // ===== ข้อ 3: รายงานปัญหาแอพ — เปิดหน้าใหม่เต็มจอ (ไม่ใช่ popup) =====
     private void showDiagnosticPage() {
-        // ถ้ายังไม่มีหน้าใน contentContainer ให้สร้างก่อน
         String tag = "nav_page_diagnostic";
         android.view.View existing = contentContainer.findViewWithTag(tag);
         if (existing == null) {
             contentContainer.addView(buildDiagnosticFullPage());
         }
-        // ซ่อนทุกหน้า แล้วโชว์หน้า diagnostic
         for (int i = 0; i < contentContainer.getChildCount(); i++) {
             contentContainer.getChildAt(i).setVisibility(android.view.View.GONE);
         }
         android.view.View diagPage = contentContainer.findViewWithTag(tag);
         if (diagPage != null) diagPage.setVisibility(android.view.View.VISIBLE);
-        // deselect bottom nav
+        // deselect bottom nav — ใช้สีขาวจางเพราะ bg = Navy
         for (int i = 0; i < navTabs.length; i++) {
-            navTabIcons[i].setTextColor(COLOR_TEXT_MUTED);
-            navTabLabels[i].setTextColor(COLOR_TEXT_MUTED);
+            navTabIcons[i].setTextColor(Color.argb(153, 255, 255, 255));
+            navTabLabels[i].setTextColor(Color.argb(153, 255, 255, 255));
             navTabLabels[i].setTypeface(Typeface.DEFAULT);
+            navTabIcons[i].setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
         }
         refreshDiagPageContent(diagPage);
+
+        // เริ่ม auto-refresh ทุก 3 วินาที
+        stopDiagRefresh();
+        diagRefreshRunnable = new Runnable() {
+            @Override public void run() {
+                android.view.View p = contentContainer.findViewWithTag(tag);
+                if (p != null && p.getVisibility() == android.view.View.VISIBLE) {
+                    refreshDiagPageContent(p);
+                    diagHandler.postDelayed(this, 3000);
+                }
+            }
+        };
+        diagHandler.postDelayed(diagRefreshRunnable, 3000);
+    }
+
+    private void stopDiagRefresh() {
+        if (diagRefreshRunnable != null) {
+            diagHandler.removeCallbacks(diagRefreshRunnable);
+            diagRefreshRunnable = null;
+        }
     }
 
     private android.view.View buildDiagnosticFullPage() {
@@ -1729,13 +1836,13 @@ public class MainActivity extends Activity {
         if (container == null) return;
         container.removeAllViews();
 
-        // ปุ่มย้อนกลับ
+        // ===== Header row =====
         LinearLayout backRow = new LinearLayout(this);
         backRow.setOrientation(LinearLayout.HORIZONTAL);
         backRow.setGravity(Gravity.CENTER_VERTICAL);
-        backRow.setPadding(0, 0, 0, dp(16));
+        backRow.setPadding(0, 0, 0, dp(12));
         backRow.setClickable(true);
-        backRow.setOnClickListener(v -> selectNavTab(0));
+        backRow.setOnClickListener(v -> { stopDiagRefresh(); selectNavTab(0); });
         TextView backBtn = new TextView(this);
         backBtn.setText("← หน้าหลัก");
         backBtn.setTextColor(COLOR_TEAL);
@@ -1744,71 +1851,131 @@ public class MainActivity extends Activity {
         backRow.addView(backBtn);
         container.addView(backRow);
 
+        // ===== ชื่อหน้า + เวลาอัพเดท =====
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams titleRowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        titleRowLp.setMargins(0, 0, 0, dp(14));
+        titleRow.setLayoutParams(titleRowLp);
+
         TextView pageTitle = new TextView(this);
-        pageTitle.setText("🐞 รายงานปัญหาแอพ");
+        pageTitle.setText("📡 สถานะรถ & สัญญาณ");
         pageTitle.setTextColor(COLOR_NAVY);
         pageTitle.setTextSize(18);
         pageTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        pageTitle.setPadding(0, 0, 0, dp(6));
-        container.addView(pageTitle);
+        LinearLayout.LayoutParams ptLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        pageTitle.setLayoutParams(ptLp);
+        titleRow.addView(pageTitle);
 
+        String nowTime = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date());
+        TextView refreshLabel = new TextView(this);
+        refreshLabel.setText("🔄 " + nowTime);
+        refreshLabel.setTextColor(COLOR_TEAL);
+        refreshLabel.setTextSize(11);
+        refreshLabel.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        titleRow.addView(refreshLabel);
+        container.addView(titleRow);
+
+        // ===== ดึงข้อมูลปัจจุบัน =====
         String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
-        String coords = prefs.getString(KEY_LAST_COORDS, "—");
-        boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
+        String coords    = prefs.getString(KEY_LAST_COORDS, "—");
+        boolean enabled  = prefs.getBoolean(KEY_ENABLED, false);
         long sent = prefs.getLong(KEY_LAST_SENT, 0);
-        String sentTime = sent > 0
-                ? new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date(sent))
-                : "--:--:--";
+        long sentAgoMs   = sent > 0 ? System.currentTimeMillis() - sent : -1;
+        String sentAgo   = sentAgoMs >= 0 ? (sentAgoMs / 1000) + " วินาทีที่แล้ว" : "—";
 
-        TextView infoText = new TextView(this);
-        infoText.setText("รถ: " + vehicleId + "  |  สถานะ: " + (enabled ? "กำลังส่ง" : "ปิดอยู่")
-                + "\nพิกัด: " + coords + "\nส่งล่าสุด: " + sentTime);
-        infoText.setTextColor(COLOR_TEXT_MUTED);
-        infoText.setTextSize(12);
-        infoText.setPadding(0, 0, 0, dp(16));
-        container.addView(infoText);
+        // ===== การ์ด Status ใหญ่ด้านบน =====
+        LinearLayout statusCard = buildDiagCard(
+            enabled ? "🟢" : "🔴",
+            enabled ? "กำลังส่งสัญญาณ" : "ปิดการส่งสัญญาณ",
+            enabled ? "ระบบทำงานปกติ" : "กดปุ่ม 'เริ่มงาน' ที่หน้าหลัก",
+            enabled ? Color.rgb(240, 253, 244) : Color.rgb(254, 242, 242)
+        );
+        container.addView(statusCard);
 
-        if (!enabled) {
-            TextView msg = new TextView(this);
-            msg.setText("ต้องเริ่มงานก่อนถึงจะแสดงข้อมูลการวินิจฉัย");
-            msg.setTextColor(COLOR_TEXT_MUTED);
-            msg.setTextSize(13);
-            container.addView(msg);
-        } else {
+        // ===== การ์ดข้อมูล 2 คอลัมน์ =====
+        LinearLayout row1 = buildDiagRow2Col(
+            "🚌", "รหัสรถ", vehicleId,
+            "📡", "ส่งล่าสุด", sentAgo
+        );
+        container.addView(row1);
+
+        LinearLayout row2 = buildDiagRow2Col(
+            "📍", "พิกัดล่าสุด", coords.length() > 18 ? coords.substring(0, 18) + "…" : coords,
+            "🔋", "แบตเตอรี่", getBatteryPct() + "%"
+        );
+        container.addView(row2);
+
+        // ===== รายการตรวจสอบ DiagItems =====
+        if (enabled) {
+            TextView diagTitle = new TextView(this);
+            diagTitle.setText("การตรวจสอบระบบ");
+            diagTitle.setTextColor(COLOR_NAVY);
+            diagTitle.setTextSize(14);
+            diagTitle.setTypeface(Typeface.DEFAULT_BOLD);
+            LinearLayout.LayoutParams dTLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            dTLp.setMargins(0, dp(12), 0, dp(8));
+            diagTitle.setLayoutParams(dTLp);
+            container.addView(diagTitle);
+
             for (DiagItem item : buildDiagItems()) {
                 LinearLayout row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.VERTICAL);
-                row.setPadding(dp(14), dp(12), dp(14), dp(12));
+                row.setPadding(dp(14), dp(14), dp(14), dp(14));
                 GradientDrawable rowBg = new GradientDrawable();
                 rowBg.setColor(item.severity > 0 ? Color.rgb(254, 242, 242) : Color.rgb(240, 253, 244));
                 rowBg.setCornerRadius(dp(12));
                 row.setBackground(rowBg);
                 LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                rowLp.setMargins(0, 0, 0, dp(10));
+                rowLp.setMargins(0, 0, 0, dp(8));
                 row.setLayoutParams(rowLp);
 
-                TextView line = new TextView(this);
-                line.setText(item.icon + " " + item.title + ": " + item.detail);
-                line.setTextColor(COLOR_NAVY);
-                line.setTypeface(Typeface.DEFAULT_BOLD);
-                line.setTextSize(13);
-                row.addView(line);
+                // title row
+                LinearLayout itemHead = new LinearLayout(this);
+                itemHead.setOrientation(LinearLayout.HORIZONTAL);
+                itemHead.setGravity(Gravity.CENTER_VERTICAL);
+                TextView itemIcon = new TextView(this);
+                itemIcon.setText(item.icon);
+                itemIcon.setTextSize(18);
+                LinearLayout.LayoutParams iiLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                iiLp.setMargins(0, 0, dp(8), 0);
+                itemHead.addView(itemIcon, iiLp);
+                TextView itemTitle = new TextView(this);
+                itemTitle.setText(item.title);
+                itemTitle.setTextColor(COLOR_NAVY);
+                itemTitle.setTypeface(Typeface.DEFAULT_BOLD);
+                itemTitle.setTextSize(14);
+                itemHead.addView(itemTitle);
+                row.addView(itemHead);
+
+                TextView detailView = new TextView(this);
+                detailView.setText(item.detail);
+                detailView.setTextColor(item.severity > 0 ? COLOR_RED : COLOR_GREEN);
+                detailView.setTextSize(13);
+                detailView.setPadding(dp(26), dp(4), 0, 0);
+                detailView.setTypeface(Typeface.DEFAULT_BOLD);
+                row.addView(detailView);
+
                 if (item.cause != null) {
                     TextView causeView = new TextView(this);
-                    causeView.setText("สาเหตุ: " + item.cause);
+                    causeView.setText(item.cause);
                     causeView.setTextColor(COLOR_TEXT_MUTED);
-                    causeView.setTextSize(11);
-                    causeView.setPadding(0, dp(4), 0, 0);
+                    causeView.setTextSize(12);
+                    causeView.setPadding(dp(26), dp(2), 0, 0);
                     row.addView(causeView);
                 }
                 if (item.settingsType != null) {
                     TextView fixHint = new TextView(this);
-                    fixHint.setText("แตะเพื่อไปตั้งค่าที่เกี่ยวข้อง ▸");
+                    fixHint.setText("แตะเพื่อไปตั้งค่า ▸");
                     fixHint.setTextColor(COLOR_TEAL);
-                    fixHint.setTextSize(11);
+                    fixHint.setTextSize(12);
                     fixHint.setTypeface(Typeface.DEFAULT_BOLD);
-                    fixHint.setPadding(0, dp(6), 0, 0);
+                    fixHint.setPadding(dp(26), dp(6), 0, 0);
                     row.addView(fixHint);
                     row.setClickable(true);
                     row.setOnClickListener(v -> openRelevantSettings(item.settingsType));
@@ -1817,39 +1984,132 @@ public class MainActivity extends Activity {
             }
         }
 
-        // ปุ่มส่งรายงาน
+        // ===== ปุ่มส่งรายงาน =====
         TextView sendBtn = new TextView(this);
-        sendBtn.setText("ส่งรายงานเข้าระบบ");
+        sendBtn.setText("📤  ส่งรายงานเข้าระบบ");
         sendBtn.setTextColor(Color.WHITE);
-        sendBtn.setTextSize(14);
+        sendBtn.setTextSize(15);
         sendBtn.setTypeface(Typeface.DEFAULT_BOLD);
         sendBtn.setGravity(Gravity.CENTER);
-        sendBtn.setPadding(dp(20), dp(14), dp(20), dp(14));
+        sendBtn.setPadding(dp(20), dp(16), dp(20), dp(16));
         GradientDrawable sendBg = new GradientDrawable();
         sendBg.setColor(COLOR_TEAL);
         sendBg.setCornerRadius(dp(12));
         sendBtn.setBackground(sendBg);
         LinearLayout.LayoutParams sendLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        sendLp.setMargins(0, dp(8), 0, 0);
+        sendLp.setMargins(0, dp(16), 0, dp(8));
         sendBtn.setLayoutParams(sendLp);
+        final String vid = vehicleId;
         sendBtn.setOnClickListener(v -> {
             logIssueToFirebase("ผู้ใช้กดส่งรายงานปัญหาด้วยตนเอง", -1, -1, true);
             new AlertDialog.Builder(this)
                     .setTitle("ส่งแล้ว ✓")
-                    .setMessage("รายงานของ " + vehicleId + " ถูกส่งเข้าระบบแล้ว")
+                    .setMessage("รายงานของ " + vid + " ถูกส่งเข้าระบบแล้ว")
                     .setPositiveButton("ตกลง", null).show();
         });
         container.addView(sendBtn);
+    }
+
+    // ===== Helper: การ์ดสถานะใหญ่ =====
+    private LinearLayout buildDiagCard(String icon, String title, String sub, int bgColor) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(bgColor);
+        bg.setCornerRadius(dp(14));
+        card.setBackground(bg);
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(10));
+        card.setLayoutParams(cardLp);
+
+        TextView ic = new TextView(this);
+        ic.setText(icon);
+        ic.setTextSize(32);
+        LinearLayout.LayoutParams icLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        icLp.setMargins(0, 0, dp(14), 0);
+        card.addView(ic, icLp);
+
+        LinearLayout textCol = new LinearLayout(this);
+        textCol.setOrientation(LinearLayout.VERTICAL);
+        TextView t = new TextView(this);
+        t.setText(title);
+        t.setTextColor(COLOR_NAVY);
+        t.setTextSize(17);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        textCol.addView(t);
+        TextView s = new TextView(this);
+        s.setText(sub);
+        s.setTextColor(COLOR_TEXT_MUTED);
+        s.setTextSize(12);
+        textCol.addView(s);
+        card.addView(textCol);
+        return card;
+    }
+
+    // ===== Helper: แถว 2 คอลัมน์ข้อมูล =====
+    private LinearLayout buildDiagRow2Col(String ic1, String lbl1, String val1,
+                                           String ic2, String lbl2, String val2) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.setMargins(0, 0, 0, dp(8));
+        row.setLayoutParams(rowLp);
+        row.addView(buildDiagMiniCard(ic1, lbl1, val1), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(dp(8), LinearLayout.LayoutParams.WRAP_CONTENT);
+        row.addView(new android.view.View(this), gap);
+        row.addView(buildDiagMiniCard(ic2, lbl2, val2), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        return row;
+    }
+
+    private LinearLayout buildDiagMiniCard(String icon, String label, String value) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(12), dp(12), dp(12), dp(12));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.WHITE);
+        bg.setCornerRadius(dp(12));
+        card.setBackground(bg);
+        card.setElevation(dp(1));
+
+        TextView ic = new TextView(this);
+        ic.setText(icon + "  " + label);
+        ic.setTextColor(COLOR_TEXT_MUTED);
+        ic.setTextSize(11);
+        card.addView(ic);
+
+        TextView val = new TextView(this);
+        val.setText(value);
+        val.setTextColor(COLOR_NAVY);
+        val.setTextSize(16);
+        val.setTypeface(Typeface.DEFAULT_BOLD);
+        val.setPadding(0, dp(4), 0, 0);
+        card.addView(val);
+        return card;
+    }
+
+    // ===== Helper: ดึง battery % =====
+    private int getBatteryPct() {
+        android.content.Intent bi = registerReceiver(null,
+            new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+        if (bi == null) return -1;
+        int level = bi.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+        int scale = bi.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+        return scale > 0 ? (int)(level * 100f / scale) : -1;
     }
 
     // ===== ข้อ 8: แถบ bottom nav 5 แท็บ =====
     private LinearLayout buildBottomNavBar() {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setBackgroundColor(Color.WHITE);
+        nav.setBackgroundColor(COLOR_DEEP_NAVY);  // #0B1D3A
         nav.setElevation(dp(8));
-        nav.setPadding(0, dp(6), 0, dp(10));
+        nav.setPadding(0, dp(8), 0, dp(12));
 
         for (int i = 0; i < NAV_LABELS.length; i++) {
             final int idx = i;
@@ -1922,10 +2182,12 @@ public class MainActivity extends Activity {
 
     // ===== ข้อ 8: สลับหน้าตามแท็บที่กด + ไฮไลท์แท็บที่เลือก =====
     private void selectNavTab(int index) {
-        if (index == 3) { // "แจ้งเตือน" — เปิด popup เดิม ไม่สลับหน้า
+        if (index == 3) {
             showNotificationCenter();
             return;
         }
+        // หยุด auto-refresh ถ้าออกจากหน้า diagnostic
+        if (currentNavIndex != index) stopDiagRefresh();
         currentNavIndex = index;
         for (int i = 0; i < contentContainer.getChildCount(); i++) {
             android.view.View child = contentContainer.getChildAt(i);
@@ -1935,10 +2197,22 @@ public class MainActivity extends Activity {
         }
         for (int i = 0; i < navTabs.length; i++) {
             boolean active = (i == index);
-            int color = active ? COLOR_DEEP_NAVY : COLOR_TEXT_MUTED;
+            // bg = Navy #0B1D3A → active=ขาว, inactive=ขาวจาง 60%
+            int color = active ? Color.WHITE : Color.argb(153, 255, 255, 255);
             navTabIcons[i].setTextColor(color);
             navTabLabels[i].setTextColor(color);
             navTabLabels[i].setTypeface(active ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+            // underline indicator ใต้ไอคอน active
+            if (active) {
+                GradientDrawable dot = new GradientDrawable();
+                dot.setShape(GradientDrawable.RECTANGLE);
+                dot.setCornerRadius(dp(2));
+                dot.setColor(COLOR_TEAL);
+                dot.setSize(dp(20), dp(3));
+                navTabIcons[i].setCompoundDrawablesWithIntrinsicBounds(null, null, null, dot);
+            } else {
+                navTabIcons[i].setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
+            }
         }
     }
 
@@ -2011,19 +2285,27 @@ public class MainActivity extends Activity {
 
     // ---- Dialog เลือกรถ + ล็อคคันที่ online อยู่ ----
     private void showVehicleDialog() {
-        String myCurrentId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String myCurrentId = prefs.getString(KEY_VEHICLE_ID, null);
         boolean iAmOnline = prefs.getBoolean(KEY_ENABLED, false);
 
-        // สร้าง label แต่ละตัวเลือก
-        String[] labels = new String[VEHICLE_IDS.length];
+        // สร้าง label แต่ละตัวเลือก — ขีดค่าถ้าถูกใช้อยู่
+        android.text.SpannableString[] labels = new android.text.SpannableString[VEHICLE_IDS.length];
+        boolean[] isBlocked = new boolean[VEHICLE_IDS.length];
         for (int i = 0; i < VEHICLE_IDS.length; i++) {
             String id = VEHICLE_IDS[i];
             boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(id))
                     && !(id.equals(myCurrentId) && iAmOnline);
-            labels[i] = onlineByOther ? id + "  🔴 ใช้งานอยู่" : id;
+            isBlocked[i] = onlineByOther;
+            String raw = onlineByOther ? id + "  (ใช้งานอยู่)" : id;
+            android.text.SpannableString ss = new android.text.SpannableString(raw);
+            if (onlineByOther) {
+                ss.setSpan(new android.text.style.StrikethroughSpan(), 0, raw.length(), 0);
+                ss.setSpan(new android.text.style.ForegroundColorSpan(COLOR_TEXT_MUTED), 0, raw.length(), 0);
+            }
+            labels[i] = ss;
         }
 
-        int currentIdx = 0;
+        int currentIdx = -1;
         for (int i = 0; i < VEHICLE_IDS.length; i++) {
             if (VEHICLE_IDS[i].equals(myCurrentId)) { currentIdx = i; break; }
         }
@@ -2031,23 +2313,14 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle("เลือกรหัสรถ")
                 .setSingleChoiceItems(labels, currentIdx, (dialog, which) -> {
-                    String selectedId = VEHICLE_IDS[which];
-
-                    // ตรวจสอบว่าคันนี้ถูกใช้อยู่โดยคนอื่นหรือไม่
-                    boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(selectedId))
-                            && !(selectedId.equals(myCurrentId) && iAmOnline);
-
-                    if (onlineByOther) {
-                        // แจ้งเตือนและปิด dialog
-                        dialog.dismiss();
+                    if (isBlocked[which]) {
                         new AlertDialog.Builder(this)
                                 .setTitle("ไม่สามารถเลือกได้")
-                                .setMessage(selectedId + " กำลังถูกใช้งานอยู่โดยคนขับคนอื่น\nกรุณาเลือกรหัสรถอื่น")
-                                .setPositiveButton("ตกลง", null)
-                                .show();
+                                .setMessage(VEHICLE_IDS[which] + " กำลังถูกใช้งานอยู่\nกรุณาเลือกรหัสรถอื่น")
+                                .setPositiveButton("ตกลง", null).show();
                         return;
                     }
-
+                    String selectedId = VEHICLE_IDS[which];
                     prefs.edit().putString(KEY_VEHICLE_ID, selectedId).apply();
                     vehiclePickerText.setText(selectedId + "\n▾");
                     if (versionLabel != null)
