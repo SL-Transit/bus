@@ -189,7 +189,6 @@ public class MainActivity extends Activity {
 
     private String lastCoords = "";
     private String lastStatus = "";
-    private int systemTopInset = 0; // status bar height (px)
 
     // auto-refresh สำหรับหน้า diagnostic
     private final Handler diagHandler = new Handler(Looper.getMainLooper());
@@ -1269,26 +1268,7 @@ public class MainActivity extends Activity {
         LinearLayout outer = new LinearLayout(this);
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setBackgroundColor(COLOR_BG_PAGE);
-        if (Build.VERSION.SDK_INT >= 21) {
-            outer.setFitsSystemWindows(false);
-        }
-        // รับ WindowInsets เพื่อหนีสถานะบาร์ (เวลา/แบต) ทุกขนาดจอ
-        outer.setOnApplyWindowInsetsListener((v, insets) -> {
-            if (android.os.Build.VERSION.SDK_INT >= 21) {
-                systemTopInset = insets.getSystemWindowInsetTop();
-                systemBottomInset = insets.getSystemWindowInsetBottom();
-                // อัพเดท padding ของ root content
-                if (homeScroll != null) {
-                    LinearLayout innerRoot = (LinearLayout) homeScroll.getChildAt(0);
-                    if (innerRoot != null)
-                        innerRoot.setPadding(dp(16), systemTopInset + dp(16), dp(16), dp(12));
-                }
-                // อัพเดท bottom nav padding
-                if (bottomNavRef != null)
-                    bottomNavRef.setPadding(0, dp(6), 0, Math.max(dp(10), systemBottomInset));
-            }
-            return insets;
-        });
+        // ไม่ต้องตั้ง fitsSystemWindows — ใช้ listener ด้านล่างแทน
 
         contentContainer = new FrameLayout(this);
         LinearLayout.LayoutParams containerLp = new LinearLayout.LayoutParams(
