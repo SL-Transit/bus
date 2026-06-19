@@ -1010,7 +1010,7 @@ function resolvePassengerTripAssignment() {
   var startsAtTransferHub = normalizeRouteAlias(selOrigin) === transferHub || cleanRouteLabel(selOrigin) === cleanRouteLabel(transferHub);
   var isPublishedScheduleOnly = startsAtTransferHub && isLeg2Dest(selDest);
   return window.SLTransitSchedule.resolveTripAssignment({
-    serviceDate: new Date().toLocaleDateString('en-CA'),
+    serviceDate: (function() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(),
     origin: selOrigin,
     destination: selDest,
     departTime: time,
