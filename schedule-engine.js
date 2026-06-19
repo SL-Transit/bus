@@ -43,6 +43,7 @@
 
   var STOP_ALIASES = {
     'klonghat': 'klonghat', 'khlonghat': 'klonghat', 'คลองหาด': 'klonghat',
+    'wangnamyen': 'wangnamyen', 'วังน้ำเย็น': 'wangnamyen',
     'siyaekkhonom': 'siyaekkhonom', 'สี่แยกโคนม': 'siyaekkhonom',
     'thoengkabintr': 'thoengkabintr', 'ทุ่งกบินทร์': 'thoengkabintr',
     'phaijit': 'phaijit', 'ไพจิตร': 'phaijit',
@@ -55,9 +56,9 @@
     'chachoengsao': 'chachoengsao', 'แปดริ้ว': 'chachoengsao', 'ฉะเชิงเทราแปดริ้ว': 'chachoengsao', 'ฉะเชิงเทรา(แปดริ้ว)': 'chachoengsao', 'ฉะเชิงเทรา (แปดริ้ว)': 'chachoengsao'
   };
 
-  var MAIN_STOP_KEYS = ['klonghat','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var MAIN_STOP_KEYS = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
   var STOP_NAMES = {
-    klonghat: 'คลองหาด', siyaekkhonom: 'สี่แยกโคนม', thoengkabintr: 'ทุ่งกบินทร์', phaijit: 'ไพจิตร',
+    klonghat: 'คลองหาด', wangnamyen: 'วังน้ำเย็น', siyaekkhonom: 'สี่แยกโคนม', thoengkabintr: 'ทุ่งกบินทร์', phaijit: 'ไพจิตร',
     nongruea: 'หนองเรือ', khlongtakien: 'คลองตะเคียน', nongkhok: 'หนองคอก', tatakiab: 'ท่าตะเกียบ',
     sanamchai: 'ท่ารถสนามชัยเขต', phanom: 'พนมสารคาม', chachoengsao: 'ฉะเชิงเทรา (แปดริ้ว)'
   };

@@ -1168,7 +1168,7 @@ function applyPassengerRouteData(data) {
   PASSENGER_ROUTE_DATA = data || null;
   var stops = data && data.stops ? data.stops : null;
   if (!stops) return;
-  var order = ['klonghat','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var order = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
   var nextStops = order.map(function(key) {
     var stop = stops[key];
     if (!stop) return null;
