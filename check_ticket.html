@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-  <script src="schedule-engine.js?v=20260614d"></script>
+  <script src="schedule-engine.js?v=20260619routedata"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -614,6 +614,9 @@
       console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
       return null;
     });
+    if (window.SLTransitSchedule && typeof window.SLTransitSchedule.watchFirebaseData === 'function') {
+      window.SLTransitSchedule.watchFirebaseData(db);
+    }
     // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
     // ตาราง Leg 2 ดึงชุดเดียวกับ booking.html / passenger.html

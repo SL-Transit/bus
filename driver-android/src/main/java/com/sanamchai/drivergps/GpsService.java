@@ -120,6 +120,7 @@ public class GpsService extends Service implements SensorEventListener {
         { "05:20", "06:20", "17:03" }, // คิว 3
         { "10:30", "11:30", "17:20" }, // คิว 4
     };
+    private final java.util.Map<Integer, String[]> firebaseQueueSchedule = new java.util.HashMap<>();
     private int todayQueueNo = -1; // -1 = ยังไม่ได้คำนวณ
     private boolean scheduleLoaded = false;
 
@@ -508,7 +509,7 @@ public class GpsService extends Service implements SensorEventListener {
                         }
                     } catch (Exception ignored) {}
                     computeTodayQueue();
-                    scheduleLoaded = true;
+                    loadRouteDataScheduleForToday();
                 }
                 @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
                     computeTodayQueue(); // ใช้ fallback hardcode
@@ -518,6 +519,56 @@ public class GpsService extends Service implements SensorEventListener {
         } catch (Exception e) {
             computeTodayQueue();
             scheduleLoaded = true;
+        }
+    }
+
+    private void loadRouteDataScheduleForToday() {
+        if (todayQueueNo < 1 || todayQueueNo > 4) {
+            scheduleLoaded = true;
+            return;
+        }
+        try {
+            FirebaseDatabase.getInstance()
+                    .getReference("routeData/queues/" + todayQueueNo + "/trips")
+                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+                @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                    try {
+                        java.util.List<String> times = new java.util.ArrayList<>();
+                        for (com.google.firebase.database.DataSnapshot tripSnap : snap.getChildren()) {
+                            for (com.google.firebase.database.DataSnapshot stopSnap : tripSnap.child("stops").getChildren()) {
+                                String time = stopSnap.child("time").getValue(String.class);
+                                if (time != null && time.matches("\\d{2}:\\d{2}")) times.add(time);
+                            }
+                        }
+                        if (!times.isEmpty()) {
+                            java.util.Collections.sort(times);
+                            String start = times.get(0);
+                            String end = times.get(times.size() - 1);
+                            firebaseQueueSchedule.put(todayQueueNo, new String[]{minusMinutes(start, 60), start, end});
+                            Log.d(TAG, "Loaded routeData schedule for queue " + todayQueueNo + ": " + start + "-" + end);
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "routeData schedule parse failed: " + e.getMessage());
+                    }
+                    scheduleLoaded = true;
+                }
+                @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
+                    scheduleLoaded = true;
+                }
+            });
+        } catch (Exception e) {
+            scheduleLoaded = true;
+        }
+    }
+
+    private String minusMinutes(String time, int minutes) {
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+            java.util.Date d = sdf.parse(time);
+            if (d == null) return time;
+            return sdf.format(new java.util.Date(d.getTime() - minutes * 60000L));
+        } catch (Exception e) {
+            return time;
         }
     }
 
@@ -542,6 +593,10 @@ public class GpsService extends Service implements SensorEventListener {
     private String getScheduleTime(int index) {
         int q = todayQueueNo;
         if (q < 1 || q > 4) return null;
+        String[] firebaseSchedule = firebaseQueueSchedule.get(q);
+        if (firebaseSchedule != null && index >= 0 && index < firebaseSchedule.length && firebaseSchedule[index] != null) {
+            return firebaseSchedule[index];
+        }
         return QUEUE_SCHEDULE[q - 1][index];
     }
 
@@ -561,29 +616,6 @@ public class GpsService extends Service implements SensorEventListener {
         } catch (Exception e) {
             return true;
         }
-    }
-
-    // เช็คว่าตอนนี้อยู่ในช่วงเวลาทำการจริง (startTime → endTime) — ใช้ GPS จริง + ส่งพิกัดจริง
-    private boolean isInWorkingHours() {
-        if (todayQueueNo < 1) return true;
-        try {
-            String start = getScheduleTime(1); // index 1 = startTime
-            String end   = getScheduleTime(2); // index 2 = endTime
-            if (start == null || end == null) return true;
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
-            java.util.Date now    = sdf.parse(sdf.format(new java.util.Date()));
-            java.util.Date startT = sdf.parse(start);
-            java.util.Date endT   = sdf.parse(end);
-            if (now == null || startT == null || endT == null) return true;
-            return !now.before(startT) && !now.after(endT);
-        } catch (Exception e) {
-            return true;
-        }
-    }
-
-    // เช็คว่าอยู่ในช่วง warm-up (wakeTime → startTime) — GPS เตรียมพร้อมแต่ยังไม่แสดงผู้โดยสาร
-    private boolean isInWarmUp() {
-        return isWithinSchedule() && !isInWorkingHours();
     }
 
     // คืน priority ที่เหมาะสมตามช่วงเวลา
@@ -620,7 +652,6 @@ public class GpsService extends Service implements SensorEventListener {
 
     private void initFirebase() {
         queueId = prefs.getString(MainActivity.KEY_VEHICLE_ID, "car1");
-        loadQueueSchedule(); // โหลดข้อมูลคิวจาก Firebase (async, มี fallback hardcode)
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseOptions opts = new FirebaseOptions.Builder()
                     .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
@@ -630,6 +661,7 @@ public class GpsService extends Service implements SensorEventListener {
                     .build();
             FirebaseApp.initializeApp(this, opts);
         }
+        loadQueueSchedule(); // โหลดข้อมูลคิวจาก Firebase (async, มี fallback hardcode)
         auth = FirebaseAuth.getInstance();
         FirebaseDatabase db = FirebaseDatabase.getInstance();
         if (!persistenceConfigured) {

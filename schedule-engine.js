@@ -5,6 +5,9 @@
   var BASE_DATE = '2026-06-14';
   var ROTATING_VEHICLES = ['car1', 'car2', 'car3', 'car4'];
   var BASE_CAR_QUEUE = { car1: 1, car2: 2, car3: 3, car4: 4 };
+  var ROUTE_DATA_RAW = null;
+  var ROUTE_DATA_TRIPS = [];
+  var routeDataWatchStarted = false;
 
   // ===== โหลดค่าคิวจาก Firebase (settings/queueRotation) ถ้ามี — override ค่า fallback ด้านบน =====
   // เพื่อให้ admin แก้ไข base date / ลำดับคิวเริ่มต้นได้ในอนาคตโดยไม่ต้องแก้โค้ดไฟล์นี้
@@ -39,7 +42,7 @@
   loadRotationConfigFromFirebase();
 
   var STOP_ALIASES = {
-    'klonghat': 'klonghat', 'คลองหาด': 'klonghat',
+    'klonghat': 'klonghat', 'khlonghat': 'klonghat', 'คลองหาด': 'klonghat',
     'siyaekkhonom': 'siyaekkhonom', 'สี่แยกโคนม': 'siyaekkhonom',
     'thoengkabintr': 'thoengkabintr', 'ทุ่งกบินทร์': 'thoengkabintr',
     'phaijit': 'phaijit', 'ไพจิตร': 'phaijit',
@@ -194,6 +197,113 @@
     return MAIN_STOP_KEYS.indexOf(normalizeStopKey(value));
   }
 
+
+  function eachValue(collection, callback) {
+    if (!collection) return;
+    if (Array.isArray(collection)) {
+      for (var i = 0; i < collection.length; i++) {
+        if (collection[i]) callback(String(i), collection[i]);
+      }
+      return;
+    }
+    Object.keys(collection).forEach(function(key) {
+      if (collection[key]) callback(key, collection[key]);
+    });
+  }
+
+  function normalizeRouteDataDirection(trip, routeStops) {
+    var direction = String(trip && (trip.direction || trip.routeDirection) || '').toLowerCase();
+    if (direction === 'to_chachoengsao' || direction === 'from_chachoengsao') return direction;
+    var firstIdx = mainStopIndex(routeStops && routeStops[0]);
+    var lastIdx = mainStopIndex(routeStops && routeStops[routeStops.length - 1]);
+    if (firstIdx >= 0 && lastIdx >= 0 && firstIdx !== lastIdx) {
+      return firstIdx < lastIdx ? 'to_chachoengsao' : 'from_chachoengsao';
+    }
+    var routeKey = String(trip && trip.routeKey || '').toLowerCase();
+    if (routeKey.indexOf('_to_chachoengsao') !== -1) return 'to_chachoengsao';
+    if (routeKey.indexOf('chachoengsao_to_') !== -1) return 'from_chachoengsao';
+    if (direction === 'go') return 'to_chachoengsao';
+    if (direction === 'back') return 'from_chachoengsao';
+    return '';
+  }
+
+  function normalizeRouteDataTrip(queueKey, tripKey, rawTrip) {
+    rawTrip = rawTrip || {};
+    var rawStops = Array.isArray(rawTrip.stops) ? rawTrip.stops : [];
+    var routeStops = [];
+    var routeStopNames = [];
+    var stopTimes = {};
+    for (var i = 0; i < rawStops.length; i++) {
+      var stop = rawStops[i] || {};
+      var stopKey = normalizeStopKey(stop.stopKey || stop.key || stop.id || '');
+      var time = String(stop.time || '').slice(0, 5);
+      if (!stopKey) continue;
+      routeStops.push(stopKey);
+      routeStopNames.push(stop.stopTh || stop.stopNameTh || stop.name || STOP_NAMES[stopKey] || stopKey);
+      if (time) stopTimes[stopKey] = time;
+    }
+    if (!routeStops.length) return null;
+    var departTime = String(rawTrip.departTime || rawTrip.time || rawTrip.startTime || stopTimes[routeStops[0]] || '').slice(0, 5);
+    var queueNo = Number(rawTrip.queueNo || queueKey || 0);
+    var tripIndex = rawTrip.tripNo || rawTrip.tripIndex || tripKey;
+    var serviceType = rawTrip.serviceType || (rawTrip.scheduleOnly || rawTrip.noLiveTracking ? 'schedule-only' : 'normal');
+    return {
+      queueNo: queueNo,
+      tripIndex: tripIndex,
+      serviceType: serviceType,
+      scheduleOnly: rawTrip.scheduleOnly === true || serviceType === 'schedule-only',
+      noLiveTracking: rawTrip.noLiveTracking === true || serviceType === 'schedule-only',
+      departTime: departTime,
+      from: routeStops[0],
+      to: routeStops[routeStops.length - 1],
+      direction: normalizeRouteDataDirection(rawTrip, routeStops),
+      routeKey: rawTrip.routeKey || '',
+      routeStops: routeStops,
+      routeStopNames: routeStopNames,
+      stopTimes: stopTimes,
+      assignmentSource: 'firebase_routeData'
+    };
+  }
+
+  function applyRouteData(routeData) {
+    ROUTE_DATA_RAW = routeData || null;
+    ROUTE_DATA_TRIPS = [];
+    eachValue(routeData && routeData.queues, function(queueKey, queue) {
+      eachValue(queue && queue.trips, function(tripKey, rawTrip) {
+        var trip = normalizeRouteDataTrip(queueKey, tripKey, rawTrip);
+        if (trip) ROUTE_DATA_TRIPS.push(trip);
+      });
+    });
+    return ROUTE_DATA_TRIPS.slice();
+  }
+
+  function loadRouteDataFromFirebase() {
+    try {
+      if (!global.firebase || !global.firebase.database) return Promise.resolve(null);
+      return global.firebase.database().ref('routeData').once('value').then(function(snap) {
+        return applyRouteData(snap.val());
+      }).catch(function() {
+        return null;
+      });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  function watchFirebaseData(database) {
+    try {
+      var db = database || (global.firebase && global.firebase.database && global.firebase.database());
+      if (!db || routeDataWatchStarted) return;
+      routeDataWatchStarted = true;
+      db.ref('settings/queueRotation').on('value', function(snap) {
+        applyRotationConfig(snap.val());
+      });
+      db.ref('routeData').on('value', function(snap) {
+        applyRouteData(snap.val());
+      });
+    } catch (e) {}
+  }
+
   function daysBetween(dateText, baseText) {
     var match = String(dateText || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     var base = String(baseText || BASE_DATE).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -249,6 +359,9 @@
     var queueNo = Number(data.queueNo || 0);
     var pickupStopKey = normalizeStopKey(data.pickupStop || data.pickupStopKey || data.origin || data.from || '');
     var routeStops = (data.routeStops && data.routeStops.length ? data.routeStops : routeStopsForTrip(data)).map(normalizeStopKey);
+    var routeStopNames = data.routeStopNames && data.routeStopNames.length
+      ? data.routeStopNames.slice()
+      : routeStops.map(function(key) { return STOP_NAMES[key] || key; });
     var assignment = {
       serviceDate: serviceDate,
       queueNo: queueNo,
@@ -258,10 +371,10 @@
       departTime: data.departTime,
       pickupTime: data.pickupTime || (data.stopTimes && data.stopTimes[pickupStopKey]) || data.departTime,
       pickupStopKey: pickupStopKey,
-      pickupStopName: STOP_NAMES[pickupStopKey] || pickupStopKey,
+      pickupStopName: data.pickupStopName || STOP_NAMES[pickupStopKey] || pickupStopKey,
       routeDirection: data.routeDirection || data.direction,
       routeStops: routeStops,
-      routeStopNames: routeStops.map(function(key) { return STOP_NAMES[key] || key; }),
+      routeStopNames: routeStopNames,
       assignmentSource: data.assignmentSource || 'schedule_engine'
     };
     if (data.noLiveTracking === true) assignment.noLiveTracking = true;
@@ -296,16 +409,20 @@
 
     if (!direction) return null;
 
-    for (var i = 0; i < QUEUE_TRIPS.length; i++) {
-      var trip = QUEUE_TRIPS[i];
-      var originPickupTime = trip.stopTimes && trip.stopTimes[origin];
-      var timeMatches = originPickupTime === pickupTime;
-      if (!timeMatches || trip.direction !== direction) continue;
-      if (!tripCovers(trip, origin, target)) continue;
-      return decorateAssignment(Object.assign({}, trip, {
-        pickupStop: origin,
-        pickupTime: originPickupTime
-      }), serviceDate);
+    var tripSources = ROUTE_DATA_TRIPS.length ? [ROUTE_DATA_TRIPS, QUEUE_TRIPS] : [QUEUE_TRIPS];
+    for (var s = 0; s < tripSources.length; s++) {
+      var tripSource = tripSources[s];
+      for (var i = 0; i < tripSource.length; i++) {
+        var trip = tripSource[i];
+        var originPickupTime = trip.stopTimes && trip.stopTimes[origin];
+        var timeMatches = originPickupTime === pickupTime;
+        if (!timeMatches || trip.direction !== direction) continue;
+        if (!tripCovers(trip, origin, target)) continue;
+        return decorateAssignment(Object.assign({}, trip, {
+          pickupStop: origin,
+          pickupTime: originPickupTime
+        }), serviceDate);
+      }
     }
     return null;
   }
@@ -314,6 +431,8 @@
     get baseDate() { return BASE_DATE; },
     rotatingVehicles: ROTATING_VEHICLES.slice(),
     queueTrips: QUEUE_TRIPS.slice(),
+    routeDataTrips: function() { return ROUTE_DATA_TRIPS.slice(); },
+    routeData: function() { return ROUTE_DATA_RAW; },
     stopTimeOverrides: STOP_TIME_OVERRIDES.slice(),
     normalizeStopKey: normalizeStopKey,
     mainStopIndex: mainStopIndex,
@@ -324,7 +443,10 @@
     // ===== เพิ่มใหม่: เผื่อ admin.html อยากเช็ค/รีโหลดค่า rotation จาก Firebase เอง =====
     getBaseDate: function() { return BASE_DATE; },
     getBaseCarQueue: function() { return Object.assign({}, BASE_CAR_QUEUE); },
-    reloadRotationConfig: loadRotationConfigFromFirebase
+    reloadRotationConfig: loadRotationConfigFromFirebase,
+    reloadRouteData: loadRouteDataFromFirebase,
+    applyRouteData: applyRouteData,
+    watchFirebaseData: watchFirebaseData
   };
 })(window);
 

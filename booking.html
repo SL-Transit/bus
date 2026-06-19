@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="schedule-engine.js?v=20260614d"></script>
+<script src="schedule-engine.js?v=20260619routedata"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -661,6 +661,9 @@ var authReady = firebase.auth().signInAnonymously().catch(function(err) {
   console.warn('Anonymous auth is not ready', err);
   return null;
 });
+if (window.SLTransitSchedule && typeof window.SLTransitSchedule.watchFirebaseData === 'function') {
+  window.SLTransitSchedule.watchFirebaseData(db);
+}
 var ADMIN_TESTER_ID='admin';
 var ADMIN_TESTER_PHONE='0929383999';
 var ADMIN_TESTER_NOTICE='เจ้าหน้าที่กำลังตรวจสอบระบบการทำงานผ่านขั้นตอนผู้ใช้งานจริง สามารถสำรองที่นั่ง ตรวจสอบตั๋ว และเช็คอินได้ตามเงื่อนไขระบบ';
@@ -2296,6 +2299,10 @@ function submitBooking() {
         routeDirection: tripAssignment.routeDirection || '',
         routeStops: tripAssignment.routeStops || [],
         routeStopNames: tripAssignment.routeStopNames || [],
+        serviceType: tripAssignment.serviceType || 'normal',
+        scheduleOnly: tripAssignment.scheduleOnly === true,
+        noLiveTracking: tripAssignment.noLiveTracking === true,
+        assignmentSource: tripAssignment.assignmentSource || '',
         seats:       seats,
         price:       bookingTotal, // ราคาจาก server เท่านั้น + ค่าบริการเมื่อเปิดใช้งาน
         fare:        serverPrice * seats,
@@ -2463,7 +2470,7 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
   if (window.SLTransitSchedule && typeof window.SLTransitSchedule.resolveTripAssignment === 'function') {
     var shared = window.SLTransitSchedule.resolveTripAssignment({ serviceDate: serviceDate, origin: origin, destination: dest, departTime: time, requiresTransfer: requiresTransfer, transferPoint: TRANSFER_POINT_KEY });
     if (shared && shared.queueNo) {
-      return { queueNo: shared.queueNo, plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || '', pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], assignmentSource: shared.assignmentSource || 'schedule_engine' };
+      return { queueNo: shared.queueNo, plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || '', pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || 'schedule_engine' };
     }
   }
   var target = requiresTransfer ? TRANSFER_POINT_KEY : dest;

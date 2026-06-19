@@ -725,6 +725,7 @@ const LEG2_DESTINATIONS = {
 
 const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
 const ADMIN_ROUTE_TIMES = {};
+let PASSENGER_ROUTE_DATA = null;
 let ADMIN_ROUTE_SOURCE_LOADED = false;
 
 // ต้นทางและปลายทางตรง
@@ -1161,6 +1162,33 @@ function applyPassengerRouteSettings(data) {
   renderSched();
   renderNextBus();
   updateBottomSheetSummary();
+}
+
+function applyPassengerRouteData(data) {
+  PASSENGER_ROUTE_DATA = data || null;
+  var stops = data && data.stops ? data.stops : null;
+  if (!stops) return;
+  var order = ['klonghat','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var nextStops = order.map(function(key) {
+    var stop = stops[key];
+    if (!stop) return null;
+    var lat = Number(stop.lat);
+    var lng = Number(stop.lng);
+    if (!isFinite(lat) || !isFinite(lng)) return null;
+    return { name: stop.stopNameTh || stop.name || key, lat: lat, lng: lng };
+  }).filter(Boolean);
+  if (!nextStops.length) return;
+  STOPS_GO.splice.apply(STOPS_GO, [0, STOPS_GO.length].concat(nextStops));
+  STOPS_BACK.splice.apply(STOPS_BACK, [0, STOPS_BACK.length].concat(nextStops));
+  if (mapReady) {
+    loadPassengerRouteData().then(function(routeData) {
+      return renderRoutePolyline(routeData).then(function() {
+        renderStationMarkers(routeData);
+      });
+    }).catch(function(err) {
+      console.warn('Passenger routeData render failed:', err && err.message ? err.message : err);
+    });
+  }
 }
 
 function applyTestModeUI() {
@@ -2347,6 +2375,12 @@ db.ref('settings').on('value', function(snap) {
   applyPassengerRouteSettings(settings);
 }, function(err) {
   console.error('Passenger settings load failed:', err && err.message ? err.message : err);
+});
+
+db.ref('routeData').on('value', function(snap) {
+  applyPassengerRouteData(snap.val());
+}, function(err) {
+  console.error('Passenger routeData load failed:', err && err.message ? err.message : err);
 });
 
 // Firebase — bus/car1, bus/car2, ... รองรับรถหลายคันจากแอพคนขับ
