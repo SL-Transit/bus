@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="schedule-engine.js?v=20260619assignment"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -621,6 +622,9 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+if (window.SLTransitSchedule && typeof window.SLTransitSchedule.watchFirebaseData === 'function') {
+  window.SLTransitSchedule.watchFirebaseData(db);
+}
 let TEST_MODE = false;
 const ADMIN_TESTER_PHONE = '0929383999';
 function applyAdminTesterMode(){
@@ -998,16 +1002,35 @@ function updateBottomSheetSummary() {
   routeSub.textContent = scheduleNote;
 }
 
-function choosePrimaryBus(buses) {
-  var best = null;
-  Object.keys(buses || {}).forEach(function(id) {
-    var pos = buses[id];
-    if (!pos) return;
-    if (!best || Number(pos.ts || 0) > Number(best.ts || 0)) {
-      best = Object.assign({ carId: id }, pos);
-    }
+function resolvePassengerTripAssignment() {
+  if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
+  var time = getNextBusSummaryTime();
+  if (!time || time === '--:--') return null;
+  var transferHub = 'ฉะเชิงเทรา (แปดริ้ว)';
+  var startsAtTransferHub = normalizeRouteAlias(selOrigin) === transferHub || cleanRouteLabel(selOrigin) === cleanRouteLabel(transferHub);
+  var isPublishedScheduleOnly = startsAtTransferHub && isLeg2Dest(selDest);
+  return window.SLTransitSchedule.resolveTripAssignment({
+    serviceDate: new Date().toLocaleDateString('en-CA'),
+    origin: selOrigin,
+    destination: selDest,
+    departTime: time,
+    requiresTransfer: isLeg2Dest(selDest) && !startsAtTransferHub,
+    transferPoint: transferHub,
+    scheduleOnly: isPublishedScheduleOnly,
+    pickupStopKey: isPublishedScheduleOnly ? 'chachoengsao' : '',
+    pickupStopName: isPublishedScheduleOnly ? transferHub : '',
+    routeStops: isPublishedScheduleOnly ? ['chachoengsao', selDest] : [],
+    routeStopNames: isPublishedScheduleOnly ? [transferHub, selDest] : [],
+    assignmentSource: isPublishedScheduleOnly ? 'passenger_admin_schedule_only' : ''
   });
-  return best;
+}
+
+function choosePrimaryBus(buses) {
+  var assignment = resolvePassengerTripAssignment();
+  if (!assignment || assignment.scheduleOnly || assignment.noLiveTracking || assignment.serviceType === 'schedule-only') return null;
+  var plannedVehicleId = String(assignment.plannedVehicleId || '');
+  var pos = plannedVehicleId && buses ? buses[plannedVehicleId] : null;
+  return pos ? Object.assign({ carId: plannedVehicleId }, pos) : null;
 }
 
 function requestPassengerCurrentLocation(forceCenter, showBusy) {

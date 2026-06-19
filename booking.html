@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="schedule-engine.js?v=20260619routedata"></script>
+<script src="schedule-engine.js?v=20260619assignment"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -2270,7 +2270,7 @@ function submitBooking() {
         leg2Time: transferInfo ? (transferInfo.transferTime || '') : ''
       };
       var tripAssignment = resolveBookingTripAssignment(selOrigin, selDest, selTime, requiresTransfer, dateVal);
-      if (!tripAssignment.queueNo) {
+      if (!tripAssignment.queueNo && !tripAssignment.scheduleOnly && !tripAssignment.noLiveTracking) {
         tripAssignment = resolveBookingTripAssignmentByLabel(fromName, toName, selTime, requiresTransfer, dateVal);
       }
       var vehicleQueueNum = Number(tripAssignment.queueNo || 0);
@@ -2474,10 +2474,24 @@ function resolveBookingTripAssignmentByLabel(originLabel, destLabel, time, requi
 }
 
 function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serviceDate) {
+  var publishedTimes = getDirectSchedules(origin, dest) || [];
+  var isPublishedScheduleOnly = !requiresTransfer && origin === TRANSFER_POINT_KEY && isExternalDestination(dest) && publishedTimes.indexOf(time) !== -1;
   if (window.SLTransitSchedule && typeof window.SLTransitSchedule.resolveTripAssignment === 'function') {
-    var shared = window.SLTransitSchedule.resolveTripAssignment({ serviceDate: serviceDate, origin: origin, destination: dest, departTime: time, requiresTransfer: requiresTransfer, transferPoint: TRANSFER_POINT_KEY });
-    if (shared && shared.queueNo) {
-      return { queueNo: shared.queueNo, plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || '', pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || 'schedule_engine' };
+    var sharedInput = { serviceDate: serviceDate, origin: origin, destination: dest, departTime: time, requiresTransfer: requiresTransfer, transferPoint: TRANSFER_POINT_KEY };
+    if (isPublishedScheduleOnly) {
+      var destinationName = (LEG2_DEST[dest] && LEG2_DEST[dest].label) || dest;
+      sharedInput.scheduleOnly = true;
+      sharedInput.originStopKey = 'chachoengsao';
+      sharedInput.destinationStopKey = destinationName;
+      sharedInput.pickupStopKey = 'chachoengsao';
+      sharedInput.pickupStopName = 'ฉะเชิงเทรา (แปดริ้ว)';
+      sharedInput.routeStops = ['chachoengsao', destinationName];
+      sharedInput.routeStopNames = ['ฉะเชิงเทรา (แปดริ้ว)', destinationName];
+      sharedInput.assignmentSource = 'booking_admin_schedule_only';
+    }
+    var shared = window.SLTransitSchedule.resolveTripAssignment(sharedInput);
+    if (shared && (shared.queueNo || shared.scheduleOnly || shared.noLiveTracking)) {
+      return { queueNo: shared.queueNo || '', plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || time, pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || 'schedule_engine' };
     }
   }
   var target = requiresTransfer ? TRANSFER_POINT_KEY : dest;

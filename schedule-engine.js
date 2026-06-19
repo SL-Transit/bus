@@ -376,10 +376,10 @@
       routeDirection: data.routeDirection || data.direction,
       routeStops: routeStops,
       routeStopNames: routeStopNames,
+      scheduleOnly: data.scheduleOnly === true || data.serviceType === 'schedule-only',
+      noLiveTracking: data.noLiveTracking === true || data.scheduleOnly === true || data.serviceType === 'schedule-only',
       assignmentSource: data.assignmentSource || 'schedule_engine'
     };
-    if (data.noLiveTracking === true) assignment.noLiveTracking = true;
-    if (data.scheduleOnly === true || data.serviceType === 'schedule-only') assignment.scheduleOnly = true;
     return assignment;
   }
 
@@ -391,6 +391,35 @@
       return item;
     }
     return null;
+  }
+
+  function buildScheduleOnlyAssignment(input, serviceDate, origin, destination, pickupTime, direction) {
+    if (!input || input.scheduleOnly !== true) return null;
+    var pickupStopKey = normalizeStopKey(input.pickupStopKey || input.originStopKey || origin || input.origin || '');
+    var pickupStopName = input.pickupStopName || STOP_NAMES[pickupStopKey] || pickupStopKey;
+    var routeStops = Array.isArray(input.routeStops) && input.routeStops.length
+      ? input.routeStops.map(normalizeStopKey)
+      : [pickupStopKey, normalizeStopKey(input.destinationStopKey || destination || input.destination || '')].filter(Boolean);
+    var routeStopNames = Array.isArray(input.routeStopNames) && input.routeStopNames.length
+      ? input.routeStopNames.slice()
+      : routeStops.map(function(key) { return STOP_NAMES[key] || key; });
+    return {
+      serviceDate: serviceDate,
+      queueNo: '',
+      plannedVehicleId: '',
+      tripIndex: input.tripIndex || '',
+      departTime: String(input.departTime || input.time || pickupTime || '').slice(0, 5),
+      pickupTime: pickupTime,
+      pickupStopKey: pickupStopKey,
+      pickupStopName: pickupStopName,
+      routeDirection: input.routeDirection || direction || '',
+      routeStops: routeStops,
+      routeStopNames: routeStopNames,
+      serviceType: 'schedule-only',
+      scheduleOnly: true,
+      noLiveTracking: true,
+      assignmentSource: input.assignmentSource || 'published_schedule_only'
+    };
   }
 
   function resolveTripAssignment(input) {
@@ -408,7 +437,7 @@
     var override = findStopTimeOverride(origin, target, pickupTime);
     if (override) return decorateAssignment(override, serviceDate);
 
-    if (!direction) return null;
+    if (!direction) return buildScheduleOnlyAssignment(input, serviceDate, origin, destination, pickupTime, direction);
 
     var tripSources = ROUTE_DATA_TRIPS.length ? [ROUTE_DATA_TRIPS, QUEUE_TRIPS] : [QUEUE_TRIPS];
     for (var s = 0; s < tripSources.length; s++) {
@@ -425,7 +454,7 @@
         }), serviceDate);
       }
     }
-    return null;
+    return buildScheduleOnlyAssignment(input, serviceDate, origin, destination, pickupTime, direction);
   }
 
   global.SLTransitSchedule = {

@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-  <script src="schedule-engine.js?v=20260619routedata"></script>
+  <script src="schedule-engine.js?v=20260619assignment"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -1626,6 +1626,7 @@
     }
 
     function getBookingQueueNo(booking) {
+      if (isScheduleOnlyAssignment(booking)) return 0;
       var shared = resolveSharedScheduleAssignmentForBooking(booking);
       if (shared && shared.queueNo) return Number(shared.queueNo);
       var inferred = inferQueueNoFromBookingTrip(booking);
@@ -1634,7 +1635,9 @@
     }
 
     function resolveSharedScheduleAssignmentForBooking(booking) {
-      if (!booking || !window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
+      if (!booking) return null;
+      if (isScheduleOnlyAssignment(booking)) return booking;
+      if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
       var routeInfo = connectionRouteInfo(booking.route);
       var origin = getRouteOrigin(booking, getLegSchedule(booking));
       var destination = routeInfo.destination || booking.destination || booking.to || '';
