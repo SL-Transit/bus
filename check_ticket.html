@@ -1493,7 +1493,6 @@
     }
 
     function resolveVehicleForBooking(booking, buses) {
-      var keys = Object.keys(buses || {});
       if (!booking) return null;
       var routeInfo = connectionRouteInfo(booking.route);
       var origin = getTrackingPickupStopName(booking);
@@ -1537,60 +1536,13 @@
         }
         return { id: assignedVehicleId, location: assignedPos, currentTrip: assignedTrip, pickupEta: calculateVehicleEtaToStop(assignedPos, origin), score: 1 };
       }
-      if (!keys.length) return null;
-      var preferredIds = getPreferredVehicleIdsForBooking(booking);
-      var orderedKeys = preferredIds.concat(keys.filter(function(id) {
-        return preferredIds.indexOf(id) === -1;
-      }));
-      var best = null;
-      for (var p = 0; p < preferredIds.length; p++) {
-        var preferredId = preferredIds[p];
-        var preferredVehicle = buses[preferredId];
-        var preferredPos = normalizeTrackingPoint(preferredVehicle);
-        if (!isActiveVehicle(preferredId, preferredVehicle) || !preferredPos) continue;
-        var preferredTrip = buildFallbackTripForBooking(preferredId, preferredVehicle, booking, routeInfo, origin, destination, { preferredVehicle: true });
-        if (!preferredTrip) continue;
-        var preferredEta = calculateVehicleEtaToStop(preferredPos, origin);
-        best = { id: preferredId, location: preferredPos, currentTrip: preferredTrip, pickupEta: preferredEta, score: 0.9 };
-        break;
-      }
-      if (best) return best;
-      orderedKeys.forEach(function(id) {
-        var vehicle = buses[id];
-        var pos = normalizeTrackingPoint(vehicle);
-        if (!isActiveVehicle(id, vehicle) || !pos) return;
-        var currentTrip = getCurrentTripForVehicle(id, vehicle, new Date());
-        if (!currentTrip || currentTrip.confidence < CURRENT_TRIP_MIN_CONFIDENCE) return;
-        var exactTimeMatch = bookingTimeMatchesTrip(booking, currentTrip);
-        var preferredVehicle = preferredIds.indexOf(id) !== -1;
-        if (!exactTimeMatch && !preferredVehicle && !bookingTimeWithinTripTolerance(booking, currentTrip)) return;
-        if (!isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, currentTrip, { skipTimeCheck: true })) return;
-        var pickupState = vehiclePickupProgress(currentTrip, pos, origin);
-        if (pickupState.passed && !preferredVehicle) return;
-        var eta = calculateVehicleEtaToStop(pos, origin);
-        var score = currentTrip.confidence - (pickupState.uncertain ? 0.1 : 0) + (preferredVehicle ? 0.2 : 0) + (exactTimeMatch ? 0.1 : 0);
-        if (!best || eta < best.pickupEta || (eta === best.pickupEta && score > best.score)) {
-          best = { id: id, location: pos, currentTrip: currentTrip, pickupEta: eta, score: score };
-        }
-      });
-      if (!best) {
-        orderedKeys.forEach(function(id) {
-          var vehicle = buses[id];
-          var pos = normalizeTrackingPoint(vehicle);
-          if (!isActiveVehicle(id, vehicle) || !pos) return;
-          var preferredVehicle = preferredIds.indexOf(id) !== -1;
-          var fallbackTrip = buildFallbackTripForBooking(id, vehicle, booking, routeInfo, origin, destination, { preferredVehicle: preferredVehicle });
-          if (!fallbackTrip) return;
-          var pickupState = vehiclePickupProgress(fallbackTrip, pos, origin);
-          if (pickupState.passed && !preferredVehicle) return;
-          var eta = calculateVehicleEtaToStop(pos, origin);
-          var score = 0.35 + (preferredVehicle ? 0.2 : 0) - (pickupState.uncertain ? 0.1 : 0);
-          if (!best || eta < best.pickupEta || (eta === best.pickupEta && score > best.score)) {
-            best = { id: id, location: pos, currentTrip: fallbackTrip, pickupEta: eta, score: score };
-          }
-        });
-      }
-      return best;
+      return {
+        id: '',
+        location: null,
+        currentTrip: null,
+        pickupEta: null,
+        status: 'missing_assignment'
+      };
     }
 
     function buildFallbackTripForBooking(vehicleId, vehicle, booking, routeInfo, origin, destination, options) {

@@ -2477,7 +2477,7 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
   var publishedTimes = getDirectSchedules(origin, dest) || [];
   var isPublishedScheduleOnly = !requiresTransfer && origin === TRANSFER_POINT_KEY && isExternalDestination(dest) && publishedTimes.indexOf(time) !== -1;
   if (window.SLTransitSchedule && typeof window.SLTransitSchedule.resolveTripAssignment === 'function') {
-    var sharedInput = { serviceDate: serviceDate, origin: origin, destination: dest, departTime: time, requiresTransfer: requiresTransfer, transferPoint: TRANSFER_POINT_KEY };
+    var sharedInput = { serviceDate: serviceDate, origin: origin, destination: dest, departTime: time, requiresTransfer: requiresTransfer, transferPoint: normalizeBookingStopKey((LEG2_DEST[TRANSFER_POINT_KEY] && LEG2_DEST[TRANSFER_POINT_KEY].label) || TRANSFER_POINT_KEY) };
     if (isPublishedScheduleOnly) {
       var destinationName = (LEG2_DEST[dest] && LEG2_DEST[dest].label) || dest;
       sharedInput.scheduleOnly = true;
