@@ -768,7 +768,7 @@ function _applySettings(snap) {
         var toKey   = _labelToKey(r.to,true,'dest');
         if (String(r.to || '').indexOf('แปดริ้ว') !== -1 || String(r.to || '').indexOf('ฉะเชิงเทรา') !== -1) TRANSFER_POINT_KEY = toKey;
         var disabledTimes = Array.isArray(r.disabledTimes)?r.disabledTimes:[];
-        var times   = Array.isArray(r.times)?r.times.filter(function(t){return disabledTimes.indexOf(t)===-1;}).sort():[];
+        var times   = Array.isArray(r.times)?r.times.slice().sort():[];
         var price   = Number(r.price)||0;
         var routeGroupLabel = r.groupName || groupLabel;
         var routeGroupId = r.groupId || groupId;
@@ -794,6 +794,13 @@ function _applySettings(snap) {
           ADMIN_ROUTE_TIMES[fromKey][toKey] = times;
           if (!SEGMENT_PRICE[fromKey]) SEGMENT_PRICE[fromKey] = {};
           SEGMENT_PRICE[fromKey][toKey] = price;
+        }
+        if (fromKey && toKey && disabledTimes.length) {
+          if (!ROUTE_CLOSED_STOPS[fromKey]) ROUTE_CLOSED_STOPS[fromKey] = {};
+          if (!ROUTE_CLOSED_STOPS[fromKey][toKey]) ROUTE_CLOSED_STOPS[fromKey][toKey] = {};
+          disabledTimes.forEach(function(timeKey) {
+            ROUTE_CLOSED_STOPS[fromKey][toKey][timeKey] = ['__route__'];
+          });
         }
         if (isMainGroup && fromKey && toKey && r.closedStops) {
           if (!ROUTE_CLOSED_STOPS[fromKey]) ROUTE_CLOSED_STOPS[fromKey] = {};

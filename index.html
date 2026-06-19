@@ -164,6 +164,7 @@
       height: 100%;
       object-fit: contain;
       display: block;
+      transform: scaleX(-1);
       filter: drop-shadow(0 8px 12px rgba(0,0,0,.28));
     }
     @keyframes vanMove {
@@ -864,7 +865,7 @@
         '#Intent;scheme=' + (location.protocol === 'https:' ? 'https' : 'http') +
         ';action=android.intent.action.VIEW' +
         ';category=android.intent.category.BROWSABLE' +
-        ';S.browser_fallback_url=' + encodeURIComponent(url) +
+        ';package=com.android.chrome' +
         ';end';
     }
 
@@ -872,15 +873,18 @@
       if (/Android/i.test(ua)) {
         location.replace(androidIntentUrl(url));
       } else if (/iPhone|iPad|iPod/i.test(ua)) {
-        location.href = url.replace(/^https?/, 'googlechromes');
-        setTimeout(function () { location.href = 'x-safari-' + url; }, 700);
+        location.href = 'x-safari-' + url;
       } else {
         window.open(url, '_blank');
       }
     }
 
-    if (isInApp && !location.hash.includes('external-opened')) {
-      openExternal(cleanUrl() + '#external-opened');
+    if (isInApp) {
+      var lineOverlay = document.getElementById('line-overlay');
+      if (lineOverlay) lineOverlay.classList.add('show');
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      setTimeout(function () { openExternal(cleanUrl()); }, 80);
     }
 
     window.doOpenExternal = function () {

@@ -1132,7 +1132,7 @@ function applyPassengerRouteSettings(data) {
       const from = String(route.from || '').trim();
       const to = String(route.to || '').trim();
       const disabledTimes = Array.isArray(route.disabledTimes) ? route.disabledTimes : [];
-      const times = route.times.filter(function(t){ return t && disabledTimes.indexOf(t) === -1; }).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
+      const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
       if (!from || !to) return;
 
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
@@ -2301,6 +2301,7 @@ function buildDropdowns(){
     if(o===selOrigin) opt.selected=true;
     originSel.appendChild(opt);
   });
+  if (originSel.value) selOrigin = originSel.value;
 
   // ปลายทาง — แยกกลุ่ม LEG2 ตาม group
   function buildDestOptions(){
@@ -2336,6 +2337,7 @@ function buildDropdowns(){
       });
       destSel.appendChild(grp);
     });
+    if (destSel.value) selDest = destSel.value;
   }
   buildDestOptions();
 

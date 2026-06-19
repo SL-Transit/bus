@@ -183,6 +183,8 @@ tr:hover td{background:#fafafa;}
 .chip-t.off{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;text-decoration:line-through;}
 .chip-t .cx{margin-left:3px;font-size:12px;color:#94a3b8;font-weight:400;line-height:1;}
 .chip-t .cx:hover{color:var(--red);}
+.chip-t .ce{margin-left:3px;font-size:11px;color:var(--blue);font-weight:400;line-height:1;}
+.chip-t .ce:hover{color:var(--navy);}
 .chip-t.editing{background:#fff;border-color:var(--blue);padding:2px 4px;}
 .chip-t input.chip-input{width:62px;border:none;outline:none;font-size:12px;font-weight:600;font-family:'Kanit',sans-serif;background:transparent;color:var(--blue);text-align:center;padding:0;}
 .chip-add-btn{display:inline-flex;align-items:center;gap:2px;border:1px dashed #93c5fd;background:#fff;color:var(--blue);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:700;cursor:pointer;}
@@ -1460,10 +1462,11 @@ function renderRouteRow(gname,gdata,r,ri,gi){
   /* ── แถวล่าง: chip เวลา interactive ── */
   var times=r.times||[];
   html+='<div class="chip-area">';
-  times.forEach(function(t){
+  times.forEach(function(t,ti){
     var on=isTimeBookingEnabled(r,t);
     html+='<span class="chip-t'+(on?'':' off')+'" title="'+(on?'เปิดจอง — คลิกเพื่อปิด':'ปิดจอง — คลิกเพื่อเปิด')+'" onclick="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\','+(on?'false':'true')+')">'+
       esc(formatTimeForDisplay(t))+
+      '<span class="ce" title="แก้เวลา" onclick="event.stopPropagation();promptEditTime(\''+esc(gname)+'\','+ri+','+ti+')">✎</span>'+
       '<span class="cx" title="ลบเวลานี้" onclick="event.stopPropagation();confirmDel(\'ลบ '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">×</span>'+
     '</span>';
   });
@@ -1473,15 +1476,22 @@ function renderRouteRow(gname,gdata,r,ri,gi){
   return html+'</div>';
 }
 function promptAddTime(gname,ri){
-  var val=prompt('เพิ่มเวลาออกเดินทาง เช่น 10:20 AM หรือ 13:00');
+  var val=prompt('เพิ่มเวลาออกเดินทาง เช่น 18.00');
   if(val===null)return;
   var t=parseTimeForSave(val);
-  if(!t){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 10:20 AM หรือ 13:00');return;}
+  if(!t){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 18.00');return;}
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
   var times=routeData[gname].routes[ri].times||[];
   if(times.indexOf(t)!==-1){alert('เวลานี้มีอยู่แล้ว');return;}
   times.push(t);times.sort();routeData[gname].routes[ri].times=times;
   renderRouteGroups();
+}
+function promptEditTime(gname,ri,ti){
+  if(!routeData[gname]||!routeData[gname].routes[ri])return;
+  var r=routeData[gname].routes[ri],old=(r.times||[])[ti];
+  var val=prompt('แก้เวลาออกเดินทาง เช่น 18.00',formatTimeForDisplay(old));
+  if(val===null)return;
+  updateTime(gname,ri,ti,val);
 }
 function toggleRG(i){
   var entry=Object.entries(routeData)[i];
@@ -1558,14 +1568,17 @@ function pad2(n){return String(n).padStart(2,'0');}
 function formatTimeForDisplay(t){
   var m=String(t||'').trim().match(/^(\d{1,2}):(\d{2})$/);
   if(!m)return String(t||'');
-  var h=Number(m[1]),min=m[2],ampm=h>=12?'PM':'AM',hh=h%12;
-  if(hh===0)hh=12;
-  return pad2(hh)+':'+min+' '+ampm;
+  var h=Number(m[1]),min=m[2];
+  return pad2(h)+'.'+min;
 }
 function parseTimeForSave(v){
   var s=String(v||'').trim();
-  var m=s.match(/^(\d{1,2}):(\d{2})$/);
-  if(m)return pad2(Math.max(0,Math.min(23,Number(m[1]))))+':'+m[2];
+  var m=s.match(/^(\d{1,2})[.:](\d{2})$/);
+  if(m){
+    var h24=Number(m[1]),min24=Number(m[2]);
+    if(h24<0||h24>23||min24<0||min24>59)return'';
+    return pad2(h24)+':'+pad2(min24);
+  }
   m=s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if(!m)return'';
   var h=Number(m[1]),min=m[2],ampm=m[3].toUpperCase();
@@ -1614,7 +1627,7 @@ function toggleClosedStopMode(gname,ri,t,on){
 }
 function updateTime(gname,ri,ti,val){
   val=parseTimeForSave(val);
-  if(!val||!routeData[gname]||!routeData[gname].routes[ri]){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 10:20 AM หรือ 13:00');renderRouteGroups();return;}
+  if(!val||!routeData[gname]||!routeData[gname].routes[ri]){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 18.00');renderRouteGroups();return;}
   var r=routeData[gname].routes[ri],times=r.times||[],old=times[ti];
   if(old===val)return;
   if(times.indexOf(val)!==-1){alert('เวลานี้มีอยู่แล้ว');renderRouteGroups();return;}
@@ -1628,7 +1641,7 @@ function updateTime(gname,ri,ti,val){
   renderRouteGroups();
 }
 function addTime(gname,ri,inputId){
-  var t=parseTimeForSave(document.getElementById(inputId).value);if(!t){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 10:20 AM หรือ 13:00');return;}
+  var t=parseTimeForSave(document.getElementById(inputId).value);if(!t){alert('รูปแบบเวลาไม่ถูกต้อง เช่น 18.00');return;}
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
   var times=routeData[gname].routes[ri].times||[];
   if(times.indexOf(t)!==-1){alert('เวลานี้มีอยู่แล้ว');return;}
