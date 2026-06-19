@@ -52,7 +52,7 @@ public class GpsService extends Service implements SensorEventListener {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
     static final String ACTION_STOP  = "com.sanamchai.drivergps.STOP";
     static final String ACTION_RESTART = "com.sanamchai.drivergps.RESTART";
-    private static final long RESTART_INTERVAL_MS = 3 * 60 * 1000; // 3 ????
+    private static final long RESTART_INTERVAL_MS = 3 * 60 * 1000; // 3 นาที
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
@@ -61,17 +61,17 @@ public class GpsService extends Service implements SensorEventListener {
     private static final String MODE_SLOW           = "slow";
     private static final String MODE_STOPPED        = "stopped";
     private static final String MODE_LONG_STOPPED   = "long_stopped";
-    private static final long   MOVING_INTERVAL_MS  = 2000;   // ? ?????: 4000?2000ms ?????????????????
-    private static final long   SLOW_INTERVAL_MS    = 4000;   // ? ?????: 10000?4000ms ??????/??????
-    private static final long   SLOW_LOW_BATTERY_MS = 8000;   // ? ?????: 15000?8000ms
+    private static final long   MOVING_INTERVAL_MS  = 2000;   // ✅ แก้ไข: 4000→2000ms ส่งถี่ขึ้นตอนวิ่ง
+    private static final long   SLOW_INTERVAL_MS    = 4000;   // ✅ แก้ไข: 10000→4000ms ตอนช้า/ออกตัว
+    private static final long   SLOW_LOW_BATTERY_MS = 8000;   // ✅ แก้ไข: 15000→8000ms
     private static final long   STOPPED_INTERVAL_MS = 25000;
     private static final long   STOPPED_LOW_BATT_MS = 30000;
     private static final long   LONG_STOPPED_MS     = 60000;
     private static final long   STOP_DETECT_MS      = 45000;
     private static final long   LONG_STOP_DETECT_MS = 12 * 60 * 1000;
-    private static final float  MOVING_SPEED_KMH    = 5f;    // ? ?????: 10?5 km/h ???? 5 ??./??.???????????? moving
+    private static final float  MOVING_SPEED_KMH    = 5f;    // ✅ แก้ไข: 10→5 km/h วิ่ง 5 กม./ชม.ขึ้นไปถือว่า moving
     private static final float  SLOW_SPEED_KMH      = 1f;
-    private static final float  STOP_RADIUS_METERS  = 10f;  // ????? 20 ? 10 ???????? detect ???????????????
+    private static final float  STOP_RADIUS_METERS  = 10f;  // ลดจาก 20 → 10 เพื่อให้ detect การขยับเร็วขึ้น
     private static final int    LOW_BATTERY_PERCENT = 20;
     private static final float  MAX_ACCURATE_METERS = 40f;
     private static boolean persistenceConfigured    = false;
@@ -99,29 +99,29 @@ public class GpsService extends Service implements SensorEventListener {
     private Map<String, Object> pendingData = null;
     private Location pendingLocation        = null;
     private boolean pendingFullWrite        = false;
-    private Location lastGpsFixLocation     = null; // ????? GPS ?????????? ????????????????????????????????
+    private Location lastGpsFixLocation     = null; // พิกัด GPS จริงล่าสุด ใช้ส่งซ้ำตอนจอดนิ่งช่วงเวลาทำการ
     private Location lastFirebaseLocation   = null;
     private Location lastModeLocation       = null;
     private Location stationaryAnchor       = null;
     private boolean forceNextLocationSend   = false;
     private String queueId = "car1";
 
-    // ===== ????????? ? ??????? Firebase settings/queueRotation =====
-    // ???????????????????????????????? ??????????? wake/start/end ????????????????
-    private String queueBaseDate = "2026-06-14"; // fallback ??? Firebase ??????????
+    // ===== ระบบคิวรถ — อ่านจาก Firebase settings/queueRotation =====
+    // คำนวณว่าวันนี้รถคันนี้อยู่คิวไหน แล้วใช้เวลา wake/start/end คุมการส่งตำแหน่ง
+    private String queueBaseDate = "2026-06-14"; // fallback ถ้า Firebase อ่านไม่ได้
     private final java.util.Map<String, Integer> queueBaseMap = new java.util.HashMap<String, Integer>() {{
         put("car1", 1); put("car2", 2); put("car3", 3); put("car4", 4); // fallback
     }};
-    // ???????????? (fallback ??? Firebase ??????????) format "HH:mm"
+    // เวลาแต่ละคิว (fallback ถ้า Firebase อ่านไม่ได้) format "HH:mm"
     private final String[][] QUEUE_SCHEDULE = {
         // { wakeTime, startTime, endTime }
-        { "08:00", "09:00", "14:35" }, // ??? 1
-        { "07:00", "08:00", "16:20" }, // ??? 2
-        { "05:20", "06:20", "17:03" }, // ??? 3
-        { "10:30", "11:30", "17:20" }, // ??? 4
+        { "08:00", "09:00", "14:35" }, // คิว 1
+        { "07:00", "08:00", "16:20" }, // คิว 2
+        { "05:20", "06:20", "17:03" }, // คิว 3
+        { "10:30", "11:30", "17:20" }, // คิว 4
     };
     private final java.util.Map<Integer, String[]> firebaseQueueSchedule = new java.util.HashMap<>();
-    private int todayQueueNo = -1; // -1 = ??????????????
+    private int todayQueueNo = -1; // -1 = ยังไม่ได้คำนวณ
     private boolean scheduleLoaded = false;
 
 
@@ -131,17 +131,17 @@ public class GpsService extends Service implements SensorEventListener {
     private ConnectivityManager.NetworkCallback networkCallback;
 
     // ===== Accelerometer Dead Reckoning =====
-    // ??? accelerometer ???????????????????? GPS gap ??? GPS ????????
+    // ใช้ accelerometer ประมาณตำแหน่งระหว่าง GPS gap แทน GPS ที่มาช้า
     private SensorManager sensorManager;
     private Sensor accelerometer;
-    private float[] accelValues = new float[3];     // x, y, z ????????
-    private double drLat, drLng;                    // ??????? dead reckoning ??????
-    private double drVelNorth, drVelEast;           // ?????????????-???, ????????-?? (m/s)
-    private long drLastMs;                          // timestamp ??? update ??????
-    private float drHeading;                        // heading ????????? GPS (????)
-    private boolean drActive = false;               // dead reckoning ?????????????????
-    private static final float DR_STOP_THRESHOLD = 0.15f;  // m/s ? ???????????????????????????????????
-    private static final long  DR_MAX_AGE_MS     = 8000;   // ms ? dead reckoning ???????????? 8 ??
+    private float[] accelValues = new float[3];     // x, y, z ความเร่ง
+    private double drLat, drLng;                    // ตำแหน่ง dead reckoning ล่าสุด
+    private double drVelNorth, drVelEast;           // ความเร็วเหนือ-ใต้, ตะวันออก-ตก (m/s)
+    private long drLastMs;                          // timestamp ที่ update ล่าสุด
+    private float drHeading;                        // heading ล่าสุดจาก GPS (องศา)
+    private boolean drActive = false;               // dead reckoning กำลังทำงานอยู่ไหม
+    private static final float DR_STOP_THRESHOLD = 0.15f;  // m/s — ถือว่าหยุดแล้วถ้าความเร็วต่ำกว่านี้
+    private static final long  DR_MAX_AGE_MS     = 8000;   // ms — dead reckoning ใช้ได้สูงสุด 8 วิ
 
     // ===== Kalman Filter =====
     private static final float KALMAN_Q  = 3f;
@@ -152,12 +152,12 @@ public class GpsService extends Service implements SensorEventListener {
     private boolean kfInitialized = false;
 
     // ===== ACCELEROMETER DEAD RECKONING =====
-    // ?????? anchor ?????????????? GPS ???? ? DR ?????????????????????
+    // รีเซ็ต anchor ทุกครั้งที่ได้ GPS ใหม่ — DR เริ่มนับจากตำแหน่งนี้
     private void resetDeadReckoning(Location gpsLoc) {
         drLat      = gpsLoc.getLatitude();
         drLng      = gpsLoc.getLongitude();
         drHeading  = gpsLoc.hasBearing() ? gpsLoc.getBearing() : drHeading;
-        // init velocity ??? speed ?? GPS packet ?????
+        // init velocity จาก speed ใน GPS packet ถ้ามี
         float speedMs = gpsLoc.hasSpeed() ? gpsLoc.getSpeed() : 0f;
         drVelNorth = speedMs * Math.cos(Math.toRadians(drHeading));
         drVelEast  = speedMs * Math.sin(Math.toRadians(drHeading));
@@ -165,56 +165,56 @@ public class GpsService extends Service implements SensorEventListener {
         drActive   = true;
     }
 
-    // ?????????????????????? accelerometer ??? GPS ??????????? DR ?????????
-    // ??? DR ?????????????? active ??? null
+    // คืนตำแหน่งที่ประมาณจาก accelerometer ถ้า GPS ยังไม่มาและ DR ยังใช้ได้
+    // ถ้า DR หมดอายุหรือไม่ active คืน null
     private Location getDeadReckoningLocation() {
         if (!drActive || drLastMs == 0) return null;
         long ageMs = System.currentTimeMillis() - drLastMs;
-        if (ageMs > DR_MAX_AGE_MS) return null; // DR ?????????? ??????????????
-        // ???????????
+        if (ageMs > DR_MAX_AGE_MS) return null; // DR เก่าเกินไป ไม่น่าเชื่อถือ
+        // ความเร็วรวม
         double speedMs = Math.sqrt(drVelNorth * drVelNorth + drVelEast * drVelEast);
-        if (speedMs < DR_STOP_THRESHOLD) return null; // ?????????? ??????? DR
+        if (speedMs < DR_STOP_THRESHOLD) return null; // รถหยุดแล้ว ไม่ต้อง DR
         Location dr = new Location("dead_reckoning");
         dr.setLatitude(drLat);
         dr.setLongitude(drLng);
         dr.setSpeed((float) speedMs);
         dr.setBearing(drHeading);
         dr.setTime(System.currentTimeMillis());
-        dr.setAccuracy(Math.min(20f + ageMs / 200f, 60f)); // accuracy ???????????
+        dr.setAccuracy(Math.min(20f + ageMs / 200f, 60f)); // accuracy ลดลงตามเวลา
         return dr;
     }
 
-    // SensorEventListener ? ?????? accelerometer ??? ~50ms (SENSOR_DELAY_UI)
+    // SensorEventListener — รับค่า accelerometer ทุก ~50ms (SENSOR_DELAY_UI)
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (!drActive || !running) return;
         if (event.sensor.getType() != Sensor.TYPE_LINEAR_ACCELERATION &&
             event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) return;
 
-        float ax = event.values[0]; // ??????????? X (????-???)
-        float ay = event.values[1]; // ??????????? Y (????-????)
-        // az = event.values[2] ?????? (????-??)
+        float ax = event.values[0]; // ความเร่งแกน X (ซ้าย-ขวา)
+        float ay = event.values[1]; // ความเร่งแกน Y (หน้า-หลัง)
+        // az = event.values[2] ไม่ใช้ (ขึ้น-ลง)
 
         long nowMs = System.currentTimeMillis();
         if (drLastMs == 0) { drLastMs = nowMs; return; }
-        double dtSec = Math.min((nowMs - drLastMs) / 1000.0, 0.5); // cap ??? 0.5 ??
+        double dtSec = Math.min((nowMs - drLastMs) / 1000.0, 0.5); // cap ที่ 0.5 วิ
         if (dtSec <= 0) return;
         drLastMs = nowMs;
 
-        // ???? accelerometer (frame ?????????) ? North/East ?????? heading ??????
+        // แปลง accelerometer (frame ของมือถือ) → North/East โดยใช้ heading ล่าสุด
         double headRad = Math.toRadians(drHeading);
         double aN = ay * Math.cos(headRad) - ax * Math.sin(headRad); // North component
         double aE = ay * Math.sin(headRad) + ax * Math.cos(headRad); // East component
 
-        // ?????? velocity (integrate acceleration)
+        // อัปเดต velocity (integrate acceleration)
         drVelNorth += aN * dtSec;
         drVelEast  += aE * dtSec;
 
-        // velocity damping ? ?? drift ??????????? (????? brake signal ??? sensor)
+        // velocity damping — ลด drift เมื่อรถชะลอ (ไม่มี brake signal จาก sensor)
         drVelNorth *= 0.98;
         drVelEast  *= 0.98;
 
-        // cap ??????????????? 120 ??./??.
+        // cap ความเร็วไม่เกิน 120 กม./ชม.
         double speedMs = Math.sqrt(drVelNorth * drVelNorth + drVelEast * drVelEast);
         if (speedMs > 33.3) {
             drVelNorth = drVelNorth / speedMs * 33.3;
@@ -222,12 +222,12 @@ public class GpsService extends Service implements SensorEventListener {
             speedMs    = 33.3;
         }
 
-        // ????????????? (integrate velocity)
-        // 1 ??????????? ? 111320 ????
+        // อัปเดตตำแหน่ง (integrate velocity)
+        // 1 องศาละติจูด ≈ 111320 เมตร
         drLat += (drVelNorth * dtSec) / 111320.0;
         drLng += (drVelEast  * dtSec) / (111320.0 * Math.cos(Math.toRadians(drLat)));
 
-        // ?????? heading ??? velocity ???????????????????
+        // อัปเดต heading จาก velocity ถ้าเคลื่อนที่เร็วพอ
         if (speedMs > 0.5) {
             drHeading = (float) ((Math.toDegrees(Math.atan2(drVelEast, drVelNorth)) + 360) % 360);
         }
@@ -237,7 +237,7 @@ public class GpsService extends Service implements SensorEventListener {
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // ?????????????
+        // ไม่ต้องทำอะไร
     }
 
     private Location filterLocation(Location raw) {
@@ -250,14 +250,14 @@ public class GpsService extends Service implements SensorEventListener {
             return raw;
         }
         if (kfTimestamp > 0) {
-            // ? ?????: ???? location ????? timestamp ??????? ? ????????? GPS provider ????
-            // ???? Android flush cached location ??????????? batch
+            // ✅ แก้ไข: กรอง location ที่มี timestamp ถอยหลัง — เกิดเมื่อ GPS provider สลับ
+            // หรือ Android flush cached location เก่าออกมาใน batch
             if (raw.getTime() <= kfTimestamp) return null;
             double dtSec  = (raw.getTime() - kfTimestamp) / 1000.0;
             if (dtSec > 0) {
                 double distM = Math.sqrt(Math.pow(raw.getLatitude() - kfLat, 2)
                         + Math.pow(raw.getLongitude() - kfLng, 2)) * 111000;
-                if (distM / dtSec > 42f) return null; // > 150 km/h ????????
+                if (distM / dtSec > 42f) return null; // > 150 km/h กรองทิ้ง
             }
         }
         float dt        = kfTimestamp > 0 ? (raw.getTime() - kfTimestamp) / 1000f : 1f;
@@ -281,13 +281,13 @@ public class GpsService extends Service implements SensorEventListener {
         }
     };
 
-    // ===== Watchdog: ??????? Firebase WebSocket ???? (????????????????????? recent apps ??????????????????????) =====
-    // ?? ??????: ??????? threshold ?????? 30 ?? ??????????????????? (MODE_LONG_STOPPED)
-    // ????????????????????????????? 60 ?? ????? watchdog ???????????? Firebase ????????????
-    // ??????? goOffline/goOnline ???????? 20 ?? ???????? ???????????????????? "Firebase ????" ????????????
-    private static final long WATCHDOG_CHECK_MS = 20000;  // ??????? 20 ??????
-    private static final long WATCHDOG_STALE_FLOOR_MS = 30000; // ???????????? threshold ????????? moving/slow
-    private static final long WATCHDOG_STALE_MULTIPLIER = 2;   // ??????????????????????? 2 ????????????????????? ??????????????????
+    // ===== Watchdog: ตรวจจับ Firebase WebSocket ค้าง (เช่นหลังถูกปัดทิ้งจาก recent apps แบบไม่ได้กดหยุดส่งก่อน) =====
+    // 🐛 แก้บัค: เดิมใช้ threshold ตายตัว 30 วิ ทั้งที่ตอนรถจอดนิ่ง (MODE_LONG_STOPPED)
+    // ระบบตั้งใจส่งข้อมูลห่างกันถึง 60 วิ ทำให้ watchdog เข้าใจผิดว่า Firebase ค้างตลอดเวลา
+    // และสั่ง goOffline/goOnline วนซ้ำทุก 20 วิ ขณะรถจอด ซึ่งคือสาเหตุหลักของ "Firebase ค้าง" ที่รถไม่ขยับ
+    private static final long WATCHDOG_CHECK_MS = 20000;  // เช็คทุก 20 วินาที
+    private static final long WATCHDOG_STALE_FLOOR_MS = 30000; // ค่าต่ำสุดของ threshold เผื่อโหมด moving/slow
+    private static final long WATCHDOG_STALE_MULTIPLIER = 2;   // อนุญาตให้ค้างได้ไม่เกิน 2 เท่าของรอบส่งปัจจุบัน ก่อนถือว่าค้างจริง
     private long currentWatchdogStaleMs() {
         long expectedIntervalMs = selectedFirebaseIntervalMs();
         return Math.max(WATCHDOG_STALE_FLOOR_MS, expectedIntervalMs * WATCHDOG_STALE_MULTIPLIER);
@@ -299,13 +299,13 @@ public class GpsService extends Service implements SensorEventListener {
                 long staleFor = System.currentTimeMillis() - lastLocationSentAt;
                 long staleThreshold = currentWatchdogStaleMs();
                 if (staleFor > staleThreshold) {
-                    Log.w(TAG, "Firebase ???? " + (staleFor / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") ? force reconnect");
+                    Log.w(TAG, "Firebase ค้าง " + (staleFor / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") — force reconnect");
                     recordError("reconnecting (stale " + (staleFor / 1000) + "s)");
                     try {
                         FirebaseDatabase.getInstance().goOffline();
                         FirebaseDatabase.getInstance().goOnline();
                     } catch (Exception ignored) {}
-                    // ????????? trigger ????????????????? reconnect ? ??????????????????
+                    // กันไม่ให้ trigger ซ้ำทันทีระหว่างรอ reconnect — รอบถัดไปจะเช็คใหม่
                     lastLocationSentAt = System.currentTimeMillis();
                 }
             }
@@ -313,12 +313,12 @@ public class GpsService extends Service implements SensorEventListener {
         }
     };
 
-    // ===== GPS Watchdog: ??????? GPS ???????? ?????? location ????????? =====
-    // ?? ??????: ??????? threshold ?????? 90 ?? ?????????????????????? (MODE_LONG_STOPPED)
-    // ???????????? GPS fix ?????????? 60 ?? (PRIORITY_BALANCED_POWER_ACCURACY ??????????????????????????)
-    // ????? threshold ?????? margin ??? ~30 ?? ??? false-trigger ??????????????????
-    private static final long GPS_STALE_FLOOR_MS = 90000; // ???????????? threshold ????????? moving/slow
-    private static final long GPS_STALE_MULTIPLIER = 2;   // ????????? GPS ????????????? 2 ???????????? fix ????????
+    // ===== GPS Watchdog: ตรวจจับ GPS หายเงียบ แล้วขอ location ใหม่ทันที =====
+    // 🐛 แก้บัค: เดิมใช้ threshold ตายตัว 90 วิ ทั้งที่ตอนรถจอดนิ่งนาน (MODE_LONG_STOPPED)
+    // ระบบตั้งใจขอ GPS fix ห่างกันถึง 60 วิ (PRIORITY_BALANCED_POWER_ACCURACY ซึ่งอาจมาช้ากว่านั้นได้อีก)
+    // ทำให้ threshold เดิมมี margin แค่ ~30 วิ และ false-trigger ได้ง่ายมากตอนรถจอด
+    private static final long GPS_STALE_FLOOR_MS = 90000; // ค่าต่ำสุดของ threshold เผื่อโหมด moving/slow
+    private static final long GPS_STALE_MULTIPLIER = 2;   // อนุญาตให้ GPS หายได้ไม่เกิน 2 เท่าของรอบขอ fix ปัจจุบัน
     private long currentGpsStaleMs() {
         long expectedIntervalMs = currentGpsRequestMs > 0 ? currentGpsRequestMs : selectedFirebaseIntervalMs();
         return Math.max(GPS_STALE_FLOOR_MS, expectedIntervalMs * GPS_STALE_MULTIPLIER);
@@ -330,8 +330,8 @@ public class GpsService extends Service implements SensorEventListener {
                 long gpsAgoMs = System.currentTimeMillis() - lastGpsUpdateAt;
                 long staleThreshold = currentGpsStaleMs();
                 if (gpsAgoMs > staleThreshold) {
-                    Log.w(TAG, "GPS ??? " + (gpsAgoMs / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") ? recreate FusedLocationClient");
-                    // recreate FusedLocationClient ??????????? ?????? restart GPS
+                    Log.w(TAG, "GPS หาย " + (gpsAgoMs / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") — recreate FusedLocationClient");
+                    // recreate FusedLocationClient ใหม่ทั้งหมด เหมือน restart GPS
                     try {
                         fusedClient.removeLocationUpdates(fusedCallback);
                     } catch (Exception ignored) {}
@@ -342,19 +342,19 @@ public class GpsService extends Service implements SensorEventListener {
                     Log.d(TAG, "GPS watchdog: recreated FusedLocationClient");
                 }
 
-                // ? ????????????????? GPS ??????? 3 ???? (180s)
-                // watchdog ??? recreate ??????????????????? ? ?????????????????????????????
+                // ✅ แจ้งเตือนคนขับถ้า GPS หายเกิน 3 นาที (180s)
+                // watchdog ลอง recreate แล้วแต่ยังไม่กลับมา — ให้คนขับรับรู้และดำเนินการเอง
                 if (gpsAgoMs > 180000 && running) {
                     showGpsLostNotification(gpsAgoMs / 1000);
                 }
             }
-            handler.postDelayed(this, GPS_STALE_FLOOR_MS / 3); // ??????? 30 ?? (??????????????? ??????????????????????? moving)
+            handler.postDelayed(this, GPS_STALE_FLOOR_MS / 3); // เช็คทุก 30 วิ (อิงจากค่าต่ำสุด เพื่อให้ตรวจถี่พอในโหมด moving)
         }
     };
 
     private long lastGpsNotifyAt = 0;
     private void showGpsLostNotification(long gpsAgoSec) {
-        // ??????? ? ?????????????????? 3 ????????????
+        // กันสแปม — แจ้งเตือนซ้ำได้ทุก 3 นาทีเท่านั้น
         long now = System.currentTimeMillis();
         if (now - lastGpsNotifyAt < 180000) return;
         lastGpsNotifyAt = now;
@@ -365,14 +365,14 @@ public class GpsService extends Service implements SensorEventListener {
             String channelId = "gps_alert";
             if (android.os.Build.VERSION.SDK_INT >= 26) {
                 android.app.NotificationChannel ch = new android.app.NotificationChannel(
-                        channelId, "????????? GPS", android.app.NotificationManager.IMPORTANCE_HIGH);
+                        channelId, "แจ้งเตือน GPS", android.app.NotificationManager.IMPORTANCE_HIGH);
                 ch.enableVibration(true);
                 nm.createNotificationChannel(ch);
             }
             android.app.Notification n = new androidx.core.app.NotificationCompat.Builder(this, channelId)
                     .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                    .setContentTitle("?? GPS ?????? " + (gpsAgoSec / 60) + " ????")
-                    .setContentText("???????????????????? ?????????????????? GPS")
+                    .setContentTitle("⚠️ GPS หายนาน " + (gpsAgoSec / 60) + " นาที")
+                    .setContentText("ระบบพยายามกู้คืนแล้ว กรุณาตรวจสอบสัญญาณ GPS")
                     .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
                     .setAutoCancel(true)
                     .build();
@@ -389,7 +389,7 @@ public class GpsService extends Service implements SensorEventListener {
                 @Override public void onAvailable(Network network) {
                     handler.post(() -> {
                         if (!running) return;
-                        Log.d(TAG, "NetworkCallback: ?????????? ? force reconnect Firebase");
+                        Log.d(TAG, "NetworkCallback: เน็ตกลับมา — force reconnect Firebase");
                         try {
                             FirebaseDatabase.getInstance().goOffline();
                             FirebaseDatabase.getInstance().goOnline();
@@ -400,7 +400,7 @@ public class GpsService extends Service implements SensorEventListener {
                 @Override public void onLost(Network network) {
                     handler.post(() -> {
                         if (!running) return;
-                        Log.w(TAG, "NetworkCallback: ???????");
+                        Log.w(TAG, "NetworkCallback: เน็ตหาย");
                     });
                 }
             };
@@ -427,9 +427,9 @@ public class GpsService extends Service implements SensorEventListener {
         fusedCallback = new LocationCallback() {
             @Override public void onLocationResult(LocationResult result) {
                 if (result == null) return;
-                if (!remoteEnabled) return; // ? ?????????????? admin ? ?????????????
-                // ? ?????: ????? location ??????????????????????? batch
-                // ??? getLastLocation() ????????? cached location ???????
+                if (!remoteEnabled) return; // ✅ ถูกสั่งหยุดจาก admin — ไม่ส่งตำแหน่ง
+                // ✅ แก้ไข: เลือก location ที่ใหม่และแม่นที่สุดจาก batch
+                // แทน getLastLocation() ที่อาจคืน cached location เก่าได้
                 Location location = null;
                 for (Location l : result.getLocations()) {
                     if (location == null) { location = l; continue; }
@@ -444,14 +444,14 @@ public class GpsService extends Service implements SensorEventListener {
                 if (filtered == null) return;
                 latestLocation = filtered;
                 saveCoords(filtered);
-                // ? ??????????? GPS ?????????? (accuracy ? 50m) ??????????????????????????????????
+                // ✅ บันทึกพิกัด GPS จริงล่าสุด (accuracy ≤ 50m) เพื่อส่งซ้ำตอนจอดนิ่งช่วงเวลาทำการ
                 if (!filtered.hasAccuracy() || filtered.getAccuracy() <= 50f) {
                     lastGpsFixLocation = new Location(filtered);
                 }
                 prefs.edit().putLong(MainActivity.KEY_LAST_GPS_AT, System.currentTimeMillis()).apply();
                 updateTrackingMode(filtered);
                 lastGpsUpdateAt = System.currentTimeMillis();
-                // ? reset dead reckoning anchor ?????????????? GPS ????
+                // ✅ reset dead reckoning anchor ทุกครั้งที่ได้ GPS จริง
                 resetDeadReckoning(filtered);
                 sendLocationUpdate(filtered);
             }
@@ -479,18 +479,18 @@ public class GpsService extends Service implements SensorEventListener {
         fusedClient = LocationServices.getFusedLocationProviderClient(this);
         initFusedCallback();
         createChannel();
-        // ? ?????: ???? accelerometer ?????? dead reckoning ??????? GPS gap
+        // ✅ เพิ่ม: เปิด accelerometer สำหรับ dead reckoning ระหว่าง GPS gap
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
             if (accelerometer == null) {
-                // fallback: ??? accelerometer ?????? (??? gravity) ???????? linear
+                // fallback: ใช้ accelerometer ธรรมดา (รวม gravity) ถ้าไม่มี linear
                 accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             }
         }
     }
 
-    // ===== ??????????????????? Firebase settings/queueRotation =====
+    // ===== คำนวณคิวรถวันนี้จาก Firebase settings/queueRotation =====
     private void loadQueueSchedule() {
         try {
             FirebaseDatabase.getInstance()
@@ -498,10 +498,10 @@ public class GpsService extends Service implements SensorEventListener {
                     .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
                 @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
                     try {
-                        // ???? baseDate
+                        // อ่าน baseDate
                         String bd = snap.child("baseDate").getValue(String.class);
                         if (bd != null && bd.matches("\\d{4}-\\d{2}-\\d{2}")) queueBaseDate = bd;
-                        // ???? carQueueOnBaseDate
+                        // อ่าน carQueueOnBaseDate
                         com.google.firebase.database.DataSnapshot cq = snap.child("carQueueOnBaseDate");
                         for (String car : new String[]{"car1","car2","car3","car4"}) {
                             Long v = cq.child(car).getValue(Long.class);
@@ -512,7 +512,7 @@ public class GpsService extends Service implements SensorEventListener {
                     loadRouteDataScheduleForToday();
                 }
                 @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
-                    computeTodayQueue(); // ??? fallback hardcode
+                    computeTodayQueue(); // ใช้ fallback hardcode
                     scheduleLoaded = true;
                 }
             });
@@ -576,7 +576,7 @@ public class GpsService extends Service implements SensorEventListener {
         try {
             Integer baseQ = queueBaseMap.get(queueId);
             if (baseQ == null) { todayQueueNo = -1; return; }
-            // ????????????????????????? baseDate
+            // คำนวณจำนวนวันที่ผ่านมาจาก baseDate
             java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
             java.util.Date base = sdf.parse(queueBaseDate);
             java.util.Date today = sdf.parse(sdf.format(new java.util.Date()));
@@ -590,7 +590,7 @@ public class GpsService extends Service implements SensorEventListener {
         }
     }
 
-    // ??????? wake/start/end ???????????? (index 0=wake, 1=start, 2=end)
+    // คืนเวลา wake/start/end ของคิววันนี้ (index 0=wake, 1=start, 2=end)
     private String getScheduleTime(int index) {
         int q = todayQueueNo;
         if (q < 1 || q > 4) return null;
@@ -601,9 +601,9 @@ public class GpsService extends Service implements SensorEventListener {
         return QUEUE_SCHEDULE[q - 1][index];
     }
 
-    // ?????????????????????????????????????????? (wakeTime <= now <= endTime)
+    // เช็คว่าตอนนี้อยู่ในช่วงที่ควรส่งตำแหน่งไหม (wakeTime <= now <= endTime)
     public boolean isWithinSchedule() {
-        if (todayQueueNo < 1) return true; // ?????????? schedule ? ?????????????
+        if (todayQueueNo < 1) return true; // ยังไม่โหลด schedule → ให้ผ่านไปก่อน
         try {
             String wake = getScheduleTime(0);
             String end  = getScheduleTime(2);
@@ -619,16 +619,16 @@ public class GpsService extends Service implements SensorEventListener {
         }
     }
 
-    // ??? priority ?????????????????????
-    // ??????? ? BALANCED (??????????), warm-up/????? ? HIGH (GPS chip ?????????)
+    // คืน priority ที่เหมาะสมตามช่วงเวลา
+    // นอกเวลา → BALANCED (ประหยัดแบต), warm-up/ทำการ → HIGH (GPS chip ทำงานตลอด)
     private int getSchedulePriority() {
         if (!isWithinSchedule()) {
-            return Priority.PRIORITY_BALANCED_POWER_ACCURACY; // ??????? ? ??? network ??????????
+            return Priority.PRIORITY_BALANCED_POWER_ACCURACY; // นอกเวลา — ใช้ network ประหยัดแบต
         }
-        return Priority.PRIORITY_HIGH_ACCURACY; // warm-up ????????? ? GPS chip ???????
+        return Priority.PRIORITY_HIGH_ACCURACY; // warm-up หรือทำการ — GPS chip เต็มที่
     }
 
-    // ????????????? (startTime ? endTime) ? GPS ????????? ???????? GPS ????
+    // ช่วงทำการจริง (startTime → endTime) — GPS แม่นยำสูง ส่งพิกัด GPS จริง
     public boolean isInWorkingHours() {
         if (todayQueueNo < 1) return true;
         try {
@@ -646,7 +646,7 @@ public class GpsService extends Service implements SensorEventListener {
         }
     }
 
-    // ???? warm-up (wakeTime ? startTime) ? GPS ??????????????????? 1 ???????
+    // ช่วง warm-up (wakeTime → startTime) — GPS เตรียมพร้อมล่วงหน้า 1 ชั่วโมง
     public boolean isInWarmUp() {
         return isWithinSchedule() && !isInWorkingHours();
     }
@@ -662,24 +662,24 @@ public class GpsService extends Service implements SensorEventListener {
                     .build();
             FirebaseApp.initializeApp(this, opts);
         }
-        loadQueueSchedule(); // ???????????????? Firebase (async, ?? fallback hardcode)
+        loadQueueSchedule(); // โหลดข้อมูลคิวจาก Firebase (async, มี fallback hardcode)
         auth = FirebaseAuth.getInstance();
         FirebaseDatabase db = FirebaseDatabase.getInstance();
         if (!persistenceConfigured) {
             try { db.setPersistenceEnabled(false); } catch (Exception ignored) {}
-            // ??? persistence ? location realtime ?????????? cache ?? disk
-            // ????????????? reconnect ???????????? app ???? ????? reuse connection ????
+            // ปิด persistence — location realtime ไม่ต้องการ cache ลง disk
+            // เปิดแล้วทำให้ reconnect ช้าเมื่อเปิด app ใหม่ เพราะ reuse connection เก่า
             persistenceConfigured = true;
         }
         busRef         = db.getReference("bus/"          + queueId);
         liveVehicleRef = db.getReference("liveVehicles/" + queueId);
         connectedRef   = db.getReference(".info/connected");
-        // ?????? keepSynced ? ??????? Firebase sync queue ?????????????????????
+        // ไม่ใช้ keepSynced — ป้องกัน Firebase sync queue เก่าก่อนส่งข้อมูลใหม่
         watchConnectionState();
         watchRemoteToggle();
     }
 
-    // ? ??? settings/vehicles/{id}/trackingEnabled ? ??? admin ????????/????????????????????????????
+    // ✅ ฟัง settings/vehicles/{id}/trackingEnabled — ให้ admin สั่งหยุด/เริ่มส่งตำแหน่งจากระยะไกลได้
     private void watchRemoteToggle() {
         if (remoteToggleRef != null && remoteToggleListener != null) {
             try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
@@ -688,18 +688,18 @@ public class GpsService extends Service implements SensorEventListener {
         remoteToggleListener = new com.google.firebase.database.ValueEventListener() {
             @Override public void onDataChange(com.google.firebase.database.DataSnapshot snapshot) {
                 Boolean val = snapshot.getValue(Boolean.class);
-                boolean enabled = (val == null) || val; // ??????????????????? ????????????????????
+                boolean enabled = (val == null) || val; // ถ้าไม่ได้ตั้งค่าไว้ ถือว่าเปิดใช้งานปกติ
                 boolean wasEnabled = remoteEnabled;
                 remoteEnabled = enabled;
                 if (!wasEnabled && enabled) {
-                    // ???????????????? ? ??????????????
+                    // กลับมาเปิดใช้งาน — ส่งข้อมูลทันที
                     recordStatus("online / locating");
                     sendHeartbeat();
                 } else if (wasEnabled && !enabled) {
-                    // ????????????? admin ? ??????????????????? ??? service ???????????????????????????
+                    // ถูกสั่งปิดจาก admin — เคลียร์สถานะออนไลน์ แต่ service ยังทำงานต่อรอคำสั่งเปิดใหม่
                     recordStatus("paused (admin)");
                     markOffline();
-                    updateNotification("?????????????????????? (???????????) [" + queueId + "]");
+                    updateNotification("หยุดส่งตำแหน่งชั่วคราว (สั่งจากระบบ) [" + queueId + "]");
                 }
             }
             @Override public void onCancelled(com.google.firebase.database.DatabaseError error) {}
@@ -716,8 +716,8 @@ public class GpsService extends Service implements SensorEventListener {
 
     private void startTracking() {
         initFirebase();
-        // ? Force reconnect Firebase WebSocket ???????????????? tracking
-        // ??????? stale connection ????????????????????? kill
+        // ✅ Force reconnect Firebase WebSocket ทุกครั้งที่เริ่ม tracking
+        // ป้องกัน stale connection ที่ค้างอยู่หลังแอปถูก kill
         try {
             FirebaseDatabase.getInstance().goOffline();
             FirebaseDatabase.getInstance().goOnline();
@@ -734,7 +734,7 @@ public class GpsService extends Service implements SensorEventListener {
             scheduleNextHeartbeat();
             return;
         }
-        // ? ???? accelerometer listener ???????? tracking
+        // ✅ เปิด accelerometer listener ตอนเริ่ม tracking
         if (sensorManager != null && accelerometer != null) {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
         }
@@ -760,8 +760,8 @@ public class GpsService extends Service implements SensorEventListener {
                         ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                         : PendingIntent.FLAG_UPDATE_CURRENT);
 
-        String queueLabel = todayQueueNo > 0 ? " ???" + todayQueueNo : "";
-        Notification n = buildNotification("????????????? GPS... [" + queueId + queueLabel + "]", pi);
+        String queueLabel = todayQueueNo > 0 ? " คิว" + todayQueueNo : "";
+        Notification n = buildNotification("กำลังหาสัญญาณ GPS... [" + queueId + queueLabel + "]", pi);
         if (Build.VERSION.SDK_INT >= 29) {
             try { startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION); }
             catch (Exception e) { startForeground(1, n); }
@@ -782,7 +782,7 @@ public class GpsService extends Service implements SensorEventListener {
             try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
         }
         running = false;
-        // ? ??? accelerometer listener ??????? tracking
+        // ✅ ปิด accelerometer listener ตอนหยุด tracking
         if (sensorManager != null) {
             try { sensorManager.unregisterListener(this); } catch (Exception ignored) {}
         }
@@ -803,7 +803,7 @@ public class GpsService extends Service implements SensorEventListener {
         stopSelf();
     }
 
-    // ===== AlarmManager Restart ?????? Honor/Huawei/Samsung =====
+    // ===== AlarmManager Restart สำหรับ Honor/Huawei/Samsung =====
     private void scheduleAlarmRestart() {
         if (prefs == null || !prefs.getBoolean(MainActivity.KEY_ENABLED, false)) return;
         try {
@@ -818,7 +818,7 @@ public class GpsService extends Service implements SensorEventListener {
             if (Build.VERSION.SDK_INT >= 23) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
             else am.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi);
         } catch (Exception e) {
-            // fallback: restart ????
+            // fallback: restart ตรงๆ
             try {
                 Intent restart = new Intent(getApplicationContext(), GpsService.class);
                 restart.setAction(ACTION_START);
@@ -835,7 +835,7 @@ public class GpsService extends Service implements SensorEventListener {
 
     @Override public void onDestroy() {
         super.onDestroy();
-        // ???????????? kill ????????
+        // บันทึกว่าถูก kill กี่ครั้ง
         if (prefs != null && prefs.getBoolean(MainActivity.KEY_ENABLED, false)) {
             int count = prefs.getInt(MainActivity.KEY_RESTART_COUNT, 0);
             prefs.edit()
@@ -879,7 +879,7 @@ public class GpsService extends Service implements SensorEventListener {
         boolean wasLow = batteryLow;
         batteryLow = batteryLevel >= 0 && batteryLevel < LOW_BATTERY_PERCENT;
         if (notifyDriver && batteryLow && !wasLow) {
-            updateNotification("?????? " + batteryLevel + "% - ?????????????????????????????");
+            updateNotification("แบตต่ำ " + batteryLevel + "% - ยังส่งตำแหน่งต่อในโหมดประหยัด");
         }
     }
 
@@ -938,23 +938,23 @@ public class GpsService extends Service implements SensorEventListener {
 
     private void configureLocationRequests(boolean force) {
         if (!running || !hasLocationPermission()) return;
-        // ??? ??????? NPE: ????? fusedClient ?????????????? (?????????????????? ????? onCreate() ????????????
-        // ????????????? ???? HONOR/Magic OS ?? lifecycle ?????????? ????????????????????)
+        // 🛡️ ป้องกัน NPE: เผื่อ fusedClient ยังไม่ถูกสร้าง (ไม่ควรเกิดขึ้นปกติ เพราะ onCreate() สร้างไว้แล้ว
+        // แต่บางอุปกรณ์ เช่น HONOR/Magic OS มี lifecycle ที่ผิดปกติ จึงเช็คซ้ำให้ปลอดภัย)
         if (fusedClient == null) {
-            Log.w(TAG, "configureLocationRequests: fusedClient ???? null ? ?????????");
+            Log.w(TAG, "configureLocationRequests: fusedClient เป็น null — สร้างใหม่");
             fusedClient = LocationServices.getFusedLocationProviderClient(this);
         }
         refreshBatteryState(true);
         long intervalMs;
         int priority;
 
-        // ===== ????? priority ?????????????? =====
-        // ???????????? (???? wakeTime / ???? endTime) ? Network location ??????????
-        // ???? warm-up (wakeTime ? startTime) ? HIGH_ACCURACY ?????? GPS ????????
-        // ????????? (startTime ? endTime) ? HIGH_ACCURACY ???? ????????? GPS chip ????
+        // ===== เลือก priority ตามช่วงเวลาคิว =====
+        // นอกเวลาทำการ (ก่อน wakeTime / หลัง endTime) → Network location ประหยัดแบต
+        // ช่วง warm-up (wakeTime → startTime) → HIGH_ACCURACY เตรียม GPS ล่วงหน้า
+        // ช่วงทำการ (startTime → endTime) → HIGH_ACCURACY เสมอ ไม่ยอมให้ GPS chip หลับ
         boolean inWorking     = isInWorkingHours();
         boolean inWarmUp      = isInWarmUp();
-        boolean useHighAccuracy = inWorking || inWarmUp; // ???????????????????????????? network
+        boolean useHighAccuracy = inWorking || inWarmUp; // นอกเวลาทั้งหมดเท่านั้นที่ใช้ network
 
         if (MODE_MOVING.equals(trackingMode)) {
             intervalMs = batteryLow ? 5000 : MOVING_INTERVAL_MS;
@@ -977,8 +977,8 @@ public class GpsService extends Service implements SensorEventListener {
         try {
             fusedClient.removeLocationUpdates(fusedCallback);
 
-            // ? Network fallback request ? ?????????????? ???????????? ????? GPS fix
-            // ???????? "GPS ??? 17 ???????" ??????????????????/???????????
+            // ✅ Network fallback request — ส่งพิกัดคร่าวๆ จากเน็ตทันที ขณะรอ GPS fix
+            // แก้ปัญหา "GPS หาย 17 ชั่วโมง" ตอนเปิดแอพครั้งแรก/หลังข้ามคืน
             LocationRequest netReq = new LocationRequest.Builder(
                     Priority.PRIORITY_BALANCED_POWER_ACCURACY, intervalMs)
                     .setMinUpdateIntervalMillis(intervalMs / 2)
@@ -987,7 +987,7 @@ public class GpsService extends Service implements SensorEventListener {
                     .build();
             fusedClient.requestLocationUpdates(netReq, fusedCallback, Looper.getMainLooper());
 
-            // ? GPS high-accuracy request ? ?????????? ?? override network location ????? fix ???
+            // ✅ GPS high-accuracy request — แม่นยำกว่า จะ override network location เมื่อ fix ได้
             LocationRequest req = new LocationRequest.Builder(priority, intervalMs)
                     .setMinUpdateIntervalMillis(intervalMs / 2)
                     .setMaxUpdateDelayMillis(intervalMs)
@@ -1018,13 +1018,13 @@ public class GpsService extends Service implements SensorEventListener {
     }
 
     private void sendHeartbeat() {
-        if (!remoteEnabled) return; // ? ?????????????? admin
+        if (!remoteEnabled) return; // ✅ ถูกสั่งหยุดจาก admin
         refreshBatteryState(true);
         if (gpsErrorMessage != null && latestLocation == null) {
             writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null, false); return;
         }
         if (latestLocation == null) {
-            // ? DR fallback: ??????????? GPS ??? dead reckoning ????????? ? ??? DR location ???
+            // ✅ DR fallback: ถ้ายังไม่มี GPS แต่ dead reckoning ยังใช้ได้ → ส่ง DR location แทน
             Location drLoc = getDeadReckoningLocation();
             if (drLoc != null) {
                 Log.d(TAG, "sendHeartbeat: using dead reckoning location (no GPS yet)");
@@ -1032,16 +1032,16 @@ public class GpsService extends Service implements SensorEventListener {
                 return;
             }
             recordStatus("online / locating");
-            updateNotification("???????? GPS... [" + queueId + "]");
+            updateNotification("รอสัญญาณ GPS... [" + queueId + "]");
             writeData(buildStatusData(null, true, "locating", null), null, false); return;
         }
         updateTrackingMode(latestLocation);
         if (MODE_STOPPED.equals(trackingMode) || MODE_LONG_STOPPED.equals(trackingMode)) {
-            // ? ????????????? + ??????? GPS ??????????? ? ???????? GPS ????????? (?????? network)
-            // ????????? "????????????" ?????????????????? ????????????????????????
+            // ✅ ช่วงเวลาทำการ + มีพิกัด GPS จริงเก็บไว้ → ส่งพิกัด GPS ล่าสุดซ้ำ (ไม่ใช่ network)
+            // ป้องกันรถ "หายจากแผนที่" ตอนจอดรับผู้โดยสาร พิกัดยังถูกต้องไม่กระโดด
             if (isInWorkingHours() && lastGpsFixLocation != null) {
                 Map<String, Object> d = buildData(lastGpsFixLocation, false);
-                d.put("stopped", true); // flag ??????????????? ???????????????????
+                d.put("stopped", true); // flag บอกว่ารถจอดอยู่ ไม่ใช่พิกัดใหม่จริง
                 writeData(d, null, false);
             } else {
                 writeData(buildHeartbeatData(trackingMode, latestLocation), null, false);
@@ -1057,8 +1057,8 @@ public class GpsService extends Service implements SensorEventListener {
         refreshBatteryState(true);
         long now = System.currentTimeMillis();
 
-        // Speed-based wake: ?????????????????????? (speed > 2 ??./??.) ? force send ?????
-        // ??????? marker ?????????????????????????????
+        // Speed-based wake: ถ้ารถเริ่มขยับหลังหยุด (speed > 2 กม./ชม.) → force send ทันที
+        // ป้องกัน marker ค้างตอนรับผู้โดยสารแล้วออกตัว
         boolean justStartedMoving =
             (MODE_STOPPED.equals(trackingMode) || MODE_LONG_STOPPED.equals(trackingMode))
             && speedKmh(loc) > 2f;
@@ -1067,8 +1067,8 @@ public class GpsService extends Service implements SensorEventListener {
             Log.d(TAG, "speed-based wake: speed=" + speedKmh(loc) + " km/h, forcing send");
         }
 
-        // ? DR bridge: ??????????? GPS > 2 ?? ??? DR active ? ??? DR location ???
-        // ??????? marker ????????????????????? passenger.html ??? GPS packet ????????
+        // ✅ DR bridge: ถ้าช่องว่าง GPS > 2 วิ และ DR active → ส่ง DR location แทน
+        // ช่วยให้ marker เคลื่อนที่ต่อเนื่องบน passenger.html แม้ GPS packet ยังไม่มา
         long gpsGapMs = now - lastGpsUpdateAt;
         if (gpsGapMs > 2000 && drActive) {
             Location drLoc = getDeadReckoningLocation();
@@ -1101,8 +1101,8 @@ public class GpsService extends Service implements SensorEventListener {
             @Override public void onDataChange(DataSnapshot snapshot) {
                 Boolean connected = snapshot.getValue(Boolean.class);
                 if (!Boolean.TRUE.equals(connected) || !running) return;
-                // ? ?????: ????? reconnect ??? set online:true ????? ???? setupDisconnectHandlers
-                // ??????? onDisconnect handler ????????? passenger ???? online:false
+                // ✅ แก้ไข: เมื่อ reconnect ให้ set online:true ทันที ก่อน setupDisconnectHandlers
+                // ป้องกัน onDisconnect handler ค้างทำให้ passenger เห็น online:false
                 long now = System.currentTimeMillis();
                 Map<String, Object> onlineNow = new HashMap<>();
                 onlineNow.put("online", true);
@@ -1211,13 +1211,13 @@ public class GpsService extends Service implements SensorEventListener {
             data.put("lat",     loc.getLatitude());
             data.put("lng",     loc.getLongitude());
             data.put("lon",     loc.getLongitude());
-            // ? ?????: ??? 0 ??? null ?????????? speed/heading ? ??????? Firebase null value warning
+            // ✅ แก้ไข: ส่ง 0 แทน null เมื่อไม่มี speed/heading — ป้องกัน Firebase null value warning
             data.put("speed",   loc.hasSpeed()   ? Math.round(loc.getSpeed() * 3.6f) : 0);
             data.put("heading", loc.hasBearing() ? loc.getBearing() : 0f);
             data.put("stopIdx", nearestStopIndex(loc.getLatitude(), loc.getLongitude()));
         }
         if (loc != null) {
-            // ? ?????: ??? accuracy ???? (?????????????? 999 = unknown) ??????? field ???
+            // ✅ แก้ไข: ส่ง accuracy เสมอ (ถ้าไม่มีให้ส่ง 999 = unknown) ป้องกัน field หาย
             data.put("accuracy",          loc.hasAccuracy() ? Math.round(loc.getAccuracy()) : 999);
             data.put("acc",               loc.hasAccuracy() ? Math.round(loc.getAccuracy()) : 999);
             data.put("locationUpdatedAt", now);
@@ -1292,7 +1292,7 @@ public class GpsService extends Service implements SensorEventListener {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID, "GPS Transit", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("????????????????????? real-time");
+        ch.setDescription("ส่งตำแหน่งรถโดยสารแบบ real-time");
         ch.setShowBadge(false);
         ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
     }
