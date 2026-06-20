@@ -15,7 +15,7 @@
       "purpose": "any"
     },
     {
-      "src": "driver-android/src/main/res/drawable-nodpi/app_cover.png?v=20260620icon",
+      "src": "driver-android/src/main/res/drawable-nodpi/app_cover.png?v=20260620b",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
