@@ -171,8 +171,8 @@
 
   var STOP_TIME_OVERRIDES = [
     {
-      from: 'chachoengsao',
-      to: 'phanom',
+      from: 'phanom',
+      to: 'chachoengsao',
       bookingTimes: ['12:20', '12:30'],
       queueNo: 3,
       tripIndex: 3,
