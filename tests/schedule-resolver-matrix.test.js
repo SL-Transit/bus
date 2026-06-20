@@ -237,6 +237,7 @@ async function main() {
   assert.equal(driverSource.includes('bookingBelongsToVehicle(child, vehicleId)'), true, 'driver list is not filtered by planned vehicle');
   assert.equal(driverSource.includes('bookingBelongsToVehicle(snap, vehicleId)'), true, 'driver QR check-in does not validate planned vehicle');
   assert.equal(driverSource.includes('testMode ? "testBookings" : "bookings"'), true, 'driver app does not follow test mode booking path');
+  assert.equal(driverSource.includes('if (Boolean.TRUE.equals(testMode))'), true, 'driver app still requires an index for test bookings');
   assert.equal(counts['invalid/missing'], 0);
 
   console.log(JSON.stringify({
