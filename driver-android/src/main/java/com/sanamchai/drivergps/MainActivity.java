@@ -73,6 +73,7 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_RESTART      = "last_restart";
     static final String KEY_RESTART_COUNT     = "restart_count";
     static final String KEY_LAST_GPS_AT       = "last_gps_at";
+    static final String KEY_TODAY_QUEUE       = "today_queue_label";
     static final String KEY_FIREBASE_STATUS   = "firebase_status";
 
     private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
@@ -1695,11 +1696,11 @@ public class MainActivity extends Activity {
         versionLp.setMargins(0, dp(16), 0, dp(8));
         root.addView(versionLabel, versionLp);
 
-        // ===== หน้า "เร็วๆนี้" สำหรับแท็บที่ยังไม่มีเนื้อหา (งานวันนี้ / รายงาน / บัญชี) =====
-        for (int i = 1; i < NAV_LABELS.length; i++) {
-            if (i == 3) continue; // แจ้งเตือน — ใช้ popup เดิม ไม่ต้องมีหน้าของตัวเอง
-            contentContainer.addView(buildComingSoonPage(NAV_LABELS[i]));
-        }
+        // ===== สร้างหน้า nav ทั้ง 4 หน้าจริง =====
+        contentContainer.addView(buildTodayReportPage());   // index 1: รายงานวันนี้
+        contentContainer.addView(buildReportHistoryPage()); // index 2: รายงาน
+        contentContainer.addView(buildNotificationPage());  // index 3: แจ้งเตือน
+        contentContainer.addView(buildAccountPage());       // index 4: บัญชี
 
         // ===== ข้อ 8: Bottom Navigation =====
         outer.addView(buildBottomNavBar());
@@ -2313,27 +2314,506 @@ public class MainActivity extends Activity {
     }
 
     // ===== ข้อ 8: หน้า "เร็วๆนี้" สำหรับแท็บที่ยังไม่มีเนื้อหา — กันแอป crash ตอนกดแท็บ =====
+    // =====================================================================
+    // หน้า 1: รายงานวันนี้ — สรุปกะทำงาน รายได้ เส้นทาง (Grab/Lalamove style)
+    // =====================================================================
+    private ScrollView buildTodayReportPage() {
+        ScrollView sv = new ScrollView(this);
+        sv.setTag("nav_page_รายงานวันนี้");
+        sv.setBackgroundColor(COLOR_BG_PAGE);
+        sv.setVisibility(android.view.View.GONE);
+        sv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(52), dp(16), dp(80));
+        root.setTag("today_report_root");
+        sv.addView(root);
+        buildTodayReportContent(root);
+        return sv;
+    }
+
+    private void buildTodayReportContent(LinearLayout root) {
+        root.removeAllViews();
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String today = new java.text.SimpleDateFormat("dd MMM yyyy", new java.util.Locale("th")).format(new java.util.Date());
+
+        // Header
+        TextView header = new TextView(this);
+        header.setText("📋  รายงานวันนี้");
+        header.setTextColor(COLOR_NAVY);
+        header.setTextSize(20);
+        header.setTypeface(Typeface.DEFAULT_BOLD);
+        header.setPadding(0, 0, 0, dp(4));
+        root.addView(header);
+        TextView dateLabel = new TextView(this);
+        dateLabel.setText(today + "  |  " + vehicleId);
+        dateLabel.setTextColor(COLOR_TEXT_MUTED);
+        dateLabel.setTextSize(12);
+        LinearLayout.LayoutParams dateLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        dateLp.setMargins(0, 0, 0, dp(16));
+        dateLabel.setLayoutParams(dateLp);
+        root.addView(dateLabel);
+
+        // === การ์ดสรุปกะ ===
+        root.addView(buildSectionCard("⏱  สรุปกะวันนี้", new String[][]{
+            {"เวลาเริ่มงาน",  prefs.getString("today_start_time", "--:--")},
+            {"เวลาสิ้นสุด",   prefs.getString("today_end_time",   "--:--")},
+            {"ชั่วโมงทำงาน", prefs.getString("today_active_hrs", "0") + " ชม."},
+            {"สัญญาณ GPS หาย", prefs.getString("today_gps_down", "0") + " นาที"},
+        }));
+
+        // === การ์ดผู้โดยสาร ===
+        int totalPax = prefs.getInt("today_total_pax", 0);
+        int checkedIn = prefs.getInt("today_checked_in", 0);
+        int notChecked = totalPax - checkedIn;
+        root.addView(buildSectionCard("🧑‍🤝‍🧑  ผู้โดยสารวันนี้", new String[][]{
+            {"จองทั้งหมด",   String.valueOf(totalPax) + " คน"},
+            {"เช็คอินแล้ว",  String.valueOf(checkedIn) + " คน"},
+            {"ยังไม่เช็คอิน", String.valueOf(notChecked) + " คน"},
+        }));
+
+        // === การ์ดเส้นทาง ===
+        root.addView(buildSectionCard("🗺  เส้นทางวันนี้", new String[][]{
+            {"เส้นทาง",   "สนามชัยเขต → ฉะเชิงเทรา"},
+            {"คิวที่วิ่ง", prefs.getString(KEY_TODAY_QUEUE, "—")},
+            {"เที่ยวทั้งหมด", prefs.getString("today_trips", "—") + " เที่ยว"},
+        }));
+
+        // === ปุ่ม refresh ===
+        TextView refreshBtn = new TextView(this);
+        refreshBtn.setText("🔄  รีเฟรชข้อมูล");
+        refreshBtn.setTextColor(COLOR_TEAL);
+        refreshBtn.setTextSize(13);
+        refreshBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        refreshBtn.setGravity(Gravity.CENTER);
+        refreshBtn.setPadding(0, dp(16), 0, 0);
+        refreshBtn.setOnClickListener(v -> buildTodayReportContent(root));
+        root.addView(refreshBtn);
+    }
+
+    // =====================================================================
+    // หน้า 2: รายงาน — ประวัติย้อนหลัง + สถิติ (Lalamove earnings history)
+    // =====================================================================
+    private ScrollView buildReportHistoryPage() {
+        ScrollView sv = new ScrollView(this);
+        sv.setTag("nav_page_รายงาน");
+        sv.setBackgroundColor(COLOR_BG_PAGE);
+        sv.setVisibility(android.view.View.GONE);
+        sv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(52), dp(16), dp(80));
+        sv.addView(root);
+
+        TextView header = new TextView(this);
+        header.setText("📊  รายงาน & สถิติ");
+        header.setTextColor(COLOR_NAVY);
+        header.setTextSize(20);
+        header.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hLp.setMargins(0, 0, 0, dp(16));
+        header.setLayoutParams(hLp);
+        root.addView(header);
+
+        // สถิติรวม
+        root.addView(buildSectionCard("📈  สถิติรวมทั้งหมด", new String[][]{
+            {"วันที่ทำงาน",   prefs.getString("stat_total_days", "0") + " วัน"},
+            {"เที่ยวรวม",     prefs.getString("stat_total_trips", "0") + " เที่ยว"},
+            {"ผู้โดยสารรวม",  prefs.getString("stat_total_pax", "0") + " คน"},
+            {"ชั่วโมงรวม",    prefs.getString("stat_total_hrs", "0") + " ชม."},
+        }));
+
+        // สัปดาห์นี้
+        root.addView(buildSectionCard("📅  สัปดาห์นี้", new String[][]{
+            {"วันทำงาน",   prefs.getString("stat_week_days", "0") + " วัน"},
+            {"เที่ยววิ่ง",  prefs.getString("stat_week_trips", "0") + " เที่ยว"},
+            {"ผู้โดยสาร",  prefs.getString("stat_week_pax", "0") + " คน"},
+        }));
+
+        // ประวัติ GPS
+        root.addView(buildSectionCard("📡  ประวัติสัญญาณ GPS", new String[][]{
+            {"เฉลี่ยสัญญาณหาย/วัน", prefs.getString("stat_avg_gps_down", "0") + " นาที"},
+            {"ครั้งที่ reconnect",    prefs.getString("stat_reconnect_count", "0") + " ครั้ง"},
+            {"uptime เฉลี่ย",         prefs.getString("stat_avg_uptime", "—")},
+        }));
+
+        // หมายเหตุ
+        TextView note = new TextView(this);
+        note.setText("* ข้อมูลอัพเดทจากระบบทุกครั้งที่สิ้นสุดกะ");
+        note.setTextColor(COLOR_TEXT_MUTED);
+        note.setTextSize(11);
+        note.setPadding(0, dp(8), 0, 0);
+        root.addView(note);
+        return sv;
+    }
+
+    // =====================================================================
+    // หน้า 3: แจ้งเตือน — รายการ notification พร้อมประเภทและเวลา
+    // =====================================================================
+    private ScrollView buildNotificationPage() {
+        ScrollView sv = new ScrollView(this);
+        sv.setTag("nav_page_แจ้งเตือน");
+        sv.setBackgroundColor(COLOR_BG_PAGE);
+        sv.setVisibility(android.view.View.GONE);
+        sv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(52), dp(16), dp(80));
+        root.setTag("notif_page_root");
+        sv.addView(root);
+        buildNotifContent(root);
+        return sv;
+    }
+
+    private void buildNotifContent(LinearLayout root) {
+        root.removeAllViews();
+
+        // Header row
+        LinearLayout headerRow = new LinearLayout(this);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams hrLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hrLp.setMargins(0, 0, 0, dp(16));
+        headerRow.setLayoutParams(hrLp);
+        TextView header = new TextView(this);
+        header.setText("🔔  การแจ้งเตือน");
+        header.setTextColor(COLOR_NAVY);
+        header.setTextSize(20);
+        header.setTypeface(Typeface.DEFAULT_BOLD);
+        headerRow.addView(header, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        // ปุ่มล้าง
+        TextView clearBtn = new TextView(this);
+        clearBtn.setText("ล้างทั้งหมด");
+        clearBtn.setTextColor(COLOR_TEAL);
+        clearBtn.setTextSize(12);
+        clearBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        clearBtn.setOnClickListener(v -> {
+            notifMessages.clear();
+            unreadNotifCount = 0;
+            updateNotifBubble();
+            buildNotifContent(root);
+        });
+        headerRow.addView(clearBtn);
+        root.addView(headerRow);
+
+        if (notifMessages.isEmpty()) {
+            LinearLayout empty = new LinearLayout(this);
+            empty.setOrientation(LinearLayout.VERTICAL);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(0, dp(60), 0, 0);
+            TextView emptyIcon = new TextView(this);
+            emptyIcon.setText("🔕");
+            emptyIcon.setTextSize(40);
+            emptyIcon.setGravity(Gravity.CENTER);
+            empty.addView(emptyIcon);
+            TextView emptyText = new TextView(this);
+            emptyText.setText("ยังไม่มีการแจ้งเตือน");
+            emptyText.setTextColor(COLOR_TEXT_MUTED);
+            emptyText.setTextSize(14);
+            emptyText.setGravity(Gravity.CENTER);
+            emptyText.setPadding(0, dp(8), 0, 0);
+            empty.addView(emptyText);
+            root.addView(empty);
+            return;
+        }
+
+        // แสดงรายการล่าสุดก่อน
+        java.util.List<String> reversed = new java.util.ArrayList<>(notifMessages);
+        java.util.Collections.reverse(reversed);
+        for (String msg : reversed) {
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setPadding(dp(14), dp(14), dp(14), dp(14));
+            GradientDrawable cardBg = new GradientDrawable();
+            cardBg.setColor(Color.WHITE);
+            cardBg.setCornerRadius(dp(12));
+            card.setBackground(cardBg);
+            card.setElevation(dp(1));
+            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cardLp.setMargins(0, 0, 0, dp(8));
+            card.setLayoutParams(cardLp);
+
+            // dot indicator
+            android.view.View dot = new android.view.View(this);
+            GradientDrawable dotBg = new GradientDrawable();
+            dotBg.setShape(GradientDrawable.OVAL);
+            dotBg.setColor(COLOR_TEAL);
+            dot.setBackground(dotBg);
+            LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(8), dp(8));
+            dotLp.gravity = Gravity.CENTER_VERTICAL;
+            dotLp.setMargins(0, 0, dp(12), 0);
+            card.addView(dot, dotLp);
+
+            TextView msgView = new TextView(this);
+            msgView.setText(msg);
+            msgView.setTextColor(COLOR_NAVY);
+            msgView.setTextSize(13);
+            card.addView(msgView);
+            root.addView(card);
+        }
+
+        // เมื่อเปิดหน้านี้ reset badge
+        unreadNotifCount = 0;
+        updateNotifBubble();
+    }
+
+    // =====================================================================
+    // หน้า 4: บัญชี — ข้อมูลคนขับ ตั้งค่า (Grab driver profile)
+    // =====================================================================
+    private ScrollView buildAccountPage() {
+        ScrollView sv = new ScrollView(this);
+        sv.setTag("nav_page_บัญชี");
+        sv.setBackgroundColor(COLOR_BG_PAGE);
+        sv.setVisibility(android.view.View.GONE);
+        sv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(52), dp(16), dp(80));
+        sv.addView(root);
+
+        // Profile header card
+        LinearLayout profileCard = new LinearLayout(this);
+        profileCard.setOrientation(LinearLayout.HORIZONTAL);
+        profileCard.setGravity(Gravity.CENTER_VERTICAL);
+        profileCard.setPadding(dp(16), dp(20), dp(16), dp(20));
+        GradientDrawable profileBg = new GradientDrawable();
+        profileBg.setColor(COLOR_NAVY);
+        profileBg.setCornerRadius(dp(16));
+        profileCard.setBackground(profileBg);
+        LinearLayout.LayoutParams pcLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        pcLp.setMargins(0, 0, 0, dp(16));
+        profileCard.setLayoutParams(pcLp);
+
+        // Avatar วงกลม
+        FrameLayout avatar = new FrameLayout(this);
+        GradientDrawable avBg = new GradientDrawable();
+        avBg.setShape(GradientDrawable.OVAL);
+        avBg.setColor(COLOR_TEAL);
+        avatar.setBackground(avBg);
+        LinearLayout.LayoutParams avLp = new LinearLayout.LayoutParams(dp(56), dp(56));
+        avLp.setMargins(0, 0, dp(14), 0);
+        avatar.setLayoutParams(avLp);
+        TextView avIcon = new TextView(this);
+        avIcon.setText("👤");
+        avIcon.setTextSize(24);
+        avIcon.setGravity(Gravity.CENTER);
+        FrameLayout.LayoutParams avIconLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        avIconLp.gravity = Gravity.CENTER;
+        avatar.addView(avIcon, avIconLp);
+        profileCard.addView(avatar);
+
+        LinearLayout profileInfo = new LinearLayout(this);
+        profileInfo.setOrientation(LinearLayout.VERTICAL);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "—");
+        TextView driverName = new TextView(this);
+        driverName.setText("คนขับ — " + vehicleId);
+        driverName.setTextColor(Color.WHITE);
+        driverName.setTextSize(16);
+        driverName.setTypeface(Typeface.DEFAULT_BOLD);
+        profileInfo.addView(driverName);
+        TextView driverSub = new TextView(this);
+        driverSub.setText("ST Transit  •  v" + BuildConfig.VERSION_NAME);
+        driverSub.setTextColor(Color.argb(180, 255, 255, 255));
+        driverSub.setTextSize(12);
+        driverSub.setPadding(0, dp(4), 0, 0);
+        profileInfo.addView(driverSub);
+        profileCard.addView(profileInfo);
+        root.addView(profileCard);
+
+        // ข้อมูลรถ
+        root.addView(buildSectionCard("🚌  ข้อมูลรถที่ใช้", new String[][]{
+            {"รหัสรถ",       vehicleId},
+            {"เวอร์ชันแอพ",  BuildConfig.VERSION_NAME + " (code " + BuildConfig.VERSION_CODE + ")"},
+            {"คิววันนี้",     prefs.getString(KEY_TODAY_QUEUE, "—")},
+        }));
+
+        // ตั้งค่าแอพ
+        root.addView(buildMenuCard("⚙️  ตั้งค่า", new String[][]{
+            {"📍", "ตั้งค่า Location",     "เปิด High Accuracy",       "location"},
+            {"🔋", "ตั้งค่าแบตเตอรี่",     "ปิดการประหยัดพลังงาน",     "battery"},
+            {"🔔", "การแจ้งเตือน",          "ตั้งค่าการแจ้งเตือนแอพ",   "notification"},
+        }));
+
+        // เกี่ยวกับ
+        root.addView(buildSectionCard("ℹ️  เกี่ยวกับ", new String[][]{
+            {"ผู้พัฒนา",     "S.L. Transit"},
+            {"เส้นทาง",     "สนามชัยเขต → ฉะเชิงเทรา"},
+            {"ติดต่อ",       "admin@st-transit.com"},
+        }));
+
+        // ปุ่ม logout / เปลี่ยนรถ
+        TextView changeVehicleBtn = new TextView(this);
+        changeVehicleBtn.setText("🔄  เปลี่ยนรหัสรถ");
+        changeVehicleBtn.setTextColor(Color.WHITE);
+        changeVehicleBtn.setTextSize(14);
+        changeVehicleBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        changeVehicleBtn.setGravity(Gravity.CENTER);
+        changeVehicleBtn.setPadding(dp(20), dp(14), dp(20), dp(14));
+        GradientDrawable btnBg = new GradientDrawable();
+        btnBg.setColor(COLOR_OCEAN);
+        btnBg.setCornerRadius(dp(12));
+        changeVehicleBtn.setBackground(btnBg);
+        LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        btnLp.setMargins(0, dp(8), 0, dp(8));
+        changeVehicleBtn.setLayoutParams(btnLp);
+        changeVehicleBtn.setOnClickListener(v -> showVehicleDialog());
+        root.addView(changeVehicleBtn);
+        return sv;
+    }
+
+    // ===== Helper: Section card (label → value rows) =====
+    private LinearLayout buildSectionCard(String title, String[][] rows) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.WHITE);
+        bg.setCornerRadius(dp(14));
+        card.setBackground(bg);
+        card.setElevation(dp(1));
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(cardLp);
+
+        TextView titleTv = new TextView(this);
+        titleTv.setText(title);
+        titleTv.setTextColor(COLOR_NAVY);
+        titleTv.setTextSize(13);
+        titleTv.setTypeface(Typeface.DEFAULT_BOLD);
+        titleTv.setPadding(0, 0, 0, dp(10));
+        card.addView(titleTv);
+
+        for (String[] row : rows) {
+            LinearLayout rowLayout = new LinearLayout(this);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            rowLp.setMargins(0, 0, 0, dp(6));
+            rowLayout.setLayoutParams(rowLp);
+            TextView labelTv = new TextView(this);
+            labelTv.setText(row[0]);
+            labelTv.setTextColor(COLOR_TEXT_MUTED);
+            labelTv.setTextSize(13);
+            rowLayout.addView(labelTv, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView valueTv = new TextView(this);
+            valueTv.setText(row[1]);
+            valueTv.setTextColor(COLOR_NAVY);
+            valueTv.setTextSize(13);
+            valueTv.setTypeface(Typeface.DEFAULT_BOLD);
+            valueTv.setGravity(Gravity.END);
+            rowLayout.addView(valueTv, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            card.addView(rowLayout);
+        }
+        return card;
+    }
+
+    // ===== Helper: Menu card (settings rows with tap action) =====
+    private LinearLayout buildMenuCard(String title, String[][] items) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(4));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.WHITE);
+        bg.setCornerRadius(dp(14));
+        card.setBackground(bg);
+        card.setElevation(dp(1));
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(12));
+        card.setLayoutParams(cardLp);
+
+        TextView titleTv = new TextView(this);
+        titleTv.setText(title);
+        titleTv.setTextColor(COLOR_NAVY);
+        titleTv.setTextSize(13);
+        titleTv.setTypeface(Typeface.DEFAULT_BOLD);
+        titleTv.setPadding(0, 0, 0, dp(10));
+        card.addView(titleTv);
+
+        for (String[] item : items) {
+            // item = {icon, label, subtitle, settingsType}
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, dp(10), 0, dp(10));
+            row.setClickable(true);
+            String settingsType = item[3];
+            row.setOnClickListener(v -> openRelevantSettings(settingsType));
+
+            TextView iconTv = new TextView(this);
+            iconTv.setText(item[0]);
+            iconTv.setTextSize(18);
+            LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            iconLp.setMargins(0, 0, dp(12), 0);
+            row.addView(iconTv, iconLp);
+
+            LinearLayout textCol = new LinearLayout(this);
+            textCol.setOrientation(LinearLayout.VERTICAL);
+            TextView labelTv = new TextView(this);
+            labelTv.setText(item[1]);
+            labelTv.setTextColor(COLOR_NAVY);
+            labelTv.setTextSize(13);
+            labelTv.setTypeface(Typeface.DEFAULT_BOLD);
+            textCol.addView(labelTv);
+            TextView subTv = new TextView(this);
+            subTv.setText(item[2]);
+            subTv.setTextColor(COLOR_TEXT_MUTED);
+            subTv.setTextSize(11);
+            textCol.addView(subTv);
+            row.addView(textCol, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            TextView chevron = new TextView(this);
+            chevron.setText("›");
+            chevron.setTextColor(COLOR_TEXT_MUTED);
+            chevron.setTextSize(20);
+            row.addView(chevron);
+            card.addView(row);
+
+            // divider (ยกเว้นบรรทัดสุดท้าย)
+            if (!item.equals(items[items.length - 1])) {
+                android.view.View divider = new android.view.View(this);
+                divider.setBackgroundColor(Color.argb(30, 0, 0, 0));
+                card.addView(divider, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1));
+            }
+        }
+        return card;
+    }
+
+    // =====================================================================
+    // buildComingSoonPage — fallback กรณี index เกิน
+    // =====================================================================
     private LinearLayout buildComingSoonPage(String label) {
+        // ไม่ควรถูกเรียกแล้ว เหลือไว้ป้องกัน index เกิน
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setGravity(Gravity.CENTER);
         page.setBackgroundColor(COLOR_BG_PAGE);
         page.setVisibility(android.view.View.GONE);
         page.setTag("nav_page_" + label);
-
-        TextView icon = new TextView(this);
-        icon.setText("🚧");
-        icon.setTextSize(40);
-        icon.setGravity(Gravity.CENTER);
-        page.addView(icon);
-
         TextView text = new TextView(this);
-        text.setText("หน้า \"" + label + "\" เร็วๆนี้");
+        text.setText("🚧  " + label);
         text.setTextColor(COLOR_TEXT_MUTED);
         text.setTextSize(14);
-        text.setPadding(0, dp(10), 0, 0);
+        text.setGravity(Gravity.CENTER);
         page.addView(text);
-
         page.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         return page;
@@ -2341,10 +2821,6 @@ public class MainActivity extends Activity {
 
     // ===== ข้อ 8: สลับหน้าตามแท็บที่กด + ไฮไลท์แท็บที่เลือก =====
     private void selectNavTab(int index) {
-        if (index == 3) {
-            showNotificationCenter();
-            return;
-        }
         // หยุด auto-refresh ถ้าออกจากหน้า diagnostic
         if (currentNavIndex != index) stopDiagRefresh();
         currentNavIndex = index;
@@ -2353,6 +2829,16 @@ public class MainActivity extends Activity {
             boolean isHome = (child == homeScroll);
             boolean shouldShow = (index == 0 && isHome) || (!isHome && ("nav_page_" + NAV_LABELS[index]).equals(child.getTag()));
             child.setVisibility(shouldShow ? android.view.View.VISIBLE : android.view.View.GONE);
+        }
+        // refresh หน้าแจ้งเตือน + reset badge เมื่อเปิด
+        if (index == 3) {
+            android.view.View notifPage = contentContainer.findViewWithTag("nav_page_แจ้งเตือน");
+            if (notifPage instanceof ScrollView) {
+                LinearLayout notifRoot = ((LinearLayout)((ScrollView) notifPage).getChildAt(0));
+                if (notifRoot != null && "notif_page_root".equals(notifRoot.getTag())) {
+                    buildNotifContent(notifRoot);
+                }
+            }
         }
         for (int i = 0; i < navTabs.length; i++) {
             boolean active = (i == index);
