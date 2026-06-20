@@ -1507,7 +1507,7 @@
           status: 'schedule_only'
         };
       }
-      var assignedVehicleId = String((assignment && assignment.plannedVehicleId) || '');
+      var assignedVehicleId = String((assignment && assignment.plannedVehicleId) || booking.plannedVehicleId || '');
       if (assignedVehicleId) {
         var assignedVehicle = buses[assignedVehicleId];
         var assignedPos = normalizeTrackingPoint(assignedVehicle);
@@ -1579,6 +1579,8 @@
 
     function getBookingQueueNo(booking) {
       if (isScheduleOnlyAssignment(booking)) return 0;
+      var persisted = Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
+      if (persisted) return persisted;
       var shared = resolveSharedScheduleAssignmentForBooking(booking);
       if (shared && shared.queueNo) return Number(shared.queueNo);
       var inferred = inferQueueNoFromBookingTrip(booking);
@@ -1589,6 +1591,9 @@
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking) return null;
       if (isScheduleOnlyAssignment(booking)) return booking;
+      var persistedQueueNo = Number(booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex || 0);
+      var persistedVehicleId = String(booking.plannedVehicleId || '');
+      if (persistedQueueNo && persistedVehicleId) return booking;
       if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
       var routeInfo = connectionRouteInfo(booking.route);
       var origin = getRouteOrigin(booking, getLegSchedule(booking));
@@ -1734,7 +1739,7 @@
 
     function liveQueueNoForVehicle(vehicleId) {
       var vehicle = (trackingLiveVehicleFeed && trackingLiveVehicleFeed[vehicleId]) || (trackingBusFeed && trackingBusFeed[vehicleId]) || null;
-      var queueNo = Number(vehicle && (vehicle.queueNo || vehicle.queueNumber || vehicle.queue || vehicle.queueIndex || 0));
+      var queueNo = Number(vehicle && (vehicle.todayQueueNo || vehicle.queueNo || vehicle.queueNumber || vehicle.queue || vehicle.queueIndex || 0));
       return queueTemplates[queueNo] ? queueNo : null;
     }
 
@@ -1746,7 +1751,7 @@
       function scan(feed) {
         Object.keys(feed || {}).forEach(function(id) {
           if (seen[id] || !isRotatingVehicle(id)) return;
-          var vehicleQueue = Number(feed[id] && (feed[id].queueNo || feed[id].queueNumber || feed[id].queue || feed[id].queueIndex || 0));
+          var vehicleQueue = Number(feed[id] && (feed[id].todayQueueNo || feed[id].queueNo || feed[id].queueNumber || feed[id].queue || feed[id].queueIndex || 0));
           if (vehicleQueue === queueNo) { seen[id] = true; ids.push(id); }
         });
       }
