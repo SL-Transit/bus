@@ -1073,24 +1073,7 @@ let selDest   = 'ฉะเชิงเทรา (แปดริ้ว)';
 function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
 
 function cleanRouteLabel(label) {
-  return String(label || '').replace(/function removeBusFromMap(carId) {
-  stopBusRenderLoop(carId);
-  try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e) {}
-  try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e) {}
-  delete busMarkers[carId]; delete busTagMarkers[carId];
-  delete busMotionState[carId]; delete busTargetPos[carId]; delete busCurrentPos[carId];
-}
-
-function updateBusOnMap(pos, carId, shouldFocus) {
-  if (!mapReady || !mapObj) return;
-
-  pos = pos || {};
-  carId = carId || pos.carId || 'car1';
-  if (pos.online === false || pos.status === 'offline' || String(pos.status || '').indexOf('standby') === 0) {
-    removeBusFromMap(carId);
-    return;
-  }
-  var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;s+/g, '').toLowerCase();
+  return String(label || '').replace(/\s+/g, '').toLowerCase();
 }
 
 function normalizeRouteAlias(label) {
@@ -2011,11 +1994,7 @@ function updateAllBusesOnMap(buses) {
   });
 }
 
-function updateBusOnMap(pos, carId, shouldFocus) {
-  if (!mapReady || !mapObj) return;
-
-  var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
-  carId = carId || pos.carId ||function removeBusFromMap(carId) {
+function removeBusFromMap(carId) {
   stopBusRenderLoop(carId);
   try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e) {}
   try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e) {}
