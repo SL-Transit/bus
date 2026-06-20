@@ -753,8 +753,10 @@ public class GpsService extends Service implements SensorEventListener {
             }
             updateNotification("ระบบ GPS พร้อมทำงาน [" + queueId + "]");
         } else {
-            if (changed) markOffline();
-            configureLocationRequests(true);
+            if (changed) {
+                markOffline();
+                configureLocationRequests(true);
+            }
             recordStatus("standby (admin schedule)");
             updateNotification((manualRemoteEnabled ? "พักตามเวลาที่ตั้งในระบบ" : "หยุดส่งตำแหน่งชั่วคราว") + " [" + queueId + "]");
         }
