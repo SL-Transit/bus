@@ -217,7 +217,10 @@ async function main() {
     }
     assert.equal(Array.isArray(bookingAssignment.routeStops), true);
     assert.equal(Array.isArray(bookingAssignment.routeStopNames), true);
-    if (resultCategory === 'assigned-live') assert.ok(bookingAssignment.plannedVehicleId, 'Live assignment has no planned vehicle at row ' + index);
+    if (resultCategory === 'assigned-live') {
+      assert.ok(bookingAssignment.plannedVehicleId, 'Live assignment has no planned vehicle at row ' + index);
+      assert.equal(bookingAssignment.pickupStopKey, engine.normalizeStopKey(row.origin), 'Pickup stop does not match booking origin at row ' + index);
+    }
     if (resultCategory === 'schedule-only') {
       assert.equal(bookingAssignment.noLiveTracking, true);
       assert.equal(bookingAssignment.plannedVehicleId, '');
