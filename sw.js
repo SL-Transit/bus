@@ -1,9 +1,9 @@
 'use strict';
-var CACHE_NAME = 'sl-transit-icons-20260620a';
+var CACHE_NAME = 'sl-transit-icons-20260620b';
 var ICON_ASSETS = [
-  'manifest.webmanifest?v=20260620icon',
-  'driver-android/src/main/res/mipmap-xxxhdpi/ic_launcher.png?v=20260620icon',
-  'driver-android/src/main/res/drawable-nodpi/app_cover.png?v=20260620icon'
+  'manifest.webmanifest?v=20260620b',
+  'assets/app-icon-192.png?v=20260620b',
+  'driver-android/src/main/res/drawable-nodpi/app_cover.png?v=20260620b'
 ];
 self.addEventListener('install', function (event) {
   event.waitUntil(caches.open(CACHE_NAME).then(function (cache) { return cache.addAll(ICON_ASSETS); }).catch(function () {}));
