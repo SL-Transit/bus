@@ -126,6 +126,7 @@ public class MainActivity extends Activity {
     private LinearLayout serviceStatusPill;
     private TextView serviceStatusLabel;
     private boolean serviceAvailable = true;
+    private Boolean testMode = null;
 
     // ===== ข้อมูลจริงจากตารางคิว/ป้าย/เวลา (Firebase: routeData/stops, routeData/queues) =====
     private final Map<String, double[]> stopCoordsCache = new HashMap<>();
@@ -218,6 +219,7 @@ public class MainActivity extends Activity {
         }
         initFirebaseListener();
         buildUi();
+        loadTestModeSetting();
         // ถ้า Service วิ่งอยู่แล้ว (ปิด app แล้วเปิดใหม่) — ไม่ต้อง start ซ้ำ
         // การ start ซ้ำทำให้ Firebase goOffline/goOnline กลางอากาศ → connection ค้าง
         if (prefs.getBoolean(KEY_ENABLED, false)) {
@@ -464,10 +466,38 @@ public class MainActivity extends Activity {
         return div;
     }
 
+    private void loadTestModeSetting() {
+        FirebaseDatabase.getInstance().getReference("settings/testMode")
+                .addValueEventListener(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                testMode = Boolean.TRUE.equals(snap.getValue(Boolean.class));
+                refreshPassengerSummary();
+            }
+            @Override public void onCancelled(DatabaseError error) {
+                testMode = null;
+            }
+        });
+    }
+
+    private String bookingsPath() {
+        if (testMode == null) return null;
+        return testMode ? "testBookings" : "bookings";
+    }
+
+    private boolean bookingBelongsToVehicle(DataSnapshot booking, String vehicleId) {
+        if (booking == null || vehicleId == null || vehicleId.isEmpty()) return false;
+        if (Boolean.TRUE.equals(booking.child("scheduleOnly").getValue(Boolean.class))
+                || Boolean.TRUE.equals(booking.child("noLiveTracking").getValue(Boolean.class))) return false;
+        String plannedVehicleId = booking.child("plannedVehicleId").getValue(String.class);
+        return vehicleId.equals(plannedVehicleId);
+    }
     // ===== ดึงยอดผู้โดยสารวันนี้: จอง / เช็คอินแล้ว / ยังไม่มาเช็คอิน =====
     private void refreshPassengerSummary() {
+        String bookingPath = bookingsPath();
+        if (bookingPath == null) return;
+        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        FirebaseDatabase.getInstance().getReference("bookings")
+        FirebaseDatabase.getInstance().getReference(bookingPath)
                 .orderByChild("date").equalTo(today)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
@@ -476,6 +506,7 @@ public class MainActivity extends Activity {
                 for (DataSnapshot child : snap.getChildren()) {
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
+                    if (!bookingBelongsToVehicle(child, vehicleId)) continue;
                     booked++;
                     String checkinStatus = String.valueOf(child.child("originCheckin").child("status").getValue());
                     if ("boarded".equals(checkinStatus)) checkedIn++;
@@ -875,15 +906,32 @@ public class MainActivity extends Activity {
             if (amp >= 0) code = code.substring(0, amp);
         }
         final String finalCode = code.toUpperCase(java.util.Locale.US);
-        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        final String bookingPath = bookingsPath();
+        if (bookingPath == null) {
+            new AlertDialog.Builder(this).setTitle("กำลังโหลดโหมดระบบ")
+                    .setMessage("กรุณาลองสแกนอีกครั้ง").setPositiveButton("ตกลง", null).show();
+            return;
+        }
 
-        FirebaseDatabase.getInstance().getReference("bookings/" + finalCode)
+        FirebaseDatabase.getInstance().getReference(bookingPath + "/" + finalCode)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 if (!snap.exists()) {
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("ไม่พบตั๋ว")
                             .setMessage("ไม่พบรหัสตั๋ว: " + finalCode)
+                            .setPositiveButton("ตกลง", null).show();
+                    return;
+                }
+                if (!bookingBelongsToVehicle(snap, vehicleId)) {
+                    String planned = snap.child("plannedVehicleId").getValue(String.class);
+                    String detail = (planned == null || planned.isEmpty())
+                            ? "ตั๋วนี้ไม่มีรถสำหรับติดตามสด"
+                            : "ตั๋วนี้กำหนดให้ " + planned + " ไม่ใช่ " + vehicleId;
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("รถไม่ตรงกับตั๋ว")
+                            .setMessage(detail)
                             .setPositiveButton("ตกลง", null).show();
                     return;
                 }
@@ -919,7 +967,7 @@ public class MainActivity extends Activity {
                             data.put("farePaidToDriver", fare);
                             data.put("fareSettled", false);
                             FirebaseDatabase.getInstance()
-                                    .getReference("bookings/" + finalCode + "/originCheckin")
+                                    .getReference(bookingPath + "/" + finalCode + "/originCheckin")
                                     .updateChildren(data)
                                     .addOnSuccessListener(unused -> {
                                         refreshPassengerSummary();
@@ -933,8 +981,15 @@ public class MainActivity extends Activity {
 
     // ===== 3.2) ข้อมูลผู้โดยสารที่จองของคันนี้วันนี้ =====
     private void showPassengerList() {
+        String bookingPath = bookingsPath();
+        if (bookingPath == null) {
+            new AlertDialog.Builder(this).setTitle("กำลังโหลดโหมดระบบ")
+                    .setMessage("กรุณาลองอีกครั้ง").setPositiveButton("ตกลง", null).show();
+            return;
+        }
+        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        FirebaseDatabase.getInstance().getReference("bookings")
+        FirebaseDatabase.getInstance().getReference(bookingPath)
                 .orderByChild("date").equalTo(today)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
@@ -943,6 +998,7 @@ public class MainActivity extends Activity {
                 for (DataSnapshot child : snap.getChildren()) {
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
+                    if (!bookingBelongsToVehicle(child, vehicleId)) continue;
                     String name  = String.valueOf(child.child("name").getValue());
                     String phone = String.valueOf(child.child("phone").getValue());
                     String seats = String.valueOf(child.child("seats").getValue());
@@ -955,7 +1011,7 @@ public class MainActivity extends Activity {
                 }
                 String msg = count == 0 ? "ไม่มีผู้โดยสารจองวันนี้" : sb.toString();
                 new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("👥 ผู้โดยสารวันนี้ (" + count + " รายการ)")
+                        .setTitle("👥 " + vehicleId + " วันนี้ (" + count + " รายการ)")
                         .setMessage(msg)
                         .setPositiveButton("ปิด", null).show();
             }
