@@ -183,6 +183,7 @@ async function main() {
   const bookingSource = readRepoFile('booking.html');
   const checkTicketSource = readRepoFile('check_ticket.html');
   const passengerSource = readRepoFile('passenger.html');
+  const driverSource = readRepoFile('driver-android/src/main/java/com/sanamchai/drivergps/MainActivity.java');
   const [settingsResponse, routeDataResponse] = await Promise.all([fetch(SETTINGS_URL), fetch(ROUTE_DATA_URL)]);
   assert.equal(settingsResponse.ok, true, 'Cannot read Firebase settings');
   assert.equal(routeDataResponse.ok, true, 'Cannot read Firebase routeData');
@@ -229,6 +230,10 @@ async function main() {
   assert.equal(vehicleResolver.includes("status: 'missing_assignment'"), true, 'check_ticket missing explicit no-assignment short circuit');
   assert.equal(passengerSource.includes('function resolvePassengerTripAssignment'), true, 'passenger is not using the shared resolver');
   assert.equal(extractFunction(passengerSource, 'choosePrimaryBus').includes('Number(pos.ts || 0) >'), false, 'passenger still guesses the newest vehicle');
+  assert.equal(extractFunction(checkTicketSource, 'resolveSharedScheduleAssignmentForBooking').includes('persistedVehicleId'), true, 'check_ticket does not prefer persisted assignment');
+  assert.equal(driverSource.includes('bookingBelongsToVehicle(child, vehicleId)'), true, 'driver list is not filtered by planned vehicle');
+  assert.equal(driverSource.includes('bookingBelongsToVehicle(snap, vehicleId)'), true, 'driver QR check-in does not validate planned vehicle');
+  assert.equal(driverSource.includes('testMode ? "testBookings" : "bookings"'), true, 'driver app does not follow test mode booking path');
   assert.equal(counts['invalid/missing'], 0);
 
   console.log(JSON.stringify({
