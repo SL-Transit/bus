@@ -492,19 +492,27 @@ public class MainActivity extends Activity {
         String plannedVehicleId = booking.child("plannedVehicleId").getValue(String.class);
         return vehicleId.equals(plannedVehicleId);
     }
+    private void loadBookingsForDate(String date, ValueEventListener listener) {
+        DatabaseReference ref = FirebaseDatabase.getInstance().getReference(bookingsPath());
+        if (Boolean.TRUE.equals(testMode)) {
+            ref.addListenerForSingleValueEvent(listener);
+        } else {
+            ref.orderByChild("date").equalTo(date).addListenerForSingleValueEvent(listener);
+        }
+    }
     // ===== ดึงยอดผู้โดยสารวันนี้: จอง / เช็คอินแล้ว / ยังไม่มาเช็คอิน =====
     private void refreshPassengerSummary() {
         String bookingPath = bookingsPath();
         if (bookingPath == null) return;
         final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        FirebaseDatabase.getInstance().getReference(bookingPath)
-                .orderByChild("date").equalTo(today)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
+        loadBookingsForDate(today, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 int booked = 0;
                 int checkedIn = 0;
                 for (DataSnapshot child : snap.getChildren()) {
+                    String bookingDate = child.child("date").getValue(String.class);
+                    if (!today.equals(bookingDate)) continue;
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
                     if (!bookingBelongsToVehicle(child, vehicleId)) continue;
@@ -990,13 +998,13 @@ public class MainActivity extends Activity {
         }
         final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        FirebaseDatabase.getInstance().getReference(bookingPath)
-                .orderByChild("date").equalTo(today)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
+        loadBookingsForDate(today, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 StringBuilder sb = new StringBuilder();
                 int count = 0;
                 for (DataSnapshot child : snap.getChildren()) {
+                    String bookingDate = child.child("date").getValue(String.class);
+                    if (!today.equals(bookingDate)) continue;
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
                     if (!bookingBelongsToVehicle(child, vehicleId)) continue;
