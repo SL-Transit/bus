@@ -89,6 +89,8 @@ public class GpsService extends Service implements SensorEventListener {
     private boolean reportingError = false;
     private long lastLocationSentAt = 0;
     private long lastGpsUpdateAt    = 0;
+    private long gpsRequestStartedAt = 0;
+    private long lastGpsRecoveryAt = 0;
     private long stationarySinceAt  = 0;
     private long currentGpsRequestMs = 0;
     private long currentNetRequestMs = 0;
@@ -323,35 +325,46 @@ public class GpsService extends Service implements SensorEventListener {
         long expectedIntervalMs = currentGpsRequestMs > 0 ? currentGpsRequestMs : selectedFirebaseIntervalMs();
         return Math.max(GPS_STALE_FLOOR_MS, expectedIntervalMs * GPS_STALE_MULTIPLIER);
     }
+    private static final long GPS_RECOVERY_RETRY_MS = 30000;
     private final Runnable gpsWatchdog = new Runnable() {
         @Override public void run() {
             if (!running) return;
-            if (lastGpsUpdateAt > 0) {
-                long gpsAgoMs = System.currentTimeMillis() - lastGpsUpdateAt;
+            long now = System.currentTimeMillis();
+            long referenceAt = lastGpsUpdateAt > 0 ? lastGpsUpdateAt : gpsRequestStartedAt;
+            if (referenceAt > 0) {
+                long gpsAgoMs = now - referenceAt;
                 long staleThreshold = currentGpsStaleMs();
-                if (gpsAgoMs > staleThreshold) {
-                    Log.w(TAG, "GPS หาย " + (gpsAgoMs / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") — recreate FusedLocationClient");
-                    // recreate FusedLocationClient ใหม่ทั้งหมด เหมือน restart GPS
-                    try {
-                        fusedClient.removeLocationUpdates(fusedCallback);
-                    } catch (Exception ignored) {}
-                    fusedClient = LocationServices.getFusedLocationProviderClient(GpsService.this);
-                    currentGpsRequestMs = 0;
-                    currentNetRequestMs = 0;
-                    configureLocationRequests(true);
-                    Log.d(TAG, "GPS watchdog: recreated FusedLocationClient");
+                if (gpsAgoMs > staleThreshold && now - lastGpsRecoveryAt >= GPS_RECOVERY_RETRY_MS) {
+                    recoverGpsProvider(gpsAgoMs);
                 }
-
-                // ✅ แจ้งเตือนคนขับถ้า GPS หายเกิน 3 นาที (180s)
-                // watchdog ลอง recreate แล้วแต่ยังไม่กลับมา — ให้คนขับรับรู้และดำเนินการเอง
-                if (gpsAgoMs > 180000 && running) {
-                    showGpsLostNotification(gpsAgoMs / 1000);
-                }
+                if (gpsAgoMs > 180000 && running) showGpsLostNotification(gpsAgoMs / 1000);
             }
-            handler.postDelayed(this, GPS_STALE_FLOOR_MS / 3); // เช็คทุก 30 วิ (อิงจากค่าต่ำสุด เพื่อให้ตรวจถี่พอในโหมด moving)
+            handler.postDelayed(this, GPS_STALE_FLOOR_MS / 3);
         }
     };
 
+    private void recoverGpsProvider(long gpsAgoMs) {
+        lastGpsRecoveryAt = System.currentTimeMillis();
+        Log.w(TAG, "GPS หาย " + (gpsAgoMs / 1000) + "s — restart requests + one-shot fix");
+        recordStatus("recovering_gps");
+        updateNotification("กำลังกู้คืนสัญญาณ GPS... [" + queueId + "]");
+        try {
+            if (fusedClient != null) fusedClient.removeLocationUpdates(fusedCallback);
+        } catch (Exception ignored) {}
+        try {
+            fusedClient = LocationServices.getFusedLocationProviderClient(GpsService.this);
+            currentGpsRequestMs = 0;
+            currentNetRequestMs = 0;
+            configureLocationRequests(true);
+            com.google.android.gms.tasks.CancellationTokenSource tokenSource =
+                    new com.google.android.gms.tasks.CancellationTokenSource();
+            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, tokenSource.getToken())
+                    .addOnSuccessListener(this::handleLocationResult)
+                    .addOnFailureListener(error -> recordError("GPS recovery failed: " + error.getMessage()));
+        } catch (Exception error) {
+            recordError("GPS recovery failed: " + error.getMessage());
+        }
+    }
     private long lastGpsNotifyAt = 0;
     private void showGpsLostNotification(long gpsAgoSec) {
         // กันสแปม — แจ้งเตือนซ้ำได้ทุก 3 นาทีเท่านั้น
@@ -426,38 +439,37 @@ public class GpsService extends Service implements SensorEventListener {
     private void initFusedCallback() {
         fusedCallback = new LocationCallback() {
             @Override public void onLocationResult(LocationResult result) {
-                if (result == null) return;
-                if (!remoteEnabled) return; // ✅ ถูกสั่งหยุดจาก admin — ไม่ส่งตำแหน่ง
-                // ✅ แก้ไข: เลือก location ที่ใหม่และแม่นที่สุดจาก batch
-                // แทน getLastLocation() ที่อาจคืน cached location เก่าได้
+                if (result == null || !remoteEnabled) return;
                 Location location = null;
-                for (Location l : result.getLocations()) {
-                    if (location == null) { location = l; continue; }
-                    boolean newer = l.getTime() > location.getTime();
-                    boolean moreAccurate = l.hasAccuracy() &&
-                        (!location.hasAccuracy() || l.getAccuracy() < location.getAccuracy());
-                    if (newer && moreAccurate) location = l;
-                    else if (newer && !location.hasAccuracy()) location = l;
+                for (Location item : result.getLocations()) {
+                    if (location == null || item.getTime() > location.getTime()
+                            || (item.getTime() == location.getTime() && item.hasAccuracy()
+                            && (!location.hasAccuracy() || item.getAccuracy() < location.getAccuracy()))) {
+                        location = item;
+                    }
                 }
-                if (location == null) return;
-                Location filtered = filterLocation(location);
-                if (filtered == null) return;
-                latestLocation = filtered;
-                saveCoords(filtered);
-                // ✅ บันทึกพิกัด GPS จริงล่าสุด (accuracy ≤ 50m) เพื่อส่งซ้ำตอนจอดนิ่งช่วงเวลาทำการ
-                if (!filtered.hasAccuracy() || filtered.getAccuracy() <= 50f) {
-                    lastGpsFixLocation = new Location(filtered);
-                }
-                prefs.edit().putLong(MainActivity.KEY_LAST_GPS_AT, System.currentTimeMillis()).apply();
-                updateTrackingMode(filtered);
-                lastGpsUpdateAt = System.currentTimeMillis();
-                // ✅ reset dead reckoning anchor ทุกครั้งที่ได้ GPS จริง
-                resetDeadReckoning(filtered);
-                sendLocationUpdate(filtered);
+                handleLocationResult(location);
             }
         };
     }
 
+    private void handleLocationResult(Location location) {
+        if (location == null || !running || !remoteEnabled) return;
+        Location filtered = filterLocation(location);
+        if (filtered == null) return;
+        latestLocation = filtered;
+        saveCoords(filtered);
+        if (!filtered.hasAccuracy() || filtered.getAccuracy() <= 50f) {
+            lastGpsFixLocation = new Location(filtered);
+        }
+        long now = System.currentTimeMillis();
+        prefs.edit().putLong(MainActivity.KEY_LAST_GPS_AT, now).apply();
+        updateTrackingMode(filtered);
+        lastGpsUpdateAt = now;
+        lastGpsRecoveryAt = 0;
+        resetDeadReckoning(filtered);
+        sendLocationUpdate(filtered);
+    }
     private void acquireWakeLock() {
         if (wakeLock != null && wakeLock.isHeld()) return;
         try {
@@ -715,6 +727,10 @@ public class GpsService extends Service implements SensorEventListener {
     }
 
     private void startTracking() {
+        if (running) {
+            sendHeartbeat();
+            return;
+        }
         initFirebase();
         // ✅ Force reconnect Firebase WebSocket ทุกครั้งที่เริ่ม tracking
         // ป้องกัน stale connection ที่ค้างอยู่หลังแอปถูก kill
@@ -728,12 +744,7 @@ public class GpsService extends Service implements SensorEventListener {
         handler.removeCallbacks(gpsWatchdog);
         handler.postDelayed(connectionWatchdog, WATCHDOG_CHECK_MS);
         handler.postDelayed(gpsWatchdog, GPS_STALE_FLOOR_MS / 3);
-        if (running) {
-            setupDisconnectHandlers(); sendHeartbeat();
-            handler.removeCallbacks(heartbeatTick);
-            scheduleNextHeartbeat();
-            return;
-        }
+
         // ✅ เปิด accelerometer listener ตอนเริ่ม tracking
         if (sensorManager != null && accelerometer != null) {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
@@ -743,6 +754,8 @@ public class GpsService extends Service implements SensorEventListener {
         trackingMode = MODE_SLOW;
         lastLocationSentAt = 0;
         lastGpsUpdateAt = 0;
+        gpsRequestStartedAt = 0;
+        lastGpsRecoveryAt = 0;
         stationarySinceAt = 0;
         lastFirebaseLocation = null;
         lastModeLocation = null;
@@ -778,6 +791,12 @@ public class GpsService extends Service implements SensorEventListener {
     }
 
     private void stopTracking() {
+        if (!running) {
+            prefs.edit().putBoolean(MainActivity.KEY_ENABLED, false).apply();
+            try { stopForeground(true); } catch (Exception ignored) {}
+            stopSelf();
+            return;
+        }
         if (remoteToggleRef != null && remoteToggleListener != null) {
             try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
         }
@@ -797,6 +816,8 @@ public class GpsService extends Service implements SensorEventListener {
         try { fusedClient.removeLocationUpdates(fusedCallback); } catch (Exception ignored) {}
         currentGpsRequestMs = 0;
         currentNetRequestMs = 0;
+        gpsRequestStartedAt = 0;
+        lastGpsRecoveryAt = 0;
         markOffline();
         releaseWakeLock();
         stopForeground(true);
@@ -974,6 +995,7 @@ public class GpsService extends Service implements SensorEventListener {
         if (!force && intervalMs == currentGpsRequestMs) return;
         currentGpsRequestMs = intervalMs;
         currentNetRequestMs = intervalMs;
+        gpsRequestStartedAt = System.currentTimeMillis();
         try {
             fusedClient.removeLocationUpdates(fusedCallback);
 
@@ -998,6 +1020,8 @@ public class GpsService extends Service implements SensorEventListener {
             logBatteryMode("location_request");
         } catch (SecurityException e) {
             recordError(e.getMessage());
+        } catch (Exception e) {
+            recordError("Location request failed: " + e.getMessage());
         }
     }
 
