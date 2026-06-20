@@ -33,5 +33,6 @@ public class BootReceiver extends BroadcastReceiver {
         } else {
             context.startService(service);
         }
+        GpsService.scheduleHealthCheck(context);
     }
 }
