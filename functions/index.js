@@ -21,6 +21,12 @@ function formatThaiDate(date) {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : (value || "-");
 }
 
+function bookingRouteText(booking) {
+  if (booking.route) return String(booking.route);
+  const origin = booking.origin || booking.from || "-";
+  const destination = booking.destination || booking.to || "-";
+  return `${origin} → ${destination}`;
+}
 function isCheckinEvent(booking) {
   return booking.notificationOnly === true ||
     booking.notificationType === "checkin" ||
@@ -36,7 +42,7 @@ function buildCheckinMessage(booking) {
     "",
     `ชื่อ: ${booking.name || "-"}`,
     `เบอร์โทร: ${booking.phone || "-"}`,
-    `เส้นทาง: ${booking.route || "-"}`,
+    `เส้นทาง: ${bookingRouteText(booking)}`,
     `วันเวลา: ${booking.date || "-"} ${booking.time || "-"} น.`,
     `จำนวน: ${booking.seats || 1}`,
     "ใกล้ถึงจุดหมายอีก 3 นาที"
@@ -47,6 +53,7 @@ function buildBookingMessage(booking) {
   const lines = [
     `รหัส: ${booking.code || "-"}`,
     `👤 ชื่อ: ${booking.name || "-"}    📞 โทร: ${booking.phone || "-"}`,
+    `📍 เส้นทาง: ${bookingRouteText(booking)}`,
     `🗓 วันที่: ${formatThaiDate(booking.date)} เวลา ${booking.time || "-"} น.`,
     `🚌 จำนวน: ${booking.seats || 1} คน  💰 ราคา: ${money(booking.price)} บาท`
   ];
