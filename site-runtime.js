@@ -29,7 +29,7 @@
   }
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js?v=20260620icon').catch(function () {});
+      navigator.serviceWorker.register('sw.js?v=20260620b').catch(function () {});
     });
   }
 })();
