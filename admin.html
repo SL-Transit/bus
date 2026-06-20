@@ -1847,8 +1847,10 @@ function loadVehicleControls(){
     VEHICLE_LIST.forEach(function(v){renderVehicleVersion(v.id,latestVersionCode);});
   });
   VEHICLE_LIST.forEach(function(v){
-    db.ref('settings/vehicles/'+v.id+'/trackingEnabled').on('value',function(snap){
-      var val=snap.val();
+    db.ref('settings/vehicles/'+v.id).on('value',function(snap){
+      var cfg=snap.val()||{};
+      var val=cfg.manualEnabled;
+      if(val===null||val===undefined) val=cfg.trackingEnabled;
       var enabled=(val===null||val===undefined)?true:!!val;
       var el=document.getElementById('track_'+v.id);
       if(el)el.checked=enabled;
@@ -1884,7 +1886,7 @@ function saveSchedule(id){
   var on=document.getElementById('sch_on_'+id).value;
   var off=document.getElementById('sch_off_'+id).value;
   if(!on||!off){alert('กรอกเวลาให้ครบ');return;}
-  db.ref('settings/vehicles/'+id+'/schedule').set({on:on,off:off}).then(function(){
+  db.ref('settings/vehicles/'+id).update({schedule:{on:on,off:off},scheduleEnabled:true,manualEnabled:true,trackingEnabled:true}).then(function(){
     var el=document.getElementById('sch_status_'+id);
     if(el){el.textContent='✅ บันทึกแล้ว เปิด '+on+' / ปิด '+off;el.style.color='#22c55e';}
   }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
@@ -1910,23 +1912,17 @@ function runScheduler(){
     var now=new Date();
     var hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     VEHICLE_LIST.forEach(function(v){
-      db.ref('settings/vehicles/'+v.id+'/schedule').once('value').then(function(snap){
-        var d=snap.val();
-        if(!d||!d.on||!d.off)return;
-        var shouldBeOn=(hhmm>=d.on&&hhmm<d.off);
-        db.ref('settings/vehicles/'+v.id+'/trackingEnabled').once('value').then(function(tSnap){
-          var cur=tSnap.val();
-          var curEnabled=(cur===null||cur===undefined)?true:!!cur;
-          if(shouldBeOn&&!curEnabled){
-            db.ref('settings/vehicles/'+v.id+'/trackingEnabled').set(true);
-            var el=document.getElementById('sch_status_'+v.id);
-            if(el){el.textContent='🟢 เปิดอัตโนมัติ '+hhmm;el.style.color='#22c55e';}
-          } else if(!shouldBeOn&&curEnabled){
-            db.ref('settings/vehicles/'+v.id+'/trackingEnabled').set(false);
-            var el2=document.getElementById('sch_status_'+v.id);
-            if(el2){el2.textContent='🔴 ปิดอัตโนมัติ '+hhmm;el2.style.color='#ef4444';}
-          }
-        });
+      db.ref('settings/vehicles/'+v.id).once('value').then(function(snap){
+        var cfg=snap.val()||{},d=cfg.schedule||{};
+        if(!d.on||!d.off)return;
+        var shouldBeOn=d.on===d.off||(d.on<d.off?(hhmm>=d.on&&hhmm<d.off):(hhmm>=d.on||hhmm<d.off));
+        var manual=cfg.manualEnabled;
+        if(manual===null||manual===undefined)manual=true;
+        var el=document.getElementById('sch_status_'+v.id);
+        if(el){
+          el.textContent=!manual?'⏸ ปิดด้วยสวิตช์':(shouldBeOn?'🟢 อยู่ในเวลาทำการ '+hhmm:'🌙 สแตนบาย '+hhmm);
+          el.style.color=!manual?'#f59e0b':(shouldBeOn?'#22c55e':'#94a3b8');
+        }
       });
     });
   }
@@ -1934,7 +1930,7 @@ function runScheduler(){
   _schedulerTimer=setInterval(tick,60000);
 }
 function setVehicleTracking(id,enabled){
-  db.ref('settings/vehicles/'+id+'/trackingEnabled').set(enabled).then(function(){
+  db.ref('settings/vehicles/'+id).update({manualEnabled:enabled,trackingEnabled:enabled}).then(function(){
     writeLog('toggle_tracking',(enabled?'เปิด':'ปิด')+'การส่งตำแหน่งรถ '+id);
   }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message);});
 }
