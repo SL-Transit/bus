@@ -63,8 +63,8 @@ public class GpsService extends Service implements SensorEventListener {
     private static final String MODE_MOVING         = "moving";
     private static final String MODE_SLOW           = "slow";
     private static final String MODE_STOPPED        = "stopped";
-    private static final long   MOVING_INTERVAL_MS  = 2000;   // ✅ แก้ไข: 4000→2000ms ส่งถี่ขึ้นตอนวิ่ง
-    private static final long   SLOW_INTERVAL_MS    = 4000;   // ✅ แก้ไข: 10000→4000ms ตอนช้า/ออกตัว
+    private static final long   MOVING_INTERVAL_MS  = 5000;   // ✅ แก้ไข: 4000→2000ms ส่งถี่ขึ้นตอนวิ่ง
+    private static final long   SLOW_INTERVAL_MS    = 6000;   // ✅ แก้ไข: 10000→4000ms ตอนช้า/ออกตัว
     private static final long   SLOW_LOW_BATTERY_MS = 8000;   // ✅ แก้ไข: 15000→8000ms
     private static final long   STOPPED_INTERVAL_MS = 25000;
     private static final long   STOPPED_LOW_BATT_MS = 30000;
