@@ -7,6 +7,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -52,7 +53,9 @@ public class GpsService extends Service implements SensorEventListener {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
     static final String ACTION_STOP  = "com.sanamchai.drivergps.STOP";
     static final String ACTION_RESTART = "com.sanamchai.drivergps.RESTART";
-    private static final long RESTART_INTERVAL_MS = 3 * 60 * 1000; // 3 นาที
+    private static final long RESTART_INTERVAL_MS = 10 * 60 * 1000;
+    private static final long STANDBY_LOCATION_INTERVAL_MS = 5 * 60 * 1000;
+    private static final long SERVICE_WINDOW_CHECK_MS = 30 * 1000;
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
@@ -80,9 +83,14 @@ public class GpsService extends Service implements SensorEventListener {
     private FusedLocationProviderClient fusedClient;
     private LocationCallback fusedCallback;
     private FirebaseAuth auth;
-    private DatabaseReference busRef, liveVehicleRef, connectedRef, remoteToggleRef;
-    private com.google.firebase.database.ValueEventListener remoteToggleListener;
+    private DatabaseReference busRef, liveVehicleRef, connectedRef, vehicleSettingsRef;
+    private com.google.firebase.database.ValueEventListener vehicleSettingsListener;
+    private volatile boolean manualRemoteEnabled = true;
+    private volatile boolean scheduleRemoteEnabled = true;
     private volatile boolean remoteEnabled = true;
+    private volatile boolean adminScheduleEnabled = false;
+    private String adminScheduleOn = null;
+    private String adminScheduleOff = null;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Location latestLocation;
     private boolean running        = false;
@@ -688,37 +696,79 @@ public class GpsService extends Service implements SensorEventListener {
         connectedRef   = db.getReference(".info/connected");
         // ไม่ใช้ keepSynced — ป้องกัน Firebase sync queue เก่าก่อนส่งข้อมูลใหม่
         watchConnectionState();
-        watchRemoteToggle();
-    }
-
-    // ✅ ฟัง settings/vehicles/{id}/trackingEnabled — ให้ admin สั่งหยุด/เริ่มส่งตำแหน่งจากระยะไกลได้
-    private void watchRemoteToggle() {
-        if (remoteToggleRef != null && remoteToggleListener != null) {
-            try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
+        watchVehicleSettings();
+    }    // แอปคนขับอ่าน manual switch และตารางเวลาเอง ไม่พึ่งหน้า admin เปิดค้างไว้
+    private void watchVehicleSettings() {
+        if (vehicleSettingsRef != null && vehicleSettingsListener != null) {
+            try { vehicleSettingsRef.removeEventListener(vehicleSettingsListener); } catch (Exception ignored) {}
         }
-        remoteToggleRef = FirebaseDatabase.getInstance().getReference("settings/vehicles/" + queueId + "/trackingEnabled");
-        remoteToggleListener = new com.google.firebase.database.ValueEventListener() {
+        vehicleSettingsRef = FirebaseDatabase.getInstance().getReference("settings/vehicles/" + queueId);
+        vehicleSettingsListener = new com.google.firebase.database.ValueEventListener() {
             @Override public void onDataChange(com.google.firebase.database.DataSnapshot snapshot) {
-                Boolean val = snapshot.getValue(Boolean.class);
-                boolean enabled = (val == null) || val; // ถ้าไม่ได้ตั้งค่าไว้ ถือว่าเปิดใช้งานปกติ
-                boolean wasEnabled = remoteEnabled;
-                remoteEnabled = enabled;
-                if (!wasEnabled && enabled) {
-                    // กลับมาเปิดใช้งาน — ส่งข้อมูลทันที
-                    recordStatus("online / locating");
-                    sendHeartbeat();
-                } else if (wasEnabled && !enabled) {
-                    // ถูกสั่งปิดจาก admin — เคลียร์สถานะออนไลน์ แต่ service ยังทำงานต่อรอคำสั่งเปิดใหม่
-                    recordStatus("paused (admin)");
-                    markOffline();
-                    updateNotification("หยุดส่งตำแหน่งชั่วคราว (สั่งจากระบบ) [" + queueId + "]");
-                }
+                Boolean manual = snapshot.child("manualEnabled").getValue(Boolean.class);
+                Boolean legacy = snapshot.child("trackingEnabled").getValue(Boolean.class);
+                String on = snapshot.child("schedule/on").getValue(String.class);
+                String off = snapshot.child("schedule/off").getValue(String.class);
+                Boolean scheduleFlag = snapshot.child("scheduleEnabled").getValue(Boolean.class);
+                boolean hasSchedule = isValidTime(on) && isValidTime(off);
+                manualRemoteEnabled = manual != null ? manual : (hasSchedule || legacy == null || legacy);
+                adminScheduleOn = hasSchedule ? on : null;
+                adminScheduleOff = hasSchedule ? off : null;
+                adminScheduleEnabled = hasSchedule && (scheduleFlag == null || scheduleFlag);
+                applyEffectiveTrackingState("settings");
             }
-            @Override public void onCancelled(com.google.firebase.database.DatabaseError error) {}
+            @Override public void onCancelled(com.google.firebase.database.DatabaseError error) {
+                Log.w(TAG, "vehicle settings cancelled: " + error.getMessage());
+            }
         };
-        remoteToggleRef.addValueEventListener(remoteToggleListener);
+        vehicleSettingsRef.addValueEventListener(vehicleSettingsListener);
     }
 
+    private boolean isValidTime(String value) {
+        return value != null && value.matches("(?:[01]\\d|2[0-3]):[0-5]\\d");
+    }
+
+    private boolean isWithinAdminSchedule() {
+        if (!adminScheduleEnabled || !isValidTime(adminScheduleOn) || !isValidTime(adminScheduleOff)) return true;
+        String now = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(new java.util.Date());
+        if (adminScheduleOn.equals(adminScheduleOff)) return true;
+        if (adminScheduleOn.compareTo(adminScheduleOff) < 0)
+            return now.compareTo(adminScheduleOn) >= 0 && now.compareTo(adminScheduleOff) < 0;
+        return now.compareTo(adminScheduleOn) >= 0 || now.compareTo(adminScheduleOff) < 0;
+    }
+
+    private void applyEffectiveTrackingState(String reason) {
+        scheduleRemoteEnabled = isWithinAdminSchedule();
+        boolean enabled = manualRemoteEnabled && scheduleRemoteEnabled;
+        boolean changed = enabled != remoteEnabled;
+        remoteEnabled = enabled;
+        if (enabled) {
+            acquireWakeLock();
+            if (changed) {
+                recordStatus("online / locating");
+                forceNextLocationSend = true;
+                configureLocationRequests(true);
+                recoverGpsProvider(0);
+                sendHeartbeat();
+            }
+            updateNotification("ระบบ GPS พร้อมทำงาน [" + queueId + "]");
+        } else {
+            if (changed) markOffline();
+            configureLocationRequests(true);
+            recordStatus("standby (admin schedule)");
+            updateNotification((manualRemoteEnabled ? "พักตามเวลาที่ตั้งในระบบ" : "หยุดส่งตำแหน่งชั่วคราว") + " [" + queueId + "]");
+        }
+        Log.d(TAG, "effective tracking=" + enabled + " reason=" + reason);
+    }
+
+    private final Runnable serviceWindowTick = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            applyEffectiveTrackingState("clock");
+            scheduleHealthCheck(GpsService.this);
+            handler.postDelayed(this, SERVICE_WINDOW_CHECK_MS);
+        }
+    };
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_START : intent.getAction();
         if (ACTION_STOP.equals(action)) { stopTracking(); return START_NOT_STICKY; }
@@ -744,6 +794,8 @@ public class GpsService extends Service implements SensorEventListener {
         handler.removeCallbacks(gpsWatchdog);
         handler.postDelayed(connectionWatchdog, WATCHDOG_CHECK_MS);
         handler.postDelayed(gpsWatchdog, GPS_STALE_FLOOR_MS / 3);
+        handler.post(serviceWindowTick);
+        scheduleHealthCheck(this);
 
         // ✅ เปิด accelerometer listener ตอนเริ่ม tracking
         if (sensorManager != null && accelerometer != null) {
@@ -797,8 +849,8 @@ public class GpsService extends Service implements SensorEventListener {
             stopSelf();
             return;
         }
-        if (remoteToggleRef != null && remoteToggleListener != null) {
-            try { remoteToggleRef.removeEventListener(remoteToggleListener); } catch (Exception ignored) {}
+        if (vehicleSettingsRef != null && vehicleSettingsListener != null) {
+            try { vehicleSettingsRef.removeEventListener(vehicleSettingsListener); } catch (Exception ignored) {}
         }
         running = false;
         // ✅ ปิด accelerometer listener ตอนหยุด tracking
@@ -823,32 +875,34 @@ public class GpsService extends Service implements SensorEventListener {
         stopForeground(true);
         stopSelf();
     }
-
-    // ===== AlarmManager Restart สำหรับ Honor/Huawei/Samsung =====
-    private void scheduleAlarmRestart() {
-        if (prefs == null || !prefs.getBoolean(MainActivity.KEY_ENABLED, false)) return;
+    public static void scheduleHealthCheck(Context context) {
+        if (context == null) return;
+        SharedPreferences p = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE);
+        if (!p.getBoolean(MainActivity.KEY_ENABLED, false)) return;
         try {
-            AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
-            Intent intent = new Intent(this, BootReceiver.class);
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            Intent intent = new Intent(context, BootReceiver.class);
             intent.setAction(ACTION_RESTART);
-            android.app.PendingIntent pi = android.app.PendingIntent.getBroadcast(this, 99, intent,
-                    Build.VERSION.SDK_INT >= 23
-                            ? android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
-                            : android.app.PendingIntent.FLAG_UPDATE_CURRENT);
-            long triggerAt = System.currentTimeMillis() + RESTART_INTERVAL_MS;
-            if (Build.VERSION.SDK_INT >= 23) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            else am.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-        } catch (Exception e) {
-            // fallback: restart ตรงๆ
-            try {
-                Intent restart = new Intent(getApplicationContext(), GpsService.class);
-                restart.setAction(ACTION_START);
-                if (Build.VERSION.SDK_INT >= 26) startForegroundService(restart);
-                else startService(restart);
-            } catch (Exception ignored) {}
-        }
+            PendingIntent pi = PendingIntent.getBroadcast(context, 99, intent,
+                    Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+            long at = System.currentTimeMillis() + RESTART_INTERVAL_MS;
+            if (Build.VERSION.SDK_INT >= 23) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+            else am.set(AlarmManager.RTC_WAKEUP, at, pi);
+        } catch (Exception e) { Log.w(TAG, "schedule health check failed: " + e.getMessage()); }
     }
 
+    public static void cancelHealthCheck(Context context) {
+        try {
+            AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            Intent intent = new Intent(context, BootReceiver.class); intent.setAction(ACTION_RESTART);
+            PendingIntent pi = PendingIntent.getBroadcast(context, 99, intent,
+                    Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
+            if (am != null) am.cancel(pi); pi.cancel();
+        } catch (Exception ignored) {}
+    }
+
+    private void scheduleAlarmRestart() { scheduleHealthCheck(this); }
     @Override public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
         scheduleAlarmRestart();
@@ -977,7 +1031,10 @@ public class GpsService extends Service implements SensorEventListener {
         boolean inWarmUp      = isInWarmUp();
         boolean useHighAccuracy = inWorking || inWarmUp; // นอกเวลาทั้งหมดเท่านั้นที่ใช้ network
 
-        if (MODE_MOVING.equals(trackingMode)) {
+        if (!remoteEnabled) {
+            intervalMs = STANDBY_LOCATION_INTERVAL_MS;
+            priority = Priority.PRIORITY_BALANCED_POWER_ACCURACY;
+        } else if (MODE_MOVING.equals(trackingMode)) {
             intervalMs = batteryLow ? 5000 : MOVING_INTERVAL_MS;
             priority   = Priority.PRIORITY_HIGH_ACCURACY;
         } else if (MODE_SLOW.equals(trackingMode)) {
@@ -1076,7 +1133,7 @@ public class GpsService extends Service implements SensorEventListener {
     }
 
     private void sendLocationUpdate(Location loc) {
-        if (!running || loc == null) return;
+        if (!running || !remoteEnabled || loc == null) return;
         gpsErrorMessage = null;
         refreshBatteryState(true);
         long now = System.currentTimeMillis();
