@@ -201,6 +201,8 @@ public class MainActivity extends Activity {
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private int uiTickCount = 0;
+    private boolean serviceTransitionInProgress = false;
+    private static final long SERVICE_TRANSITION_LOCK_MS = 2000;
     private final Runnable uiTick = new Runnable() {
         @Override public void run() {
             refreshUi();
@@ -1809,8 +1811,9 @@ public class MainActivity extends Activity {
         startWorkButton.setPadding(dp(20), dp(16), dp(20), dp(16));
         startWorkButton.setClickable(true);
         startWorkButton.setOnClickListener(v -> {
+            if (serviceTransitionInProgress) return;
             animateTap(startWorkButton);
-            uiHandler.postDelayed(() -> toggleService(), 120);
+            toggleServiceSafely();
         });
         startWorkIconBg = new GradientDrawable();
         startWorkIconBg.setShape(GradientDrawable.OVAL);
@@ -3017,6 +3020,39 @@ public class MainActivity extends Activity {
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    private void toggleServiceSafely() {
+        if (serviceTransitionInProgress) return;
+        serviceTransitionInProgress = true;
+        setServiceControlsEnabled(false);
+        try {
+            toggleService();
+        } catch (Exception error) {
+            handleServiceCommandError(error);
+        }
+        uiHandler.postDelayed(() -> {
+            serviceTransitionInProgress = false;
+            setServiceControlsEnabled(true);
+            refreshUi();
+        }, SERVICE_TRANSITION_LOCK_MS);
+    }
+
+    private void setServiceControlsEnabled(boolean enabled) {
+        if (startWorkButton != null) {
+            startWorkButton.setClickable(enabled);
+            startWorkButton.setAlpha(enabled ? 1f : 0.6f);
+        }
+        if (mainButton != null) mainButton.setEnabled(enabled);
+    }
+
+    private void handleServiceCommandError(Exception error) {
+        prefs.edit().putBoolean(KEY_ENABLED, false)
+                .putString(KEY_LAST_ERROR, error.getMessage() == null ? "service command failed" : error.getMessage())
+                .apply();
+        serviceTransitionInProgress = false;
+        setServiceControlsEnabled(true);
+        refreshUi();
+    }
+
     private void toggleService() {
         if (prefs.getBoolean(KEY_ENABLED, false)) stopGpsService();
         else requestPermissionsThenStart();
@@ -3024,28 +3060,33 @@ public class MainActivity extends Activity {
 
     private void startGpsService() {
         prefs.edit().putBoolean(KEY_ENABLED, true).apply();
-        // Force reconnect Firebase WebSocket ก่อน start service
-        // ป้องกัน connection เก่าค้างจาก session ก่อนหน้า
         try { FirebaseDatabase.getInstance().goOffline(); } catch (Exception ignored) {}
         uiHandler.postDelayed(() -> {
-            try { FirebaseDatabase.getInstance().goOnline(); } catch (Exception ignored) {}
-            Intent intent = new Intent(this, GpsService.class);
-            intent.setAction(GpsService.ACTION_START);
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
-            else startService(intent);
-            requestBatteryUnrestrictedIfNeeded();
-            refreshUi();
+            try {
+                FirebaseDatabase.getInstance().goOnline();
+                Intent intent = new Intent(this, GpsService.class);
+                intent.setAction(GpsService.ACTION_START);
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
+                else startService(intent);
+                requestBatteryUnrestrictedIfNeeded();
+                refreshUi();
+            } catch (Exception error) {
+                handleServiceCommandError(error);
+            }
         }, 600);
     }
 
     private void stopGpsService() {
-        Intent intent = new Intent(this, GpsService.class);
-        intent.setAction(GpsService.ACTION_STOP);
-        startService(intent);
-        prefs.edit().putBoolean(KEY_ENABLED, false).apply();
-        refreshUi();
+        try {
+            Intent intent = new Intent(this, GpsService.class);
+            intent.setAction(GpsService.ACTION_STOP);
+            startService(intent);
+            prefs.edit().putBoolean(KEY_ENABLED, false).apply();
+            refreshUi();
+        } catch (Exception error) {
+            handleServiceCommandError(error);
+        }
     }
-
     private void requestBatteryUnrestrictedIfNeeded() {
         if (Build.VERSION.SDK_INT < 23) return;
         if (prefs.getBoolean(KEY_BATTERY_PROMPTED, false)) return;
