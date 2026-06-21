@@ -692,6 +692,11 @@ function updateAdminTesterNotice(){
 // ===== FIREBASE SETTINGS SYNC (อ่านอย่างเดียว — ไม่แตะโค้ดจอง) =====
 var _settingsLoaded = false;
 var _settingsSnap   = null;
+var _settingsFingerprint = '';
+var _settingsUpdateTimer = null;
+var _pendingSettingsSnap = null;
+var _settingsRetryTimer = null;
+var _settingsRetryCount = 0;
 
 function _settingsPrerequisitesReady() {
   return typeof SERVICE_FEE_AMOUNT !== 'undefined' &&
@@ -711,9 +716,18 @@ function _hideUpdateOverlay() {
 // ดึงค่าจาก Firebase แล้ว override ตัวแปร hard-code เดิม (ไม่แตะ function อื่น)
 function _applySettings(snap) {
   if (!_settingsPrerequisitesReady()) {
-    setTimeout(function(){ _applySettings(snap); }, 0);
-    return;
+    if (_settingsRetryTimer || _settingsRetryCount >= 50) {
+      if (_settingsRetryCount >= 50) console.warn('[BOOKING SETTINGS] prerequisites unavailable; stopped retrying');
+      return false;
+    }
+    _settingsRetryCount += 1;
+    _settingsRetryTimer = setTimeout(function(){
+      _settingsRetryTimer = null;
+      _applySettings(snap);
+    }, 20);
+    return false;
   }
+  _settingsRetryCount = 0;
   var data = snap.val() || {};
 
   BOOKING_OPEN = data.bookingOpen !== false;
@@ -847,6 +861,7 @@ function _applySettings(snap) {
   }
   _syncRouteOptionLabels();
   if (data.routes) _rebuildRouteSelects();
+  return true;
 }
 
 function applyBookingAvailability() {
@@ -1025,38 +1040,38 @@ function _rebuildRouteSelects() {
   toSel.value = LEG2_DEST[prevTo] ? prevTo : (toSel.options[0] ? toSel.options[0].value : '');
 }
 
-// Listen real-time — ถ้า admin แก้ข้อมูล จะได้รับทันที
-db.ref('settings').on('value', function(snap) {
-  if (!_settingsLoaded) {
-    // ครั้งแรก: โหลดเงียบๆ ไม่แสดง overlay
-    _applySettings(snap);
-    _settingsLoaded = true;
-    _settingsSnap = snap;
-    if (typeof updateRoute === 'function') {
-      try { updateRoute(); } catch(e) {}
-    }
-    if (typeof renderTimes === 'function') {
-      try { renderTimes(); } catch(e) {}
-    }
-    return;
-  }
-  // ครั้งต่อไป: มีการอัพเดทจาก admin
+// Listen real-time — ใช้เฉพาะข้อมูลที่กระทบการจอง และไม่รบกวนผู้ใช้เมื่อค่าเดิมถูกส่งซ้ำ
+function _settingsRelevantFingerprint(snap) {
+  var data = snap && typeof snap.val === 'function' ? (snap.val() || {}) : {};
+  return JSON.stringify({bookingOpen:data.bookingOpen!==false,testMode:data.testMode===true,bookingCutoffMinutes:data.bookingCutoffMinutes,fees:data.fees||null,payment:data.payment||null,payments:data.payments||null,routes:data.routes||null,platformGroups:data.platformGroups||null});
+}
+function _selectHasValue(select, value) {if(!select||!value)return false;return Array.prototype.some.call(select.options,function(opt){return opt.value===value;});}
+function _applyPendingSettingsUpdate() {
+  var snap=_pendingSettingsSnap;_pendingSettingsSnap=null;_settingsUpdateTimer=null;if(!snap)return;
+  var previousOrigin=typeof selOrigin!=='undefined'?selOrigin:'';
+  var previousDest=typeof selDest!=='undefined'?selDest:'';
+  var previousTime=typeof selTime!=='undefined'?selTime:null;
   _showUpdateOverlay();
-  setTimeout(function() {
-    _applySettings(snap);
-    _settingsSnap = snap;
-    // rebuild dropdown ถ้าอยู่หน้าแรก
-    if (typeof updateRoute === 'function') {
-      try { updateRoute(); } catch(e) {}
-    }
-    if (typeof buildTimeSlots === 'function') {
-      try { buildTimeSlots(); } catch(e) {}
-    }
-    if (typeof applyPaymentModeUI === 'function') {
-      try { applyPaymentModeUI(); } catch(e) {}
-    }
-    _hideUpdateOverlay();
-  }, 1200);
+  try {
+    if(!_applySettings(snap))return;
+    _settingsSnap=snap;
+    var fromSel=document.getElementById('routeFrom'),toSel=document.getElementById('routeTo');
+    if(_selectHasValue(fromSel,previousOrigin))fromSel.value=previousOrigin;
+    if(_selectHasValue(toSel,previousDest))toSel.value=previousDest;
+    selTime=previousTime;
+    if(typeof updateRoute==='function')updateRoute(true);
+    var activeTimes=typeof getAdminAwareSchedules==='function'?(getAdminAwareSchedules(selOrigin,selDest)||[]):[];
+    var travelDate=document.getElementById('travelDate').value||new Date().toISOString().split('T')[0];
+    if(selTime&&(activeTimes.indexOf(selTime)===-1||!canBook(travelDate,selTime))){selTime=null;renderTimes();}
+  }catch(e){console.error('[BOOKING SETTINGS] apply failed',e);}finally{setTimeout(_hideUpdateOverlay,120);}
+}
+db.ref('settings').on('value',function(snap){
+  var fingerprint=_settingsRelevantFingerprint(snap);
+  if(!_settingsLoaded){_settingsFingerprint=fingerprint;_applySettings(snap);_settingsLoaded=true;_settingsSnap=snap;if(typeof updateRoute==='function'){try{updateRoute();}catch(e){}}return;}
+  if(fingerprint===_settingsFingerprint)return;
+  _settingsFingerprint=fingerprint;_pendingSettingsSnap=snap;
+  if(_settingsUpdateTimer)clearTimeout(_settingsUpdateTimer);
+  _settingsUpdateTimer=setTimeout(_applyPendingSettingsUpdate,250);
 });
 
 // ===== ราคาต้นทาง (ค่ารถ Q-เฮง ถึงแปดริ้ว) =====
@@ -1535,10 +1550,11 @@ function applyPaymentModeUI() {
 }
 
 // ===== ROUTE DROPDOWN =====
-function updateRoute() {
+function updateRoute(preserveSelectedTime) {
+  var previousTime = selTime;
   selOrigin = document.getElementById('routeFrom').value;
   selDest   = document.getElementById('routeTo').value;
-  selTime   = null;
+  selTime   = preserveSelectedTime === true ? previousTime : null;
 
   // ป้องกันต้นทาง=ปลายทาง
   if (selOrigin === selDest) {
@@ -1585,24 +1601,26 @@ function updateRoute() {
 }
 
 // ===== ตรวจสอบว่าเวลานั้นจองได้ไหม =====
-function canBook(dateStr, timeStr) {
+function canBook(dateStr, timeStr, closedOverride) {
   var now = new Date();
   var parts = timeStr.split(':');
   var departure = new Date(dateStr + 'T' + parts[0] + ':' + parts[1] + ':00');
   var diff = (departure - now) / 60000; // นาที
-  return diff > BOOKING_CUTOFF_MINUTES && !isClosedByAdmin(timeStr); // ต้องเหลือมากกว่าค่าที่ admin ตั้ง และไม่ถูกปิดเฉพาะป้าย
+  var closed = typeof closedOverride === 'boolean' ? closedOverride : isClosedByAdmin(timeStr);
+  return diff > BOOKING_CUTOFF_MINUTES && !closed; // ต้องเหลือมากกว่าค่าที่ admin ตั้ง และไม่ถูกปิดเฉพาะป้าย
 }
 
 function isClosedByAdmin(timeStr) {
   var routeClosed = ROUTE_CLOSED_STOPS[selOrigin] && ROUTE_CLOSED_STOPS[selOrigin][selDest];
   var stops = routeClosed && routeClosed[timeStr];
   var closed=Array.isArray(stops) && (stops.indexOf(selDest) !== -1 || stops.indexOf('__route__') !== -1 || stops.indexOf('*') !== -1);
-  console.log('[BOOKING ROUTE DEBUG] closure check',{origin:selOrigin,dest:selDest,time:timeStr,routeClosed:routeClosed||null,stops:stops||null,closed:closed,reason:closed?'matched closedStops':'no matching closedStops for route/time'});
+  if (window.BOOKING_ROUTE_DEBUG === true) console.debug('[BOOKING ROUTE DEBUG] closure check',{origin:selOrigin,dest:selDest,time:timeStr,routeClosed:routeClosed||null,stops:stops||null,closed:closed});
   return closed;
 }
 
-function getStatusBadge(dateStr, timeStr) {
-  if (isClosedByAdmin(timeStr)) return {cls:'badge-closed', text:'งดรับสำรองที่นั่ง'};
+function getStatusBadge(dateStr, timeStr, closedOverride) {
+  var closed = typeof closedOverride === 'boolean' ? closedOverride : isClosedByAdmin(timeStr);
+  if (closed) return {cls:'badge-closed', text:'งดรับสำรองที่นั่ง'};
   var now = new Date();
   var parts = timeStr.split(':');
   var departure = new Date(dateStr + 'T' + parts[0] + ':' + parts[1] + ':00');
@@ -1652,8 +1670,8 @@ function renderTimes() {
   var html = '';
   times.forEach(function(t) {
     var stopClosed = isClosedByAdmin(t);
-    var ok = canBook(dateStr, t);
-    var badge = getStatusBadge(dateStr, t);
+    var ok = canBook(dateStr, t, stopClosed);
+    var badge = getStatusBadge(dateStr, t, stopClosed);
     var isSelected = selTime === t && ok;
     html += '<div class="time-card' + (isSelected ? ' active' : '') + (ok ? '' : ' closed') + '"'
       + (ok ? ' onclick="selectTime(\'' + t + '\')"' : '') + '>'
