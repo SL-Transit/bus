@@ -379,7 +379,6 @@ public class GpsService extends Service implements SensorEventListener {
                         recoverWithPendingIntent(gpsAgoMs);
                     }
                 }
-                if (gpsAgoMs > 180000 && running) showGpsLostNotification(gpsAgoMs / 1000);
             }
             handler.postDelayed(this, GPS_STALE_FLOOR_MS / 3);
         }
