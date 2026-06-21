@@ -240,7 +240,8 @@
       var time = String(stop.time || '').slice(0, 5);
       if (!stopKey) continue;
       routeStops.push(stopKey);
-      routeStopNames.push(stop.stopTh || stop.stopNameTh || stop.name || STOP_NAMES[stopKey] || stopKey);
+      var centralStop = ROUTE_DATA_RAW && ROUTE_DATA_RAW.stops && ROUTE_DATA_RAW.stops[stopKey] || {};
+      routeStopNames.push(centralStop.stopNameTh || centralStop.name || stop.stopTh || stop.stopNameTh || stop.name || STOP_NAMES[stopKey] || stopKey);
       if (time) stopTimes[stopKey] = time;
     }
     if (!routeStops.length) return null;

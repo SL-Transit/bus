@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="schedule-engine.js?v=20260620pickup"></script>
+<script src="schedule-engine.js?v=20260621stops"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -1196,14 +1196,19 @@ function applyPassengerRouteData(data) {
   PASSENGER_ROUTE_DATA = data || null;
   var stops = data && data.stops ? data.stops : null;
   if (!stops) return;
-  var order = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var legacyOrder = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var order = Object.keys(stops).sort(function(a,b) {
+    var ai = Number(stops[a] && stops[a].order), bi = Number(stops[b] && stops[b].order);
+    if (!isFinite(ai) || ai <= 0) ai = legacyOrder.indexOf(a) >= 0 ? legacyOrder.indexOf(a) + 1 : 999;
+    if (!isFinite(bi) || bi <= 0) bi = legacyOrder.indexOf(b) >= 0 ? legacyOrder.indexOf(b) + 1 : 999;
+    return ai - bi || a.localeCompare(b);
+  });
   var nextStops = order.map(function(key) {
     var stop = stops[key];
     if (!stop) return null;
-    var lat = Number(stop.lat);
-    var lng = Number(stop.lng);
+    var lat = Number(stop.lat), lng = Number(stop.lng);
     if (!isFinite(lat) || !isFinite(lng)) return null;
-    return { name: stop.stopNameTh || stop.name || key, lat: lat, lng: lng };
+    return { key:key, name:stop.stopNameTh || stop.name || key, lat:lat, lng:lng, icon:stop.icon || (stop.stopType === 'transfer_hub' ? '🔁' : '🚌'), order:Number(stop.order) || 0, stopType:stop.stopType || 'main', bookingEnabled:stop.bookingEnabled !== false, note:stop.note || '' };
   }).filter(Boolean);
   if (!nextStops.length) return;
   STOPS_GO.splice.apply(STOPS_GO, [0, STOPS_GO.length].concat(nextStops));
@@ -1371,8 +1376,9 @@ function renderStationMarkers(routeData, skipEnsure) {
     var point = normalizeMapPoint(s);
     if (!point) return;
     var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+    var safeIcon = String(s.icon || '🚌').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
-      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">&#128655;</div>', offset: { x: 17, y: 17 } } });
+      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
     } catch(e) { console.warn('Stop marker error:', e); }
     try {

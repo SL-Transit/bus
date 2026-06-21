@@ -281,6 +281,58 @@ tr:hover td{background:#fafafa;}
 .subpage{display:none;}
 .subpage.active{display:block;}
 
+
+/* ── MOBILE-FIRST ADMIN ACCORDIONS / CENTRAL STOPS ── */
+.admin-accordion-card>h2{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;margin-bottom:0;min-height:34px;}
+.admin-accordion-card>h2::after{content:'▼';margin-left:auto;font-size:11px;color:var(--muted);transition:transform .18s;}
+.admin-accordion-card.collapsed>h2::after{transform:rotate(-90deg);}
+.admin-accordion-card.collapsed>:not(h2){display:none!important;}
+.admin-accordion-card:not(.collapsed)>h2{margin-bottom:12px;}
+.route-schedule-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #bfdbfe;background:#f8fbff;color:var(--navy);border-radius:7px;padding:9px 11px;margin-top:8px;font-family:'Kanit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;}
+.route-schedule-toggle:hover{background:#eff6ff;}
+.route-schedule-panel{display:none;margin-top:8px;border-top:none;padding-top:0;}
+.route-schedule-panel.open{display:block;}
+.time-edit-row{grid-template-columns:minmax(105px,130px) minmax(150px,1fr) auto;}
+.time-edit-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;}
+.time-edit-row input[type=time]{min-height:40px;font-size:16px;}
+.central-stop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;}
+.central-stop-card{border:1px solid var(--border);border-radius:9px;padding:12px;background:#fbfdff;}
+.central-stop-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.stop-icon-input{width:48px!important;text-align:center;font-size:20px!important;padding:5px!important;}
+.central-stop-title{font-weight:800;color:var(--navy);flex:1;min-width:0;}
+.central-stop-key{font-size:10px;color:var(--muted);font-family:monospace;word-break:break-all;}
+.central-stop-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.central-stop-fields .wide{grid-column:1/-1;}
+.central-stop-fields label{font-size:10px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;}
+.central-stop-fields input,.central-stop-fields select,.central-stop-fields textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:'Kanit',sans-serif;background:#fff;}
+.blackbox-day{border:1px solid #173f68;border-radius:7px;margin-bottom:8px;overflow:hidden;}
+.blackbox-day-head{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#102d4e;color:#d9edf8;padding:9px 10px;font-family:'Kanit',sans-serif;text-align:left;cursor:pointer;}
+.blackbox-day-title{flex:1;font-weight:800;}
+.blackbox-day-count{font-size:10px;color:#9fc5da;}
+.blackbox-day-body{display:none;padding:0 10px;background:#0b1d3a;}
+.blackbox-day-body.open{display:block;}
+@media(max-width:640px){
+  #sec-routes>h1{font-size:17px!important;}
+  .card{padding:12px;}
+  .rgroup-header,.route-subgroup-header{padding:11px 10px;min-height:48px;}
+  .rgroup-header{flex-wrap:wrap;}
+  .rgroup-header .stop-close-control{order:3;width:100%;}
+  .route-row{padding:10px;margin-bottom:8px;}
+  .route-line{display:grid;grid-template-columns:1fr auto;gap:8px;}
+  .route-dest-name{grid-column:1/-1;white-space:normal;line-height:1.45;}
+  .route-price-inline{justify-self:start;}
+  .route-price-inline input{max-width:110px;min-height:40px;font-size:16px;}
+  .route-actions{justify-self:end;}
+  .btn-icon{min-width:38px;min-height:38px;font-size:16px;border:1px solid var(--border);background:#fff;}
+  .time-edit-row{grid-template-columns:1fr;gap:6px;}
+  .time-edit-actions{justify-content:stretch;}
+  .time-edit-actions .btn{flex:1;min-height:40px;}
+  .central-stop-grid{grid-template-columns:1fr;}
+  .central-stop-fields{grid-template-columns:1fr;}
+  .central-stop-fields .wide{grid-column:auto;}
+  .route-search-bar{position:sticky;top:calc(var(--total-h) + 4px);z-index:5;background:#fff;padding:6px 0;}
+}
+
 /* ── RESET ── */
 .reset-zone{border:1px dashed #fca5a5;border-radius:8px;padding:16px;background:#fff5f5;}
 .reset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-bottom:12px;}
@@ -505,6 +557,14 @@ tr:hover td{background:#fafafa;}
         <div class="fg"><label>หมายเหตุอัพเดท (แสดงให้คนขับเห็น)</label><input type="text" id="appUpdateNote" placeholder="เช่น แก้ไขปัญหาสัญญาณ GPS"></div>
         <button class="btn btn-primary btn-sm" onclick="saveAppUpdate()">&#x1F4BE; บันทึกเวอร์ชันอัพเดท</button>
       </div>
+      <div class="card"><h2>📍 ข้อมูลป้ายกลาง — ตำแหน่ง / ไอคอน / ลำดับ</h2>
+        <div class="alert alert-info">ข้อมูลจาก <code>routeData/stops</code> ใช้ร่วมกับแผนที่ผู้โดยสารและตัวจับคู่เที่ยว แก้ครั้งเดียวแล้วหน้าอื่นจะอ่านค่าชุดเดียวกัน</div>
+        <div id="centralStopsWrap" class="central-stop-grid"></div>
+        <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-dark btn-sm" onclick="addCentralStop()">+ เพิ่มป้ายใหม่</button>
+          <button class="btn btn-primary" onclick="saveCentralStops()">💾 บันทึกข้อมูลป้ายกลาง</button>
+        </div>
+      </div>
       <div class="card"><h2>&#x1F68C; คิวรถและเวลา (routeData)</h2>
         <div class="alert alert-info">ข้อมูลส่วนนี้อ่าน/บันทึกที่ <code>routeData</code> และใช้ร่วมกับแอพคนขับกับระบบจับคิวของ booking/check_ticket</div>
         <div id="queueRouteDataWrap"></div>
@@ -657,7 +717,7 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',PAYMENT_BANK='ธนาคารกสิกรไทย (KBank)',PAYMENT_ACCOUNT='',PAYMENT_ACCOUNT_NAME='',BOOKING_CUTOFF_MINUTES=60,TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},queueRouteData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={},routeFilterText='';
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},queueRouteData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={},routeFilterText='',openQueueGroup='',openQueueTrip='',openDriverLogDay='';
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -704,12 +764,26 @@ function applyRole(){
 function show(id){var e=document.getElementById(id);if(e)e.style.display='';}
 function toggleHpop(){var h=document.getElementById('hpop'),o=document.getElementById('ov2');h.classList.toggle('open');o.classList.toggle('open');}
 function closeHpop(){document.getElementById('hpop').classList.remove('open');document.getElementById('ov2').classList.remove('open');}
+function initRouteAdminAccordions(){
+  document.querySelectorAll('#sec-routes>.card').forEach(function(card,index){
+    if(card.dataset.accordionReady==='1')return;
+    card.dataset.accordionReady='1';card.classList.add('admin-accordion-card');
+    if(index!==0)card.classList.add('collapsed');
+    var title=card.querySelector(':scope>h2');
+    if(title)title.addEventListener('click',function(){
+      var willOpen=card.classList.contains('collapsed');
+      document.querySelectorAll('#sec-routes>.admin-accordion-card').forEach(function(other){other.classList.add('collapsed');});
+      if(willOpen)card.classList.remove('collapsed');
+    });
+  });
+}
 function showPage(p){
   if(CU)sessionStorage.setItem('adminPage',p);
   document.querySelectorAll('.page-section').forEach(function(s){s.classList.remove('active');});
   document.querySelectorAll('.ntab').forEach(function(n){n.classList.remove('active');});
   var s=document.getElementById('sec-'+p);if(s)s.classList.add('active');
   var t=document.querySelector('[data-page="'+p+'"]');if(t)t.classList.add('active');
+  if(p==='routes')initRouteAdminAccordions();
 }
 function switchSubtab(name, btnClass){
   var parent=document.getElementById('sec-users');
@@ -1010,6 +1084,7 @@ function loadQueueRouteData(){
   db.ref('routeData').once('value').then(function(snap){
     queueRouteData=snap.val()||{};
     console.log('[ADMIN QUEUE DEBUG] read path=routeData',queueRouteData);
+    renderCentralStops();
     renderQueueRouteData();
   }).catch(function(e){
     console.warn('[ADMIN QUEUE DEBUG] read path=routeData failed',e&&e.message?e.message:e);
@@ -1022,6 +1097,7 @@ function saveQueueRouteData(successMsg,logDetail){
     if(!snap.exists())throw new Error('อ่านกลับจาก routeData แล้วไม่พบข้อมูลที่บันทึก');
     queueRouteData=snap.val()||{};
     console.log('[ADMIN QUEUE DEBUG] readback path=routeData',queueRouteData);
+    renderCentralStops();
     renderQueueRouteData();
     writeLog('edit_queue_routes',logDetail||'บันทึกข้อมูลคิวรถ');
     alert('✅ '+(successMsg||'บันทึกข้อมูลคิวรถสำเร็จ'));
@@ -1029,6 +1105,33 @@ function saveQueueRouteData(successMsg,logDetail){
     alert('บันทึกไม่สำเร็จ: '+e.message+' (path: routeData)');
   });
 }
+var LEGACY_CENTRAL_STOP_ORDER=['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+function centralStopIcon(stop){if(stop&&stop.icon)return stop.icon;if(stop&&stop.stopType==='transfer_hub')return'🔁';if(stop&&stop.stopType==='conditional')return'📍';return'🚌';}
+function centralStopEntries(){
+  var stops=(queueRouteData&&queueRouteData.stops)||{};
+  return Object.keys(stops).map(function(key,index){return{key:key,stop:stops[key]||{},fallback:index};}).sort(function(a,b){
+    var ai=Number(a.stop.order),bi=Number(b.stop.order);
+    if(!isFinite(ai)||ai<=0)ai=LEGACY_CENTRAL_STOP_ORDER.indexOf(a.key)+1||999+a.fallback;
+    if(!isFinite(bi)||bi<=0)bi=LEGACY_CENTRAL_STOP_ORDER.indexOf(b.key)+1||999+b.fallback;
+    return ai-bi||a.key.localeCompare(b.key);
+  });
+}
+function renderCentralStops(){
+  var wrap=document.getElementById('centralStopsWrap');if(!wrap)return;
+  var entries=centralStopEntries();if(!entries.length){wrap.innerHTML='<div class="route-search-empty">ยังไม่มีข้อมูลป้ายกลาง</div>';return;}
+  wrap.innerHTML=entries.map(function(item,index){var key=item.key,s=item.stop,icon=centralStopIcon(s),hasCoords=isFinite(Number(s.lat))&&isFinite(Number(s.lng));return '<div class="central-stop-card"><div class="central-stop-head"><input class="stop-icon-input" maxlength="4" value="'+esc(icon)+'" aria-label="ไอคอนป้าย" data-stop-key="'+esc(key)+'" data-stop-field="icon"><div class="central-stop-title">'+esc(s.stopNameTh||s.name||key)+'<div class="central-stop-key">'+esc(key)+'</div></div><button class="btn-icon" title="เลื่อนขึ้น" data-stop-key="'+esc(key)+'" data-stop-move="-1">↑</button><button class="btn-icon" title="เลื่อนลง" data-stop-key="'+esc(key)+'" data-stop-move="1">↓</button></div><div class="central-stop-fields"><div class="wide"><label>ชื่อป้ายภาษาไทย</label><input value="'+esc(s.stopNameTh||s.name||'')+'" data-stop-key="'+esc(key)+'" data-stop-field="stopNameTh"></div><div><label>ละติจูด</label><input type="number" step="0.000001" inputmode="decimal" value="'+esc(s.lat==null?'':s.lat)+'" data-stop-key="'+esc(key)+'" data-stop-field="lat" data-stop-type="number"></div><div><label>ลองจิจูด</label><input type="number" step="0.000001" inputmode="decimal" value="'+esc(s.lng==null?'':s.lng)+'" data-stop-key="'+esc(key)+'" data-stop-field="lng" data-stop-type="number"></div><div><label>ลำดับป้าย</label><input type="number" min="1" step="1" value="'+esc(s.order||index+1)+'" data-stop-key="'+esc(key)+'" data-stop-field="order" data-stop-type="number"></div><div><label>ประเภทป้าย</label><select data-stop-key="'+esc(key)+'" data-stop-field="stopType"><option value="main"'+(s.stopType==='main'?' selected':'')+'>ป้ายหลัก</option><option value="transfer_hub"'+(s.stopType==='transfer_hub'?' selected':'')+'>จุดต่อรถ</option><option value="conditional"'+(s.stopType==='conditional'?' selected':'')+'>เข้าบางกรณี</option></select></div><div class="wide"><label><input type="checkbox" style="width:auto" '+(s.bookingEnabled===false?'':'checked')+' data-stop-key="'+esc(key)+'" data-stop-field="bookingEnabled" data-stop-type="boolean"> เปิดใช้ในการจอง</label></div><div class="wide"><label>หมายเหตุ / การรองรับในอนาคต</label><textarea rows="2" data-stop-key="'+esc(key)+'" data-stop-field="note">'+esc(s.note||'')+'</textarea></div></div><div style="margin-top:7px;font-size:11px;color:'+(hasCoords?'#15803d':'#b45309')+'">'+(hasCoords?'✓ มีพิกัดกลางแล้ว':'⚠ ยังไม่มีพิกัด — เพิ่มได้ภายหลัง')+'</div></div>';}).join('');
+  wrap.querySelectorAll('[data-stop-field]').forEach(function(el){el.addEventListener('change',function(){var type=this.dataset.stopType,value=type==='boolean'?this.checked:this.value;updateCentralStop(this.dataset.stopKey,this.dataset.stopField,value,type);});});
+  wrap.querySelectorAll('[data-stop-move]').forEach(function(el){el.addEventListener('click',function(){reorderCentralStop(this.dataset.stopKey,Number(this.dataset.stopMove));});});
+}
+function updateCentralStop(key,field,value,type){
+  if(!queueRouteData.stops)queueRouteData.stops={};if(!queueRouteData.stops[key])queueRouteData.stops[key]={stopKey:key,sourceStopKey:key};
+  if(type==='number'){if(value===''){delete queueRouteData.stops[key][field];return;}var n=Number(value);if(!isFinite(n))return;value=n;}
+  if(type==='boolean')value=value===true;queueRouteData.stops[key][field]=value;
+}
+function reorderCentralStop(key,dir){var entries=centralStopEntries(),i=entries.findIndex(function(x){return x.key===key;}),j=i+dir;if(i<0||j<0||j>=entries.length)return;var tmp=entries[i];entries[i]=entries[j];entries[j]=tmp;entries.forEach(function(x,index){x.stop.order=index+1;});renderCentralStops();}
+function addCentralStop(){var key=prompt('รหัสป้ายใหม่ (อังกฤษ/ตัวเลข/ขีดล่าง):','');if(!key)return;key=key.trim();if(!/^[A-Za-z0-9_-]+$/.test(key))return alert('รหัสป้ายใช้ได้เฉพาะอังกฤษ ตัวเลข - และ _');if((queueRouteData.stops||{})[key])return alert('มีรหัสป้ายนี้แล้ว');if(!queueRouteData.stops)queueRouteData.stops={};queueRouteData.stops[key]={stopKey:key,sourceStopKey:key,stopNameTh:key,stopType:'main',bookingEnabled:true,icon:'🚌',order:centralStopEntries().length+1,note:''};renderCentralStops();}
+function prepareCentralStopsForSave(){var out={};centralStopEntries().forEach(function(item,index){var s=Object.assign({},item.stop);s.stopKey=item.key;s.sourceStopKey=s.sourceStopKey||item.key;s.stopNameTh=String(s.stopNameTh||s.name||item.key).trim();s.icon=String(s.icon||centralStopIcon(s)).trim()||'🚌';s.order=index+1;if(s.lat!==undefined)s.lat=Number(s.lat);if(s.lng!==undefined)s.lng=Number(s.lng);out[item.key]=s;});queueRouteData.stops=out;return out;}
+function saveCentralStops(){var stops=prepareCentralStopsForSave();db.ref('routeData/stops').set(stops).then(function(){return db.ref('routeData/stops').once('value');}).then(function(snap){queueRouteData.stops=snap.val()||{};renderCentralStops();writeLog('edit_queue_routes','บันทึกข้อมูลป้ายกลาง ตำแหน่ง ไอคอน และลำดับ');alert('✅ บันทึกข้อมูลป้ายกลางสำเร็จ');}).catch(function(e){alert('บันทึกป้ายกลางไม่สำเร็จ: '+e.message);});}
 function routeDataList(value){
   if(!value)return[];
   if(Array.isArray(value))return value.map(function(v,i){return {key:String(i),value:v};}).filter(function(x){return !!x.value;});
@@ -1046,34 +1149,17 @@ function queueStopName(stop){
   var fromStops=(queueRouteData.stops||{})[key]||{};
   return (stop&&stop.stopTh)||fromStops.stopNameTh||fromStops.nameTh||fromStops.name||key||'-';
 }
+function toggleQueueGroup(q){openQueueGroup=openQueueGroup===q?'':q;openQueueTrip='';renderQueueRouteData();}
+function toggleQueueTrip(q,tripKey){var key=q+'|'+tripKey;openQueueTrip=openQueueTrip===key?'':key;openQueueGroup=q;renderQueueRouteData();}
 function renderQueueRouteData(){
-  var wrap=document.getElementById('queueRouteDataWrap');
-  if(!wrap)return;
-  var queues=queueRouteData&&queueRouteData.queues?queueRouteData.queues:{};
-  var qKeys=Object.keys(queues).sort(function(a,b){return Number(a)-Number(b);});
-  if(!qKeys.length){
-    wrap.innerHTML='<div class="route-search-empty">ยังไม่มีข้อมูล routeData/queues</div>';
-    return;
-  }
-  var html='';
-  qKeys.forEach(function(q){
-    var trips=queueTripList(q);
-    html+='<div class="rgroup"><div class="rgroup-header"><span class="rg-title">คิว '+esc(q)+'</span><span class="rg-count">'+trips.length+' เที่ยว</span></div><div class="rgroup-body open">';
-    trips.forEach(function(item){
-      var trip=item.value||{},tripKey=item.key,stops=queueStopList(trip);
-      html+='<div class="route-row"><div class="route-line">';
-      html+='<span class="route-dest-name">เที่ยว '+esc(trip.tripNo||trip.tripIndex||tripKey)+' · '+esc(trip.routeNameTh||trip.routeKey||'')+'</span>';
-      html+='<div class="route-actions"><button class="btn-icon danger" title="ลบเที่ยว" onclick="confirmDel(\'ลบเที่ยวนี้?\',function(){removeQueueTrip(\''+esc(q)+'\',\''+esc(tripKey)+'\')})">🗑</button></div>';
-      html+='</div><div class="time-edit-list">';
-      stops.forEach(function(stop,si){
-        html+='<div class="time-edit-row"><div>'+esc(queueStopName(stop))+'</div><input type="time" value="'+esc(String(stop.time||'').slice(0,5))+'" onchange="updateQueueStopTime(\''+esc(q)+'\',\''+esc(tripKey)+'\','+si+',this.value)"><button class="btn btn-danger btn-sm" onclick="removeQueueStop(\''+esc(q)+'\',\''+esc(tripKey)+'\','+si+')">ลบ</button></div>';
-      });
-      if(!stops.length)html+='<div style="font-size:12px;color:var(--muted)">ยังไม่มีเวลาในเที่ยวนี้</div>';
-      html+='</div><button class="btn btn-ghost btn-sm" onclick="addQueueStop(\''+esc(q)+'\',\''+esc(tripKey)+'\')">+ เพิ่มเวลา/ป้าย</button></div>';
-    });
-    html+='</div></div>';
-  });
-  wrap.innerHTML=html;
+  var wrap=document.getElementById('queueRouteDataWrap');if(!wrap)return;var queues=queueRouteData&&queueRouteData.queues?queueRouteData.queues:{},qKeys=Object.keys(queues).sort(function(a,b){return Number(a)-Number(b);});if(!qKeys.length){wrap.innerHTML='<div class="route-search-empty">ยังไม่มีข้อมูล routeData/queues</div>';return;}
+  var html='';qKeys.forEach(function(q){var trips=queueTripList(q),qOpen=openQueueGroup===q;html+='<div class="rgroup"><div class="rgroup-header" data-queue-toggle="'+esc(q)+'"><span class="rg-title">คิว '+esc(q)+'</span><span class="rg-count">'+trips.length+' เที่ยว</span><button class="btn btn-ghost btn-sm">'+(qOpen?'▲':'▼')+'</button></div><div class="rgroup-body '+(qOpen?'open':'')+'">';trips.forEach(function(item){var trip=item.value||{},tripKey=item.key,stops=queueStopList(trip),tripOpen=openQueueTrip===q+'|'+tripKey;html+='<div class="route-row"><div class="route-line"><span class="route-dest-name">เที่ยว '+esc(trip.tripNo||trip.tripIndex||tripKey)+' · '+esc(trip.routeNameTh||trip.routeKey||'')+'</span><div class="route-actions"><button class="btn-icon danger" title="ลบเที่ยว" data-queue-delete="1" data-q="'+esc(q)+'" data-trip="'+esc(tripKey)+'">🗑</button></div></div><button class="route-schedule-toggle" data-queue-trip-toggle="1" data-q="'+esc(q)+'" data-trip="'+esc(tripKey)+'"><span>🕐 แก้เวลา '+stops.length+' ป้าย</span><span>'+(tripOpen?'▲':'▼')+'</span></button><div class="route-schedule-panel '+(tripOpen?'open':'')+'"><div class="time-edit-list">';stops.forEach(function(stop,si){html+='<div class="time-edit-row"><div><strong>'+esc(queueStopName(stop))+'</strong><div class="central-stop-key">'+esc(stop.stopKey||'')+'</div></div><input type="time" value="'+esc(String(stop.time||'').slice(0,5))+'" data-queue-time="1" data-q="'+esc(q)+'" data-trip="'+esc(tripKey)+'" data-si="'+si+'"><div class="time-edit-actions"><button class="btn btn-danger btn-sm" data-queue-stop-remove="1" data-q="'+esc(q)+'" data-trip="'+esc(tripKey)+'" data-si="'+si+'">ลบป้ายนี้</button></div></div>';});if(!stops.length)html+='<div style="font-size:12px;color:var(--muted)">ยังไม่มีเวลาในเที่ยวนี้</div>';html+='</div><button class="btn btn-ghost btn-sm" data-queue-stop-add="1" data-q="'+esc(q)+'" data-trip="'+esc(tripKey)+'">+ เพิ่มเวลา/ป้าย</button></div></div>';});html+='</div></div>';});wrap.innerHTML=html;
+  wrap.querySelectorAll('[data-queue-toggle]').forEach(function(el){el.addEventListener('click',function(){toggleQueueGroup(this.dataset.queueToggle);});});
+  wrap.querySelectorAll('[data-queue-trip-toggle]').forEach(function(el){el.addEventListener('click',function(){toggleQueueTrip(this.dataset.q,this.dataset.trip);});});
+  wrap.querySelectorAll('[data-queue-time]').forEach(function(el){el.addEventListener('change',function(){updateQueueStopTime(this.dataset.q,this.dataset.trip,Number(this.dataset.si),this.value);});});
+  wrap.querySelectorAll('[data-queue-stop-remove]').forEach(function(el){el.addEventListener('click',function(){removeQueueStop(this.dataset.q,this.dataset.trip,Number(this.dataset.si));});});
+  wrap.querySelectorAll('[data-queue-stop-add]').forEach(function(el){el.addEventListener('click',function(){addQueueStop(this.dataset.q,this.dataset.trip);});});
+  wrap.querySelectorAll('[data-queue-delete]').forEach(function(el){el.addEventListener('click',function(){var q=this.dataset.q,t=this.dataset.trip;confirmDel('ลบเที่ยวนี้?',function(){removeQueueTrip(q,t);});});});
 }
 function getQueueTrip(q,tripKey){
   var queue=(queueRouteData.queues||{})[q]||{};
@@ -1389,7 +1475,7 @@ function renderRouteGroups(){
         var visibleItems=q?subgroup.routes.filter(function(item){return routeMatchesFilter(item.route,q);}):subgroup.routes;
         if(q&&!visibleItems.length)return;
         var subgroupKey=mainSubgroupKey(subgroup.name);
-        var subgroupOpen=q?true:(openMainSubgroups[subgroupKey]!==false);
+        var subgroupOpen=q?true:(openMainSubgroups[subgroupKey]===true);
         html+='<div class="route-subgroup"><div class="route-subgroup-header" onclick="toggleMainSubgroup(\''+esc(subgroupKey)+'\')">';
         html+='<span class="route-subgroup-title">'+esc(subgroup.name)+'</span><span class="route-subgroup-count">'+visibleItems.length+' เส้นทาง</span><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toggleMainSubgroup(\''+esc(subgroupKey)+'\')">'+(subgroupOpen?'▲':'▼')+'</button>';
         html+='</div><div class="route-subgroup-body '+(subgroupOpen?'open':'')+'">';
@@ -1409,6 +1495,7 @@ function renderRouteGroups(){
     html='<div class="route-search-empty">ไม่พบเส้นทางที่ตรงกับ "'+esc(routeFilterText)+'"</div>';
   }
   document.getElementById('routeGroupsWrap').innerHTML=html;
+  bindRouteEditorEvents();
 }
 function onRouteSearchInput(val){
   routeFilterText=val;
@@ -1444,42 +1531,10 @@ function groupMainRoutesByOrigin(routes){
     return a.firstIndex-b.firstIndex;
   });
 }
-function toggleMainSubgroup(key){
-  openMainSubgroups[key]=openMainSubgroups[key]===false;
-  renderRouteGroups();
-}
-function renderRouteRow(gname,gdata,r,ri,gi){
-  var inactive=r.isActive===false;
-  var html='<div class="route-row'+(inactive?' route-inactive':'')+'">';
-  /* ── บรรทัดบน: ชื่อปลายทาง + ราคา + ปุ่ม ── */
-  html+='<div class="route-line">';
-  html+='<span class="route-dest-name" title="'+esc((r.from||'?')+' → '+(r.to||'?'))+'">'+esc(r.to||'ยังไม่ระบุปลายทาง')+'</span>';
-  html+='<label class="route-price-inline">฿<input type="number" value="'+esc(r.price||0)+'" title="แก้ราคา" onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'price\',Number(this.value))"></label>';
-  html+='<div class="route-actions">';
-  /* toggle ใช้งาน */
-  html+='<label class="stop-close-control" title="เปิด/ปิดเส้นทางนี้" onclick="event.stopPropagation()"><input type="checkbox" '+(inactive?'':'checked')+' onchange="updateRoute(\''+esc(gname)+'\','+ri+',\'isActive\',this.checked);renderRouteGroups()"></label>';
-  /* ปุ่มรอง (icon) */
-  html+='<button class="btn-icon" title="ย้ายขึ้น" onclick="moveRoute(\''+esc(gname)+'\','+ri+',-1)">↑</button>';
-  html+='<button class="btn-icon" title="ย้ายลง" onclick="moveRoute(\''+esc(gname)+'\','+ri+',1)">↓</button>';
-  html+='<button class="btn-icon" title="แก้ชื่อต้นทาง/ปลายทาง" onclick="editRouteNames(\''+esc(gname)+'\','+ri+')">✏️</button>';
-  html+='<button class="btn-icon danger" title="ลบเส้นทางนี้" onclick="confirmDel(\'ลบเส้นทาง '+esc((r.from||'')+' → '+(r.to||''))+'?\',function(){deleteRoute(\''+esc(gname)+'\','+ri+')})">🗑</button>';
-  html+='</div></div>';
-  /* ── แถวล่าง: chip เวลา interactive ── */
-  var times=r.times||[];
-  html+='<div class="chip-area">';
-  times.forEach(function(t,ti){
-    var on=isTimeBookingEnabled(r,t);
-    html+='<span class="chip-t'+(on?'':' off')+'" title="'+(on?'เปิดจอง — คลิกเพื่อปิด':'ปิดจอง — คลิกเพื่อเปิด')+'" onclick="setTimeBookingEnabled(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\','+(on?'false':'true')+')">'+
-      esc(formatTimeForDisplay(t))+
-      '<span class="ce" title="แก้เวลา" onclick="event.stopPropagation();promptEditTime(\''+esc(gname)+'\','+ri+','+ti+')">✎</span>'+
-      '<span class="cx" title="ลบเวลานี้" onclick="event.stopPropagation();confirmDel(\'ลบ '+esc(formatTimeForDisplay(t))+'?\',function(){removeTime(\''+esc(gname)+'\','+ri+',\''+esc(t)+'\')})">×</span>'+
-    '</span>';
-  });
-  if(!times.length)html+='<span style="font-size:11px;color:var(--muted);">ยังไม่มีเวลาออกเดินทาง</span>';
-  html+='<span class="chip-add-btn" title="เพิ่มเวลา" onclick="promptAddTime(\''+esc(gname)+'\','+ri+')">+ เวลา</span>';
-  html+='</div>';
-  return html+'</div>';
-}
+function toggleMainSubgroup(key){var opening=openMainSubgroups[key]!==true;openMainSubgroups={};openRouteSchedules={};if(opening)openMainSubgroups[key]=true;renderRouteGroups();}
+
+function renderRouteRow(gname,gdata,r,ri,gi){var inactive=r.isActive===false,times=r.times||[],scheduleKey=routeScheduleKey(gname,r),scheduleOpen=openRouteSchedules[scheduleKey]===true,inputId='newTime_'+gi+'_'+ri;var html='<div class="route-row'+(inactive?' route-inactive':'')+'"><div class="route-line"><span class="route-dest-name" title="'+esc((r.from||'?')+' → '+(r.to||'?'))+'">'+esc(r.from||'?')+' → '+esc(r.to||'ยังไม่ระบุปลายทาง')+'</span><label class="route-price-inline">ราคา ฿ <input type="number" min="0" value="'+esc(r.price||0)+'" aria-label="ราคาโดยสาร" data-route-price="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'"></label><div class="route-actions"><label class="stop-close-control"><input type="checkbox" '+(inactive?'':'checked')+' data-route-active="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'"></label><button class="btn-icon" title="ย้ายขึ้น" data-route-move="-1" data-gname="'+esc(gname)+'" data-ri="'+ri+'">↑</button><button class="btn-icon" title="ย้ายลง" data-route-move="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'">↓</button><button class="btn-icon" title="แก้ชื่อ" data-route-edit="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'">✏️</button><button class="btn-icon danger" title="ลบเส้นทาง" data-route-delete="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'">🗑</button></div></div><button class="route-schedule-toggle" data-route-schedule="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'"><span>🕐 จัดการเวลา '+times.length+' รอบ</span><span>'+(scheduleOpen?'▲':'▼')+'</span></button><div class="route-schedule-panel '+(scheduleOpen?'open':'')+'"><div class="alert alert-info" style="margin:8px 0">แก้เวลาได้โดยตรง ปิดสวิตช์เพื่อขีดฆ่าและห้ามจอง โดยเวลาเดินรถยังคงแสดงในตารางผู้โดยสาร</div><div class="time-edit-list">';times.forEach(function(t,ti){var on=isTimeBookingEnabled(r,t);html+='<div class="time-edit-row"><div><strong>'+esc(formatTimeForDisplay(t))+'</strong><div style="font-size:10px;color:var(--muted)">'+(on?'เปิดรับจอง':'ปิดรับจอง')+'</div></div><input type="time" value="'+esc(t)+'" aria-label="แก้เวลา" data-route-time="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'" data-ti="'+ti+'"><div class="time-edit-actions"><label class="stop-close-control"><input type="checkbox" '+(on?'checked':'')+' data-route-booking="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'" data-time="'+esc(t)+'"> เปิดจอง</label><button class="btn btn-danger btn-sm" data-route-time-delete="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'" data-time="'+esc(t)+'">ลบ</button></div></div>';});if(!times.length)html+='<div style="font-size:12px;color:var(--muted)">ยังไม่มีเวลาออกเดินทาง</div>';html+='</div><div style="display:flex;gap:7px;flex-wrap:wrap"><input type="time" id="'+inputId+'" style="max-width:180px;min-height:40px"><button class="btn btn-dark btn-sm" data-route-time-add="1" data-gname="'+esc(gname)+'" data-ri="'+ri+'" data-input="'+inputId+'">+ เพิ่มเวลา</button></div></div></div>';return html;}
+function bindRouteEditorEvents(){var wrap=document.getElementById('routeGroupsWrap');if(!wrap)return;wrap.querySelectorAll('[data-route-price]').forEach(function(el){el.addEventListener('change',function(){updateRoute(this.dataset.gname,Number(this.dataset.ri),'price',Number(this.value));});});wrap.querySelectorAll('[data-route-active]').forEach(function(el){el.addEventListener('change',function(){updateRoute(this.dataset.gname,Number(this.dataset.ri),'isActive',this.checked);renderRouteGroups();});});wrap.querySelectorAll('[data-route-move]').forEach(function(el){el.addEventListener('click',function(){moveRoute(this.dataset.gname,Number(this.dataset.ri),Number(this.dataset.routeMove));});});wrap.querySelectorAll('[data-route-edit]').forEach(function(el){el.addEventListener('click',function(){editRouteNames(this.dataset.gname,Number(this.dataset.ri));});});wrap.querySelectorAll('[data-route-delete]').forEach(function(el){el.addEventListener('click',function(){var g=this.dataset.gname,i=Number(this.dataset.ri),r=routeData[g]&&routeData[g].routes[i];confirmDel('ลบเส้นทาง '+((r&&r.from)||'')+' → '+((r&&r.to)||'')+'?',function(){deleteRoute(g,i);});});});wrap.querySelectorAll('[data-route-schedule]').forEach(function(el){el.addEventListener('click',function(){toggleRouteSchedule(this.dataset.gname,Number(this.dataset.ri));});});wrap.querySelectorAll('[data-route-time]').forEach(function(el){el.addEventListener('change',function(){updateTime(this.dataset.gname,Number(this.dataset.ri),Number(this.dataset.ti),this.value);});});wrap.querySelectorAll('[data-route-booking]').forEach(function(el){el.addEventListener('change',function(){setTimeBookingEnabled(this.dataset.gname,Number(this.dataset.ri),this.dataset.time,this.checked);});});wrap.querySelectorAll('[data-route-time-delete]').forEach(function(el){el.addEventListener('click',function(){var g=this.dataset.gname,i=Number(this.dataset.ri),t=this.dataset.time;confirmDel('ลบ '+formatTimeForDisplay(t)+'?',function(){removeTime(g,i,t);});});});wrap.querySelectorAll('[data-route-time-add]').forEach(function(el){el.addEventListener('click',function(){addTime(this.dataset.gname,Number(this.dataset.ri),this.dataset.input);});});}
 function promptAddTime(gname,ri){
   var val=prompt('เพิ่มเวลาออกเดินทาง เช่น 18.00');
   if(val===null)return;
@@ -1498,17 +1553,15 @@ function promptEditTime(gname,ri,ti){
   if(val===null)return;
   updateTime(gname,ri,ti,val);
 }
-function toggleRG(i){
-  var entry=Object.entries(routeData)[i];
-  var b=document.getElementById('rgb_'+i);b.classList.toggle('open');
-  if(entry)openRouteGroups[entry[0]]=b.classList.contains('open');
-}
+function toggleRG(i){var entry=Object.entries(routeData)[i];if(!entry)return;var name=entry[0],opening=openRouteGroups[name]!==true;openRouteGroups={};openMainSubgroups={};openRouteSchedules={};if(opening)openRouteGroups[name]=true;renderRouteGroups();}
 function routeScheduleKey(gname,r){return gname+'|'+String((r&&r.from)||'')+'|'+String((r&&r.to)||'');}
 function toggleRouteSchedule(gname,ri){
   if(!routeData[gname]||!routeData[gname].routes[ri])return;
   var key=routeScheduleKey(gname,routeData[gname].routes[ri]);
-  openRouteSchedules[key]=!openRouteSchedules[key];
-  openRouteGroups[gname]=true;
+  var opening=openRouteSchedules[key]!==true;
+  openRouteSchedules={};
+  if(opening)openRouteSchedules[key]=true;
+  openRouteGroups={};openRouteGroups[gname]=true;
   renderRouteGroups();
 }
 function updateRoute(gname,ri,field,val){if(routeData[gname]&&routeData[gname].routes[ri])routeData[gname].routes[ri][field]=val;}
@@ -1742,36 +1795,12 @@ function saveRoutes(){
 }
 var VEHICLE_LIST=[{id:'car1',label:'รถคันที่ 1'},{id:'car2',label:'รถคันที่ 2'},{id:'car3',label:'รถคันที่ 3'},{id:'car4',label:'รถคันที่ 4'},{id:'car5',label:'รถคันที่ 5'}];
 var driverLogRef=null, currentDriverLogs={};
-function loadDriverLogs(){
-  var carId=document.getElementById('driverLogVehicle').value;
-  if(driverLogRef)driverLogRef.off();
-  currentDriverLogs={};
-  driverLogRef=db.ref('driverLogs/'+carId).limitToLast(100);
-  driverLogRef.on('value',function(snap){
-    var wrap=document.getElementById('driverLogWrap');
-    var d=snap.val();
-    currentDriverLogs=d||{};
-    if(!d){wrap.innerHTML='<i style="color:#9ca3af">ไม่มีบันทึกปัญหา</i>';return;}
-    var keys=Object.keys(d).sort().reverse();
-    wrap.innerHTML=keys.map(function(k){
-      var e=d[k];
-      var t=e.timestamp?new Date(e.timestamp).toLocaleString('th-TH'):'-';
-      var lvl=e.level||'info';
-      var lvlColor={error:'#f87171',warn:'#fbbf24',info:'#4dd3d9',debug:'#7d97b8'}[lvl]||'#4dd3d9';
-      var extraHtml='';
-      if(e.extra){
-        var ex=typeof e.extra==='object'?JSON.stringify(e.extra,null,2):String(e.extra);
-        extraHtml='<div style="margin-top:4px;background:#071628;border-radius:4px;padding:5px 7px;font-size:10px;color:#a5c8e1;word-break:break-all;white-space:pre-wrap">'+esc(ex)+'</div>';
-      }
-      return '<div style="padding:6px 0;border-bottom:1px solid #123a63">'+
-        '<span style="color:'+lvlColor+';font-size:10px;font-weight:700;text-transform:uppercase;margin-right:5px">['+lvl+']</span>'+
-        '<span style="color:#94a3b8;font-size:11px">'+esc(t)+'</span><br>'+
-        '<span style="color:#e2e8f0">'+esc(e.message||'')+'</span>'+extraHtml+'<br>'+
-        '<span style="color:#7d97b8;font-size:11px">'+esc(e.device||'')+' · v'+esc(e.appVersion||'')+'</span>'+
-        '</div>';
-    }).join('');
-  });
-}
+function driverLogDateKey(timestamp){if(!timestamp)return'unknown';var parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(timestamp)),map={};parts.forEach(function(p){map[p.type]=p.value;});return map.year+'-'+map.month+'-'+map.day;}
+function driverLogDateLabel(key){if(key==='unknown')return'ไม่ระบุวัน';var d=new Date(key+'T00:00:00+07:00');return d.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+function toggleDriverLogDay(key){openDriverLogDay=openDriverLogDay===key?'':key;renderDriverLogsByDay();}
+function renderDriverLogEntry(e){var t=e.timestamp?new Date(e.timestamp).toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'-',lvl=e.level||'info',lvlColor={error:'#f87171',warn:'#fbbf24',info:'#4dd3d9',debug:'#7d97b8'}[lvl]||'#4dd3d9',extraHtml='';if(e.extra){var ex=typeof e.extra==='object'?JSON.stringify(e.extra,null,2):String(e.extra);extraHtml='<div style="margin-top:4px;background:#071628;border-radius:4px;padding:5px 7px;font-size:10px;color:#a5c8e1;word-break:break-all;white-space:pre-wrap">'+esc(ex)+'</div>';}return '<div style="padding:8px 0;border-bottom:1px solid #123a63"><span style="color:'+lvlColor+';font-size:10px;font-weight:700;text-transform:uppercase;margin-right:5px">['+esc(lvl)+']</span><span style="color:#94a3b8;font-size:11px">'+esc(t)+'</span><br><span style="color:#e2e8f0">'+esc(e.message||'')+'</span>'+extraHtml+'<br><span style="color:#7d97b8;font-size:11px">'+esc(e.device||'')+' · v'+esc(e.appVersion||'')+'</span></div>';}
+function renderDriverLogsByDay(){var wrap=document.getElementById('driverLogWrap'),d=currentDriverLogs||{},keys=Object.keys(d).sort(function(a,b){return Number((d[b]||{}).timestamp||0)-Number((d[a]||{}).timestamp||0);});if(!keys.length){wrap.innerHTML='<i style="color:#9ca3af">ไม่มีบันทึกปัญหา</i>';return;}var groups={};keys.forEach(function(k){var e=d[k]||{},day=driverLogDateKey(e.timestamp);if(!groups[day])groups[day]=[];groups[day].push(e);});var days=Object.keys(groups).sort().reverse();if(!openDriverLogDay||!groups[openDriverLogDay])openDriverLogDay=days[0];wrap.innerHTML=days.map(function(day){var open=openDriverLogDay===day;return '<div class="blackbox-day"><button class="blackbox-day-head" data-driver-log-day="'+esc(day)+'"><span class="blackbox-day-title">📅 '+esc(driverLogDateLabel(day))+'</span><span class="blackbox-day-count">'+groups[day].length+' รายการ</span><span>'+(open?'▲':'▼')+'</span></button><div class="blackbox-day-body '+(open?'open':'')+'">'+groups[day].map(renderDriverLogEntry).join('')+'</div></div>';}).join('');wrap.querySelectorAll('[data-driver-log-day]').forEach(function(el){el.addEventListener('click',function(){toggleDriverLogDay(this.dataset.driverLogDay);});});}
+function loadDriverLogs(){var carId=document.getElementById('driverLogVehicle').value;if(driverLogRef)driverLogRef.off();currentDriverLogs={};openDriverLogDay='';driverLogRef=db.ref('driverLogs/'+carId).limitToLast(300);driverLogRef.on('value',function(snap){currentDriverLogs=snap.val()||{};renderDriverLogsByDay();});}
 function copyDriverLogs(){
   var carId=document.getElementById('driverLogVehicle').value;
   var keys=Object.keys(currentDriverLogs).sort().reverse();
