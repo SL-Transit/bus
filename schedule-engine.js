@@ -46,7 +46,7 @@
     'wangnamyen': 'wangnamyen', 'วังน้ำเย็น': 'wangnamyen',
     'siyaekkhonom': 'siyaekkhonom', 'สี่แยกโคนม': 'siyaekkhonom',
     'thoengkabintr': 'thoengkabintr', 'ทุ่งกบินทร์': 'thoengkabintr',
-    'phaijit': 'phaijit', 'ไพจิตร': 'phaijit',
+    'phaijit': 'phaijit', 'ไพจิตร': 'phaijit', 'ไพรจิต': 'phaijit',
     'nongruea': 'nongruea', 'หนองเรือ': 'nongruea',
     'khlongtakien': 'khlongtakien', 'คลองตะเคียน': 'khlongtakien',
     'nongkhok': 'nongkhok', 'หนองคอก': 'nongkhok',
@@ -58,7 +58,7 @@
 
   var MAIN_STOP_KEYS = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
   var STOP_NAMES = {
-    klonghat: 'คลองหาด', wangnamyen: 'วังน้ำเย็น', siyaekkhonom: 'สี่แยกโคนม', thoengkabintr: 'ทุ่งกบินทร์', phaijit: 'ไพจิตร',
+    klonghat: 'คลองหาด', wangnamyen: 'วังน้ำเย็น', siyaekkhonom: 'สี่แยกโคนม', thoengkabintr: 'ทุ่งกบินทร์', phaijit: 'ไพรจิต',
     nongruea: 'หนองเรือ', khlongtakien: 'คลองตะเคียน', nongkhok: 'หนองคอก', tatakiab: 'ท่าตะเกียบ',
     sanamchai: 'ท่ารถสนามชัยเขต', phanom: 'พนมสารคาม', chachoengsao: 'ฉะเชิงเทรา (แปดริ้ว)'
   };
@@ -88,8 +88,8 @@
       from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao',
       routeStops: MAIN_ROUTE_TO_CHACHOENGSAO,
       stopTimes: {
-        klonghat: '08:00', siyaekkhonom: '08:10', thoengkabintr: '08:20',
-        phaijit: '08:30', nongruea: '08:40', khlongtakien: '09:20',
+        klonghat: '08:00', wangnamyen: '08:20', siyaekkhonom: '08:30', thoengkabintr: '08:45',
+        phaijit: '08:55', nongruea: '09:00', khlongtakien: '09:20',
         nongkhok: '09:30', tatakiab: '09:45', sanamchai: '10:40', phanom: '11:40'
       }
     },
@@ -144,8 +144,8 @@
       from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao',
       routeStops: MAIN_ROUTE_TO_CHACHOENGSAO,
       stopTimes: {
-        klonghat: '11:30', siyaekkhonom: '12:00', thoengkabintr: '12:10',
-        phaijit: '12:10', nongruea: '12:20', khlongtakien: '12:40',
+        klonghat: '11:30', wangnamyen: '11:50', siyaekkhonom: '12:00', thoengkabintr: '12:15',
+        phaijit: '12:25', nongruea: '12:30', khlongtakien: '12:50',
         nongkhok: '13:00', tatakiab: '13:15', phanom: '14:30'
       }
     },

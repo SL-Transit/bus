@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="schedule-engine.js?v=20260621stops"></script>
+<script src="schedule-engine.js?v=20260622firebase"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -645,7 +645,7 @@ const STOPS_GO = [
   { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
   { name:'สี่แยกโคนม',        lat:13.436666, lng:102.200895 },
   { name:'ทุ่งกบินทร์',         lat:13.439877, lng:102.083043 },
-  { name:'ไพจิตร',           lat:13.416310, lng:102.020767 },
+  { name:'ไพรจิต',           lat:13.416310, lng:102.020767 },
   { name:'หนองเรือ',          lat:13.420494, lng:101.995365 },
   { name:'คลองตะเคียน',       lat:13.420264, lng:101.765445 },
   { name:'หนองคอก',         lat:13.381579, lng:101.708016 },
@@ -658,7 +658,7 @@ const STOPS_BACK = [
   { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
   { name:'สี่แยกโคนม',        lat:13.436666, lng:102.200895 },
   { name:'ทุ่งกบินทร์',         lat:13.439877, lng:102.083043 },
-  { name:'ไพจิตร',           lat:13.416310, lng:102.020767 },
+  { name:'ไพรจิต',           lat:13.416310, lng:102.020767 },
   { name:'หนองเรือ',          lat:13.420494, lng:101.995365 },
   { name:'คลองตะเคียน',       lat:13.420264, lng:101.765445 },
   { name:'หนองคอก',         lat:13.381579, lng:101.708016 },
@@ -676,18 +676,18 @@ const ROUTES = {
   'หนองคอก':              { times: ['06:20','09:30','13:00'] },
   'ท่าตะเกียบ':              { times: ['06:35','09:45','13:15'] },
   'ทุ่งกบินทร์':              { times: ['08:20','12:10'] },
-  'ไพจิตร':                { times: ['08:30','12:10'] },
+  'ไพรจิต':                { times: ['08:30','12:10'] },
   'หนองเรือ':              { times: ['08:40','12:20'] },
   'คลองตะเคียน':           { times: ['09:20','12:40'] },
   'ฉะเชิงเทรา (แปดริ้ว)':     { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
-  'สี่แยกโคนม':             { times: ['08:10','12:00'] },
+  'สี่แยกโคนม':             { times: ['08:30','12:00'] },
 };
 
 const CONFIRMED_TO_CHACHOENGSAO_TIMES = {
   'คลองหาด': ['08:00','11:30'],
-  'สี่แยกโคนม': ['08:10','12:00'],
+  'สี่แยกโคนม': ['08:30','12:00'],
   'ทุ่งกบินทร์': ['08:20','12:10'],
-  'ไพจิตร': ['08:30','12:10'],
+  'ไพรจิต': ['08:30','12:10'],
   'หนองเรือ': ['08:40','12:20'],
   'คลองตะเคียน': ['09:20','12:40'],
   'หนองคอก': ['06:20','09:30','13:00']
@@ -746,7 +746,7 @@ const ORIGIN_LIST = [
   'หนองคอก',
   'คลองตะเคียน',
   'หนองเรือ',
-  'ไพจิตร',
+  'ไพรจิต',
   'ทุ่งกบินทร์',
   'สี่แยกโคนม',
   'คลองหาด',
@@ -760,7 +760,7 @@ const DEST_NORMAL = [
   'หนองคอก',
   'คลองตะเคียน',
   'หนองเรือ',
-  'ไพจิตร',
+  'ไพรจิต',
   'ทุ่งกบินทร์',
   'สี่แยกโคนม',
   'คลองหาด',
@@ -1081,6 +1081,7 @@ function normalizeRouteAlias(label) {
   if (!clean) return '';
   if (clean.indexOf('ขนส่งฉะเชิงเทรา') >= 0 || clean.indexOf('ฉะเชิงเทรา') >= 0 || clean.indexOf('แปดริ้ว') >= 0) return 'ฉะเชิงเทรา (แปดริ้ว)';
   if (clean.indexOf('สนามชัย') >= 0) return 'ท่ารถสนามชัยเขต';
+  if (clean.indexOf('ไพจิต') >= 0 || clean.indexOf('ไพรจิต') >= 0) return 'ไพรจิต';
   if (clean.indexOf('btsบางฉาง') >= 0 || clean.indexOf('บางฉาง') >= 0) return 'BTS บางจาก';
   return '';
 }
@@ -1109,13 +1110,14 @@ function isMainRouteLabel(label) {
 }
 
 function getPairTimes(from, to) {
+  if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to].slice();
+  if (ADMIN_ROUTE_SOURCE_LOADED) return null;
   if (to === 'ฉะเชิงเทรา (แปดริ้ว)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
     return CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice();
   }
   if (CONFIRMED_PAIR_TIMES[from] && CONFIRMED_PAIR_TIMES[from][to]) {
     return CONFIRMED_PAIR_TIMES[from][to].slice();
   }
-  if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to];
   return null;
 }
 
@@ -1157,8 +1159,10 @@ function applyPassengerRouteSettings(data) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
       if (route.isActive === false) return;
 
-      const from = String(route.from || '').trim();
-      const to = String(route.to || '').trim();
+      const rawFrom = String(route.from || '').trim();
+      const rawTo = String(route.to || '').trim();
+      const from = normalizeRouteAlias(rawFrom) || rawFrom;
+      const to = normalizeRouteAlias(rawTo) || rawTo;
       const disabledTimes = Array.isArray(route.disabledTimes) ? route.disabledTimes : [];
       const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
       if (!from || !to) return;
@@ -1168,9 +1172,7 @@ function applyPassengerRouteSettings(data) {
 
       if (!ROUTES[from]) ROUTES[from] = { times: [] };
       if (to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ROUTES[from].times.length) {
-        ROUTES[from].times = (CONFIRMED_TO_CHACHOENGSAO_TIMES[from] && to === 'ฉะเชิงเทรา (แปดริ้ว)')
-          ? CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice()
-          : times.slice();
+        ROUTES[from].times = times.slice();
       }
       addUnique(ORIGIN_LIST, from);
       addUnique(DEST_NORMAL, from);
