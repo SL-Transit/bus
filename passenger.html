@@ -1154,6 +1154,7 @@ function applyPassengerRouteSettings(data) {
     if (!group || !Array.isArray(group.routes)) return;
     if (group.isActive === false) return;
     const groupName = group.name || entry[0] || '';
+    const isLegacyGroup = group.id === 'origins' || group.id === 'local' || groupName === 'ต้นทางตาม passenger.html' || groupName === 'เส้นทางย่อยทั้งหมด';
     const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
     group.routes.forEach(function(route) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
@@ -1168,10 +1169,10 @@ function applyPassengerRouteSettings(data) {
       if (!from || !to) return;
 
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
-      ADMIN_ROUTE_TIMES[from][to] = times;
+      if (!ADMIN_ROUTE_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_TIMES[from][to] = times;
 
       if (!ROUTES[from]) ROUTES[from] = { times: [] };
-      if (to === 'ฉะเชิงเทรา (แปดริ้ว)' || !ROUTES[from].times.length) {
+      if ((!isLegacyGroup && to === 'ฉะเชิงเทรา (แปดริ้ว)') || !ROUTES[from].times.length) {
         ROUTES[from].times = times.slice();
       }
       addUnique(ORIGIN_LIST, from);
