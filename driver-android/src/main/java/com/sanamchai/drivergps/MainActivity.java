@@ -221,11 +221,11 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
+        initFirebaseListener();
         if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
             // ติดตั้งใหม่ — ยังไม่เลือกรถ ไม่ default เป็น car1
             autoSelectAvailableVehicle();
         }
-        initFirebaseListener();
         buildUi();
         loadTestModeSetting();
         // ถ้า Service วิ่งอยู่แล้ว (ปิด app แล้วเปิดใหม่) — ไม่ต้อง start ซ้ำ
@@ -245,7 +245,8 @@ public class MainActivity extends Activity {
     private void autoSelectAvailableVehicle() {
         long staleMs = 30 * 60 * 1000; // ถือว่า "ว่าง" ถ้าไม่มีการส่งสัญญาณนานกว่า 30 นาที
         long now = System.currentTimeMillis();
-        FirebaseDatabase.getInstance().getReference("liveVehicles")
+        try {
+            FirebaseDatabase.getInstance().getReference("liveVehicles")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 for (String id : VEHICLE_IDS) {
@@ -277,6 +278,10 @@ public class MainActivity extends Activity {
             }
             @Override public void onCancelled(DatabaseError e) {}
         });
+        } catch (Exception error) {
+            prefs.edit().putString(KEY_LAST_ERROR,
+                    error.getMessage() == null ? "vehicle selection unavailable" : error.getMessage()).apply();
+        }
     }
 
 
