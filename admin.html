@@ -1074,7 +1074,13 @@ function confirmCancel(){
     if(oldDupKey){
       db.ref('queues/'+oldDupKey).transaction(function(current){return Math.max(0,(Number(current)||0)-(Number(b.seats)||1));});
     }
-    if(b.capacityUsagePath){db.ref(b.capacityUsagePath).transaction(function(current){return Math.max(0,(Number(current)||0)-(Number(b.capacitySeats)||Number(b.seats)||1));});}
+    if(oldDupKey&&b.date){
+      var capacityPath=b.capacityUsagePath||('bookingCapacityUsage/'+b.date+'/'+String(oldDupKey).replace(/[.#$\/\[\]]/g,'_'));
+      db.ref(capacityPath).transaction(function(current){
+        if(current===null||current===undefined)return;
+        return Math.max(0,(Number(current)||0)-(Number(b.capacitySeats)||Number(b.seats)||1));
+      });
+    }
     notifyLine(cancelCode,b,'ยกเลิกตั๋วโดย Admin เหตุผล: '+reason);
     writeLog('cancel','ยกเลิกตั๋ว '+cancelCode+' เหตุผล: '+reason);
     closeModal('cancelModal');

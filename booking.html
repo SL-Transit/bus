@@ -1135,6 +1135,10 @@ var BOOKING_CUTOFF_MINUTES = 60;
 var TEST_MODE = false;
 var ROUTE_CLOSED_STOPS = {};
 var ROUTE_CAPACITY = {};
+var TRIP_BOOKED_SEATS = {};
+var _bookingAvailabilityQuery = null;
+var _bookingAvailabilityHandler = null;
+var _watchedAvailabilityDate = '';
 var ADMIN_ROUTE_TIMES = {};
 var ADMIN_ROUTE_SOURCE_LOADED = false;
 var ADMIN_ROUTE_GROUPS = [];
@@ -1634,6 +1638,48 @@ function updateRoute(preserveSelectedTime) {
 }
 
 // ===== ตรวจสอบว่าเวลานั้นจองได้ไหม =====
+function getTripDupKey(dateStr, timeStr) {
+  return selOrigin + '_' + selDest + '_' + dateStr + '_' + timeStr;
+}
+
+function getBookedSeatsForTrip(dateStr, timeStr) {
+  return Number(TRIP_BOOKED_SEATS[getTripDupKey(dateStr, timeStr)]) || 0;
+}
+
+function isTripFull(dateStr, timeStr, requestedSeats) {
+  var capacity = getTripBookingCapacity(selOrigin, selDest, timeStr);
+  if (!capacity) return false;
+  return getBookedSeatsForTrip(dateStr, timeStr) + (Number(requestedSeats) || 1) > capacity;
+}
+
+function watchBookingAvailability(dateStr) {
+  if (!dateStr || (_watchedAvailabilityDate === dateStr && _bookingAvailabilityQuery)) return;
+  if (_bookingAvailabilityQuery && _bookingAvailabilityHandler) {
+    _bookingAvailabilityQuery.off('value', _bookingAvailabilityHandler);
+  }
+  _watchedAvailabilityDate = dateStr;
+  TRIP_BOOKED_SEATS = {};
+  var bookingRoot = TEST_MODE ? 'testBookings' : 'bookings';
+  _bookingAvailabilityQuery = db.ref(bookingRoot).orderByChild('date').equalTo(dateStr);
+  _bookingAvailabilityHandler = function(snapshot) {
+    var next = {};
+    snapshot.forEach(function(child) {
+      var booking = child.val() || {};
+      if (booking.status === 'cancelled' || booking.cancelled === true) return;
+      var key = booking.dupKey || '';
+      if (!key) return;
+      next[key] = (Number(next[key]) || 0) + (Number(booking.seats) || 1);
+    });
+    TRIP_BOOKED_SEATS = next;
+    var selectedDate = document.getElementById('travelDate').value;
+    if (selTime && isTripFull(selectedDate, selTime, seats)) selTime = null;
+    renderTimes();
+  };
+  _bookingAvailabilityQuery.on('value', _bookingAvailabilityHandler, function(error) {
+    console.error('[BOOKING CAPACITY] availability listener failed', error);
+  });
+}
+
 function canBook(dateStr, timeStr, closedOverride) {
   var now = new Date();
   var parts = timeStr.split(':');
@@ -1703,15 +1749,17 @@ function renderTimes() {
   var html = '';
   times.forEach(function(t) {
     var stopClosed = isClosedByAdmin(t);
-    var ok = canBook(dateStr, t, stopClosed);
-    var badge = getStatusBadge(dateStr, t, stopClosed);
+    var tripFull = isTripFull(dateStr, t, 1);
+    var ok = canBook(dateStr, t, stopClosed) && !tripFull;
+    var badge = tripFull ? {cls:'badge-closed', text:'รอบนี้เต็มแล้ว'} : getStatusBadge(dateStr, t, stopClosed);
     var isSelected = selTime === t && ok;
     html += '<div class="time-card' + (isSelected ? ' active' : '') + (ok ? '' : ' closed') + '"'
       + (ok ? ' onclick="selectTime(\'' + t + '\')"' : '') + '>'
       + '<div class="time-left">'
       + '<div class="time-main">' + t + ' น.</div>'
       + (stopClosed ? '<div style="font-size:11px;color:var(--red);margin-top:2px">รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้</div>' : '')
-      + (!stopClosed && !ok ? '<div style="font-size:11px;color:var(--red);margin-top:2px">ต้องสำรองที่นั่งล่วงหน้าอย่างน้อย 1 ชั่วโมง</div>' : '')
+      + (tripFull ? '<div style="font-size:11px;color:var(--red);margin-top:2px">รอบนี้เต็มแล้ว</div>' : '')
+      + (!stopClosed && !tripFull && !ok ? '<div style="font-size:11px;color:var(--red);margin-top:2px">ต้องสำรองที่นั่งล่วงหน้าอย่างน้อย 1 ชั่วโมง</div>' : '')
       + '</div>'
       + '<div class="time-right">'
       + '<span class="status-badge ' + badge.cls + '">' + badge.text + '</span>'
@@ -1734,6 +1782,8 @@ function selectRoute(r) {
 }
 
 function selectTime(t) {
+  var selectedDate = document.getElementById('travelDate').value;
+  if (isTripFull(selectedDate, t, 1)) { alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น'); renderTimes(); return; }
   selTime = t;
   _routeNoticeAccepted = false;
   renderTimes();
@@ -1780,6 +1830,7 @@ function requestRouteContinue() {
   var dateVal = document.getElementById('travelDate').value;
   if (!dateVal) { alert('กรุณาเลือกวันที่เดินทาง'); return; }
   if (isClosedByAdmin(selTime)) { alert('รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้'); return; }
+  if (isTripFull(dateVal, selTime, seats)) { alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น'); renderTimes(); return; }
   if (!canBook(dateVal, selTime)) { alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว กรุณาเลือกเวลาอื่น'); return; }
   var originSelect = document.getElementById('routeFrom');
   var destSelect = document.getElementById('routeTo');
@@ -1818,6 +1869,7 @@ function goPage(p) {
     var dateVal = document.getElementById('travelDate').value;
     if (!dateVal) { alert('กรุณาเลือกวันที่เดินทาง'); return; }
     if (isClosedByAdmin(selTime)) { alert('รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้'); return; }
+    if (isTripFull(dateVal, selTime, seats)) { alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น'); renderTimes(); return; }
     if (!canBook(dateVal, selTime)) { alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว กรุณาเลือกเวลาอื่น'); return; }
     updateSummary();
     _navigatePage(2);
@@ -2325,6 +2377,7 @@ function submitBooking() {
   var dateVal = document.getElementById('travelDate').value;
   if (!dateVal) { alert('กรุณาเลือกวันที่เดินทาง'); return; }
   if (isClosedByAdmin(selTime)) { alert('รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้'); return; }
+  if (isTripFull(dateVal, selTime, seats)) { alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น'); renderTimes(); return; }
   if (!canBook(dateVal, selTime)) { alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว'); return; }
 
   // [Security] ราคาต้องได้จาก server-side data เท่านั้น — ไม่เชื่อ client input
@@ -2956,8 +3009,11 @@ renderTimes();
 renderLeg2Info();
 applyPaymentModeUI();
 setInterval(renderTimes, 60000);
+watchBookingAvailability(document.getElementById('travelDate').value);
 document.getElementById('travelDate').addEventListener('change', function() {
   selTime = null;
+  _routeNoticeAccepted = false;
+  watchBookingAvailability(this.value);
   renderTimes();
 });
 </script>
