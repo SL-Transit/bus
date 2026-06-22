@@ -1885,6 +1885,25 @@ function loadSosAlerts(){
     wrap.innerHTML=rows.join('');
   });
 }
+function sendRemoteCommand(carId,cmd){
+  var label={ping:'Ping',requestDiag:'ขอ Log',forceGpsRestart:'Restart GPS',requestLocation:'ขอพิกัด'}[cmd]||cmd;
+  var el=document.getElementById('cmd_resp_'+carId);
+  if(el){el.textContent='⏳ กำลังส่ง '+label+'...';el.style.color='#94a3b8';}
+  db.ref('driverCommands/'+carId+'/command').set(cmd).then(function(){
+    if(el){el.textContent='📤 ส่ง '+label+' แล้ว รอแอพตอบกลับ...';el.style.color='#f59e0b';}
+    // timeout ถ้า 10 วิยังไม่ตอบ
+    setTimeout(function(){
+      db.ref('driverCommands/'+carId+'/command').once('value').then(function(snap){
+        if(snap.val()===cmd&&el){
+          el.textContent='⚠️ แอพไม่ตอบกลับ — อาจออฟไลน์หรือถูก kill';
+          el.style.color='#ef4444';
+        }
+      });
+    },10000);
+  }).catch(function(e){
+    if(el){el.textContent='❌ ส่งไม่สำเร็จ: '+e.message;el.style.color='#ef4444';}
+  });
+}
 function resolveSos(carId){
   db.ref('sosAlerts/'+carId+'/resolved').set(true);
 }
@@ -1907,15 +1926,25 @@ function loadVehicleControls(){
   if(!wrap)return;
   wrap.innerHTML=VEHICLE_LIST.map(function(v){
     return '<div class="control-card">'+
-      '<div><strong>'+esc(v.label)+'</strong><span>เปิด/ปิดการส่งตำแหน่งของแอพคนขับคันนี้</span>'+
+      '<div><strong>'+esc(v.label)+'</strong>'+
+      '<span id="online_'+v.id+'" style="margin-left:8px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;background:#e5e7eb;color:#6b7280">⏳ กำลังโหลด...</span>'+
+      '<span style="display:block;font-size:11px;color:#94a3b8;margin-top:2px">เปิด/ปิดการส่งตำแหน่งของแอพคนขับคันนี้</span>'+
       '<div id="ver_'+v.id+'" style="font-size:12px;color:#94a3b8;margin-top:4px">เวอร์ชัน: -</div>'+
       '<div id="bat_'+v.id+'" style="font-size:12px;color:#94a3b8;margin-top:2px">🔋 แบต: -</div>'+
+      '<div id="gps_'+v.id+'" style="font-size:12px;color:#94a3b8;margin-top:2px">📡 GPS: -</div>'+
       '<div class="schedule-row">'+
         '<label>⏰ เปิด</label><input type="time" id="sch_on_'+v.id+'" value="05:30">'+
         '<label>ปิด</label><input type="time" id="sch_off_'+v.id+'" value="21:00">'+
         '<button class="sch-save" onclick="saveSchedule(\''+v.id+'\')">บันทึก</button>'+
       '</div>'+
       '<div id="sch_status_'+v.id+'" class="schedule-status" style="color:#94a3b8">-</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
+        '<button class="btn btn-sm" style="background:#0ea5e9;color:#fff;font-size:11px" onclick="sendRemoteCommand(\''+v.id+'\',\'ping\')">🏓 Ping</button>'+
+        '<button class="btn btn-sm" style="background:#8b5cf6;color:#fff;font-size:11px" onclick="sendRemoteCommand(\''+v.id+'\',\'requestDiag\')">📋 ขอ Log</button>'+
+        '<button class="btn btn-sm" style="background:#f59e0b;color:#fff;font-size:11px" onclick="sendRemoteCommand(\''+v.id+'\',\'forceGpsRestart\')">🔄 Restart GPS</button>'+
+        '<button class="btn btn-sm" style="background:#22c55e;color:#fff;font-size:11px" onclick="sendRemoteCommand(\''+v.id+'\',\'requestLocation\')">📍 ขอพิกัด</button>'+
+      '</div>'+
+      '<div id="cmd_resp_'+v.id+'" style="font-size:11px;color:#64748b;margin-top:4px"></div>'+
       '</div>'+
       '<label class="tog"><input type="checkbox" id="track_'+v.id+'" checked onchange="setVehicleTracking(\''+v.id+'\',this.checked)"><span class="tog-sl"></span></label>'+
       '</div>';
@@ -1939,7 +1968,54 @@ function loadVehicleControls(){
       window['_verData_'+v.id]=d;
       renderVehicleVersion(v.id,latestVersionCode);
     });
-    db.ref('driverLogs/'+v.id).limitToLast(1).on('value',function(snap){
+    db.ref('liveVehicles/'+v.id).on('value',function(snap){
+      var d=snap.val()||{};
+      var el=document.getElementById('online_'+v.id);
+      var gpsEl=document.getElementById('gps_'+v.id);
+      if(!el)return;
+      var online=d.online===true;
+      var sentTs=d.sentTs||0;
+      var now=Date.now();
+      var agoSec=sentTs>0?Math.round((now-sentTs)/1000):-1;
+      // ถือว่า offline ถ้าไม่มีสัญญาณเกิน 2 นาที
+      var recentlyActive=agoSec>=0&&agoSec<120;
+      if(online&&recentlyActive){
+        el.textContent='🟢 ออนไลน์';
+        el.style.background='#dcfce7';el.style.color='#15803d';
+      } else if(sentTs>0){
+        var agoText=agoSec<60?agoSec+'s':Math.round(agoSec/60)+'นาที';
+        el.textContent='🔴 ออฟไลน์ ('+agoText+'ที่แล้ว)';
+        el.style.background='#fee2e2';el.style.color='#b91c1c';
+      } else {
+        el.textContent='⚫ ไม่มีข้อมูล';
+        el.style.background='#f1f5f9';el.style.color='#64748b';
+      }
+      // GPS status
+      if(gpsEl){
+        var gpsAt=d.gpsTs||0;
+        var gpsAgoSec=gpsAt>0?Math.round((now-gpsAt)/1000):-1;
+        if(gpsAgoSec<0) gpsEl.textContent='📡 GPS: ไม่มีข้อมูล';
+        else if(gpsAgoSec<30){gpsEl.textContent='📡 GPS: ปกติ ('+gpsAgoSec+'s)';gpsEl.style.color='#22c55e';}
+        else if(gpsAgoSec<120){gpsEl.textContent='📡 GPS: ช้า ('+gpsAgoSec+'s)';gpsEl.style.color='#f59e0b';}
+        else{gpsEl.textContent='📡 GPS: หาย ('+gpsAgoSec+'s)';gpsEl.style.color='#ef4444';}
+      }
+    });
+    // Remote Command response listener
+    db.ref('driverCommands/'+v.id+'/lastResponse').on('value',function(snap){
+      var el=document.getElementById('cmd_resp_'+v.id);
+      if(!el)return;
+      var val=snap.val();
+      if(!val){el.textContent='';return;}
+      if(typeof val==='object'){
+        var gpsAgo=val.gpsAgoSec!=null?val.gpsAgoSec+'s':'-';
+        var wl=val.wakelockHeld?'✅':'❌';
+        el.textContent='🏓 Pong: GPS='+gpsAgo+' WakeLock='+wl+' v'+(val.appVersion||'-');
+        el.style.color='#0ea5e9';
+      } else {
+        el.textContent='✅ '+String(val);
+        el.style.color='#22c55e';
+      }
+    });
       var el=document.getElementById('bat_'+v.id);
       if(!el)return;
       var d=snap.val();
