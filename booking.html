@@ -387,7 +387,29 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
       </div>
     </div>
 
-    <button class="btn-submit" onclick="goPage(2)">ดำเนินการต่อ →</button>
+    <button class="btn-submit" onclick="requestRouteContinue()">ดำเนินการต่อ →</button>
+  </div>
+
+  <!-- ROUTE NOTICE POPUP -->
+  <div class="consent-popup-overlay" id="routeNoticePopup">
+    <div class="consent-popup-box" role="dialog" aria-modal="true" aria-labelledby="routeNoticeTitle">
+      <div class="consent-popup-header">
+        <div class="consent-popup-title" id="routeNoticeTitle">🚌 ยืนยันข้อมูลการเดินทาง</div>
+        <div class="consent-popup-sub">กรุณาตรวจสอบก่อนดำเนินการต่อ</div>
+      </div>
+      <div class="consent-popup-body">
+        <div id="routeNoticeSummary" style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-weight:650;line-height:1.75"></div>
+        <p style="margin-top:12px">โปรดมาถึงจุดขึ้นรถก่อนเวลาอย่างน้อย 10 นาที และตรวจสอบข้อมูลให้ถูกต้อง ตารางเดินรถอาจปรับตามสภาพการให้บริการ</p>
+        <label class="consent-row" style="margin-top:12px">
+          <input type="checkbox" id="routeNoticeAgree" onchange="toggleRouteNoticeAccept()">
+          <span>ข้าพเจ้าตรวจสอบเส้นทาง วันที่ และเวลาแล้ว และยอมรับเงื่อนไขข้างต้น</span>
+        </label>
+      </div>
+      <div class="consent-popup-footer">
+        <button class="consent-btn-accept" id="routeNoticeAccept" onclick="acceptRouteNotice()" disabled>✅ ยินยอมและดำเนินการต่อ</button>
+        <button class="consent-btn-cancel" onclick="closeRouteNotice()">← กลับไปแก้ไขข้อมูล</button>
+      </div>
+    </div>
   </div>
 
   <!-- PAGE 2 -->
@@ -769,6 +791,7 @@ function _applySettings(snap) {
     SEGMENT_PRICE = {};
     ROUTE_PRICE = {};
     ROUTE_CLOSED_STOPS = {};
+    ROUTE_CAPACITY = {};
     ADMIN_ROUTE_TIMES = {};
     ADMIN_ROUTE_GROUPS = [];
     TRANSFER_POINT_KEY = 'chachoengsao';
@@ -787,6 +810,7 @@ function _applySettings(snap) {
         var toKey   = _labelToKey(r.to,true,'dest');
         if (String(r.to || '').indexOf('แปดริ้ว') !== -1 || String(r.to || '').indexOf('ฉะเชิงเทรา') !== -1) TRANSFER_POINT_KEY = toKey;
         var disabledTimes = Array.isArray(r.disabledTimes)?r.disabledTimes:[];
+        var capacityByTime = (r.capacityByTime && typeof r.capacityByTime === 'object') ? r.capacityByTime : {};
         var times   = Array.isArray(r.times)?r.times.slice().sort():[];
         var price   = Number(r.price)||0;
         var routeGroupLabel = r.groupName || groupLabel;
@@ -811,6 +835,12 @@ function _applySettings(snap) {
         if (fromKey && toKey) {
           if (!ADMIN_ROUTE_TIMES[fromKey]) ADMIN_ROUTE_TIMES[fromKey] = {};
           ADMIN_ROUTE_TIMES[fromKey][toKey] = times;
+          if (!ROUTE_CAPACITY[fromKey]) ROUTE_CAPACITY[fromKey] = {};
+          if (!ROUTE_CAPACITY[fromKey][toKey]) ROUTE_CAPACITY[fromKey][toKey] = {};
+          times.forEach(function(time) {
+            var capacity = Number(capacityByTime[time]);
+            if (Number.isInteger(capacity) && capacity > 0) ROUTE_CAPACITY[fromKey][toKey][time] = capacity;
+          });
           if (!SEGMENT_PRICE[fromKey]) SEGMENT_PRICE[fromKey] = {};
           SEGMENT_PRICE[fromKey][toKey] = price;
         }
@@ -1104,6 +1134,7 @@ var BOOKING_OPEN = true;
 var BOOKING_CUTOFF_MINUTES = 60;
 var TEST_MODE = false;
 var ROUTE_CLOSED_STOPS = {};
+var ROUTE_CAPACITY = {};
 var ADMIN_ROUTE_TIMES = {};
 var ADMIN_ROUTE_SOURCE_LOADED = false;
 var ADMIN_ROUTE_GROUPS = [];
@@ -1357,6 +1388,7 @@ var selDest   = 'sanamchai';
 var selRoute  = 'go';
 var selTime   = null;
 var seats     = 1;
+var _routeNoticeAccepted = false;
 var TRANSFER_BUFFER_MINUTES = [
   { keywords: ['พนม'], minutes: 50 },
   { keywords: ['สนามชัย', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'], minutes: 70 },
@@ -1551,6 +1583,7 @@ function applyPaymentModeUI() {
 
 // ===== ROUTE DROPDOWN =====
 function updateRoute(preserveSelectedTime) {
+  _routeNoticeAccepted = false;
   var previousTime = selTime;
   selOrigin = document.getElementById('routeFrom').value;
   selDest   = document.getElementById('routeTo').value;
@@ -1696,16 +1729,19 @@ function renderLeg2Info() {
 
 function selectRoute(r) {
   selRoute = r; selTime = null;
+  _routeNoticeAccepted = false;
   renderTimes();
 }
 
 function selectTime(t) {
   selTime = t;
+  _routeNoticeAccepted = false;
   renderTimes();
 }
 
 function changeSeat(d) {
-  seats = Math.max(1, Math.min(10, seats + d));
+  seats = Math.max(1, Math.min(3, seats + d));
+  _routeNoticeAccepted = false;
   document.getElementById('seatCount').textContent = seats;
 }
 
@@ -1738,9 +1774,44 @@ function isValidThaiPhone(val) {
 }
 
 // ===== PAGE NAVIGATION =====
+function requestRouteContinue() {
+  if (!BOOKING_OPEN) { alert('ขณะนี้ปิดรับสำรองที่นั่งชั่วคราว'); return; }
+  if (!selTime) { alert('กรุณาเลือกเวลาออกเดินทาง'); return; }
+  var dateVal = document.getElementById('travelDate').value;
+  if (!dateVal) { alert('กรุณาเลือกวันที่เดินทาง'); return; }
+  if (isClosedByAdmin(selTime)) { alert('รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้'); return; }
+  if (!canBook(dateVal, selTime)) { alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว กรุณาเลือกเวลาอื่น'); return; }
+  var originSelect = document.getElementById('originSelect');
+  var destSelect = document.getElementById('destSelect');
+  var originLabel = originSelect.options[originSelect.selectedIndex] ? originSelect.options[originSelect.selectedIndex].text : selOrigin;
+  var destLabel = destSelect.options[destSelect.selectedIndex] ? destSelect.options[destSelect.selectedIndex].text : selDest;
+  var dateLabel = new Intl.DateTimeFormat('th-TH', {day:'numeric', month:'long', year:'numeric'}).format(new Date(dateVal + 'T00:00:00'));
+  document.getElementById('routeNoticeSummary').innerHTML = 'ต้นทาง: ' + escapeHtml(originLabel) + '<br>ปลายทาง: ' + escapeHtml(destLabel) + '<br>วันที่: ' + escapeHtml(dateLabel) + '<br>เวลาออก: ' + escapeHtml(selTime) + ' น.';
+  var agree = document.getElementById('routeNoticeAgree');
+  agree.checked = false;
+  document.getElementById('routeNoticeAccept').disabled = true;
+  document.getElementById('routeNoticePopup').classList.add('show');
+}
+
+function toggleRouteNoticeAccept() {
+  document.getElementById('routeNoticeAccept').disabled = !document.getElementById('routeNoticeAgree').checked;
+}
+
+function closeRouteNotice() {
+  document.getElementById('routeNoticePopup').classList.remove('show');
+}
+
+function acceptRouteNotice() {
+  if (!document.getElementById('routeNoticeAgree').checked) return;
+  _routeNoticeAccepted = true;
+  closeRouteNotice();
+  goPage(2);
+}
+
 function goPage(p) {
   if (!BOOKING_OPEN) { alert('ขณะนี้ปิดรับสำรองที่นั่งชั่วคราว'); return; }
   if (p === 2) {
+    if (!_routeNoticeAccepted) { requestRouteContinue(); return; }
     if (!selTime) { alert('กรุณาเลือกเวลาออกเดินทาง'); return; }
     var dateVal = document.getElementById('travelDate').value;
     if (!dateVal) { alert('กรุณาเลือกวันที่เดินทาง'); return; }
@@ -1850,6 +1921,7 @@ function goPage(p) {
 }
 
 function _navigatePage(p) {
+  if (p === 1) _routeNoticeAccepted = false;
   document.querySelectorAll('.page').forEach(function(el) { el.classList.remove('active'); });
   document.getElementById('page' + p).classList.add('active');
   updateSteps(p);
@@ -2181,6 +2253,45 @@ function acceptConsent() {
   if (bar) bar.style.display = 'block';
 }
 
+// ===== TRIP CAPACITY =====
+function getTripBookingCapacity(origin, dest, time) {
+  var value = ROUTE_CAPACITY[origin] && ROUTE_CAPACITY[origin][dest] ? Number(ROUTE_CAPACITY[origin][dest][time]) : 0;
+  return Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+function capacityLedgerKey(dupKey) {
+  return String(dupKey || '').replace(/[.#$\/\[\]]/g, '_');
+}
+
+function reserveTripCapacity(dateVal, dupKey, requestedSeats, capacityLimit) {
+  if (!capacityLimit) return Promise.resolve({ reserved:false, path:'', limit:0, seats:0 });
+  var bookingRoot = TEST_MODE ? 'testBookings' : 'bookings';
+  var ledgerRoot = TEST_MODE ? 'testBookingCapacityUsage' : 'bookingCapacityUsage';
+  var ledgerPath = ledgerRoot + '/' + dateVal + '/' + capacityLedgerKey(dupKey);
+  return db.ref(bookingRoot).orderByChild('dupKey').equalTo(dupKey).once('value').then(function(snapshot) {
+    var existingSeats = 0;
+    snapshot.forEach(function(child) {
+      var booking = child.val() || {};
+      if (booking.status !== 'cancelled' && booking.cancelled !== true) existingSeats += Number(booking.seats) || 1;
+    });
+    return db.ref(ledgerPath).transaction(function(current) {
+      var used = (current === null || current === undefined) ? existingSeats : (Number(current) || 0);
+      if (used + requestedSeats > capacityLimit) return;
+      return used + requestedSeats;
+    });
+  }).then(function(result) {
+    if (!result || !result.committed) throw new Error('CAPACITY_FULL');
+    return { reserved:true, path:ledgerPath, limit:capacityLimit, seats:requestedSeats };
+  });
+}
+
+function releaseTripCapacity(reservation) {
+  if (!reservation || !reservation.reserved || !reservation.path) return Promise.resolve();
+  return db.ref(reservation.path).transaction(function(current) {
+    return Math.max(0, (Number(current) || 0) - (Number(reservation.seats) || 0));
+  });
+}
+
 // ===== SUBMIT =====
 function submitBooking() {
   if (!BOOKING_OPEN) { alert('ขณะนี้ปิดรับสำรองที่นั่งชั่วคราว'); return; }
@@ -2237,9 +2348,16 @@ function submitBooking() {
   // [Feature 4] นับลำดับคิวสำหรับ origin+dest+date+time นี้
   var bookingPath = TEST_MODE ? 'testBookings/' : 'bookings/';
   var queuePath = TEST_MODE ? 'testQueues/' : 'queues/';
-  db.ref(queuePath + dupKey).transaction(function(current) {
+  var capacityLimit = getTripBookingCapacity(selOrigin, selDest, selTime);
+  var capacityReservation = null;
+  var bookingSaved = false;
+  reserveTripCapacity(dateVal, dupKey, seats, capacityLimit)
+    .then(function(reservation) {
+      capacityReservation = reservation;
+      return db.ref(queuePath + dupKey).transaction(function(current) {
     return (current || 0) + seats;
-  }) // end Promise.all.then
+      });
+    })
     .then(function(txResult) {
       if (!txResult || !txResult.committed) {
         return Promise.reject(new Error('QUEUE_ERROR'));
@@ -2334,6 +2452,9 @@ function submitBooking() {
         noLiveTracking: tripAssignment.noLiveTracking === true,
         assignmentSource: tripAssignment.assignmentSource || '',
         seats:       seats,
+        capacityLimit: capacityLimit || '',
+        capacitySeats: capacityReservation && capacityReservation.reserved ? seats : '',
+        capacityUsagePath: capacityReservation && capacityReservation.path ? capacityReservation.path : '',
         price:       bookingTotal, // ราคาจาก server เท่านั้น + ค่าบริการเมื่อเปิดใช้งาน
         fare:        serverPrice * seats,
         serviceFee:  serviceFeeTotal,
@@ -2365,6 +2486,7 @@ function submitBooking() {
       // ห้ามเปลี่ยน 'bookings/' เป็นชื่ออื่น และห้ามลบบรรทัด set(booking)
       // ============================================================
       return db.ref(bookingPath + code).set(booking).then(function() {
+        bookingSaved = true;
         if (!TEST_MODE && isTransferPayment()) {
           btn.textContent = '⏳ กำลังตรวจสอบสลิป...';
           return verifySlipPayment(code, imageUrl).then(function(verifyResult) {
@@ -2404,8 +2526,13 @@ function submitBooking() {
     })
     .catch(function(err) {
       _submitLock = false;
+      if (!bookingSaved && capacityReservation && capacityReservation.reserved) {
+        releaseTripCapacity(capacityReservation).catch(function() {});
+      }
       if (err && err.message === 'DUPLICATE') return; // แจ้งแล้ว
-      if (err && err.message === 'QUEUE_ERROR') {
+      if (err && err.message === 'CAPACITY_FULL') {
+        alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น');
+      } else if (err && err.message === 'QUEUE_ERROR') {
         alert('เกิดข้อผิดพลาดในการนับลำดับคิว กรุณาลองใหม่');
       } else if (err && err.message === 'STORAGE_UPLOAD_FAILED') {
         alert('อัปโหลดรูปไม่สำเร็จ กรุณาตรวจสอบ Firebase Storage หรือสิทธิ์การอัปโหลด');
