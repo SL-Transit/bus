@@ -1786,7 +1786,9 @@ function requestRouteContinue() {
   var originLabel = originSelect.options[originSelect.selectedIndex] ? originSelect.options[originSelect.selectedIndex].text : selOrigin;
   var destLabel = destSelect.options[destSelect.selectedIndex] ? destSelect.options[destSelect.selectedIndex].text : selDest;
   var dateLabel = new Intl.DateTimeFormat('th-TH', {day:'numeric', month:'long', year:'numeric'}).format(new Date(dateVal + 'T00:00:00'));
-  document.getElementById('routeNoticeSummary').innerHTML = 'ต้นทาง: ' + escapeHtml(originLabel) + '<br>ปลายทาง: ' + escapeHtml(destLabel) + '<br>วันที่: ' + escapeHtml(dateLabel) + '<br>เวลาออก: ' + escapeHtml(selTime) + ' น.';
+  var summaryEl = document.getElementById('routeNoticeSummary');
+  summaryEl.style.whiteSpace = 'pre-line';
+  summaryEl.textContent = 'ต้นทาง: ' + originLabel + '\nปลายทาง: ' + destLabel + '\nวันที่: ' + dateLabel + '\nเวลาออก: ' + selTime + ' น.';
   var agree = document.getElementById('routeNoticeAgree');
   agree.checked = false;
   document.getElementById('routeNoticeAccept').disabled = true;
