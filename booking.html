@@ -1781,8 +1781,8 @@ function requestRouteContinue() {
   if (!dateVal) { alert('กรุณาเลือกวันที่เดินทาง'); return; }
   if (isClosedByAdmin(selTime)) { alert('รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้'); return; }
   if (!canBook(dateVal, selTime)) { alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว กรุณาเลือกเวลาอื่น'); return; }
-  var originSelect = document.getElementById('originSelect');
-  var destSelect = document.getElementById('destSelect');
+  var originSelect = document.getElementById('routeFrom');
+  var destSelect = document.getElementById('routeTo');
   var originLabel = originSelect.options[originSelect.selectedIndex] ? originSelect.options[originSelect.selectedIndex].text : selOrigin;
   var destLabel = destSelect.options[destSelect.selectedIndex] ? destSelect.options[destSelect.selectedIndex].text : selDest;
   var dateLabel = new Intl.DateTimeFormat('th-TH', {day:'numeric', month:'long', year:'numeric'}).format(new Date(dateVal + 'T00:00:00'));
