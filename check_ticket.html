@@ -783,6 +783,7 @@
     var trackingRouteStopMarkers = [];
     var trackingRouteSourceReady = false;
     var trackingRouteGeometry = [];
+    var trackingFullRouteGeometry = [];
     var trackingRouteRequestSeq = 0;
     var trackingJourneyEtaRequestSeq = 0;
     var trackingJourneyEta = null;
@@ -829,6 +830,34 @@
       }
       ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
       updateActionAvailability();
+    });
+
+    db.ref('routeData').on('value', function(snap) {
+      var routeData = snap.val() || {};
+      var stops = routeData.stops || {};
+      var centralStops = Object.keys(stops).map(function(key) {
+        var stop = stops[key] || {};
+        var lat = Number(stop.lat);
+        var lng = Number(stop.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return { key:key, name:String(stop.stopNameTh || stop.name || key).trim(), lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main' };
+      }).filter(Boolean);
+      if (!centralStops.length) return;
+      var fallbackStops = STOP_LOCATIONS.slice();
+      STOP_LOCATIONS = centralStops.concat(fallbackStops.filter(function(oldStop) {
+        return !centralStops.some(function(centralStop) { return isSameStop(centralStop.name, oldStop.name); });
+      }));
+      if (!currentBooking) return;
+      pickupStopLocation = resolvePickupStopLocation(currentBooking);
+      destinationLocation = resolveDestinationLocation(currentBooking);
+      transferPointLocation = findStopLocation('แปดริ้ว');
+      relevantRouteStops = resolveRelevantRouteStops(currentBooking);
+      renderPickupMarker();
+      renderTransferMarker();
+      renderRouteStopMarkers();
+      updateTrackingRouteLine();
+    }, function(error) {
+      console.error('Ticket routeData load failed:', error && error.message ? error.message : error);
     });
 
     function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }
@@ -1935,53 +1964,38 @@
     }
 
     function resolveRelevantRouteStops(booking) {
-      var assignment = resolveSharedScheduleAssignmentForBooking(booking);
-      if (assignment && assignment.routeStopNames && assignment.routeStopNames.length) {
-        return assignment.routeStopNames.map(findStopLocation).filter(Boolean);
-      }
-      var legs = getLegSchedule(booking);
       var origin = findStopLocation(getTrackingPickupStopName(booking));
-      var routeInfo = connectionRouteInfo(booking.route);
-      var target = routeInfo.type === 'secondary_connection' ? findStopLocation('แปดริ้ว') : resolveDestinationLocation(booking);
-      if (!origin || !target) return [origin || target].filter(Boolean);
-      var start = STOP_LOCATIONS.findIndex(function(s) { return s.name === origin.name; });
-      var end = STOP_LOCATIONS.findIndex(function(s) { return s.name === target.name; });
-      if (start === -1 || end === -1) return [origin, target];
-      var from = Math.min(start, end);
-      var to = Math.max(start, end);
-      var stops = STOP_LOCATIONS.slice(from, to + 1);
-      return start <= end ? stops : stops.reverse();
+      var target = resolveDestinationLocation(booking);
+      var stops = [origin, target].filter(Boolean);
+      return stops.filter(function(stop, index) {
+        return !stops.slice(0, index).some(function(previous) { return isSameStop(previous.name, stop.name); });
+      });
     }
-
     function createTrackingMarker(className, text) {
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
+      var label = text || (className === 'pickup' ? 'ต้นทาง' : className === 'transfer' ? 'ปลายทาง' : 'รถโดยสาร');
+      el.title = label;
+      el.setAttribute('aria-label', label);
       if (className === 'van') {
         var img = document.createElement('img');
-        img.src = 'assets/van-marker.png';
-        img.alt = text || 'รถ';
+        img.src = 'assets/passenger-bus-icon.png';
+        img.alt = label;
         el.appendChild(img);
       } else {
-        el.textContent = text;
+        var symbol = document.createElement('span');
+        symbol.setAttribute('aria-hidden', 'true');
+        symbol.textContent = className === 'pickup' ? '📍' : className === 'transfer' ? '🏁' : text;
+        el.appendChild(symbol);
       }
       return el;
     }
 
     function renderRouteStopMarkers() {
       if (!trackingMapReady || !trackingMap) return;
-      trackingRouteStopMarkers.forEach(function(marker) {
-        try { marker.remove(); } catch(e) {}
-      });
+      trackingRouteStopMarkers.forEach(function(marker) { try { marker.remove(); } catch(e) {} });
       trackingRouteStopMarkers = [];
-      relevantRouteStops.forEach(function(stop) {
-        if (!stop || (pickupStopLocation && stop.name === pickupStopLocation.name) || (transferPointLocation && stop.name === transferPointLocation.name)) return;
-        var marker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ป้าย') })
-          .setLngLat([stop.lng, stop.lat])
-          .addTo(trackingMap);
-        trackingRouteStopMarkers.push(marker);
-      });
     }
-
     function renderVanMarker(location) {
       location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
@@ -2065,36 +2079,36 @@
       options = options || {};
       var fromPos = markerAnimState(stateName) || toPos;
       var dist = trackingPointMeters(fromPos, toPos);
+      var minMeters = options.minMeters !== undefined ? options.minMeters : 5;
+      var maxMeters = options.maxMeters !== undefined ? options.maxMeters : 5000;
       if (markerAnimState(frameName)) cancelAnimationFrame(markerAnimState(frameName));
-      if (dist < (options.minMeters || 5) || dist > (options.maxMeters || 600)) {
+      if (dist < minMeters || dist > maxMeters) {
         marker.setLngLat([toPos.lng, toPos.lat]);
         markerAnimState(stateName, toPos);
         markerAnimState(frameName, null);
+        if (stateName === 'vanPos') renderTrackingRemainingRoute(toPos);
         return;
       }
-      var duration = Math.min(options.maxDuration || 1200, Math.max(options.minDuration || 350, dist * (options.msPerMeter || 14)));
+      var duration = Math.min(options.maxDuration || 2400, Math.max(options.minDuration || 650, dist * (options.msPerMeter || 18)));
       var started = null;
       function step(ts) {
         if (!started) started = ts;
         var t = Math.min((ts - started) / duration, 1);
         var eased = trackingEaseInOut(t);
-        var current = {
-          lat: trackingLerp(fromPos.lat, toPos.lat, eased),
-          lng: trackingLerp(fromPos.lng, toPos.lng, eased)
-        };
+        var current = { lat:trackingLerp(fromPos.lat,toPos.lat,eased), lng:trackingLerp(fromPos.lng,toPos.lng,eased) };
         marker.setLngLat([current.lng, current.lat]);
         markerAnimState(stateName, current);
-        if (t < 1) {
-          markerAnimState(frameName, requestAnimationFrame(step));
-        } else {
+        if (stateName === 'vanPos') renderTrackingRemainingRoute(current);
+        if (t < 1) markerAnimState(frameName, requestAnimationFrame(step));
+        else {
           markerAnimState(stateName, toPos);
           markerAnimState(frameName, null);
           marker.setLngLat([toPos.lng, toPos.lat]);
+          if (stateName === 'vanPos') renderTrackingRemainingRoute(toPos);
         }
       }
       markerAnimState(frameName, requestAnimationFrame(step));
     }
-
     function renderPickupMarker() {
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(pickupStopLocation)) return;
       if (!trackingPickupMarker) {
@@ -2108,28 +2122,20 @@
     }
 
     function renderTransferMarker() {
-      var point = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
+      var point = destinationLocation;
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(point)) return;
       if (!trackingTransferMarker) {
-        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ถึง') })
-          .setLngLat([point.lng, point.lat])
-          .addTo(trackingMap);
+        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ปลายทาง') }).setLngLat([point.lng, point.lat]).addTo(trackingMap);
       } else {
         trackingTransferMarker.setLngLat([point.lng, point.lat]);
       }
       updateTrackingRouteLine();
     }
-
     function updateVanMarkerSmoothly(location) {
       location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
-      // heartbeatOnly = แอปส่งแค่ ping GPS ไม่ได้ fix ใหม่ ไม่ต้อง animate
-      // แต่ถ้ายังไม่มี marker เลย → วาง marker ตำแหน่งล่าสุดโดยไม่ animate
       if (vanLocation && vanLocation.heartbeatOnly === true) {
-        if (!trackingVanMarker) {
-          renderVanMarker(location);
-          trackingVanMarkerPos = location;
-        }
+        if (!trackingVanMarker) { renderVanMarker(location); trackingVanMarkerPos = location; }
         return;
       }
       if (!trackingVanMarker) {
@@ -2137,51 +2143,27 @@
         trackingVanMarkerPos = location;
         return;
       }
-      var opts = {
-        minMeters: 5,
-        maxMeters: 600,
-        minDuration: 350,
-        maxDuration: 900,
-        msPerMeter: 14
-      };
-      // speed guard: ถ้า implied speed เกิน 120 กม./ชม. = Firebase queue flush
-      // → ใช้ maxMeters ต่ำเพื่อให้ animateTrackingMarker instant place แทน animate
-      if (trackingVanMarkerPos) {
-        var dist = Math.sqrt(
-          Math.pow((location.lat - trackingVanMarkerPos.lat) * 111320, 2) +
-          Math.pow((location.lng - trackingVanMarkerPos.lng) * 111320 * Math.cos(location.lat * Math.PI / 180), 2)
-        );
-        var duration = Math.max(opts.minDuration, Math.min(opts.maxDuration, dist * opts.msPerMeter));
-        var impliedSpeedKmh = (dist / (duration / 1000)) * 3.6;
-        if (impliedSpeedKmh > 120) {
-          opts.maxMeters = 0; // force instant place
-        }
-      }
-      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, opts);
+      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, { minMeters:5, maxMeters:5000, minDuration:650, maxDuration:2400, msPerMeter:18 });
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
     }
-
     function updateTrackingRouteLine() {
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
       var coords = [];
-      if (isValidMapPoint(vanLocation)) coords.push([vanLocation.lng, vanLocation.lat]);
-      (relevantRouteStops.length ? relevantRouteStops : [pickupStopLocation]).forEach(function(stop) {
-        if (isValidMapPoint(stop)) coords.push([stop.lng, stop.lat]);
-      });
-      var target = connectionRouteInfo(currentBooking.route).type === 'secondary_connection' ? transferPointLocation : destinationLocation;
-      if (isValidMapPoint(target) && !coords.some(function(c) { return Math.abs(c[0] - target.lng) < 0.00001 && Math.abs(c[1] - target.lat) < 0.00001; })) coords.push([target.lng, target.lat]);
-      coords = coords.filter(isValidMapCoord);
-      if (coords.length >= 2) {
-        updateTrackingRoadRoute(coords);
-        return;
+      var vehiclePoint = normalizeTrackingPoint(trackingVanMarkerPos) || normalizeTrackingPoint(vanLocation);
+      if (isValidMapPoint(vehiclePoint)) coords.push([vehiclePoint.lng, vehiclePoint.lat]);
+      if (!isOriginBoarded() && isValidMapPoint(pickupStopLocation)) {
+        var pickupCoord = [pickupStopLocation.lng, pickupStopLocation.lat];
+        if (!coords.some(function(c) { return Math.abs(c[0]-pickupCoord[0])<0.00001 && Math.abs(c[1]-pickupCoord[1])<0.00001; })) coords.push(pickupCoord);
       }
-      trackingMap.getSource('trackingRouteLine').setData({
-        type: 'FeatureCollection',
-        features: []
-      });
+      var target = destinationLocation;
+      if (isValidMapPoint(target) && !coords.some(function(c) { return Math.abs(c[0]-target.lng)<0.00001 && Math.abs(c[1]-target.lat)<0.00001; })) coords.push([target.lng,target.lat]);
+      coords = coords.filter(isValidMapCoord);
+      if (coords.length >= 2) { updateTrackingRoadRoute(coords); return; }
+      trackingFullRouteGeometry = [];
+      trackingRouteGeometry = [];
+      trackingMap.getSource('trackingRouteLine').setData({ type:'FeatureCollection', features:[] });
     }
-
     function updateTrackingRoadRoute(coords) {
       var seq = ++trackingRouteRequestSeq;
       requestMapboxRouteGeometry(coords).then(function(routeData) {
@@ -2215,24 +2197,40 @@
       });
     }
 
+    function renderTrackingRemainingRoute(position) {
+      if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
+      var full = (trackingFullRouteGeometry || []).filter(isValidMapCoord);
+      position = normalizeTrackingPoint(position);
+      var remaining = full.slice();
+      if (position && full.length >= 2) {
+        var best = null;
+        var bestIndex = 1;
+        for (var i = 1; i < full.length; i++) {
+          var projected = trackingRouteProjection(position, full[i - 1], full[i]);
+          if (projected && (!best || projected.distance < best.distance)) { best = projected; bestIndex = i; }
+        }
+        if (best) remaining = [[best.lng,best.lat]].concat(full.slice(bestIndex));
+      }
+      trackingRouteGeometry = remaining;
+      trackingMap.getSource('trackingRouteLine').setData(remaining.length >= 2 ? {
+        type:'Feature', geometry:{ type:'LineString', coordinates:remaining }, properties:{}
+      } : { type:'FeatureCollection', features:[] });
+    }
+
     function setTrackingRouteGeometry(coords) {
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
       coords = (coords || []).filter(isValidMapCoord);
-      trackingRouteGeometry = coords;
-      trackingMap.getSource('trackingRouteLine').setData(coords.length >= 2 ? {
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: coords },
-        properties: {}
-      } : { type: 'FeatureCollection', features: [] });
+      trackingFullRouteGeometry = coords.slice();
+      renderTrackingRemainingRoute(trackingVanMarkerPos || vanLocation);
       if (trackingVanMarker && trackingVanMarkerPos && coords.length >= 2) {
         var snapped = snapTrackingPointToRoute(trackingVanMarkerPos, 180);
         if (snapped && trackingPointMeters(trackingVanMarkerPos, snapped) > 1) {
           trackingVanMarker.setLngLat([snapped.lng, snapped.lat]);
           trackingVanMarkerPos = snapped;
+          renderTrackingRemainingRoute(snapped);
         }
       }
     }
-
     function refreshJourneyRoadEta() {
       if (!isOriginBoarded()) return;
       if (trackingJourneyEta && Date.now() - Number(trackingJourneyEta.ts || 0) < 10000) return;
