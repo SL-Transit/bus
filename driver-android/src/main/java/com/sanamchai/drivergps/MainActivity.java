@@ -73,6 +73,7 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_RESTART      = "last_restart";
     static final String KEY_RESTART_COUNT     = "restart_count";
     static final String KEY_LAST_GPS_AT       = "last_gps_at";
+    static final String KEY_LAST_SENT_AT      = "last_sent_at";
     static final String KEY_WAKELOCK_HELD         = "diag_wakelock_held";
     static final String KEY_CALLBACK_REGISTERED   = "diag_callback_registered";
     static final String KEY_LOCATION_FILTER_COUNT = "diag_location_filter_count";
@@ -217,7 +218,16 @@ public class MainActivity extends Activity {
         }
     };
 
-    @Override protected void onCreate(Bundle savedInstanceState) {
+    // ===== Screen Off/On + Remote Command =====
+    private android.content.BroadcastReceiver screenReceiver;
+    private long screenOffAt = 0;
+    private long gpsWasAgoSecAtScreenOff = -1;
+    private boolean gpsWasOkAtScreenOff = false;
+    private com.google.firebase.database.ValueEventListener remoteCommandListener;
+    private com.google.firebase.database.DatabaseReference remoteCommandRef;
+    // ===== Auto GPS Lost tracking =====
+    private boolean gpsWasLost = false;
+    private long gpsLostAt = 0;
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
@@ -239,6 +249,8 @@ public class MainActivity extends Activity {
         checkForUpdate();
         reportVersionToFirebase();
         refreshTodaySchedule();
+        registerScreenReceiver();
+        initRemoteCommandListener();
     }
 
     // ===== เลือก car ที่ว่างอัตโนมัติตอนติดตั้งใหม่ =====
@@ -300,7 +312,170 @@ public class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         uiHandler.removeCallbacks(uiTick);
+        if (screenReceiver != null) try { unregisterReceiver(screenReceiver); } catch (Exception ignored) {}
+        if (remoteCommandRef != null && remoteCommandListener != null) {
+            remoteCommandRef.removeEventListener(remoteCommandListener);
+        }
         super.onDestroy();
+    }
+
+    // ===== Screen Off/On Receiver — บันทึกว่า GPS หายตอนหน้าจอดับหรือเปล่า =====
+    private void registerScreenReceiver() {
+        screenReceiver = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(android.content.Context ctx, android.content.Intent intent) {
+                String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+                if (vehicleId == null) return;
+                long now = System.currentTimeMillis();
+                long lastGpsAt = prefs.getLong(KEY_LAST_GPS_AT, 0);
+                long gpsAgoSec = lastGpsAt > 0 ? (now - lastGpsAt) / 1000 : -1;
+                if (android.content.Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    screenOffAt = now;
+                    gpsWasOkAtScreenOff = gpsAgoSec >= 0 && gpsAgoSec < 30;
+                    gpsWasAgoSecAtScreenOff = gpsAgoSec;
+                    // บันทึกว่าปิดหน้าจอตอน GPS สถานะอะไร
+                    logAutoEvent("screen_off",
+                        "gpsAgoSec=" + gpsAgoSec
+                        + " gpsOk=" + gpsWasOkAtScreenOff
+                        + " wakelockHeld=" + prefs.getBoolean(KEY_WAKELOCK_HELD, false)
+                        + " trackingEnabled=" + prefs.getBoolean(KEY_ENABLED, false));
+                } else if (android.content.Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
+                    long screenOffDuration = screenOffAt > 0 ? (now - screenOffAt) / 1000 : -1;
+                    boolean gpsOkNow = gpsAgoSec >= 0 && gpsAgoSec < 30;
+                    // ถ้า GPS ปกติก่อนปิดหน้าจอ แต่หายหลังเปิด = OS throttle ตอน screen off
+                    String diagnosis = "";
+                    if (gpsWasOkAtScreenOff && !gpsOkNow) {
+                        diagnosis = " → GPS หายระหว่างหน้าจอดับ (OS throttle)";
+                    } else if (!gpsWasOkAtScreenOff && gpsOkNow) {
+                        diagnosis = " → GPS กลับมาหลังเปิดหน้าจอ";
+                    } else if (gpsWasOkAtScreenOff && gpsOkNow) {
+                        diagnosis = " → GPS ยังปกติ ไม่โดน throttle";
+                    }
+                    logAutoEvent("screen_on",
+                        "screenOffSec=" + screenOffDuration
+                        + " gpsBeforeOff=" + gpsWasOkAtScreenOff
+                        + " gpsNowOk=" + gpsOkNow
+                        + " gpsAgoSec=" + gpsAgoSec
+                        + diagnosis);
+                    screenOffAt = 0;
+                }
+            }
+        };
+        android.content.IntentFilter f = new android.content.IntentFilter();
+        f.addAction(android.content.Intent.ACTION_SCREEN_OFF);
+        f.addAction(android.content.Intent.ACTION_SCREEN_ON);
+        registerReceiver(screenReceiver, f);
+    }
+
+    // ===== Remote Command Listener — admin สั่งจาก dashboard ได้เลย =====
+    private void initRemoteCommandListener() {
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        if (vehicleId == null) return;
+        remoteCommandRef = FirebaseDatabase.getInstance()
+            .getReference("driverCommands/" + vehicleId + "/command");
+        remoteCommandListener = new com.google.firebase.database.ValueEventListener() {
+            @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                String cmd = snap.getValue(String.class);
+                if (cmd == null || cmd.isEmpty()) return;
+                // execute command แล้วลบทิ้งทันที
+                remoteCommandRef.setValue(null);
+                executeRemoteCommand(cmd);
+            }
+            @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {}
+        };
+        remoteCommandRef.addValueEventListener(remoteCommandListener);
+    }
+
+    private void executeRemoteCommand(String cmd) {
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        if (vehicleId == null) return;
+        long now = System.currentTimeMillis();
+        long lastGpsAt = prefs.getLong(KEY_LAST_GPS_AT, 0);
+        long lastSentAt = prefs.getLong(KEY_LAST_SENT_AT, 0);
+        long gpsAgoSec = lastGpsAt > 0 ? (now - lastGpsAt) / 1000 : -1;
+        long fbAgoSec  = lastSentAt > 0 ? (now - lastSentAt) / 1000 : -1;
+        switch (cmd) {
+            case "requestDiag":
+                // ส่ง diagnostic report ทันที ครบทุก field
+                logIssueToFirebase("[remote] admin ขอ diagnostic report", gpsAgoSec, fbAgoSec, true);
+                // บันทึก response กลับให้ admin รู้ว่าแอพรับ command แล้ว
+                FirebaseDatabase.getInstance()
+                    .getReference("driverCommands/" + vehicleId + "/lastResponse")
+                    .setValue("requestDiag executed at " + new java.text.SimpleDateFormat(
+                        "HH:mm:ss", java.util.Locale.US).format(new java.util.Date(now)));
+                break;
+            case "ping":
+                // ตอบ ping ทันที — admin รู้ว่าแอพยังมีชีวิต
+                java.util.Map<String, Object> pong = new java.util.HashMap<>();
+                pong.put("pongAt", now);
+                pong.put("gpsAgoSec", gpsAgoSec);
+                pong.put("fbAgoSec", fbAgoSec);
+                pong.put("wakelockHeld", prefs.getBoolean(KEY_WAKELOCK_HELD, false));
+                pong.put("trackingEnabled", prefs.getBoolean(KEY_ENABLED, false));
+                pong.put("appVersion", BuildConfig.VERSION_NAME);
+                FirebaseDatabase.getInstance()
+                    .getReference("driverCommands/" + vehicleId + "/lastResponse")
+                    .setValue(pong);
+                break;
+            case "forceGpsRestart":
+                // สั่ง restart GPS ผ่าน Intent ไปยัง GpsService
+                android.content.Intent gpsIntent = new android.content.Intent(this, GpsService.class);
+                gpsIntent.setAction("ACTION_FORCE_GPS_RESTART");
+                startService(gpsIntent);
+                logAutoEvent("remote_force_gps_restart", "triggered by admin");
+                break;
+            case "requestLocation":
+                // ขอพิกัดปัจจุบันทันที
+                logIssueToFirebase("[remote] admin ขอพิกัดปัจจุบัน gpsAgoSec=" + gpsAgoSec, gpsAgoSec, fbAgoSec, true);
+                break;
+        }
+    }
+
+    // ===== Auto Event Logger — บันทึกอัตโนมัติไม่ต้องให้คนขับกด =====
+    private void logAutoEvent(String event, String detail) {
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        if (vehicleId == null) return;
+        try {
+            long now = System.currentTimeMillis();
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("event", event);
+            data.put("detail", detail);
+            data.put("message", "[auto] " + event + ": " + detail);
+            data.put("timestamp", now);
+            data.put("level", "debug");
+            data.put("appVersion", BuildConfig.VERSION_NAME);
+            data.put("device", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL
+                + " (Android " + android.os.Build.VERSION.RELEASE + ")");
+            FirebaseDatabase.getInstance()
+                .getReference("driverLogs/" + vehicleId).push().setValue(data);
+        } catch (Exception ignored) {}
+    }
+
+    // ===== Auto GPS Lost/Recovered — บันทึกอัตโนมัติทุกครั้งที่ GPS หายและกลับมา =====
+    private void checkAutoGpsLostRecovered(long gpsAgoSec) {
+        boolean gpsLostNow = gpsAgoSec > 30;
+        if (gpsLostNow && !gpsWasLost) {
+            // GPS เพิ่งหาย
+            gpsWasLost = true;
+            gpsLostAt = System.currentTimeMillis();
+            logAutoEvent("gps_lost",
+                "gpsAgoSec=" + gpsAgoSec
+                + " wakelockHeld=" + prefs.getBoolean(KEY_WAKELOCK_HELD, false)
+                + " callbackRegistered=" + prefs.getBoolean(KEY_CALLBACK_REGISTERED, false)
+                + " filteredCount=" + prefs.getInt(KEY_LOCATION_FILTER_COUNT, 0)
+                + " lastError=" + prefs.getString(KEY_LAST_ERROR, "")
+                + " screenOn=" + (android.os.PowerManager.class.cast(
+                    getSystemService(POWER_SERVICE)) != null
+                    ? ((android.os.PowerManager) getSystemService(POWER_SERVICE)).isInteractive()
+                    : "unknown"));
+        } else if (!gpsLostNow && gpsWasLost) {
+            // GPS กลับมาแล้ว
+            gpsWasLost = false;
+            long lostDurationSec = gpsLostAt > 0 ? (System.currentTimeMillis() - gpsLostAt) / 1000 : -1;
+            logAutoEvent("gps_recovered",
+                "lostDurationSec=" + lostDurationSec
+                + " gpsAgoSec=" + gpsAgoSec
+                + " filteredCount=" + prefs.getInt(KEY_LOCATION_FILTER_COUNT, 0));
+        }
     }
 
     // ---- เชื่อม Firebase ฟัง online status ของทุกคัน ----
@@ -3241,6 +3416,9 @@ public class MainActivity extends Activity {
         diagPanel.setText(report);
         updateReadinessCard(gpsAgoSec, fbAgoSec);
         refreshRouteProgress();
+
+        // ===== Auto log GPS lost/recovered =====
+        checkAutoGpsLostRecovered(gpsAgoSec);
 
         // แจ้งเตือนถ้ามีปัญหา — แสดงผลในหน้าจอ + บันทึกขึ้น Firebase เท่านั้น (ไม่ขึ้นกระดิ่ง)
         StringBuilder errSb = new StringBuilder();
