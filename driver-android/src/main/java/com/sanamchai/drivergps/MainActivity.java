@@ -919,15 +919,22 @@ public class MainActivity extends Activity {
     }
 
     private void handleScannedTicket(String code) {
-        if (code.isEmpty()) return;
-        // รองรับ QR ที่เป็นลิงก์ เช่น https://.../check_ticket.html?code=XXXX
+        if (code == null || code.trim().isEmpty()) return;
+        code = code.trim();
+        // รองรับ QR ที่เป็นลิงก์ เช่น https://sl-transit.com/check_ticket.html?code=BK123456
         if (code.contains("code=")) {
             int idx = code.indexOf("code=");
             code = code.substring(idx + 5);
             int amp = code.indexOf('&');
             if (amp >= 0) code = code.substring(0, amp);
         }
-        final String finalCode = code.toUpperCase(java.util.Locale.US);
+        final String finalCode = code.trim().toUpperCase(java.util.Locale.US);
+        if (!finalCode.matches("^(BK|TB)[A-Z0-9]{6,20}$")) {
+            new AlertDialog.Builder(this).setTitle("QR ตั๋วไม่ถูกต้อง")
+                    .setMessage("กรุณาสแกน QR จากหน้าตั๋ว S.L.Transit")
+                    .setPositiveButton("ตกลง", null).show();
+            return;
+        }
         final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
         final String bookingPath = bookingsPath();
         if (bookingPath == null) {
@@ -936,13 +943,34 @@ public class MainActivity extends Activity {
             return;
         }
 
-        FirebaseDatabase.getInstance().getReference(bookingPath + "/" + finalCode)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
+        final DatabaseReference bookingRef = FirebaseDatabase.getInstance()
+                .getReference(bookingPath + "/" + finalCode);
+        bookingRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 if (!snap.exists()) {
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("ไม่พบตั๋ว")
                             .setMessage("ไม่พบรหัสตั๋ว: " + finalCode)
+                            .setPositiveButton("ตกลง", null).show();
+                    return;
+                }
+                String bookingStatus = String.valueOf(snap.child("status").getValue());
+                if ("cancelled".equals(bookingStatus)
+                        || Boolean.TRUE.equals(snap.child("cancelled").getValue(Boolean.class))) {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("ตั๋วถูกยกเลิกแล้ว")
+                            .setMessage("ไม่สามารถเช็คอินตั๋ว " + finalCode)
+                            .setPositiveButton("ตกลง", null).show();
+                    return;
+                }
+                String travelDate = String.valueOf(snap.child("date").getValue());
+                java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+                dateFormat.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+                String today = dateFormat.format(new java.util.Date());
+                if (!today.equals(travelDate)) {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("วันที่เดินทางไม่ตรง")
+                            .setMessage("ตั๋วนี้เดินทางวันที่ " + travelDate + " ไม่ใช่วันนี้")
                             .setPositiveButton("ตกลง", null).show();
                     return;
                 }
@@ -960,44 +988,57 @@ public class MainActivity extends Activity {
                 String checkinStatus = String.valueOf(snap.child("originCheckin").child("status").getValue());
                 if ("boarded".equals(checkinStatus)) {
                     new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("⚠ เช็คอินไปแล้ว")
-                            .setMessage("ตั๋ว " + finalCode + " ถูกเช็คอินไปก่อนหน้านี้แล้ว")
+                            .setTitle("เช็คอินและยืนยันตัวตนแล้ว")
+                            .setMessage("ตั๋ว " + finalCode + " ถูกสแกนสำเร็จไปก่อนหน้านี้แล้ว")
                             .setPositiveButton("ตกลง", null).show();
                     return;
                 }
-                String name  = String.valueOf(snap.child("name").getValue());
-                String phone = String.valueOf(snap.child("phone").getValue());
-                String seats = String.valueOf(snap.child("seats").getValue());
-                String route = String.valueOf(snap.child("route").getValue());
+
+                final String name = String.valueOf(snap.child("name").getValue());
+                final String seats = String.valueOf(snap.child("seats").getValue());
+                final String route = String.valueOf(snap.child("route").getValue());
                 double price = 0;
                 try { price = Double.parseDouble(String.valueOf(snap.child("price").getValue())); }
                 catch (Exception ignored) {}
                 final double fare = price;
+                final long verifiedAt = System.currentTimeMillis();
 
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("✅ ตั๋ว " + finalCode)
-                        .setMessage("ชื่อ: " + name + "\nเบอร์: " + phone + "\nที่นั่ง: " + seats
-                                + "\nเส้นทาง: " + route
-                                + (fare > 0 ? "\nค่าโดยสาร: ฿" + (long) fare : ""))
-                        .setPositiveButton("เช็คอินขึ้นรถ", (d, w) -> {
-                            Map<String, Object> data = new HashMap<>();
-                            data.put("status", "boarded");
-                            data.put("vehicleId", vehicleId);
-                            data.put("checkedBy", "driver_qr");
-                            data.put("ts", System.currentTimeMillis());
-                            // เตรียมฟิลด์ไว้สำหรับฟังก์ชันคิดยอดเงินเข้าคนขับอัตโนมัติในอนาคต
-                            data.put("farePaidToDriver", fare);
-                            data.put("fareSettled", false);
-                            FirebaseDatabase.getInstance()
-                                    .getReference(bookingPath + "/" + finalCode + "/originCheckin")
-                                    .updateChildren(data)
-                                    .addOnSuccessListener(unused -> {
-                                        refreshPassengerSummary();
-                                    });
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("originCheckin/status", "boarded");
+                updates.put("originCheckin/vehicleId", vehicleId);
+                updates.put("originCheckin/checkedBy", "driver_qr");
+                updates.put("originCheckin/ts", verifiedAt);
+                updates.put("originCheckin/identityVerified", true);
+                updates.put("originCheckin/identityVerifiedAt", verifiedAt);
+                updates.put("originCheckin/identityVerifiedBy", "driver_qr");
+                updates.put("originCheckin/farePaidToDriver", fare);
+                updates.put("originCheckin/fareSettled", false);
+                updates.put("passengerIdentity/status", "verified");
+                updates.put("passengerIdentity/verifiedAt", verifiedAt);
+                updates.put("passengerIdentity/verifiedBy", "driver_qr");
+                updates.put("passengerIdentity/vehicleId", vehicleId);
+
+                bookingRef.updateChildren(updates)
+                        .addOnSuccessListener(unused -> {
+                            refreshPassengerSummary();
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("ยืนยันตัวตนสำเร็จ")
+                                    .setMessage("ตั๋ว: " + finalCode + "\nชื่อ: " + name
+                                            + "\nที่นั่ง: " + seats + "\nเส้นทาง: " + route
+                                            + "\n\nระบบเช็คอินผู้โดยสารเรียบร้อยแล้ว")
+                                    .setPositiveButton("ตกลง", null).show();
                         })
-                        .setNegativeButton("ปิด", null).show();
+                        .addOnFailureListener(error -> new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("บันทึกเช็คอินไม่สำเร็จ")
+                                .setMessage("กรุณาตรวจสอบอินเทอร์เน็ตแล้วสแกนอีกครั้ง")
+                                .setPositiveButton("ตกลง", null).show());
             }
-            @Override public void onCancelled(DatabaseError error) {}
+            @Override public void onCancelled(DatabaseError error) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("ตรวจสอบตั๋วไม่ได้")
+                        .setMessage("กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่")
+                        .setPositiveButton("ตกลง", null).show();
+            }
         });
     }
 

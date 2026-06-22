@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="schedule-engine.js?v=20260622firebase"></script>
+<script src="qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -195,6 +196,12 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
 .upload-progress{height:6px;background:var(--border);border-radius:4px;margin-top:10px;overflow:hidden;display:none;}
 .upload-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));width:0%;transition:width .3s;border-radius:4px;}
 .qr-box canvas,.qr-box img{display:block;width:108px!important;height:108px!important;}
+.ticket-qr-wrap{margin:14px 0;padding:16px;border:1.5px solid #99f6e4;border-radius:16px;background:#f0fdfa;text-align:center;}
+.ticket-qr-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.ticket-qr-help{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;}
+.ticket-qr-code{width:176px;height:176px;margin:0 auto 8px;padding:8px;background:#fff;border-radius:12px;box-shadow:0 3px 14px rgba(15,23,42,.12);display:flex;align-items:center;justify-content:center;}
+.ticket-qr-code canvas,.ticket-qr-code img{display:block;width:160px!important;height:160px!important;}
+.ticket-qr-note{font-size:12px;color:#047857;font-weight:600;}
 
 /* PAGE */
 .page{display:none;}
@@ -536,6 +543,12 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
           <div class="num" id="ticketQueuePrizeNum">-</div>
         </div>
         <div class="success-info-grid" id="successDetail"></div>
+        <div class="ticket-qr-wrap" id="ticketQrWrap">
+          <div class="ticket-qr-title">QR ตั๋วสำหรับคนขับ</div>
+          <div class="ticket-qr-help">แสดง QR นี้ให้คนขับสแกนเมื่อขึ้นรถ เพื่อยืนยันตั๋วและตัวตนผู้โดยสาร</div>
+          <div class="ticket-qr-code" id="ticketQrCode" aria-label="QR ตั๋วโดยสาร"></div>
+          <div class="ticket-qr-note">สแกนสำเร็จแล้ว ระบบจะบันทึกว่าเช็คอินและยืนยันตัวตนแล้ว</div>
+        </div>
         <div class="ticket-lines">
           <div class="ticket-line"><div class="k">เส้นทางแรก</div><div class="v" id="ticketLeg1">-</div></div>
           <div class="ticket-line" id="ticketLeg2Wrap" style="display:none"><div class="k">เส้นทางที่สอง</div><div class="v" id="ticketLeg2">-</div></div>
@@ -2177,10 +2190,33 @@ function verifySlipPayment(bookingId, imageUrl) {
   });
 }
 
+function getTicketQrText(code) {
+  return 'https://sl-transit.com/check_ticket.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
+}
+
+function renderTicketQr(booking) {
+  var target = document.getElementById('ticketQrCode');
+  if (!target || !booking || !booking.code) return;
+  target.innerHTML = '';
+  if (typeof QRCode !== 'function') {
+    target.textContent = 'ไม่สามารถสร้าง QR ได้ กรุณาแสดงรหัสตั๋วแทน';
+    return;
+  }
+  new QRCode(target, {
+    text: getTicketQrText(booking.code),
+    width: 160,
+    height: 160,
+    colorDark: '#0B1D3A',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
 function showSuccess(booking) {
   lastBooking = booking;
   grantTicketAccess(booking.code);
   document.getElementById('bookingCode').textContent = booking.code;
+  renderTicketQr(booking);
   var transferInfo = booking.transfer || getTransferInfo(selOrigin, selDest, booking.time);
   var legSchedule = booking.legSchedule || {};
   document.getElementById('ticketLeg1').textContent = legSchedule.leg1 || '-';
@@ -2507,6 +2543,9 @@ function submitBooking() {
         noLiveTracking: tripAssignment.noLiveTracking === true,
         assignmentSource: tripAssignment.assignmentSource || '',
         seats:       seats,
+        ticketQrVersion: 'SLT1',
+        passengerIdentity: { status:'pending', verifiedAt:null, verifiedBy:'', vehicleId:'' },
+        originCheckin: { status:'pending', identityVerified:false },
         capacityLimit: capacityLimit || '',
         capacitySeats: capacityReservation && capacityReservation.reserved ? seats : '',
         capacityUsagePath: capacityReservation && capacityReservation.path ? capacityReservation.path : '',
@@ -2790,7 +2829,7 @@ async function downloadTicketImage() {
 
   var canvas = document.createElement('canvas');
   canvas.width = 900;
-  canvas.height = 1280;
+  canvas.height = 1700;
   var ctx = canvas.getContext('2d');
   var isPlatform6   = PLATFORM6_DESTS.indexOf(selDest) !== -1;
   var isEkkamaiDest = EKKAMAI_DESTS.indexOf(selDest) !== -1 || MOCHIT_DESTS.indexOf(selDest) !== -1;
@@ -2804,7 +2843,7 @@ async function downloadTicketImage() {
   ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 10;
   ctx.fillStyle = '#ffffff';
-  drawRoundRect(ctx, 70, 70, 760, 1120, 28);
+  drawRoundRect(ctx, 70, 70, 760, 1560, 28);
   ctx.fill();
   ctx.shadowColor = 'transparent';
 
@@ -2929,11 +2968,27 @@ async function downloadTicketImage() {
   ctx.fillText('ข้อมูลการสำรองที่นั่งครบถ้วนเรียบร้อยแล้ว', 155, y + 52);
   ctx.fillText('แสดงรูปตั๋วหรือรหัสเมื่อขึ้นรถ', 155, y + 92);
 
+  var ticketQrCanvas = document.querySelector('#ticketQrCode canvas');
+  var ticketQrImage = ticketQrCanvas || document.querySelector('#ticketQrCode img');
+  var ticketQrY = Math.max(y + 165, 1120);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#0B1D3A';
+  ctx.font = '700 25px Kanit, sans-serif';
+  ctx.fillText('QR ตั๋วสำหรับคนขับสแกน', 450, ticketQrY - 30);
+  if (ticketQrImage) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(338, ticketQrY - 12, 224, 224);
+    ctx.drawImage(ticketQrImage, 350, ticketQrY, 200, 200);
+  }
+  ctx.fillStyle = '#047857';
+  ctx.font = '600 20px Kanit, sans-serif';
+  ctx.fillText('สแกนเพื่อเช็คอินและยืนยันตัวตนผู้โดยสาร', 450, ticketQrY + 245);
+
   ctx.textAlign = 'center';
   ctx.fillStyle = '#64748b';
   ctx.font = '500 20px Kanit, sans-serif';
-  ctx.fillText('บันทึกจากระบบสำรองที่นั่งออนไลน์', 450, 1210);
-  ctx.fillText('S.L.Transit', 450, 1244);
+  ctx.fillText('บันทึกจากระบบสำรองที่นั่งออนไลน์', 450, 1640);
+  ctx.fillText('S.L.Transit', 450, 1674);
 
   var a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
