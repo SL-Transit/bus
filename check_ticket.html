@@ -758,6 +758,8 @@
     ];
     var ADMIN_DEST_SCHEDULES = [];
       var ADMIN_TRIP_BY_ID = {};
+        ADMIN_TRIP_BY_LEGACY_KEY = {};
+      var ADMIN_TRIP_BY_LEGACY_KEY = {};
     var TEST_MODE = false;
 
     var currentBooking = null;
@@ -885,6 +887,7 @@
     function buildAdminDestinationSchedules(routes) {
         var list = [];
         ADMIN_TRIP_BY_ID = {};
+        ADMIN_TRIP_BY_LEGACY_KEY = {};
         if (!routes) return list;
         Object.values(routes).forEach(function(group) {
           if (!group || group.isActive === false) return;
@@ -892,15 +895,19 @@
             if (!route || route.isActive === false || !route.to || !route.times || !route.times.length) return;
             var activeTimes = route.times.filter(function(time){return !(route.disabledTimes || []).includes(time);}).slice().sort();
             activeTimes.forEach(function(time){var meta=route.scheduleMeta&&route.scheduleMeta[time]||{};if(meta.tripId)ADMIN_TRIP_BY_ID[String(meta.tripId)]={time:time,routeId:route.routeId||'',from:route.from||'',to:route.to||''};});
+            Object.keys(route.scheduleAliases||{}).forEach(function(oldTime){var live=ADMIN_TRIP_BY_ID[String(route.scheduleAliases[oldTime]||'')];if(live)ADMIN_TRIP_BY_LEGACY_KEY[adminScheduleKey(route.from,route.to,oldTime)]=live;});
             list.push({keywords:[String(route.to)],times:activeTimes,group:group.id||'',connectionType:group.connectionType||'',transferHubStopKey:group.transferHubStopKey||''});
           });
         });
         return list;
       }
 
+      function adminScheduleKey(from,to,time){return String(from||'').replace(/\s+/g,'').toLowerCase()+'|'+String(to||'').replace(/\s+/g,'').toLowerCase()+'|'+String(time||'').slice(0,5);}
+
       function applyAdminScheduleToCurrentBooking() {
-        if (!currentBooking || !currentBooking.tripId) return false;
-        var live = ADMIN_TRIP_BY_ID[String(currentBooking.tripId)];
+        if (!currentBooking) return false;
+        var live = currentBooking.tripId ? ADMIN_TRIP_BY_ID[String(currentBooking.tripId)] : null;
+        if (!live) live = ADMIN_TRIP_BY_LEGACY_KEY[adminScheduleKey(currentBooking.origin||currentBooking.pickupStopName,currentBooking.destination,currentBooking.time)];
         if (!live || !live.time || live.time === currentBooking.time) return false;
         currentBooking.time = live.time;
         currentBooking.leg1Time = live.time;
