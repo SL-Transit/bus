@@ -1971,12 +1971,14 @@
         return !stops.slice(0, index).some(function(previous) { return isSameStop(previous.name, stop.name); });
       });
     }
-    function createTrackingMarker(className, text) {
+    function createTrackingMarker(className, text, iconText) {
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
       var label = text || (className === 'pickup' ? 'ต้นทาง' : className === 'transfer' ? 'ปลายทาง' : 'รถโดยสาร');
+      var markerIcon = iconText || (className === 'pickup' ? '📍' : className === 'transfer' ? '🏁' : text);
       el.title = label;
       el.setAttribute('aria-label', label);
+      el.dataset.markerIcon = markerIcon || '';
       if (className === 'van') {
         var img = document.createElement('img');
         img.src = 'assets/passenger-bus-icon.png';
@@ -1985,12 +1987,11 @@
       } else {
         var symbol = document.createElement('span');
         symbol.setAttribute('aria-hidden', 'true');
-        symbol.textContent = className === 'pickup' ? '📍' : className === 'transfer' ? '🏁' : text;
+        symbol.textContent = markerIcon;
         el.appendChild(symbol);
       }
       return el;
     }
-
     function renderRouteStopMarkers() {
       if (!trackingMapReady || !trackingMap) return;
       trackingRouteStopMarkers.forEach(function(marker) { try { marker.remove(); } catch(e) {} });
@@ -2111,8 +2112,13 @@
     }
     function renderPickupMarker() {
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(pickupStopLocation)) return;
-      if (!trackingPickupMarker) {
-        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ป้าย') })
+      var pickupIcon = pickupStopLocation.icon || '📍';
+      var pickupElement = trackingPickupMarker && typeof trackingPickupMarker.getElement === 'function' ? trackingPickupMarker.getElement() : null;
+      if (!trackingPickupMarker || !pickupElement || pickupElement.dataset.markerIcon !== pickupIcon) {
+        if (trackingPickupMarker) {
+          try { trackingPickupMarker.remove(); } catch(e) {}
+        }
+        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ต้นทาง', pickupIcon) })
           .setLngLat([pickupStopLocation.lng, pickupStopLocation.lat])
           .addTo(trackingMap);
       } else {
@@ -2120,12 +2126,18 @@
       }
       updateTrackingRouteLine();
     }
-
     function renderTransferMarker() {
       var point = destinationLocation;
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(point)) return;
-      if (!trackingTransferMarker) {
-        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ปลายทาง') }).setLngLat([point.lng, point.lat]).addTo(trackingMap);
+      var destinationIcon = point.icon || '🏁';
+      var destinationElement = trackingTransferMarker && typeof trackingTransferMarker.getElement === 'function' ? trackingTransferMarker.getElement() : null;
+      if (!trackingTransferMarker || !destinationElement || destinationElement.dataset.markerIcon !== destinationIcon) {
+        if (trackingTransferMarker) {
+          try { trackingTransferMarker.remove(); } catch(e) {}
+        }
+        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ปลายทาง', destinationIcon) })
+          .setLngLat([point.lng, point.lat])
+          .addTo(trackingMap);
       } else {
         trackingTransferMarker.setLngLat([point.lng, point.lat]);
       }
