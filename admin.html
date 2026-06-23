@@ -600,7 +600,7 @@ tr:hover td{background:#fafafa;}
           <input type="text" id="routeSearchInput" placeholder="ค้นหาเส้นทาง เช่น สนามชัยเขต, ทุ่งกบินทร์..." oninput="onRouteSearchInput(this.value)">
           <span class="route-search-clear" id="routeSearchClear" onclick="clearRouteSearch()" style="display:none">&#x2715; ล้าง</span>
         </div>
-        <div id="routeGroupsWrap"></div>
+        <div class="alert alert-info">ข้อมูลส่วนนี้เป็นข้อมูลกลางของ Booking, Passenger และ Check Ticket · กลุ่มที่ต้องเปลี่ยนรถให้กำหนดเป็น “ต่อรถที่แปดริ้ว” เพื่อให้ทุกหน้าจับคู่ตรงกัน</div><div id="routeGroupsWrap"></div>
         <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
           <button class="btn btn-dark btn-sm" onclick="addRouteGroup()">+ กลุ่มเส้นทางใหม่</button>
           <button class="btn btn-primary" onclick="saveRoutes()">&#x1F4BE; บันทึกทั้งหมด</button>
