@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="schedule-engine.js?v=20260623central3"></script>
+<script src="schedule-engine.js?v=20260623central2"></script>
 <script src="qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -1544,23 +1544,13 @@ function getTransferSchedules(origin, destination) {
   return [];
 }
 
-function filterBookingEnabledSchedules(origin, destination, times) {
-  var list = (times || []).slice();
-  if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return list;
-  var travelDateEl = document.getElementById('travelDate');
-  var serviceDate = travelDateEl && travelDateEl.value ? travelDateEl.value : new Date().toISOString().split('T')[0];
-  var requiresTransfer = shouldRequireTransfer(origin, destination);
-  return list.filter(function(time) {
-    var assignment = resolveBookingTripAssignment(origin, destination, time, requiresTransfer, serviceDate);
-    return !assignment || assignment.bookingEnabled !== false;
-  });
+function getAdminAwareSchedules(origin, destination) {
+  var directTimes = getDirectSchedules(origin, destination);
+  if (directTimes && directTimes.length) return directTimes;
+  if (shouldRequireTransfer(origin, destination)) return getTransferSchedules(origin, destination);
+  return [];
 }
 
-function getAdminAwareSchedules(origin, destination) {
-  var times = getDirectSchedules(origin, destination);
-  if (!times || !times.length) times = shouldRequireTransfer(origin, destination) ? getTransferSchedules(origin, destination) : [];
-  return filterBookingEnabledSchedules(origin, destination, times);
-}
 function getTransferPrice(origin, destination) {
   var destObj = LEG2_DEST[destination];
   var leg1Price = (SEGMENT_PRICE[origin] && SEGMENT_PRICE[origin][TRANSFER_POINT_KEY] !== undefined)
@@ -2515,12 +2505,6 @@ function submitBooking() {
       if (!tripAssignment.queueNo && !tripAssignment.scheduleOnly && !tripAssignment.noLiveTracking) {
         tripAssignment = resolveBookingTripAssignmentByLabel(fromName, toName, selTime, requiresTransfer, dateVal);
       }
-      if (tripAssignment.bookingEnabled === false) {
-        alert('เที่ยวรถนี้ยังไม่เปิดรับจอง กรุณาเลือกเวลาอื่น');
-        selTime = null;
-        renderTimes();
-        return;
-      }
       var vehicleQueueNum = Number(tripAssignment.queueNo || 0);
       var isAdminTester = isAdminTesterPhone(safePhone);
       if(isAdminTester)setAdminTesterSession(true);
@@ -2753,7 +2737,7 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
     }
     var shared = window.SLTransitSchedule.resolveTripAssignment(sharedInput);
     if (shared && (shared.queueNo || shared.scheduleOnly || shared.noLiveTracking)) {
-      return { queueNo: shared.queueNo || '', plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || time, pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, bookingEnabled: shared.bookingEnabled !== false, assignmentSource: shared.assignmentSource || 'schedule_engine' };
+      return { queueNo: shared.queueNo || '', plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || time, pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || 'schedule_engine' };
     }
   }
   var target = requiresTransfer ? TRANSFER_POINT_KEY : dest;
@@ -2779,8 +2763,7 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
     plannedVehicleId: plannedVehicleId,
     tripIndex: match.tripIndex,
     departTime: match.departTime,
-    routeDirection: match.direction,
-    bookingEnabled: true
+    routeDirection: match.direction
   };
 }
 

@@ -161,13 +161,13 @@
       stopTimes: { chachoengsao: '16:20', phanom: '17:00' }
     },
     {
-      queueNo: 5, tripIndex: 1, serviceType: 'schedule-only', noLiveTracking: true, scheduleOnly: true, bookingEnabled: false,
+      queueNo: 5, tripIndex: 1, serviceType: 'schedule-only', noLiveTracking: true, scheduleOnly: true,
       departTime: '06:20', from: 'nongkhok', to: 'chachoengsao', direction: 'to_chachoengsao',
       routeStops: ['nongkhok','tatakiab','sanamchai','phanom','chachoengsao'],
       stopTimes: { nongkhok: '06:20', tatakiab: '06:35', sanamchai: '07:20', phanom: '07:40' }
     },
     {
-      queueNo: 5, tripIndex: 2, serviceType: 'schedule-only', noLiveTracking: true, scheduleOnly: true, bookingEnabled: false,
+      queueNo: 5, tripIndex: 2, serviceType: 'schedule-only', noLiveTracking: true, scheduleOnly: true,
       departTime: '17:20', from: 'chachoengsao', to: 'nongkhok', direction: 'from_chachoengsao',
       routeStops: ['chachoengsao','phanom','sanamchai','tatakiab','nongkhok'],
       stopTimes: { chachoengsao: '17:20', phanom: '18:00', sanamchai: '18:20', tatakiab: '18:50' }
@@ -290,7 +290,6 @@
       serviceType: serviceType,
       scheduleOnly: rawTrip.scheduleOnly === true || serviceType === 'schedule-only',
       noLiveTracking: rawTrip.noLiveTracking === true || serviceType === 'schedule-only',
-      bookingEnabled: rawTrip.bookingEnabled !== false,
       departTime: departTime,
       from: routeStops[0],
       to: routeStops[routeStops.length - 1],
@@ -435,7 +434,6 @@
       routeStopNames: routeStopNames,
       scheduleOnly: data.scheduleOnly === true || data.serviceType === 'schedule-only',
       noLiveTracking: data.noLiveTracking === true || data.scheduleOnly === true || data.serviceType === 'schedule-only',
-      bookingEnabled: data.bookingEnabled !== false,
       assignmentSource: data.assignmentSource || 'schedule_engine'
     };
     return assignment;
@@ -476,7 +474,6 @@
       serviceType: 'schedule-only',
       scheduleOnly: true,
       noLiveTracking: true,
-      bookingEnabled: input.bookingEnabled !== false,
       assignmentSource: input.assignmentSource || 'published_schedule_only'
     };
   }
