@@ -757,6 +757,7 @@
       { name:'ฉะเชิงเทรา', lat:13.692477, lng:101.054105 }
     ];
     var ADMIN_DEST_SCHEDULES = [];
+      var ADMIN_TRIP_BY_ID = {};
     var TEST_MODE = false;
 
     var currentBooking = null;
@@ -831,6 +832,7 @@
         DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
       }
       ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
+        applyAdminScheduleToCurrentBooking();
       updateActionAvailability();
     });
 
@@ -881,17 +883,32 @@
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
     function buildAdminDestinationSchedules(routes) {
-      var list = [];
-      if (!routes) return list;
-      Object.values(routes).forEach(function(group) {
-        (group.routes || []).forEach(function(route) {
-          if (!route.to || !route.times || !route.times.length) return;
-          list.push({
-            keywords: [String(route.to)],
-            times: route.times.slice().sort(),
-            group: group.id || ''
+        var list = [];
+        ADMIN_TRIP_BY_ID = {};
+        if (!routes) return list;
+        Object.values(routes).forEach(function(group) {
+          if (!group || group.isActive === false) return;
+          (group.routes || []).forEach(function(route) {
+            if (!route || route.isActive === false || !route.to || !route.times || !route.times.length) return;
+            var activeTimes = route.times.filter(function(time){return !(route.disabledTimes || []).includes(time);}).slice().sort();
+            activeTimes.forEach(function(time){var meta=route.scheduleMeta&&route.scheduleMeta[time]||{};if(meta.tripId)ADMIN_TRIP_BY_ID[String(meta.tripId)]={time:time,routeId:route.routeId||'',from:route.from||'',to:route.to||''};});
+            list.push({keywords:[String(route.to)],times:activeTimes,group:group.id||'',connectionType:group.connectionType||'',transferHubStopKey:group.transferHubStopKey||''});
           });
         });
+        return list;
+      }
+
+      function applyAdminScheduleToCurrentBooking() {
+        if (!currentBooking || !currentBooking.tripId) return false;
+        var live = ADMIN_TRIP_BY_ID[String(currentBooking.tripId)];
+        if (!live || !live.time || live.time === currentBooking.time) return false;
+        currentBooking.time = live.time;
+        currentBooking.leg1Time = live.time;
+        currentBooking.departTime = live.time;
+        currentBooking.pickupTime = live.time;
+        if (currentBooking.legSchedule) currentBooking.legSchedule.leg1Time = live.time;
+        if (!document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
+        return true;
       });
       return list;
     }
