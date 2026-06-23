@@ -1211,7 +1211,7 @@ function applyPassengerRouteData(data) {
     if (!stop) return null;
     var lat = Number(stop.lat), lng = Number(stop.lng);
     if (!isFinite(lat) || !isFinite(lng)) return null;
-    return { key:key, name:stop.stopNameTh || stop.name || key, lat:lat, lng:lng, icon:stop.icon || (stop.stopType === 'transfer_hub' ? '🔁' : '🚌'), order:Number(stop.order) || 0, stopType:stop.stopType || 'main', bookingEnabled:stop.bookingEnabled !== false, note:stop.note || '' };
+    return { key:key, name:stop.stopNameTh || stop.name || key, lat:lat, lng:lng, icon:stop.icon || '🚏', order:Number(stop.order) || 0, stopType:stop.stopType || 'main', bookingEnabled:stop.bookingEnabled !== false, note:stop.note || '' };
   }).filter(Boolean);
   if (!nextStops.length) return;
   STOPS_GO.splice.apply(STOPS_GO, [0, STOPS_GO.length].concat(nextStops));
@@ -1379,7 +1379,7 @@ function renderStationMarkers(routeData, skipEnsure) {
     var point = normalizeMapPoint(s);
     if (!point) return;
     var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
-    var safeIcon = String(s.icon || '🚌').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+    var safeIcon = String(s.icon || '🚏').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
       var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
