@@ -909,9 +909,7 @@
         if (currentBooking.legSchedule) currentBooking.legSchedule.leg1Time = live.time;
         if (!document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
         return true;
-      });
-      return list;
-    }
+      }
 
     function lookupTicket() {
       var value = normalizeLookup(document.getElementById('lookupValue').value);
