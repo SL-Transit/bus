@@ -615,7 +615,24 @@ tr:hover td{background:#fafafa;}
         <div class="fg"><label>หัวข้อ</label><input id="annT" type="text" placeholder="เช่น รถสาย 09:00 ล่าช้า 20 นาที"></div>
         <div class="fg"><label>ข้อความ</label><textarea id="annB" placeholder="รายละเอียด..."></textarea></div>
         <div class="fg"><label>ประเภท</label><select id="annType"><option value="info">&#x1F4E2; ทั่วไป</option><option value="warn">&#x26A0;&#xFE0F; แจ้งเตือน</option><option value="danger">&#x1F6A8; ด่วน</option></select></div>
-        <button class="btn btn-primary" onclick="postAnn()">&#x1F4E2; เผยแพร่</button>
+        <div class="fg">
+          <label>วันหมดอายุ <span style="font-weight:400;color:var(--muted)">(ไม่บังคับ — ปล่อยว่าง = ไม่มีวันหมดอายุ)</span></label>
+          <input type="datetime-local" id="annExpiry" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;color:var(--navy)">
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">ประกาศจะซ่อนตัวเองอัตโนมัติเมื่อถึงเวลาที่กำหนด</div>
+        </div>
+        <div class="fg">
+          <label>รูปภาพประกอบ <span style="font-weight:400;color:var(--muted)">(ไม่บังคับ)</span></label>
+          <input type="file" id="annImg" accept="image/*" style="display:none" onchange="onAnnImgPick(this)">
+          <div id="annImgDrop" onclick="document.getElementById('annImg').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px 12px;text-align:center;cursor:pointer;background:#f8fafc;font-size:13px;color:var(--muted)">
+            🖼️ แตะ / คลิกเพื่อเลือกรูปภาพ
+          </div>
+          <div id="annImgPreviewWrap" style="display:none;margin-top:8px;position:relative">
+            <img id="annImgPreview" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);display:block">
+            <button onclick="clearAnnImg()" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;line-height:26px;text-align:center">✕</button>
+            <div id="annImgInfo" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="annSubmitBtn" onclick="postAnn()">&#x1F4E2; เผยแพร่</button>
       </div>
       <div class="card"><h2>&#x1F4CB; ประกาศที่ใช้งานอยู่</h2><div id="annList"></div></div>
     </div>
@@ -2172,20 +2189,82 @@ function loadAnnouncements(){
     if(al)al.innerHTML=arr.length?arr.map(function(a){return annItem(a,true);}).join(''):'<div style="color:var(--muted);text-align:center;padding:14px">ไม่มีประกาศ</div>';
   });
 }
+/* ── image helpers ── */
+var _annImgB64=null;
+function onAnnImgPick(inp){
+  var file=inp.files&&inp.files[0]; if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var maxPx=1280,q=0.80,w=img.width,h=img.height;
+      if(w>maxPx||h>maxPx){var r=Math.min(maxPx/w,maxPx/h);w=Math.round(w*r);h=Math.round(h*r);}
+      var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      _annImgB64=cv.toDataURL('image/jpeg',q);
+      document.getElementById('annImgPreview').src=_annImgB64;
+      document.getElementById('annImgPreviewWrap').style.display='block';
+      document.getElementById('annImgDrop').style.display='none';
+      document.getElementById('annImgInfo').textContent=w+'×'+h+' px · '+Math.round(_annImgB64.length*0.75/1024)+' KB';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function clearAnnImg(){
+  _annImgB64=null;
+  document.getElementById('annImg').value='';
+  document.getElementById('annImgPreviewWrap').style.display='none';
+  document.getElementById('annImgDrop').style.display='block';
+  document.getElementById('annImgInfo').textContent='';
+}
 function annItem(a,actions){
   var tcls={info:'alert-info',warn:'alert-warn',danger:'alert-danger'}[a.type]||'alert-info';
-  return'<div class="ann-item"><div class="ann-head"><span class="ann-title">'+esc(a.title||'')+'</span><span class="ann-time">'+fmtTs(a.ts)+'</span></div>'+
-    '<div class="alert '+tcls+'" style="margin:0;padding:7px 11px;font-size:12px">'+esc(a.body||'')+'</div>'+
-    (actions?'<div style="margin-top:7px;display:flex;gap:5px">'+
-      (a.active!==false?'<button class="btn btn-dark btn-sm" onclick="confirmDel(\'ซ่อนประกาศนี้?\',function(){toggleAnn(\''+a.id+'\',false)})">ซ่อน</button>':'<button class="btn btn-success btn-sm" onclick="toggleAnn(\''+a.id+'\',true)">แสดง</button>')+
-      '<button class="btn btn-danger btn-sm" onclick="confirmDel(\'ลบประกาศนี้?\',function(){deleteAnn(\''+a.id+'\')})">\ud83d\uddd1\ufe0f ลบ</button></div>':'')+'</div>';
+  var now=Date.now();
+  var expired=a.expiresAt&&a.expiresAt<now;
+  var badge='';
+  if(a.expiresAt){
+    var lbl=new Date(a.expiresAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});
+    badge=expired
+      ?'<span style="font-size:10px;background:#fee2e2;color:#dc2626;border-radius:4px;padding:1px 6px;margin-left:5px">⏰ หมดอายุแล้ว</span>'
+      :'<span style="font-size:10px;background:#f0fdf4;color:#16a34a;border-radius:4px;padding:1px 6px;margin-left:5px">⏳ ถึง '+lbl+'</span>';
+  }
+  var imgHtml=a.imageB64?'<img src="'+a.imageB64+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:7px;margin-top:6px;display:block">':'';
+  return'<div class="ann-item"'+(expired?' style="opacity:.55"':'')+'>'
+    +'<div class="ann-head"><span class="ann-title">'+esc(a.title||'')+badge+'</span><span class="ann-time">'+fmtTs(a.ts)+'</span></div>'
+    +'<div class="alert '+tcls+'" style="margin:0;padding:6px 10px;font-size:12px">'+esc(a.body||'')+'</div>'
+    +imgHtml
+    +(actions?'<div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap">'
+      +(a.active!==false
+        ?'<button class="btn btn-dark btn-sm" onclick="confirmDel('ซ่อนประกาศนี้?',function(){toggleAnn(''+a.id+'',false)})">ซ่อน</button>'
+        :'<button class="btn btn-success btn-sm" onclick="toggleAnn(''+a.id+'',true)">แสดง</button>')
+      +'<button class="btn btn-danger btn-sm" onclick="confirmDel('ลบประกาศนี้?',function(){deleteAnn(''+a.id+'')})">🗑️ ลบ</button></div>':'')
+    +'</div>';
 }
 function postAnn(){
   var t=document.getElementById('annT').value.trim(),b=document.getElementById('annB').value.trim(),type=document.getElementById('annType').value;
   if(!t||!b){alert('กรุณากรอกหัวข้อและข้อความ');return;}
-  db.ref('announcements').push({title:esc(t),body:esc(b),type:type,active:true,ts:Date.now(),by:CU.email});
-  document.getElementById('annT').value='';document.getElementById('annB').value='';
-  writeLog('announce','โพสต์ประกาศ: '+t);
+  var payload={title:esc(t),body:esc(b),type:type,active:true,ts:Date.now(),by:CU.email};
+  if(_annImgB64)payload.imageB64=_annImgB64;
+  var expVal=document.getElementById('annExpiry').value;
+  if(expVal){
+    var expTs=new Date(expVal).getTime();
+    if(!isNaN(expTs)&&expTs>Date.now()){payload.expiresAt=expTs;}
+    else if(!isNaN(expTs)){alert('วันหมดอายุต้องเป็นเวลาในอนาคต');return;}
+  }
+  var btn=document.getElementById('annSubmitBtn');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก…';}
+  db.ref('announcements').push(payload).then(function(){
+    document.getElementById('annT').value='';
+    document.getElementById('annB').value='';
+    document.getElementById('annExpiry').value='';
+    clearAnnImg();
+    writeLog('announce','โพสต์ประกาศ: '+t+(payload.expiresAt?' (หมดอายุ '+new Date(payload.expiresAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})+')':''));
+    if(btn){btn.disabled=false;btn.innerHTML='📢 เผยแพร่';}
+  }).catch(function(err){
+    alert('บันทึกไม่สำเร็จ: '+err.message);
+    if(btn){btn.disabled=false;btn.innerHTML='📢 เผยแพร่';}
+  });
 }
 function toggleAnn(id,active){db.ref('announcements/'+id).update({active:active});}
 function deleteAnn(id){db.ref('announcements/'+id).remove();}
