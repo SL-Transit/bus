@@ -793,7 +793,7 @@ function _applySettings(snap) {
       var group = entry[1];
       if (!group.routes || group.isActive===false) return;
       var isMainGroup = group.id === 'main' || groupName === 'เส้นทางหลัก';
-      var isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(group.name || groupName || '');
+      var isLeg2Group = group.connectionType === 'transfer' || (!group.connectionType && (group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(group.name || groupName || '')));
       var groupLabel = group.name || groupName;
       var groupId = group.id || groupName;
       group.routes.forEach(function(r, routeIndex) {
