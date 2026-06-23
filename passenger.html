@@ -891,9 +891,8 @@ function pauseFollowForManualMapUse(reason) {
 }
 
 function getStopByName(name) {
-  return STOPS_GO.concat(STOPS_BACK).find(function(s){ return s.name === name; }) || null;
+  return STOPS_GO.concat(STOPS_BACK).find(function(stop) { return passengerStopMatches(stop, name); }) || null;
 }
-
 function focusSelectedOrigin() {
   var stop = getStopByName(selOrigin);
   if (stop) focusMap(normalizeMapPoint(stop), 14);
@@ -1348,12 +1347,42 @@ function initPassengerMap() {
   });
 }
 
-function loadPassengerRouteData() {
-  return Promise.resolve({
-    stations: curStops().slice()
-  });
+function passengerStopMatches(stop, name) {
+  if (!stop || !name) return false;
+  var stopAlias = normalizeRouteAlias(stop.name || stop.stopNameTh || stop.key || '');
+  var nameAlias = normalizeRouteAlias(name);
+  if (stopAlias && nameAlias && stopAlias === nameAlias) return true;
+  return cleanRouteLabel(stop.name || stop.stopNameTh || '') === cleanRouteLabel(name);
 }
 
+function selectedPassengerRouteStops() {
+  var stops = curStops().slice();
+  var originIndex = stops.findIndex(function(stop) { return passengerStopMatches(stop, selOrigin); });
+  var destinationIndex = stops.findIndex(function(stop) { return passengerStopMatches(stop, selDest); });
+  if (originIndex < 0 || destinationIndex < 0) {
+    return [getStopByName(selOrigin), getStopByName(selDest)].filter(Boolean);
+  }
+  var from = Math.min(originIndex, destinationIndex);
+  var to = Math.max(originIndex, destinationIndex);
+  var segment = stops.slice(from, to + 1);
+  return originIndex <= destinationIndex ? segment : segment.reverse();
+}
+
+function selectedPassengerMarkerStops(stations) {
+  stations = Array.isArray(stations) ? stations : [];
+  var selected = [];
+  [selOrigin, selDest].forEach(function(name) {
+    var stop = stations.find(function(item) { return passengerStopMatches(item, name); }) || getStopByName(name);
+    if (stop && !selected.some(function(item) { return passengerStopMatches(item, stop.name || name); })) selected.push(stop);
+  });
+  return selected;
+}
+
+function loadPassengerRouteData() {
+  return Promise.resolve({
+    stations: selectedPassengerRouteStops()
+  });
+}
 function renderRoutePolyline(routeData) {
   return drawRoute(routeData);
 }
@@ -1375,23 +1404,25 @@ function clearStationMarkers() {
 function renderStationMarkers(routeData, skipEnsure) {
   if (!mapReady || !mapObj || !routeData || !Array.isArray(routeData.stations)) return;
   clearStationMarkers();
-  routeData.stations.forEach(function(s, i) {
+  var markerStops = selectedPassengerMarkerStops(routeData.stations);
+  markerStops.forEach(function(s) {
     var point = normalizeMapPoint(s);
     if (!point) return;
-    var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
-    var safeIcon = String(s.icon || '🚌').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+    var fullStopIndex = curStops().findIndex(function(stop) { return passengerStopMatches(stop, s.name || s.stopNameTh || s.key); });
+    var actionIndex = fullStopIndex >= 0 ? fullStopIndex : 0;
+    var safeName = String(s.name || s.stopNameTh || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+    var safeIcon = String(s.icon || '📍').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
-      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
+      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + actionIndex + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
     } catch(e) { console.warn('Stop marker error:', e); }
     try {
-      var label = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-label" onclick="window.selectPassengerStop(' + i + ')">' + safeName + '</div>', offset: { x: 10, y: -10 } } });
+      var label = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-label" onclick="window.selectPassengerStop(' + actionIndex + ')">' + safeName + '</div>', offset: { x: 10, y: -10 } } });
       mapObj.Overlays.add(label); stationMarkerOverlays.push(label);
     } catch(e) { console.warn('Stop label error:', e); }
   });
   if (!skipEnsure) ensureStationMarkersVisible(routeData, 0);
 }
-
 function refreshMapSizeSafely() {
   if (!mapObj) return;
   setTimeout(function() { try { if (typeof mapObj.resize === 'function') mapObj.resize(); if (typeof mapObj.repaint === 'function') mapObj.repaint(); } catch(e){} }, 300);
@@ -1401,12 +1432,12 @@ function ensureStationMarkersVisible(routeData, attempt) {
   if (!mapObj || !routeData || !Array.isArray(routeData.stations)) return;
   if (attempt >= 3) return;
   setTimeout(function() {
-    if (stationMarkerOverlays.length < routeData.stations.length * 2) {
+    var expectedOverlays = selectedPassengerMarkerStops(routeData.stations).length * 2;
+    if (stationMarkerOverlays.length < expectedOverlays) {
       renderStationMarkers(routeData, true); refreshMapSizeSafely(); ensureStationMarkersVisible(routeData, attempt + 1);
     }
   }, attempt === 0 ? 300 : 800);
 }
-
 function startPassengerLocation() {
   if (!navigator.geolocation) return Promise.resolve(null);
   if (passengerWatchId !== null) return Promise.resolve(passengerPos);
