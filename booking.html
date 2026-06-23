@@ -785,6 +785,7 @@ function _applySettings(snap) {
     ROUTE_CLOSED_STOPS = {};
     ROUTE_CAPACITY = {};
     ADMIN_ROUTE_TIMES = {};
+    ADMIN_TRIP_IDENTITIES = {};
     ADMIN_ROUTE_GROUPS = [];
     TRANSFER_POINT_KEY = 'chachoengsao';
     var bookingDisplayGroups = _createBookingDisplayGroups();
@@ -808,6 +809,8 @@ function _applySettings(snap) {
         var routeGroupLabel = r.groupName || groupLabel;
         var routeGroupId = r.groupId || groupId;
         var routeSortOrder = _routeSortValue(r, routeIndex);
+        var routeId = r.routeId || (String(groupId)+'_'+routeIndex);
+        times.forEach(function(time){var meta=r.scheduleMeta&&r.scheduleMeta[time]||{};ADMIN_TRIP_IDENTITIES[fromKey+'|'+toKey+'|'+time]={routeId:routeId,tripId:meta.tripId||''};});
 
         if (!ORIGIN_TIMES[fromKey]) ORIGIN_TIMES[fromKey] = {label:r.from,times:[]};
         ORIGIN_TIMES[fromKey].label = r.from;
@@ -1132,6 +1135,8 @@ var _bookingAvailabilityQuery = null;
 var _bookingAvailabilityHandler = null;
 var _watchedAvailabilityDate = '';
 var ADMIN_ROUTE_TIMES = {};
+    ADMIN_TRIP_IDENTITIES = {};
+  var ADMIN_TRIP_IDENTITIES = {};
 var ADMIN_ROUTE_SOURCE_LOADED = false;
 var ADMIN_ROUTE_GROUPS = [];
 var TRANSFER_POINT_KEY = 'chachoengsao';
@@ -2459,6 +2464,7 @@ function submitBooking() {
         tripAssignment = resolveBookingTripAssignmentByLabel(fromName, toName, selTime, requiresTransfer, dateVal);
       }
       var vehicleQueueNum = Number(tripAssignment.queueNo || 0);
+      var tripIdentity = ADMIN_TRIP_IDENTITIES[selOrigin+'|'+selDest+'|'+selTime] || {};
       var isAdminTester = isAdminTesterPhone(safePhone);
       if(isAdminTester)setAdminTesterSession(true);
 
@@ -2476,6 +2482,8 @@ function submitBooking() {
         destination: toName,
         date:        dateVal,
         time:        selTime,
+        routeId:     tripIdentity.routeId || '',
+        tripId:      tripIdentity.tripId || '',
         leg1Route:   legSchedule.leg1,
         leg1Time:    legSchedule.leg1Time,
         leg2Route:   legSchedule.leg2,
