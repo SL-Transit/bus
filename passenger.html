@@ -1156,7 +1156,7 @@ function applyPassengerRouteSettings(data) {
     if (group.isActive === false) return;
     const groupName = group.name || entry[0] || '';
     const isLegacyGroup = group.id === 'origins' || group.id === 'local' || groupName === 'ต้นทางตาม passenger.html' || groupName === 'เส้นทางย่อยทั้งหมด';
-    const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
+    const isLeg2Group = group.connectionType === 'transfer' || (!group.connectionType && (group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName)));
     group.routes.forEach(function(route) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
       if (route.isActive === false) return;
