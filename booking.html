@@ -397,28 +397,6 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
     <button class="btn-submit" onclick="requestRouteContinue()">ดำเนินการต่อ →</button>
   </div>
 
-  <!-- ROUTE NOTICE POPUP -->
-  <div class="consent-popup-overlay" id="routeNoticePopup">
-    <div class="consent-popup-box" role="dialog" aria-modal="true" aria-labelledby="routeNoticeTitle">
-      <div class="consent-popup-header">
-        <div class="consent-popup-title" id="routeNoticeTitle">🚌 ยืนยันข้อมูลการเดินทาง</div>
-        <div class="consent-popup-sub">กรุณาตรวจสอบก่อนดำเนินการต่อ</div>
-      </div>
-      <div class="consent-popup-body">
-        <div id="routeNoticeSummary" style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-weight:650;line-height:1.75"></div>
-        <p style="margin-top:12px">โปรดมาถึงจุดขึ้นรถก่อนเวลาอย่างน้อย 10 นาที และตรวจสอบข้อมูลให้ถูกต้อง ตารางเดินรถอาจปรับตามสภาพการให้บริการ</p>
-        <label class="consent-row" style="margin-top:12px">
-          <input type="checkbox" id="routeNoticeAgree" onchange="toggleRouteNoticeAccept()">
-          <span>ข้าพเจ้าตรวจสอบเส้นทาง วันที่ และเวลาแล้ว และยอมรับเงื่อนไขข้างต้น</span>
-        </label>
-      </div>
-      <div class="consent-popup-footer">
-        <button class="consent-btn-accept" id="routeNoticeAccept" onclick="acceptRouteNotice()" disabled>✅ ยินยอมและดำเนินการต่อ</button>
-        <button class="consent-btn-cancel" onclick="closeRouteNotice()">← กลับไปแก้ไขข้อมูล</button>
-      </div>
-    </div>
-  </div>
-
   <!-- PAGE 2 -->
   <div class="page" id="page2">
     <div class="card">
@@ -1845,35 +1823,9 @@ function requestRouteContinue() {
   if (isClosedByAdmin(selTime)) { alert('รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้'); return; }
   if (isTripFull(dateVal, selTime, seats)) { alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น'); renderTimes(); return; }
   if (!canBook(dateVal, selTime)) { alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว กรุณาเลือกเวลาอื่น'); return; }
-  var originSelect = document.getElementById('routeFrom');
-  var destSelect = document.getElementById('routeTo');
-  var originLabel = originSelect.options[originSelect.selectedIndex] ? originSelect.options[originSelect.selectedIndex].text : selOrigin;
-  var destLabel = destSelect.options[destSelect.selectedIndex] ? destSelect.options[destSelect.selectedIndex].text : selDest;
-  var dateLabel = new Intl.DateTimeFormat('th-TH', {day:'numeric', month:'long', year:'numeric'}).format(new Date(dateVal + 'T00:00:00'));
-  var summaryEl = document.getElementById('routeNoticeSummary');
-  summaryEl.style.whiteSpace = 'pre-line';
-  summaryEl.textContent = 'ต้นทาง: ' + originLabel + '\nปลายทาง: ' + destLabel + '\nวันที่: ' + dateLabel + '\nเวลาออก: ' + selTime + ' น.';
-  var agree = document.getElementById('routeNoticeAgree');
-  agree.checked = false;
-  document.getElementById('routeNoticeAccept').disabled = true;
-  document.getElementById('routeNoticePopup').classList.add('show');
-}
-
-function toggleRouteNoticeAccept() {
-  document.getElementById('routeNoticeAccept').disabled = !document.getElementById('routeNoticeAgree').checked;
-}
-
-function closeRouteNotice() {
-  document.getElementById('routeNoticePopup').classList.remove('show');
-}
-
-function acceptRouteNotice() {
-  if (!document.getElementById('routeNoticeAgree').checked) return;
   _routeNoticeAccepted = true;
-  closeRouteNotice();
   goPage(2);
 }
-
 function goPage(p) {
   if (!BOOKING_OPEN) { alert('ขณะนี้ปิดรับสำรองที่นั่งชั่วคราว'); return; }
   if (p === 2) {
