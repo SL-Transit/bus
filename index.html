@@ -932,6 +932,17 @@
       messagingSenderId:"481251007816",appId:"1:481251007816:web:d8554178d954e7de16e77d"
     });
     var annDb = firebase.database();
+    annDb.ref('settings/bookingOpen').on('value', function (snap) {
+      var bookingOpen = snap.val() !== false;
+      var bookingButton = document.getElementById('btn1');
+      if (!bookingButton) return;
+      bookingButton.style.opacity = bookingOpen ? '1' : '.62';
+      bookingButton.style.filter = bookingOpen ? '' : 'grayscale(.35)';
+      bookingButton.setAttribute('aria-disabled', bookingOpen ? 'false' : 'true');
+      bookingButton.title = bookingOpen ? 'จองตั๋วโดยสารออนไลน์' : 'ระบบปิดรับจองชั่วคราว';
+      var label = bookingButton.querySelector('.btn-text');
+      if (label) label.textContent = bookingOpen ? 'จองตั๋วโดยสารออนไลน์' : 'ปิดรับจองชั่วคราว';
+    });
     var ANN_ICO = {info:'📢', warn:'⚠️', danger:'🚨'};
     var DISMISS_KEY = 'slt_ann_dismissed';
     var currentAnnIds = [];

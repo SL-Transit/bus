@@ -8,6 +8,7 @@
   var ROUTE_DATA_RAW = null;
   var ROUTE_DATA_TRIPS = [];
   var routeDataWatchStarted = false;
+  var firebaseWatchRetryTimer = null;
 
   // ===== โหลดค่าคิวจาก Firebase (settings/queueRotation) ถ้ามี — override ค่า fallback ด้านบน =====
   // เพื่อให้ admin แก้ไข base date / ลำดับคิวเริ่มต้นได้ในอนาคตโดยไม่ต้องแก้โค้ดไฟล์นี้
@@ -294,8 +295,9 @@
 
   function watchFirebaseData(database) {
     try {
+      if (routeDataWatchStarted) return true;
       var db = database || (global.firebase && global.firebase.database && global.firebase.database());
-      if (!db || routeDataWatchStarted) return;
+      if (!db) return false;
       routeDataWatchStarted = true;
       db.ref('settings/queueRotation').on('value', function(snap) {
         applyRotationConfig(snap.val());
@@ -303,9 +305,27 @@
       db.ref('routeData').on('value', function(snap) {
         applyRouteData(snap.val());
       });
-    } catch (e) {}
+      return true;
+    } catch (e) {
+      routeDataWatchStarted = false;
+      return false;
+    }
   }
 
+  function startFirebaseDataWatch(attempt) {
+    if (watchFirebaseData()) {
+      if (firebaseWatchRetryTimer) clearTimeout(firebaseWatchRetryTimer);
+      firebaseWatchRetryTimer = null;
+      return;
+    }
+    attempt = Number(attempt || 0);
+    if (attempt >= 60) return;
+    firebaseWatchRetryTimer = setTimeout(function() {
+      startFirebaseDataWatch(attempt + 1);
+    }, attempt < 10 ? 100 : 500);
+  }
+
+  startFirebaseDataWatch(0);
   function daysBetween(dateText, baseText) {
     var match = String(dateText || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     var base = String(baseText || BASE_DATE).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -477,7 +497,8 @@
     reloadRotationConfig: loadRotationConfigFromFirebase,
     reloadRouteData: loadRouteDataFromFirebase,
     applyRouteData: applyRouteData,
-    watchFirebaseData: watchFirebaseData
+    watchFirebaseData: watchFirebaseData,
+    startFirebaseDataWatch: startFirebaseDataWatch
   };
 })(window);
 
