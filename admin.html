@@ -1781,7 +1781,7 @@ function updateTime(gname,ri,ti,val){
   times[ti]=val;times.sort();r.times=times;
   if(r.closedStops&&r.closedStops[old]){r.closedStops[val]=r.closedStops[old];delete r.closedStops[old];}
   if(r.capacityByTime&&r.capacityByTime[old]){r.capacityByTime[val]=r.capacityByTime[old];delete r.capacityByTime[old];}
-  if(r.scheduleMeta&&r.scheduleMeta[old]){r.scheduleMeta[val]=r.scheduleMeta[old];delete r.scheduleMeta[old];}
+  if(r.scheduleMeta&&r.scheduleMeta[old]){r.scheduleAliases=r.scheduleAliases||{};r.scheduleAliases[old]=r.scheduleMeta[old].tripId||'';r.scheduleMeta[val]=r.scheduleMeta[old];delete r.scheduleMeta[old];}
     if(Array.isArray(r.disabledTimes)&&r.disabledTimes.indexOf(old)!==-1){
     r.disabledTimes=r.disabledTimes.filter(function(x){return x!==old;});
     r.disabledTimes.push(val);
