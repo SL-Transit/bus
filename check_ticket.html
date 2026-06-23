@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0b1d3a">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>????????????????? ? S.L.Transit</title>
+  <title>ตรวจสอบตั๋วโดยสาร – S.L.Transit</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -446,131 +446,131 @@
 <body>
   <main class="wrap">
     <div class="topbar">
-      <a class="back" href="index.html">? ???????????</a>
+      <a class="back" href="index.html">‹ กลับหน้าแรก</a>
       <a class="dbd-top-badge" href="https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20" target="_blank" rel="noopener" aria-label="DBD Registered"><img src="https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20" alt="DBD Registered"></a>
     </div>
-    <div id="testModeStatus" class="test-mode-status">TEST MODE ???????? - ??????????? LINE ???? ???????/?????????????????????</div>
+    <div id="testModeStatus" class="test-mode-status">TEST MODE เปิดอยู่ - ไม่มีการส่ง LINE จริง และอ่าน/เขียนเฉพาะข้อมูลทดสอบ</div>
 
     <section id="lookupPanel" class="panel lookup-panel">
-      <h1>??????????? / ??????? / ??????????</h1>
-      <p class="lead">????????????????????????????? ?????????????????????????????????????????????</p>
+      <h1>ตรวจสอบตั๋ว / เช็คอิน / ยกเลิกตั๋ว</h1>
+      <p class="lead">กรอกเบอร์โทรศัพท์หรือรหัสตั๋ว ระบบจะแสดงเฉพาะข้อมูลการจองของผู้โดยสารคนนั้น</p>
       <div class="search-grid">
         <div class="field">
-          <label for="lookupValue">????????????????????</label>
-          <input id="lookupValue" class="code" type="text" placeholder="0812345678 ???? BK123456" autocomplete="off">
+          <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
+          <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
         </div>
-        <button id="btnLookup" type="button" onclick="lookupTicket()">?????????</button>
+        <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
       </div>
       <div id="lookupStatus" class="status info hidden"></div>
     </section>
 
     <section id="trackingPage" class="tracking-page hidden">
       <div id="trackingMap" class="tracking-map"></div>
-      <button id="trackingLocateButton" class="tracking-locate hidden" type="button" onclick="locatePassengerNow()" title="???????????">?</button>
-      <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">??????????</button>
+      <button id="trackingLocateButton" class="tracking-locate hidden" type="button" onclick="locatePassengerNow()" title="ระบุตำแหน่ง">⌖</button>
+      <button id="cancelTicketButton" class="tracking-cancel hidden" type="button" onclick="openCancelConfirm()">ยกเลิกตั๋ว</button>
       <div id="trackingBottomSheet" class="tracking-bottom-sheet hidden">
-        <button class="tracking-sheet-handle" type="button" onclick="toggleTrackingSheet()" aria-label="?????????????????????"></button>
+        <button class="tracking-sheet-handle" type="button" onclick="toggleTrackingSheet()" aria-label="ย่อหรือขยายรายละเอียด"></button>
         <button id="trackingSheetPeek" class="tracking-sheet-peek" type="button" onclick="setTrackingSheetCollapsed(false)">
-          <span id="trackingSheetPeekTitle">????????????????????</span>
-          <small id="trackingSheetPeekSub">??????????????</small>
+          <span id="trackingSheetPeekTitle">รายละเอียดการเดินทาง</span>
+          <small id="trackingSheetPeekSub">แตะเพื่อเปิดดู</small>
         </button>
         <div class="tracking-sheet-body">
           <div class="tracking-sheet-head">
             <div>
-              <h2 class="tracking-title"><span class="tracking-title-icon">??</span>????????????????</h2>
+              <h2 class="tracking-title"><span class="tracking-title-icon">🚐</span>รายละเอียดการจอง</h2>
               <div id="trackingRouteSummary" class="tracking-route">-</div>
               <div id="trackingBookingSummary" class="tracking-summary">-</div>
             </div>
             <div id="trackingCode" class="ticket-state" style="background:rgba(255,255,255,.12);color:#fff">-</div>
           </div>
           <div class="tracking-person" aria-hidden="true">
-            <div><div class="tracking-label">?????????</div><div id="trackingName" class="tracking-value">-</div></div>
-            <div><div class="tracking-label">????????</div><div id="trackingPhone" class="tracking-value">-</div></div>
+            <div><div class="tracking-label">ผู้โดยสาร</div><div id="trackingName" class="tracking-value">-</div></div>
+            <div><div class="tracking-label">เบอร์โทร</div><div id="trackingPhone" class="tracking-value">-</div></div>
           </div>
           <div class="tracking-divider"></div>
           <div class="tracking-info">
-            <div id="trackingPickupItem" class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">??????</div><div id="trackingPickupEta" class="tracking-value">????????????????????????????</div><div id="trackingPickupRoute" class="tracking-subvalue">-</div></div></div>
-            <div class="tracking-info-item"><span class="tracking-dot transfer"></span><div class="tracking-info-copy"><div class="tracking-label">???????/????????</div><div id="trackingDestinationEta" class="tracking-value">-</div><div id="trackingDestinationName" class="tracking-subvalue">-</div></div></div>
-            <div class="tracking-info-item"><span class="tracking-dot next"></span><div class="tracking-info-copy"><div class="tracking-label">????????</div><div id="trackingNextStep" class="tracking-value">-</div><div id="trackingPlatform" class="tracking-subvalue">-</div></div></div>
+            <div id="trackingPickupItem" class="tracking-info-item"><span class="tracking-dot"></span><div class="tracking-info-copy"><div class="tracking-label">ต้นทาง</div><div id="trackingPickupEta" class="tracking-value">กำลังรอตำแหน่งรถเที่ยวที่จอง</div><div id="trackingPickupRoute" class="tracking-subvalue">-</div></div></div>
+            <div class="tracking-info-item"><span class="tracking-dot transfer"></span><div class="tracking-info-copy"><div class="tracking-label">ปลายทาง/จุดต่อรถ</div><div id="trackingDestinationEta" class="tracking-value">-</div><div id="trackingDestinationName" class="tracking-subvalue">-</div></div></div>
+            <div class="tracking-info-item"><span class="tracking-dot next"></span><div class="tracking-info-copy"><div class="tracking-label">จุดต่อรถ</div><div id="trackingNextStep" class="tracking-value">-</div><div id="trackingPlatform" class="tracking-subvalue">-</div></div></div>
           </div>
           <div class="tracking-actions">
-            <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>??????????????????</button>
+            <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
           </div>
         </div>
       </div>
     </section>
 
     <section id="ticketPanel" class="panel hidden">
-      <div id="adminTesterStatus" class="admin-test-status">ADMIN CHECK: ?????? ID admin ????? 0929383999 ?????????????????????????</div>
+      <div id="adminTesterStatus" class="admin-test-status">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังเช็คระบบด้วยตั๋วจริง</div>
       <div class="ticket-head">
         <div>
-          <div class="small" style="color:rgba(255,255,255,.78)">????????</div>
+          <div class="small" style="color:rgba(255,255,255,.78)">รหัสตั๋ว</div>
           <div id="showCode" class="ticket-code">-</div>
         </div>
-        <div id="showStatus" class="ticket-state">??????????</div>
+        <div id="showStatus" class="ticket-state">ยืนยันแล้ว</div>
       </div>
 
-      <h2>????????????????</h2>
+      <h2>รายละเอียดการจอง</h2>
       <div class="grid">
-        <div class="row"><div class="k">?????????</div><div id="showName" class="v">-</div></div>
-        <div class="row"><div class="k">????????</div><div id="showPhone" class="v">-</div></div>
+        <div class="row"><div class="k">ผู้โดยสาร</div><div id="showName" class="v">-</div></div>
+        <div class="row"><div class="k">เบอร์โทร</div><div id="showPhone" class="v">-</div></div>
         <div class="row schedule-route"><div class="k">Leg 1</div><div id="showLeg1Route" class="v">-</div></div>
-        <div class="row schedule-time-box"><div class="k">???????</div><div id="showLeg1Time" class="v">-</div></div>
+        <div class="row schedule-time-box"><div class="k">เวลาออก</div><div id="showLeg1Time" class="v">-</div></div>
         <div id="leg2RouteRow" class="row schedule-route hidden"><div class="k">Leg 2</div><div id="showLeg2Route" class="v">-</div></div>
-        <div id="leg2TimeRow" class="row schedule-time-box hidden"><div class="k">?????????</div><div id="showLeg2Time" class="v">-</div></div>
+        <div id="leg2TimeRow" class="row schedule-time-box hidden"><div class="k">เวลาต่อรถ</div><div id="showLeg2Time" class="v">-</div></div>
         <div id="transferNoticeRow" class="row wide ticket-notice hidden">
-          ????????????????????????????????????????????????????? ?????????????????????????????????????????????????? ????????????????????????????????????????????????????????????????????????????
+          เวลารถต่อที่แสดงในตั๋วเป็นเวลาตามตารางเดินรถเบื้องต้น และอาจมีการปรับเปลี่ยนตามสภาพการเดินรถจริงของท่ารถ ระบบจะคำนวณและแจ้งเวลาที่เหมาะสมอีกครั้งเมื่อผู้โดยสารเช็คอินใกล้ถึงจุดต่อรถ
         </div>
-        <div class="row"><div class="k">??????????</div><div id="showDate" class="v">-</div></div>
-        <div class="row"><div class="k">????????????</div><div id="showSeats" class="v">-</div></div>
-        <div class="row"><div class="k">???????</div><div id="showPrice" class="v">-</div></div>
-        <div id="officialStatusRow" class="row wide hidden"><div class="k">????????????????????</div><div id="officialStatus" class="v">-</div></div>
+        <div class="row"><div class="k">วันเดินทาง</div><div id="showDate" class="v">-</div></div>
+        <div class="row"><div class="k">จำนวนที่นั่ง</div><div id="showSeats" class="v">-</div></div>
+        <div class="row"><div class="k">ยอดชำระ</div><div id="showPrice" class="v">-</div></div>
+        <div id="officialStatusRow" class="row wide hidden"><div class="k">สถานะอย่างเป็นทางการ</div><div id="officialStatus" class="v">-</div></div>
       </div>
     </section>
 
     <section id="checkinPanel" class="panel hidden">
       <h2>Smart Check-in</h2>
-      <p class="lead">??????? GPS ??? watchPosition ???????????????????????????????????? 10 ????</p>
+      <p class="lead">ระบบใช้ GPS แบบ watchPosition และอัปเดตเฉพาะเมื่อเคลื่อนที่มากกว่า 10 เมตร</p>
 
       <div class="metric-grid">
-        <div class="metric"><div class="label">??????????????????</div><div id="distanceText" class="num">--</div><div class="unit">????????</div></div>
-        <div class="metric"><div class="label">????????????????</div><div id="speedText" class="num">--</div><div class="unit">??./??.</div></div>
-        <div class="metric"><div class="label">????????????????</div><div id="etaText" class="num">--</div><div class="unit" id="etaUnit">????</div></div>
+        <div class="metric"><div class="label">ระยะห่างจากแปดริ้ว</div><div id="distanceText" class="num">--</div><div class="unit">กิโลเมตร</div></div>
+        <div class="metric"><div class="label">ความเร็วปัจจุบัน</div><div id="speedText" class="num">--</div><div class="unit">กม./ชม.</div></div>
+        <div class="metric"><div class="label">เวลาถึงโดยประมาณ</div><div id="etaText" class="num">--</div><div class="unit" id="etaUnit">นาที</div></div>
       </div>
 
-      <div id="scheduleStatus" class="status info">?????????? GPS ????????????????????????????</div>
+      <div id="scheduleStatus" class="status info">กดเริ่มใช้ GPS เพื่อคำนวณการต่อรถที่แปดริ้ว</div>
       <div id="checkinWindow" class="status warn hidden"></div>
 
       <div class="actions">
-        <button id="btnGps" type="button" onclick="startGPS()">???????? GPS</button>
-        <button id="btnCheckin" class="btn-green" type="button" onclick="checkIn()" disabled>???????</button>
+        <button id="btnGps" type="button" onclick="startGPS()">เริ่มใช้ GPS</button>
+        <button id="btnCheckin" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอิน</button>
       </div>
     </section>
 
     <section id="flexPanel" class="panel hidden">
-      <h2>???? Flexible</h2>
-      <p class="lead">?????????????????? ?????????????? ??????????????????????????????????????</p>
-      <div id="flexStatus" class="status info">??????????????????????????????????????? GPS ??????????????? 1 ??. ??? 40 ????</div>
+      <h2>ตั๋ว Flexible</h2>
+      <p class="lead">หากเกิดเหตุขัดข้อง โปรดแจ้งสาเหตุ เพื่อให้แอดมินพิจารณาเปลี่ยนเวลาจองคิว</p>
+      <div id="flexStatus" class="status info">ระบบจะแสดงส่วนนี้เฉพาะผู้โดยสารต่อรถที่ GPS อยู่ในรัศมีเดิม 1 กม. นาน 40 นาที</div>
       <div class="reason-box">
-        <label for="changeReason">??????????????????????????????????????</label>
+        <label for="changeReason">สาเหตุที่ล่าช้าหรือขอเปลี่ยนเวลาจองคิว</label>
         <select id="changeReason">
-          <option value="????????">????????</option>
-          <option value="????????????????????">????????????????????</option>
-          <option value="?????????????????">?????????????????</option>
-          <option value="?????????????????">?????????????????</option>
+          <option value="รถล่าช้า">รถล่าช้า</option>
+          <option value="อุบัติเหตุระหว่างทาง">อุบัติเหตุระหว่างทาง</option>
+          <option value="เดินทางไม่ทันเวลา">เดินทางไม่ทันเวลา</option>
+          <option value="เหตุจำเป็นส่วนตัว">เหตุจำเป็นส่วนตัว</option>
         </select>
-        <button id="btnChangeTrip" class="btn-orange" type="button" onclick="requestTripChangeApproval()">??????????????????????????????????</button>
+        <button id="btnChangeTrip" class="btn-orange" type="button" onclick="requestTripChangeApproval()">แจ้งแอดมินเพื่อขอเปลี่ยนเวลาจองคิว</button>
       </div>
     </section>
 
     <section id="cancelPanel" class="panel hidden">
-      <h2>??????????</h2>
-      <div id="cancelStatus" class="status info">???????????????????????????????? 1 ???????</div>
+      <h2>ยกเลิกตั๋ว</h2>
+      <div id="cancelStatus" class="status info">ยกเลิกได้เฉพาะก่อนรถออกอย่างน้อย 1 ชั่วโมง</div>
       <div style="margin-top:12px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;font-size:13px;color:#92400e;line-height:1.6">
-        ?? ???????????????????? ????????????????????????????????????????????????????
+        ⚠️ การยกเลิกจะมีผลทันที กรุณาตรวจสอบข้อมูลการจองด้านบนให้ถูกต้องก่อนกดยกเลิก
       </div>
       <button id="btnCancel" type="button" onclick="openCancelConfirm()" style="margin-top:12px;width:100%;padding:14px;background:#dc2626;color:#fff;border:none;border-radius:13px;font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-        ?? ?????????? (?????????? 1/2)
+        🚫 ยกเลิกตั๋ว (ขั้นตอนที่ 1/2)
       </button>
     </section>
 </main>
@@ -578,15 +578,15 @@
   <div id="cancelModal" class="modal hidden">
     <div class="modal-card">
       <div style="text-align:center;margin-bottom:14px">
-        <div style="font-size:44px">??</div>
-        <h2 style="margin-bottom:8px">?????????????????????</h2>
-        <p class="lead" style="margin-bottom:0">???????????????????? ???????????????????????</p>
+        <div style="font-size:44px">⚠️</div>
+        <h2 style="margin-bottom:8px">ยกเลิกตั๋วใช่หรือไม่?</h2>
+        <p class="lead" style="margin-bottom:0">การยกเลิกจะมีผลทันที และไม่สามารถเรียกคืนได้</p>
       </div>
       <div id="cancelModalDetail" style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:16px;font-size:14px;line-height:1.8;color:#991b1b"></div>
-      <div style="font-size:13px;color:#64748b;text-align:center;margin-bottom:14px">?????????? 2/2 ? ?? "????????????" ??????????????</div>
+      <div style="font-size:13px;color:#64748b;text-align:center;margin-bottom:14px">ขั้นตอนที่ 2/2 — กด "ยืนยันยกเลิก" เพื่อดำเนินการ</div>
       <div class="actions" style="gap:12px">
-        <button class="btn-dark" type="button" onclick="closeCancelConfirm()" style="flex:1">? ????</button>
-        <button class="btn-red" type="button" onclick="confirmCancel()" style="flex:1;background:#dc2626">????????????</button>
+        <button class="btn-dark" type="button" onclick="closeCancelConfirm()" style="flex:1">← กลับ</button>
+        <button class="btn-red" type="button" onclick="confirmCancel()" style="flex:1;background:#dc2626">ยืนยันยกเลิก</button>
       </div>
     </div>
   </div>
@@ -594,12 +594,12 @@
   <div id="cancelledDoneModal" class="modal hidden">
     <div class="modal-card">
       <div style="text-align:center;margin-bottom:14px">
-        <div style="font-size:44px">?</div>
-        <h2 style="margin-bottom:8px">??????????????</h2>
-        <p class="lead" style="margin-bottom:0">??????????????????????????????????????????</p>
+        <div style="font-size:44px">✅</div>
+        <h2 style="margin-bottom:8px">ยกเลิกตั๋วแล้ว</h2>
+        <p class="lead" style="margin-bottom:0">ระบบบันทึกสถานะและส่งข้อมูลแจ้งปลายทางแล้ว</p>
       </div>
       <div id="cancelledDoneDetail" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:16px;font-size:14px;line-height:1.8;color:#0f172a"></div>
-      <button class="btn-dark" type="button" onclick="closeCancelledDonePopup()" style="width:100%">???</button>
+      <button class="btn-dark" type="button" onclick="closeCancelledDonePopup()" style="width:100%">ปิด</button>
     </div>
   </div>
 
@@ -624,45 +624,45 @@
     }
     // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
     var TERMINAL = { lat: 13.692383, lng: 101.054183 };
-    // ????? Leg 2 ?????????????? booking.html / passenger.html
+    // ตาราง Leg 2 ดึงชุดเดียวกับ booking.html / passenger.html
     var LEG2_TIMES_COMMON = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
     var LEG2_TIMES_MINBURI = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
     var LEG2_TIMES_EKKAMAI = ['06:30','08:30','10:30','15:30','17:30'];
     var LEG2_TIMES_MOCHIT = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
     var MAIN_ROUTE_STOPS = [
-      '???????',
-      '??????????',
-      '???????????',
-      '??????',
-      '????????',
-      '???????????',
-      '???????',
-      '??????????',
-      '???????????????',
-      '??????????',
-      '?????????',
-      '???????',
-      '??????????',
-      '???????????????'
+      'คลองหาด',
+      'สี่แยกโคนม',
+      'ทุ่งกบินทร์',
+      'ไพจิตร',
+      'หนองเรือ',
+      'คลองตะเคียน',
+      'หนองคอก',
+      'ท่าตะเกียบ',
+      'ท่ารถสนามชัยเขต',
+      'สนามชัยเขต',
+      'พนมสารคาม',
+      'แปดริ้ว',
+      'ฉะเชิงเทรา',
+      'ขนส่งฉะเชิงเทรา'
     ];
     var SECONDARY_DEST_KEYWORDS = [
-      '?????',
-      '?????',
-      '???????',
-      '??????',
-      '??????',
+      'พัทยา',
+      'ระยอง',
+      'มีนบุรี',
+      'เอกมัย',
+      'หมอชิต',
       'BTS',
-      '?????',
-      '???????',
-      '???????',
-      '???????',
-      '????????',
-      '??????',
-      '??????',
-      '???????',
-      '????????',
-      '??????',
-      '???????'
+      'บางนา',
+      'พระโขนง',
+      'อ่อนนุช',
+      'จตุจักร',
+      'ลาดพร้าว',
+      'บางแสน',
+      'หนองมน',
+      'ศรีราชา',
+      'แหลมฉบัง',
+      'สัตหีบ',
+      'บ้านฉาง'
     ];
     var ROTATING_VEHICLE_IDS = ['car1', 'car2', 'car3', 'car4'];
     var ACTIVE_VEHICLE_MAX_AGE_MS = 3 * 60 * 1000;
@@ -670,56 +670,56 @@
     var BOOKING_TRIP_MATCH_TOLERANCE_MINUTES = 45;
     var queueTemplates = {
       1: {
-        endAt: '???????',
+        endAt: 'คลองหาด',
         trips: [
-          { tripIndex: 1, departTime: '09:00', from: '??????????', to: '???????', direction: 'to_chachoengsao', routeStops: ['??????????', '???????????????', '?????????', '???????'] },
-          { tripIndex: 2, departTime: '11:20', from: '???????', to: '???????', direction: 'from_chachoengsao', routeStops: ['???????', '?????????', '???????????????', '??????????', '??????????', '???????', '???????????', '????????', '??????', '???????????', '??????????', '???????'] }
+          { tripIndex: 1, departTime: '09:00', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
+          { tripIndex: 2, departTime: '11:20', from: 'แปดริ้ว', to: 'คลองหาด', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต', 'ท่าตะเกียบ', 'หนองคอก', 'คลองตะเคียน', 'หนองเรือ', 'ไพจิตร', 'ทุ่งกบินทร์', 'สี่แยกโคนม', 'คลองหาด'] }
         ]
       },
       2: {
-        endAt: '??????????',
+        endAt: 'สนามชัยเขต',
         trips: [
-          { tripIndex: 1, departTime: '08:00', from: '???????', to: '???????', direction: 'to_chachoengsao', routeStops: ['???????', '??????????', '???????????', '??????', '????????', '???????????', '???????', '??????????', '??????????', '???????????????', '?????????', '???????'] },
-          { tripIndex: 2, departTime: '12:20', from: '???????', to: '??????????', direction: 'from_chachoengsao', routeStops: ['???????', '?????????', '???????????????', '??????????'] },
-          { tripIndex: 3, departTime: '13:40', from: '??????????', to: '???????', direction: 'to_chachoengsao', routeStops: ['??????????', '???????????????', '?????????', '???????'] },
-          { tripIndex: 4, departTime: '15:20', from: '???????', to: '??????????', direction: 'from_chachoengsao', routeStops: ['???????', '?????????', '???????????????', '??????????'] }
+          { tripIndex: 1, departTime: '08:00', from: 'คลองหาด', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['คลองหาด', 'สี่แยกโคนม', 'ทุ่งกบินทร์', 'ไพจิตร', 'หนองเรือ', 'คลองตะเคียน', 'หนองคอก', 'ท่าตะเกียบ', 'สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
+          { tripIndex: 2, departTime: '12:20', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] },
+          { tripIndex: 3, departTime: '13:40', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
+          { tripIndex: 4, departTime: '15:20', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] }
         ]
       },
       3: {
-        endAt: '???????',
+        endAt: 'คลองหาด',
         trips: [
-          { tripIndex: 1, departTime: '06:20', from: '??????????', to: '???????', direction: 'to_chachoengsao', routeStops: ['??????????', '???????????????', '?????????', '???????'] },
-          { tripIndex: 2, departTime: '09:40', from: '???????', to: '??????????', direction: 'from_chachoengsao', routeStops: ['???????', '?????????', '???????????????', '??????????'] },
-          { tripIndex: 3, departTime: '12:10', from: '??????????', to: '???????', direction: 'to_chachoengsao', routeStops: ['??????????', '???????????????', '?????????', '???????'] },
-          { tripIndex: 4, departTime: '14:00', from: '???????', to: '???????', direction: 'from_chachoengsao', routeStops: ['???????', '?????????', '???????????????', '??????????', '??????????', '???????', '???????????', '????????', '??????', '???????????', '??????????', '???????'] }
+          { tripIndex: 1, departTime: '06:20', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
+          { tripIndex: 2, departTime: '09:40', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] },
+          { tripIndex: 3, departTime: '12:10', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
+          { tripIndex: 4, departTime: '14:00', from: 'แปดริ้ว', to: 'คลองหาด', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต', 'ท่าตะเกียบ', 'หนองคอก', 'คลองตะเคียน', 'หนองเรือ', 'ไพจิตร', 'ทุ่งกบินทร์', 'สี่แยกโคนม', 'คลองหาด'] }
         ]
       },
       4: {
-        endAt: '??????????',
+        endAt: 'สนามชัยเขต',
         trips: [
-          { tripIndex: 1, departTime: '11:30', from: '???????', to: '???????', direction: 'to_chachoengsao', routeStops: ['???????', '??????????', '???????????', '??????', '????????', '???????????', '???????', '??????????', '??????????', '???????????????', '?????????', '???????'] },
-          { tripIndex: 2, departTime: '16:20', from: '???????', to: '??????????', direction: 'from_chachoengsao', routeStops: ['???????', '?????????', '???????????????', '??????????'] }
+          { tripIndex: 1, departTime: '11:30', from: 'คลองหาด', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['คลองหาด', 'สี่แยกโคนม', 'ทุ่งกบินทร์', 'ไพจิตร', 'หนองเรือ', 'คลองตะเคียน', 'หนองคอก', 'ท่าตะเกียบ', 'สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
+          { tripIndex: 2, departTime: '16:20', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] }
         ]
       }
     };
     var LEG2_DEST_SCHEDULES = [
-      { keywords: ['?????','?????????','??????','?????','??.10','??????????','??????','??????','????????','???????','?.?????','???????','????????'], times: LEG2_TIMES_COMMON, group: '?????-?????-???????' },
-      { keywords: ['???????????','???????','???????'], times: LEG2_TIMES_MINBURI, group: '???????' },
-      { keywords: ['??????','??????','?????','BTS ??????','??????','BTS ???????','???????','BTS ???????','???????'], times: LEG2_TIMES_EKKAMAI, group: '??????-BTS' },
-      { keywords: ['??????','BTS ???????','???????','???????????','????????'], times: LEG2_TIMES_MOCHIT, group: '??????-???????' }
+      { keywords: ['พัทยา','แยกอัยการ','สัตหีบ','ระยอง','กม.10','ตลาดหนองมน','หนองมน','บางแสน','อ่าวอุดม','ศรีราชา','ม.เกษตร','บ้านฉาง','แหลมฉบัง'], times: LEG2_TIMES_COMMON, group: 'พัทยา-ระยอง-ชายทะเล' },
+      { keywords: ['ตลาดมีนบุรี','มีนบุรี','มันบุรี'], times: LEG2_TIMES_MINBURI, group: 'มีนบุรี' },
+      { keywords: ['เอกมัย','โฮมโปร','บางนา','BTS บางจาก','บางจาก','BTS พระโขนง','พระโขนง','BTS อ่อนนุช','อ่อนนุช'], times: LEG2_TIMES_EKKAMAI, group: 'เอกมัย-BTS' },
+      { keywords: ['หมอชิต','BTS จตุจักร','จตุจักร','แยกลาดพร้าว','ลาดพร้าว'], times: LEG2_TIMES_MOCHIT, group: 'หมอชิต-จตุจักร' }
     ];
     var ORIGIN_TIMES = ['06:20','08:00','09:00','09:30','10:40','11:30','12:10','13:00','13:40','14:00'];
     var TRANSFER_BUFFER_MINUTES = [
-      { keywords: ['???'], minutes: 50 },
-      { keywords: ['???????', '???????????????', '??????????'], minutes: 70 },
-      { keywords: ['??????????'], minutes: 115 },
-      { keywords: ['???????'], minutes: 135 },
-      { keywords: ['???????????'], minutes: 150 },
-      { keywords: ['????????'], minutes: 165 },
-      { keywords: ['??????'], minutes: 170 },
-      { keywords: ['???????????'], minutes: 185 },
-      { keywords: ['??????????'], minutes: 190 },
-      { keywords: ['???????'], minutes: 200 }
+      { keywords: ['พนม'], minutes: 50 },
+      { keywords: ['สนามชัย', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'], minutes: 70 },
+      { keywords: ['ท่าตะเกียบ'], minutes: 115 },
+      { keywords: ['หนองคอก'], minutes: 135 },
+      { keywords: ['คลองตะเคียน'], minutes: 150 },
+      { keywords: ['หนองเรือ'], minutes: 165 },
+      { keywords: ['ไพจิตร'], minutes: 170 },
+      { keywords: ['ทุ่งกบินทร์'], minutes: 185 },
+      { keywords: ['สี่แยกโคนม'], minutes: 190 },
+      { keywords: ['คลองหาด'], minutes: 200 }
     ];
     var MAX_SEATS = 3;
     var CHECKIN_RADIUS_KM = 2.5;
@@ -740,19 +740,19 @@
     var LAST_TICKET_STORAGE_KEY = 'checkTicket.lastTicket.v2';
     var roadDistanceRequestSeq = 0;
     var STOP_LOCATIONS = [
-      { name:'???????', lat:13.453565, lng:102.299330 },
-      { name:'??????????', lat:13.436666, lng:102.200895 },
-      { name:'???????????', lat:13.439877, lng:102.083043 },
-      { name:'??????', lat:13.416310, lng:102.020767 },
-      { name:'????????', lat:13.420494, lng:101.995365 },
-      { name:'???????????', lat:13.420264, lng:101.765445 },
-      { name:'???????', lat:13.381579, lng:101.708016 },
-      { name:'??????????', lat:13.443342, lng:101.610222 },
-      { name:'???????????????', lat:13.659022, lng:101.437482 },
-      { name:'?????????', lat:13.745082, lng:101.355993 },
-      { name:'???????????????', lat:13.692477, lng:101.054105 },
-      { name:'???????', lat:13.692477, lng:101.054105 },
-      { name:'??????????', lat:13.692477, lng:101.054105 }
+      { name:'คลองหาด', lat:13.453565, lng:102.299330 },
+      { name:'สี่แยกโคนม', lat:13.436666, lng:102.200895 },
+      { name:'ทุ่งกบินทร์', lat:13.439877, lng:102.083043 },
+      { name:'ไพจิตร', lat:13.416310, lng:102.020767 },
+      { name:'หนองเรือ', lat:13.420494, lng:101.995365 },
+      { name:'คลองตะเคียน', lat:13.420264, lng:101.765445 },
+      { name:'หนองคอก', lat:13.381579, lng:101.708016 },
+      { name:'ท่าตะเกียบ', lat:13.443342, lng:101.610222 },
+      { name:'ท่ารถสนามชัยเขต', lat:13.659022, lng:101.437482 },
+      { name:'พนมสารคาม', lat:13.745082, lng:101.355993 },
+      { name:'ขนส่งฉะเชิงเทรา', lat:13.692477, lng:101.054105 },
+      { name:'แปดริ้ว', lat:13.692477, lng:101.054105 },
+      { name:'ฉะเชิงเทรา', lat:13.692477, lng:101.054105 }
     ];
     var ADMIN_DEST_SCHEDULES = [];
     var TEST_MODE = false;
@@ -808,7 +808,7 @@
     var relevantRouteStops = [];
     var ADMIN_TESTER_ID = 'admin';
     var ADMIN_TESTER_PHONE = '0929383999';
-    var ADMIN_TESTER_NOTICE = '??????????????????????????????? flow ?????????????';
+    var ADMIN_TESTER_NOTICE = 'แอดมินกำลังเช็คระบบการทำงานด้วย flow ผู้ใช้งานจริง';
     var TEST_PATHS = {
       bookings: 'testBookings/',
       ticketLocations: 'testTicketLocations/',
@@ -850,7 +850,7 @@
       if (!currentBooking) return;
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
       destinationLocation = resolveDestinationLocation(currentBooking);
-      transferPointLocation = findStopLocation('???????');
+      transferPointLocation = findStopLocation('แปดริ้ว');
       relevantRouteStops = resolveRelevantRouteStops(currentBooking);
       renderPickupMarker();
       renderTransferMarker();
@@ -902,9 +902,9 @@
       stopTrackingSubscription();
       resetFlexibleTracking();
 
-      if (!value) { setStatus('lookupStatus', 'bad', '??????????????????????????????????'); return; }
-      btn.disabled = true; btn.textContent = '??????????...';
-      setStatus('lookupStatus', 'info', '????????????????????...');
+      if (!value) { setStatus('lookupStatus', 'bad', 'กรุณากรอกเบอร์โทรศัพท์หรือรหัสตั๋ว'); return; }
+      btn.disabled = true; btn.textContent = 'กำลังค้นหา...';
+      setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
       var task = authReady.then(function() {
         if (/^(BK|TB)\d{6}$/.test(value)) {
@@ -923,13 +923,13 @@
 
       task.then(function(found) {
         if (!found) {
-          setStatus('lookupStatus', 'bad', '?????????????????');
+          setStatus('lookupStatus', 'bad', 'ไม่พบข้อมูลการจอง');
           return;
         }
         currentCode = found.code;
         currentBooking = normalizeBooking(found.booking, found.code);
         if (found.matchCount && found.matchCount > 1) {
-          setStatus('lookupStatus', 'info', '?????????????????????? ?????????????????????');
+          setStatus('lookupStatus', 'info', 'พบหลายรายการในเบอร์นี้ กำลังแสดงรายการล่าสุด');
         } else {
           hideStatus('lookupStatus');
         }
@@ -945,15 +945,15 @@
       }).catch(function(err) {
         console.error(err);
         var message = err && err.code === 'auth/operation-not-allowed'
-          ? '????????????????? Anonymous Sign-in ?? Firebase Authentication ???????????????????????????'
+          ? 'ระบบยังไม่ได้เปิด Anonymous Sign-in ใน Firebase Authentication กรุณาเปิดใช้งานก่อนตรวจตั๋ว'
           : err && err.message === 'TEST_MODE_PRODUCTION_CODE'
-          ? 'TEST MODE ???????? ????????????????? TB ??????????????????????????????????'
+          ? 'TEST MODE เปิดอยู่ กรุณาใช้รหัสทดสอบ TB หรือค้นหาข้อมูลจากชุดทดสอบเท่านั้น'
           : err && err.code === 'PERMISSION_DENIED'
-          ? '????????????????????????????????????? ????????????????????????????????? Firebase'
-          : '????????????????????????????????? ????????????????????';
+          ? 'ยังไม่สามารถค้นหาด้วยเบอร์โทรศัพท์ได้ กรุณาตรวจสอบสิทธิ์การอ่านข้อมูลใน Firebase'
+          : 'ไม่สามารถดึงข้อมูลตั๋วได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
         setStatus('lookupStatus', 'bad', message);
       }).finally(function() {
-        btn.disabled = false; btn.textContent = '?????????';
+        btn.disabled = false; btn.textContent = 'ค้นหาตั๋ว';
       });
     }
 
@@ -1080,10 +1080,10 @@
     function displayPassengerName(name) {
       var clean = String(name || '').trim();
       if (!clean) return '-';
-      if (clean.indexOf('???') === 0) {
-        return '??? ' + clean.replace(/^???\s*/, '');
+      if (clean.indexOf('คุณ') === 0) {
+        return 'คุณ ' + clean.replace(/^คุณ\s*/, '');
       }
-      return '??? ' + clean;
+      return 'คุณ ' + clean;
     }
 
     function startBookingListener(code) {
@@ -1114,12 +1114,12 @@
       document.getElementById('showName').textContent = displayPassengerName(currentBooking.name);
       document.getElementById('showPhone').textContent = currentBooking.phone || '-';
       document.getElementById('showDate').textContent = formatDate(currentBooking.date);
-      document.getElementById('showSeats').textContent = currentBooking.seats + ' ???????';
-      document.getElementById('showPrice').textContent = currentBooking.price ? '?' + Number(currentBooking.price).toLocaleString() + ' ???' : '-';
+      document.getElementById('showSeats').textContent = currentBooking.seats + ' ที่นั่ง';
+      document.getElementById('showPrice').textContent = currentBooking.price ? '฿' + Number(currentBooking.price).toLocaleString() + ' บาท' : '-';
       var adminStatus = document.getElementById('adminTesterStatus');
       if (adminStatus) {
         adminStatus.style.display = isAdminTesterBooking(currentBooking) ? 'block' : 'none';
-        adminStatus.textContent = 'ADMIN CHECK: ?????? ID admin ????? ' + ADMIN_TESTER_PHONE + ' ?????????????????????????';
+        adminStatus.textContent = 'ADMIN CHECK: ผู้ใช้ ID admin เบอร์ ' + ADMIN_TESTER_PHONE + ' กำลังเช็คระบบด้วยตั๋วจริง';
       }
 
       var legs = getLegSchedule(currentBooking);
@@ -1146,17 +1146,17 @@
 
     function splitLegs(route) {
       var clean = String(route || '').replace(/\s+/g, ' ').trim();
-      var parts = clean.split('?').map(function(x) { return x.trim(); }).filter(Boolean);
+      var parts = clean.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
       var routeInfo = connectionRouteInfo(clean);
       if (routeInfo.type !== 'secondary_connection') {
         return { leg1: clean || '-', leg2: '' };
       }
       var origin = parts[0] || '';
       var destination = routeInfo.destination || (parts.length ? parts[parts.length - 1] : '');
-      if (isSameStop(origin, '???????')) {
+      if (isSameStop(origin, 'แปดริ้ว')) {
         return { leg1: clean || '-', leg2: '' };
       }
-      return { leg1: origin + ' ? ???????', leg2: '??????? ? ' + destination };
+      return { leg1: origin + ' → แปดริ้ว', leg2: 'แปดริ้ว → ' + destination };
     }
 
     function getLegSchedule(booking, overrideTime) {
@@ -1188,16 +1188,16 @@
     }
 
     function formatTimeText(time) {
-      return time ? time + ' ?.' : '-';
+      return time ? time + ' น.' : '-';
     }
 
     function getRouteOrigin(booking, legs) {
       var direct = booking.origin || booking.from || booking.pickup || booking.pickupPoint || booking.startStation || '';
       if (direct) return String(direct);
       var route = String(booking.route || '');
-      var parts = route.split('?').map(function(x) { return x.trim(); }).filter(Boolean);
+      var parts = route.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
       if (parts.length) return parts[0];
-      if (legs && legs.leg1) return String(legs.leg1).split('?')[0].trim();
+      if (legs && legs.leg1) return String(legs.leg1).split('→')[0].trim();
       return '';
     }
 
@@ -1227,7 +1227,7 @@
     function getLeg2TimesForBooking(booking, legs) {
       var destination = '';
       if (legs && legs.leg2) {
-        var parts = String(legs.leg2).split('?').map(function(x) { return x.trim(); }).filter(Boolean);
+        var parts = String(legs.leg2).split('→').map(function(x) { return x.trim(); }).filter(Boolean);
         destination = parts.length ? parts[parts.length - 1] : '';
       }
       if (!destination) destination = connectionRouteInfo(booking.route).destination;
@@ -1279,17 +1279,17 @@
 
     function connectionRouteInfo(route) {
       var clean = String(route || '').replace(/\s+/g, ' ').trim();
-      var parts = clean.split('?').map(function(x) { return x.trim(); }).filter(Boolean);
+      var parts = clean.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
       var origin = parts.length ? parts[0] : '';
       var destination = parts.length ? parts[parts.length - 1] : '';
       var destinationIsSecondary = hasSecondaryDestinationKeyword(destination);
-      var viaPaetRiuToSecondary = parts.length >= 3 && isSameStop(parts[1], '???????') && destinationIsSecondary;
+      var viaPaetRiuToSecondary = parts.length >= 3 && isSameStop(parts[1], 'แปดริ้ว') && destinationIsSecondary;
       var isMainRoute = origin && destination && isMainRouteStop(origin) && isMainRouteStop(destination);
       var isSecondary = !isMainRoute && (destinationIsSecondary || viaPaetRiuToSecondary);
       return {
         type: isSecondary ? 'secondary_connection' : 'main_route',
         destination: destination || '-',
-        label: isSecondary ? '?????????? / ??????????????' : '???????????'
+        label: isSecondary ? 'เส้นทางรอง / ต่อรถกลุ่มอื่น' : 'เส้นทางหลัก'
       };
     }
 
@@ -1300,7 +1300,7 @@
     function isSameStop(value, stop) {
       var clean = normalizeRouteStop(value);
       var target = normalizeRouteStop(stop);
-      return clean === target || (target === normalizeRouteStop('???????') && clean === normalizeRouteStop('?????????????????'));
+      return clean === target || (target === normalizeRouteStop('แปดริ้ว') && clean === normalizeRouteStop('ฉะเชิงเทราแปดริ้ว'));
     }
 
     function isMainRouteStop(value) {
@@ -1316,17 +1316,17 @@
 
     function statusLabel(status) {
       var map = {
-        confirmed: '??????????',
-        changed: '???????????????',
-        cancelled: '??????????',
-        checked_in: '???????????',
-        transfer_nearby_notified: '??????????????????????',
-        arrived_transfer_point: '???????????????',
-        arrived_destination: '??????????????',
-        pending_admin_approval: '???????????????',
-        waiting_admin_approval: '???????????????'
+        confirmed: 'ยืนยันแล้ว',
+        changed: 'เปลี่ยนเวลาแล้ว',
+        cancelled: 'ยกเลิกแล้ว',
+        checked_in: 'เช็คอินแล้ว',
+        transfer_nearby_notified: 'แจ้งใกล้ถึงแปดริ้วแล้ว',
+        arrived_transfer_point: 'ถึงจุดต่อรถแล้ว',
+        arrived_destination: 'ถึงปลายทางแล้ว',
+        pending_admin_approval: 'รอแอดมินอนุมัติ',
+        waiting_admin_approval: 'รอแอดมินอนุมัติ'
       };
-      return map[status] || status || '??????????';
+      return map[status] || status || 'ยืนยันแล้ว';
     }
 
     function loadBoxmapFromPassengerPattern() {
@@ -1356,7 +1356,7 @@
       trackingUserInteracted = false;
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
-      transferPointLocation = { name: '???????????????', lat: TERMINAL.lat, lng: TERMINAL.lng };
+      transferPointLocation = { name: 'จุดต่อรถแปดริ้ว', lat: TERMINAL.lat, lng: TERMINAL.lng };
       destinationLocation = resolveDestinationLocation(currentBooking);
       originAutoCheckinDone = currentBooking.originCheckin && currentBooking.originCheckin.status === 'boarded';
       originArrivalDismissed = originAutoCheckinDone;
@@ -1402,7 +1402,7 @@
     function initTrackingMap() {
       if (trackingMap) return;
       if (!loadBoxmapFromPassengerPattern()) {
-        setTrackingMapFallback('??????????????? ??????????????');
+        setTrackingMapFallback('กำลังโหลดแผนที่ กรุณารอสักครู่');
         return;
       }
       mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -1414,7 +1414,7 @@
         attributionControl: false
       });
       trackingMap.on('error', function() {
-        setTrackingMapFallback('??????????????????? ???????????? token ????????????????');
+        setTrackingMapFallback('โหลดแผนที่ไม่สำเร็จ กรุณาตรวจสอบ token หรืออินเทอร์เน็ต');
       });
       trackingMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
       trackingMap.on('dragstart', function() { trackingUserInteracted = true; });
@@ -1497,7 +1497,7 @@
         if (!a && !b) return;
         if (!a) { merged[id] = b; return; }
         if (!b) { merged[id] = a; return; }
-        // ????? source ??? gpsTs ???????? ??????????????????????????????
+        // เลือก source ที่ gpsTs ใหม่กว่า ป้องกันข้อมูลเก่าทับข้อมูลใหม่
         var gpsA = Number(a.gpsTs || a.gpsts || a.ts || 0);
         var gpsB = Number(b.gpsTs || b.gpsts || b.ts || 0);
         merged[id] = gpsB > gpsA ? b : a;
@@ -1583,7 +1583,7 @@
       var bookingDir = routeInfo.type === 'secondary_connection' ? 'to_chachoengsao' : bookingDirectionForStops(origin, destination);
       var vehicleDir = normalizeVehicleDirection(vehicle && vehicle.direction);
       if (!(options && options.preferredVehicle) && bookingDir && vehicleDir && bookingDir !== vehicleDir) return null;
-      var target = routeInfo.type === 'secondary_connection' ? '???????' : destination;
+      var target = routeInfo.type === 'secondary_connection' ? 'แปดริ้ว' : destination;
       var startIdx = mainRouteStopIndex(origin);
       var endIdx = mainRouteStopIndex(target);
       if (startIdx < 0 || endIdx < 0 || startIdx === endIdx) return null;
@@ -1638,7 +1638,7 @@
         destination: destination,
         departTime: booking.departTime || booking.time || booking.leg1Time || '',
         requiresTransfer: routeInfo.type === 'secondary_connection',
-        transferPoint: '???????'
+        transferPoint: 'แปดริ้ว'
       });
     }
 
@@ -1705,7 +1705,7 @@
     function routeDirectionForOrigin(origin) {
       var clean = String(origin || '').replace(/\s+/g, '');
       if (!clean) return '';
-      if (clean.indexOf('??????????') !== -1 || clean.indexOf('???????') !== -1) return 'back';
+      if (clean.indexOf('ฉะเชิงเทรา') !== -1 || clean.indexOf('แปดริ้ว') !== -1) return 'back';
       return 'go';
     }
 
@@ -1716,8 +1716,8 @@
     }
 
     function vehicleTimestampMs(vehicleData) {
-      // gpsTs = ???? GPS fix ???? ???????????
-      // sentTs/ts = ??????? ??????? heartbeat ??? GPS ?????
+      // gpsTs = เวลา GPS fix จริง ใช้ก่อนเสมอ
+      // sentTs/ts = เวลาส่ง อาจเป็น heartbeat โดย GPS ไม่สด
       var raw = vehicleData && (vehicleData.gpsTs || vehicleData.gpsts || vehicleData.updatedAt || vehicleData.ts || vehicleData.timestamp || vehicleData.lastSeenAt);
       var ts = Number(raw || 0);
       if (!isFinite(ts) || ts <= 0) return 0;
@@ -1886,7 +1886,7 @@
       var originIdx = tripStopIndex(trip, origin);
       if (originIdx < 0) return false;
       if (routeInfo.type === 'secondary_connection') {
-        return trip.direction === 'to_chachoengsao' && tripStopIndex(trip, '???????') > originIdx;
+        return trip.direction === 'to_chachoengsao' && tripStopIndex(trip, 'แปดริ้ว') > originIdx;
       }
       var destIdx = tripStopIndex(trip, destination);
       if (destIdx < 0 || destIdx <= originIdx) return false;
@@ -1936,10 +1936,10 @@
 
     function vehicleStatusMessage(pos) {
       var status = pos && pos.status ? String(pos.status) : '';
-      if (pos && pos.online === false) return '????????????? ???????????????????????????????????';
-      if (status === 'locating') return '???????????????? ???????????????? GPS';
-      if (status === 'low_accuracy') return '????????????? GPS ??????????????????????????????';
-      if (status === 'gps_error') return 'GPS ??????????????? ??????????????';
+      if (pos && pos.online === false) return 'รถออฟไลน์อยู่ ระบบจะอัปเดตเมื่อคนขับกลับมาออนไลน์';
+      if (status === 'locating') return 'คนขับออนไลน์แล้ว กำลังค้นหาสัญญาณ GPS';
+      if (status === 'low_accuracy') return 'กำลังรอสัญญาณ GPS ให้แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
+      if (status === 'gps_error') return 'GPS ของคนขับมีปัญหา กรุณารอสักครู่';
       return '';
     }
 
@@ -1974,8 +1974,8 @@
     function createTrackingMarker(className, text, iconText) {
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
-      var label = text || (className === 'pickup' ? '??????' : className === 'transfer' ? '???????' : '????????');
-      var markerIcon = iconText || (className === 'pickup' ? '??' : className === 'transfer' ? '??' : text);
+      var label = text || (className === 'pickup' ? 'ต้นทาง' : className === 'transfer' ? 'ปลายทาง' : 'รถโดยสาร');
+      var markerIcon = iconText || (className === 'pickup' ? '📍' : className === 'transfer' ? '🏁' : text);
       el.title = label;
       el.setAttribute('aria-label', label);
       el.dataset.markerIcon = markerIcon || '';
@@ -2001,7 +2001,7 @@
       location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
       if (!trackingVanMarker) {
-        trackingVanMarker = new mapboxgl.Marker({ element: createTrackingMarker('van', '??') })
+        trackingVanMarker = new mapboxgl.Marker({ element: createTrackingMarker('van', 'รถ') })
           .setLngLat([location.lng, location.lat])
           .addTo(trackingMap);
       } else {
@@ -2112,13 +2112,13 @@
     }
     function renderPickupMarker() {
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(pickupStopLocation)) return;
-      var pickupIcon = pickupStopLocation.icon || '??';
+      var pickupIcon = pickupStopLocation.icon || '📍';
       var pickupElement = trackingPickupMarker && typeof trackingPickupMarker.getElement === 'function' ? trackingPickupMarker.getElement() : null;
       if (!trackingPickupMarker || !pickupElement || pickupElement.dataset.markerIcon !== pickupIcon) {
         if (trackingPickupMarker) {
           try { trackingPickupMarker.remove(); } catch(e) {}
         }
-        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', '??????', pickupIcon) })
+        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ต้นทาง', pickupIcon) })
           .setLngLat([pickupStopLocation.lng, pickupStopLocation.lat])
           .addTo(trackingMap);
       } else {
@@ -2129,13 +2129,13 @@
     function renderTransferMarker() {
       var point = destinationLocation;
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(point)) return;
-      var destinationIcon = point.icon || '??';
+      var destinationIcon = point.icon || '🏁';
       var destinationElement = trackingTransferMarker && typeof trackingTransferMarker.getElement === 'function' ? trackingTransferMarker.getElement() : null;
       if (!trackingTransferMarker || !destinationElement || destinationElement.dataset.markerIcon !== destinationIcon) {
         if (trackingTransferMarker) {
           try { trackingTransferMarker.remove(); } catch(e) {}
         }
-        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', '???????', destinationIcon) })
+        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ปลายทาง', destinationIcon) })
           .setLngLat([point.lng, point.lat])
           .addTo(trackingMap);
       } else {
@@ -2277,7 +2277,7 @@
       position = normalizeTrackingPoint(position);
       if (!trackingMapReady || !trackingMap || !position) return;
       if (!trackingPassengerMarker) {
-        trackingPassengerMarker = new mapboxgl.Marker({ element: createTrackingMarker('passenger', '???') })
+        trackingPassengerMarker = new mapboxgl.Marker({ element: createTrackingMarker('passenger', 'คุณ') })
           .setLngLat([position.lng, position.lat])
           .addTo(trackingMap);
         trackingPassengerMarkerPos = position;
@@ -2298,7 +2298,7 @@
         return;
       }
       if (!navigator.geolocation) {
-        setStatus('lookupStatus', 'bad', '??????????????????? GPS');
+        setStatus('lookupStatus', 'bad', 'อุปกรณ์นี้ไม่รองรับ GPS');
         return;
       }
       navigator.geolocation.getCurrentPosition(function(pos) {
@@ -2306,7 +2306,7 @@
         lastPosition = next;
         focusPassengerLocation(next, true);
       }, function(err) {
-        setStatus('lookupStatus', 'bad', err.message || '???????????????????? GPS ???');
+        setStatus('lookupStatus', 'bad', err.message || 'ไม่สามารถอ่านตำแหน่ง GPS ได้');
       }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
     }
 
@@ -2327,8 +2327,8 @@
     function updateTrackingSheetPeek(title, sub) {
       var titleEl = document.getElementById('trackingSheetPeekTitle');
       var subEl = document.getElementById('trackingSheetPeekSub');
-      if (titleEl) titleEl.textContent = title || '????????????????????';
-      if (subEl) subEl.textContent = sub || '??????????????';
+      if (titleEl) titleEl.textContent = title || 'รายละเอียดการเดินทาง';
+      if (subEl) subEl.textContent = sub || 'แตะเพื่อเปิดดู';
     }
 
     function updateTransferDotState() {
@@ -2399,10 +2399,10 @@
       if (!parts || !hm) return null;
       var dep = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(hm[1]), Number(hm[2]), 0, 0);
       var diffMin = Math.round((dep.getTime() - Date.now()) / 60000);
-      var timeText = String(dep.getHours()).padStart(2, '0') + ':' + String(dep.getMinutes()).padStart(2, '0') + ' ?.';
-      if (diffMin > 0) return { etaMinutes: diffMin, timeText: timeText, displayText: '???????????? ' + formatEtaDuration(diffMin), status: 'scheduled_future' };
-      if (diffMin >= -20) return { etaMinutes: 0, timeText: timeText, displayText: '???????????????? ' + timeText, status: 'scheduled_now' };
-      return { etaMinutes: null, timeText: timeText, displayText: '???????????????? ' + timeText + ' ????', status: 'scheduled_past' };
+      var timeText = String(dep.getHours()).padStart(2, '0') + ':' + String(dep.getMinutes()).padStart(2, '0') + ' น.';
+      if (diffMin > 0) return { etaMinutes: diffMin, timeText: timeText, displayText: 'ตามรอบประมาณ ' + formatEtaDuration(diffMin), status: 'scheduled_future' };
+      if (diffMin >= -20) return { etaMinutes: 0, timeText: timeText, displayText: 'ถึงเวลาออกตามรอบ ' + timeText, status: 'scheduled_now' };
+      return { etaMinutes: null, timeText: timeText, displayText: 'เลยเวลาออกตามรอบ ' + timeText + ' แล้ว', status: 'scheduled_past' };
     }
 
     function calculateVehicleEtaToPickup(vehicleLocation, pickupLocation) {
@@ -2412,18 +2412,18 @@
         return {
           etaMinutes: null,
           arrivalTimeText: '',
-          displayText: '????????? ',
+          displayText: 'รถจอดอยู่ ',
           status: 'stopped'
         };
       }
       var km = distanceKm(vehicleLocation.lat, vehicleLocation.lng, pickupLocation.lat, pickupLocation.lng) * ROAD_DISTANCE_FACTOR;
       var etaMinutes = Math.max(1, Math.round((km / speed) * 60));
       var arrival = new Date(Date.now() + etaMinutes * 60000);
-      var arrivalTimeText = String(arrival.getHours()).padStart(2, '0') + ':' + String(arrival.getMinutes()).padStart(2, '0') + ' ?.';
+      var arrivalTimeText = String(arrival.getHours()).padStart(2, '0') + ':' + String(arrival.getMinutes()).padStart(2, '0') + ' น.';
       return {
         etaMinutes: etaMinutes,
         arrivalTimeText: arrivalTimeText,
-        displayText: '?????? ' + formatEtaDuration(etaMinutes),
+        displayText: 'ประมาณ ' + formatEtaDuration(etaMinutes),
         status: 'moving'
       };
     }
@@ -2435,10 +2435,10 @@
     function serviceArrivalInfo(booking) {
       if (!booking) return null;
       if (booking.arrivedTransferPoint && booking.arrivedTransferPoint.ts) {
-        return { type: 'transfer', ts: Number(booking.arrivedTransferPoint.ts), label: '??????????????????????' };
+        return { type: 'transfer', ts: Number(booking.arrivedTransferPoint.ts), label: 'ถึงจุดต่อรถแปดริ้วแล้ว' };
       }
       if (booking.arrivedDestination && booking.arrivedDestination.ts) {
-        return { type: 'destination', ts: Number(booking.arrivedDestination.ts), label: '??????????????' };
+        return { type: 'destination', ts: Number(booking.arrivedDestination.ts), label: 'ถึงปลายทางแล้ว' };
       }
       return null;
     }
@@ -2465,7 +2465,7 @@
       var min = toMin(arrivalTime || currentBooking.time || '00:00') + TRANSFER_TRIP_BUFFER_MINUTES;
       var times = getLeg2TimesForBooking(currentBooking);
       var next = times.find(function(t) { return toMin(t) >= min; }) || '';
-      return next ? '????????????????? ' + next + ' ?.' : '??????????????????????????????';
+      return next ? 'รอบที่คาดว่าจะทัน ' + next + ' น.' : 'ยังไม่พบรอบต่อรถที่คาดว่าจะทัน';
     }
 
     function maybeMarkServiceArrival() {
@@ -2540,13 +2540,13 @@
       var routeInfo = connectionRouteInfo(currentBooking.route);
       var originName = pickupStopLocation ? pickupStopLocation.name : getRouteOrigin(currentBooking, legs);
       var finalDestination = routeInfo.destination || currentBooking.destination || currentBooking.to || '-';
-      var journeyTargetName = routeInfo.type === 'secondary_connection' ? '???????????????' : '??????? ' + finalDestination;
+      var journeyTargetName = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถแปดริ้ว' : 'ปลายทาง ' + finalDestination;
       document.getElementById('trackingCode').textContent = currentBooking.code || '-';
       document.getElementById('trackingName').textContent = displayPassengerName(currentBooking.name);
       document.getElementById('trackingPhone').textContent = currentBooking.phone || '-';
       document.getElementById('trackingRouteSummary').textContent = '';
       document.getElementById('trackingBookingSummary').textContent =
-        displayPassengerName(currentBooking.name) + ' ????? ' + (currentBooking.phone || '-') + ' ' + originName + ' ? ' + finalDestination;
+        displayPassengerName(currentBooking.name) + ' เบอร์ ' + (currentBooking.phone || '-') + ' ' + originName + ' → ' + finalDestination;
       var pickupEtaInfo = calculateVehicleEtaToPickup(vanLocation, pickupStopLocation);
       updateOriginArrivalState();
       maybeMarkServiceArrival();
@@ -2559,55 +2559,55 @@
       show('trackingPickupItem', true);
       document.getElementById('trackingPickupItem').classList.toggle('slide-out', boarded && !serviceEnded);
       if (serviceEnded) {
-        document.getElementById('trackingPickupEta').textContent = '??????????????????';
-        document.getElementById('trackingPickupRoute').textContent = '??????????????????????????????';
+        document.getElementById('trackingPickupEta').textContent = 'ขอบคุณที่ใช้บริการ';
+        document.getElementById('trackingPickupRoute').textContent = 'การเดินทางรายการนี้สิ้นสุดแล้ว';
         document.getElementById('trackingDestinationEta').textContent = '-';
         document.getElementById('trackingDestinationName').textContent = '';
         document.getElementById('trackingNextStep').textContent = '';
         document.getElementById('trackingPlatform').textContent = '';
-        updateTrackingSheetPeek('??????????????????', '??????????????????????????????');
+        updateTrackingSheetPeek('ขอบคุณที่ใช้บริการ', 'การเดินทางรายการนี้สิ้นสุดแล้ว');
         show('trackingCheckinButton', false);
         return;
       } else if (arrivalInfo) {
         document.getElementById('trackingPickupEta').textContent = arrivalInfo.label;
-        document.getElementById('trackingPickupRoute').textContent = '????????????????????????????????';
+        document.getElementById('trackingPickupRoute').textContent = 'ยังดูข้อมูลตั๋วและข้อมูลต่อรถได้';
       } else if (boarded) {
-        document.getElementById('trackingPickupEta').textContent = routeInfo.type === 'secondary_connection' ? '?????????????????????????????' : '?????????????????????';
+        document.getElementById('trackingPickupEta').textContent = routeInfo.type === 'secondary_connection' ? 'กำลังเดินทางไปจุดต่อรถแปดริ้ว' : 'กำลังเดินทางไปปลายทาง';
         document.getElementById('trackingPickupRoute').textContent = journeyTargetName;
       } else if (isVanAtOrPastPickup()) {
-        document.getElementById('trackingPickupEta').textContent = '???????????????????';
-        document.getElementById('trackingPickupRoute').textContent = '????' + originName + ' ? ???????????????';
+        document.getElementById('trackingPickupEta').textContent = 'รถถึงป้ายต้นทางแล้ว';
+        document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName + ' · เตรียมขึ้นรถได้';
       } else if (pickupEtaInfo === null) {
         var expectedVehicle = expectedVehicleStatusForBooking(currentBooking);
         var scheduledPickup = scheduledPickupEtaForBooking(currentBooking);
         if (expectedVehicle && expectedVehicle.scheduleOnly) {
-          document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : '???????????????????????????';
-          document.getElementById('trackingPickupRoute').textContent = '???????????????????? GPS ?? ???????????????????????????????';
+          document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : 'รอบนี้เป็นตารางเวลาเท่านั้น';
+          document.getElementById('trackingPickupRoute').textContent = 'รอบนี้ไม่มีการติดตาม GPS สด ระบบจะแสดงตามตารางเวลาที่ประกาศ';
         } else if (expectedVehicle && expectedVehicle.plannedVehicleId && !expectedVehicle.hasFreshPosition) {
           if (expectedVehicle.isStalePosition) {
-            document.getElementById('trackingPickupEta').textContent = '???????????????????????????????????';
-            document.getElementById('trackingPickupRoute').textContent = '?????? GPS ?????????????? 3 ???? ?????????????????????????????? ? ???????????????????????????????????????' + (scheduledPickup ? ' ? ' + scheduledPickup.displayText : '');
+            document.getElementById('trackingPickupEta').textContent = 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว';
+            document.getElementById('trackingPickupRoute').textContent = 'ข้อมูล GPS ล่าสุดเก่าเกิน 3 นาที คนขับอาจปิดแอปหรือสัญญาณขาดหาย · ระบบจะอัปเดตเมื่อรถคันนี้ส่งตำแหน่งใหม่' + (scheduledPickup ? ' · ' + scheduledPickup.displayText : '');
           } else {
-            document.getElementById('trackingPickupEta').textContent = '???????????????????????';
-            document.getElementById('trackingPickupRoute').textContent = '????????????????????? ???? GPS ??????????????? ? ????????????????????????????????????????' + (scheduledPickup ? ' ? ' + scheduledPickup.displayText : '');
+            document.getElementById('trackingPickupEta').textContent = 'ยังไม่พบตำแหน่งรถคันนี้';
+            document.getElementById('trackingPickupRoute').textContent = 'คนขับอาจยังไม่เปิดแอป หรือ GPS ยังไม่ส่งข้อมูล · ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง' + (scheduledPickup ? ' · ' + scheduledPickup.displayText : '');
           }
         } else {
-          document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : '?????????';
-          document.getElementById('trackingPickupRoute').textContent = '???????????????????????????? ? ????' + originName;
+          document.getElementById('trackingPickupEta').textContent = scheduledPickup ? scheduledPickup.displayText : 'ยังไม่ถึง';
+          document.getElementById('trackingPickupRoute').textContent = 'กำลังรอตำแหน่งรถเที่ยวที่จอง · ป้าย' + originName;
         }
       } else if (pickupEtaInfo.status === 'stopped') {
         document.getElementById('trackingPickupEta').textContent = pickupEtaInfo.displayText;
-        document.getElementById('trackingPickupRoute').textContent = '????????? ? ????' + originName;
+        document.getElementById('trackingPickupRoute').textContent = 'ยังไม่ถึง · ป้าย' + originName;
       } else {
-        document.getElementById('trackingPickupEta').textContent = '?????????' + pickupEtaInfo.displayText;
-        document.getElementById('trackingPickupRoute').textContent = '????' + originName + ' ? ??????????????? ' + pickupEtaInfo.arrivalTimeText;
+        document.getElementById('trackingPickupEta').textContent = 'รถมาจะถึง' + pickupEtaInfo.displayText;
+        document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName + ' · คาดว่าจะถึงเวลา ' + pickupEtaInfo.arrivalTimeText;
       }
       if (arrivalInfo) {
-        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? '????????: ???????' : '???????: ' + finalDestination;
-        document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? '???????: ' + finalDestination : '';
-        document.getElementById('trackingNextStep').textContent = routeInfo.type === 'secondary_connection' ? '???????' + finalDestination + ' ????????????????' : '?????????????????????';
-        document.getElementById('trackingPlatform').textContent = '??????????????????????????? 6 ???????';
-        updateTrackingSheetPeek(arrivalInfo.label, routeInfo.type === 'secondary_connection' ? '???????????????????' : '??????????????????');
+        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
+        document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : '';
+        document.getElementById('trackingNextStep').textContent = routeInfo.type === 'secondary_connection' ? 'ต่อรถไป' + finalDestination + ' ได้ตามรอบหน้างาน' : 'เดินทางถึงปลายทางแล้ว';
+        document.getElementById('trackingPlatform').textContent = 'ระบบจะจบการแสดงผลหลังผ่านไป 6 ชั่วโมง';
+        updateTrackingSheetPeek(arrivalInfo.label, routeInfo.type === 'secondary_connection' ? 'ยังดูข้อมูลต่อรถได้' : 'ยังดูข้อมูลตั๋วได้');
       } else if (!showJourneyEta) {
         var vanAtPickupNow = isVanAtOrPastPickup();
         var expectedVehicleForPeek = expectedVehicleStatusForBooking(currentBooking);
@@ -2615,18 +2615,18 @@
         var scheduleOnlyPeek = expectedVehicleForPeek && expectedVehicleForPeek.scheduleOnly;
         var waitingForExpectedVehicle = expectedVehicleForPeek && expectedVehicleForPeek.plannedVehicleId && !expectedVehicleForPeek.hasFreshPosition;
         var staleExpectedVehicle = waitingForExpectedVehicle && expectedVehicleForPeek.isStalePosition;
-        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? '????????: ???????' : '???????: ' + finalDestination;
-        document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? '???????: ' + finalDestination : '???????????????? ETA ??????????';
-        document.getElementById('trackingNextStep').textContent = scheduleOnlyPeek ? '???????????????????????????' : (vanAtPickupNow ? '???????????????????' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? '???????????????????????????????????' : '???????????????????????') : '?????????????????'));
-        document.getElementById('trackingPlatform').textContent = scheduleOnlyPeek ? '?????????????? GPS ??????????????' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? '???????????????????????????????????????' : '????????????????????????????????????????') : (routeInfo.type === 'secondary_connection' ? '????????????????????????????????????????' : '???????????????? ETA ??????????'));
-        updateTrackingSheetPeek(scheduleOnlyPeek ? '???????????????????????????' : (vanAtPickupNow ? '???????????????????' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? '???????????????????????????????????' : '???????????????????????') : '?????????????????')), scheduleOnlyPeek ? '?????????????? GPS ??????????????' : (waitingForExpectedVehicle ? ('??? ' + (expectedVehicleForPeek.queueNo || '-') + ' ? ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' ? ' + finalDestination)));
+        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
+        document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
+        document.getElementById('trackingNextStep').textContent = scheduleOnlyPeek ? 'รอบนี้เป็นตารางเวลาเท่านั้น' : (vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว' : 'ยังไม่พบตำแหน่งรถคันนี้') : 'รอรถที่ป้ายต้นทาง'));
+        document.getElementById('trackingPlatform').textContent = scheduleOnlyPeek ? 'ไม่มีการติดตาม GPS สดสำหรับคิวนี้' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ระบบจะอัปเดตเมื่อรถคันนี้ส่งตำแหน่งใหม่' : 'ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง') : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง'));
+        updateTrackingSheetPeek(scheduleOnlyPeek ? 'รอบนี้เป็นตารางเวลาเท่านั้น' : (vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว' : 'ยังไม่พบตำแหน่งรถคันนี้') : 'รอรถที่ป้ายต้นทาง')), scheduleOnlyPeek ? 'ไม่มีการติดตาม GPS สดสำหรับคิวนี้' : (waitingForExpectedVehicle ? ('คิว ' + (expectedVehicleForPeek.queueNo || '-') + ' · ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' → ' + finalDestination)));
       } else {
-        document.getElementById('trackingDestinationEta').textContent = destEta === null ? '???????????????? ETA' :
-          '?????? ' + formatEtaDuration(destEta);
-        document.getElementById('trackingDestinationName').textContent = journeyTargetName + (destEta === null ? '' : ' ? ??????????? ' + timeFromTimestamp(Date.now() + destEta * 60000) + ' ?.');
+        document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
+          'ประมาณ ' + formatEtaDuration(destEta);
+        document.getElementById('trackingDestinationName').textContent = journeyTargetName + (destEta === null ? '' : ' · คาดว่าจะถึง ' + timeFromTimestamp(Date.now() + destEta * 60000) + ' น.');
         document.getElementById('trackingNextStep').textContent = renderNextStepText();
         document.getElementById('trackingPlatform').textContent = renderPlatformText(routeInfo, legs);
-        updateTrackingSheetPeek(journeyTargetName, destEta === null ? '????????????????????' : '?????? ' + formatEtaDuration(destEta));
+        updateTrackingSheetPeek(journeyTargetName, destEta === null ? 'กำลังรอตำแหน่งล่าสุด' : 'ประมาณ ' + formatEtaDuration(destEta));
       }
     }
 
@@ -2705,31 +2705,31 @@
       var age = vanLocation && vanLocation.ts ? Date.now() - Number(vanLocation.ts) : null;
       var statusText = vehicleStatusMessage(vanLocation);
       if (statusText) return statusText;
-      if (!vanLocation) return '????????????????????????';
-      if (age !== null && age > 2 * 60 * 1000) return '??????????????????????????? ? ???????????? ' + formatAgo(age);
+      if (!vanLocation) return 'กำลังรอตำแหน่งรถจากคนขับ';
+      if (age !== null && age > 2 * 60 * 1000) return 'ตำแหน่งรถอาจไม่เป็นปัจจุบัน · อัปเดตล่าสุด ' + formatAgo(age);
       if (routeInfo.type === 'secondary_connection') {
-        return '??????????????? ??????????' + routeInfo.destination;
+        return 'เมื่อถึงแปดริ้ว ให้ต่อรถไป' + routeInfo.destination;
       }
-      return '??????????????????? ' + formatAgo(age || 0);
+      return 'อัปเดตตำแหน่งล่าสุด ' + formatAgo(age || 0);
     }
 
     function formatEtaDuration(minutes) {
       minutes = Math.max(0, Math.round(Number(minutes || 0)));
-      if (minutes < 60) return minutes + ' ????';
+      if (minutes < 60) return minutes + ' นาที';
       var h = Math.floor(minutes / 60);
       var m = minutes % 60;
-      return m ? h + ' ??. ' + m + ' ????' : h + ' ??.';
+      return m ? h + ' ชม. ' + m + ' นาที' : h + ' ชม.';
     }
 
     function renderPlatformText(routeInfo, legs) {
-      if (routeInfo.type !== 'secondary_connection') return '???????????? ? ???????????????????????????';
+      if (routeInfo.type !== 'secondary_connection') return 'ไม่ต้องต่อรถ · ติดตามตำแหน่งรถจนถึงปลายทาง';
       var platform = platformForDestination(routeInfo.destination);
-      return '??????? ' + platform + ' ? ' + (expectedTransferTripText(calculateTransferOrDestinationEta()) || ('????????????????? ' + formatTimeText(legs.leg2Time)));
+      return 'ชานชาลา ' + platform + ' · ' + (expectedTransferTripText(calculateTransferOrDestinationEta()) || ('รอบที่คาดว่าจะทัน ' + formatTimeText(legs.leg2Time)));
     }
 
     function platformForDestination(destination) {
       var clean = String(destination || '').replace(/\s+/g, '').toLowerCase();
-      var platform1 = ['??????','??????','?????','bangkok','bts','???????','????????','???????','???????'];
+      var platform1 = ['เอกมัย','หมอชิต','บางนา','bangkok','bts','จตุจักร','ลาดพร้าว','พระโขนง','อ่อนนุช'];
       for (var i = 0; i < platform1.length; i++) {
         if (clean.indexOf(platform1[i].replace(/\s+/g, '').toLowerCase()) !== -1) return '1';
       }
@@ -2749,14 +2749,14 @@
 
     function formatAgo(ms) {
       var sec = Math.max(0, Math.round(Number(ms || 0) / 1000));
-      if (sec < 60) return sec + ' ?????????????';
-      return Math.round(sec / 60) + ' ???????????';
+      if (sec < 60) return sec + ' วินาทีที่แล้ว';
+      return Math.round(sec / 60) + ' นาทีที่แล้ว';
     }
 
     function startGPS() {
-      if (!navigator.geolocation) { setStatus('scheduleStatus', 'bad', '??????????????????? GPS'); return; }
+      if (!navigator.geolocation) { setStatus('scheduleStatus', 'bad', 'อุปกรณ์นี้ไม่รองรับ GPS'); return; }
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      document.getElementById('btnGps').textContent = '??????????? GPS...';
+      document.getElementById('btnGps').textContent = 'กำลังติดตาม GPS...';
       watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
         enableHighAccuracy: true,
         timeout: 15000,
@@ -2802,14 +2802,14 @@
 
       if (currentSpeedKmh < 1) {
         currentEtaMinutes = null;
-        document.getElementById('etaText').textContent = '?????????';
+        document.getElementById('etaText').textContent = 'รถจอดอยู่';
         document.getElementById('etaText').style.fontSize = '18px';
         document.getElementById('etaUnit').textContent = '';
       } else {
         currentEtaMinutes = Math.round((currentDistanceKm / currentSpeedKmh) * 60);
         document.getElementById('etaText').style.fontSize = '';
         document.getElementById('etaText').textContent = String(currentEtaMinutes);
-        document.getElementById('etaUnit').textContent = '????';
+        document.getElementById('etaUnit').textContent = 'นาที';
       }
 
       compareSchedule();
@@ -2881,13 +2881,13 @@
     }
 
     function onPositionError(err) {
-      setStatus('scheduleStatus', 'bad', err.message || '???????????????????? GPS ???');
-      document.getElementById('btnGps').textContent = '???????? GPS';
+      setStatus('scheduleStatus', 'bad', err.message || 'ไม่สามารถอ่านตำแหน่ง GPS ได้');
+      document.getElementById('btnGps').textContent = 'เริ่มใช้ GPS';
     }
 
     function compareSchedule() {
       if (currentEtaMinutes === null) {
-        setStatus('scheduleStatus', 'warn', '????????? ?????????????????????????????');
+        setStatus('scheduleStatus', 'warn', 'รถจอดอยู่ ระบบยังไม่คำนวณเวลาถึงแปดริ้ว');
         updateFlexiblePanel();
         return;
       }
@@ -2897,10 +2897,10 @@
       var target = getLeg2TimesForBooking(currentBooking).find(function(t) { return toMin(t) >= Math.max(arrivalMin, bookedMin); });
       suggestedNextTrip = target || null;
       if (target) {
-        setStatus('scheduleStatus', 'good', '??????????? ' + target + ' ?.');
+        setStatus('scheduleStatus', 'good', 'ทันรถเที่ยว ' + target + ' น.');
       } else {
         suggestedNextTrip = nextOriginTime(currentBooking.time);
-        setStatus('scheduleStatus', 'bad', '????????????????????? ??????????????????????????????' + (suggestedNextTrip ? ' ' + suggestedNextTrip + ' ?.' : ''));
+        setStatus('scheduleStatus', 'bad', 'ไม่ทันรถปลายทางวันนี้ แนะนำให้เปลี่ยนเป็นเที่ยวถัดไป' + (suggestedNextTrip ? ' ' + suggestedNextTrip + ' น.' : ''));
       }
       updateActionAvailability();
       updateFlexiblePanel();
@@ -2941,7 +2941,7 @@
         show('checkinWindow', false);
       } else if (enterFiveKmAt) {
         var remain = Math.max(0, 60 * 60 * 1000 - (Date.now() - enterFiveKmAt));
-        setStatus('checkinWindow', remain ? 'warn' : 'bad', '???????????? ' + CHECKIN_RADIUS_KM + ' ??. ???? ???????????????? ' + formatDuration(remain));
+        setStatus('checkinWindow', remain ? 'warn' : 'bad', 'เข้าสู่รัศมี ' + CHECKIN_RADIUS_KM + ' กม. แล้ว เหลือเวลาเช็คอิน ' + formatDuration(remain));
       }
       updateTransferDotState();
       updateActionAvailability();
@@ -2965,12 +2965,12 @@
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
       if (routeInfo.type !== 'secondary_connection' && !adminBypass) {
-        btn.textContent = '??????????????????????';
-      } else if (currentBooking && (currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) btn.textContent = '??????????????????????';
-      else if (checkinSubmitLock) btn.textContent = '????????????...';
-      else if (adminBypass) btn.textContent = '??????????????????';
-      else if (!nearTransferPoint) btn.textContent = '?????????????????????????';
-      else btn.textContent = '??????????????????';
+        btn.textContent = 'ไม่ต้องเช็คอินจุดต่อรถ';
+      } else if (currentBooking && (currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) btn.textContent = 'แจ้งใกล้ถึงแปดริ้วแล้ว';
+      else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
+      else if (adminBypass) btn.textContent = 'แอดมินทดสอบเช็คอิน';
+      else if (!nearTransferPoint) btn.textContent = 'ใช้ได้เมื่อใกล้ถึงแปดริ้ว';
+      else btn.textContent = 'แจ้งใกล้ถึงแปดริ้ว';
       renderCheckinButtonState();
       updateFlexiblePanel();
     }
@@ -2992,7 +2992,7 @@
       if (waitingApproval) {
         show('flexPanel', true);
         btn.disabled = true;
-        setStatus('flexStatus', 'warn', '???????????: ???????????????????????? / ??????????????????? / ??????????????');
+        setStatus('flexStatus', 'warn', 'ส่งคำขอแล้ว: ผู้โดยสารล่าช้ากว่ากำหนด / ขอเปลี่ยนเวลาจองคิว / รอแอดมินอนุญาต');
         return;
       }
 
@@ -3005,8 +3005,8 @@
       show('flexPanel', true);
       btn.disabled = false;
       var minutes = Math.floor(stationaryElapsed / 60000);
-      var targetText = suggestedNextTrip ? ' ?????????????????????????: ' + suggestedNextTrip + ' ?. ????????????????????????' : '';
-      setStatus('flexStatus', 'warn', '?????????????????? ?????????????? ?????????????????????????????????????? (GPS ????????????????????? ' + minutes + ' ????)' + targetText);
+      var targetText = suggestedNextTrip ? ' ระบบพบเที่ยวที่อาจเหมาะสม: ' + suggestedNextTrip + ' น. แต่ยังต้องรอแอดมินอนุญาต' : '';
+      setStatus('flexStatus', 'warn', 'หากเกิดเหตุขัดข้อง โปรดแจ้งสาเหตุ เพื่อให้แอดมินพิจารณาเปลี่ยนเวลาจองคิว (GPS อยู่ในรัศมีเดิมประมาณ ' + minutes + ' นาที)' + targetText);
     }
 
     function checkIn() {
@@ -3014,17 +3014,17 @@
       var adminBypass = canAdminBypassCheckin();
       var routeInfo = connectionRouteInfo(currentBooking.route);
       if (!adminBypass && routeInfo.type !== 'secondary_connection') {
-        setStatus('lookupStatus', 'warn', '?????????????????????????????????');
+        setStatus('lookupStatus', 'warn', 'เส้นทางหลักไม่ต้องเช็คอินจุดต่อรถ');
         updateActionAvailability();
         return;
       }
       if (checkinSubmitLock || ((currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass)) {
-        setStatus('lookupStatus', 'warn', '?????????????????? ??????????????????????');
+        setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
         updateActionAvailability();
         return;
       }
       if (!adminBypass && (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM)) {
-        setStatus('lookupStatus', 'bad', '?????????????????????? ' + CHECKIN_RADIUS_KM + ' ??.');
+        setStatus('lookupStatus', 'bad', 'ยังอยู่นอกรัศมีเช็คอิน ' + CHECKIN_RADIUS_KM + ' กม.');
         updateActionAvailability();
         return;
       }
@@ -3051,13 +3051,13 @@
           checkedInAt: checkedInAt,
           adminBypass: adminBypass
         },
-        officialStatus: adminBypass ? 'ADMIN CHECK: ?????????????????????????????????' : '??????????????????????? ???? ' + checkinDistanceKm.toFixed(2) + ' ??.'
+        officialStatus: adminBypass ? 'ADMIN CHECK: เช็คอินทดสอบโดยไม่ต้องรอเข้ารัศมี' : 'ผู้โดยสารใกล้ถึงแปดริ้ว ระยะ ' + checkinDistanceKm.toFixed(2) + ' กม.'
       };
       if (transferAdjustment) {
         Object.assign(payload, transferAdjustment);
-        payload.officialStatus += ' / ?????????????????: ' + transferAdjustment.adjustedLeg2Time + ' ?.';
+        payload.officialStatus += ' / รอบที่คาดว่าจะทัน: ' + transferAdjustment.adjustedLeg2Time + ' น.';
       }
-      updateBookingAndNotify(payload, 'checkin', '???????????????????????? ????????????? LINE ?????????')
+      updateBookingAndNotify(payload, 'checkin', 'แจ้งใกล้ถึงแปดริ้วสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
         .then(function(){ checkinSubmitLock = false; updateActionAvailability(); })
         .catch(function(){ checkinSubmitLock = false; updateActionAvailability(); });
     }
@@ -3104,7 +3104,7 @@
       if (!currentBooking || document.getElementById('btnChangeTrip').disabled) return;
       var reason = document.getElementById('changeReason').value;
       var requestedAt = Date.now();
-      var msg = '???????????????????????? / ??????????????????? / ??????????????';
+      var msg = 'ผู้โดยสารล่าช้ากว่ากำหนด / ขอเปลี่ยนเวลาจองคิว / รอแอดมินอนุญาต';
       updateBookingAndNotify({
         status: 'waiting_admin_approval',
         approvalStatus: 'waiting_admin_approval',
@@ -3125,20 +3125,20 @@
           lng: lastPosition ? lastPosition.lng : null
         },
         officialStatus: msg
-      }, 'change_trip_request', '??????????????????????????? ??????????????????????????????');
+      }, 'change_trip_request', 'ส่งคำขอให้แอดมินพิจารณาแล้ว ระบบยังไม่เปลี่ยนเวลาอัตโนมัติ');
     }
 
     function updateCancelAvailability() {
       if (!currentBooking) return;
       var canCancel = canCancelTicket();
       if (currentBooking.status === 'cancelled') {
-        setStatus('cancelStatus', 'bad', '????????????????????');
+        setStatus('cancelStatus', 'bad', 'ตั๋วนี้ถูกยกเลิกแล้ว');
         document.getElementById('btnCancel').disabled = true;
       } else if (canCancel) {
-        setStatus('cancelStatus', 'info', '?????????????????? ???????????????????????????????? 1 ???????');
+        setStatus('cancelStatus', 'info', 'ยังสามารถยกเลิกได้ เพราะเหลือเวลาก่อนรถออกอย่างน้อย 1 ชั่วโมง');
         document.getElementById('btnCancel').disabled = false;
       } else {
-        setStatus('cancelStatus', 'bad', '???????????????? ??????????????????????????????? 1 ???????');
+        setStatus('cancelStatus', 'bad', 'ยกเลิกไม่ได้แล้ว เพราะเหลือเวลาก่อนรถออกน้อยกว่า 1 ชั่วโมง');
         document.getElementById('btnCancel').disabled = true;
       }
     }
@@ -3156,17 +3156,17 @@
         return;
       }
       if (!canCancelTicket()) return;
-      // ????????????????????? modal
+      // ใส่รายละเอียดการจองใน modal
       var detail = document.getElementById('cancelModalDetail');
       if (detail && currentBooking) {
         var cancelLegs = escapeHtml(buildScheduleMessage(getLegSchedule(currentBooking))).replace(/\n/g, '<br>');
         detail.innerHTML =
-          '?? ????: <strong>' + currentBooking.code + '</strong><br>' +
-          '?? ????: ' + escapeHtml(displayPassengerName(currentBooking.name)) + '<br>' +
-          '??? ???????: ' + (currentBooking.route || '-') + '<br>' +
-          '?? ??????: ' + formatDate(currentBooking.date) + '<br>' +
-          '?? ' + cancelLegs +
-          '?? ?????: ' + (currentBooking.seats || 1) + ' ???????';
+          '🎫 รหัส: <strong>' + currentBooking.code + '</strong><br>' +
+          '👤 ชื่อ: ' + escapeHtml(displayPassengerName(currentBooking.name)) + '<br>' +
+          '🛣️ เส้นทาง: ' + (currentBooking.route || '-') + '<br>' +
+          '📅 วันที่: ' + formatDate(currentBooking.date) + '<br>' +
+          '🕐 ' + cancelLegs +
+          '💺 จำนวน: ' + (currentBooking.seats || 1) + ' ที่นั่ง';
       }
       show('cancelModal', true);
     }
@@ -3181,8 +3181,8 @@
       updateBookingAndNotify({
         status: 'cancelled',
         cancelledAt: Date.now(),
-        officialStatus: '???????????????????????'
-      }, 'cancel_ticket', '???????????????? ??????????????????')
+        officialStatus: 'ตั๋วของคุณถูกยกเลิกแล้ว'
+      }, 'cancel_ticket', 'ยกเลิกตั๋วสำเร็จ แจ้งท่าปลายทางแล้ว')
         .then(showCancelledDonePopup)
         .catch(function(){});
     }
@@ -3203,12 +3203,12 @@
       var detail = document.getElementById('cancelledDoneDetail');
       if (detail && currentBooking) {
         detail.innerHTML =
-          '????: ' + escapeHtml(displayPassengerName(currentBooking.name)) + '<br>' +
-          '????????: ' + escapeHtml(currentBooking.phone || '-') + '<br>' +
-          '????????: ' + escapeHtml(currentBooking.code || '-') + '<br>' +
-          '???????: ' + escapeHtml(currentBooking.route || '-') + '<br>' +
-          '???????: ' + escapeHtml(currentBooking.time || '-') + ' ?.<br>' +
-          '<strong>?????: ??????????????</strong>';
+          'ชื่อ: ' + escapeHtml(displayPassengerName(currentBooking.name)) + '<br>' +
+          'เบอร์โทร: ' + escapeHtml(currentBooking.phone || '-') + '<br>' +
+          'รหัสตั๋ว: ' + escapeHtml(currentBooking.code || '-') + '<br>' +
+          'เส้นทาง: ' + escapeHtml(currentBooking.route || '-') + '<br>' +
+          'รอบเวลา: ' + escapeHtml(currentBooking.time || '-') + ' น.<br>' +
+          '<strong>สถานะ: ยกเลิกตั๋วแล้ว</strong>';
       }
       show('cancelledDoneModal', true);
     }
@@ -3343,18 +3343,18 @@
         return Object.assign({}, existing, payload);
       }).then(function(result) {
         if (!result.committed) {
-          setStatus('lookupStatus', 'warn', '?????????????????? ??????????????????????');
+          setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
           return Promise.reject(new Error('DUPLICATE_CHECKIN'));
         }
         currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
         return sendLineMessage(linePayload, payload, eventName).then(function(result){
-          setStatus('lookupStatus', 'good', result && result.mock ? 'TEST MODE: ???????????? Mock LINE ??????' : successText);
+          setStatus('lookupStatus', 'good', result && result.mock ? 'TEST MODE: บันทึกสำเร็จ Mock LINE สำเร็จ' : successText);
         });
       })
         .catch(function(err) {
           console.error(err);
           if (err && err.message === 'DUPLICATE_CHECKIN') throw err;
-          setStatus('lookupStatus', 'bad', '????????????????????? LINE ????????? ????????????');
+          setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลเพื่อแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
           throw err;
         });
     }
@@ -3448,91 +3448,91 @@
         var legs = getLegSchedule(currentBooking);
         var origin = getRouteOrigin(currentBooking, legs);
         var destination = connectionRouteInfo(currentBooking.route).destination || currentBooking.destination || '-';
-        var etaText = data.etaMinutes === null || data.etaMinutes === undefined ? '-' : '????????? ' + Math.max(0, Math.round(Number(data.etaMinutes || 0))) + ' ????';
+        var etaText = data.etaMinutes === null || data.etaMinutes === undefined ? '-' : 'อีกประมาณ ' + Math.max(0, Math.round(Number(data.etaMinutes || 0))) + ' นาที';
         return [
-          '??????????????????????? ' + etaText,
+          'ผู้โดยสารใกล้ถึงแปดริ้ว ' + etaText,
           '',
-          '????????: ' + (currentBooking.code || '-'),
-          '????: ' + (currentBooking.name || '-'),
-          '????????: ' + (currentBooking.phone || '-'),
-          '??????: ' + origin,
-          '???????: ' + destination,
-          '????????????: ' + (currentBooking.seats || 1)
+          'รหัสตั๋ว: ' + (currentBooking.code || '-'),
+          'ชื่อ: ' + (currentBooking.name || '-'),
+          'เบอร์โทร: ' + (currentBooking.phone || '-'),
+          'ต้นทาง: ' + origin,
+          'ปลายทาง: ' + destination,
+          'จำนวนที่นั่ง: ' + (currentBooking.seats || 1)
         ].join('\n');
       }
 
       if (data.eventName === 'cancel_ticket') {
         var cancelLegs = getLegSchedule(currentBooking);
         return [
-          '???????????????????',
+          'ผู้โดยสารยกเลิกตั๋ว',
           '',
-          '?????????????: ' + (currentBooking.name || '-'),
-          '????????: ' + (currentBooking.phone || '-'),
-          '????????: ' + (currentBooking.code || '-'),
-          '??????????????: ' + (currentBooking.route || '-'),
-          '??????: ' + getRouteOrigin(currentBooking, cancelLegs),
-          '???????: ' + (connectionRouteInfo(currentBooking.route).destination || currentBooking.destination || '-'),
-          '???????: ' + (currentBooking.time || cancelLegs.leg1Time || '-') + ' ?.',
-          '??????????: ' + formatDate(currentBooking.date),
-          '????????????: ' + (currentBooking.seats || 1),
-          '?????: ??????????????'
+          'ชื่อผู้โดยสาร: ' + (currentBooking.name || '-'),
+          'เบอร์โทร: ' + (currentBooking.phone || '-'),
+          'รหัสตั๋ว: ' + (currentBooking.code || '-'),
+          'รายละเอียดตั๋ว: ' + (currentBooking.route || '-'),
+          'ต้นทาง: ' + getRouteOrigin(currentBooking, cancelLegs),
+          'ปลายทาง: ' + (connectionRouteInfo(currentBooking.route).destination || currentBooking.destination || '-'),
+          'รอบเวลา: ' + (currentBooking.time || cancelLegs.leg1Time || '-') + ' น.',
+          'วันเดินทาง: ' + formatDate(currentBooking.date),
+          'จำนวนที่นั่ง: ' + (currentBooking.seats || 1),
+          'สถานะ: ยกเลิกตั๋วแล้ว'
         ].join('\n');
       }
 
       var eventTitle = {
-        checkin: '????????????????????',
-        change_trip: '????????????????????????',
-        change_trip_request: '???????????????????????? / ??????????????????? / ??????????????',
-        cancel_ticket: '???????????????????'
-      }[data.eventName] || '???????????????';
+        checkin: 'ผู้โดยสารเช็คอินแล้ว',
+        change_trip: 'ผู้โดยสารเปลี่ยนเที่ยวรถ',
+        change_trip_request: 'ผู้โดยสารล่าช้ากว่ากำหนด / ขอเปลี่ยนเวลาจองคิว / รอแอดมินอนุญาต',
+        cancel_ticket: 'ผู้โดยสารยกเลิกตั๋ว'
+      }[data.eventName] || 'อัปเดตสถานะตั๋ว';
       if (data.eventName === 'checkin' && data.routeInfo && data.routeInfo.type === 'secondary_connection') {
-        eventTitle = '??????????????????????????????????';
+        eventTitle = 'แจ้งข้อมูลผู้โดยสารต่อรถเส้นทางรอง';
       }
       var message = eventTitle + '\n' +
         (data.eventName === 'checkin' && data.routeInfo && data.routeInfo.type === 'secondary_connection'
-          ? '??????????????????????????????????????????????????? ????????????????????????????????????????\n'
+          ? 'มีผู้โดยสารที่จะต่อรถไปยังเส้นทางอื่นนอกเส้นทางหลัก โปรดตรวจสอบและประสานงานรถต่อให้เรียบร้อย\n'
           : '') +
-        '????: ' + currentBooking.code + '\n' +
-        '????: ' + (currentBooking.name || '-') + '\n' +
-        '???: ' + (currentBooking.phone || '-') + '\n' +
-        '???????: ' + (currentBooking.route || '-') + '\n' +
-        (data.routeInfo ? '????????????: ' + data.routeInfo.label + '\n????????????: ' + data.routeInfo.destination + '\n' : '') +
-        '??????????: ' + formatDate(currentBooking.date) + '\n' +
+        'รหัส: ' + currentBooking.code + '\n' +
+        'ชื่อ: ' + (currentBooking.name || '-') + '\n' +
+        'โทร: ' + (currentBooking.phone || '-') + '\n' +
+        'เส้นทาง: ' + (currentBooking.route || '-') + '\n' +
+        (data.routeInfo ? 'กลุ่มเส้นทาง: ' + data.routeInfo.label + '\nปลายทางต่อรถ: ' + data.routeInfo.destination + '\n' : '') +
+        'วันเดินทาง: ' + formatDate(currentBooking.date) + '\n' +
         buildScheduleMessage(data.legSchedule) +
-        '???????: ' + (currentBooking.seats || 1) + '\n' +
-        '?????: ' + statusLabel(data.status);
+        'ที่นั่ง: ' + (currentBooking.seats || 1) + '\n' +
+        'สถานะ: ' + statusLabel(data.status);
 
       if (data.eventName === 'change_trip_request') {
-        message += '\n????: ???????????????????????? / ??????????????????? / ??????????????' +
-          '\n????????: ' + (data.time || '-') + ' ?.' +
-          (data.requestedTime ? '\n??????????????????: ' + data.requestedTime + ' ?.' : '\n??????????????????: ???????????????');
+        message += '\nคำขอ: ผู้โดยสารล่าช้ากว่ากำหนด / ขอเปลี่ยนเวลาจองคิว / รอแอดมินอนุญาต' +
+          '\nเวลาเดิม: ' + (data.time || '-') + ' น.' +
+          (data.requestedTime ? '\nเที่ยวที่ระบบแนะนำ: ' + data.requestedTime + ' น.' : '\nเที่ยวที่ระบบแนะนำ: รอแอดมินพิจารณา');
       }
 
       if (data.eventName === 'checkin') {
-        message += '\n???????????: ' + formatDateTime(data.eventAt) +
-          '\n??????????????: ' + formatNumber(data.distanceKm, 2) + ' ??.' +
-          '\n????????: ' + formatNumber(data.speedKmh, 1) + ' ??./??.' +
-          '\nETA: ' + (data.etaMinutes === null || data.etaMinutes === undefined ? '-' : data.etaMinutes + ' ????');
+        message += '\nเวลาเช็คอิน: ' + formatDateTime(data.eventAt) +
+          '\nระยะจากแปดริ้ว: ' + formatNumber(data.distanceKm, 2) + ' กม.' +
+          '\nความเร็ว: ' + formatNumber(data.speedKmh, 1) + ' กม./ชม.' +
+          '\nETA: ' + (data.etaMinutes === null || data.etaMinutes === undefined ? '-' : data.etaMinutes + ' นาที');
         if (data.adjustedLeg2Time) {
-          message += '\n???????????????????????: ' + data.adjustedLeg2Time + ' ?.' +
-            '\n?????????????: ' + (data.backupLeg2Time || '-') + (data.backupLeg2Time ? ' ?.' : '');
+          message += '\nรอบที่ปรับได้เร็วที่สุด: ' + data.adjustedLeg2Time + ' น.' +
+            '\nรอบถัดไปสำรอง: ' + (data.backupLeg2Time || '-') + (data.backupLeg2Time ? ' น.' : '');
         }
         if (data.lat !== null && data.lng !== null) {
-          message += '\n?????: ' + data.lat + ', ' + data.lng +
-            '\n??????: https://maps.google.com/?q=' + data.lat + ',' + data.lng;
+          message += '\nพิกัด: ' + data.lat + ', ' + data.lng +
+            '\nแผนที่: https://maps.google.com/?q=' + data.lat + ',' + data.lng;
         }
       }
 
-      message += (data.reason ? '\n??????: ' + data.reason : '') +
-        (data.officialStatus ? '\n????????: ' + data.officialStatus : '');
+      message += (data.reason ? '\nสาเหตุ: ' + data.reason : '') +
+        (data.officialStatus ? '\nหมายเหตุ: ' + data.officialStatus : '');
       return message;
     }
 
     function buildScheduleMessage(legSchedule) {
       if (!legSchedule) return 'Leg 1: -\n';
-      var text = 'Leg 1: ' + (legSchedule.leg1 || '-') + ' ??????? ' + (legSchedule.leg1Time || '-') + ' ?.\n';
+      var text = 'Leg 1: ' + (legSchedule.leg1 || '-') + ' เวลาออก ' + (legSchedule.leg1Time || '-') + ' น.\n';
       if (legSchedule.leg2) {
-        text += 'Leg 2: ' + legSchedule.leg2 + ' ????????? ' + (legSchedule.leg2Time || '-') + ' ?.\n';
+        text += 'Leg 2: ' + legSchedule.leg2 + ' เวลาต่อรถ ' + (legSchedule.leg2Time || '-') + ' น.\n';
       }
       return text;
     }
@@ -3566,8 +3566,8 @@
       if (!dateStr) return '-';
       var d = new Date(dateStr + 'T00:00:00');
       if (isNaN(d.getTime())) return dateStr;
-      var days = ['??', '?', '?', '?', '??', '?', '?'];
-      var months = ['?.?.', '?.?.', '??.?.', '??.?.', '?.?.', '??.?.', '?.?.', '?.?.', '?.?.', '?.?.', '?.?.', '?.?.'];
+      var days = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+      var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
       return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
     }
 

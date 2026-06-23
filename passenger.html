@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0b1d3a">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>???????????????????????????? ? Smart Transit</title>
+<title>ข้อมูลเที่ยวรถและสถานะบริการ – Smart Transit</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -112,7 +112,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   background:#eefdfa; border:1px solid #bceee7;
   padding:4px 11px; border-radius:20px;
 }
-/* ???????????????? ? ????????? */
+/* เลื่อนซ้ายขวาได้ — จุดไม่ล้น */
 .route-visual-scroll {
   overflow-x:auto; -webkit-overflow-scrolling:touch;
   padding-bottom:6px; padding-top:28px;
@@ -180,7 +180,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   margin-bottom:10px; padding-left:2px;
 }
 
-/* ===== SCHEDULE ? DIRECT ROUTE ===== */
+/* ===== SCHEDULE — DIRECT ROUTE ===== */
 .sched-card {
   background:var(--card); border-radius:12px;
   overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
@@ -192,7 +192,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .sched-route-from { font-size:11px; color:#b9f2ea; font-weight:500; margin-bottom:3px; letter-spacing:0.5px; text-transform:uppercase; }
 .sched-route-name { font-size:17px; font-weight:700; color:#ffffff; }
 
-/* ???? 3 ??????? ? ???????? ???????? */
+/* กริด 3 คอลัมน์ — เวลาใหญ่ อ่านง่าย */
 .time-grid { display:grid; grid-template-columns:repeat(3,1fr); }
 .time-cell {
   padding:18px 10px; text-align:center;
@@ -202,7 +202,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   min-width:0;
 }
 .time-cell:nth-child(3n) { border-right:none; }
-/* ?? border bottom ?????????? */
+/* ลบ border bottom แถวสุดท้าย */
 .time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+1),
 .time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+2),
 .time-grid .time-cell:nth-last-child(1),
@@ -215,7 +215,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   letter-spacing:0.5px; margin-top:4px;
 }
 
-/* ===== SCHEDULE ? LEG2 (2 columns) ===== */
+/* ===== SCHEDULE — LEG2 (2 columns) ===== */
 .leg2-card {
   background:var(--card); border-radius:12px;
   overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
@@ -286,7 +286,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 }
 .footer .note-title { color:var(--red); font-weight:700; }
 
-/* ===== DIRECT SCHED ? 2-col time grid ===== */
+/* ===== DIRECT SCHED — 2-col time grid ===== */
 .time-grid-2col { display:grid; grid-template-columns:1fr 1fr; }
 .time-grid-2col .time-cell { border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
 .time-grid-2col .time-cell:nth-child(2n) { border-right:none; }
@@ -427,7 +427,7 @@ body { background:#edf6f8; }
   box-shadow:0 10px 24px rgba(15,23,42,.18);
   font-size:0;
 }
-.follow-user-btn::before { content:"?"; font-size:23px; line-height:1; }
+.follow-user-btn::before { content:"◎"; font-size:23px; line-height:1; }
 .follow-user-btn.is-off { background:#ffffff; color:#64748b; }
 .bottom-sheet {
   position:absolute;
@@ -547,55 +547,55 @@ body { background:#edf6f8; }
 <body>
 
 <div class="topbar">
-  <div class="header-main">????????????????????????????</div>
-  <div class="header-sub">Smart Transit ? ???????????????????????????</div>
+  <div class="header-main">ข้อมูลเที่ยวรถและสถานะบริการ</div>
+  <div class="header-sub">Smart Transit · ระบบบริการผู้โดยสารอัจฉริยะ</div>
 </div>
 
-<!-- ??? 5: ??????????? / ????????? -->
+<!-- ข้อ 5: วันเวลาซ้าย / อัปเดตขวา -->
 <div class="info-strip">
   <div class="left">
     <div class="time" id="clock">--:--:--</div>
     <div class="date" id="dateText"></div>
   </div>
   <div class="right">
-    <span class="live-dot"></span>????????????????????????<br>
-    <span id="lastUpdate" style="font-weight:400;color:var(--muted)">????????</span>
+    <span class="live-dot"></span>ข้อมูลอัปเดตแบบเรียลไทม์<br>
+    <span id="lastUpdate" style="font-weight:400;color:var(--muted)">รอข้อมูล</span>
   </div>
 </div>
 
-<div class="test-mode-strip" id="testModeStrip">????????????????? - ??????????????????? LINE ????</div>
-<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ?????? ID admin ????? 0929383999 ????????????????????????????????????</div>
+<div class="test-mode-strip" id="testModeStrip">โหมดทดสอบเปิดอยู่ - ระบบจะไม่ส่งข้อความ LINE จริง</div>
+<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังตรวจสอบระบบในสถานะผู้โดยสารจริง</div>
 
 <div class="map-page">
 <div class="main">
 
-  <!-- ?????????: ???????????? ? ?????? -->
+  <!-- ลำดับใหม่: เลือกเส้นทาง → แผนที่ -->
   <div class="route-select-card top-route-card">
-    <div class="rs-title">??????????????????????</div>
+    <div class="rs-title">เลือกเส้นทางการเดินทาง</div>
     <div class="rs-row">
       <div class="rs-group">
-        <div class="rs-label">??????</div>
+        <div class="rs-label">ต้นทาง</div>
         <select id="selOrigin" class="rs-select"></select>
       </div>
-      <div class="rs-arrow">?</div>
+      <div class="rs-arrow">→</div>
       <div class="rs-group">
-        <div class="rs-label">???????</div>
+        <div class="rs-label">ปลายทาง</div>
         <select id="selDest" class="rs-select"></select>
       </div>
     </div>
   </div>
 
   <div id="map"></div>
-  <button type="button" id="followUserBtn" class="follow-user-btn">???????????????????</button>
+  <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งของฉัน</button>
 
-  <!-- ????????? ? ????????????? -->
+  <!-- ตำแหน่งรถ — รองรับหลายคัน -->
   <section class="bottom-sheet sheet-collapsed" id="routeBottomSheet" aria-live="polite">
     <div class="bottom-sheet-header" id="bottomSheetHeader" role="button" tabindex="0" aria-expanded="false">
       <div class="sheet-handle"></div>
       <div class="sheet-summary-row">
         <div>
-          <div class="sheet-route-name" id="sheetRouteName">?????????????????????????</div>
-          <div class="sheet-route-sub" id="sheetRouteSub">????????????????????????????????????????????????????????????????? ???????????????????????????????????</div>
+          <div class="sheet-route-name" id="sheetRouteName">ตารางเวลารถโดยสารประจำทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ</div>
         </div>
       </div>
     </div>
@@ -604,9 +604,9 @@ body { background:#edf6f8; }
   <div id="schedWrapper"></div>
 
   <a href="booking.html" class="booking-tab">
-    <span class="booking-tab-icon">??</span>
-    <span class="booking-tab-text">????????????????????</span>
-    <span class="booking-tab-arrow">?</span>
+    <span class="booking-tab-icon">🎫</span>
+    <span class="booking-tab-text">จองตั๋วโดยสารออนไลน์</span>
+    <span class="booking-tab-arrow">→</span>
   </a>
 
     </div>
@@ -639,97 +639,97 @@ function applyAdminTesterMode(){
   if (el) el.style.display = on ? 'block' : 'none';
 }
 
-// ===== DATA (??????????? GPS/Map/Status) =====
-// STOPS ??????????????????? (?????? Map/Strip)
+// ===== DATA (คงไว้สำหรับ GPS/Map/Status) =====
+// STOPS รองรับจุดจอดทั้งหมด (ใช้โดย Map/Strip)
 const STOPS_GO = [
-  { name:'???????',         lat:13.453565, lng:102.299330 },
-  { name:'??????????',        lat:13.436666, lng:102.200895 },
-  { name:'???????????',         lat:13.439877, lng:102.083043 },
-  { name:'??????',           lat:13.416310, lng:102.020767 },
-  { name:'????????',          lat:13.420494, lng:101.995365 },
-  { name:'???????????',       lat:13.420264, lng:101.765445 },
-  { name:'???????',         lat:13.381579, lng:101.708016 },
-  { name:'??????????',         lat:13.443342, lng:101.610222 },
-  { name:'???????????????',    lat:13.659022, lng:101.437482 },
-  { name:'?????????',        lat:13.745082, lng:101.355993 },
-  { name:'???????????????',     lat:13.692477, lng:101.054105 },
+  { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
+  { name:'สี่แยกโคนม',        lat:13.436666, lng:102.200895 },
+  { name:'ทุ่งกบินทร์',         lat:13.439877, lng:102.083043 },
+  { name:'ไพรจิต',           lat:13.416310, lng:102.020767 },
+  { name:'หนองเรือ',          lat:13.420494, lng:101.995365 },
+  { name:'คลองตะเคียน',       lat:13.420264, lng:101.765445 },
+  { name:'หนองคอก',         lat:13.381579, lng:101.708016 },
+  { name:'ท่าตะเกียบ',         lat:13.443342, lng:101.610222 },
+  { name:'ท่ารถสนามชัยเขต',    lat:13.659022, lng:101.437482 },
+  { name:'พนมสารคาม',        lat:13.745082, lng:101.355993 },
+  { name:'ขนส่งฉะเชิงเทรา',     lat:13.692477, lng:101.054105 },
 ];
 const STOPS_BACK = [
-  { name:'???????',         lat:13.453565, lng:102.299330 },
-  { name:'??????????',        lat:13.436666, lng:102.200895 },
-  { name:'???????????',         lat:13.439877, lng:102.083043 },
-  { name:'??????',           lat:13.416310, lng:102.020767 },
-  { name:'????????',          lat:13.420494, lng:101.995365 },
-  { name:'???????????',       lat:13.420264, lng:101.765445 },
-  { name:'???????',         lat:13.381579, lng:101.708016 },
-  { name:'??????????',         lat:13.443342, lng:101.610222 },
-  { name:'???????????????',    lat:13.659022, lng:101.437482 },
-  { name:'?????????',        lat:13.745082, lng:101.355993 },
-  { name:'???????????????',     lat:13.692477, lng:101.054105 },
+  { name:'คลองหาด',         lat:13.453565, lng:102.299330 },
+  { name:'สี่แยกโคนม',        lat:13.436666, lng:102.200895 },
+  { name:'ทุ่งกบินทร์',         lat:13.439877, lng:102.083043 },
+  { name:'ไพรจิต',           lat:13.416310, lng:102.020767 },
+  { name:'หนองเรือ',          lat:13.420494, lng:101.995365 },
+  { name:'คลองตะเคียน',       lat:13.420264, lng:101.765445 },
+  { name:'หนองคอก',         lat:13.381579, lng:101.708016 },
+  { name:'ท่าตะเกียบ',         lat:13.443342, lng:101.610222 },
+  { name:'ท่ารถสนามชัยเขต',    lat:13.659022, lng:101.437482 },
+  { name:'พนมสารคาม',        lat:13.745082, lng:101.355993 },
+  { name:'ขนส่งฉะเชิงเทรา',     lat:13.692477, lng:101.054105 },
 ];
 
-// ===== ROUTES DATA ? ???????????? UI =====
+// ===== ROUTES DATA — แยกข้อมูลจาก UI =====
 const ROUTES = {
-  '???????????????':        { times: ['06:20','07:20','09:00','10:40','12:10','13:40','14:00'] },
-  '?????????':            { times: ['06:40','07:40','09:20','11:40','12:30','14:30','15:00'] },
-  '???????':              { times: ['08:00','11:30'] },
-  '???????':              { times: ['06:20','09:30','13:00'] },
-  '??????????':              { times: ['06:35','09:45','13:15'] },
-  '???????????':              { times: ['08:20','12:10'] },
-  '??????':                { times: ['08:30','12:10'] },
-  '????????':              { times: ['08:40','12:20'] },
-  '???????????':           { times: ['09:20','12:40'] },
-  '?????????? (???????)':     { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
-  '??????????':             { times: ['08:30','12:00'] },
+  'ท่ารถสนามชัยเขต':        { times: ['06:20','07:20','09:00','10:40','12:10','13:40','14:00'] },
+  'พนมสารคาม':            { times: ['06:40','07:40','09:20','11:40','12:30','14:30','15:00'] },
+  'คลองหาด':              { times: ['08:00','11:30'] },
+  'หนองคอก':              { times: ['06:20','09:30','13:00'] },
+  'ท่าตะเกียบ':              { times: ['06:35','09:45','13:15'] },
+  'ทุ่งกบินทร์':              { times: ['08:20','12:10'] },
+  'ไพรจิต':                { times: ['08:30','12:10'] },
+  'หนองเรือ':              { times: ['08:40','12:20'] },
+  'คลองตะเคียน':           { times: ['09:20','12:40'] },
+  'ฉะเชิงเทรา (แปดริ้ว)':     { times: ['09:40','11:20','12:20','14:00','15:20','16:20','17:20'] },
+  'สี่แยกโคนม':             { times: ['08:30','12:00'] },
 };
 
 const CONFIRMED_TO_CHACHOENGSAO_TIMES = {
-  '???????': ['08:00','11:30'],
-  '??????????': ['08:30','12:00'],
-  '???????????': ['08:20','12:10'],
-  '??????': ['08:30','12:10'],
-  '????????': ['08:40','12:20'],
-  '???????????': ['09:20','12:40'],
-  '???????': ['06:20','09:30','13:00']
+  'คลองหาด': ['08:00','11:30'],
+  'สี่แยกโคนม': ['08:30','12:00'],
+  'ทุ่งกบินทร์': ['08:20','12:10'],
+  'ไพรจิต': ['08:30','12:10'],
+  'หนองเรือ': ['08:40','12:20'],
+  'คลองตะเคียน': ['09:20','12:40'],
+  'หนองคอก': ['06:20','09:30','13:00']
 };
 
 const CONFIRMED_PAIR_TIMES = {
-  '???????': {
-    '???????': ['13:05','15:45']
+  'หนองคอก': {
+    'คลองหาด': ['13:05','15:45']
   }
 };
 
-// LEG2: ?????????????????????????? (???????)
-// leg2Times = ?????????????????????????
-// leg2Label = ?????????????? dropdown
+// LEG2: เส้นทางต่อรถผ่านฉะเชิงเทรา (แปดริ้ว)
+// leg2Times = เวลาออกจากขนส่งฉะเชิงเทรา
+// leg2Label = กลุ่มที่แสดงใน dropdown
 const LEG2_TIMES_EAST     = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
 const LEG2_TIMES_MINBURI  = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
 const LEG2_TIMES_EKAMAI   = ['06:30','08:30','10:30','15:30','17:30'];
 const LEG2_TIMES_MOCHIT   = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
 
 const LEG2_DESTINATIONS = {
-  '??????????':    { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '??????':        { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '???????':       { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '?.?????':       { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '????????':      { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '????????':      { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '?????':        { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '?????????':     { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '??????':        { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '??.10':         { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '???????':       { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '?????':         { leg2Times: LEG2_TIMES_EAST,    group: '?????-?????-???????' },
-  '???????????':   { leg2Times: LEG2_TIMES_MINBURI, group: '?????-?????-???????' },
-  'BTS ???????':   { leg2Times: LEG2_TIMES_MOCHIT,  group: '??????-??????-BTS' },
-  '???????????':   { leg2Times: LEG2_TIMES_MOCHIT,  group: '??????-??????-BTS' },
-  '??????':        { leg2Times: LEG2_TIMES_EKAMAI,  group: '??????-??????-BTS' },
-  '??????':        { leg2Times: LEG2_TIMES_EKAMAI,  group: '??????-??????-BTS' },
-  '?????':         { leg2Times: LEG2_TIMES_EKAMAI,  group: '??????-??????-BTS' },
-  '??????':        { leg2Times: LEG2_TIMES_MOCHIT,  group: '??????-??????-BTS' },
-  'BTS ??????':    { leg2Times: LEG2_TIMES_EKAMAI,  group: '??????-??????-BTS' },
-  'BTS ???????':   { leg2Times: LEG2_TIMES_EKAMAI,  group: '??????-??????-BTS' },
-  'BTS ???????':   { leg2Times: LEG2_TIMES_EKAMAI,  group: '??????-??????-BTS' },
+  'ตลาดหนองมน':    { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'บางแสน':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ศรีราชา':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ม.เกษตร':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'อ่าวอุดม':      { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'แหลมฉบัง':      { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'พัทยา':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'แยกอัยการ':     { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'สัตหีบ':        { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'กม.10':         { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'บ้านฉาง':       { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ระยอง':         { leg2Times: LEG2_TIMES_EAST,    group: 'พัทยา-ระยอง-มีนบุรี' },
+  'ตลาดมีนบุรี':   { leg2Times: LEG2_TIMES_MINBURI, group: 'พัทยา-ระยอง-มีนบุรี' },
+  'BTS จตุจักร':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'แยกลาดพร้าว':   { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'เอกมัย':        { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'โฮมโปร':        { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'บางนา':         { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'หมอชิต':        { leg2Times: LEG2_TIMES_MOCHIT,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS บางจาก':    { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS พระโขนง':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
+  'BTS อ่อนนุช':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
 };
 
 const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
@@ -737,33 +737,33 @@ const ADMIN_ROUTE_TIMES = {};
 let PASSENGER_ROUTE_DATA = null;
 let ADMIN_ROUTE_SOURCE_LOADED = false;
 
-// ???????????????????
+// ต้นทางและปลายทางตรง
 const ORIGIN_LIST = [
-  '?????????? (???????)',
-  '?????????',
-  '???????????????',
-  '??????????',
-  '???????',
-  '???????????',
-  '????????',
-  '??????',
-  '???????????',
-  '??????????',
-  '???????',
+  'ฉะเชิงเทรา (แปดริ้ว)',
+  'พนมสารคาม',
+  'ท่ารถสนามชัยเขต',
+  'ท่าตะเกียบ',
+  'หนองคอก',
+  'คลองตะเคียน',
+  'หนองเรือ',
+  'ไพรจิต',
+  'ทุ่งกบินทร์',
+  'สี่แยกโคนม',
+  'คลองหาด',
 ];
 
 const DEST_NORMAL = [
-  '?????????? (???????)',
-  '?????????',
-  '???????????????',
-  '??????????',
-  '???????',
-  '???????????',
-  '????????',
-  '??????',
-  '???????????',
-  '??????????',
-  '???????',
+  'ฉะเชิงเทรา (แปดริ้ว)',
+  'พนมสารคาม',
+  'ท่ารถสนามชัยเขต',
+  'ท่าตะเกียบ',
+  'หนองคอก',
+  'คลองตะเคียน',
+  'หนองเรือ',
+  'ไพรจิต',
+  'ทุ่งกบินทร์',
+  'สี่แยกโคนม',
+  'คลองหาด',
 ];
 
 let lastPos=null;
@@ -771,7 +771,7 @@ let allBusPositions={};
 let rawBusPositions={};
 let liveVehiclePositions={};
 const BUS_ICON_SRC='assets/passenger-bus-icon.png';
-// ?? viewDir ????????? GPS/Map
+// คง viewDir ไว้สำหรับ GPS/Map
 let viewDir='go';
 let mapObj=null, busMarkers={}, busTagMarkers={}, routeLine=null, mapReady=false;
 let stationMarkerOverlays=[];
@@ -799,18 +799,18 @@ function normalizeMapPoint(point) {
 
 function vehicleStatusMessage(pos) {
   var status = pos && pos.status ? String(pos.status) : '';
-  if (pos && pos.online === false) return '??????????????????????? ??????????????????????????????';
-  if (status === 'locating') return '???????????????????? GPS ???????????';
-  if (status === 'low_accuracy') return '????????????????? GPS ??????????????????????????????';
-  if (status === 'gps_error') return '???? GPS ?????????????????????????? ??????????????';
-  if (status === 'moving') return '?????????????????????????????????';
+  if (pos && pos.online === false) return 'รถโดยสารออฟไลน์ชั่วคราว ระบบจะอัปเดตเมื่อกลับมาออนไลน์';
+  if (status === 'locating') return 'ระบบกำลังค้นหาสัญญาณ GPS ของรถโดยสาร';
+  if (status === 'low_accuracy') return 'ระบบกำลังรอสัญญาณ GPS ที่แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
+  if (status === 'gps_error') return 'ระบบ GPS ของรถโดยสารขัดข้องชั่วคราว กรุณารอสักครู่';
+  if (status === 'moving') return 'ตำแหน่งรถโดยสารอัปเดตแบบเรียลไทม์';
   return '';
 }
 
 function getVehicleTs(pos) {
   if (!pos) return null;
-  // gpsTs = ???? GPS fix ?????????????? ? ???????????
-  // sentTs/ts = ????????????? ??????? heartbeat ??? GPS ?????
+  // gpsTs = เวลา GPS fix จริงจากอุปกรณ์ — ใช้ก่อนเสมอ
+  // sentTs/ts = เวลาที่แอปส่ง อาจเป็น heartbeat โดย GPS ไม่สด
   var raw = pos.gpsTs || pos.gpsts || pos.ts || pos.lastUpdated || pos.updatedAt || pos.timestamp || null;
   if (raw === null || raw === undefined) return null;
   var n = Number(raw);
@@ -842,7 +842,7 @@ function sanitizeVehicleData(pos) {
 }
 
 function mergeVehicleFeeds() {
-  // ??? key ??????? 2 path
+  // รวม key จากทั้ง 2 path
   var allIds = {};
   Object.keys(rawBusPositions || {}).forEach(function(id){ allIds[id] = true; });
   Object.keys(liveVehiclePositions || {}).forEach(function(id){ allIds[id] = true; });
@@ -854,7 +854,7 @@ function mergeVehicleFeeds() {
     if (!a && !b) return;
     if (!a) { merged[id] = sanitizeVehicleData(b); return; }
     if (!b) { merged[id] = sanitizeVehicleData(a); return; }
-    // ????? source ??? timestamp ??? normalize ???? ??????? ts ms/sec ???? heartbeat ??????? GPS ?????????? source
+    // เลือก source จาก timestamp ที่ normalize แล้ว ป้องกัน ts ms/sec หรือ heartbeat ใหม่ทับ GPS เก่าแบบผิด source
     var gpsA = getVehicleTs(a) || 0;
     var gpsB = getVehicleTs(b) || 0;
     merged[id] = sanitizeVehicleData(gpsB > gpsA ? b : a);
@@ -916,7 +916,7 @@ function updateFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn) return;
   btn.classList.toggle('is-off', !followUser);
-  btn.textContent = followUser ? '????????????????????????' : '???????????????????';
+  btn.textContent = followUser ? 'กำลังติดตามตำแหน่งของฉัน' : 'ติดตามตำแหน่งของฉัน';
 }
 
 function setFollowUser(nextValue) {
@@ -995,15 +995,15 @@ function updateBottomSheetSummary() {
   var routeName = document.getElementById('sheetRouteName');
   var routeSub = document.getElementById('sheetRouteSub');
   if (!routeName || !routeSub) return;
-  var scheduleNote = '????????????????????????????????????????????????????????????????? ???????????????????????????????????';
+  var scheduleNote = 'ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ';
 
   if (!selOrigin || !selDest) {
-    routeName.textContent = '?????????????????????????';
+    routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
     routeSub.textContent = scheduleNote;
     return;
   }
 
-  routeName.textContent = '?????????????????????????';
+  routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
   routeSub.textContent = scheduleNote;
 }
 
@@ -1011,7 +1011,7 @@ function resolvePassengerTripAssignment() {
   if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
   var time = getNextBusSummaryTime();
   if (!time || time === '--:--') return null;
-  var transferHub = '?????????? (???????)';
+  var transferHub = 'ฉะเชิงเทรา (แปดริ้ว)';
   var startsAtTransferHub = normalizeRouteAlias(selOrigin) === transferHub || cleanRouteLabel(selOrigin) === cleanRouteLabel(transferHub);
   var isPublishedScheduleOnly = startsAtTransferHub && isLeg2Dest(selDest);
   return window.SLTransitSchedule.resolveTripAssignment({
@@ -1067,8 +1067,8 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 }
 
 // ===== ROUTE SELECTION STATE =====
-let selOrigin = '???????????????';
-let selDest   = '?????????? (???????)';
+let selOrigin = 'ท่ารถสนามชัยเขต';
+let selDest   = 'ฉะเชิงเทรา (แปดริ้ว)';
 
 function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
 
@@ -1079,10 +1079,10 @@ function cleanRouteLabel(label) {
 function normalizeRouteAlias(label) {
   const clean = cleanRouteLabel(label);
   if (!clean) return '';
-  if (clean.indexOf('???????????????') >= 0 || clean.indexOf('??????????') >= 0 || clean.indexOf('???????') >= 0) return '?????????? (???????)';
-  if (clean.indexOf('???????') >= 0) return '???????????????';
-  if (clean.indexOf('?????') >= 0 || clean.indexOf('??????') >= 0) return '??????';
-  if (clean.indexOf('bts??????') >= 0 || clean.indexOf('??????') >= 0) return 'BTS ??????';
+  if (clean.indexOf('ขนส่งฉะเชิงเทรา') >= 0 || clean.indexOf('ฉะเชิงเทรา') >= 0 || clean.indexOf('แปดริ้ว') >= 0) return 'ฉะเชิงเทรา (แปดริ้ว)';
+  if (clean.indexOf('สนามชัย') >= 0) return 'ท่ารถสนามชัยเขต';
+  if (clean.indexOf('ไพจิต') >= 0 || clean.indexOf('ไพรจิต') >= 0) return 'ไพรจิต';
+  if (clean.indexOf('btsบางฉาง') >= 0 || clean.indexOf('บางฉาง') >= 0) return 'BTS บางจาก';
   return '';
 }
 
@@ -1112,7 +1112,7 @@ function isMainRouteLabel(label) {
 function getPairTimes(from, to) {
   if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to].slice();
   if (ADMIN_ROUTE_SOURCE_LOADED) return null;
-  if (to === '?????????? (???????)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
+  if (to === 'ฉะเชิงเทรา (แปดริ้ว)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
     return CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice();
   }
   if (CONFIRMED_PAIR_TIMES[from] && CONFIRMED_PAIR_TIMES[from][to]) {
@@ -1154,8 +1154,8 @@ function applyPassengerRouteSettings(data) {
     if (!group || !Array.isArray(group.routes)) return;
     if (group.isActive === false) return;
     const groupName = group.name || entry[0] || '';
-    const isLegacyGroup = group.id === 'origins' || group.id === 'local' || groupName === '????????? passenger.html' || groupName === '??????????????????';
-    const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /?????|?????|???????|??????|??????|BTS/i.test(groupName);
+    const isLegacyGroup = group.id === 'origins' || group.id === 'local' || groupName === 'ต้นทางตาม passenger.html' || groupName === 'เส้นทางย่อยทั้งหมด';
+    const isLeg2Group = group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName);
     group.routes.forEach(function(route) {
       if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
       if (route.isActive === false) return;
@@ -1172,14 +1172,14 @@ function applyPassengerRouteSettings(data) {
       if (!ADMIN_ROUTE_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_TIMES[from][to] = times;
 
       if (!ROUTES[from]) ROUTES[from] = { times: [] };
-      if ((!isLegacyGroup && to === '?????????? (???????)') || !ROUTES[from].times.length) {
+      if ((!isLegacyGroup && to === 'ฉะเชิงเทรา (แปดริ้ว)') || !ROUTES[from].times.length) {
         ROUTES[from].times = times.slice();
       }
       addUnique(ORIGIN_LIST, from);
       addUnique(DEST_NORMAL, from);
 
       if (isLeg2Group) {
-        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: groupName || '?????' };
+        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: groupName || 'ต่อรถ' };
         addUnique(DEST_LEG2, to);
       } else {
         if (!ROUTES[to]) ROUTES[to] = { times: [] };
@@ -1211,7 +1211,7 @@ function applyPassengerRouteData(data) {
     if (!stop) return null;
     var lat = Number(stop.lat), lng = Number(stop.lng);
     if (!isFinite(lat) || !isFinite(lng)) return null;
-    return { key:key, name:stop.stopNameTh || stop.name || key, lat:lat, lng:lng, icon:stop.icon || '??', order:Number(stop.order) || 0, stopType:stop.stopType || 'main', bookingEnabled:stop.bookingEnabled !== false, note:stop.note || '' };
+    return { key:key, name:stop.stopNameTh || stop.name || key, lat:lat, lng:lng, icon:stop.icon || '🚏', order:Number(stop.order) || 0, stopType:stop.stopType || 'main', bookingEnabled:stop.bookingEnabled !== false, note:stop.note || '' };
   }).filter(Boolean);
   if (!nextStops.length) return;
   STOPS_GO.splice.apply(STOPS_GO, [0, STOPS_GO.length].concat(nextStops));
@@ -1235,7 +1235,7 @@ function applyTestModeUI() {
 window.selectPassengerStop = function(stopIndex) {
   var stop = curStops()[stopIndex];
   if (!stop) return;
-  selectedMapFocus = '????????????: ' + stop.name;
+  selectedMapFocus = 'ป้ายที่เลือก: ' + stop.name;
   updateBottomSheetSummary();
   setBottomSheetState(true);
   focusMap(normalizeMapPoint(stop), 14);
@@ -1248,7 +1248,7 @@ window.selectPassengerBus = function(carId) {
   var stopName = dir[pos.stopIdx]?.name || '?';
   var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
   var point = normalizeMapPoint(pos) || normalizeMapPoint(dir[pos.stopIdx]);
-  selectedMapFocus = String(carId) + ' ??????? ' + stopName + ' ? ????????? ' + nextStopName;
+  selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
   updateBottomSheetSummary();
   setBottomSheetState(true);
   if (point) focusMap(point, 14);
@@ -1391,7 +1391,7 @@ function renderStationMarkers(routeData, skipEnsure) {
     var point = normalizeMapPoint(s);
     if (!point) return;
     var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
-    var safeIcon = String(s.icon || '??').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
+    var safeIcon = String(s.icon || '🚏').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
       var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
@@ -1464,12 +1464,12 @@ function _uLerp(a,b,t){return a+(b-a)*t;}
 function _uEase(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
 function _uDist(a,b){var R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 
-// ????? marker ?????????? ???????????????????????/???????????? frame
+// สร้าง marker ครั้งเดียว แล้วย้ายตำแหน่งแทนการลบ/สร้างใหม่ทุก frame
 function ensureUserMarker(p) {
   if (!mapReady || !mapObj || !p) return;
   if (!userMarker) {
     userMarker = new longdo.Marker(p, {
-      title: '?????????????',
+      title: 'ตำแหน่งของคุณ',
       icon: { html: '<div class="map-passenger-marker"></div>', offset: { x:13, y:13 } }
     });
     mapObj.Overlays.add(userMarker);
@@ -1478,7 +1478,7 @@ function ensureUserMarker(p) {
       try { userMarker.location(p); } catch(e2) {
         try { mapObj.Overlays.remove(userMarker); } catch(e3) {}
         userMarker = new longdo.Marker(p, {
-          title: '?????????????',
+          title: 'ตำแหน่งของคุณ',
           icon: { html: '<div class="map-passenger-marker"></div>', offset: { x:13, y:13 } }
         });
         mapObj.Overlays.add(userMarker);
@@ -1505,7 +1505,7 @@ function updatePassengerOnMap(latlng, forceCenter) {
     }
     _userAnimFrame=requestAnimationFrame(step);
   }
-  // ??? zoom lock: ??? re-center ?????????????? pinch zoom ????
+  // แก้ zoom lock: ไม่ re-center ถ้าผู้ใช้กำลัง pinch zoom อยู่
   if ((forceCenter || !passengerCentered) && followUser && Date.now() > programmaticMapMoveUntil) {
     focusMap(latlng, 15, false); passengerCentered = true;
   }
@@ -1530,8 +1530,8 @@ function drawRoute(routeData) {
 }
 
 // ===== KALMAN FILTER FOR BUS POSITION =====
-var busKalman = {}; // ???? state ?????? carId
-var busLastTs = {}; // ???? timestamp ??????????????????? (stale packet guard)
+var busKalman = {}; // เก็บ state แยกตาม carId
+var busLastTs = {}; // เก็บ timestamp ล่าสุดของรถแต่ละคัน (stale packet guard)
 
 function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
     var Q = 8, R = 8;
@@ -1541,7 +1541,7 @@ function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
     }
     var k = busKalman[carId];
 
-    // Speed check ? ????????????????????????? 150 ??./??.
+    // Speed check — กรองถ้าเคลื่อนที่เร็วเกิน 150 กม./ชม.
     if (k.ts > 0) {
         var dtSec = (timestamp - k.ts) / 1000;
         if (dtSec > 0) {
@@ -1560,7 +1560,7 @@ function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
         }
     }
 
-    // Accuracy check ? ? ?????: ?? threshold ??? 80m ? 40m ????????? GpsService.java
+    // Accuracy check — ✅ แก้ไข: ลด threshold จาก 80m → 40m ให้ตรงกับ GpsService.java
     if (accuracy && accuracy > 40) {
         var ageSec2 = (Date.now() - timestamp) / 1000;
         console.log('[kalmanFilter] FILTERED OUT - low accuracy', {
@@ -1584,8 +1584,8 @@ function kalmanFilter(carId, lat, lng, accuracy, timestamp) {
 }
 
 // ===== SMOOTH BUS ANIMATION =====
-var busCurrentPos = {};      // ?????????????????? marker ????????
-var busTargetPos = {};        // ???????????????
+var busCurrentPos = {};      // ตำแหน่งปัจจุบันของ marker แต่ละคัน
+var busTargetPos = {};        // ตำแหน่งเป้าหมาย
 var busAnimFrames = {};       // requestAnimationFrame id
 var busPredictionFrames = {};
 var busPredictionSeq = {};
@@ -1593,7 +1593,7 @@ var busMotionState = {};
 var busRenderFrames = {};
 var busLastPacketPos = {};
 
-var BUS_ANIM_DURATION = 600; // ms ? ????? marker ????????????????????
+var BUS_ANIM_DURATION = 600; // ms — ลดให้ marker ตามตำแหน่งจริงไวขึ้น
 var BUS_PREDICT_MAX_MS = 10000;
 var BUS_PREDICT_MAX_METERS = 300;
 var BUS_DELAYED_SEC = 15;
@@ -1628,18 +1628,18 @@ function startBusPrediction(carId, packetPos, pos) {
   if (!packetPos || isVehicleOfflineOrDelayed(pos)) return;
   var predictSeq = (busPredictionSeq[carId] || 0) + 1;
   busPredictionSeq[carId] = predictSeq;
-  var speed = Number(pos.speed || pos.velocity || 0) / 3.6; // km/h ? m/s
+  var speed = Number(pos.speed || pos.velocity || 0) / 3.6; // km/h → m/s
   var heading = Number(pos.heading || pos.bearing);
   if (!isFinite(speed) || speed <= 0 || !isFinite(heading)) return;
-  if (speed > 27.8) speed = 27.8; // cap ??? 100 km/h
-  // ??? gpsTs ??? sentTs ????? compensate latency ??????? GPS fix ? Firebase
+  if (speed > 27.8) speed = 27.8; // cap ที่ 100 km/h
+  // ใช้ gpsTs แทน sentTs เพื่อ compensate latency ระหว่าง GPS fix → Firebase
   var ts = Number(pos.gpsTs || pos.gpsts || getVehicleTs(pos) || Date.now());
 
-  // Dead reckoning snap: snap ????????????????????????????? 3 ??????
-  // ??????????????????????????????????
+  // Dead reckoning snap: snap ตำแหน่งที่ประมาณได้เข้าถนนทุก 3 วินาที
+  // ป้องกันรถลอยออกนอกถนนช่วงสัญญาณหาย
   var lastSnapMs = 0;
   var SNAP_INTERVAL_MS = 3000;
-  var currentPredictPos = packetPos; // ???????????????? snap ????
+  var currentPredictPos = packetPos; // ตำแหน่งล่าสุดที่ snap แล้ว
 
   function step() {
     if (isVehicleOfflineOrDelayed(pos)) {
@@ -1651,14 +1651,14 @@ function startBusPrediction(carId, packetPos, pos) {
     var meters = Math.min(speed * (predictMs / 1000), BUS_PREDICT_MAX_METERS);
     var next = projectPoint(packetPos.lat, packetPos.lon, heading, meters);
 
-    // snap ????????????????????????????? SNAP_INTERVAL_MS
-    // ????????? snap ????????????? snap ???????????
+    // snap ตำแหน่งที่ประมาณได้เข้าถนนทุก SNAP_INTERVAL_MS
+    // ระหว่างรอ snap ใช้ตำแหน่งที่ snap ครั้งล่าสุด
     var nowMs = Date.now();
     if (nowMs - lastSnapMs >= SNAP_INTERVAL_MS) {
       lastSnapMs = nowMs;
       (function(snapNext) {
         snapToRoad(carId, snapNext.lat, snapNext.lon, function(snappedNext) {
-          // ?????? currentPredictPos ??????????? predict ???? (????????? cancel)
+          // อัปเดต currentPredictPos เฉพาะถ้ายัง predict อยู่ (ไม่ได้ถูก cancel)
           if (busPredictionFrames[carId] !== null) {
             if (busPredictionSeq[carId] !== predictSeq) return;
             currentPredictPos = snappedNext;
@@ -1668,7 +1668,7 @@ function startBusPrediction(carId, packetPos, pos) {
         });
       })(next);
     } else {
-      // ????????? snap ?????? lerp ??? currentPredictPos ???? next ???????? smooth
+      // ระหว่างรอ snap ใช้การ lerp จาก currentPredictPos ไปหา next เพื่อให้ smooth
       var lerpT = Math.min((nowMs - lastSnapMs) / SNAP_INTERVAL_MS, 1);
       var smoothNext = {
         lat: lerp(currentPredictPos.lat, next.lat, lerpT * 0.3),
@@ -1751,21 +1751,21 @@ function isVehiclePointOnKnownRoute(point) {
 
 function animateBusMarker(carId, fromPos, toPos) {
   stopBusPrediction(carId);
-  // ?????? animation ?????????
+  // ยกเลิก animation เก่าถ้ามี
   if (busAnimFrames[carId]) cancelAnimationFrame(busAnimFrames[carId]);
 
   var startTime = null;
   var dist = distanceMeters(fromPos.lat, fromPos.lon, toPos.lat, toPos.lon);
 
-  // ?????????????????? 5 ???? ??????? animate
+  // ถ้าระยะทางน้อยกว่า 5 เมตร ไม่ต้อง animate
   if (dist < 5) {
     placeBusMarkerAt(carId, toPos);
     busCurrentPos[carId] = toPos;
     return 0;
   }
 
-  // ??????????? 600 ???? ? instant place ????? ??? animate
-  // ????????????? marker ????????????????????????????????????????
+  // ถ้าระยะเกิน 600 เมตร → instant place ทันที ไม่ animate
+  // เพื่อกันรถลาก marker ข้ามแม่น้ำหรือตามหลังมากเมื่อข้อมูลมาช้า
   if (dist > 600) {
     console.log('[animateBusMarker] instant place (dist > 600m)', carId, dist.toFixed(0) + 'm');
     busAnimFrames[carId] = null;
@@ -1774,11 +1774,11 @@ function animateBusMarker(carId, fromPos, toPos) {
     return 0;
   }
 
-  // ???????????? animation ??????????: ?????????????????????????????????????????
+  // ปรับความเร็ว animation ตามระยะทาง: ไกลให้ขยับเร็วขึ้นเพื่อลดอาการค้างตามหลัง
   var duration = dist > 250 ? 450 : dist > 120 ? 650 : Math.min(BUS_ANIM_DURATION, Math.max(350, dist * 14));
 
-  // Speed guard: ??? animation ????????? "????" ???? 120 ??./??. = Firebase queue flush
-  // ? instant place ??? animate ??????????????????????????????????????
+  // Speed guard: ถ้า animation จะทำให้รถ "วิ่ง" เกิน 120 กม./ชม. = Firebase queue flush
+  // → instant place แทน animate ป้องกันรถวิ่งเร็วผิดปกติหลังเน็ตกลับมา
   var impliedSpeedKmh = (dist / (duration / 1000)) * 3.6;
   if (impliedSpeedKmh > 120) {
     console.log('[animateBusMarker] instant place (speed guard', impliedSpeedKmh.toFixed(0) + 'km/h)', carId);
@@ -1830,11 +1830,11 @@ function placeBusMarkerAt(carId, latlng) {
 
   var safeCarId = String(carId).replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
   var busImgHtml = '<img src="' + BUS_ICON_SRC + '" alt="">';
-  var label = String(carId).replace(/^car/i, '?? ');
+  var label = String(carId).replace(/^car/i, 'รถ ');
   try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e){}
   try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e){}
   busMarkers[carId] = new longdo.Marker(latlng, {
-    title: '???????? ' + label,
+    title: 'รถโดยสาร ' + label,
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
     icon: { html: '<div class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + '</div>', offset: { x: 20, y: 20 } }
   });
@@ -1890,10 +1890,10 @@ function ensureBusRenderLoop(carId) {
 
     var display = state.display || target;
     var dist = distanceMeters(display.lat, display.lon, target.lat, target.lon);
-    // ? ?????: ????? alpha ??? marker ????????????????????????????
-    // ???? dist > 180m ???? alpha ????? 0.08 ????? marker ?????????????
+    // ✅ แก้ไข: เพิ่ม alpha ให้ marker ไล่ตามตำแหน่งจริงได้เร็วขึ้น
+    // เดิม dist > 180m จะลด alpha เหลือ 0.08 ทำให้ marker ลากตามหลังนาน
     var alpha = Math.min(0.32, Math.max(0.10, dtSec * 2.4));
-    if (dist > 180) alpha = 0.18;  // ???????? 0.08 ? 0.18 ??????????????????
+    if (dist > 180) alpha = 0.18;  // เพิ่มจาก 0.08 → 0.18 ให้ไล่ตามได้ไวขึ้น
     if (dist < 1.5) display = target;
     else display = { lat: lerp(display.lat, target.lat, alpha), lon: lerp(display.lon, target.lon, alpha) };
 
@@ -1953,15 +1953,15 @@ function updateBusMotionTarget(carId, gpsPos, pos, gpsTs, shouldFocus) {
 }
 
 // ===== SNAP-TO-ROAD (OSRM Match API) =====
-// Cache snap result ??? carId ???????? call OSRM ???????????????????????
+// Cache snap result ต่อ carId เพื่อไม่ call OSRM ซ้ำถ้าตำแหน่งไม่เปลี่ยน
 var snapCache = {}; // { carId: { lat, lon, snappedLat, snappedLon, ts } }
-var snapInFlight = {}; // { carId: true } ??????? call ????
+var snapInFlight = {}; // { carId: true } ป้องกัน call ซ้อน
 
 function snapToRoad(carId, lat, lon, callback) {
   var now = Date.now();
   var cache = snapCache[carId];
 
-  // ??? cache ??????????????????????????????? 15 ???? ?????????????? 30 ??????
+  // ใช้ cache ถ้าตำแหน่งเดิมเปลี่ยนไปน้อยกว่า 15 เมตร และอายุไม่เกิน 30 วินาที
   if (cache && (now - cache.ts) < 30000) {
     var cacheDist = distanceMeters(lat, lon, cache.lat, cache.lon);
     if (cacheDist < 15) {
@@ -1970,7 +1970,7 @@ function snapToRoad(carId, lat, lon, callback) {
     }
   }
 
-  // ????? call ???????? ??????????????????? (?????)
+  // ถ้ามี call อยู่แล้ว ใช้ตำแหน่งดิบไปก่อน (ไม่รอ)
   if (snapInFlight[carId]) {
     callback({ lat: lat, lon: lon });
     return;
@@ -1991,19 +1991,19 @@ function snapToRoad(carId, lat, lon, callback) {
           data.tracepoints[0] !== null) {
         var snapped = data.tracepoints[0].location; // [lon, lat]
         var snappedLat = snapped[1], snappedLon = snapped[0];
-        // ???? cache
+        // เก็บ cache
         snapCache[carId] = { lat: lat, lon: lon, snappedLat: snappedLat, snappedLon: snappedLon, ts: now };
-        // snapToRoad ????????????????; ???????? marker ??? callback ???????
-        // ?????????? OSRM ??????????????????????????????????????
+        // snapToRoad คืนค่าอย่างเดียว; ห้ามขยับ marker จาก callback เก่าเอง
+        // เพื่อกันผล OSRM ที่มาช้ากว่าดึงรถกลับไปตำแหน่งก่อนหน้า
         callback({ lat: snappedLat, lon: snappedLon });
       } else {
-        // OSRM snap ?????? (??????, timeout) ? ?????????????
+        // OSRM snap ไม่ได้ (นอกถนน, timeout) → ใช้ตำแหน่งดิบ
         callback({ lat: lat, lon: lon });
       }
     })
     .catch(function() {
       snapInFlight[carId] = false;
-      // OSRM ?????????????? ? ????????????? ???????? UX
+      // OSRM ล่มหรือเน็ตหาย → ใช้ตำแหน่งดิบ ไม่กระทบ UX
       callback({ lat: lat, lon: lon });
     });
 }
@@ -2034,8 +2034,8 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   }
   var dir = pos.direction === 'back' ? STOPS_BACK : STOPS_GO;
 
-  // heartbeatOnly = ping ????????????? ???????? lat/lng ??????????
-  // ????? marker ???????? ??????? animate ???; ??????????? marker ????????????????????????????
+  // heartbeatOnly = ping ว่ายังออนไลน์ แต่ยังมี lat/lng ล่าสุดอยู่
+  // ถ้ามี marker อยู่แล้ว ไม่ต้อง animate ซ้ำ; ถ้ายังไม่มี marker ให้ใช้ตำแหน่งล่าสุดวาดรถก่อน
   if (pos.heartbeatOnly === true && busMarkers[carId]) {
     console.log('[updateBusOnMap] keep existing heartbeat-only marker', carId);
     return;
@@ -2045,8 +2045,8 @@ function updateBusOnMap(pos, carId, shouldFocus) {
   if (!newPos && pos.stopIdx !== undefined && dir[pos.stopIdx]) newPos = normalizeMapPoint(dir[pos.stopIdx]);
   if (!newPos) return;
   if (!isVehiclePointOnKnownRoute(newPos)) {
-    // warn ?????????? ? route line ?????????????????? ???? GPS drift ????????
-    // ??? snapToRoad ????????????????????? ?????? marker ?????
+    // warn แต่ไม่หยุด — route line อาจยังโหลดไม่เสร็จ หรือ GPS drift ชั่วคราว
+    // ให้ snapToRoad หาถนนที่ใกล้ที่สุดเอง ไม่ให้ marker หายไป
     console.warn('[updateBusOnMap] off-route (continuing)', carId, {
       lat: newPos.lat, lon: newPos.lon,
       nearestRouteM: nearestRouteDistanceMeters(newPos).toFixed(0)
@@ -2055,7 +2055,7 @@ function updateBusOnMap(pos, carId, shouldFocus) {
 
   var acc = (pos.accuracy != null ? Number(pos.accuracy) :
              pos.acc      != null ? Number(pos.acc)      : 10);
-  // ? ?????: ?? threshold ??? 80m ? 40m ????????? GpsService.java
+  // ✅ แก้ไข: ลด threshold จาก 80m → 40m ให้ตรงกับ GpsService.java
   if (acc && acc > 40) {
     console.log('[updateBusOnMap] skip low accuracy gps', carId, acc + 'm');
     return;
@@ -2105,26 +2105,26 @@ function getStatusInfo(pos) {
   if (pos) {
     var statusNote = vehicleStatusMessage(pos);
     if (pos.online === false || pos.status === 'locating' || pos.status === 'low_accuracy' || pos.status === 'gps_error') {
-      return {cls:'stopped', icon:'??', title:statusNote, sub:'????????????????'};
+      return {cls:'stopped', icon:'รถ', title:statusNote, sub:'สถานะจากแอปคนขับ'};
     }
   }
-  if (!pos) return {cls:'',icon:'??',title:'???????????????????????',sub:'????????????????????????????'};
+  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่งรถ',sub:'ระบบกำลังรอข้อมูลจากแอปคนขับ'};
   const elapsed=getVehicleAgeSec(pos);
   const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
   const stopName=dir[pos.stopIdx]?.name||'?';
   const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
-  const dirLabel=pos.direction==='back'?'??????? ? ???????':'??????? ? ???????';
+  const dirLabel=pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
   const timeAgo=Math.round(elapsed/60);
-  const timeStr=timeAgo===0?'???????????':`?????? ${timeAgo} ???????????`;
+  const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
   if (elapsed > BUS_OFFLINE_SEC)
-    return {cls:'stopped', icon:'??', title:'????????????????????????', sub:`${timeStr} ? ${dirLabel}`};
+    return {cls:'stopped', icon:'🚌', title:'ตำแหน่งล่าสุดก่อนออฟไลน์', sub:`${timeStr} · ${dirLabel}`};
   if (elapsed > BUS_DELAYED_SEC)
-    return {cls:'stopped', icon:'??', title:'?????????????', sub:`${timeStr} ? ${dirLabel}`};
+    return {cls:'stopped', icon:'🚌', title:'ตำแหน่งล่าช้า', sub:`${timeStr} · ${dirLabel}`};
   if (pos.status==='at'||elapsed>120)
-    return {cls:'stopped', icon:'??', title:`?????? ${stopName}`, sub:dirLabel};
+    return {cls:'stopped', icon:'🛑', title:`จอดที่ ${stopName}`, sub:dirLabel};
   if (pos.status==='towards'&&nextStop)
-    return {cls:'arriving', icon:'??', title:`????????????? ${nextStop}`, sub:dirLabel};
-  return {cls:'running', icon:'??', title:`????????? ? ?????? ${stopName}`, sub:dirLabel};
+    return {cls:'arriving', icon:'🚍', title:`กำลังมุ่งหน้า ${nextStop}`, sub:dirLabel};
+  return {cls:'running', icon:'🚌', title:`กำลังวิ่ง · ออกจาก ${stopName}`, sub:dirLabel};
 }
 
 // ===== RENDER =====
@@ -2146,11 +2146,11 @@ function renderStatus(pos) {
 function renderRouteStrip(pos) {
   const stops=curStops();
   const stopIdx=(pos&&pos.direction===viewDir)?pos.stopIdx:null;
-  const dirLabel=pos&&pos.direction==='back'?'??????? ? ???????':'??????? ? ???????';
+  const dirLabel=pos&&pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
   const badge=document.getElementById('routeDirBadge');
-  if(badge) badge.textContent=pos?dirLabel:'?';
+  if(badge) badge.textContent=pos?dirLabel:'—';
 
-  // Bus list ? ????????????? (????????? car1 ??????? loop ??? allCars)
+  // Bus list — รองรับหลายคัน (ขณะนี้ใช้ car1 ต่อไปจะ loop จาก allCars)
   const busListWrapper=document.getElementById('busListWrapper');
   if(busListWrapper){
     const busRows = Object.keys(allBusPositions || {}).map(function(id){
@@ -2158,8 +2158,8 @@ function renderRouteStrip(pos) {
       const stopName=p.direction==='back'
         ? (STOPS_BACK[p.stopIdx]?.name||'?')
         : (STOPS_GO[p.stopIdx]?.name||'?');
-      const dir=p.direction==='back'?'??????? ? ???????':'??????? ? ???????';
-      const label=String(id).replace(/^car/i,'???????? ');
+      const dir=p.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
+      const label=String(id).replace(/^car/i,'รถคันที่ ');
       return `<div class="bus-list-item">
         <span class="bus-list-id">${label}</span>
         <span class="bus-list-loc">${stopName}</span>
@@ -2199,13 +2199,13 @@ function renderNextBus() {
   const now = nowMin();
   let times, label;
 
-  // ????????????? ?????????? ?????????????? LEG2 ?????????? LEG2
-  if(selOrigin==='?????????? (???????)' && isLeg2Dest(selDest)){
+  // ถ้าต้นทางเป็น ฉะเชิงเทรา และปลายทางเป็น LEG2 ให้ใช้เวลา LEG2
+  if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
     times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
-    label = `? ${selDest}`;
+    label = `→ ${selDest}`;
   } else {
     times = getLeg1Times();
-    label = selOrigin !== selDest ? `? ${selDest}` : '';
+    label = selOrigin !== selDest ? `→ ${selDest}` : '';
   }
 
   let nextTime = null;
@@ -2214,19 +2214,19 @@ function renderNextBus() {
   }
   if(!nextTime){
     nextTimeEl.textContent='--:--';
-    nextDetailEl.textContent='??????????????????????????????';
+    nextDetailEl.textContent='ไม่มีเที่ยวรถเพิ่มเติมในวันนี้';
     return;
   }
   const diff = toMin(nextTime)-now;
-  nextTimeEl.textContent=nextTime+' ?.';
+  nextTimeEl.textContent=nextTime+' น.';
   nextDetailEl.textContent=
-    diff<=0?`??????????! ${label}`.trim():`??? ${diff} ???? ${label}`.trim();
+    diff<=0?`กำลังจะออก! ${label}`.trim():`อีก ${diff} นาที ${label}`.trim();
 }
 
 function getNextBusSummaryTime() {
   const now = nowMin();
   let times;
-  if(selOrigin==='?????????? (???????)' && isLeg2Dest(selDest)){
+  if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
     times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
   } else {
     times = getLeg1Times();
@@ -2242,17 +2242,17 @@ function buildTimeCell(t, extraClass='') {
   const now = nowMin();
   const isNow = now >= toMin(t)-5 && now <= toMin(t)+15;
   const cls = ['time-cell', isNow?'now-cell':'', extraClass].filter(Boolean).join(' ');
-  return `<div class="${cls}">${t}${isNow?'<span class="now-badge">?????????</span>':''}</div>`;
+  return `<div class="${cls}">${t}${isNow?'<span class="now-badge">กำลังวิ่ง</span>':''}</div>`;
 }
 
 function buildLeg2TimeItem(t) {
   if(!t) return `<div class="leg2-time-item empty"></div>`;
   const now = nowMin();
   const isNow = now >= toMin(t)-5 && now <= toMin(t)+15;
-  return `<div class="leg2-time-item${isNow?' now-cell':''}">${t}${isNow?'<span class="now-badge">????????</span>':''}</div>`;
+  return `<div class="leg2-time-item${isNow?' now-cell':''}">${t}${isNow?'<span class="now-badge">วิ่งอยู่</span>':''}</div>`;
 }
 
-// ???? array ???? 2 ??????? ????? (?????????????? 1 ??????)
+// แบ่ง array เป็น 2 คอลัมน์ สมดุล (ซ้ายมากกว่าได้ 1 ถ้าคี่)
 function splitBalanced(arr) {
   const half = Math.ceil(arr.length / 2);
   return [arr.slice(0, half), arr.slice(half)];
@@ -2263,12 +2263,12 @@ function renderSched() {
   const origin = selOrigin, dest = selDest;
 
   if(isLeg2Dest(dest)){
-    const transferHubLabel = '?????????? (???????)';
+    const transferHubLabel = 'ฉะเชิงเทรา (แปดริ้ว)';
     const startsAtTransferHub = normalizeRouteAlias(origin) === transferHubLabel || cleanRouteLabel(origin) === cleanRouteLabel(transferHubLabel);
     const leg1Times = startsAtTransferHub ? [] : getLeg1TimesToTransferHub(origin, transferHubLabel);
     const leg2Times = getPairTimes(transferHubLabel, dest) || getPairTimes(origin, dest) || LEG2_DESTINATIONS[dest].leg2Times;
 
-    // ???? 2 ?????????????????????????? leg
+    // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
     const [l1a, l1b] = splitBalanced(leg1Times);
     const [l2a, l2b] = splitBalanced(leg2Times);
     const maxL1 = Math.max(l1a.length, l1b.length);
@@ -2285,8 +2285,8 @@ function renderSched() {
     const leg1Html = startsAtTransferHub ? '' : `
       <div class="leg2-cols" style="background:#f8faff;">
         <div class="leg2-col-head" style="background:#f0f6ff;">
-          <div class="leg2-col-sub">????????? 1</div>
-          <div class="leg2-col-name" style="color:#1e3a8a;">${origin} ? ???????</div>
+          <div class="leg2-col-sub">เที่ยวที่ 1</div>
+          <div class="leg2-col-name" style="color:#1e3a8a;">${origin} → แปดริ้ว</div>
         </div>
         <div class="leg2-col-head" style="background:#f0f6ff;border-right:none;">
           <div class="leg2-col-sub">&nbsp;</div>
@@ -2299,9 +2299,9 @@ function renderSched() {
     const leg2Html = `
       <div class="leg2-cols">
         <div class="leg2-col-head">
-          <div class="leg2-col-sub">????????? 2</div>
-          <div class="leg2-col-name">${startsAtTransferHub ? origin : transferHubLabel} ? ${dest}</div>
-          <div class="leg2-col-note">????????: ??????? 6</div>
+          <div class="leg2-col-sub">เที่ยวที่ 2</div>
+          <div class="leg2-col-name">${startsAtTransferHub ? origin : transferHubLabel} → ${dest}</div>
+          <div class="leg2-col-note">จุดต่อรถ: ชานชาลา 6</div>
         </div>
         <div class="leg2-col-head" style="border-right:none;">
           <div class="leg2-col-sub">&nbsp;</div>
@@ -2313,21 +2313,21 @@ function renderSched() {
     wrapper.innerHTML = `
       <div class="leg2-card">
         <div class="leg2-header">
-          <div class="leg2-header-top">??????????????????</div>
-          <div class="leg2-header-route">${origin} ? ${dest}</div>
+          <div class="leg2-header-top">ข้อมูลเส้นทางต่อรถ</div>
+          <div class="leg2-header-route">${origin} → ${dest}</div>
         </div>
         ${leg1Html}
         ${startsAtTransferHub ? '' : '<div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>'}
         ${leg2Html}
       </div>`;
   } else {
-    // ?????????? ? 3-col grid
+    // เส้นทางตรง — 3-col grid
     const times = getLeg1Times();
     wrapper.innerHTML = `
       <div class="sched-card">
         <div class="sched-route-header">
-          <div class="sched-route-from">???????</div>
-          <div class="sched-route-name">${origin} ? ${dest}</div>
+          <div class="sched-route-from">เส้นทาง</div>
+          <div class="sched-route-name">${origin} → ${dest}</div>
         </div>
         <div class="time-grid">${times.map(t=>buildTimeCell(t)).join('')}</div>
       </div>`;
@@ -2337,7 +2337,7 @@ function renderSched() {
 function updateLastUpdate(pos) {
   var ts = getVehicleTs(pos);
   document.getElementById('lastUpdate').textContent=
-    ts?`????? ${new Date(ts).toTimeString().slice(0,5)} ?.`:'??????????????';
+    ts?`เมื่อ ${new Date(ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
 }
 
 function fullRender(pos) {
@@ -2356,7 +2356,7 @@ function buildDropdowns(){
   const destSel   = document.getElementById('selDest');
   originSel.innerHTML = '';
 
-  // ??????
+  // ต้นทาง
   ORIGIN_LIST.forEach(o=>{
     const opt = document.createElement('option');
     opt.value = o; opt.textContent = o;
@@ -2365,13 +2365,13 @@ function buildDropdowns(){
   });
   if (originSel.value) selOrigin = originSel.value;
 
-  // ??????? ? ???????? LEG2 ??? group
+  // ปลายทาง — แยกกลุ่ม LEG2 ตาม group
   function buildDestOptions(){
     destSel.innerHTML = '';
 
-    // ??????????
+    // เส้นทางตรง
     const grp0 = document.createElement('optgroup');
-    grp0.label = '? ??????????? ?';
+    grp0.label = '— เส้นทางหลัก —';
     DEST_NORMAL.forEach(d=>{
       if(d===selOrigin) return;
       const opt = document.createElement('option');
@@ -2381,16 +2381,16 @@ function buildDropdowns(){
     });
     destSel.appendChild(grp0);
 
-    // LEG2 ?????? group
+    // LEG2 แยกตาม group
     const groups = {};
     DEST_LEG2.forEach(d=>{
-      const g = LEG2_DESTINATIONS[d].group || '?????';
+      const g = LEG2_DESTINATIONS[d].group || 'ต่อรถ';
       if(!groups[g]) groups[g] = [];
       groups[g].push(d);
     });
     Object.keys(groups).forEach(gLabel=>{
       const grp = document.createElement('optgroup');
-      grp.label = `? ${gLabel} ?`;
+      grp.label = `— ${gLabel} —`;
       groups[gLabel].forEach(d=>{
         const opt = document.createElement('option');
         opt.value=d; opt.textContent=d;
@@ -2406,7 +2406,7 @@ function buildDropdowns(){
   if (originSel.dataset.bound !== '1') {
     originSel.addEventListener('change', function(){
       selOrigin = this.value;
-      if(selDest===selOrigin) selDest='?????????? (???????)';
+      if(selDest===selOrigin) selDest='ฉะเชิงเทรา (แปดริ้ว)';
       buildDestOptions();
       selectedMapFocus = null;
       renderSched(); renderNextBus();
@@ -2447,7 +2447,7 @@ db.ref('routeData').on('value', function(snap) {
   console.error('Passenger routeData load failed:', err && err.message ? err.message : err);
 });
 
-// Firebase ? bus/car1, bus/car2, ... ??????????????????????????
+// Firebase — bus/car1, bus/car2, ... รองรับรถหลายคันจากแอพคนขับ
 db.ref('bus').on('value', function(snap){
   rawBusPositions = snap.val() || {};
   mergeVehicleFeeds();
@@ -2466,8 +2466,8 @@ db.ref('liveVehicles').on('value', function(snap){
 function tick() {
   const n=new Date();
   document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
-  const d=['??.','?.','?.','?.','??.','?.','?.'];
-  const m=['?.?.','?.?.','??.?.','??.?.','?.?.','??.?.','?.?.','?.?.','?.?.','?.?.','?.?.','?.?.'];
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   document.getElementById('dateText').textContent=
     `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
   renderStatus(lastPos);
@@ -2478,7 +2478,7 @@ function tick() {
 tick(); setInterval(tick,1000);
 fullRender(null);
 
-// Map init ? ?? Longdo ????? ???? retry ?????????????
+// Map init — รอ Longdo พร้อม แล้ว retry แสดงตำแหน่งรถ
 document.addEventListener('DOMContentLoaded', async function(){
   bindFollowUserButton();
   bindBottomSheet();
