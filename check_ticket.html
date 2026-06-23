@@ -387,6 +387,7 @@
     .tracking-marker.van img { width: 100%; height: 100%; display: block; object-fit: contain; padding: 3px; }
     .tracking-marker.pickup { background: var(--teal); color: #fff; }
     .tracking-marker.transfer { background: var(--orange); color: #fff; }
+    .tracking-marker.station .station-name { position:absolute; top:34px; left:50%; transform:translateX(-50%); min-width:max-content; max-width:170px; padding:4px 8px; border-radius:999px; background:rgba(15,23,42,.9); color:#fff; font-size:11px; font-weight:800; line-height:1.2; text-align:center; white-space:nowrap; box-shadow:0 4px 12px rgba(15,23,42,.25); }
     .tracking-marker.passenger { background: var(--blue); color: #fff; box-shadow: 0 0 0 6px rgba(0,167,181,.22), 0 5px 14px rgba(15, 23, 42, .25); }
 
     .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
@@ -928,6 +929,10 @@
         }
         currentCode = found.code;
         currentBooking = normalizeBooking(found.booking, found.code);
+        if (isBookingPastTravelDate(currentBooking)) {
+          showPastTravelDateMessage(currentBooking);
+          return;
+        }
         if (found.matchCount && found.matchCount > 1) {
           setStatus('lookupStatus', 'info', 'พบหลายรายการในเบอร์นี้ กำลังแสดงรายการล่าสุด');
         } else {
@@ -964,7 +969,7 @@
         var matches = [];
         snap.forEach(function(child) {
           var booking = child.val() || {};
-          if (!booking.notificationOnly && String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
+          if (!booking.notificationOnly && !isBookingPastTravelDate(booking) && String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
             matches.push({ code: child.key, booking: booking });
           }
         });
@@ -1103,6 +1108,10 @@
     }
 
     function renderBooking() {
+      if (isBookingPastTravelDate(currentBooking)) {
+        showPastTravelDateMessage(currentBooking);
+        return;
+      }
       if (isCancelledBooking(currentBooking)) {
         clearRememberedTicket();
         showCancelledDonePopup();
@@ -1963,22 +1972,39 @@
       return null;
     }
 
+    function findStopLocationByKey(key) {
+      key = String(key || '');
+      if (!key) return null;
+      for (var i = 0; i < STOP_LOCATIONS.length; i++) {
+        if (String(STOP_LOCATIONS[i].key || '') === key) return STOP_LOCATIONS[i];
+      }
+      return null;
+    }
+
     function resolveRelevantRouteStops(booking) {
       var origin = findStopLocation(getTrackingPickupStopName(booking));
       var target = resolveDestinationLocation(booking);
-      var stops = [origin, target].filter(Boolean);
-      return stops.filter(function(stop, index) {
-        return !stops.slice(0, index).some(function(previous) { return isSameStop(previous.name, stop.name); });
-      });
+      var assignment = resolveSharedScheduleAssignmentForBooking(booking) || booking || {};
+      var keys = Array.isArray(assignment.routeStops) ? assignment.routeStops : [];
+      var names = Array.isArray(assignment.routeStopNames) ? assignment.routeStopNames : [];
+      var ordered = keys.map(function(key, index) { return findStopLocationByKey(key) || findStopLocation(names[index] || key); }).filter(Boolean);
+      if (!ordered.length) ordered = [origin, target].filter(Boolean);
+      var originIndex = ordered.findIndex(function(stop) { return origin && isSameStop(stop.name, origin.name); });
+      var targetIndex = ordered.findIndex(function(stop) { return target && isSameStop(stop.name, target.name); });
+      if (originIndex >= 0 && targetIndex >= 0) ordered = originIndex <= targetIndex ? ordered.slice(originIndex, targetIndex + 1) : ordered.slice(targetIndex, originIndex + 1).reverse();
+      else ordered = [origin].concat(ordered).concat([target]).filter(Boolean);
+      return ordered.filter(function(stop, index) { return !ordered.slice(0, index).some(function(previous) { return isSameStop(previous.name, stop.name); }); });
     }
+
     function createTrackingMarker(className, text, iconText) {
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
       var label = text || (className === 'pickup' ? 'ต้นทาง' : className === 'transfer' ? 'ปลายทาง' : 'รถโดยสาร');
-      var markerIcon = iconText || (className === 'pickup' ? '📍' : className === 'transfer' ? '🏁' : text);
+      var markerIcon = iconText || (className === 'pickup' || className === 'transfer' ? '🚏' : text);
       el.title = label;
       el.setAttribute('aria-label', label);
       el.dataset.markerIcon = markerIcon || '';
+      if (className === 'pickup' || className === 'transfer') el.classList.add('station');
       if (className === 'van') {
         var img = document.createElement('img');
         img.src = 'assets/passenger-bus-icon.png';
@@ -1989,6 +2015,12 @@
         symbol.setAttribute('aria-hidden', 'true');
         symbol.textContent = markerIcon;
         el.appendChild(symbol);
+        if (className === 'pickup' || className === 'transfer') {
+          var stationName = document.createElement('span');
+          stationName.className = 'station-name';
+          stationName.textContent = label;
+          el.appendChild(stationName);
+        }
       }
       return el;
     }
@@ -2112,13 +2144,13 @@
     }
     function renderPickupMarker() {
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(pickupStopLocation)) return;
-      var pickupIcon = pickupStopLocation.icon || '📍';
+      var pickupIcon = pickupStopLocation.icon || '🚏';
       var pickupElement = trackingPickupMarker && typeof trackingPickupMarker.getElement === 'function' ? trackingPickupMarker.getElement() : null;
       if (!trackingPickupMarker || !pickupElement || pickupElement.dataset.markerIcon !== pickupIcon) {
         if (trackingPickupMarker) {
           try { trackingPickupMarker.remove(); } catch(e) {}
         }
-        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', 'ต้นทาง', pickupIcon) })
+        trackingPickupMarker = new mapboxgl.Marker({ element: createTrackingMarker('pickup', pickupStopLocation.name || 'ต้นทาง', pickupIcon) })
           .setLngLat([pickupStopLocation.lng, pickupStopLocation.lat])
           .addTo(trackingMap);
       } else {
@@ -2129,13 +2161,13 @@
     function renderTransferMarker() {
       var point = destinationLocation;
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(point)) return;
-      var destinationIcon = point.icon || '🏁';
+      var destinationIcon = point.icon || '🚏';
       var destinationElement = trackingTransferMarker && typeof trackingTransferMarker.getElement === 'function' ? trackingTransferMarker.getElement() : null;
       if (!trackingTransferMarker || !destinationElement || destinationElement.dataset.markerIcon !== destinationIcon) {
         if (trackingTransferMarker) {
           try { trackingTransferMarker.remove(); } catch(e) {}
         }
-        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', 'ปลายทาง', destinationIcon) })
+        trackingTransferMarker = new mapboxgl.Marker({ element: createTrackingMarker('transfer', point.name || 'ปลายทาง', destinationIcon) })
           .setLngLat([point.lng, point.lat])
           .addTo(trackingMap);
       } else {
@@ -2159,21 +2191,43 @@
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
     }
+    function appendTrackingCoord(coords, point) {
+      if (!isValidMapPoint(point)) return;
+      var coord = [Number(point.lng), Number(point.lat)];
+      if (!coords.some(function(c) { return Math.abs(c[0]-coord[0])<0.00001 && Math.abs(c[1]-coord[1])<0.00001; })) coords.push(coord);
+    }
+
+    function remainingRelevantRouteStops(position) {
+      var stops = (relevantRouteStops || []).filter(isValidMapPoint);
+      if (!isOriginBoarded()) return stops;
+      if (stops.length && pickupStopLocation && isSameStop(stops[0].name, pickupStopLocation.name)) stops = stops.slice(1);
+      position = normalizeTrackingPoint(position);
+      if (!position || stops.length < 2) return stops;
+      var full = [pickupStopLocation].concat(stops).filter(isValidMapPoint);
+      var best = null;
+      for (var i = 1; i < full.length; i++) {
+        var projected = trackingRouteProjection(position, [full[i-1].lng, full[i-1].lat], [full[i].lng, full[i].lat]);
+        if (projected && (!best || projected.distance < best.distance)) best = { distance:projected.distance, nextIndex:i };
+      }
+      return best ? full.slice(best.nextIndex) : stops;
+    }
+
+    function buildTrackingRouteCoords(position) {
+      var coords = [];
+      position = normalizeTrackingPoint(position);
+      appendTrackingCoord(coords, position);
+      if (!isOriginBoarded()) appendTrackingCoord(coords, pickupStopLocation);
+      remainingRelevantRouteStops(position).forEach(function(stop) { appendTrackingCoord(coords, stop); });
+      appendTrackingCoord(coords, destinationLocation);
+      return coords.filter(isValidMapCoord);
+    }
+
     function updateTrackingRouteLine() {
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
-      var coords = [];
       var vehiclePoint = normalizeTrackingPoint(trackingVanMarkerPos) || normalizeTrackingPoint(vanLocation);
-      if (isValidMapPoint(vehiclePoint)) coords.push([vehiclePoint.lng, vehiclePoint.lat]);
-      if (!isOriginBoarded() && isValidMapPoint(pickupStopLocation)) {
-        var pickupCoord = [pickupStopLocation.lng, pickupStopLocation.lat];
-        if (!coords.some(function(c) { return Math.abs(c[0]-pickupCoord[0])<0.00001 && Math.abs(c[1]-pickupCoord[1])<0.00001; })) coords.push(pickupCoord);
-      }
-      var target = destinationLocation;
-      if (isValidMapPoint(target) && !coords.some(function(c) { return Math.abs(c[0]-target.lng)<0.00001 && Math.abs(c[1]-target.lat)<0.00001; })) coords.push([target.lng,target.lat]);
-      coords = coords.filter(isValidMapCoord);
+      var coords = buildTrackingRouteCoords(vehiclePoint);
       if (coords.length >= 2) { updateTrackingRoadRoute(coords); return; }
-      trackingFullRouteGeometry = [];
-      trackingRouteGeometry = [];
+      trackingFullRouteGeometry = []; trackingRouteGeometry = [];
       trackingMap.getSource('trackingRouteLine').setData({ type:'FeatureCollection', features:[] });
     }
     function updateTrackingRoadRoute(coords) {
@@ -2184,7 +2238,7 @@
         setTrackingRouteGeometry(routeCoords && routeCoords.length >= 2 ? routeCoords : coords);
       }).catch(function() {
         if (seq !== trackingRouteRequestSeq) return;
-        setTrackingRouteGeometry(coords);
+        if (!trackingFullRouteGeometry.length) setTrackingRouteGeometry([]);
       });
     }
 
@@ -2250,7 +2304,8 @@
       var target = activeJourneyTarget();
       if (!normalizeTrackingPoint(source) || !isValidMapPoint(target)) return;
       var seq = ++trackingJourneyEtaRequestSeq;
-      var coords = [[source.lng, source.lat], [target.lng, target.lat]];
+      var coords = buildTrackingRouteCoords(source);
+      if (coords.length < 2) return;
       requestMapboxRouteGeometry(coords).then(function(routeData) {
         if (seq !== trackingJourneyEtaRequestSeq || !routeData || routeData.durationMinutes === null) return;
         trackingJourneyEta = {
@@ -3562,6 +3617,24 @@
       return Number(p[0] || 0) * 60 + Number(p[1] || 0);
     }
 
+    function bangkokDateKey(value) {
+      var d = value instanceof Date ? value : new Date(value || Date.now());
+      var parts = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(d);
+      var out = {}; parts.forEach(function(part) { if (part.type !== 'literal') out[part.type] = part.value; });
+      return out.year + '-' + out.month + '-' + out.day;
+    }
+
+    function isBookingPastTravelDate(booking) {
+      var serviceDate = String(booking && booking.date || '');
+      return /^\d{4}-\d{2}-\d{2}$/.test(serviceDate) && serviceDate < bangkokDateKey();
+    }
+
+    function showPastTravelDateMessage(booking) {
+      clearRememberedTicket(); stopTrackingSubscription(); setTrackingActive(false);
+      show('ticketPanel', false); show('checkinPanel', false); show('flexPanel', false); show('cancelPanel', false);
+      show('trackingBottomSheet', false); show('trackingPage', false); show('lookupPanel', true); showTopbar(true);
+      setStatus('lookupStatus', 'warn', 'ตั๋ววันที่ ' + formatDate(booking && booking.date) + ' สิ้นสุดการเดินทางแล้ว ประวัติยังเก็บไว้ในระบบ');
+    }
     function formatDate(dateStr) {
       if (!dateStr) return '-';
       var d = new Date(dateStr + 'T00:00:00');
