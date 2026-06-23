@@ -385,8 +385,8 @@
       overflow: hidden;
     }
     .tracking-marker.van img { width: 100%; height: 100%; display: block; object-fit: contain; padding: 3px; }
-    .tracking-marker.pickup, .tracking-marker.transfer { width: 42px; height: 42px; background: #fff; color: transparent; overflow: hidden; }
-    .tracking-marker.pickup img, .tracking-marker.transfer img { width: 100%; height: 100%; display: block; object-fit: contain; border-radius: 999px; }
+    .tracking-marker.pickup { background: var(--teal); color: #fff; }
+    .tracking-marker.transfer { background: var(--orange); color: #fff; }
     .tracking-marker.passenger { background: var(--blue); color: #fff; box-shadow: 0 0 0 6px rgba(0,167,181,.22), 0 5px 14px rgba(15, 23, 42, .25); }
 
     .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
@@ -1975,20 +1975,15 @@
       var el = document.createElement('div');
       el.className = 'tracking-marker ' + className;
       var label = text || (className === 'pickup' ? 'ต้นทาง' : className === 'transfer' ? 'ปลายทาง' : 'รถโดยสาร');
-      var markerIcon = iconText || (className === 'pickup' ? 'assets/index-origin-icon.png?v=20260623pin2' : className === 'transfer' ? 'assets/sl-destination-icon.png?v=20260623pin2' : text);
+      var markerIcon = iconText || (className === 'pickup' ? '📍' : className === 'transfer' ? '🏁' : text);
       el.title = label;
       el.setAttribute('aria-label', label);
       el.dataset.markerIcon = markerIcon || '';
       if (className === 'van') {
-        var vanImg = document.createElement('img');
-        vanImg.src = 'assets/passenger-bus-icon.png';
-        vanImg.alt = label;
-        el.appendChild(vanImg);
-      } else if (/^(?:assets\/|https?:\/\/)/.test(markerIcon)) {
-        var markerImg = document.createElement('img');
-        markerImg.src = markerIcon;
-        markerImg.alt = label;
-        el.appendChild(markerImg);
+        var img = document.createElement('img');
+        img.src = 'assets/passenger-bus-icon.png';
+        img.alt = label;
+        el.appendChild(img);
       } else {
         var symbol = document.createElement('span');
         symbol.setAttribute('aria-hidden', 'true');
@@ -2117,7 +2112,7 @@
     }
     function renderPickupMarker() {
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(pickupStopLocation)) return;
-      var pickupIcon = 'assets/index-origin-icon.png?v=20260623pin2';
+      var pickupIcon = pickupStopLocation.icon || '📍';
       var pickupElement = trackingPickupMarker && typeof trackingPickupMarker.getElement === 'function' ? trackingPickupMarker.getElement() : null;
       if (!trackingPickupMarker || !pickupElement || pickupElement.dataset.markerIcon !== pickupIcon) {
         if (trackingPickupMarker) {
@@ -2134,7 +2129,7 @@
     function renderTransferMarker() {
       var point = destinationLocation;
       if (!trackingMapReady || !trackingMap || !isValidMapPoint(point)) return;
-      var destinationIcon = 'assets/sl-destination-icon.png?v=20260623pin2';
+      var destinationIcon = point.icon || '🏁';
       var destinationElement = trackingTransferMarker && typeof trackingTransferMarker.getElement === 'function' ? trackingTransferMarker.getElement() : null;
       if (!trackingTransferMarker || !destinationElement || destinationElement.dataset.markerIcon !== destinationIcon) {
         if (trackingTransferMarker) {

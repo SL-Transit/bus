@@ -86,8 +86,7 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 #map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
 #map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
 #map .ldmap-crosshair { display:none !important; }
-.map-stop-icon { width:42px; height:42px; border-radius:50%; background:#fff; border:3px solid #fff; box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(15,58,95,.18); display:flex; align-items:center; justify-content:center; overflow:hidden; line-height:1; }
-.map-stop-icon img { width:100%; height:100%; object-fit:contain; display:block; border-radius:50%; }
+.map-stop-icon { width:34px; height:34px; border-radius:50%; background:var(--blue); border:3px solid #fff; box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(15,58,95,.18); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; line-height:1; }
 .map-stop-label { background:rgba(15,23,42,.9); color:#fff; font-size:11px; font-weight:700; padding:4px 8px; border-radius:12px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.24); border:1px solid rgba(255,255,255,.82); }
 .map-bus-icon { width:40px; height:40px; border-radius:50%; background:var(--teal); border:4px solid #fff; box-shadow:0 6px 16px rgba(15,23,42,.38),0 0 0 4px rgba(24,169,153,.22); display:flex; align-items:center; justify-content:center; overflow:hidden; line-height:1; }
 .map-bus-icon img { width:36px; height:30px; object-fit:contain; display:block; }
@@ -1380,9 +1379,9 @@ function renderStationMarkers(routeData, skipEnsure) {
     var point = normalizeMapPoint(s);
     if (!point) return;
     var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
-    var markerIconSrc = 'assets/index-origin-icon.png?v=20260623pin2';
+    var safeIcon = String(s.icon || '🚌').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
-      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')"><img src="' + markerIconSrc + '" alt="' + safeName + '"></div>', offset: { x: 21, y: 21 } } });
+      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
     } catch(e) { console.warn('Stop marker error:', e); }
     try {
@@ -1392,6 +1391,7 @@ function renderStationMarkers(routeData, skipEnsure) {
   });
   if (!skipEnsure) ensureStationMarkersVisible(routeData, 0);
 }
+
 function refreshMapSizeSafely() {
   if (!mapObj) return;
   setTimeout(function() { try { if (typeof mapObj.resize === 'function') mapObj.resize(); if (typeof mapObj.repaint === 'function') mapObj.repaint(); } catch(e){} }, 300);
