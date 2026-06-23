@@ -792,6 +792,7 @@ auth.onAuthStateChanged(function(user){
     db.ref('adminUsers/'+user.uid).once('value').then(function(snap){
       var d=snap.val()||{};
       CU={uid:user.uid,email:user.email,name:d.name||user.email};
+        try{localStorage.setItem('slTransitAdminDevice','1');}catch(e){}
       CR=d.role||'staff';
       document.getElementById('loginScreen').style.display='none';
       document.getElementById('appShell').style.display='block';
@@ -1780,7 +1781,8 @@ function updateTime(gname,ri,ti,val){
   times[ti]=val;times.sort();r.times=times;
   if(r.closedStops&&r.closedStops[old]){r.closedStops[val]=r.closedStops[old];delete r.closedStops[old];}
   if(r.capacityByTime&&r.capacityByTime[old]){r.capacityByTime[val]=r.capacityByTime[old];delete r.capacityByTime[old];}
-  if(Array.isArray(r.disabledTimes)&&r.disabledTimes.indexOf(old)!==-1){
+  if(r.scheduleMeta&&r.scheduleMeta[old]){r.scheduleMeta[val]=r.scheduleMeta[old];delete r.scheduleMeta[old];}
+    if(Array.isArray(r.disabledTimes)&&r.disabledTimes.indexOf(old)!==-1){
     r.disabledTimes=r.disabledTimes.filter(function(x){return x!==old;});
     r.disabledTimes.push(val);
   }
@@ -1821,7 +1823,7 @@ function addPlaceToGroup(gname){
   renderRouteGroups();
 }
 function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].routes.splice(ri,1);renderRouteGroups();}
-function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่ เช่น กลุ่มรังสิต:','');if(!name||!name.trim())return;name=name.trim();routeData=normalizeRouteGroups(routeData);if(routeData[name])return alert('มีชื่อกลุ่มนี้แล้ว');var suggested='group_'+String(Date.now()).slice(-6),id=prompt('group_id ภาษาอังกฤษ เช่น rangsit:',suggested);if(!id||!/^[A-Za-z0-9_-]+$/.test(id.trim()))return alert('group_id ใช้ได้เฉพาะอังกฤษ ตัวเลข - และ _');if(Object.values(routeData).some(function(g){return String((g&&g.id)||'')===id.trim();}))return alert('มี group_id นี้แล้ว');routeData[name]={id:id.trim(),name:name,sortOrder:Object.keys(routeData).length,isActive:true,routes:[]};openRouteGroups={};openRouteGroups[name]=true;renderRouteGroups();}function deleteRouteGroup(gname){
+function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่ เช่น กลุ่มรังสิต:','');if(!name||!name.trim())return;name=name.trim();routeData=normalizeRouteGroups(routeData);if(routeData[name])return alert('มีชื่อกลุ่มนี้แล้ว');var suggested='group_'+String(Date.now()).slice(-6),id=prompt('group_id ภาษาอังกฤษ เช่น rangsit:',suggested);if(!id||!/^[A-Za-z0-9_-]+$/.test(id.trim()))return alert('group_id ใช้ได้เฉพาะอังกฤษ ตัวเลข - และ _');if(Object.values(routeData).some(function(g){return String((g&&g.id)||'')===id.trim();}))return alert('มี group_id นี้แล้ว');var transfer=confirm('กลุ่มนี้ต้องต่อรถจากแปดริ้วหรือไม่?\nตกลง = กลุ่มต่อรถจากแปดริ้ว\nยกเลิก = เส้นทางตรง');routeData[name]={id:id.trim(),name:name,sortOrder:Object.keys(routeData).length,isActive:true,connectionType:transfer?'transfer':'direct',transferHubStopKey:transfer?'chachoengsao':'',routes:[]};openRouteGroups={};openRouteGroups[name]=true;renderRouteGroups();}function deleteRouteGroup(gname){
   routeData=normalizeRouteGroups(routeData);
   if(STANDARD_ROUTE_GROUP_NAMES.indexOf(gname)!==-1){
     routeData[gname].isActive=false;
@@ -1840,6 +1842,9 @@ function prepareRouteDataForSave(){
     gdata.name=gname;
     gdata.sortOrder=gi;
     if(gdata.isActive===undefined)gdata.isActive=true;
+      if(!gdata.connectionType)gdata.connectionType=(gdata.id==='coastal'||gdata.id==='bangkok')?'transfer':'direct';
+      if(gdata.connectionType==='transfer'&&!gdata.transferHubStopKey)gdata.transferHubStopKey='chachoengsao';
+      if(gdata.connectionType!=='transfer')gdata.transferHubStopKey='';
     (gdata.routes||[]).forEach(function(r,ri){
       r.groupId=gdata.id;
       r.groupName=gname;
