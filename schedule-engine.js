@@ -1,7 +1,7 @@
 (function(global) {
   'use strict';
 
-  // ===== ค่าคิวพื้นฐาน (fallback) — ใช้ถ้า Firebase ยังโหลดไม่เสร็จหรือขัดข้อง =====
+  // ===== ????????????? (fallback) ? ?????? Firebase ?????????????????????????? =====
   var BASE_DATE = '2026-06-14';
   var ROTATING_VEHICLES = ['car1', 'car2', 'car3', 'car4'];
   var BASE_CAR_QUEUE = { car1: 1, car2: 2, car3: 3, car4: 4 };
@@ -10,8 +10,8 @@
   var routeDataWatchStarted = false;
   var firebaseWatchRetryTimer = null;
 
-  // ===== โหลดค่าคิวจาก Firebase (settings/queueRotation) ถ้ามี — override ค่า fallback ด้านบน =====
-  // เพื่อให้ admin แก้ไข base date / ลำดับคิวเริ่มต้นได้ในอนาคตโดยไม่ต้องแก้โค้ดไฟล์นี้
+  // ===== ????????????? Firebase (settings/queueRotation) ????? ? override ??? fallback ?????? =====
+  // ???????? admin ????? base date / ??????????????????????????????????????????????????
   function applyRotationConfig(cfg) {
     if (!cfg || typeof cfg !== 'object') return;
     if (cfg.baseDate && /^\d{4}-\d{2}-\d{2}$/.test(cfg.baseDate)) {
@@ -33,36 +33,40 @@
           applyRotationConfig(snap.val());
         })
         .catch(function() {
-          // เงียบไว้ — ใช้ค่า fallback hardcode ต่อไปถ้าโหลดไม่ได้
+          // ???????? ? ?????? fallback hardcode ??????????????????
         });
     } catch (e) {
-      // เงียบไว้ — ใช้ค่า fallback hardcode ต่อไปถ้า firebase ยังไม่พร้อม
+      // ???????? ? ?????? fallback hardcode ???????? firebase ???????????
     }
   }
 
   loadRotationConfigFromFirebase();
 
   var STOP_ALIASES = {
-    'klonghat': 'klonghat', 'khlonghat': 'klonghat', 'คลองหาด': 'klonghat',
-    'wangnamyen': 'wangnamyen', 'วังน้ำเย็น': 'wangnamyen',
-    'siyaekkhonom': 'siyaekkhonom', 'สี่แยกโคนม': 'siyaekkhonom',
-    'thoengkabintr': 'thoengkabintr', 'ทุ่งกบินทร์': 'thoengkabintr',
-    'phaijit': 'phaijit', 'ไพจิตร': 'phaijit', 'ไพรจิต': 'phaijit',
-    'nongruea': 'nongruea', 'หนองเรือ': 'nongruea',
-    'khlongtakien': 'khlongtakien', 'คลองตะเคียน': 'khlongtakien',
-    'nongkhok': 'nongkhok', 'หนองคอก': 'nongkhok',
-    'tatakiab': 'tatakiab', 'ท่าตะเกียบ': 'tatakiab',
-    'sanamchai': 'sanamchai', 'สนามชัยเขต': 'sanamchai', 'ท่ารถสนามชัยเขต': 'sanamchai',
-    'phanom': 'phanom', 'พนมสารคาม': 'phanom',
-    'chachoengsao': 'chachoengsao', 'แปดริ้ว': 'chachoengsao', 'ฉะเชิงเทราแปดริ้ว': 'chachoengsao', 'ฉะเชิงเทรา(แปดริ้ว)': 'chachoengsao', 'ฉะเชิงเทรา (แปดริ้ว)': 'chachoengsao'
+    'klonghat': 'klonghat', 'khlonghat': 'klonghat', '???????': 'klonghat',
+    'wangnamyen': 'wangnamyen', '??????????': 'wangnamyen',
+    'siyaekkhonom': 'siyaekkhonom', '??????????': 'siyaekkhonom',
+    'thoengkabintr': 'thoengkabintr', '???????????': 'thoengkabintr',
+    'phaijit': 'phaijit', '??????': 'phaijit', '??????': 'phaijit',
+    'nongruea': 'nongruea', '????????': 'nongruea',
+    'khlongtakien': 'khlongtakien', '???????????': 'khlongtakien',
+    'nongkhok': 'nongkhok', '???????': 'nongkhok',
+    'tatakiab': 'tatakiab', '??????????': 'tatakiab',
+    'sanamchai': 'sanamchai', '??????????': 'sanamchai', '???????????????': 'sanamchai',
+    'phanom': 'phanom', '?????????': 'phanom',
+    'chachoengsao': 'chachoengsao', '???????': 'chachoengsao', '?????????????????': 'chachoengsao', '??????????(???????)': 'chachoengsao', '?????????? (???????)': 'chachoengsao'
   };
 
   var MAIN_STOP_KEYS = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
+  var ACTIVE_MAIN_STOP_KEYS = MAIN_STOP_KEYS.slice();
   var STOP_NAMES = {
-    klonghat: 'คลองหาด', wangnamyen: 'วังน้ำเย็น', siyaekkhonom: 'สี่แยกโคนม', thoengkabintr: 'ทุ่งกบินทร์', phaijit: 'ไพรจิต',
-    nongruea: 'หนองเรือ', khlongtakien: 'คลองตะเคียน', nongkhok: 'หนองคอก', tatakiab: 'ท่าตะเกียบ',
-    sanamchai: 'ท่ารถสนามชัยเขต', phanom: 'พนมสารคาม', chachoengsao: 'ฉะเชิงเทรา (แปดริ้ว)'
+    klonghat: '???????', wangnamyen: '??????????', siyaekkhonom: '??????????', thoengkabintr: '???????????', phaijit: '??????',
+    nongruea: '????????', khlongtakien: '???????????', nongkhok: '???????', tatakiab: '??????????',
+    sanamchai: '???????????????', phanom: '?????????', chachoengsao: '?????????? (???????)'
   };
+
+  var DEFAULT_STOP_ALIASES = Object.assign({}, STOP_ALIASES);
+  var DEFAULT_STOP_NAMES = Object.assign({}, STOP_NAMES);
 
   var MAIN_ROUTE_TO_CHACHOENGSAO = MAIN_STOP_KEYS.slice();
   var MAIN_ROUTE_FROM_CHACHOENGSAO = MAIN_STOP_KEYS.slice().reverse();
@@ -196,7 +200,37 @@
   }
 
   function mainStopIndex(value) {
-    return MAIN_STOP_KEYS.indexOf(normalizeStopKey(value));
+    return ACTIVE_MAIN_STOP_KEYS.indexOf(normalizeStopKey(value));
+  }
+
+  function applyCentralStops(routeData) {
+    STOP_ALIASES = Object.assign({}, DEFAULT_STOP_ALIASES);
+    STOP_NAMES = Object.assign({}, DEFAULT_STOP_NAMES);
+    var stops = routeData && routeData.stops;
+    if (!stops || typeof stops !== 'object') {
+      ACTIVE_MAIN_STOP_KEYS = MAIN_STOP_KEYS.slice();
+      return ACTIVE_MAIN_STOP_KEYS;
+    }
+    var ordered = Object.keys(stops).filter(function(key) { return !!stops[key]; }).sort(function(a, b) {
+      var ai = Number(stops[a] && stops[a].order);
+      var bi = Number(stops[b] && stops[b].order);
+      if (!isFinite(ai) || ai <= 0) ai = MAIN_STOP_KEYS.indexOf(a) >= 0 ? MAIN_STOP_KEYS.indexOf(a) + 1 : 999999;
+      if (!isFinite(bi) || bi <= 0) bi = MAIN_STOP_KEYS.indexOf(b) >= 0 ? MAIN_STOP_KEYS.indexOf(b) + 1 : 999999;
+      return ai - bi || String(a).localeCompare(String(b));
+    });
+    ACTIVE_MAIN_STOP_KEYS = ordered.length ? ordered : MAIN_STOP_KEYS.slice();
+    ACTIVE_MAIN_STOP_KEYS.forEach(function(key) {
+      var stop = stops[key] || {};
+      var name = String(stop.stopNameTh || stop.name || '').trim();
+      STOP_ALIASES[key] = key;
+      STOP_ALIASES[cleanStop(key)] = key;
+      if (name) {
+        STOP_ALIASES[name] = key;
+        STOP_ALIASES[cleanStop(name)] = key;
+        STOP_NAMES[key] = name;
+      }
+    });
+    return ACTIVE_MAIN_STOP_KEYS;
   }
 
 
@@ -270,6 +304,7 @@
 
   function applyRouteData(routeData) {
     ROUTE_DATA_RAW = routeData || null;
+    applyCentralStops(routeData);
     ROUTE_DATA_TRIPS = [];
     eachValue(routeData && routeData.queues, function(queueKey, queue) {
       eachValue(queue && queue.trips, function(tripKey, rawTrip) {
@@ -373,7 +408,7 @@
     var fromIdx = mainStopIndex(trip.from);
     var toIdx = mainStopIndex(trip.to);
     if (fromIdx < 0 || toIdx < 0) return [];
-    var stops = MAIN_STOP_KEYS.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1);
+    var stops = ACTIVE_MAIN_STOP_KEYS.slice(Math.min(fromIdx, toIdx), Math.max(fromIdx, toIdx) + 1);
     return fromIdx > toIdx ? stops.reverse() : stops;
   }
 
@@ -491,7 +526,7 @@
     queueForVehicleOnDate: queueForVehicleOnDate,
     vehicleIdForQueueOnDate: vehicleIdForQueueOnDate,
     resolveTripAssignment: resolveTripAssignment,
-    // ===== เพิ่มใหม่: เผื่อ admin.html อยากเช็ค/รีโหลดค่า rotation จาก Firebase เอง =====
+    // ===== ?????????: ????? admin.html ????????/????????? rotation ??? Firebase ??? =====
     getBaseDate: function() { return BASE_DATE; },
     getBaseCarQueue: function() { return Object.assign({}, BASE_CAR_QUEUE); },
     reloadRotationConfig: loadRotationConfigFromFirebase,
@@ -501,4 +536,3 @@
     startFirebaseDataWatch: startFirebaseDataWatch
   };
 })(window);
-
