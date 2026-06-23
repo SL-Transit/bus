@@ -1348,12 +1348,24 @@ function initPassengerMap() {
   });
 }
 
-function loadPassengerRouteData() {
-  return Promise.resolve({
+function currentPassengerRouteData() {
+  return {
     stations: curStops().slice()
-  });
+  };
 }
 
+function loadPassengerRouteData() {
+  if (PASSENGER_ROUTE_DATA && PASSENGER_ROUTE_DATA.stops) {
+    return Promise.resolve(currentPassengerRouteData());
+  }
+  return db.ref('routeData').once('value').then(function(snap) {
+    applyPassengerRouteData(snap.val());
+    return currentPassengerRouteData();
+  }).catch(function(err) {
+    console.warn('Passenger central routeData load failed:', err && err.message ? err.message : err);
+    return currentPassengerRouteData();
+  });
+}
 function renderRoutePolyline(routeData) {
   return drawRoute(routeData);
 }
