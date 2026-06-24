@@ -1166,7 +1166,7 @@ function applyPassengerRouteSettings(data) {
       const from = normalizeRouteAlias(rawFrom) || rawFrom;
       const to = normalizeRouteAlias(rawTo) || rawTo;
       const disabledTimes = Array.isArray(route.disabledTimes) ? route.disabledTimes : [];
-      const times = route.times.filter(function(time){ return time && disabledTimes.indexOf(time) === -1; }).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
+      const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
       if (!from || !to) return;
 
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
