@@ -2333,7 +2333,7 @@ function renderSched() {
       </div>`;
   } else {
     // เส้นทางตรง — 3-col grid
-    const times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
+    const times = getLeg1Times();
     wrapper.innerHTML = `
       <div class="sched-card">
         <div class="sched-route-header">
