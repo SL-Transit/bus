@@ -2202,10 +2202,10 @@ function renderNextBus() {
 
   // ถ้าต้นทางเป็น ฉะเชิงเทรา และปลายทางเป็น LEG2 ให้ใช้เวลา LEG2
   if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
-    times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
+    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times);
     label = `→ ${selDest}`;
   } else {
-    times = getLeg1Times();
+    times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
     label = selOrigin !== selDest ? `→ ${selDest}` : '';
   }
 
@@ -2228,9 +2228,9 @@ function getNextBusSummaryTime() {
   const now = nowMin();
   let times;
   if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
-    times = getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times;
+    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times);
   } else {
-    times = getLeg1Times();
+    times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
   }
   if (!Array.isArray(times)) return '--:--';
   for(let i=0;i<times.length;i++){
@@ -2323,7 +2323,7 @@ function renderSched() {
       </div>`;
   } else {
     // เส้นทางตรง — 3-col grid
-    const times = getLeg1Times();
+    const times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
     wrapper.innerHTML = `
       <div class="sched-card">
         <div class="sched-route-header">
