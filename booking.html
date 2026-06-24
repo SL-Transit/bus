@@ -821,6 +821,7 @@ function _applySettings(snap) {
         LEG2_DEST[toKey].price = price;
         LEG2_DEST[toKey].leg2 = !!isLeg2Group;
         LEG2_DEST[toKey].times = times;
+        LEG2_DEST[toKey].activeTimes = times.filter(function(time){return disabledTimes.indexOf(time)===-1;});
         LEG2_DEST[toKey].groupName = routeGroupLabel;
         LEG2_DEST[toKey].groupId = routeGroupId;
         LEG2_DEST[toKey].sortOrder = routeSortOrder;
@@ -1478,7 +1479,7 @@ function getTransferGroupLabel(destKey) {
 function getTransferInfo(origin, dest, mainTime) {
   var destObj = LEG2_DEST[dest];
   if (!destObj || !destObj.leg2 || !destObj.times || !destObj.times.length) return null;
-  var times = destObj.times.slice();
+  var times = (destObj.activeTimes || destObj.times).slice();
   var transferTime = mainTime;
   if (origin !== TRANSFER_POINT_KEY) {
     var originLabel = (ORIGIN_TIMES[origin] && ORIGIN_TIMES[origin].label) || document.getElementById('routeFrom').selectedOptions[0].text || '';
