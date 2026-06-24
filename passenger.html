@@ -251,7 +251,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   min-width:0;
 }
 .leg2-time-item:last-child { border-bottom:none; }
-.leg2-time-item.now-cell { background:#eefdfa; color:var(--teal-dark); }\n  .time-cell.disabled-time,.leg2-time-item.disabled-time{text-decoration:line-through;color:#94a3b8;background:#f1f5f9;}
+.leg2-time-item.now-cell { background:#eefdfa; color:var(--teal-dark); }
+  .time-cell.disabled-time,.leg2-time-item.disabled-time{text-decoration:line-through;color:#94a3b8;background:#f1f5f9;}
 .leg2-time-item.empty { background:#fafbfc; min-height:58px; }
 
 /* ===== BUS LIST (multi-bus) ===== */
@@ -734,7 +735,8 @@ const LEG2_DESTINATIONS = {
 };
 
 const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
-const ADMIN_ROUTE_TIMES = {};\n  const ADMIN_ROUTE_DISABLED_TIMES = {};
+const ADMIN_ROUTE_TIMES = {};
+  const ADMIN_ROUTE_DISABLED_TIMES = {};
 let PASSENGER_ROUTE_DATA = null;
 let ADMIN_ROUTE_SOURCE_LOADED = false;
 
@@ -1122,7 +1124,12 @@ function getPairTimes(from, to) {
   return null;
 }
 
-function isPassengerTimeDisabled(from,to,time) {\n    return !!(ADMIN_ROUTE_DISABLED_TIMES[from] && ADMIN_ROUTE_DISABLED_TIMES[from][to] && ADMIN_ROUTE_DISABLED_TIMES[from][to].indexOf(time) !== -1);\n  }\n  function getActivePassengerTimes(from,to,times) { return (times || []).filter(function(time){ return !isPassengerTimeDisabled(from,to,time); }); }\n\n  function getLeg1Times(){
+function isPassengerTimeDisabled(from,to,time) {
+    return !!(ADMIN_ROUTE_DISABLED_TIMES[from] && ADMIN_ROUTE_DISABLED_TIMES[from][to] && ADMIN_ROUTE_DISABLED_TIMES[from][to].indexOf(time) !== -1);
+  }
+  function getActivePassengerTimes(from,to,times) { return (times || []).filter(function(time){ return !isPassengerTimeDisabled(from,to,time); }); }
+
+  function getLeg1Times(){
   const pairTimes = getPairTimes(selOrigin, selDest);
   if (pairTimes) return pairTimes;
   if (ADMIN_ROUTE_SOURCE_LOADED) return [];
@@ -1143,7 +1150,8 @@ function applyPassengerRouteSettings(data) {
   if (!routesData) return;
 
   ADMIN_ROUTE_SOURCE_LOADED = true;
-  Object.keys(ADMIN_ROUTE_TIMES).forEach(function(key){ delete ADMIN_ROUTE_TIMES[key]; });\n  Object.keys(ADMIN_ROUTE_DISABLED_TIMES).forEach(function(key){ delete ADMIN_ROUTE_DISABLED_TIMES[key]; });
+  Object.keys(ADMIN_ROUTE_TIMES).forEach(function(key){ delete ADMIN_ROUTE_TIMES[key]; });
+  Object.keys(ADMIN_ROUTE_DISABLED_TIMES).forEach(function(key){ delete ADMIN_ROUTE_DISABLED_TIMES[key]; });
   Object.keys(ROUTES).forEach(function(key){ delete ROUTES[key]; });
   Object.keys(LEG2_DESTINATIONS).forEach(function(key){ delete LEG2_DESTINATIONS[key]; });
   ORIGIN_LIST.length = 0;
@@ -1170,7 +1178,9 @@ function applyPassengerRouteSettings(data) {
       if (!from || !to) return;
 
       if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
-      if (!ADMIN_ROUTE_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_TIMES[from][to] = times;\n        if (!ADMIN_ROUTE_DISABLED_TIMES[from]) ADMIN_ROUTE_DISABLED_TIMES[from] = {};\n        if (!ADMIN_ROUTE_DISABLED_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_DISABLED_TIMES[from][to] = disabledTimes.slice();
+      if (!ADMIN_ROUTE_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_TIMES[from][to] = times;
+        if (!ADMIN_ROUTE_DISABLED_TIMES[from]) ADMIN_ROUTE_DISABLED_TIMES[from] = {};
+        if (!ADMIN_ROUTE_DISABLED_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_DISABLED_TIMES[from][to] = disabledTimes.slice();
 
       if (!ROUTES[from]) ROUTES[from] = { times: [] };
       if ((!isLegacyGroup && to === 'ฉะเชิงเทรา (แปดริ้ว)') || !ROUTES[from].times.length) {
