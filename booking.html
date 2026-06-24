@@ -1443,7 +1443,7 @@ function getTransferBufferMinutes(originName) {
 
 function nextDestinationTimeAfter(time, times) {
   var min = toMinutes(time || '00:00');
-  return (times || []).find(function(t) { return toMinutes(t) > min; }) || '';
+  return (times || []).find(function(t) { return toMinutes(t) >= min; }) || '';
 }
 
 function shortPlaceName(name) {
