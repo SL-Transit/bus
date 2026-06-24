@@ -1286,7 +1286,7 @@
     function nextDestinationTimeAfter(time, booking, legs) {
       var times = getLeg2TimesForBooking(booking || currentBooking || {}, legs);
       var min = toMin(time || '00:00');
-      return times.find(function(t) { return toMin(t) > min; }) || '';
+      return times.find(function(t) { return toMin(t) >= min; }) || '';
     }
 
     function getDestinationTimePairAfter(time, booking, legs) {
