@@ -1747,8 +1747,10 @@ function renderTimes() {
   times.forEach(function(t) {
     var stopClosed = isClosedByAdmin(t);
     var tripFull = isTripFull(dateStr, t, 1);
-    var ok = canBook(dateStr, t, stopClosed) && !tripFull;
-    var badge = tripFull ? {cls:'badge-closed', text:'รอบนี้เต็มแล้ว'} : getStatusBadge(dateStr, t, stopClosed);
+    var transferCandidate = shouldRequireTransfer(selOrigin,selDest) ? getTransferInfo(selOrigin,selDest,t) : null;
+    var transferUnavailable = shouldRequireTransfer(selOrigin,selDest) && (!transferCandidate || !transferCandidate.transferTime);
+    var ok = canBook(dateStr, t, stopClosed) && !tripFull && !transferUnavailable;
+    var badge = transferUnavailable ? {cls:'badge-closed', text:'ไม่มีเที่ยวต่อให้บริการ'} : (tripFull ? {cls:'badge-closed', text:'รอบนี้เต็มแล้ว'} : getStatusBadge(dateStr, t, stopClosed));
     var isSelected = selTime === t && ok;
     html += '<div class="time-card' + (isSelected ? ' active' : '') + (ok ? '' : ' closed') + '"'
       + (ok ? ' onclick="selectTime(\'' + t + '\')"' : '') + '>'
@@ -1756,7 +1758,7 @@ function renderTimes() {
       + '<div class="time-main">' + t + ' น.</div>'
       + (stopClosed ? '<div style="font-size:11px;color:var(--red);margin-top:2px">รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้</div>' : '')
       + (tripFull ? '<div style="font-size:11px;color:var(--red);margin-top:2px">รอบนี้เต็มแล้ว</div>' : '')
-      + (!stopClosed && !tripFull && !ok ? '<div style="font-size:11px;color:var(--red);margin-top:2px">ต้องสำรองที่นั่งล่วงหน้าอย่างน้อย 1 ชั่วโมง</div>' : '')
+      + (!stopClosed && !tripFull && !transferUnavailable && !ok ? '<div style="font-size:11px;color:var(--red);margin-top:2px">ต้องสำรองที่นั่งล่วงหน้าอย่างน้อย 1 ชั่วโมง</div>' : '')
       + '</div>'
       + '<div class="time-right">'
       + '<span class="status-badge ' + badge.cls + '">' + badge.text + '</span>'
