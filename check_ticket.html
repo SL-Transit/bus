@@ -833,8 +833,9 @@
         DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
       }
       ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
-        applyAdminScheduleToCurrentBooking();
-      updateActionAvailability();
+        var adminTimeChanged = applyAdminScheduleToCurrentBooking();
+        if (!adminTimeChanged && currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
+        updateActionAvailability();
     });
 
     db.ref('routeData').on('value', function(snap) {
