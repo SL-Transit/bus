@@ -804,7 +804,7 @@ function _applySettings(snap) {
         if (String(r.to || '').indexOf('แปดริ้ว') !== -1 || String(r.to || '').indexOf('ฉะเชิงเทรา') !== -1) TRANSFER_POINT_KEY = toKey;
         var disabledTimes = Array.isArray(r.disabledTimes)?r.disabledTimes:[];
         var capacityByTime = (r.capacityByTime && typeof r.capacityByTime === 'object') ? r.capacityByTime : {};
-        var times   = Array.isArray(r.times)?r.times.filter(function(time){return disabledTimes.indexOf(time)===-1;}).slice().sort():[];
+        var times   = Array.isArray(r.times)?r.times.slice().sort():[];
         var price   = Number(r.price)||0;
         var routeGroupLabel = r.groupName || groupLabel;
         var routeGroupId = r.groupId || groupId;
