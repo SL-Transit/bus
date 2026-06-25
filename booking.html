@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
 <script src="site-runtime.js?v=20260621a" data-sl-runtime></script>
@@ -58,6 +58,18 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
 .route-select{width:100%;padding:13px 16px;border:2px solid var(--border);border-radius:12px;font-family:'Kanit',sans-serif;font-size:15px;font-weight:600;color:var(--text);background:#fff;outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;cursor:pointer;}
 .route-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,167,181,.12);}
 .route-select.active-select{border-color:var(--accent);background-color:#effcff;}
+.route-select.is-native-backup{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;}
+.route-destination-picker{display:grid;gap:10px;margin-top:8px;}
+.route-group-card{border:1.5px solid var(--border);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.04);}
+.route-group-title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#f1f7fb;color:var(--navy);font-size:13px;font-weight:800;border-bottom:1px solid var(--border);}
+.route-group-title .count{font-size:11px;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:999px;padding:2px 8px;}
+.route-group-options{display:grid;grid-template-columns:1fr;gap:7px;padding:10px;}
+.route-destination-option{width:100%;border:1px solid #dbe6f0;border-radius:11px;background:#fff;color:var(--text);padding:10px 12px;font-family:'Kanit',sans-serif;font-size:14px;font-weight:700;text-align:left;cursor:pointer;transition:all .16s ease;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.route-destination-option:after{content:'เลือก';font-size:11px;font-weight:700;color:var(--muted);}
+.route-destination-option:hover{border-color:var(--accent);background:#effcff;}
+.route-destination-option.active{border-color:var(--accent);background:#e9fbfd;color:var(--navy);box-shadow:0 0 0 3px rgba(0,167,181,.10);}
+.route-destination-option.active:after{content:'เลือกอยู่';color:var(--accent);}
+.route-loading-note{font-size:13px;font-weight:700;color:var(--muted);text-align:center;padding:14px 12px;border:1px dashed var(--border);border-radius:12px;background:#f8fbfd;}
 .route-swap-icon{text-align:center;font-size:22px;color:var(--muted);}
 
 /* DATE FIELD */
@@ -318,7 +330,7 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
         <div class="route-swap-icon">⇅</div>
         <div class="route-select-row">
           <div class="route-select-label">ปลายทาง</div>
-          <select class="route-select" id="routeTo" onchange="updateRoute()">
+          <select class="route-select is-native-backup" id="routeTo" onchange="updateRoute()">
             <optgroup label="— เส้นทางหลัก —">
               <option value="chachoengsao">ฉะเชิงเทรา (แปดริ้ว)</option>
               <option value="phanom">พนมสารคาม</option>
@@ -359,6 +371,9 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
               <option value="bts_onnut">BTS อ่อนนุช</option>
             </optgroup>
           </select>
+          <div class="route-destination-picker" id="routeDestinationPicker" aria-label="destination groups">
+            <div class="route-loading-note">กำลังโหลดหมวดหมู่ปลายทางจากระบบกลาง...</div>
+          </div>
         </div>
       </div>
     </div>
@@ -793,8 +808,8 @@ function _applySettings(snap) {
       var groupName = entry[0];
       var group = entry[1];
       if (!group.routes || group.isActive===false) return;
-      var isMainGroup = group.id === 'main' || groupName === 'เส้นทางหลัก';
-      var isLeg2Group = group.connectionType === 'transfer' || (!group.connectionType && (group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(group.name || groupName || '')));
+      var isMainGroup = _isMainBookingGroup(group, groupName);
+      var isLeg2Group = _isTransferBookingGroup(group, groupName);
       var groupLabel = group.name || groupName;
       var groupId = group.id || groupName;
       group.routes.forEach(function(r, routeIndex) {
@@ -961,19 +976,35 @@ function _routeSortValue(item, fallback) {
 
 function _createBookingDisplayGroups() {
   return {
-    normal: {id:'normal',name:'— เส้นทางหลัก —',sortOrder:0,routes:[],seen:{}},
+    normal: {id:'main',name:'เส้นทางหลัก',sortOrder:0,routes:[],seen:{}},
     leg2: [],
     leg2ByName: {}
   };
+}
+
+function _cleanBookingGroupName(name) {
+  return String(name || '').replace(/[\u2014\u2501]/g, '').replace(/\s+/g, ' ').trim() || 'ปลายทางอื่น';
+}
+
+function _isMainBookingGroup(group, groupName) {
+  var rawId = String((group && group.id) || '').toLowerCase();
+  var rawName = String((group && group.name) || groupName || '').toLowerCase();
+  return rawId === 'main' || rawId === 'primary' || rawName.indexOf('เส้นทางหลัก') !== -1;
+}
+
+function _isTransferBookingGroup(group, groupName) {
+  if (_isMainBookingGroup(group, groupName)) return false;
+  if (group && group.connectionType === 'main') return false;
+  return true;
 }
 
 function _addBookingDisplayRoute(display, key, label, isLeg2, groupName, sortOrder) {
   if (!display || !key || !label) return;
   var bucket;
   if (isLeg2) {
-    var name = groupName || 'ต่อรถ';
+    var name = _cleanBookingGroupName(groupName || 'ปลายทางต่อรถ');
     if (!display.leg2ByName[name]) {
-      display.leg2ByName[name] = {id:'leg2_'+display.leg2.length,name:'— '+name+' —',sortOrder:display.leg2.length+1,routes:[],seen:{}};
+      display.leg2ByName[name] = {id:'leg2_'+display.leg2.length,name:name,sortOrder:display.leg2.length+1,routes:[],seen:{}};
       display.leg2.push(display.leg2ByName[name]);
     }
     bucket = display.leg2ByName[name];
@@ -1028,6 +1059,72 @@ function _syncRouteOptionLabels() {
   });
 }
 
+function _destinationGroupsForBookingPicker() {
+  if (ADMIN_ROUTE_GROUPS && ADMIN_ROUTE_GROUPS.length) {
+    return ADMIN_ROUTE_GROUPS.slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); }).map(function(group) {
+      return {
+        id: group.id || _cleanBookingGroupName(group.name),
+        name: _cleanBookingGroupName(group.name),
+        routes: (group.routes || []).slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); })
+      };
+    }).filter(function(group){ return group.routes.length; });
+  }
+  var fallbackGroups = [];
+  var toSel = document.getElementById('routeTo');
+  if (toSel) {
+    Array.prototype.forEach.call(toSel.children, function(child) {
+      if (child.tagName && child.tagName.toLowerCase() === 'optgroup') {
+        var group = {id: child.label, name: _cleanBookingGroupName(child.label), routes: []};
+        Array.prototype.forEach.call(child.children, function(opt) {
+          if (opt && opt.value) group.routes.push({key: opt.value, label: opt.textContent || opt.value, sortOrder: group.routes.length});
+        });
+        if (group.routes.length) fallbackGroups.push(group);
+      }
+    });
+  }
+  return fallbackGroups;
+}
+
+function renderDestinationGroupPicker() {
+  var picker = document.getElementById('routeDestinationPicker');
+  var toSel = document.getElementById('routeTo');
+  if (!picker || !toSel) return;
+  var groups = _destinationGroupsForBookingPicker();
+  if (!groups.length) {
+    picker.innerHTML = '<div class="route-loading-note">กำลังโหลดหมวดหมู่ปลายทางจากระบบกลาง...</div>';
+    return;
+  }
+  var current = toSel.value;
+  var html = groups.map(function(group) {
+    var routes = group.routes.filter(function(route) { return route && route.key; });
+    if (!routes.length) return '';
+    return '<div class="route-group-card" data-group="' + escapeHtml(group.id || group.name) + '">'
+      + '<div class="route-group-title"><span>' + escapeHtml(group.name || 'ปลายทางอื่น') + '</span><span class="count">' + routes.length + ' เส้นทาง</span></div>'
+      + '<div class="route-group-options">'
+      + routes.map(function(route) {
+          var label = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
+          return '<button type="button" class="route-destination-option' + (route.key === current ? ' active' : '') + '" data-route-key="' + escapeHtml(route.key) + '">' + escapeHtml(label) + '</button>';
+        }).join('')
+      + '</div></div>';
+  }).join('');
+  picker.innerHTML = html || '<div class="route-loading-note">ปลายทางอื่น</div>';
+}
+
+function selectDestinationFromGroup(key) {
+  var toSel = document.getElementById('routeTo');
+  if (!toSel || !key) return;
+  if (_selectHasValue(toSel, key)) {
+    toSel.value = key;
+    updateRoute();
+  }
+}
+
+document.addEventListener('click', function(event) {
+  var btn = event.target && event.target.closest ? event.target.closest('.route-destination-option') : null;
+  if (!btn) return;
+  selectDestinationFromGroup(btn.getAttribute('data-route-key'));
+});
+
 function _rebuildRouteSelects() {
   var fromSel = document.getElementById('routeFrom');
   var toSel = document.getElementById('routeTo');
@@ -1042,64 +1139,33 @@ function _rebuildRouteSelects() {
     fromSel.appendChild(opt);
   });
   toSel.innerHTML = '';
-
   if (ADMIN_ROUTE_GROUPS.length) {
-
-    ADMIN_ROUTE_GROUPS.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(group, groupIndex) {
-
-      var groupName = group.name || 'ปลายทาง';
-
-      var separator = document.createElement('option');
-
-      separator.disabled = true;
-
-      separator.value = '__group_' + groupIndex;
-
-      separator.textContent = '━━ ' + groupName + ' ━━';
-
-      toSel.appendChild(separator);
-
+    ADMIN_ROUTE_GROUPS.slice().sort(function(a,b){return (a.sortOrder||0)-(b.sortOrder||0);}).forEach(function(group) {
+      var groupName = _cleanBookingGroupName(group.name || 'ปลายทางอื่น');
       var optgroup = document.createElement('optgroup');
-
-      optgroup.label = '━━ ' + groupName + ' ━━';
-
-      group.routes.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(route) {
-
+      optgroup.label = groupName;
+      (group.routes || []).slice().sort(function(a,b){return (a.sortOrder||0)-(b.sortOrder||0);}).forEach(function(route) {
         var opt = document.createElement('option');
-
         var label = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
-
         opt.value = route.key;
-
-        opt.textContent = groupName + ' • ' + label;
-
+        opt.textContent = label;
         optgroup.appendChild(opt);
-
       });
-
       toSel.appendChild(optgroup);
-
     });
-
   } else {
-
     Object.keys(LEG2_DEST).forEach(function(key) {
-
       var opt = document.createElement('option');
-
       opt.value = key;
-
       opt.textContent = LEG2_DEST[key].label || key;
-
       toSel.appendChild(opt);
-
     });
-
   }
-
   fromSel.value = ORIGIN_TIMES[prevFrom] ? prevFrom : (fromSel.options[0] ? fromSel.options[0].value : '');
   toSel.value = LEG2_DEST[prevTo] ? prevTo : (toSel.options[0] ? toSel.options[0].value : '');
+  renderDestinationGroupPicker();
 }
+
 
 // Listen real-time — ใช้เฉพาะข้อมูลที่กระทบการจอง และไม่รบกวนผู้ใช้เมื่อค่าเดิมถูกส่งซ้ำ
 function _settingsRelevantFingerprint(snap) {
@@ -1665,6 +1731,7 @@ function updateRoute(preserveSelectedTime) {
   document.getElementById('timeCard').style.display = 'block';
   document.getElementById('timeCardPlaceholder').style.display = 'none';
 
+  renderDestinationGroupPicker();
   renderTimes();
   renderLeg2Info();
 }
@@ -1743,6 +1810,11 @@ function getStatusBadge(dateStr, timeStr, closedOverride) {
 }
 
 function renderTimes() {
+  var listEl = document.getElementById('timeList');
+  if (!_settingsLoaded && !ADMIN_ROUTE_SOURCE_LOADED) {
+    if (listEl) listEl.innerHTML = '<div class="route-loading-note">กำลังโหลดเวลาเดินรถจากระบบกลาง...</div>';
+    return;
+  }
   var times;
   if (ADMIN_ROUTE_SOURCE_LOADED) {
     times = getAdminAwareSchedules(selOrigin, selDest);
@@ -1778,7 +1850,12 @@ function renderTimes() {
   var dateStr = document.getElementById('travelDate').value;
   if (!dateStr) dateStr = new Date().toISOString().split('T')[0];
 
+  times = Array.isArray(times) ? times : [];
   var html = '';
+  if (!times.length) {
+    document.getElementById('timeList').innerHTML = '<div class="route-loading-note">ยังไม่มีเที่ยวให้บริการในเส้นทางนี้</div>';
+    return;
+  }
   times.forEach(function(t) {
     var stopClosed = isClosedByAdmin(t);
     var tripFull = isTripFull(dateStr, t, 1);
@@ -3060,6 +3137,7 @@ function newBooking() {
 }
 
 // อัปเดตสถานะเวลาทุก 1 นาที
+renderDestinationGroupPicker();
 renderTimes();
 renderLeg2Info();
 applyPaymentModeUI();
@@ -3074,3 +3152,4 @@ document.getElementById('travelDate').addEventListener('change', function() {
 </script>
 </body>
 </html>
+
