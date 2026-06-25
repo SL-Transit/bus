@@ -36,6 +36,7 @@
   --r-sm:14px;
   --shadow:0 2px 12px rgba(11,29,58,0.08);
   --shadow-md:0 8px 28px rgba(11,29,58,0.14);
+  --page-max:540px;
 }
 
 /* ═══════════════════════════════════════════
@@ -209,7 +210,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 /* ═══════════════════════════════════════════
    MAIN CONTENT
 ═══════════════════════════════════════════ */
-.content{width:100%;max-width:560px;margin:0 auto;padding:0 0 28px;position:relative;z-index:5}
+.content{width:100%;max-width:var(--page-max);margin:0 auto;padding:0 0 28px;position:relative;z-index:5}
 
 /* ═══════════════════════════════════════════
    MAP SECTION
@@ -240,12 +241,37 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   border-radius:18px 18px 0 0;
   box-shadow:0 12px 30px rgba(11,29,58,0.16);
 }
-#longdo-map{width:100%;height:100%}
+#longdo-map{width:100%;height:100%;pointer-events:none;touch-action:none}
+#longdo-map .maplibregl-ctrl-top-left,
+#longdo-map .maplibregl-ctrl-top-right,
+#longdo-map .maplibregl-ctrl-bottom-left,
+#longdo-map .maplibregl-ctrl-bottom-right,
+#longdo-map .maplibregl-ctrl,
+#longdo-map .maplibregl-control-container,
+#longdo-map .maplibregl-ctrl-group,
+#longdo-map .maplibregl-ctrl-geolocate,
+#longdo-map .maplibregl-ctrl-zoom-in,
+#longdo-map .maplibregl-ctrl-zoom-out,
+#longdo-map .maplibregl-ctrl-compass,
+#longdo-map .maplibregl-ctrl-terrain,
+#longdo-map .maplibregl-ctrl-scale,
+#longdo-map .maplibregl-ctrl-attrib,
+#longdo-map .maplibregl-ctrl-attrib-button,
 #longdo-map .ldmap-control,
 #longdo-map .ldmap-toolbar,
 #longdo-map .ldmap-zoom,
 #longdo-map .ldmap-layer,
-#longdo-map .ldmap-compass{display:none!important}
+#longdo-map .ldmap-compass,
+#longdo-map .ldmap-dpad,
+#longdo-map .ldmap-menubar,
+#longdo-map .ldmap-button,
+#longdo-map .ldmap-zoomlabel,
+#longdo-map .ldmap-goleft,
+#longdo-map .ldmap-goright,
+#longdo-map .ldmap-goup,
+#longdo-map .ldmap-godown,
+#longdo-map .ldmap-toast,
+#longdo-map .ldmap-crosshair{display:none!important;visibility:hidden!important;pointer-events:none!important}
 
 /* nearest stop card */
 .nearest-card{
@@ -369,7 +395,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 ═══════════════════════════════════════════ */
 .bottom-bar{
   position:fixed;bottom:0;left:0;right:0;z-index:100;
-  max-width:540px;margin:0 auto;
+  max-width:var(--page-max);margin:0 auto;
   padding:12px 16px 20px;
   background:linear-gradient(to top,var(--bg) 80%,transparent);
 }
@@ -388,10 +414,34 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 .btn-book-bar:active{transform:translateY(0)}
 .btn-book-bar img{width:26px;height:26px;object-fit:contain;filter:brightness(0) invert(1)}
 
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+.site-footer{
+  width:100%;max-width:var(--page-max);margin:28px auto 120px;
+  padding:18px 16px 24px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:12px;line-height:1.5;
+  background:rgba(255,255,255,0.46);
+}
+.site-footer-inner{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.site-footer-left{min-width:0;flex:1}
+.site-footer-nav{display:flex;align-items:center;flex-wrap:wrap;gap:8px 0;margin:0 0 10px}
+.site-footer-nav a{display:inline-flex;align-items:center;color:#607489;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap}
+.site-footer-nav a:not(:last-child)::after{content:"";width:1px;height:11px;margin:0 9px;background:rgba(96,116,137,.28)}
+.site-footer-nav a:hover{color:var(--teal)}
+.site-footer-copy{margin:0;color:#8b9aa8;font-size:11px}
+.site-footer-dbd{flex:0 0 auto;width:112px;text-align:center;color:rgba(100,116,139,0.78);font-size:11px;line-height:1.5}
+.site-footer-dbd-heading{margin:0 0 4px;color:#7b8b9d;font-size:10px;font-weight:800;white-space:nowrap}
+.dbd-footer{display:grid;justify-items:center;gap:4px}
+.dbd-footer a{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.dbd-footer img{display:block;width:80px;max-width:80px;height:auto;object-fit:contain;border:0;opacity:.82}
+.dbd-footer p{margin:0;max-width:112px;color:rgba(100,116,139,0.74);font-size:11px;line-height:1.5}
+
 @media(min-width:900px){
+  :root{--page-max:800px}
   body{background:#edf3f8}
-  .topbar{max-width:620px;margin:0 auto;padding:16px 20px;border-radius:0 0 18px 18px}
-  .hero{height:280px;max-width:620px;margin:0 auto;border-radius:0 0 24px 24px;overflow:hidden}
+  .topbar{max-width:var(--page-max);margin:0 auto;padding:16px 22px;border-radius:0 0 18px 18px}
+  .hero{height:300px;max-width:var(--page-max);margin:0 auto;border-radius:0 0 24px 24px;overflow:hidden}
   .ann-slide{align-items:flex-end}
   .ann-slide-text,.ann-placeholder-text{padding:30px 24px 58px}
   .ann-slide-title{max-width:100%;font-size:clamp(24px,2vw,32px);line-height:1.18}
@@ -399,12 +449,14 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   .ann-placeholder-h1{font-size:clamp(28px,2.4vw,40px)}
   .ann-placeholder-sub{font-size:15px}
   .ann-placeholder-bus{right:14px;width:190px;opacity:0.16}
-  .content{max-width:620px;padding-bottom:28px}
+  .content{max-width:var(--page-max);padding-bottom:28px}
   .map-section{margin-top:-32px;padding:0 18px}
-  .map-wrap{height:340px}
+  .map-wrap{height:360px}
   .routes-section,.quick-section{padding-left:18px;padding-right:18px}
-  .bottom-bar{max-width:620px}
-  .site-footer{max-width:620px}
+  .bottom-bar{max-width:var(--page-max);padding-left:18px;padding-right:18px}
+  .site-footer{max-width:var(--page-max);padding-left:18px;padding-right:18px}
+  .dbd-footer img{width:96px;max-width:96px}
+  .site-footer-dbd{width:136px}
 }
 
 /* ═══════════════════════════════════════════
@@ -1052,9 +1104,17 @@ function tryIPGeo(){
     });
 }
 
+function showLocationNotice(message){
+  var subEl=document.getElementById('nearest-sub');
+  if(subEl) subEl.textContent=message;
+}
+
 /* ── ปุ่ม "ใช้ตำแหน่งของฉัน" — ขอ GPS ใหม่อีกครั้ง ── */
 window.locateUser=function(){
-  if(!navigator.geolocation){alert('เบราว์เซอร์ไม่รองรับ GPS');return;}
+  if(!navigator.geolocation){
+    showLocationNotice('เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง');
+    return;
+  }
   var btn=document.getElementById('locate-btn');
   btn.classList.add('loading');
   btn.innerHTML=SVG_LOCATE+' กำลังระบุ...';
@@ -1062,12 +1122,17 @@ window.locateUser=function(){
   navigator.geolocation.getCurrentPosition(
     function(pos){
       btn.classList.remove('loading');
+      btn.innerHTML=SVG_LOCATE+' ตำแหน่งของฉัน ✓';
       _gpsSettled=true;
       onPositionResolved(pos.coords.latitude,pos.coords.longitude,'gps');
     },
-    function(){
+    function(err){
       btn.classList.remove('loading');
       btn.innerHTML=SVG_LOCATE+' ใช้ตำแหน่งของฉัน';
+      var msg=(err&&err.code===1)
+        ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง กรุณาอนุญาต GPS ในเบราว์เซอร์'
+        : 'ไม่สามารถระบุตำแหน่งได้ กรุณาลองอีกครั้ง';
+      showLocationNotice(msg);
     },
     {timeout:10000,enableHighAccuracy:true}
   );
