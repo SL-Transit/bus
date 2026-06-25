@@ -370,7 +370,11 @@ tr:hover td{background:#fafafa;}
 @media(max-width:480px){.dbd-footer{margin-top:18px;padding:14px 16px;font-size:12px;}.dbd-footer img{max-width:min(220px,78vw);}}
 
 .excel-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.excel-toolbar .btn{min-height:40px}.excel-import-box{margin-top:12px;padding:12px;border:1px dashed #93c5fd;border-radius:10px;background:#eff6ff}.excel-import-box input[type=file]{display:none}.excel-help-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.excel-help-item{padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:12px;line-height:1.6}.excel-help-item strong{display:block;color:var(--navy);font-size:13px}.excel-preview-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}.excel-preview-card{border:1px solid var(--border);border-radius:9px;padding:10px;background:#f8fafc}.excel-preview-card strong{display:block;color:var(--navy);margin-bottom:5px}.excel-preview-card .add{color:#15803d}.excel-preview-card .change{color:#b45309}.excel-preview-card .remove{color:#dc2626}.excel-errors{max-height:180px;overflow:auto;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.7;margin-top:8px}.excel-section-choice{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.excel-section-choice label{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff}.excel-danger-confirm{display:none;padding:9px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:8px;margin-top:9px}.excel-danger-confirm.show{display:block}@media(max-width:760px){.excel-help-grid,.excel-preview-summary{grid-template-columns:1fr}.excel-toolbar{display:grid;grid-template-columns:1fr}.excel-toolbar .btn,.excel-import-box .btn{width:100%}}
-</style>
+
+    .dragging-admin-row{opacity:.55;outline:2px dashed var(--blue)!important;outline-offset:2px}
+    .drag-handle{cursor:grab;user-select:none;touch-action:none;color:var(--muted);font-size:18px;line-height:1}
+    .drag-handle:active{cursor:grabbing}
+  </style>
 </head>
 <body>
 <div id="loginScreen">
@@ -1229,7 +1233,7 @@ function centralStopEntries(){
 function renderCentralStops(){
   var wrap=document.getElementById('centralStopsWrap');if(!wrap)return;
   var entries=centralStopEntries();if(!entries.length){wrap.innerHTML='<div class="route-search-empty">ยังไม่มีข้อมูลป้ายกลาง</div>';return;}
-  wrap.innerHTML=entries.map(function(item,index){var key=item.key,s=item.stop,icon=centralStopIcon(s),hasCoords=isFinite(Number(s.lat))&&isFinite(Number(s.lng));return '<div class="central-stop-card"><div class="central-stop-head"><input class="stop-icon-input" maxlength="16" value="'+esc(icon)+'" aria-label="ไอคอนป้าย" data-stop-key="'+esc(key)+'" data-stop-field="icon"><div class="central-stop-title">'+esc(s.stopNameTh||s.name||key)+'<div class="central-stop-key">'+esc(key)+'</div></div><button class="btn-icon" title="เลื่อนขึ้น" data-stop-key="'+esc(key)+'" data-stop-move="-1">↑</button><button class="btn-icon" title="เลื่อนลง" data-stop-key="'+esc(key)+'" data-stop-move="1">↓</button></div><div class="central-stop-fields"><div class="wide"><label>ชื่อป้ายภาษาไทย</label><input value="'+esc(s.stopNameTh||s.name||'')+'" data-stop-key="'+esc(key)+'" data-stop-field="stopNameTh"></div><div><label>ละติจูด</label><input type="number" step="0.000001" inputmode="decimal" value="'+esc(s.lat==null?'':s.lat)+'" data-stop-key="'+esc(key)+'" data-stop-field="lat" data-stop-type="number"></div><div><label>ลองจิจูด</label><input type="number" step="0.000001" inputmode="decimal" value="'+esc(s.lng==null?'':s.lng)+'" data-stop-key="'+esc(key)+'" data-stop-field="lng" data-stop-type="number"></div><div><label>ลำดับป้าย</label><input type="number" min="1" step="1" value="'+esc(s.order||index+1)+'" data-stop-key="'+esc(key)+'" data-stop-field="order" data-stop-type="number"></div><div><label>ประเภทป้าย</label><select data-stop-key="'+esc(key)+'" data-stop-field="stopType"><option value="main"'+(s.stopType==='main'?' selected':'')+'>ป้ายหลัก</option><option value="transfer_hub"'+(s.stopType==='transfer_hub'?' selected':'')+'>จุดต่อรถ</option><option value="conditional"'+(s.stopType==='conditional'?' selected':'')+'>เข้าบางกรณี</option></select></div><div class="wide"><label><input type="checkbox" style="width:auto" '+(s.bookingEnabled===false?'':'checked')+' data-stop-key="'+esc(key)+'" data-stop-field="bookingEnabled" data-stop-type="boolean"> เปิดใช้ในการจอง</label></div><div class="wide"><label>หมายเหตุ / การรองรับในอนาคต</label><textarea rows="2" data-stop-key="'+esc(key)+'" data-stop-field="note">'+esc(s.note||'')+'</textarea></div></div><div style="margin-top:7px;font-size:11px;color:'+(hasCoords?'#15803d':'#b45309')+'">'+(hasCoords?'✓ มีพิกัดกลางแล้ว':'⚠ ยังไม่มีพิกัด — เพิ่มได้ภายหลัง')+'</div></div>';}).join('');
+  wrap.innerHTML=entries.map(function(item,index){var key=item.key,s=item.stop,icon=centralStopIcon(s),hasCoords=isFinite(Number(s.lat))&&isFinite(Number(s.lng));return '<div class="central-stop-card" draggable="true" data-stop-drag-key="'+esc(key)+'"><div class="central-stop-head"><span class="drag-handle" title="Drag to reorder">?</span><input class="stop-icon-input" maxlength="16" value="'+esc(icon)+'" aria-label="ไอคอนป้าย" data-stop-key="'+esc(key)+'" data-stop-field="icon"><div class="central-stop-title">'+esc(s.stopNameTh||s.name||key)+'<div class="central-stop-key">'+esc(key)+'</div></div><button class="btn-icon" title="เลื่อนขึ้น" data-stop-key="'+esc(key)+'" data-stop-move="-1">↑</button><button class="btn-icon" title="เลื่อนลง" data-stop-key="'+esc(key)+'" data-stop-move="1">↓</button></div><div class="central-stop-fields"><div class="wide"><label>ชื่อป้ายภาษาไทย</label><input value="'+esc(s.stopNameTh||s.name||'')+'" data-stop-key="'+esc(key)+'" data-stop-field="stopNameTh"></div><div><label>ละติจูด</label><input type="number" step="0.000001" inputmode="decimal" value="'+esc(s.lat==null?'':s.lat)+'" data-stop-key="'+esc(key)+'" data-stop-field="lat" data-stop-type="number"></div><div><label>ลองจิจูด</label><input type="number" step="0.000001" inputmode="decimal" value="'+esc(s.lng==null?'':s.lng)+'" data-stop-key="'+esc(key)+'" data-stop-field="lng" data-stop-type="number"></div><div><label>ลำดับป้าย</label><input type="number" min="1" step="1" value="'+esc(s.order||index+1)+'" data-stop-key="'+esc(key)+'" data-stop-field="order" data-stop-type="number"></div><div><label>ประเภทป้าย</label><select data-stop-key="'+esc(key)+'" data-stop-field="stopType"><option value="main"'+(s.stopType==='main'?' selected':'')+'>ป้ายหลัก</option><option value="transfer_hub"'+(s.stopType==='transfer_hub'?' selected':'')+'>จุดต่อรถ</option><option value="conditional"'+(s.stopType==='conditional'?' selected':'')+'>เข้าบางกรณี</option></select></div><div class="wide"><label><input type="checkbox" style="width:auto" '+(s.bookingEnabled===false?'':'checked')+' data-stop-key="'+esc(key)+'" data-stop-field="bookingEnabled" data-stop-type="boolean"> เปิดใช้ในการจอง</label></div><div class="wide"><label>หมายเหตุ / การรองรับในอนาคต</label><textarea rows="2" data-stop-key="'+esc(key)+'" data-stop-field="note">'+esc(s.note||'')+'</textarea></div></div><div style="margin-top:7px;font-size:11px;color:'+(hasCoords?'#15803d':'#b45309')+'">'+(hasCoords?'✓ มีพิกัดกลางแล้ว':'⚠ ยังไม่มีพิกัด — เพิ่มได้ภายหลัง')+'</div></div>';}).join('');
   wrap.querySelectorAll('[data-stop-field]').forEach(function(el){
     function syncCentralField(){
       var type=el.dataset.stopType,value=type==='boolean'?el.checked:el.value;
@@ -1238,6 +1242,7 @@ function renderCentralStops(){
     el.addEventListener(el.dataset.stopField==='icon'?'input':'change',syncCentralField);
   });
   wrap.querySelectorAll('[data-stop-move]').forEach(function(el){el.addEventListener('click',function(){reorderCentralStop(this.dataset.stopKey,Number(this.dataset.stopMove));});});
+  enableCentralStopDrag(wrap);
 }
 function updateCentralStop(key,field,value,type){
   if(!queueRouteData.stops)queueRouteData.stops={};if(!queueRouteData.stops[key])queueRouteData.stops[key]={stopKey:key,sourceStopKey:key};
@@ -1245,6 +1250,29 @@ function updateCentralStop(key,field,value,type){
   if(type==='boolean')value=value===true;queueRouteData.stops[key][field]=value;
 }
 function reorderCentralStop(key,dir){var entries=centralStopEntries(),i=entries.findIndex(function(x){return x.key===key;}),j=i+dir;if(i<0||j<0||j>=entries.length)return;var tmp=entries[i];entries[i]=entries[j];entries[j]=tmp;entries.forEach(function(x,index){x.stop.order=index+1;});renderCentralStops();}
+
+function applyCentralStopOrder(keys){
+  keys.forEach(function(key,index){if(queueRouteData.stops&&queueRouteData.stops[key])queueRouteData.stops[key].order=index+1;});
+}
+function enableCentralStopDrag(wrap){
+  var draggedKey='';
+  wrap.querySelectorAll('[data-stop-drag-key]').forEach(function(card){
+    card.addEventListener('dragstart',function(ev){draggedKey=this.dataset.stopDragKey;this.classList.add('dragging-admin-row');if(ev.dataTransfer){ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',draggedKey);}});
+    card.addEventListener('dragend',function(){this.classList.remove('dragging-admin-row');draggedKey='';});
+    card.addEventListener('dragover',function(ev){ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';});
+    card.addEventListener('drop',function(ev){
+      ev.preventDefault();
+      var fromKey=draggedKey||(ev.dataTransfer&&ev.dataTransfer.getData('text/plain'));
+      var toKey=this.dataset.stopDragKey;
+      if(!fromKey||!toKey||fromKey===toKey)return;
+      var keys=centralStopEntries().map(function(x){return x.key;});
+      var from=keys.indexOf(fromKey),to=keys.indexOf(toKey);
+      if(from<0||to<0)return;
+      var item=keys.splice(from,1)[0];keys.splice(to,0,item);
+      applyCentralStopOrder(keys);renderCentralStops();
+    });
+  });
+}
 function adminAsciiSlug(value,prefix){
   var s=String(value||'').normalize?String(value||'').normalize('NFKD'):String(value||'');
   s=s.toLowerCase().replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
@@ -1621,7 +1649,7 @@ function renderRouteGroups(){
     if(q&&!groupHasMatch)return;
     if(groupHasMatch)anyMatch=true;
     var forceOpen=!!q&&groupHasMatch;
-    html+='<div class="rgroup"><div class="rgroup-header" onclick="toggleRG('+gi+')">';
+    html+='<div class="rgroup" draggable="true" data-rgroup-drag-index="'+gi+'"><div class="rgroup-header" onclick="toggleRG('+gi+')"><span class="drag-handle" title="Drag to reorder" onclick="event.stopPropagation()">?</span>';
     html+='<span class="rg-title">'+esc(gname)+'</span><span class="rg-count">'+gdata.routes.length+' เส้นทาง</span>';
     html+='<label class="stop-close-control" onclick="event.stopPropagation()"><input type="checkbox" '+(gdata.isActive===false?'':'checked')+' onchange="setRouteGroupActive(\''+esc(gname)+'\',this.checked)"> ใช้งานกลุ่ม</label>';
     html+='<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveRouteGroup('+gi+',-1)">▲</button>';
@@ -1655,6 +1683,7 @@ function renderRouteGroups(){
     html='<div class="route-search-empty">ไม่พบเส้นทางที่ตรงกับ "'+esc(routeFilterText)+'"</div>';
   }
   document.getElementById('routeGroupsWrap').innerHTML=html;
+  enableRouteGroupDrag();
   bindRouteEditorEvents();
 }
 function onRouteSearchInput(val){
@@ -1730,6 +1759,22 @@ function reorderObjectByEntries(entries){var next={};entries.forEach(function(e)
 function moveRouteGroup(i,dir){
   var entries=Object.entries(routeData),j=i+dir;if(j<0||j>=entries.length)return;
   var tmp=entries[i];entries[i]=entries[j];entries[j]=tmp;reorderObjectByEntries(entries);renderRouteGroups();
+}
+
+function moveRouteGroupTo(from,to){
+  var entries=Object.entries(routeData);
+  if(from<0||to<0||from>=entries.length||to>=entries.length||from===to)return;
+  var item=entries.splice(from,1)[0];entries.splice(to,0,item);
+  reorderObjectByEntries(entries);renderRouteGroups();
+}
+function enableRouteGroupDrag(){
+  var draggedIndex=-1;
+  document.querySelectorAll('[data-rgroup-drag-index]').forEach(function(card){
+    card.addEventListener('dragstart',function(ev){draggedIndex=Number(this.dataset.rgroupDragIndex);this.classList.add('dragging-admin-row');if(ev.dataTransfer){ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',String(draggedIndex));}});
+    card.addEventListener('dragend',function(){this.classList.remove('dragging-admin-row');draggedIndex=-1;});
+    card.addEventListener('dragover',function(ev){ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';});
+    card.addEventListener('drop',function(ev){ev.preventDefault();var from=draggedIndex;if(from<0&&ev.dataTransfer)from=Number(ev.dataTransfer.getData('text/plain'));var to=Number(this.dataset.rgroupDragIndex);if(!isFinite(from)||!isFinite(to))return;moveRouteGroupTo(from,to);});
+  });
 }
 function renameRouteGroup(gname){
   if(!routeData[gname])return;
