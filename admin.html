@@ -622,13 +622,13 @@ tr:hover td{background:#fafafa;}
           <div style="font-size:11px;color:var(--muted);margin-top:3px">ประกาศจะซ่อนตัวเองอัตโนมัติเมื่อถึงเวลาที่กำหนด</div>
         </div>
         <div class="fg">
-          <label>รูปภาพประกอบ <span style="font-weight:400;color:var(--muted)">(ไม่บังคับ)</span></label>
+          <label>&#x0E23;&#x0E39;&#x0E1B;&#x0E20;&#x0E32;&#x0E1E;&#x0E1B;&#x0E23;&#x0E30;&#x0E01;&#x0E2D;&#x0E1A; <span style="font-weight:400;color:var(--muted)">(&#x0E44;&#x0E21;&#x0E48;&#x0E1A;&#x0E31;&#x0E07;&#x0E04;&#x0E31;&#x0E1A; ? &#x0E41;&#x0E19;&#x0E30;&#x0E19;&#x0E33; 960&#x00D7;310 px / &#x0E2A;&#x0E31;&#x0E14;&#x0E2A;&#x0E48;&#x0E27;&#x0E19; 3.1:1)</span></label>
           <input type="file" id="annImg" accept="image/*" style="display:none" onchange="onAnnImgPick(this)">
           <div id="annImgDrop" onclick="document.getElementById('annImg').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px 12px;text-align:center;cursor:pointer;background:#f8fafc;font-size:13px;color:var(--muted)">
-            🖼️ แตะ / คลิกเพื่อเลือกรูปภาพ
+            &#x1F5BC;&#xFE0F; &#x0E41;&#x0E15;&#x0E30; / &#x0E04;&#x0E25;&#x0E34;&#x0E01;&#x0E40;&#x0E1E;&#x0E37;&#x0E48;&#x0E2D;&#x0E40;&#x0E25;&#x0E37;&#x0E2D;&#x0E01;&#x0E23;&#x0E39;&#x0E1B;&#x0E20;&#x0E32;&#x0E1E;<br><span style="font-size:11px;color:#94a3b8">&#x0E23;&#x0E30;&#x0E1A;&#x0E1A;&#x0E08;&#x0E30;&#x0E04;&#x0E23;&#x0E2D;&#x0E1B;&#x0E01;&#x0E25;&#x0E32;&#x0E07;&#x0E20;&#x0E32;&#x0E1E;&#x0E40;&#x0E1B;&#x0E47;&#x0E19; 960&#x00D7;310 px &#x0E43;&#x0E2B;&#x0E49;&#x0E1E;&#x0E2D;&#x0E14;&#x0E35;&#x0E2B;&#x0E19;&#x0E49;&#x0E32;&#x0E41;&#x0E23;&#x0E01;</span>
           </div>
           <div id="annImgPreviewWrap" style="display:none;margin-top:8px;position:relative">
-            <img id="annImgPreview" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);display:block">
+            <img id="annImgPreview" style="width:100%;aspect-ratio:960/310;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;background:#0b1d3a">
             <button onclick="clearAnnImg()" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;line-height:26px;text-align:center">✕</button>
             <div id="annImgInfo" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
           </div>
@@ -2218,15 +2218,17 @@ function onAnnImgPick(inp){
   reader.onload=function(ev){
     var img=new Image();
     img.onload=function(){
-      var maxPx=1280,q=0.80,w=img.width,h=img.height;
-      if(w>maxPx||h>maxPx){var r=Math.min(maxPx/w,maxPx/h);w=Math.round(w*r);h=Math.round(h*r);}
-      var cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
+      var targetW=960,targetH=310,q=0.82,srcW=img.width,srcH=img.height,targetRatio=targetW/targetH,srcRatio=srcW/srcH;
+      var sx=0,sy=0,sw=srcW,sh=srcH;
+      if(srcRatio>targetRatio){sw=Math.round(srcH*targetRatio);sx=Math.round((srcW-sw)/2);}
+      else if(srcRatio<targetRatio){sh=Math.round(srcW/targetRatio);sy=Math.round((srcH-sh)/2);}
+      var cv=document.createElement('canvas');cv.width=targetW;cv.height=targetH;
+      cv.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,targetW,targetH);
       _annImgB64=cv.toDataURL('image/jpeg',q);
       document.getElementById('annImgPreview').src=_annImgB64;
       document.getElementById('annImgPreviewWrap').style.display='block';
       document.getElementById('annImgDrop').style.display='none';
-      document.getElementById('annImgInfo').textContent=w+'×'+h+' px · '+Math.round(_annImgB64.length*0.75/1024)+' KB';
+      document.getElementById('annImgInfo').textContent=targetW+'?'+targetH+' px ? '+Math.round(_annImgB64.length*0.75/1024)+' KB ? cropped from '+srcW+'?'+srcH+' px';
     };
     img.src=ev.target.result;
   };
