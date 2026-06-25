@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
 <script src="site-runtime.js?v=20260621a" data-sl-runtime></script>
@@ -137,12 +137,14 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   font-family:'Kanit',sans-serif;
   font-size:clamp(18px,5vw,26px);font-weight:800;
   color:#fff;line-height:1.2;margin-bottom:4px;
+  overflow-wrap:anywhere;
 }
 .ann-slide-body{
   font-size:13px;color:rgba(255,255,255,0.72);
   line-height:1.5;
   display:-webkit-box;-webkit-line-clamp:2;
   -webkit-box-orient:vertical;overflow:hidden;
+  overflow-wrap:anywhere;
 }
 /* progress dots */
 .ann-dots{
@@ -199,6 +201,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   font-family:'Kanit',sans-serif;
   font-size:clamp(22px,6vw,34px);font-weight:800;
   color:#fff;line-height:1.15;margin-bottom:6px;
+  overflow-wrap:anywhere;
 }
 .ann-placeholder-h1 em{font-style:normal;color:var(--teal-lt)}
 .ann-placeholder-sub{font-size:13px;color:rgba(255,255,255,0.60);}
@@ -206,7 +209,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 /* ═══════════════════════════════════════════
    MAIN CONTENT
 ═══════════════════════════════════════════ */
-.content{max-width:540px;margin:0 auto;padding:0 0 100px}
+.content{width:100%;max-width:540px;margin:0 auto;padding:0 0 100px}
 
 /* ═══════════════════════════════════════════
    MAP SECTION
@@ -377,6 +380,82 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 .btn-book-bar:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(11,29,58,0.35)}
 .btn-book-bar:active{transform:translateY(0)}
 .btn-book-bar img{width:26px;height:26px;object-fit:contain;filter:brightness(0) invert(1)}
+
+@media(min-width:900px){
+  body{background:#edf3f8}
+  .topbar{padding:16px 28px}
+  .hero{height:300px}
+  .ann-slide{align-items:center}
+  .ann-slide-text{
+    width:min(1180px,100%);
+    margin:0 auto;
+    padding:34px 32px 44px;
+  }
+  .ann-slide-title{
+    max-width:920px;
+    font-size:clamp(28px,2.4vw,42px);
+    line-height:1.18;
+  }
+  .ann-slide-body{
+    max-width:1040px;
+    font-size:16px;
+    -webkit-line-clamp:3;
+  }
+  .ann-placeholder{
+    align-items:center;
+    justify-content:center;
+  }
+  .ann-placeholder-text{
+    width:min(1180px,100%);
+    padding:34px 32px 44px;
+  }
+  .ann-placeholder-h1{
+    font-size:clamp(34px,3vw,52px);
+  }
+  .ann-placeholder-sub{font-size:17px}
+  .ann-placeholder-bus{
+    right:9%;
+    width:260px;
+    opacity:0.18;
+  }
+  .content{
+    max-width:1180px;
+    display:grid;
+    grid-template-columns:minmax(0,1.35fr) minmax(340px,0.65fr);
+    gap:18px;
+    padding:22px 24px 44px;
+    align-items:start;
+  }
+  .map-section{
+    grid-column:1;
+    grid-row:1 / span 3;
+    margin-bottom:0;
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:var(--shadow-md);
+  }
+  .map-wrap{height:520px}
+  .nearest-card{padding:20px 22px}
+  .nearest-name{font-size:22px}
+  .routes-section,.quick-section{
+    padding:0;
+    margin-bottom:0;
+  }
+  .route-row,.quick-card,.choose-manual{
+    box-shadow:0 3px 16px rgba(11,29,58,0.08);
+  }
+  .quick-grid{gap:10px}
+  .bottom-bar{
+    position:static;
+    max-width:none;
+    padding:0;
+    background:none;
+  }
+  .btn-book-bar{
+    min-height:68px;
+    border-radius:18px;
+  }
+}
 
 /* ═══════════════════════════════════════════
    DRAWER — STOP PICKER
