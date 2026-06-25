@@ -1042,26 +1042,61 @@ function _rebuildRouteSelects() {
     fromSel.appendChild(opt);
   });
   toSel.innerHTML = '';
+
   if (ADMIN_ROUTE_GROUPS.length) {
-    ADMIN_ROUTE_GROUPS.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(group) {
+
+    ADMIN_ROUTE_GROUPS.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(group, groupIndex) {
+
+      var groupName = group.name || 'ปลายทาง';
+
+      var separator = document.createElement('option');
+
+      separator.disabled = true;
+
+      separator.value = '__group_' + groupIndex;
+
+      separator.textContent = '━━ ' + groupName + ' ━━';
+
+      toSel.appendChild(separator);
+
       var optgroup = document.createElement('optgroup');
-      optgroup.label = group.name || 'ปลายทาง';
+
+      optgroup.label = '━━ ' + groupName + ' ━━';
+
       group.routes.sort(function(a,b){return a.sortOrder-b.sortOrder;}).forEach(function(route) {
+
         var opt = document.createElement('option');
+
+        var label = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
+
         opt.value = route.key;
-        opt.textContent = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
+
+        opt.textContent = groupName + ' • ' + label;
+
         optgroup.appendChild(opt);
+
       });
+
       toSel.appendChild(optgroup);
+
     });
+
   } else {
+
     Object.keys(LEG2_DEST).forEach(function(key) {
+
       var opt = document.createElement('option');
+
       opt.value = key;
+
       opt.textContent = LEG2_DEST[key].label || key;
+
       toSel.appendChild(opt);
+
     });
+
   }
+
   fromSel.value = ORIGIN_TIMES[prevFrom] ? prevFrom : (fromSel.options[0] ? fromSel.options[0].value : '');
   toSel.value = LEG2_DEST[prevTo] ? prevTo : (toSel.options[0] ? toSel.options[0].value : '');
 }
