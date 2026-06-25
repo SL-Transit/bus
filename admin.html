@@ -436,6 +436,7 @@ tr:hover td{background:#fafafa;}
       </div>
       <div class="stat-grid" id="dashStats"></div>
       <div class="dash-insights" id="dashInsights"></div>
+      <div class="card" id="dashOpsCard"><h2>&#x1F4CA; Today operation report</h2><div id="dashOpsReport"></div></div>
       <div class="card" id="dashRevCard" style="display:none"><h2>&#x1F4B0; สรุปรายได้และค่าบริการวันนี้</h2><div id="dashRevGrid"></div></div>
       <div class="card"><h2>&#x1F4CB; จองล่าสุด</h2>
         <div class="tbl-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>เส้นทาง</th><th>เวลา</th><th>สถานะ</th></tr></thead><tbody id="dashRecent"></tbody></table></div>
@@ -622,7 +623,7 @@ tr:hover td{background:#fafafa;}
           <div style="font-size:11px;color:var(--muted);margin-top:3px">ประกาศจะซ่อนตัวเองอัตโนมัติเมื่อถึงเวลาที่กำหนด</div>
         </div>
         <div class="fg">
-          <label>&#x0E23;&#x0E39;&#x0E1B;&#x0E20;&#x0E32;&#x0E1E;&#x0E1B;&#x0E23;&#x0E30;&#x0E01;&#x0E2D;&#x0E1A; <span style="font-weight:400;color:var(--muted)">(&#x0E44;&#x0E21;&#x0E48;&#x0E1A;&#x0E31;&#x0E07;&#x0E04;&#x0E31;&#x0E1A; ? &#x0E41;&#x0E19;&#x0E30;&#x0E19;&#x0E33; 960&#x00D7;310 px / &#x0E2A;&#x0E31;&#x0E14;&#x0E2A;&#x0E48;&#x0E27;&#x0E19; 3.1:1)</span></label>
+          <label>&#x0E23;&#x0E39;&#x0E1B;&#x0E20;&#x0E32;&#x0E1E;&#x0E1B;&#x0E23;&#x0E30;&#x0E01;&#x0E2D;&#x0E1A; <span style="font-weight:400;color:var(--muted)">(&#x0E44;&#x0E21;&#x0E48;&#x0E1A;&#x0E31;&#x0E07;&#x0E04;&#x0E31;&#x0E1A; &middot; &#x0E41;&#x0E19;&#x0E30;&#x0E19;&#x0E33; 960&#x00D7;310 px / &#x0E2A;&#x0E31;&#x0E14;&#x0E2A;&#x0E48;&#x0E27;&#x0E19; 3.1:1)</span></label>
           <input type="file" id="annImg" accept="image/*" style="display:none" onchange="onAnnImgPick(this)">
           <div id="annImgDrop" onclick="document.getElementById('annImg').click()" style="border:2px dashed var(--border);border-radius:8px;padding:16px 12px;text-align:center;cursor:pointer;background:#f8fafc;font-size:13px;color:var(--muted)">
             &#x1F5BC;&#xFE0F; &#x0E41;&#x0E15;&#x0E30; / &#x0E04;&#x0E25;&#x0E34;&#x0E01;&#x0E40;&#x0E1E;&#x0E37;&#x0E48;&#x0E2D;&#x0E40;&#x0E25;&#x0E37;&#x0E2D;&#x0E01;&#x0E23;&#x0E39;&#x0E1B;&#x0E20;&#x0E32;&#x0E1E;<br><span style="font-size:11px;color:#94a3b8">&#x0E23;&#x0E30;&#x0E1A;&#x0E1A;&#x0E08;&#x0E30;&#x0E04;&#x0E23;&#x0E2D;&#x0E1B;&#x0E01;&#x0E25;&#x0E32;&#x0E07;&#x0E20;&#x0E32;&#x0E1E;&#x0E40;&#x0E1B;&#x0E47;&#x0E19; 960&#x00D7;310 px &#x0E43;&#x0E2B;&#x0E49;&#x0E1E;&#x0E2D;&#x0E14;&#x0E35;&#x0E2B;&#x0E19;&#x0E49;&#x0E32;&#x0E41;&#x0E23;&#x0E01;</span>
@@ -969,6 +970,8 @@ function loadDashboard(){
       insight('ยกเลิกกี่คน',sumSeats(cancelled).toLocaleString()+' คน',cancelled.length+' รายการ')+
       insight('เข้าชมเว็บหลัก',visits.toLocaleString()+' คน','วันนี้')+
       insight('เส้นทางยอดนิยม',topRoute.label,topRoute.count+' รายการ');
+    var opsReport=document.getElementById('dashOpsReport');
+    if(opsReport)opsReport.innerHTML=renderOpsReport(arr,active,cancelled,visits);
     if(isAdmin()){
       var m=calcNet(active.filter(function(b){return bkCat(b)==='main';}),false);
       var c=calcNet(active.filter(function(b){return bkCat(b)==='coastal';}),true);
@@ -990,6 +993,27 @@ function topBy(list,fn){
   var map={};list.forEach(function(b){var k=fn(b)||'-';map[k]=(map[k]||0)+1;});
   var best=Object.entries(map).sort(function(a,b){return b[1]-a[1];})[0];
   return best?{label:best[0],count:best[1]}:{label:'-',count:0};
+}
+function groupDashboardStats(list,fn){
+  var map={};
+  (list||[]).forEach(function(b){var k=String(fn(b)||'-');if(!map[k])map[k]={label:k,count:0,seats:0,rev:0};map[k].count++;map[k].seats+=sumSeats([b]);map[k].rev+=Number(b.total||b.price||0)||0;});
+  return Object.values(map).sort(function(a,b){return b.count-a.count||b.seats-a.seats;});
+}
+function opsTable(title,rows){
+  if(!rows.length)return '<div class="muted">'+title+': no data</div>';
+  return '<div style="margin-top:10px"><b>'+title+'</b><div class="tbl-wrap"><table><thead><tr><th>Item</th><th>Bookings</th><th>Seats</th><th>Revenue</th></tr></thead><tbody>'+rows.slice(0,8).map(function(r){return '<tr><td>'+esc(r.label)+'</td><td>'+r.count+'</td><td>'+r.seats+'</td><td>'+r.rev.toLocaleString()+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+}
+function renderOpsReport(all,active,cancelled,visits){
+  var success=all.length?Math.round(active.length*100/all.length):0;
+  var cancelRate=all.length?Math.round(cancelled.length*100/all.length):0;
+  var routeRows=groupDashboardStats(active,function(b){return b.route||((b.origin||'-')+' -> '+(b.destination||'-'));});
+  var timeRows=groupDashboardStats(active,function(b){return b.time||b.departureTime||'-';});
+  return '<div class="dash-insights">'+
+    insight('Real bookings',sumSeats(active).toLocaleString()+' seats','Excludes cancelled rows')+
+    insight('Success rate',success+'%','Cancelled rate '+cancelRate+'%')+
+    insight('Website visits',Number(visits||0).toLocaleString(),'analytics/mainWeb today')+
+    insight('Open items',String((all||[]).length),'All rows found for today')+
+    '</div>'+opsTable('Route summary',routeRows)+opsTable('Time summary',timeRows);
 }
 function calcNet(list,hasAg){var gross=list.reduce(function(s,b){return s+(Number(b.price)||0);},0);var svc=list.length*FEE_SVC,ag=hasAg?list.length*FEE_AGENT:0;return{count:list.length,gross:gross,svc:svc,ag:ag,net:gross-svc-ag};}
 function renderRevenueCharts(items,labels){
@@ -1221,7 +1245,45 @@ function updateCentralStop(key,field,value,type){
   if(type==='boolean')value=value===true;queueRouteData.stops[key][field]=value;
 }
 function reorderCentralStop(key,dir){var entries=centralStopEntries(),i=entries.findIndex(function(x){return x.key===key;}),j=i+dir;if(i<0||j<0||j>=entries.length)return;var tmp=entries[i];entries[i]=entries[j];entries[j]=tmp;entries.forEach(function(x,index){x.stop.order=index+1;});renderCentralStops();}
-function addCentralStop(){var key=prompt('รหัสป้ายใหม่ (อังกฤษ/ตัวเลข/ขีดล่าง):','');if(!key)return;key=key.trim();if(!/^[A-Za-z0-9_-]+$/.test(key))return alert('รหัสป้ายใช้ได้เฉพาะอังกฤษ ตัวเลข - และ _');if((queueRouteData.stops||{})[key])return alert('มีรหัสป้ายนี้แล้ว');if(!queueRouteData.stops)queueRouteData.stops={};queueRouteData.stops[key]={stopKey:key,sourceStopKey:key,stopNameTh:key,stopType:'main',bookingEnabled:true,icon:'🚌',order:centralStopEntries().length+1,note:''};renderCentralStops();}
+function adminAsciiSlug(value,prefix){
+  var s=String(value||'').normalize?String(value||'').normalize('NFKD'):String(value||'');
+  s=s.toLowerCase().replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  return s||prefix||'item';
+}
+function makeAdminAutoKey(value,prefix,existing){
+  existing=existing||{};
+  var base=adminAsciiSlug(value,prefix);
+  if(base===prefix||base==='item')base=prefix+'_'+Date.now().toString(36).slice(-6);
+  var key=base,i=2;
+  while(existing[key]){key=base+'_'+i;i++;}
+  return key;
+}
+function findCentralStopKeyByInput(input){
+  var raw=String(input||'').trim();
+  if(!raw)return '';
+  var lower=raw.toLowerCase(),stops=(queueRouteData&&queueRouteData.stops)||{};
+  if(stops[raw])return raw;
+  if(stops[lower])return lower;
+  var found='';
+  Object.keys(stops).some(function(key){
+    var s=stops[key]||{},names=[key,s.stopKey,s.sourceStopKey,s.stopNameTh,s.name,s.label];
+    if(names.some(function(v){return String(v||'').trim().toLowerCase()===lower;})){found=key;return true;}
+    return false;
+  });
+  return found;
+}
+function centralStopChoiceText(){
+  return centralStopEntries().map(function(x){var s=x.stop||{};return (s.stopNameTh||s.name||x.key)+' = '+x.key;}).join('\n');
+}
+function addCentralStop(){
+  var name=prompt('Stop / station name:','');
+  if(!name||!name.trim())return;
+  name=name.trim();
+  if(!queueRouteData.stops)queueRouteData.stops={};
+  var key=makeAdminAutoKey(name,'stop',queueRouteData.stops);
+  queueRouteData.stops[key]={stopKey:key,sourceStopKey:key,stopNameTh:name,stopType:'main',bookingEnabled:true,icon:'\uD83D\uDE8F',order:centralStopEntries().length+1,note:''};
+  renderCentralStops();
+}
 function syncCentralStopForm(){
   var wrap=document.getElementById('centralStopsWrap');
   if(!wrap)return;
@@ -1828,7 +1890,41 @@ function addPlaceToGroup(gname){
   renderRouteGroups();
 }
 function deleteRoute(gname,ri){if(!routeData[gname])return;routeData[gname].routes.splice(ri,1);renderRouteGroups();}
-function editRouteGroupNetwork(gname){var g=routeData[gname];if(!g)return;var branch=confirm('กำหนดกลุ่ม “'+gname+'” เป็นกลุ่มกิ่ง/ต่อรถหรือไม่?\nตกลง = กิ่ง/ต่อรถ\nยกเลิก = เส้นทางหลัก/ตรง');if(!branch){g.connectionType='direct';g.branchHubStopKey='';g.transferHubStopKey='';renderRouteGroups();return;}var hub=String(prompt('รหัสจุดต่อรถบนเส้นทางหลัก:',g.branchHubStopKey||g.transferHubStopKey||'chachoengsao')||'').trim();if(!hub)return;var min=Number(prompt('เวลาเปลี่ยนรถขั้นต่ำ (นาที):',g.minTransferMinutes==null?15:g.minTransferMinutes)),max=Number(prompt('เวลารอแนะนำสูงสุด (นาที):',g.maxPreferredWaitMinutes==null?60:g.maxPreferredWaitMinutes)),ideal=Number(prompt('เวลารอเหมาะสม (นาที):',g.idealWaitMinutes==null?30:g.idealWaitMinutes)),reliability=Number(prompt('ความน่าเชื่อถือ 0-100:',g.reliabilityScore==null?100:g.reliabilityScore));if(!isFinite(min)||!isFinite(max)||!isFinite(ideal)||!isFinite(reliability)||min<0||max<min||ideal<min||ideal>max||reliability<0||reliability>100)return alert('ค่าที่กรอกไม่ถูกต้อง');g.connectionType='branch';g.branchHubStopKey=hub;g.transferHubStopKey=hub;g.minTransferMinutes=min;g.maxPreferredWaitMinutes=max;g.idealWaitMinutes=ideal;g.reliabilityScore=reliability;g.passengerChoiceEnabled=true;renderRouteGroups();}function addRouteGroup(){var name=prompt('ชื่อกลุ่มเส้นทางใหม่ เช่น กลุ่มรังสิต:','');if(!name||!name.trim())return;name=name.trim();routeData=normalizeRouteGroups(routeData);if(routeData[name])return alert('มีชื่อกลุ่มนี้แล้ว');var suggested='group_'+String(Date.now()).slice(-6),id=prompt('group_id ภาษาอังกฤษ เช่น rangsit:',suggested);if(!id||!/^[A-Za-z0-9_-]+$/.test(id.trim()))return alert('group_id ใช้ได้เฉพาะอังกฤษ ตัวเลข - และ _');if(Object.values(routeData).some(function(g){return String((g&&g.id)||'')===id.trim();}))return alert('มี group_id นี้แล้ว');var branch=confirm('กลุ่มนี้เป็นกลุ่มปลายทางที่ต้องต่อจากสถานีบนเส้นทางหลักหรือไม่?');var hub='';if(branch){hub=String(prompt('รหัสจุดต่อรถบนเส้นทางหลัก เช่น chachoengsao, phanom, siyaekkhonom:','chachoengsao')||'').trim();if(!hub)return alert('ต้องระบุรหัสจุดต่อรถ');}routeData[name]={id:id.trim(),name:name,sortOrder:Object.keys(routeData).length,isActive:true,connectionType:branch?'branch':'direct',branchHubStopKey:hub,transferHubStopKey:hub,minTransferMinutes:15,maxPreferredWaitMinutes:60,idealWaitMinutes:30,reliabilityScore:100,recommendationPriority:100,passengerChoiceEnabled:true,routes:[]};openRouteGroups={};openRouteGroups[name]=true;renderRouteGroups();}function deleteRouteGroup(gname){
+function editRouteGroupNetwork(gname){
+  var g=routeData[gname];
+  if(!g)return;
+  var branch=confirm('Set this route group as a branch/transfer group?\nOK = branch/transfer\nCancel = direct/main route');
+  if(!branch){g.connectionType='direct';g.branchHubStopKey='';g.transferHubStopKey='';renderRouteGroups();return;}
+  var defaultHub=g.branchHubStopKey||g.transferHubStopKey||'chachoengsao';
+  var hubInput=String(prompt('Transfer station name or key:\n'+centralStopChoiceText(),defaultHub)||'').trim();
+  var hub=findCentralStopKeyByInput(hubInput);
+  if(!hub)return alert('Transfer station not found. Please add/select a central stop first.');
+  var min=Number(prompt('Minimum transfer minutes:',g.minTransferMinutes==null?15:g.minTransferMinutes));
+  var max=Number(prompt('Preferred max waiting minutes:',g.maxPreferredWaitMinutes==null?60:g.maxPreferredWaitMinutes));
+  var ideal=Number(prompt('Ideal waiting minutes:',g.idealWaitMinutes==null?30:g.idealWaitMinutes));
+  var reliability=Number(prompt('Reliability score 0-100:',g.reliabilityScore==null?80:g.reliabilityScore));
+  if(!isFinite(min)||!isFinite(max)||!isFinite(ideal)||!isFinite(reliability)||reliability<0||reliability>100)return alert('Invalid value.');
+  g.connectionType='branch';g.branchHubStopKey=hub;g.transferHubStopKey=hub;g.minTransferMinutes=min;g.maxPreferredWaitMinutes=max;g.idealWaitMinutes=ideal;g.reliabilityScore=reliability;g.passengerChoiceEnabled=true;renderRouteGroups();
+}
+function addRouteGroup(){
+  var name=prompt('Route group name:','');
+  if(!name||!name.trim())return;
+  name=name.trim();
+  routeData=normalizeRouteGroups(routeData);
+  if(routeData[name])return alert('This route group name already exists.');
+  var used={};Object.values(routeData).forEach(function(g){if(g&&g.id)used[g.id]=true;});
+  var id=makeAdminAutoKey(name,'group',used);
+  var branch=confirm('Is this a branch/transfer destination group?');
+  var hub='';
+  if(branch){
+    var hubInput=String(prompt('Transfer station name or key:\n'+centralStopChoiceText(),'chachoengsao')||'').trim();
+    hub=findCentralStopKeyByInput(hubInput);
+    if(!hub)return alert('Transfer station not found. Please add/select a central stop first.');
+  }
+  routeData[name]={id:id,title:name,category:'other',connectionType:branch?'branch':'direct',branchHubStopKey:hub,transferHubStopKey:hub,minTransferMinutes:15,maxPreferredWaitMinutes:60,idealWaitMinutes:30,reliabilityScore:80,passengerChoiceEnabled:!!branch,routes:[]};
+  renderRouteGroups();
+}
+function deleteRouteGroup(gname){
   routeData=normalizeRouteGroups(routeData);
   if(STANDARD_ROUTE_GROUP_NAMES.indexOf(gname)!==-1){
     routeData[gname].isActive=false;
@@ -2228,7 +2324,7 @@ function onAnnImgPick(inp){
       document.getElementById('annImgPreview').src=_annImgB64;
       document.getElementById('annImgPreviewWrap').style.display='block';
       document.getElementById('annImgDrop').style.display='none';
-      document.getElementById('annImgInfo').textContent=targetW+'?'+targetH+' px ? '+Math.round(_annImgB64.length*0.75/1024)+' KB ? cropped from '+srcW+'?'+srcH+' px';
+      document.getElementById('annImgInfo').textContent=targetW+String.fromCharCode(215)+targetH+' px '+String.fromCharCode(183)+' '+Math.round(_annImgB64.length*0.75/1024)+' KB '+String.fromCharCode(183)+' cropped from '+srcW+String.fromCharCode(215)+srcH+' px';
     };
     img.src=ev.target.result;
   };
