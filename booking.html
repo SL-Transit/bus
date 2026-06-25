@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="th">
 <head>
 <script src="site-runtime.js?v=20260621a" data-sl-runtime></script>
@@ -59,16 +59,21 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
 .route-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,167,181,.12);}
 .route-select.active-select{border-color:var(--accent);background-color:#effcff;}
 .route-select.is-native-backup{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;}
-.route-destination-picker{display:grid;gap:10px;margin-top:8px;}
-.route-group-card{border:1.5px solid var(--border);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.04);}
-.route-group-title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#f1f7fb;color:var(--navy);font-size:13px;font-weight:800;border-bottom:1px solid var(--border);}
+.route-destination-picker{position:relative;margin-top:0;}
+.route-destination-trigger{width:100%;padding:13px 16px;border:2px solid var(--border);border-radius:12px;font-family:'Kanit',sans-serif;font-size:15px;font-weight:600;color:var(--text);background:#fff;outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;cursor:pointer;text-align:left;}
+.route-destination-trigger:focus,.route-destination-picker.open .route-destination-trigger{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,167,181,.12);background-color:#effcff;}
+.route-destination-menu{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:80;max-height:420px;overflow-y:auto;background:#fff;border:1.5px solid var(--border);border-radius:12px;box-shadow:0 14px 34px rgba(15,23,42,.18);padding:8px;}
+.route-destination-picker.open .route-destination-menu{display:block;}
+.route-group-card{border:1px solid #dbe6f0;border-radius:12px;background:#fff;overflow:hidden;margin-bottom:8px;}
+.route-group-card:last-child{margin-bottom:0;}
+.route-group-title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:#f1f7fb;color:var(--navy);font-size:13px;font-weight:800;border-bottom:1px solid var(--border);}
 .route-group-title .count{font-size:11px;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:999px;padding:2px 8px;}
-.route-group-options{display:grid;grid-template-columns:1fr;gap:7px;padding:10px;}
-.route-destination-option{width:100%;border:1px solid #dbe6f0;border-radius:11px;background:#fff;color:var(--text);padding:10px 12px;font-family:'Kanit',sans-serif;font-size:14px;font-weight:700;text-align:left;cursor:pointer;transition:all .16s ease;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.route-destination-option:after{content:'เลือก';font-size:11px;font-weight:700;color:var(--muted);}
+.route-group-options{display:grid;grid-template-columns:1fr;gap:6px;padding:8px;}
+.route-destination-option{width:100%;border:1px solid #dbe6f0;border-radius:10px;background:#fff;color:var(--text);padding:10px 12px;font-family:'Kanit',sans-serif;font-size:14px;font-weight:700;text-align:left;cursor:pointer;transition:all .16s ease;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.route-destination-option:after{content:'?????';font-size:11px;font-weight:700;color:var(--muted);}
 .route-destination-option:hover{border-color:var(--accent);background:#effcff;}
 .route-destination-option.active{border-color:var(--accent);background:#e9fbfd;color:var(--navy);box-shadow:0 0 0 3px rgba(0,167,181,.10);}
-.route-destination-option.active:after{content:'เลือกอยู่';color:var(--accent);}
+.route-destination-option.active:after{content:'?????????';color:var(--accent);}
 .route-loading-note{font-size:13px;font-weight:700;color:var(--muted);text-align:center;padding:14px 12px;border:1px dashed var(--border);border-radius:12px;background:#f8fbfd;}
 .route-swap-icon{text-align:center;font-size:22px;color:var(--muted);}
 
@@ -372,9 +377,11 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
             </optgroup>
           </select>
           <div class="route-destination-picker" id="routeDestinationPicker" aria-label="destination groups">
-            <div class="route-loading-note">กำลังโหลดหมวดหมู่ปลายทางจากระบบกลาง...</div>
-          </div>
-        </div>
+            <button type="button" class="route-destination-trigger" id="routeDestinationTrigger" aria-expanded="false">???????????????????????????????????...</button>
+            <div class="route-destination-menu" id="routeDestinationMenu">
+              <div class="route-loading-note">???????????????????????????????????...</div>
+            </div>
+          </div></div>
       </div>
     </div>
 
@@ -1093,13 +1100,24 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+function _destinationSelectedLabel(toSel) {
+  if (!toSel) return '';
+  var opt = toSel.options[toSel.selectedIndex];
+  if (opt && opt.value && opt.value.indexOf('__group_') !== 0) return opt.textContent || opt.value;
+  var key = toSel.value;
+  return (LEG2_DEST[key] && LEG2_DEST[key].label) || key || '';
+}
+
 function renderDestinationGroupPicker() {
   var picker = document.getElementById('routeDestinationPicker');
+  var trigger = document.getElementById('routeDestinationTrigger');
+  var menu = document.getElementById('routeDestinationMenu');
   var toSel = document.getElementById('routeTo');
-  if (!picker || !toSel) return;
+  if (!picker || !trigger || !menu || !toSel) return;
   var groups = _destinationGroupsForBookingPicker();
+  trigger.textContent = _destinationSelectedLabel(toSel) || '????????????';
   if (!groups.length) {
-    picker.innerHTML = '<div class="route-loading-note">กำลังโหลดหมวดหมู่ปลายทางจากระบบกลาง...</div>';
+    menu.innerHTML = '<div class="route-loading-note">???????????????????????????????????...</div>';
     return;
   }
   var current = toSel.value;
@@ -1107,7 +1125,7 @@ function renderDestinationGroupPicker() {
     var routes = group.routes.filter(function(route) { return route && route.key; });
     if (!routes.length) return '';
     return '<div class="route-group-card" data-group="' + escapeHtml(group.id || group.name) + '">'
-      + '<div class="route-group-title"><span>' + escapeHtml(group.name || 'ปลายทางอื่น') + '</span><span class="count">' + routes.length + ' เส้นทาง</span></div>'
+      + '<div class="route-group-title"><span>' + escapeHtml(group.name || '???????????') + '</span><span class="count">' + routes.length + ' ???????</span></div>'
       + '<div class="route-group-options">'
       + routes.map(function(route) {
           var label = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
@@ -1115,7 +1133,30 @@ function renderDestinationGroupPicker() {
         }).join('')
       + '</div></div>';
   }).join('');
-  picker.innerHTML = html || '<div class="route-loading-note">ปลายทางอื่น</div>';
+  menu.innerHTML = html || '<div class="route-loading-note">???????????????????????</div>';
+}
+
+function openDestinationPicker() {
+  var picker = document.getElementById('routeDestinationPicker');
+  var trigger = document.getElementById('routeDestinationTrigger');
+  if (!picker || !trigger) return;
+  picker.classList.add('open');
+  trigger.setAttribute('aria-expanded', 'true');
+}
+
+function closeDestinationPicker() {
+  var picker = document.getElementById('routeDestinationPicker');
+  var trigger = document.getElementById('routeDestinationTrigger');
+  if (!picker || !trigger) return;
+  picker.classList.remove('open');
+  trigger.setAttribute('aria-expanded', 'false');
+}
+
+function toggleDestinationPicker() {
+  var picker = document.getElementById('routeDestinationPicker');
+  if (!picker) return;
+  if (picker.classList.contains('open')) closeDestinationPicker();
+  else openDestinationPicker();
 }
 
 function selectDestinationFromGroup(key) {
@@ -1128,9 +1169,16 @@ function selectDestinationFromGroup(key) {
 }
 
 document.addEventListener('click', function(event) {
+  var trigger = event.target && event.target.closest ? event.target.closest('#routeDestinationTrigger') : null;
+  if (trigger) { toggleDestinationPicker(); return; }
   var btn = event.target && event.target.closest ? event.target.closest('.route-destination-option') : null;
-  if (!btn) return;
-  selectDestinationFromGroup(btn.getAttribute('data-route-key'));
+  if (btn) {
+    selectDestinationFromGroup(btn.getAttribute('data-route-key'));
+    closeDestinationPicker();
+    return;
+  }
+  var picker = document.getElementById('routeDestinationPicker');
+  if (picker && !picker.contains(event.target)) closeDestinationPicker();
 });
 
 function _rebuildRouteSelects() {
@@ -3160,5 +3208,6 @@ document.getElementById('travelDate').addEventListener('change', function() {
 </script>
 </body>
 </html>
+
 
 
