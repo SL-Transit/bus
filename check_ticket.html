@@ -769,6 +769,7 @@
     var currentBooking = null;
     var currentCode = null;
     var TICKET_CATALOG_VERSION_APPLIED = '';
+    var TICKET_CATALOG_RAW = null;
     var TICKET_CATALOG_LOADS = {};
     var TICKET_CATALOG_ROUTES_APPLIED = false;
     var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
@@ -883,6 +884,7 @@
 
     function applyTicketCatalog(catalog, source) {
       if (!catalog) return;
+      TICKET_CATALOG_RAW = catalog;
       var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
         ? window.SLTransitERP.catalogView(catalog)
         : null;
@@ -909,6 +911,24 @@
       }
       TICKET_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
       console.log('[TICKET ERP] applied ' + (source || 'catalog'), TICKET_CATALOG_VERSION_APPLIED);
+    }
+
+    function getTicketErpContext(booking) {
+      booking = booking || currentBooking || {};
+      if (!TICKET_CATALOG_RAW || !window.SLTransitERP) return null;
+      var routeId = booking.catalogRouteId || booking.routeId || '';
+      var tripId = booking.catalogTripId || booking.tripId || '';
+      if (routeId && typeof window.SLTransitERP.routeTripContext === 'function') {
+        var byId = window.SLTransitERP.routeTripContext(TICKET_CATALOG_RAW, routeId, tripId, booking.time || booking.pickupTime || '');
+        if (byId) return byId;
+      }
+      if (typeof window.SLTransitERP.bookingContext !== 'function') return null;
+      return window.SLTransitERP.bookingContext(
+        TICKET_CATALOG_RAW,
+        booking.origin || booking.from || getRouteOrigin(booking),
+        booking.destination || booking.to || connectionRouteInfo(booking.route).destination,
+        booking.time || booking.pickupTime || ''
+      );
     }
 
     function loadCatalogForBooking(booking) {
@@ -1224,6 +1244,9 @@
       document.getElementById('showDate').textContent = formatDate(currentBooking.date);
       document.getElementById('showSeats').textContent = currentBooking.seats + ' ที่นั่ง';
       document.getElementById('showPrice').textContent = currentBooking.price ? '฿' + Number(currentBooking.price).toLocaleString() + ' บาท' : '-';
+      var erpContext = getTicketErpContext(currentBooking);
+      var displayPrice = currentBooking.price || currentBooking.catalogFare || currentBooking.fare || (erpContext && erpContext.fare);
+      if (displayPrice) document.getElementById('showPrice').textContent = '฿' + Number(displayPrice).toLocaleString() + ' บาท';
       var adminStatus = document.getElementById('adminTesterStatus');
       if (adminStatus) {
         adminStatus.style.display = isAdminTesterBooking(currentBooking) ? 'block' : 'none';
@@ -1269,7 +1292,8 @@
 
     function getLegSchedule(booking, overrideTime) {
       var legs = splitLegs(booking.route || '');
-      var leg1Time = overrideTime || booking.time || '';
+      var erpContext = getTicketErpContext(booking);
+      var leg1Time = overrideTime || booking.time || booking.pickupTime || (erpContext && erpContext.departTime) || '';
       var leg2Time = legs.leg2 ? inferConnectionTime(booking, leg1Time, legs) : '';
       return {
         leg1: legs.leg1,

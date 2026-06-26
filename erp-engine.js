@@ -254,10 +254,7 @@
     return best;
   }
 
-  function bookingContext(catalog, origin, destination, time) {
-    var route = findRoute(catalog, origin, destination);
-    if (!route) return null;
-    var trip = findTrip(catalog, route.id, time);
+  function makeBookingContext(catalog, route, trip, time) {
     var fare = catalog && catalog.fares && catalog.fares[route.id] || {};
     var capacity = trip && catalog && catalog.capacities && catalog.capacities[trip.id] || null;
     var closure = trip && catalog && catalog.closures && catalog.closures[trip.id] || null;
@@ -277,13 +274,31 @@
     };
   }
 
+  function bookingContext(catalog, origin, destination, time) {
+    var route = findRoute(catalog, origin, destination);
+    if (!route) return null;
+    var trip = findTrip(catalog, route.id, time);
+    return makeBookingContext(catalog, route, trip, time);
+  }
+
+  function routeTripContext(catalog, routeId, tripId, time) {
+    var route = catalog && catalog.routes && catalog.routes[routeId];
+    if (!route) return null;
+    route.id = route.id || routeId;
+    var trip = tripId && catalog && catalog.trips && catalog.trips[tripId] || null;
+    if (!trip && time) trip = findTrip(catalog, route.id, time);
+    if (trip) trip.id = trip.id || tripId;
+    return makeBookingContext(catalog, route, trip, time);
+  }
+
   global.SLTransitERP = {
     settingsRoutes: settingsRoutes,
     routeData: routeData,
     catalogView: catalogView,
     findRoute: findRoute,
     findTrip: findTrip,
-    bookingContext: bookingContext
+    bookingContext: bookingContext,
+    routeTripContext: routeTripContext
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitERP;

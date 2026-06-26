@@ -69,4 +69,8 @@ if (bookingContext.closed) throw new Error('open trip marked closed');
 const closedContext = erp.bookingContext(catalog, 'A', 'B', '09:00');
 if (!closedContext || !closedContext.closed) throw new Error('closed booking context missing');
 
+const byIds = erp.routeTripContext(catalog, 'route_a_b', 'trip_0800', '08:00');
+if (!byIds || byIds.routeId !== 'route_a_b' || byIds.tripId !== 'trip_0800') throw new Error('route/trip context missing');
+if (byIds.fare !== 55 || byIds.capacity !== 12) throw new Error('route/trip context fare or capacity missing');
+
 console.log('erp-engine catalog adapter ok');
