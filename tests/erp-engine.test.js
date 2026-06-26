@@ -16,6 +16,7 @@ const catalog = {
   trips: {
     trip_0800: { id: 'trip_0800', routeId: 'route_a_b', departTime: '08:00', bookingEnabled: true },
     trip_0900: { id: 'trip_0900', routeId: 'route_a_b', departTime: '09:00', bookingEnabled: false },
+    trip_1000: { id: 'trip_1000', routeId: 'route_a_b', departTime: '10:00', bookingEnabled: true },
     trip_1020: { id: 'trip_1020', routeId: 'route_b_c', departTime: '10:20', bookingEnabled: true },
     trip_1120: { id: 'trip_1120', routeId: 'route_b_c', departTime: '11:20', bookingEnabled: false }
   },
@@ -40,7 +41,8 @@ const catalog = {
     trip_0800: { tripId: 'trip_0800', seats: 12 }
   },
   closures: {
-    trip_0900: { tripId: 'trip_0900', closedStops: ['__route__'] }
+    trip_0900: { tripId: 'trip_0900', closedStops: ['__route__'] },
+    trip_1000: { tripId: 'trip_1000', closedStops: ['__route__'] }
   }
 };
 
@@ -52,8 +54,9 @@ if (!routes.main || routes.main.routes.length !== 2) throw new Error('route grou
 const route = routes.main.routes[0];
 if (route.from !== 'A' || route.to !== 'B') throw new Error('stop labels not resolved');
 if (route.price !== 55) throw new Error('fare not mapped');
-if (route.times.join(',') !== '08:00,09:00') throw new Error('times not mapped');
+if (route.times.join(',') !== '08:00,09:00,10:00') throw new Error('times not mapped');
 if (route.disabledTimes.indexOf('09:00') === -1) throw new Error('closed trip not disabled');
+if (route.disabledTimes.indexOf('10:00') === -1) throw new Error('closure trip not disabled');
 if (route.capacityByTime['08:00'] !== 12) throw new Error('capacity not mapped');
 if (!route.scheduleMeta['08:00'] || route.scheduleMeta['08:00'].tripId !== 'trip_0800') throw new Error('trip identity missing');
 
@@ -79,7 +82,9 @@ if (byIds.fare !== 55 || byIds.capacity !== 12) throw new Error('route/trip cont
 const activeTimes = erp.routeTimes(catalog, 'A', 'B');
 if (!activeTimes || activeTimes.join(',') !== '08:00') throw new Error('active route times missing');
 const allTimes = erp.routeTimes(catalog, 'A', 'B', true);
-if (!allTimes || allTimes.join(',') !== '08:00,09:00') throw new Error('all route times missing');
+if (!allTimes || allTimes.join(',') !== '08:00,09:00,10:00') throw new Error('all route times missing');
+const disabledTimes = erp.routeDisabledTimes(catalog, 'A', 'B');
+if (!disabledTimes || disabledTimes.join(',') !== '09:00,10:00') throw new Error('disabled route times missing');
 
 const destTimes = erp.routeTimesByDestination(catalog, 'C', 'B');
 if (!destTimes || destTimes.join(',') !== '10:20') throw new Error('destination route times missing');

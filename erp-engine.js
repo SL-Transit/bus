@@ -254,6 +254,10 @@
     return best;
   }
 
+  function isTripDisabled(catalog, trip) {
+    return !!(trip && trip.bookingEnabled === false || trip && catalog && catalog.closures && catalog.closures[trip.id]);
+  }
+
   function makeBookingContext(catalog, route, trip, time) {
     var fare = catalog && catalog.fares && catalog.fares[route.id] || {};
     var capacity = trip && catalog && catalog.capacities && catalog.capacities[trip.id] || null;
@@ -298,7 +302,20 @@
     sortedTripsForRoute(catalog, route.id).forEach(function(trip) {
       var time = String(trip.departTime || trip.time || '').slice(0, 5);
       if (!time) return;
-      if (includeDisabled !== true && trip.bookingEnabled === false) return;
+      if (includeDisabled !== true && isTripDisabled(catalog, trip)) return;
+      if (out.indexOf(time) === -1) out.push(time);
+    });
+    out.sort();
+    return out;
+  }
+
+  function routeDisabledTimes(catalog, origin, destination) {
+    var route = findRoute(catalog, origin, destination);
+    if (!route) return null;
+    var out = [];
+    sortedTripsForRoute(catalog, route.id).forEach(function(trip) {
+      var time = String(trip.departTime || trip.time || '').slice(0, 5);
+      if (!time || !isTripDisabled(catalog, trip)) return;
       if (out.indexOf(time) === -1) out.push(time);
     });
     out.sort();
@@ -319,7 +336,7 @@
       sortedTripsForRoute(catalog, route.id).forEach(function(trip) {
         var time = String(trip.departTime || trip.time || '').slice(0, 5);
         if (!time) return;
-        if (includeDisabled !== true && trip.bookingEnabled === false) return;
+        if (includeDisabled !== true && isTripDisabled(catalog, trip)) return;
         if (out.indexOf(time) === -1) out.push(time);
       });
     });
@@ -337,6 +354,7 @@
     bookingContext: bookingContext,
     routeTripContext: routeTripContext,
     routeTimes: routeTimes,
+    routeDisabledTimes: routeDisabledTimes,
     routeTimesByDestination: routeTimesByDestination
   };
 
