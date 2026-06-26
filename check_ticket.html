@@ -19,6 +19,7 @@
 <script src="catalog-engine.js?v=20260626catalog1"></script>
 <script src="geo-engine.js?v=20260626geo1"></script>
 <script src="line-event-engine.js?v=20260626line1"></script>
+<script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260623central2"></script>
   <style>
     :root {
@@ -1160,6 +1161,9 @@
     }
 
     function isCancelledBooking(booking) {
+      if (window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.isCancelledBooking === 'function') {
+        return window.SLTransitTicketPolicy.isCancelledBooking(booking);
+      }
       return !!(booking && booking.status === 'cancelled');
     }
 
@@ -1615,6 +1619,9 @@
     }
 
     function isScheduleOnlyAssignment(assignment) {
+      if (window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.isScheduleOnlyAssignment === 'function') {
+        return window.SLTransitTicketPolicy.isScheduleOnlyAssignment(assignment);
+      }
       return !!(assignment && (assignment.noLiveTracking || assignment.scheduleOnly || assignment.serviceType === 'schedule-only'));
     }
 
@@ -2597,6 +2604,9 @@
 
     function isServiceEnded(booking) {
       var info = serviceArrivalInfo(booking);
+      if (window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.isServiceEnded === 'function') {
+        return window.SLTransitTicketPolicy.isServiceEnded(info && info.ts, Date.now(), SERVICE_END_AFTER_MS);
+      }
       return !!(info && info.ts && Date.now() - info.ts >= SERVICE_END_AFTER_MS);
     }
 
@@ -3106,7 +3116,24 @@
       var adminBypass = canAdminBypassCheckin();
       var routeInfo = currentBooking ? connectionRouteInfo(currentBooking.route) : { type: 'main_route' };
       var serviceEnded = isServiceEnded(currentBooking);
-      var disabledByStatus = currentBooking && (
+      var radius = window.SLTransitGeo && typeof window.SLTransitGeo.radiusState === 'function'
+        ? window.SLTransitGeo.radiusState(currentDistanceKm, CHECKIN_RADIUS_KM)
+        : { inside: currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM };
+      var nearTransferPoint = radius.inside;
+      var availability = window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.checkinAvailability === 'function'
+        ? window.SLTransitTicketPolicy.checkinAvailability({
+            booking: currentBooking,
+            adminBypass: adminBypass,
+            routeType: routeInfo.type,
+            nearTransferPoint: nearTransferPoint,
+            enteredRadiusAt: enterFiveKmAt,
+            now: Date.now(),
+            radiusWindowMs: 60 * 60 * 1000,
+            submitLock: checkinSubmitLock,
+            serviceEnded: serviceEnded
+          })
+        : null;
+      var disabledByStatus = availability ? availability.disabledByStatus : currentBooking && (
         currentBooking.status === 'cancelled' ||
         ((currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) ||
         currentBooking.status === 'arrived_transfer_point' ||
@@ -3114,9 +3141,8 @@
         currentBooking.status === 'waiting_admin_approval' ||
         currentBooking.status === 'pending_admin_approval'
       );
-      var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
-      var canManualCheckin = routeInfo.type === 'secondary_connection' && nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000);
-      var canCheck = (adminBypass || canManualCheckin) && !disabledByStatus && !checkinSubmitLock && !serviceEnded;
+      var canManualCheckin = availability ? availability.canManualCheckin : routeInfo.type === 'secondary_connection' && nearTransferPoint && (!enterFiveKmAt || Date.now() - enterFiveKmAt <= 60 * 60 * 1000);
+      var canCheck = availability ? availability.canCheck : (adminBypass || canManualCheckin) && !disabledByStatus && !checkinSubmitLock && !serviceEnded;
       var btn = document.getElementById('btnCheckin');
       btn.disabled = !canCheck;
       if (routeInfo.type !== 'secondary_connection' && !adminBypass) {
@@ -3302,8 +3328,14 @@
     }
 
     function canCancelTicket() {
-      if (canAdminBypassCheckin()) return currentBooking && currentBooking.status !== 'cancelled';
+      var adminBypass = canAdminBypassCheckin();
+      if (adminBypass && !(window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.canCancel === 'function')) {
+        return currentBooking && currentBooking.status !== 'cancelled';
+      }
       var dep = departureDate();
+      if (window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.canCancel === 'function') {
+        return !!(currentBooking && window.SLTransitTicketPolicy.canCancel(dep && dep.getTime(), Date.now(), 60, adminBypass, currentBooking.status));
+      }
       if (!dep) return false;
       return dep.getTime() - Date.now() >= 60 * 60000;
     }
@@ -3740,6 +3772,9 @@
     }
 
     function isBookingPastTravelDate(booking) {
+      if (window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.isPastTravelDate === 'function') {
+        return window.SLTransitTicketPolicy.isPastTravelDate(booking, bangkokDateKey());
+      }
       var serviceDate = String(booking && booking.date || '');
       return /^\d{4}-\d{2}-\d{2}$/.test(serviceDate) && serviceDate < bangkokDateKey();
     }
