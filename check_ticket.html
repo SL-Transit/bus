@@ -17,7 +17,7 @@
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
 <script src="catalog-engine.js?v=20260626catalog1"></script>
-<script src="erp-engine.js?v=20260626erp1"></script>
+<script src="erp-engine.js?v=20260626erp2"></script>
 <script src="geo-engine.js?v=20260626geo1"></script>
 <script src="line-event-engine.js?v=20260626line1"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
@@ -1357,12 +1357,17 @@
     }
 
     function getLeg2TimesForBooking(booking, legs) {
+      var origin = '';
       var destination = '';
       if (legs && legs.leg2) {
         var parts = String(legs.leg2).split('→').map(function(x) { return x.trim(); }).filter(Boolean);
+        origin = parts.length > 1 ? parts[0] : '';
         destination = parts.length ? parts[parts.length - 1] : '';
       }
       if (!destination) destination = connectionRouteInfo(booking.route).destination;
+      if (!origin) origin = booking.transferPoint || booking.transferStopName || booking.transferHub || '';
+      var erpTimes = getTicketErpDestinationTimes(origin, destination);
+      if (erpTimes && erpTimes.length) return erpTimes;
       var clean = String(destination || booking.destination || booking.to || '').replace(/\s+/g, '').toLowerCase();
       for (var a = 0; a < ADMIN_DEST_SCHEDULES.length; a++) {
         var adminSchedule = ADMIN_DEST_SCHEDULES[a];
@@ -1381,6 +1386,16 @@
         }
       }
       return LEG2_TIMES_COMMON;
+    }
+
+    function getTicketErpDestinationTimes(origin, destination) {
+      if (!TICKET_CATALOG_RAW || !window.SLTransitERP || typeof window.SLTransitERP.routeTimesByDestination !== 'function') return null;
+      var dest = String(destination || '').trim();
+      if (!dest) return null;
+      var times = null;
+      if (origin) times = window.SLTransitERP.routeTimesByDestination(TICKET_CATALOG_RAW, dest, origin);
+      if (!times || !times.length) times = window.SLTransitERP.routeTimesByDestination(TICKET_CATALOG_RAW, dest);
+      return times && times.length ? times : null;
     }
 
     function nextDestinationTimeAfter(time, booking, legs) {

@@ -10,11 +10,14 @@ const catalog = {
     main: { id: 'main', name: 'Main', connectionType: 'direct' }
   },
   routes: {
-    route_a_b: { id: 'route_a_b', groupId: 'main', fromStopKey: 'a', toStopKey: 'b', isActive: true }
+    route_a_b: { id: 'route_a_b', groupId: 'main', fromStopKey: 'a', toStopKey: 'b', isActive: true },
+    route_b_c: { id: 'route_b_c', groupId: 'main', from: 'B', to: 'C', isActive: true }
   },
   trips: {
     trip_0800: { id: 'trip_0800', routeId: 'route_a_b', departTime: '08:00', bookingEnabled: true },
-    trip_0900: { id: 'trip_0900', routeId: 'route_a_b', departTime: '09:00', bookingEnabled: false }
+    trip_0900: { id: 'trip_0900', routeId: 'route_a_b', departTime: '09:00', bookingEnabled: false },
+    trip_1020: { id: 'trip_1020', routeId: 'route_b_c', departTime: '10:20', bookingEnabled: true },
+    trip_1120: { id: 'trip_1120', routeId: 'route_b_c', departTime: '11:20', bookingEnabled: false }
   },
   stopTimes: {
     trip_0800: {
@@ -45,7 +48,7 @@ const view = erp.catalogView(catalog);
 if (view.version !== 'test-v1') throw new Error('version not preserved');
 
 const routes = view.settingsRoutes;
-if (!routes.main || routes.main.routes.length !== 1) throw new Error('route group missing');
+if (!routes.main || routes.main.routes.length !== 2) throw new Error('route group missing');
 const route = routes.main.routes[0];
 if (route.from !== 'A' || route.to !== 'B') throw new Error('stop labels not resolved');
 if (route.price !== 55) throw new Error('fare not mapped');
@@ -77,5 +80,10 @@ const activeTimes = erp.routeTimes(catalog, 'A', 'B');
 if (!activeTimes || activeTimes.join(',') !== '08:00') throw new Error('active route times missing');
 const allTimes = erp.routeTimes(catalog, 'A', 'B', true);
 if (!allTimes || allTimes.join(',') !== '08:00,09:00') throw new Error('all route times missing');
+
+const destTimes = erp.routeTimesByDestination(catalog, 'C', 'B');
+if (!destTimes || destTimes.join(',') !== '10:20') throw new Error('destination route times missing');
+const destAllTimes = erp.routeTimesByDestination(catalog, 'C', '', true);
+if (!destAllTimes || destAllTimes.join(',') !== '10:20,11:20') throw new Error('all destination route times missing');
 
 console.log('erp-engine catalog adapter ok');

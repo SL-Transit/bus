@@ -305,6 +305,29 @@
     return out;
   }
 
+  function routeTimesByDestination(catalog, destination, origin, includeDisabled) {
+    var matched = false;
+    var out = [];
+    each(catalog && catalog.routes, function(routeId, route) {
+      if (!route || route.isActive === false) return;
+      var from = routeLabel(catalog, route, 'from', 'fromStopKey');
+      var to = routeLabel(catalog, route, 'to', 'toStopKey');
+      if (origin && !matchText(from, origin)) return;
+      if (!matchText(to, destination)) return;
+      matched = true;
+      route.id = route.id || routeId;
+      sortedTripsForRoute(catalog, route.id).forEach(function(trip) {
+        var time = String(trip.departTime || trip.time || '').slice(0, 5);
+        if (!time) return;
+        if (includeDisabled !== true && trip.bookingEnabled === false) return;
+        if (out.indexOf(time) === -1) out.push(time);
+      });
+    });
+    if (!matched) return null;
+    out.sort();
+    return out;
+  }
+
   global.SLTransitERP = {
     settingsRoutes: settingsRoutes,
     routeData: routeData,
@@ -313,7 +336,8 @@
     findTrip: findTrip,
     bookingContext: bookingContext,
     routeTripContext: routeTripContext,
-    routeTimes: routeTimes
+    routeTimes: routeTimes,
+    routeTimesByDestination: routeTimesByDestination
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitERP;
