@@ -85,10 +85,29 @@
     };
   }
 
+  function checkinMessage(data) {
+    data = data || {};
+    var booking = data.booking || {};
+    var etaText = data.etaMinutes === null || data.etaMinutes === undefined
+      ? '-'
+      : 'อีกประมาณ ' + Math.max(0, Math.round(Number(data.etaMinutes || 0))) + ' นาที';
+    return [
+      'ผู้โดยสารใกล้ถึงแปดริ้ว ' + etaText,
+      '',
+      'รหัสตั๋ว: ' + clean(booking.code || data.code || '-'),
+      'ชื่อ: ' + clean(booking.name || data.name || '-'),
+      'เบอร์โทร: ' + clean(booking.phone || data.phone || '-'),
+      'ต้นทาง: ' + clean(data.origin || booking.origin || '-'),
+      'ปลายทาง: ' + clean(data.destination || booking.destination || '-'),
+      'จำนวนที่นั่ง: ' + (booking.seats || data.seats || 1)
+    ].join('\n');
+  }
+
   global.SLTransitLineEvents = {
     bookingPayload: bookingPayload,
     mockLogPayload: mockLogPayload,
-    notificationTrigger: notificationTrigger
+    notificationTrigger: notificationTrigger,
+    checkinMessage: checkinMessage
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitLineEvents;
