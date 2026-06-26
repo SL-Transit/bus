@@ -73,4 +73,9 @@ const byIds = erp.routeTripContext(catalog, 'route_a_b', 'trip_0800', '08:00');
 if (!byIds || byIds.routeId !== 'route_a_b' || byIds.tripId !== 'trip_0800') throw new Error('route/trip context missing');
 if (byIds.fare !== 55 || byIds.capacity !== 12) throw new Error('route/trip context fare or capacity missing');
 
+const activeTimes = erp.routeTimes(catalog, 'A', 'B');
+if (!activeTimes || activeTimes.join(',') !== '08:00') throw new Error('active route times missing');
+const allTimes = erp.routeTimes(catalog, 'A', 'B', true);
+if (!allTimes || allTimes.join(',') !== '08:00,09:00') throw new Error('all route times missing');
+
 console.log('erp-engine catalog adapter ok');

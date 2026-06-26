@@ -1115,7 +1115,15 @@ function isMainRouteLabel(label) {
   return ORIGIN_LIST.indexOf(label) !== -1 || DEST_NORMAL.indexOf(label) !== -1;
 }
 
+function getPassengerErpTimes(from, to, includeDisabled) {
+  if (!PASSENGER_CATALOG_RAW || !window.SLTransitERP || typeof window.SLTransitERP.routeTimes !== 'function') return null;
+  var times = window.SLTransitERP.routeTimes(PASSENGER_CATALOG_RAW, from, to, includeDisabled === true);
+  return Array.isArray(times) && times.length ? times.slice() : null;
+}
+
 function getPairTimes(from, to) {
+  var erpTimes = getPassengerErpTimes(from, to, false);
+  if (erpTimes) return erpTimes;
   if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to].slice();
   if (ADMIN_ROUTE_SOURCE_LOADED) return null;
   if (to === 'ฉะเชิงเทรา (แปดริ้ว)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
@@ -2452,6 +2460,7 @@ applyAdminTesterMode();
 var PASSENGER_CATALOG_ROUTES_APPLIED = false;
 var PASSENGER_CATALOG_ROUTE_DATA_APPLIED = false;
 var PASSENGER_CATALOG_VERSION_APPLIED = '';
+var PASSENGER_CATALOG_RAW = null;
 
 db.ref('settings').on('value', function(snap) {
   const settings = snap.val() || {};
@@ -2471,6 +2480,7 @@ db.ref('routeData').on('value', function(snap) {
 db.ref('publishedCatalog').on('value', function(snap) {
   var catalog = snap.val();
   if (!catalog) return;
+  PASSENGER_CATALOG_RAW = catalog;
   var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
     ? window.SLTransitERP.catalogView(catalog)
     : null;

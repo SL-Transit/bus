@@ -291,6 +291,20 @@
     return makeBookingContext(catalog, route, trip, time);
   }
 
+  function routeTimes(catalog, origin, destination, includeDisabled) {
+    var route = findRoute(catalog, origin, destination);
+    if (!route) return null;
+    var out = [];
+    sortedTripsForRoute(catalog, route.id).forEach(function(trip) {
+      var time = String(trip.departTime || trip.time || '').slice(0, 5);
+      if (!time) return;
+      if (includeDisabled !== true && trip.bookingEnabled === false) return;
+      if (out.indexOf(time) === -1) out.push(time);
+    });
+    out.sort();
+    return out;
+  }
+
   global.SLTransitERP = {
     settingsRoutes: settingsRoutes,
     routeData: routeData,
@@ -298,7 +312,8 @@
     findRoute: findRoute,
     findTrip: findTrip,
     bookingContext: bookingContext,
-    routeTripContext: routeTripContext
+    routeTripContext: routeTripContext,
+    routeTimes: routeTimes
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitERP;
