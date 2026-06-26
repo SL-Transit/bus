@@ -1908,6 +1908,9 @@ function renderTimes() {
     document.getElementById('timeList').innerHTML = '<div class="route-loading-note">ยังไม่มีเที่ยวให้บริการในเส้นทางนี้</div>';
     return;
   }
+  var originLabelForTime = (ORIGIN_TIMES[selOrigin] && ORIGIN_TIMES[selOrigin].label)
+    || (document.getElementById('routeFrom').selectedOptions[0] && document.getElementById('routeFrom').selectedOptions[0].textContent)
+    || selOrigin;
   times.forEach(function(t) {
     var stopClosed = isClosedByAdmin(t);
     var tripFull = isTripFull(dateStr, t, 1);
@@ -1916,10 +1919,13 @@ function renderTimes() {
     var ok = canBook(dateStr, t, stopClosed) && !tripFull && !transferUnavailable;
     var badge = transferUnavailable ? {cls:'badge-closed', text:'ไม่มีเที่ยวต่อให้บริการ'} : (tripFull ? {cls:'badge-closed', text:'รอบนี้เต็มแล้ว'} : getStatusBadge(dateStr, t, stopClosed));
     var isSelected = selTime === t && ok;
+    var sourceText = 'เวลาออกจาก ' + originLabelForTime;
+    if (transferCandidate && transferCandidate.transferTime) sourceText += ' • เวลาต่อรถ ' + transferCandidate.transferTime + ' น.';
     html += '<div class="time-card' + (isSelected ? ' active' : '') + (ok ? '' : ' closed') + '"'
       + (ok ? ' onclick="selectTime(\'' + t + '\')"' : '') + '>'
       + '<div class="time-left">'
       + '<div class="time-main">' + t + ' น.</div>'
+      + '<div class="time-sub">' + escapeHtml(sourceText) + '</div>'
       + (stopClosed ? '<div style="font-size:11px;color:var(--red);margin-top:2px">รอบนี้งดรับสำรองที่นั่งสำหรับป้ายนี้</div>' : '')
       + (tripFull ? '<div style="font-size:11px;color:var(--red);margin-top:2px">รอบนี้เต็มแล้ว</div>' : '')
       + (!stopClosed && !tripFull && !transferUnavailable && !ok ? '<div style="font-size:11px;color:var(--red);margin-top:2px">ต้องสำรองที่นั่งล่วงหน้าอย่างน้อย 1 ชั่วโมง</div>' : '')
