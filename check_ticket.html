@@ -2050,7 +2050,7 @@
       if (pickupIdx < 0 || nearest.index < 0) return { passed: false, uncertain: true };
       var nearPickup = false;
       var pickup = findStopLocation(origin);
-      if (pickup) nearPickup = distanceKm(pos.lat, pos.lng, pickup.lat, pickup.lng) <= 0.35;
+      if (pickup) nearPickup = isWithinGeoRadius(pos, pickup, 0.35);
       return { passed: nearest.index > pickupIdx && !nearPickup, uncertain: nearest.distanceKm > 10 };
     }
 
@@ -2530,7 +2530,10 @@
     function updateTransferDotState() {
       var dot = document.querySelector('.tracking-dot.transfer');
       if (!dot) return;
-      var nearTransfer = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
+      var transferRadius = window.SLTransitGeo && typeof window.SLTransitGeo.radiusState === 'function'
+        ? window.SLTransitGeo.radiusState(currentDistanceKm, CHECKIN_RADIUS_KM)
+        : { inside: currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM };
+      var nearTransfer = transferRadius.inside;
       dot.classList.toggle('near', nearTransfer === true);
     }
 
@@ -2688,7 +2691,7 @@
       var source = journeyEtaSource();
       if (!target || !normalizeTrackingPoint(source)) return;
       var eta = calculateTransferOrDestinationEta();
-      var near = distanceKm(source.lat, source.lng, target.lat, target.lng) <= 0.35;
+      var near = isWithinGeoRadius(source, target, 0.35);
       if (!near && !(eta !== null && eta <= 1)) return;
       var now = Date.now();
       var update = routeInfo.type === 'secondary_connection' ? {
@@ -2867,10 +2870,10 @@
       if (!normalizeTrackingPoint(vanLocation) || !pickupStopLocation) return false;
       if (trackingCurrentTrip) {
         var state = vehiclePickupProgress(trackingCurrentTrip, vanLocation, pickupStopLocation.name);
-        var atPickup = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) <= 0.35;
+        var atPickup = isWithinGeoRadius(vanLocation, pickupStopLocation, 0.35);
         return atPickup || state.passed;
       }
-      var near = distanceKm(vanLocation.lat, vanLocation.lng, pickupStopLocation.lat, pickupStopLocation.lng) <= 0.35;
+      var near = isWithinGeoRadius(vanLocation, pickupStopLocation, 0.35);
       var stopIdx = Number(vanLocation.stopIdx);
       var pickupIdx = STOP_LOCATIONS.findIndex(function(s) { return s.name === pickupStopLocation.name; });
       var dir = routeDirectionForOrigin(getRouteOrigin(currentBooking, getLegSchedule(currentBooking)));
@@ -2880,7 +2883,7 @@
 
     function maybeAutoOriginCheckin() {
       if (originAutoCheckinDone || !lastPosition || !pickupStopLocation || !currentBooking) return;
-      var passengerAtPickup = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng) <= 0.5;
+      var passengerAtPickup = isWithinGeoRadius(lastPosition, pickupStopLocation, 0.5);
       if (!passengerAtPickup) return;
       originAutoCheckinDone = true;
       originCheckinAnchor = { lat: lastPosition.lat, lng: lastPosition.lng, ts: Date.now() };
@@ -3299,7 +3302,10 @@
 
     function calculateCheckinTransferAdjustment(checkedInAt) {
       var routeInfo = connectionRouteInfo(currentBooking.route);
-      var nearTransferPoint = currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM;
+      var transferRadius = window.SLTransitGeo && typeof window.SLTransitGeo.radiusState === 'function'
+        ? window.SLTransitGeo.radiusState(currentDistanceKm, CHECKIN_RADIUS_KM)
+        : { inside: currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM };
+      var nearTransferPoint = transferRadius.inside;
       if (routeInfo.type !== 'secondary_connection' || !nearTransferPoint) return null;
 
       var eta = currentEtaMinutes === null || currentEtaMinutes === undefined ? 0 : Number(currentEtaMinutes || 0);
@@ -3871,6 +3877,14 @@
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLng / 2) * Math.sin(dLng / 2);
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function isWithinGeoRadius(point, target, radiusKm) {
+      if (window.SLTransitGeo && typeof window.SLTransitGeo.isWithinRadiusKm === 'function') {
+        return window.SLTransitGeo.isWithinRadiusKm(point, target, radiusKm);
+      }
+      if (!point || !target) return false;
+      return distanceKm(point.lat, point.lng, target.lat, target.lng) <= Number(radiusKm || 0);
     }
 
     document.getElementById('lookupValue').addEventListener('input', function(e) {
