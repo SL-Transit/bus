@@ -773,6 +773,7 @@
     var TICKET_CATALOG_LOADS = {};
     var TICKET_CATALOG_ROUTES_APPLIED = false;
     var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
+    var MAIN_ROUTE_STOPS_FROM_CATALOG = [];
     var lastPosition = null;
     var stationaryAnchor = null;
     var stationarySince = null;
@@ -857,9 +858,10 @@
         var lat = Number(stop.lat);
         var lng = Number(stop.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        return { key:key, name:String(stop.stopNameTh || stop.name || key).trim(), lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main' };
+        return { key:key, name:String(stop.stopNameTh || stop.name || key).trim(), lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main', order:Number(stop.order) || 999999 };
       }).filter(Boolean);
       if (!centralStops.length) return;
+      MAIN_ROUTE_STOPS_FROM_CATALOG = buildMainRouteStopsFromRouteData(routeData, centralStops);
       var fallbackStops = STOP_LOCATIONS.slice();
       STOP_LOCATIONS = centralStops.concat(fallbackStops.filter(function(oldStop) {
         return !centralStops.some(function(centralStop) { return isSameStop(centralStop.name, oldStop.name); });
@@ -873,6 +875,30 @@
       renderTransferMarker();
       renderRouteStopMarkers();
       updateTrackingRouteLine();
+    }
+
+    function buildMainRouteStopsFromRouteData(routeData, centralStops) {
+      var byKey = {};
+      centralStops.forEach(function(stop) { if (stop.key) byKey[String(stop.key)] = stop; });
+      var best = [];
+      Object.keys((routeData && routeData.queues) || {}).forEach(function(queueKey) {
+        var trips = routeData.queues[queueKey] && routeData.queues[queueKey].trips || {};
+        Object.keys(trips).forEach(function(tripKey) {
+          var names = ((trips[tripKey] && trips[tripKey].stops) || []).map(function(stop) {
+            var key = String(stop && (stop.stopKey || stop.key || '') || '');
+            var matched = key && byKey[key];
+            return String((matched && matched.name) || stop.stopTh || stop.name || key || '').trim();
+          }).filter(Boolean);
+          if (names.length > best.length) best = names;
+        });
+      });
+      if (best.length >= 2) return best.filter(function(name, index) {
+        return !best.slice(0, index).some(function(previous) { return isSameStop(previous, name); });
+      });
+      return centralStops
+        .filter(function(stop) { return stop.stopType !== 'conditional'; })
+        .sort(function(a, b) { return a.order - b.order || String(a.name).localeCompare(String(b.name)); })
+        .map(function(stop) { return stop.name; });
     }
 
     db.ref('routeData').on('value', function(snap) {
@@ -1450,8 +1476,14 @@
       return clean === target || (target === normalizeRouteStop('แปดริ้ว') && clean === normalizeRouteStop('ฉะเชิงเทราแปดริ้ว'));
     }
 
+    function getMainRouteStops() {
+      return MAIN_ROUTE_STOPS_FROM_CATALOG && MAIN_ROUTE_STOPS_FROM_CATALOG.length >= 2
+        ? MAIN_ROUTE_STOPS_FROM_CATALOG
+        : MAIN_ROUTE_STOPS;
+    }
+
     function isMainRouteStop(value) {
-      return MAIN_ROUTE_STOPS.some(function(stop) { return isSameStop(value, stop); });
+      return getMainRouteStops().some(function(stop) { return isSameStop(value, stop); });
     }
 
     function hasSecondaryDestinationKeyword(value) {
@@ -1739,7 +1771,8 @@
       if (startIdx < 0 || endIdx < 0 || startIdx === endIdx) return null;
       var from = Math.min(startIdx, endIdx);
       var to = Math.max(startIdx, endIdx);
-      var stops = MAIN_ROUTE_STOPS.slice(from, to + 1);
+      var mainStops = getMainRouteStops();
+      var stops = mainStops.slice(from, to + 1);
       if (startIdx > endIdx) stops.reverse();
       return {
         vehicleId: vehicleId,
@@ -2015,8 +2048,9 @@
     }
 
     function mainRouteStopIndex(stopName) {
-      for (var i = 0; i < MAIN_ROUTE_STOPS.length; i++) {
-        if (isSameStop(MAIN_ROUTE_STOPS[i], stopName)) return i;
+      var mainStops = getMainRouteStops();
+      for (var i = 0; i < mainStops.length; i++) {
+        if (isSameStop(mainStops[i], stopName)) return i;
       }
       return -1;
     }
