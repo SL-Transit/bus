@@ -1234,7 +1234,7 @@ function _applyPendingSettingsUpdate() {
   var previousTime=typeof selTime!=='undefined'?selTime:null;
   _showUpdateOverlay();
   try {
-    if(!_applySettings(snap))return;
+    if(!_applySettings(_settingsSnapshotWithCatalogRoutes(snap)))return;
     _settingsSnap=snap;
     var fromSel=document.getElementById('routeFrom'),toSel=document.getElementById('routeTo');
     if(_selectHasValue(fromSel,previousOrigin))fromSel.value=previousOrigin;
@@ -1246,10 +1246,21 @@ function _applyPendingSettingsUpdate() {
     if(selTime&&(activeTimes.indexOf(selTime)===-1||!canBook(travelDate,selTime))){selTime=null;renderTimes();}
   }catch(e){console.error('[BOOKING SETTINGS] apply failed',e);}finally{setTimeout(_hideUpdateOverlay,120);}
 }
+function _settingsSnapshotWithCatalogRoutes(snap) {
+  if (!BOOKING_CATALOG_ROUTES) return snap;
+  var data = snap && typeof snap.val === 'function' ? (snap.val() || {}) : {};
+  var merged = Object.assign({}, data, {
+    routes: BOOKING_CATALOG_ROUTES,
+    currentCatalogVersion: BOOKING_CATALOG_VERSION_APPLIED || data.currentCatalogVersion || ''
+  });
+  return { val: function(){ return merged; } };
+}
 function _applyPublishedCatalogToBooking(catalog) {
   if (!catalog || !window.SLTransitCatalog || typeof window.SLTransitCatalog.legacySettingsRoutes !== 'function') return;
   var routes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
   if (!routes || !Object.keys(routes).length) return;
+  BOOKING_CATALOG_ROUTES = routes;
+  BOOKING_CATALOG_VERSION_APPLIED = String(catalog.version || '');
   var base = _settingsSnap && typeof _settingsSnap.val === 'function' ? (_settingsSnap.val() || {}) : {};
   var merged = Object.assign({}, base, { routes: routes, currentCatalogVersion: catalog.version || '' });
   _applySettings({ val: function(){ return merged; } });
@@ -1259,7 +1270,7 @@ function _applyPublishedCatalogToBooking(catalog) {
 }
 db.ref('settings').on('value',function(snap){
   var fingerprint=_settingsRelevantFingerprint(snap);
-  if(!_settingsLoaded){_settingsFingerprint=fingerprint;_applySettings(snap);_settingsLoaded=true;_settingsSnap=snap;if(typeof updateRoute==='function'){try{updateRoute();}catch(e){}}return;}
+  if(!_settingsLoaded){_settingsFingerprint=fingerprint;_applySettings(_settingsSnapshotWithCatalogRoutes(snap));_settingsLoaded=true;_settingsSnap=snap;if(typeof updateRoute==='function'){try{updateRoute();}catch(e){}}return;}
   if(fingerprint===_settingsFingerprint)return;
   _settingsFingerprint=fingerprint;_pendingSettingsSnap=snap;
   if(_settingsUpdateTimer)clearTimeout(_settingsUpdateTimer);
@@ -1301,6 +1312,8 @@ var BOOKING_OPEN = true;
 var BOOKING_CUTOFF_MINUTES = 60;
 var TEST_MODE = false;
 var CURRENT_CATALOG_VERSION = '';
+var BOOKING_CATALOG_ROUTES = null;
+var BOOKING_CATALOG_VERSION_APPLIED = '';
 var ROUTE_CLOSED_STOPS = {};
 var ROUTE_CAPACITY = {};
 var TRIP_BOOKED_SEATS = {};

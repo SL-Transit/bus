@@ -2444,17 +2444,21 @@ function buildDropdowns(){
 buildDropdowns();
 applyAdminTesterMode();
 
+var PASSENGER_CATALOG_ROUTES_APPLIED = false;
+var PASSENGER_CATALOG_ROUTE_DATA_APPLIED = false;
+var PASSENGER_CATALOG_VERSION_APPLIED = '';
+
 db.ref('settings').on('value', function(snap) {
   const settings = snap.val() || {};
   TEST_MODE = settings.testMode === true;
   applyTestModeUI();
-  applyPassengerRouteSettings(settings);
+  if (!PASSENGER_CATALOG_ROUTES_APPLIED) applyPassengerRouteSettings(settings);
 }, function(err) {
   console.error('Passenger settings load failed:', err && err.message ? err.message : err);
 });
 
 db.ref('routeData').on('value', function(snap) {
-  applyPassengerRouteData(snap.val());
+  if (!PASSENGER_CATALOG_ROUTE_DATA_APPLIED) applyPassengerRouteData(snap.val());
 }, function(err) {
   console.error('Passenger routeData load failed:', err && err.message ? err.message : err);
 });
@@ -2466,10 +2470,13 @@ db.ref('publishedCatalog').on('value', function(snap) {
   var legacyRouteData = window.SLTransitCatalog.legacyRouteData(catalog);
   if (settingsRoutes && Object.keys(settingsRoutes).length) {
     applyPassengerRouteSettings({ routes: settingsRoutes, currentCatalogVersion: catalog.version || '' });
+    PASSENGER_CATALOG_ROUTES_APPLIED = true;
   }
   if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
     applyPassengerRouteData(legacyRouteData);
+    PASSENGER_CATALOG_ROUTE_DATA_APPLIED = true;
   }
+  PASSENGER_CATALOG_VERSION_APPLIED = String(catalog.version || '');
   console.log('[PASSENGER CATALOG] applied publishedCatalog', catalog.version || '');
 }, function(err) {
   console.error('Passenger catalog load failed:', err && err.message ? err.message : err);

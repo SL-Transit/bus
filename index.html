@@ -1278,7 +1278,10 @@ function applyIndexStops(val){
   return true;
 }
 
+var INDEX_CATALOG_STOPS_APPLIED=false;
+
 db.ref('routeData/stops').once('value').then(function(snap){
+  if(INDEX_CATALOG_STOPS_APPLIED)return;
   applyIndexStops(snap.val());
   stopsReady=true;
   if(pendingPos){
@@ -1301,6 +1304,7 @@ db.ref('publishedCatalog').on('value', function(snap){
   var legacyRouteData=window.SLTransitCatalog.legacyRouteData(catalog);
   if(legacyRouteData&&legacyRouteData.stops){
     applyIndexStops(legacyRouteData.stops);
+    INDEX_CATALOG_STOPS_APPLIED=true;
     stopsReady=true;
   }
 }, function(err){

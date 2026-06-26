@@ -766,6 +766,8 @@
     var currentCode = null;
     var TICKET_CATALOG_VERSION_APPLIED = '';
     var TICKET_CATALOG_LOADS = {};
+    var TICKET_CATALOG_ROUTES_APPLIED = false;
+    var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
     var lastPosition = null;
     var stationaryAnchor = null;
     var stationarySince = null;
@@ -835,6 +837,7 @@
       if (settings.checkin && settings.checkin.distanceMode) {
         DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
       }
+      if (TICKET_CATALOG_ROUTES_APPLIED) return;
       ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
         var adminTimeChanged = applyAdminScheduleToCurrentBooking();
         if (!adminTimeChanged && currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
@@ -868,6 +871,7 @@
     }
 
     db.ref('routeData').on('value', function(snap) {
+      if (TICKET_CATALOG_ROUTE_DATA_APPLIED) return;
       applyTicketRouteData(snap.val() || {});
     }, function(error) {
       console.error('Ticket routeData load failed:', error && error.message ? error.message : error);
@@ -879,12 +883,14 @@
       var legacyRouteData = window.SLTransitCatalog.legacyRouteData(catalog);
       if (settingsRoutes && Object.keys(settingsRoutes).length) {
         ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settingsRoutes);
+        TICKET_CATALOG_ROUTES_APPLIED = true;
         var adminTimeChanged = applyAdminScheduleToCurrentBooking();
         if (!adminTimeChanged && currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
         updateActionAvailability();
       }
       if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
         applyTicketRouteData(legacyRouteData);
+        TICKET_CATALOG_ROUTE_DATA_APPLIED = true;
       }
       TICKET_CATALOG_VERSION_APPLIED = String(catalog.version || '');
       console.log('[TICKET CATALOG] applied ' + (source || 'catalog'), catalog.version || '');
