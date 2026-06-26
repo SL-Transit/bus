@@ -16,6 +16,7 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="catalog-engine.js?v=20260626catalog1"></script>
+<script src="line-event-engine.js?v=20260626line1"></script>
 <script src="schedule-engine.js?v=20260623central2"></script>
 <script src="qrcode.min.js"></script>
 <style>
@@ -923,6 +924,9 @@ function applyTestModeUI() {
 }
 
 function buildBookingLinePayload(booking) {
+  if (window.SLTransitLineEvents && typeof window.SLTransitLineEvents.bookingPayload === 'function') {
+    return window.SLTransitLineEvents.bookingPayload(booking);
+  }
   return {
     event: 'booking_created',
     source: 'booking.html',
@@ -939,16 +943,19 @@ function buildBookingLinePayload(booking) {
 
 function mockLineSend(payload) {
   console.log('[TEST MODE] Mock LINE sent', payload);
-  return db.ref('test_line_logs').push({
+  var logPayload = window.SLTransitLineEvents && typeof window.SLTransitLineEvents.mockLogPayload === 'function'
+    ? window.SLTransitLineEvents.mockLogPayload(payload, {}, payload && payload.event, {})
+    : {
     booking_id: payload.booking_id || payload.code || '',
-    timestamp: firebase.database.ServerValue.TIMESTAMP,
     passenger_name: payload.passenger_name || payload.name || '',
     route: payload.route || '',
     round_time: payload.round_time || payload.time || '',
     test_mode: true,
     line_mock_status: 'success',
     original_payload: payload
-  }).then(function() {
+  };
+  logPayload.timestamp = firebase.database.ServerValue.TIMESTAMP;
+  return db.ref('test_line_logs').push(logPayload).then(function() {
     return { success: true, mock: true };
   });
 }

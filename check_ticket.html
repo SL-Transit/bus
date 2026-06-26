@@ -16,8 +16,10 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-  <script src="catalog-engine.js?v=20260626catalog1"></script>
-  <script src="schedule-engine.js?v=20260623central2"></script>
+<script src="catalog-engine.js?v=20260626catalog1"></script>
+<script src="geo-engine.js?v=20260626geo1"></script>
+<script src="line-event-engine.js?v=20260626line1"></script>
+<script src="schedule-engine.js?v=20260623central2"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -2543,6 +2545,20 @@
 
     function calculateVehicleEtaToPickup(vehicleLocation, pickupLocation) {
       if (!normalizeTrackingPoint(vehicleLocation) || !pickupLocation) return null;
+      var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateVehicleEta === 'function'
+        ? window.SLTransitGeo.estimateVehicleEta(vehicleLocation, pickupLocation, {
+          roadDistanceFactor: ROAD_DISTANCE_FACTOR,
+          minMovingSpeedKmh: 2
+        })
+        : null;
+      if (sharedEta && sharedEta.status === 'moving') {
+        return {
+          etaMinutes: sharedEta.etaMinutes,
+          arrivalTimeText: sharedEta.arrivalTimeText + ' เธ.',
+          displayText: 'เธเธฃเธฐเธกเธฒเธ“ ' + formatEtaDuration(sharedEta.etaMinutes),
+          status: 'moving'
+        };
+      }
       var speed = Number(vehicleLocation.speed || vehicleLocation.speedKmh || 0);
       if (!isFinite(speed) || speed < 2) {
         return {
@@ -3067,12 +3083,15 @@
 
     function updateCheckinWindow() {
       if (currentDistanceKm === null) return;
-      if (currentDistanceKm <= CHECKIN_RADIUS_KM && !enterFiveKmAt) {
+      var radius = window.SLTransitGeo && typeof window.SLTransitGeo.radiusState === 'function'
+        ? window.SLTransitGeo.radiusState(currentDistanceKm, CHECKIN_RADIUS_KM)
+        : { inside: currentDistanceKm <= CHECKIN_RADIUS_KM };
+      if (radius.inside && !enterFiveKmAt) {
         enterFiveKmAt = Date.now();
         if (countdownTimer) clearInterval(countdownTimer);
         countdownTimer = setInterval(updateCheckinWindow, 1000);
       }
-      if (currentDistanceKm > CHECKIN_RADIUS_KM) {
+      if (!radius.inside) {
         enterFiveKmAt = null;
         show('checkinWindow', false);
       } else if (enterFiveKmAt) {
@@ -3159,7 +3178,10 @@
         updateActionAvailability();
         return;
       }
-      if (!adminBypass && (currentDistanceKm === null || currentDistanceKm > CHECKIN_RADIUS_KM)) {
+      var checkinRadius = window.SLTransitGeo && typeof window.SLTransitGeo.radiusState === 'function'
+        ? window.SLTransitGeo.radiusState(currentDistanceKm, CHECKIN_RADIUS_KM)
+        : { inside: currentDistanceKm !== null && currentDistanceKm <= CHECKIN_RADIUS_KM };
+      if (!adminBypass && !checkinRadius.inside) {
         setStatus('lookupStatus', 'bad', 'ยังอยู่นอกรัศมีเช็คอิน ' + CHECKIN_RADIUS_KM + ' กม.');
         updateActionAvailability();
         return;
@@ -3501,7 +3523,9 @@
 
     function mockLineSend(linePayload, updatePayload, eventName) {
       console.log('[TEST MODE] Mock LINE sent', linePayload);
-      return db.ref('test_line_logs').push({
+      var logPayload = window.SLTransitLineEvents && typeof window.SLTransitLineEvents.mockLogPayload === 'function'
+        ? window.SLTransitLineEvents.mockLogPayload(linePayload, updatePayload, eventName, currentBooking || {})
+        : {
         booking_id: currentBooking.code || '',
         timestamp: firebase.database.ServerValue.TIMESTAMP,
         passenger_name: currentBooking.name || '',
@@ -3512,7 +3536,9 @@
         event: eventName || linePayload.event || '',
         original_payload: linePayload,
         update_payload: updatePayload || {}
-      }).then(function() {
+      };
+      logPayload.timestamp = firebase.database.ServerValue.TIMESTAMP;
+      return db.ref('test_line_logs').push(logPayload).then(function() {
         return { success: true, mock: true };
       });
     }
@@ -3536,7 +3562,15 @@
         return mockLineSend(linePayload, updatePayload, eventName);
       }
       var triggerCode = 'CI' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
-      var trigger = {
+      var trigger = window.SLTransitLineEvents && typeof window.SLTransitLineEvents.notificationTrigger === 'function'
+        ? window.SLTransitLineEvents.notificationTrigger(linePayload, updatePayload, eventName, {
+          code: triggerCode,
+          booking: currentBooking || {},
+          groupId: CHECKIN_LINE_GROUP_ID,
+          source: 'check_ticket.html',
+          testMode: TEST_MODE
+        })
+        : {
         code: triggerCode,
         originalCode: currentBooking.code,
         notificationOnly: true,
@@ -3574,8 +3608,8 @@
         checkedInAt: updatePayload.checkedInAt || Date.now(),
         officialStatus: updatePayload.officialStatus || '',
         checkin: updatePayload.checkin || {},
-        ts: firebase.database.ServerValue.TIMESTAMP
       };
+      trigger.ts = firebase.database.ServerValue.TIMESTAMP;
       return db.ref((TEST_MODE ? TEST_PATHS.notifications : 'bookings/') + triggerCode).set(trigger);
     }
 
@@ -3733,6 +3767,9 @@
     }
 
     function distanceKm(lat1, lng1, lat2, lng2) {
+      if (window.SLTransitGeo && typeof window.SLTransitGeo.distanceKm === 'function') {
+        return window.SLTransitGeo.distanceKm(lat1, lng1, lat2, lng2);
+      }
       var R = 6371;
       var dLat = (lat2 - lat1) * Math.PI / 180;
       var dLng = (lng2 - lng1) * Math.PI / 180;
