@@ -15,8 +15,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
 <script src="catalog-engine.js?v=20260626catalog1"></script>
+<script src="erp-engine.js?v=20260626erp1"></script>
 <script src="geo-engine.js?v=20260626geo1"></script>
 <script src="line-event-engine.js?v=20260626line1"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
@@ -881,9 +882,20 @@
     });
 
     function applyTicketCatalog(catalog, source) {
-      if (!catalog || !window.SLTransitCatalog) return;
-      var settingsRoutes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
-      var legacyRouteData = window.SLTransitCatalog.legacyRouteData(catalog);
+      if (!catalog) return;
+      var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
+        ? window.SLTransitERP.catalogView(catalog)
+        : null;
+      var settingsRoutes = view && view.settingsRoutes
+        ? view.settingsRoutes
+        : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacySettingsRoutes === 'function'
+          ? window.SLTransitCatalog.legacySettingsRoutes(catalog)
+          : {};
+      var legacyRouteData = view && view.routeData
+        ? view.routeData
+        : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacyRouteData === 'function'
+          ? window.SLTransitCatalog.legacyRouteData(catalog)
+          : {};
       if (settingsRoutes && Object.keys(settingsRoutes).length) {
         ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settingsRoutes);
         TICKET_CATALOG_ROUTES_APPLIED = true;
@@ -895,8 +907,8 @@
         applyTicketRouteData(legacyRouteData);
         TICKET_CATALOG_ROUTE_DATA_APPLIED = true;
       }
-      TICKET_CATALOG_VERSION_APPLIED = String(catalog.version || '');
-      console.log('[TICKET CATALOG] applied ' + (source || 'catalog'), catalog.version || '');
+      TICKET_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
+      console.log('[TICKET ERP] applied ' + (source || 'catalog'), TICKET_CATALOG_VERSION_APPLIED);
     }
 
     function loadCatalogForBooking(booking) {

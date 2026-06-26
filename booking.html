@@ -16,6 +16,7 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="catalog-engine.js?v=20260626catalog1"></script>
+<script src="erp-engine.js?v=20260626erp1"></script>
 <script src="line-event-engine.js?v=20260626line1"></script>
 <script src="schedule-engine.js?v=20260623central2"></script>
 <script src="qrcode.min.js"></script>
@@ -1263,17 +1264,24 @@ function _settingsSnapshotWithCatalogRoutes(snap) {
   return { val: function(){ return merged; } };
 }
 function _applyPublishedCatalogToBooking(catalog) {
-  if (!catalog || !window.SLTransitCatalog || typeof window.SLTransitCatalog.legacySettingsRoutes !== 'function') return;
-  var routes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
+  if (!catalog) return;
+  var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
+    ? window.SLTransitERP.catalogView(catalog)
+    : null;
+  var routes = view && view.settingsRoutes
+    ? view.settingsRoutes
+    : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacySettingsRoutes === 'function'
+      ? window.SLTransitCatalog.legacySettingsRoutes(catalog)
+      : {};
   if (!routes || !Object.keys(routes).length) return;
   BOOKING_CATALOG_ROUTES = routes;
-  BOOKING_CATALOG_VERSION_APPLIED = String(catalog.version || '');
+  BOOKING_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
   var base = _settingsSnap && typeof _settingsSnap.val === 'function' ? (_settingsSnap.val() || {}) : {};
-  var merged = Object.assign({}, base, { routes: routes, currentCatalogVersion: catalog.version || '' });
+  var merged = Object.assign({}, base, { routes: routes, currentCatalogVersion: BOOKING_CATALOG_VERSION_APPLIED });
   _applySettings({ val: function(){ return merged; } });
   ADMIN_ROUTE_SOURCE_LOADED = true;
   if (typeof updateRoute === 'function') { try { updateRoute(); } catch(e) {} }
-  console.log('[BOOKING CATALOG] applied publishedCatalog', catalog.version || '');
+  console.log('[BOOKING ERP] applied catalog', BOOKING_CATALOG_VERSION_APPLIED);
 }
 db.ref('settings').on('value',function(snap){
   var fingerprint=_settingsRelevantFingerprint(snap);

@@ -760,6 +760,45 @@ public class MainActivity extends Activity {
     //   routeData/queues/{คิว}/trips/{tripNo} = { direction, routeKey, routeNameTh, stops: [{order, stopKey, stopTh, time, eventType, isConditional, note}, ...] }
     private void fetchStopsCacheIfNeeded(Runnable then) {
         if (stopsCacheLoaded) { if (then != null) then.run(); return; }
+        FirebaseDatabase.getInstance().getReference("settings/currentCatalogVersion")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot versionSnap) {
+                String version = strOrDash(versionSnap.getValue());
+                if (version.isEmpty() || "-".equals(version)) {
+                    fetchLegacyStopsCache(then);
+                    return;
+                }
+                FirebaseDatabase.getInstance().getReference("catalogs/" + version + "/stops")
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(DataSnapshot snap) {
+                        boolean loaded = false;
+                        for (DataSnapshot s : snap.getChildren()) {
+                            String key = s.getKey();
+                            Double lat = s.child("lat").getValue(Double.class);
+                            Double lng = s.child("lng").getValue(Double.class);
+                            if (key != null && lat != null && lng != null) {
+                                stopCoordsCache.put(key, new double[]{lat, lng});
+                                String name = strOrDash(s.child("nameTh").getValue());
+                                if (name.isEmpty() || "-".equals(name)) name = strOrDash(s.child("name").getValue());
+                                stopNameCache.put(key, name);
+                                loaded = true;
+                            }
+                        }
+                        if (!loaded) {
+                            fetchLegacyStopsCache(then);
+                            return;
+                        }
+                        stopsCacheLoaded = true;
+                        if (then != null) runOnUiThread(then);
+                    }
+                    @Override public void onCancelled(DatabaseError error) { fetchLegacyStopsCache(then); }
+                });
+            }
+            @Override public void onCancelled(DatabaseError error) { fetchLegacyStopsCache(then); }
+        });
+    }
+
+    private void fetchLegacyStopsCache(Runnable then) {
         FirebaseDatabase.getInstance().getReference("routeData/stops")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
@@ -845,6 +884,64 @@ public class MainActivity extends Activity {
             return;
         }
         fetchStopsCacheIfNeeded(null);
+        loadCatalogScheduleForQueue(vehicleId, queueNo, () -> loadLegacyTodayScheduleForQueue(vehicleId, queueNo));
+    }
+
+    private void loadCatalogScheduleForQueue(String vehicleId, int queueNo, Runnable fallback) {
+        FirebaseDatabase.getInstance().getReference("settings/currentCatalogVersion")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot versionSnap) {
+                String version = strOrDash(versionSnap.getValue());
+                if (version.isEmpty() || "-".equals(version)) {
+                    fallback.run();
+                    return;
+                }
+                FirebaseDatabase.getInstance().getReference("catalogs/" + version + "/stopTimes")
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(DataSnapshot snap) {
+                        if (!vehicleId.equals(prefs.getString(KEY_VEHICLE_ID, null))) return;
+                        java.util.List<Trip> trips = new ArrayList<>();
+                        for (DataSnapshot tripSnap : snap.getChildren()) {
+                            Long q = tripSnap.child("queueNo").getValue(Long.class);
+                            if (q == null || q.intValue() != queueNo) continue;
+                            Trip trip = new Trip();
+                            trip.tripNo = strOrDash(tripSnap.child("tripNo").getValue());
+                            if (trip.tripNo.isEmpty() || "-".equals(trip.tripNo)) trip.tripNo = tripSnap.getKey();
+                            trip.direction = strOrDash(tripSnap.child("direction").getValue());
+                            trip.routeKey = strOrDash(tripSnap.child("routeKey").getValue());
+                            trip.routeNameTh = strOrDash(tripSnap.child("routeNameTh").getValue());
+                            for (DataSnapshot stopSnap : tripSnap.child("stops").getChildren()) {
+                                trip.stops.add(new TripStop(
+                                        strOrDash(stopSnap.child("stopKey").getValue()),
+                                        strOrDash(stopSnap.child("stopTh").getValue()),
+                                        strOrDash(stopSnap.child("time").getValue()),
+                                        strOrDash(stopSnap.child("eventType").getValue()),
+                                        Boolean.TRUE.equals(stopSnap.child("isConditional").getValue(Boolean.class))));
+                            }
+                            if (!trip.stops.isEmpty()) trips.add(trip);
+                        }
+                        if (trips.isEmpty()) {
+                            fallback.run();
+                            return;
+                        }
+                        Collections.sort(trips, (a, b) -> {
+                            try { return Integer.parseInt(a.tripNo) - Integer.parseInt(b.tripNo); }
+                            catch (Exception e) { return String.valueOf(a.tripNo).compareTo(String.valueOf(b.tripNo)); }
+                        });
+                        runOnUiThread(() -> {
+                            cachedTrips.clear();
+                            cachedTrips.addAll(trips);
+                            computeActiveTripAndUpdateCard(String.valueOf(queueNo));
+                        });
+                    }
+                    @Override public void onCancelled(DatabaseError error) { fallback.run(); }
+                });
+            }
+            @Override public void onCancelled(DatabaseError error) { fallback.run(); }
+        });
+    }
+
+    private void loadLegacyTodayScheduleForQueue(String vehicleId, int queueNo) {
         FirebaseDatabase.getInstance().getReference("routeData/queues/" + queueNo + "/trips")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {

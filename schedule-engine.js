@@ -316,8 +316,16 @@
   }
 
   function applyPublishedCatalog(catalog) {
-    if (!catalog || !global.SLTransitCatalog || typeof global.SLTransitCatalog.legacyRouteData !== 'function') return null;
-    var legacyRouteData = global.SLTransitCatalog.legacyRouteData(catalog);
+    if (!catalog) return null;
+    var legacyRouteData = global.SLTransitERP && typeof global.SLTransitERP.routeData === 'function'
+      ? global.SLTransitERP.routeData(catalog)
+      : global.SLTransitCatalog && typeof global.SLTransitCatalog.legacyRouteData === 'function'
+        ? global.SLTransitCatalog.legacyRouteData(catalog)
+        : null;
+    if (legacyRouteData && legacyRouteData.stops && !legacyRouteData.queues && global.SLTransitCatalog && typeof global.SLTransitCatalog.legacyRouteData === 'function') {
+      var fallbackRouteData = global.SLTransitCatalog.legacyRouteData(catalog);
+      if (fallbackRouteData && fallbackRouteData.queues) legacyRouteData = fallbackRouteData;
+    }
     if (!legacyRouteData || !legacyRouteData.stops && !legacyRouteData.queues) return null;
     return applyRouteData(legacyRouteData);
   }

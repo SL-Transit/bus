@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
 <script src="catalog-engine.js?v=20260626catalog1"></script>
+<script src="erp-engine.js?v=20260626erp1"></script>
 <script src="geo-engine.js?v=20260626geo1"></script>
 <script src="schedule-engine.js?v=20260623central2"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
@@ -2469,9 +2470,20 @@ db.ref('routeData').on('value', function(snap) {
 
 db.ref('publishedCatalog').on('value', function(snap) {
   var catalog = snap.val();
-  if (!catalog || !window.SLTransitCatalog) return;
-  var settingsRoutes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
-  var legacyRouteData = window.SLTransitCatalog.legacyRouteData(catalog);
+  if (!catalog) return;
+  var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
+    ? window.SLTransitERP.catalogView(catalog)
+    : null;
+  var settingsRoutes = view && view.settingsRoutes
+    ? view.settingsRoutes
+    : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacySettingsRoutes === 'function'
+      ? window.SLTransitCatalog.legacySettingsRoutes(catalog)
+      : {};
+  var legacyRouteData = view && view.routeData
+    ? view.routeData
+    : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacyRouteData === 'function'
+      ? window.SLTransitCatalog.legacyRouteData(catalog)
+      : {};
   if (settingsRoutes && Object.keys(settingsRoutes).length) {
     applyPassengerRouteSettings({ routes: settingsRoutes, currentCatalogVersion: catalog.version || '' });
     PASSENGER_CATALOG_ROUTES_APPLIED = true;
@@ -2480,8 +2492,8 @@ db.ref('publishedCatalog').on('value', function(snap) {
     applyPassengerRouteData(legacyRouteData);
     PASSENGER_CATALOG_ROUTE_DATA_APPLIED = true;
   }
-  PASSENGER_CATALOG_VERSION_APPLIED = String(catalog.version || '');
-  console.log('[PASSENGER CATALOG] applied publishedCatalog', catalog.version || '');
+  PASSENGER_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
+  console.log('[PASSENGER ERP] applied catalog', PASSENGER_CATALOG_VERSION_APPLIED);
 }, function(err) {
   console.error('Passenger catalog load failed:', err && err.message ? err.message : err);
 });
