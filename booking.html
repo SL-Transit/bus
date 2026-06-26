@@ -765,6 +765,7 @@ function _applySettings(snap) {
 
   BOOKING_OPEN = data.bookingOpen !== false;
   TEST_MODE = data.testMode === true;
+  CURRENT_CATALOG_VERSION = data.currentCatalogVersion || CURRENT_CATALOG_VERSION || '';
   BOOKING_CUTOFF_MINUTES = Number(data.bookingCutoffMinutes);
   if (!isFinite(BOOKING_CUTOFF_MINUTES) || BOOKING_CUTOFF_MINUTES < 0) BOOKING_CUTOFF_MINUTES = 60;
   applyBookingAvailability();
@@ -1299,6 +1300,7 @@ var PAYMENT_ACCOUNT_NAME = 'ชื่อเจ้าของบัญชี';
 var BOOKING_OPEN = true;
 var BOOKING_CUTOFF_MINUTES = 60;
 var TEST_MODE = false;
+var CURRENT_CATALOG_VERSION = '';
 var ROUTE_CLOSED_STOPS = {};
 var ROUTE_CAPACITY = {};
 var TRIP_BOOKED_SEATS = {};
@@ -2653,6 +2655,7 @@ function submitBooking() {
 
       var booking = {
         code:        code,
+        catalogVersion: CURRENT_CATALOG_VERSION || '',
         name:        safeName,
         phone:       safePhone,
         userId:      isAdminTester ? ADMIN_TESTER_ID : '',

@@ -13,6 +13,22 @@
       ".read": true,
       ".write": "auth != null"
     },
+    "publishedCatalog": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "catalogs": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "catalogDraft": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "routeData": {
+      ".read": true,
+      ".write": "auth != null"
+    },
     "announcements": {
       ".read": true,
       ".write": "auth != null"
