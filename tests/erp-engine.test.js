@@ -58,4 +58,15 @@ const routeData = view.routeData;
 if (!routeData.stops.a || routeData.stops.a.name !== 'A') throw new Error('stops not mapped');
 if (!routeData.queues['1'] || !routeData.queues['1'].trips['1']) throw new Error('queue stopTimes not mapped');
 
+const bookingContext = erp.bookingContext(catalog, 'A', 'B', '08:00');
+if (!bookingContext) throw new Error('booking context missing');
+if (bookingContext.routeId !== 'route_a_b') throw new Error('booking routeId missing');
+if (bookingContext.tripId !== 'trip_0800') throw new Error('booking tripId missing');
+if (bookingContext.fare !== 55) throw new Error('booking fare missing');
+if (bookingContext.capacity !== 12) throw new Error('booking capacity missing');
+if (bookingContext.closed) throw new Error('open trip marked closed');
+
+const closedContext = erp.bookingContext(catalog, 'A', 'B', '09:00');
+if (!closedContext || !closedContext.closed) throw new Error('closed booking context missing');
+
 console.log('erp-engine catalog adapter ok');

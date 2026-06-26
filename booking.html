@@ -1265,6 +1265,7 @@ function _settingsSnapshotWithCatalogRoutes(snap) {
 }
 function _applyPublishedCatalogToBooking(catalog) {
   if (!catalog) return;
+  BOOKING_CATALOG_RAW = catalog;
   var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
     ? window.SLTransitERP.catalogView(catalog)
     : null;
@@ -1329,6 +1330,7 @@ var TEST_MODE = false;
 var CURRENT_CATALOG_VERSION = '';
 var BOOKING_CATALOG_ROUTES = null;
 var BOOKING_CATALOG_VERSION_APPLIED = '';
+var BOOKING_CATALOG_RAW = null;
 var ROUTE_CLOSED_STOPS = {};
 var ROUTE_CAPACITY = {};
 var TRIP_BOOKED_SEATS = {};
@@ -1709,14 +1711,26 @@ function shouldRequireTransfer(origin, destination) {
   return origin !== TRANSFER_POINT_KEY && isMainRouteStop(origin) && isExternalDestination(destination);
 }
 
+function bookingLabelForKey(key, map, fallback) {
+  var item = map && map[key];
+  return item && item.label || fallback || key;
+}
+
+function getBookingErpContext(origin, destination, time) {
+  if (!BOOKING_CATALOG_RAW || !window.SLTransitERP || typeof window.SLTransitERP.bookingContext !== 'function') return null;
+  var originLabel = bookingLabelForKey(origin, ORIGIN_TIMES, origin);
+  var destLabel = bookingLabelForKey(destination, LEG2_DEST, destination);
+  return window.SLTransitERP.bookingContext(BOOKING_CATALOG_RAW, originLabel, destLabel, time);
+}
+
 function getDirectSchedules(origin, destination) {
   var originKey = confirmedScheduleKey(origin);
   var destinationKey = confirmedScheduleKey(destination);
-  if (destinationKey === 'chachoengsao' && CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey]) {
-    return CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey].slice();
-  }
   if (ADMIN_ROUTE_TIMES[origin] && ADMIN_ROUTE_TIMES[origin][destination]) {
     return ADMIN_ROUTE_TIMES[origin][destination];
+  }
+  if (destinationKey === 'chachoengsao' && CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey]) {
+    return CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey].slice();
   }
   return null;
 }
@@ -2516,6 +2530,8 @@ function acceptConsent() {
 
 // ===== TRIP CAPACITY =====
 function getTripBookingCapacity(origin, dest, time) {
+  var erpContext = getBookingErpContext(origin, dest, time);
+  if (erpContext && erpContext.capacity) return erpContext.capacity;
   var value = ROUTE_CAPACITY[origin] && ROUTE_CAPACITY[origin][dest] ? Number(ROUTE_CAPACITY[origin][dest][time]) : 0;
   return Number.isInteger(value) && value > 0 ? value : 0;
 }
@@ -2677,13 +2693,16 @@ function submitBooking() {
         tripAssignment = resolveBookingTripAssignmentByLabel(fromName, toName, selTime, requiresTransfer, dateVal);
       }
       var vehicleQueueNum = Number(tripAssignment.queueNo || 0);
+      var erpBookingContext = getBookingErpContext(selOrigin, selDest, selTime) || {};
       var tripIdentity = ADMIN_TRIP_IDENTITIES[selOrigin+'|'+selDest+'|'+selTime] || {};
+      var snapshotRouteId = erpBookingContext.routeId || tripIdentity.routeId || '';
+      var snapshotTripId = erpBookingContext.tripId || tripIdentity.tripId || '';
       var isAdminTester = isAdminTesterPhone(safePhone);
       if(isAdminTester)setAdminTesterSession(true);
 
       var booking = {
         code:        code,
-        catalogVersion: CURRENT_CATALOG_VERSION || '',
+        catalogVersion: erpBookingContext.catalogVersion || CURRENT_CATALOG_VERSION || '',
         name:        safeName,
         phone:       safePhone,
         userId:      isAdminTester ? ADMIN_TESTER_ID : '',
@@ -2696,8 +2715,8 @@ function submitBooking() {
         destination: toName,
         date:        dateVal,
         time:        selTime,
-        routeId:     tripIdentity.routeId || '',
-        tripId:      tripIdentity.tripId || '',
+        routeId:     snapshotRouteId,
+        tripId:      snapshotTripId,
         leg1Route:   legSchedule.leg1,
         leg1Time:    legSchedule.leg1Time,
         leg2Route:   legSchedule.leg2,
@@ -2722,6 +2741,10 @@ function submitBooking() {
         passengerIdentity: { status:'pending', verifiedAt:null, verifiedBy:'', vehicleId:'' },
         originCheckin: { status:'pending', identityVerified:false },
         capacityLimit: capacityLimit || '',
+        catalogFare: erpBookingContext.fare || '',
+        catalogCapacity: erpBookingContext.capacity || '',
+        catalogRouteId: snapshotRouteId,
+        catalogTripId: snapshotTripId,
         capacitySeats: capacityReservation && capacityReservation.reserved ? seats : '',
         capacityUsagePath: capacityReservation && capacityReservation.path ? capacityReservation.path : '',
         price:       bookingTotal, // ราคาจาก server เท่านั้น + ค่าบริการเมื่อเปิดใช้งาน
@@ -2820,6 +2843,8 @@ function submitBooking() {
 
 // [Security] คำนวณราคาจาก server-side data — ไม่เชื่อ PRICE global
 function computePriceServerSide(origin, dest) {
+  var directErpContext = getBookingErpContext(origin, dest, selTime);
+  if (directErpContext && directErpContext.fare > 0) return directErpContext.fare;
   var originPrice = ORIGIN_PRICE[origin] || 0;
   var destInfo = LEG2_DEST[dest];
   var price;

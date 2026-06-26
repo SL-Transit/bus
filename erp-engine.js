@@ -223,10 +223,67 @@
     };
   }
 
+  function matchText(a, b) {
+    return String(a || '').replace(/\s+/g, '').toLowerCase() === String(b || '').replace(/\s+/g, '').toLowerCase();
+  }
+
+  function findRoute(catalog, origin, destination) {
+    var best = null;
+    each(catalog && catalog.routes, function(routeId, route) {
+      if (best || !route || route.isActive === false) return;
+      var from = routeLabel(catalog, route, 'from', 'fromStopKey');
+      var to = routeLabel(catalog, route, 'to', 'toStopKey');
+      if (matchText(from, origin) && matchText(to, destination)) {
+        best = route;
+        best.id = best.id || routeId;
+      }
+    });
+    return best;
+  }
+
+  function findTrip(catalog, routeId, time) {
+    var timeKey = String(time || '').slice(0, 5);
+    var best = null;
+    each(catalog && catalog.trips, function(tripId, trip) {
+      if (best || !trip) return;
+      if (String(trip.routeId || '') === String(routeId || '') && String(trip.departTime || '').slice(0, 5) === timeKey) {
+        best = trip;
+        best.id = best.id || tripId;
+      }
+    });
+    return best;
+  }
+
+  function bookingContext(catalog, origin, destination, time) {
+    var route = findRoute(catalog, origin, destination);
+    if (!route) return null;
+    var trip = findTrip(catalog, route.id, time);
+    var fare = catalog && catalog.fares && catalog.fares[route.id] || {};
+    var capacity = trip && catalog && catalog.capacities && catalog.capacities[trip.id] || null;
+    var closure = trip && catalog && catalog.closures && catalog.closures[trip.id] || null;
+    return {
+      catalogVersion: String(catalog && catalog.version || ''),
+      routeId: route.id || '',
+      tripId: trip && trip.id || '',
+      fare: Number(fare.amount || route.price) || 0,
+      capacity: capacity && Number(capacity.seats) > 0 ? Number(capacity.seats) : 0,
+      closed: !!closure || !!(trip && trip.bookingEnabled === false),
+      closedStops: closure && closure.closedStops || [],
+      departTime: trip && trip.departTime || String(time || '').slice(0, 5),
+      fromStopKey: route.fromStopKey || '',
+      toStopKey: route.toStopKey || '',
+      route: route,
+      trip: trip || null
+    };
+  }
+
   global.SLTransitERP = {
     settingsRoutes: settingsRoutes,
     routeData: routeData,
-    catalogView: catalogView
+    catalogView: catalogView,
+    findRoute: findRoute,
+    findTrip: findTrip,
+    bookingContext: bookingContext
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitERP;
