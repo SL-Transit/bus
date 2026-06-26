@@ -2866,20 +2866,37 @@ function resolveBookingTripAssignmentByLabel(originLabel, destLabel, time, requi
 
 function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serviceDate) {
   var publishedTimes = getDirectSchedules(origin, dest) || [];
-  var isPublishedScheduleOnly = !requiresTransfer && origin === TRANSFER_POINT_KEY && isExternalDestination(dest) && publishedTimes.indexOf(time) !== -1;
+  var transferOriginTimes = requiresTransfer ? (getDirectSchedules(origin, TRANSFER_POINT_KEY) || []) : [];
+  var decodeAdminRouteKey = function(value) {
+    var raw = String(value || '');
+    if (raw.indexOf('admin_') !== 0) return '';
+    try {
+      return decodeURIComponent(raw.slice(6).replace(/_([0-9A-Fa-f]{2})/g, '%$1'));
+    } catch (err) {
+      return '';
+    }
+  };
+  var originNameForSchedule = (ORIGIN_TIMES[origin] && ORIGIN_TIMES[origin].label) || decodeAdminRouteKey(origin) || origin;
+  var destinationNameForSchedule = (LEG2_DEST[dest] && LEG2_DEST[dest].label) || decodeAdminRouteKey(dest) || dest;
+  var originMainIdx = mainStopIndexForBooking(normalizeBookingStopKey(originNameForSchedule));
+  var destinationMainIdx = mainStopIndexForBooking(normalizeBookingStopKey(destinationNameForSchedule));
+  var isPublishedScheduleOnly = (!requiresTransfer && publishedTimes.indexOf(time) !== -1 && (isExternalDestination(dest) || originMainIdx < 0 || destinationMainIdx < 0))
+    || (requiresTransfer && transferOriginTimes.indexOf(time) !== -1 && originMainIdx < 0);
   if (window.SLTransitSchedule && typeof window.SLTransitSchedule.resolveTripAssignment === 'function') {
     var sharedOrigin = (ORIGIN_TIMES[origin] && ORIGIN_TIMES[origin].label) || origin;
     var sharedDestination = (LEG2_DEST[dest] && LEG2_DEST[dest].label) || dest;
     var sharedInput = { serviceDate: serviceDate, origin: sharedOrigin, destination: sharedDestination, departTime: time, requiresTransfer: requiresTransfer, transferPoint: normalizeBookingStopKey((LEG2_DEST[TRANSFER_POINT_KEY] && LEG2_DEST[TRANSFER_POINT_KEY].label) || TRANSFER_POINT_KEY) };
     if (isPublishedScheduleOnly) {
-      var destinationName = (LEG2_DEST[dest] && LEG2_DEST[dest].label) || dest;
+      var originName = originNameForSchedule;
+      var destinationName = destinationNameForSchedule;
+      var originStopKey = normalizeBookingStopKey(originName);
       sharedInput.scheduleOnly = true;
-      sharedInput.originStopKey = 'chachoengsao';
+      sharedInput.originStopKey = originStopKey;
       sharedInput.destinationStopKey = destinationName;
-      sharedInput.pickupStopKey = 'chachoengsao';
-      sharedInput.pickupStopName = 'ฉะเชิงเทรา (แปดริ้ว)';
-      sharedInput.routeStops = ['chachoengsao', destinationName];
-      sharedInput.routeStopNames = ['ฉะเชิงเทรา (แปดริ้ว)', destinationName];
+      sharedInput.pickupStopKey = originStopKey;
+      sharedInput.pickupStopName = originName;
+      sharedInput.routeStops = [originStopKey, destinationName];
+      sharedInput.routeStopNames = [originName, destinationName];
       sharedInput.assignmentSource = 'booking_admin_schedule_only';
     }
     var shared = window.SLTransitSchedule.resolveTripAssignment(sharedInput);

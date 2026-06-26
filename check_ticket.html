@@ -764,6 +764,8 @@
 
     var currentBooking = null;
     var currentCode = null;
+    var TICKET_CATALOG_VERSION_APPLIED = '';
+    var TICKET_CATALOG_LOADS = {};
     var lastPosition = null;
     var stationaryAnchor = null;
     var stationarySince = null;
@@ -871,8 +873,7 @@
       console.error('Ticket routeData load failed:', error && error.message ? error.message : error);
     });
 
-    db.ref('publishedCatalog').on('value', function(snap) {
-      var catalog = snap.val();
+    function applyTicketCatalog(catalog, source) {
       if (!catalog || !window.SLTransitCatalog) return;
       var settingsRoutes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
       var legacyRouteData = window.SLTransitCatalog.legacyRouteData(catalog);
@@ -885,7 +886,29 @@
       if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
         applyTicketRouteData(legacyRouteData);
       }
-      console.log('[TICKET CATALOG] applied publishedCatalog', catalog.version || '');
+      TICKET_CATALOG_VERSION_APPLIED = String(catalog.version || '');
+      console.log('[TICKET CATALOG] applied ' + (source || 'catalog'), catalog.version || '');
+    }
+
+    function loadCatalogForBooking(booking) {
+      var version = String(booking && booking.catalogVersion || '').trim();
+      if (!version || version === TICKET_CATALOG_VERSION_APPLIED) return Promise.resolve(false);
+      if (!/^[A-Za-z0-9._-]+$/.test(version)) return Promise.resolve(false);
+      if (!TICKET_CATALOG_LOADS[version]) {
+        TICKET_CATALOG_LOADS[version] = db.ref('catalogs/' + version).once('value').then(function(snap) {
+          if (!snap.exists()) return false;
+          applyTicketCatalog(snap.val(), 'catalogs/' + version);
+          return true;
+        }).catch(function(error) {
+          console.warn('[TICKET CATALOG] booking catalogVersion load failed', version, error && error.message ? error.message : error);
+          return false;
+        });
+      }
+      return TICKET_CATALOG_LOADS[version];
+    }
+
+    db.ref('publishedCatalog').on('value', function(snap) {
+      applyTicketCatalog(snap.val(), 'publishedCatalog');
     }, function(error) {
       console.error('Ticket catalog load failed:', error && error.message ? error.message : error);
     });
@@ -985,15 +1008,18 @@
         } else {
           hideStatus('lookupStatus');
         }
-        if (isCancelledBooking(currentBooking)) {
-          clearRememberedTicket();
-          showCancelledDonePopup();
+        return loadCatalogForBooking(currentBooking).then(function() {
+          if (currentCode !== found.code) return;
+          if (isCancelledBooking(currentBooking)) {
+            clearRememberedTicket();
+            showCancelledDonePopup();
+            startBookingListener(found.code);
+            return;
+          }
+          rememberLastTicket(found.code);
+          renderBooking();
           startBookingListener(found.code);
-          return;
-        }
-        rememberLastTicket(found.code);
-        renderBooking();
-        startBookingListener(found.code);
+        });
       }).catch(function(err) {
         console.error(err);
         var message = err && err.code === 'auth/operation-not-allowed'
@@ -1149,7 +1175,9 @@
             showCancelledDonePopup();
             return;
           }
-          renderBooking();
+          loadCatalogForBooking(currentBooking).then(function() {
+            if (currentCode === code) renderBooking();
+          });
         }
       });
     }
