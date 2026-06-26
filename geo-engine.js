@@ -66,12 +66,30 @@
     };
   }
 
+  function estimateEtaFromDistanceKm(distanceKmValue, speedKmh, options) {
+    options = options || {};
+    var km = num(distanceKmValue, NaN);
+    var speed = num(speedKmh, 0);
+    var minMovingSpeed = num(options.minMovingSpeedKmh, 1);
+    if (!isFinite(km)) return null;
+    if (speed < minMovingSpeed) {
+      return { etaMinutes: null, distanceKm: km, status: 'stopped' };
+    }
+    var effectiveSpeed = Math.max(speed, num(options.minimumEtaSpeedKmh, speed));
+    return {
+      etaMinutes: Math.max(1, Math.round((km / effectiveSpeed) * 60)),
+      distanceKm: km,
+      status: 'moving'
+    };
+  }
+
   global.SLTransitGeo = {
     distanceKm: distanceKm,
     distanceMeters: distanceMeters,
     isWithinRadiusKm: isWithinRadiusKm,
     radiusState: radiusState,
-    estimateVehicleEta: estimateVehicleEta
+    estimateVehicleEta: estimateVehicleEta,
+    estimateEtaFromDistanceKm: estimateEtaFromDistanceKm
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitGeo;

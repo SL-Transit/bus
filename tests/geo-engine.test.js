@@ -22,4 +22,13 @@ if (!eta || !(eta.etaMinutes > 0) || eta.status !== 'moving') throw new Error('e
 const stopped = geo.estimateVehicleEta({ lat: 13.692383, lng: 101.054183, speedKmh: 0 }, far);
 if (!stopped || stopped.status !== 'stopped') throw new Error('stopped eta state invalid');
 
+const distanceEta = geo.estimateEtaFromDistanceKm(10, 30);
+if (!distanceEta || distanceEta.etaMinutes !== 20 || distanceEta.status !== 'moving') throw new Error('distance eta invalid');
+
+const distanceStopped = geo.estimateEtaFromDistanceKm(10, 0, { minMovingSpeedKmh: 1 });
+if (!distanceStopped || distanceStopped.status !== 'stopped') throw new Error('distance eta stopped state invalid');
+
+const minimumSpeedEta = geo.estimateEtaFromDistanceKm(10, 5, { minMovingSpeedKmh: 1, minimumEtaSpeedKmh: 20 });
+if (!minimumSpeedEta || minimumSpeedEta.etaMinutes !== 30) throw new Error('minimum eta speed invalid');
+
 console.log('geo-engine ok');

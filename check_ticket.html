@@ -18,7 +18,7 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
 <script src="catalog-engine.js?v=20260626catalog1"></script>
 <script src="erp-engine.js?v=20260626erp3"></script>
-<script src="geo-engine.js?v=20260626geo1"></script>
+<script src="geo-engine.js?v=20260626geo2"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260623central2"></script>
@@ -2058,6 +2058,17 @@
       var stop = findStopLocation(stopName);
       if (!normalizeTrackingPoint(pos) || !stop) return Infinity;
       var speed = Number(pos.speed || pos.speedKmh || 0);
+      var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateVehicleEta === 'function'
+        ? window.SLTransitGeo.estimateVehicleEta({
+          lat: pos.lat,
+          lng: pos.lng,
+          speedKmh: Math.max(speed, 28)
+        }, stop, {
+          roadDistanceFactor: ROAD_DISTANCE_FACTOR,
+          minMovingSpeedKmh: 0
+        })
+        : null;
+      if (sharedEta && sharedEta.etaMinutes !== null) return sharedEta.etaMinutes;
       var km = distanceKm(pos.lat, pos.lng, stop.lat, stop.lng) * ROAD_DISTANCE_FACTOR;
       return Math.max(1, Math.round((km / Math.max(speed, 28)) * 60));
     }
@@ -2727,6 +2738,17 @@
       }
       if (!normalizeTrackingPoint(source) || !target) return scheduledJourneyEtaMinutes();
       var speed = Number(source.speed || (vanLocation && vanLocation.speed) || 0);
+      var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateVehicleEta === 'function'
+        ? window.SLTransitGeo.estimateVehicleEta({
+          lat: source.lat,
+          lng: source.lng,
+          speedKmh: Math.max(speed, 28)
+        }, target, {
+          roadDistanceFactor: ROAD_DISTANCE_FACTOR,
+          minMovingSpeedKmh: 0
+        })
+        : null;
+      if (sharedEta && sharedEta.etaMinutes !== null) return sharedEta.etaMinutes;
       var km = distanceKm(source.lat, source.lng, target.lat, target.lng) * ROAD_DISTANCE_FACTOR;
       return Math.max(1, Math.round((km / Math.max(speed, 28)) * 60));
     }
@@ -3022,7 +3044,12 @@
         document.getElementById('etaText').style.fontSize = '18px';
         document.getElementById('etaUnit').textContent = '';
       } else {
-        currentEtaMinutes = Math.round((currentDistanceKm / currentSpeedKmh) * 60);
+        var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateEtaFromDistanceKm === 'function'
+          ? window.SLTransitGeo.estimateEtaFromDistanceKm(currentDistanceKm, currentSpeedKmh, { minMovingSpeedKmh: 1 })
+          : null;
+        currentEtaMinutes = sharedEta && sharedEta.etaMinutes !== null
+          ? sharedEta.etaMinutes
+          : Math.round((currentDistanceKm / currentSpeedKmh) * 60);
         document.getElementById('etaText').style.fontSize = '';
         document.getElementById('etaText').textContent = String(currentEtaMinutes);
         document.getElementById('etaUnit').textContent = 'นาที';
