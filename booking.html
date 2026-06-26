@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+<script src="catalog-engine.js?v=20260626catalog1"></script>
 <script src="schedule-engine.js?v=20260623central2"></script>
 <script src="qrcode.min.js"></script>
 <style>
@@ -1244,6 +1245,17 @@ function _applyPendingSettingsUpdate() {
     if(selTime&&(activeTimes.indexOf(selTime)===-1||!canBook(travelDate,selTime))){selTime=null;renderTimes();}
   }catch(e){console.error('[BOOKING SETTINGS] apply failed',e);}finally{setTimeout(_hideUpdateOverlay,120);}
 }
+function _applyPublishedCatalogToBooking(catalog) {
+  if (!catalog || !window.SLTransitCatalog || typeof window.SLTransitCatalog.legacySettingsRoutes !== 'function') return;
+  var routes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
+  if (!routes || !Object.keys(routes).length) return;
+  var base = _settingsSnap && typeof _settingsSnap.val === 'function' ? (_settingsSnap.val() || {}) : {};
+  var merged = Object.assign({}, base, { routes: routes, currentCatalogVersion: catalog.version || '' });
+  _applySettings({ val: function(){ return merged; } });
+  ADMIN_ROUTE_SOURCE_LOADED = true;
+  if (typeof updateRoute === 'function') { try { updateRoute(); } catch(e) {} }
+  console.log('[BOOKING CATALOG] applied publishedCatalog', catalog.version || '');
+}
 db.ref('settings').on('value',function(snap){
   var fingerprint=_settingsRelevantFingerprint(snap);
   if(!_settingsLoaded){_settingsFingerprint=fingerprint;_applySettings(snap);_settingsLoaded=true;_settingsSnap=snap;if(typeof updateRoute==='function'){try{updateRoute();}catch(e){}}return;}
@@ -1251,6 +1263,11 @@ db.ref('settings').on('value',function(snap){
   _settingsFingerprint=fingerprint;_pendingSettingsSnap=snap;
   if(_settingsUpdateTimer)clearTimeout(_settingsUpdateTimer);
   _settingsUpdateTimer=setTimeout(_applyPendingSettingsUpdate,250);
+});
+db.ref('publishedCatalog').on('value', function(snap) {
+  _applyPublishedCatalogToBooking(snap.val());
+}, function(err) {
+  console.warn('[BOOKING CATALOG] publishedCatalog load failed', err && err.message ? err.message : err);
 });
 
 // ===== ราคาต้นทาง (ค่ารถ Q-เฮง ถึงแปดริ้ว) =====

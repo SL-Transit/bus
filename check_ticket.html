@@ -16,6 +16,7 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
+  <script src="catalog-engine.js?v=20260626catalog1"></script>
   <script src="schedule-engine.js?v=20260623central2"></script>
   <style>
     :root {
@@ -838,8 +839,8 @@
         updateActionAvailability();
     });
 
-    db.ref('routeData').on('value', function(snap) {
-      var routeData = snap.val() || {};
+    function applyTicketRouteData(routeData) {
+      routeData = routeData || {};
       var stops = routeData.stops || {};
       var centralStops = Object.keys(stops).map(function(key) {
         var stop = stops[key] || {};
@@ -862,8 +863,31 @@
       renderTransferMarker();
       renderRouteStopMarkers();
       updateTrackingRouteLine();
+    }
+
+    db.ref('routeData').on('value', function(snap) {
+      applyTicketRouteData(snap.val() || {});
     }, function(error) {
       console.error('Ticket routeData load failed:', error && error.message ? error.message : error);
+    });
+
+    db.ref('publishedCatalog').on('value', function(snap) {
+      var catalog = snap.val();
+      if (!catalog || !window.SLTransitCatalog) return;
+      var settingsRoutes = window.SLTransitCatalog.legacySettingsRoutes(catalog);
+      var legacyRouteData = window.SLTransitCatalog.legacyRouteData(catalog);
+      if (settingsRoutes && Object.keys(settingsRoutes).length) {
+        ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settingsRoutes);
+        var adminTimeChanged = applyAdminScheduleToCurrentBooking();
+        if (!adminTimeChanged && currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
+        updateActionAvailability();
+      }
+      if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
+        applyTicketRouteData(legacyRouteData);
+      }
+      console.log('[TICKET CATALOG] applied publishedCatalog', catalog.version || '');
+    }, function(error) {
+      console.error('Ticket catalog load failed:', error && error.message ? error.message : error);
     });
 
     function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }

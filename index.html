@@ -12,6 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Kanit:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="catalog-engine.js?v=20260626catalog1"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
 <style>
@@ -1255,48 +1256,55 @@ var db=firebase.database();
 /* โหลดประกาศ */
 loadAnnouncements();
 
+function applyIndexStops(val){
+  if(!val)return false;
+  var fbStops=Object.keys(val).map(function(k){
+    var s=val[k]||{};
+    return {
+      name:s.stopNameTh||s.name||s.nameTh||k,
+      lat:Number(s.lat),lng:Number(s.lng||s.lon),
+      terminal:s.stopType==='terminal'||!!s.terminal,
+      routes:Array.isArray(s.routes)?s.routes:null
+    };
+  }).filter(function(s){return s.lat&&s.lng;});
+  if(fbStops.length<3)return false;
+  STOPS.splice(0,STOPS.length);
+  fbStops.forEach(function(s){STOPS.push(s);});
+  if(mapReady){
+    stopMarkers.forEach(function(m){try{mapObj.Overlays.remove(m);}catch(e){}});
+    stopMarkers=[];
+    renderStopMarkers();
+  }
+  return true;
+}
+
 db.ref('routeData/stops').once('value').then(function(snap){
-  var val=snap.val();
-  if(val){
-    var fbStops=Object.keys(val).map(function(k){
-      var s=val[k];
-      return {
-        name:s.stopNameTh||s.name||k,
-        lat:Number(s.lat),lng:Number(s.lng||s.lon),
-        terminal:s.stopType==='terminal'||!!s.terminal,
-        routes:Array.isArray(s.routes)?s.routes:null
-      };
-    }).filter(function(s){return s.lat&&s.lng;});
-
-    if(fbStops.length>=3){
-      STOPS.splice(0,STOPS.length);
-      fbStops.forEach(function(s){STOPS.push(s);});
-      /* re-render map markers ถ้าแผนที่พร้อมแล้ว */
-      if(mapReady){
-        stopMarkers.forEach(function(m){try{mapObj.Overlays.remove(m);}catch(e){}});
-        stopMarkers=[];
-        renderStopMarkers();
-      }
-    }
-  }
-
+  applyIndexStops(snap.val());
   stopsReady=true;
-
-  /* ถ้า GPS มาก่อน → resolve ทันที */
   if(pendingPos){
     var res=findNearest(pendingPos);
     pendingPos=null;
     if(res.stop) selectStop(res.stop,res.dist);
   }
-
 }).catch(function(){
-  /* Firebase ล้มเหลว — ใช้ hardcode STOPS */
   stopsReady=true;
   if(pendingPos){
     var res=findNearest(pendingPos);
     pendingPos=null;
     if(res.stop) selectStop(res.stop,res.dist);
   }
+});
+
+db.ref('publishedCatalog').on('value', function(snap){
+  var catalog=snap.val();
+  if(!catalog||!window.SLTransitCatalog)return;
+  var legacyRouteData=window.SLTransitCatalog.legacyRouteData(catalog);
+  if(legacyRouteData&&legacyRouteData.stops){
+    applyIndexStops(legacyRouteData.stops);
+    stopsReady=true;
+  }
+}, function(err){
+  console.warn('Index catalog load failed:', err&&err.message?err.message:err);
 });
 
 /* ══════════════════════════════════════════

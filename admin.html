@@ -14,7 +14,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="network-engine.js?v=20260624b"></script>
+<script src="network-engine.js?v=20260624b"></script>
+<script src="catalog-engine.js?v=20260626catalog1"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -777,7 +778,32 @@ var WEBHOOK='https://hook.eu1.make.com/wm17m5ujgk8hkj4bc5hem8o8lyrbia4g';
 var FEE_SVC=5,FEE_AGENT=5,FEE_ENABLED=false,FEE_VISIBLE=false,PAYMENT_MODE='onsite',PAYMENT_BANK='ธนาคารกสิกรไทย (KBank)',PAYMENT_ACCOUNT='',PAYMENT_ACCOUNT_NAME='',BOOKING_CUTOFF_MINUTES=60,TEST_MODE=false;
 var COASTAL=['pattaya','rayong','km10','nongmon','bangsaen','sattahip','aoudom','sriracha','kaset','banchan','yakaiyakan','laemchabang'];
 var BANGKOK=['ekkamai','mochit','bangna','bts_bangchak','homepro','bts_phrakhanong','bts_onnut','yaeklatphrao','bts_jatujak','minburi'];
-var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},queueRouteData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={},routeFilterText='',openQueueGroup='',openQueueTrip='',openDriverLogDay='',pendingExcelImport=null;
+var CU=null,CR=null,allBk=[],filtBk=[],cancelCode=null,PAGE=50,curPage=1,routeData={},queueRouteData={},platformGroups={},bookingStore={bookings:{}},openRouteGroups={},openRouteSchedules={},openMainSubgroups={},routeFilterText='',openQueueGroup='',openQueueTrip='',openDriverLogDay='',pendingExcelImport=null;
+function buildAdminPublishedCatalog(source){
+  if(!window.SLTransitCatalog||typeof window.SLTransitCatalog.buildFromLegacy!=='function')return null;
+  var version=window.SLTransitCatalog.makeVersion();
+  return window.SLTransitCatalog.buildFromLegacy({
+    version:version,
+    source:source||'admin',
+    settingsRoutes:encodeRouteGroups(normalizeRouteGroups(routeData||{})),
+    routeData:queueRouteData||{}
+  });
+}
+function publishAdminCatalog(source){
+  var catalog=buildAdminPublishedCatalog(source);
+  if(!catalog)return Promise.resolve(null);
+  var updates={};
+  updates['catalogDraft']=catalog;
+  updates['publishedCatalog']=catalog;
+  updates['catalogs/'+catalog.version]=catalog;
+  updates['settings/currentCatalogVersion']=catalog.version;
+  return db.ref().update(updates).then(function(){
+    return db.ref('catalogs/'+catalog.version).once('value');
+  }).then(function(snap){
+    if(!snap.exists())throw new Error('อ่านกลับจาก catalogs/'+catalog.version+' แล้วไม่พบข้อมูลที่ publish');
+    return catalog;
+  });
+}
 var _loginAttempts=0,_loginLock=false,_lastActivity=Date.now();
 setInterval(function(){if(CU&&Date.now()-_lastActivity>30*60*1000)doLogout();},60000);
 document.addEventListener('click',function(){_lastActivity=Date.now();});
@@ -1234,7 +1260,7 @@ function excelRemoveDetailsHtml(){var p=pendingExcelImport;if(!p||!p.selected||!
 function renderExcelPreview(){var p=pendingExcelImport;if(!p)return;var choices=[['stops','ข้อมูลป้ายกลาง'],['queues','คิวรถและเวลา'],['routes','กลุ่มเส้นทาง']].filter(function(x){return!!p[x[0]];}).map(function(x){return '<label><input type="checkbox" style="width:auto" '+(p.selected[x[0]]?'checked':'')+' onchange="toggleExcelImportSection(\''+x[0]+'\',this.checked)"> '+x[1]+'</label>';}).join('');var summaries=excelSectionCard('stops','📍 ข้อมูลป้ายกลาง')+excelSectionCard('queues','🚌 คิวรถและเวลา')+excelSectionCard('routes','🗺️ กลุ่มเส้นทาง');var removeCount=excelSelectedRemoveCount(),errors=p.errors||[];document.getElementById('excelPreviewBody').innerHTML='<div style="font-size:12px;color:var(--muted)">ไฟล์: '+esc(p.fileName)+'</div><div class="excel-section-choice">'+choices+'</div><div class="excel-preview-summary">'+summaries+'</div>'+(errors.length?'<div class="excel-errors"><strong>พบข้อมูลที่ต้องแก้ไข</strong><br>'+errors.map(esc).join('<br>')+'</div>':'<div class="alert alert-info">ระบบตรวจรูปแบบข้อมูลแล้ว กรุณาตรวจจำนวนรายการก่อนบันทึก</div>')+excelRemoveDetailsHtml()+'<label class="excel-danger-confirm '+(removeCount?'show':'')+'"><input id="excelDeleteAck" type="checkbox" style="width:auto"> ยืนยันว่าต้องการลบ '+removeCount+' รายการที่ไม่มีอยู่ในไฟล์ Excel</label>';var btn=document.getElementById('excelImportConfirmBtn');btn.disabled=errors.length>0||!Object.keys(p.selected).some(function(k){return p.selected[k]&&p[k];});}
 function toggleExcelImportSection(key,on){if(!pendingExcelImport)return;pendingExcelImport.selected[key]=on;renderExcelPreview();}
 function closeExcelPreview(){pendingExcelImport=null;document.getElementById('excelPreviewModal').classList.add('hidden');}
-function confirmAdminExcelImport(){var p=pendingExcelImport;if(!p||p.errors.length)return;var keys=['stops','queues','routes'].filter(function(k){return p.selected[k]&&p[k];});if(!keys.length)return alert('กรุณาเลือกข้อมูลอย่างน้อย 1 ส่วน');if(excelSelectedRemoveCount()>0){var ack=document.getElementById('excelDeleteAck');if(!ack||!ack.checked)return alert('กรุณาติ๊กยืนยันรายการที่จะถูกลบก่อน');}var checkGroups=(p.selected.routes&&p.routes)?p.routes.data:routeData,checkStops=(p.selected.stops&&p.stops)?p.stops.data:((queueRouteData&&queueRouteData.stops)||{}),networkCheck=validateRouteNetworkData(checkGroups,checkStops);if(!networkCheck.valid){alert('นำเข้าไม่ได้ กรุณาแก้โครงข่าย:\n- '+networkCheck.errors.join('\n- '));return;}var updates={};if(p.selected.stops&&p.stops)updates['routeData/stops']=p.stops.data;if(p.selected.queues&&p.queues)updates['routeData/queues']=p.queues.data;if(p.selected.routes&&p.routes)updates['settings/routes']=encodeRouteGroups(p.routes.data);var btn=document.getElementById('excelImportConfirmBtn');btn.disabled=true;btn.textContent='กำลังบันทึก...';db.ref().update(updates).then(function(){if(p.selected.stops&&p.stops)queueRouteData.stops=p.stops.data;if(p.selected.queues&&p.queues)queueRouteData.queues=p.queues.data;if(p.selected.routes&&p.routes)routeData=p.routes.data;renderCentralStops();renderQueueRouteData();renderRouteGroups();writeLog('import_excel','นำเข้า Excel: '+keys.join(', '));closeExcelPreview();alert('✅ นำเข้าข้อมูล Excel และตรวจสอบการบันทึกสำเร็จ');}).catch(function(e){btn.disabled=false;btn.textContent='✅ ยืนยันและบันทึก';alert('นำเข้า Excel ไม่สำเร็จ: '+e.message);});}
+function confirmAdminExcelImport(){var p=pendingExcelImport;if(!p||p.errors.length)return;var keys=['stops','queues','routes'].filter(function(k){return p.selected[k]&&p[k];});if(!keys.length)return alert('กรุณาเลือกข้อมูลอย่างน้อย 1 ส่วน');if(excelSelectedRemoveCount()>0){var ack=document.getElementById('excelDeleteAck');if(!ack||!ack.checked)return alert('กรุณาติ๊กยืนยันรายการที่จะถูกลบก่อน');}var checkGroups=(p.selected.routes&&p.routes)?p.routes.data:routeData,checkStops=(p.selected.stops&&p.stops)?p.stops.data:((queueRouteData&&queueRouteData.stops)||{}),networkCheck=validateRouteNetworkData(checkGroups,checkStops);if(!networkCheck.valid){alert('นำเข้าไม่ได้ กรุณาแก้โครงข่าย:\n- '+networkCheck.errors.join('\n- '));return;}var updates={};if(p.selected.stops&&p.stops)updates['routeData/stops']=p.stops.data;if(p.selected.queues&&p.queues)updates['routeData/queues']=p.queues.data;if(p.selected.routes&&p.routes)updates['settings/routes']=encodeRouteGroups(p.routes.data);var btn=document.getElementById('excelImportConfirmBtn');btn.disabled=true;btn.textContent='กำลังบันทึก...';db.ref().update(updates).then(function(){if(p.selected.stops&&p.stops)queueRouteData.stops=p.stops.data;if(p.selected.queues&&p.queues)queueRouteData.queues=p.queues.data;if(p.selected.routes&&p.routes)routeData=p.routes.data;renderCentralStops();renderQueueRouteData();renderRouteGroups();return publishAdminCatalog('admin_excel_import');}).then(function(catalog){writeLog('import_excel','นำเข้า Excel: '+keys.join(', ')+(catalog&&catalog.version?' catalog '+catalog.version:''));closeExcelPreview();alert('✅ นำเข้าข้อมูล Excel และ publish catalog สำเร็จ'+(catalog&&catalog.version?'\nVersion: '+catalog.version:''));}).catch(function(e){btn.disabled=false;btn.textContent='✅ ยืนยันและบันทึก';alert('นำเข้า Excel ไม่สำเร็จ: '+e.message);});}
 
 function loadRouteData(){
   db.ref('settings/routes').once('value').then(function(snap){
@@ -1254,21 +1280,24 @@ function loadQueueRouteData(){
     console.warn('[ADMIN QUEUE DEBUG] read path=routeData failed',e&&e.message?e.message:e);
   });
 }
-function saveQueueRouteData(successMsg,logDetail){
-  return db.ref('routeData').set(queueRouteData||{}).then(function(){
-    return db.ref('routeData').once('value');
-  }).then(function(snap){
-    if(!snap.exists())throw new Error('อ่านกลับจาก routeData แล้วไม่พบข้อมูลที่บันทึก');
-    queueRouteData=snap.val()||{};
-    console.log('[ADMIN QUEUE DEBUG] readback path=routeData',queueRouteData);
-    renderCentralStops();
-    renderQueueRouteData();
-    writeLog('edit_queue_routes',logDetail||'บันทึกข้อมูลคิวรถ');
-    alert('✅ '+(successMsg||'บันทึกข้อมูลคิวรถสำเร็จ'));
-  }).catch(function(e){
-    alert('บันทึกไม่สำเร็จ: '+e.message+' (path: routeData)');
-  });
-}
+function saveQueueRouteData(successMsg,logDetail){
+  return db.ref('routeData').set(queueRouteData||{}).then(function(){
+    return db.ref('routeData').once('value');
+  }).then(function(snap){
+    if(!snap.exists())throw new Error('routeData readback is empty');
+    queueRouteData=snap.val()||{};
+    console.log('[ADMIN QUEUE DEBUG] readback path=routeData',queueRouteData);
+    renderCentralStops();
+    renderQueueRouteData();
+    return publishAdminCatalog('admin_queue_routes').then(function(catalog){
+      writeLog('edit_queue_routes',(logDetail||'save routeData/queues')+(catalog&&catalog.version?' catalog '+catalog.version:''));
+      alert('OK '+(successMsg||'saved queue route data')+(catalog&&catalog.version?'\nCatalog: '+catalog.version:''));
+    });
+  }).catch(function(e){
+    alert('Save failed: '+e.message+' (path: routeData/catalog)');
+  });
+}
+
 var LEGACY_CENTRAL_STOP_ORDER=['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
 function centralStopIcon(stop){if(stop&&stop.icon)return stop.icon;if(stop&&stop.stopType==='transfer_hub')return'🔁';if(stop&&stop.stopType==='conditional')return'📍';return'🚌';}
 function centralStopEntries(){
@@ -1371,32 +1400,35 @@ function syncCentralStopForm(){
   });
 }
 function prepareCentralStopsForSave(){var out={};centralStopEntries().forEach(function(item,index){var s=Object.assign({},item.stop);s.stopKey=item.key;s.sourceStopKey=s.sourceStopKey||item.key;s.stopNameTh=String(s.stopNameTh||s.name||item.key).trim();s.icon=String(s.icon||centralStopIcon(s)).trim()||'🚌';s.order=index+1;if(s.lat!==undefined)s.lat=Number(s.lat);if(s.lng!==undefined)s.lng=Number(s.lng);out[item.key]=s;});queueRouteData.stops=out;return out;}
-function saveCentralStops(){
-  syncCentralStopForm();
-  var stops=prepareCentralStopsForSave();
-  var button=document.querySelector('button[onclick="saveCentralStops()"]');
-  if(button){button.disabled=true;button.textContent='⏳ กำลังบันทึก...';}
-  return db.ref('routeData/stops').set(stops).then(function(){
-    return db.ref('routeData/stops').once('value');
-  }).then(function(snap){
-    var saved=snap.val()||{};
-    var expectedKeys=Object.keys(stops),savedKeys=Object.keys(saved);
-    var mismatch=expectedKeys.length!==savedKeys.length||expectedKeys.some(function(key){
-      return !saved[key]||String(saved[key].icon||'')!==String(stops[key].icon||'')||String(saved[key].stopNameTh||'')!==String(stops[key].stopNameTh||'');
-    });
-    if(mismatch)throw new Error('ข้อมูลที่อ่านกลับไม่ตรงกับค่าที่กรอก กรุณาลองบันทึกอีกครั้ง');
-    queueRouteData.stops=saved;
-    renderCentralStops();
-    writeLog('edit_queue_routes','บันทึกข้อมูลป้ายกลาง ตำแหน่ง ไอคอน และลำดับ');
-    alert('✅ บันทึกข้อมูลป้ายกลางสำเร็จ และตรวจสอบข้อมูลกลางแล้ว');
-    return saved;
-  }).catch(function(e){
-    alert('บันทึกป้ายกลางไม่สำเร็จ: '+e.message);
-    throw e;
-  }).finally(function(){
-    if(button){button.disabled=false;button.textContent='💾 บันทึกข้อมูลป้ายกลาง';}
-  });
-}
+function saveCentralStops(){
+  syncCentralStopForm();
+  var stops=prepareCentralStopsForSave();
+  var button=document.querySelector('button[onclick="saveCentralStops()"]');
+  if(button){button.disabled=true;button.textContent='Saving...';}
+  return db.ref('routeData/stops').set(stops).then(function(){
+    return db.ref('routeData/stops').once('value');
+  }).then(function(snap){
+    var saved=snap.val()||{};
+    var expectedKeys=Object.keys(stops),savedKeys=Object.keys(saved);
+    var mismatch=expectedKeys.length!==savedKeys.length||expectedKeys.some(function(key){
+      return !saved[key]||String(saved[key].icon||'')!==String(stops[key].icon||'')||String(saved[key].stopNameTh||'')!==String(stops[key].stopNameTh||'');
+    });
+    if(mismatch)throw new Error('routeData/stops readback does not match the edited values');
+    queueRouteData.stops=saved;
+    renderCentralStops();
+    return publishAdminCatalog('admin_central_stops').then(function(catalog){
+      writeLog('edit_queue_routes','save routeData/stops'+(catalog&&catalog.version?' catalog '+catalog.version:''));
+      alert('OK saved central stops and published catalog'+(catalog&&catalog.version?'\nCatalog: '+catalog.version:''));
+      return saved;
+    });
+  }).catch(function(e){
+    alert('Save central stops failed: '+e.message);
+    throw e;
+  }).finally(function(){
+    if(button){button.disabled=false;button.textContent='Save central stops';}
+  });
+}
+
 function routeDataList(value){
   if(!value)return[];
   if(Array.isArray(value))return value.map(function(v,i){return {key:String(i),value:v};}).filter(function(x){return !!x.value;});
@@ -2075,21 +2107,24 @@ function prepareRouteDataForSave(){
   });
 }
 function validateRouteNetworkData(groups,stops){if(!window.SLTransitNetwork)return{valid:true,errors:[],warnings:[]};stops=stops||{};if(!Object.keys(stops).length)return{valid:true,errors:[],warnings:['ยังไม่มีข้อมูลป้ายกลางสำหรับตรวจสอบจุดต่อรถ']};return window.SLTransitNetwork.validateAdminData({stops:stops,groups:groups||{}});}
-  function saveRouteSettings(successMsg,logDetail){
-  prepareRouteDataForSave();
-    var networkCheck=validateRouteNetworkData(routeData,(queueRouteData&&queueRouteData.stops)||{});
-    if(!networkCheck.valid){alert('บันทึกไม่ได้ กรุณาแก้โครงข่าย:\n- '+networkCheck.errors.join('\n- '));return;}
-    var payload=encodeRouteGroups(routeData);
-  console.log('[ADMIN ROUTE DEBUG] write path=settings/routes',payload);
-  db.ref('settings/routes').set(payload).then(function(){
-    return db.ref('settings/routes').once('value');
-  }).then(function(snap){
-    if(!snap.exists())throw new Error('อ่านกลับจาก settings/routes แล้วไม่พบข้อมูลที่บันทึก');
-    console.log('[ADMIN ROUTE DEBUG] readback path=settings/routes',snap.val());
-    writeLog('edit_routes',logDetail||'บันทึกข้อมูลเส้นทาง');
-    alert('\u2705 '+(successMsg||'บันทึกสำเร็จ'));
-  }).catch(function(e){alert('บันทึกไม่สำเร็จ: '+e.message+' (path: settings/routes)');});
-}
+  function saveRouteSettings(successMsg,logDetail){
+  prepareRouteDataForSave();
+  var networkCheck=validateRouteNetworkData(routeData,(queueRouteData&&queueRouteData.stops)||{});
+  if(!networkCheck.valid){alert('Save blocked. Fix route network:\n- '+networkCheck.errors.join('\n- '));return;}
+  var payload=encodeRouteGroups(routeData);
+  console.log('[ADMIN ROUTE DEBUG] write path=settings/routes',payload);
+  db.ref('settings/routes').set(payload).then(function(){
+    return db.ref('settings/routes').once('value');
+  }).then(function(snap){
+    if(!snap.exists())throw new Error('settings/routes readback is empty');
+    console.log('[ADMIN ROUTE DEBUG] readback path=settings/routes',snap.val());
+    return publishAdminCatalog('admin_route_settings').then(function(catalog){
+      writeLog('edit_routes',(logDetail||'save settings/routes')+(catalog&&catalog.version?' catalog '+catalog.version:''));
+      alert('OK '+(successMsg||'saved routes')+(catalog&&catalog.version?'\nCatalog: '+catalog.version:''));
+    });
+  }).catch(function(e){alert('Save failed: '+e.message+' (path: settings/routes/catalog)');});
+}
+
 function saveRoutes(){
   saveRouteSettings('บันทึกสำเร็จ','บันทึกข้อมูลเส้นทาง');
 }

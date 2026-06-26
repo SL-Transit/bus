@@ -315,10 +315,31 @@
     return ROUTE_DATA_TRIPS.slice();
   }
 
+  function applyPublishedCatalog(catalog) {
+    if (!catalog || !global.SLTransitCatalog || typeof global.SLTransitCatalog.legacyRouteData !== 'function') return null;
+    var legacyRouteData = global.SLTransitCatalog.legacyRouteData(catalog);
+    if (!legacyRouteData || !legacyRouteData.stops && !legacyRouteData.queues) return null;
+    return applyRouteData(legacyRouteData);
+  }
+
   function loadRouteDataFromFirebase() {
     try {
       if (!global.firebase || !global.firebase.database) return Promise.resolve(null);
-      return global.firebase.database().ref('routeData').once('value').then(function(snap) {
+      var db = global.firebase.database();
+      if (global.SLTransitCatalog && typeof global.SLTransitCatalog.loadPublished === 'function') {
+        return global.SLTransitCatalog.loadPublished(db).then(function(catalog) {
+          var applied = applyPublishedCatalog(catalog);
+          if (applied) return applied;
+          return db.ref('routeData').once('value').then(function(snap) {
+            return applyRouteData(snap.val());
+          });
+        }).catch(function() {
+          return db.ref('routeData').once('value').then(function(snap) {
+            return applyRouteData(snap.val());
+          });
+        });
+      }
+      return db.ref('routeData').once('value').then(function(snap) {
         return applyRouteData(snap.val());
       }).catch(function() {
         return null;
@@ -340,6 +361,11 @@
       db.ref('routeData').on('value', function(snap) {
         applyRouteData(snap.val());
       });
+      if (global.SLTransitCatalog) {
+        db.ref('publishedCatalog').on('value', function(snap) {
+          applyPublishedCatalog(snap.val());
+        });
+      }
       return true;
     } catch (e) {
       routeDataWatchStarted = false;
@@ -348,6 +374,7 @@
   }
 
   function startFirebaseDataWatch(attempt) {
+    if (typeof setTimeout !== 'function') return;
     if (watchFirebaseData()) {
       if (firebaseWatchRetryTimer) clearTimeout(firebaseWatchRetryTimer);
       firebaseWatchRetryTimer = null;
@@ -532,6 +559,7 @@
     reloadRotationConfig: loadRotationConfigFromFirebase,
     reloadRouteData: loadRouteDataFromFirebase,
     applyRouteData: applyRouteData,
+    applyPublishedCatalog: applyPublishedCatalog,
     watchFirebaseData: watchFirebaseData,
     startFirebaseDataWatch: startFirebaseDataWatch
   };
