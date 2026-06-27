@@ -15,10 +15,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="catalog-engine.js?v=20260626catalog1"></script>
-<script src="erp-engine.js?v=20260626erp3"></script>
+<script src="catalog-engine.js?v=20260627catalog2"></script>
+<script src="erp-engine.js?v=20260627erp4"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
-<script src="schedule-engine.js?v=20260623central2"></script>
+<script src="schedule-engine.js?v=20260627central3"></script>
 <script src="qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -939,6 +939,27 @@ function _routeSortValue(item, fallback) {
   return Number(fallback) || 0;
 }
 
+function _bookingStopSortValue(label, fallback) {
+  if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
+    return window.SLTransitERP.stopOrderValue(label, fallback == null ? 999999 : fallback);
+  }
+  if (window.SLTransitCatalog && typeof window.SLTransitCatalog.stopOrderValue === 'function') {
+    return window.SLTransitCatalog.stopOrderValue(label, fallback == null ? 999999 : fallback);
+  }
+  return fallback == null ? 999999 : Number(fallback);
+}
+
+function _bookingRouteSortValue(route, fallback) {
+  var label = route && (route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || (ORIGIN_TIMES[route.key] && ORIGIN_TIMES[route.key].label) || route.key);
+  var byStop = _bookingStopSortValue(label, null);
+  return byStop < 999999 ? byStop : _routeSortValue(route, fallback);
+}
+
+function _bookingRouteCompare(a, b) {
+  return _bookingRouteSortValue(a, 999999) - _bookingRouteSortValue(b, 999999)
+    || String(a && a.label || '').localeCompare(String(b && b.label || ''));
+}
+
 function _createBookingDisplayGroups() {
   return {
     normal: {id:'main',name:'เส้นทางหลัก',sortOrder:0,routes:[],seen:{}},
@@ -978,7 +999,7 @@ function _addBookingDisplayRoute(display, key, label, isLeg2, groupName, sortOrd
   }
   if (bucket.seen[key]) return;
   bucket.seen[key] = true;
-  bucket.routes.push({key:key,label:label,sortOrder:_routeSortValue({sortOrder:sortOrder},bucket.routes.length)});
+  bucket.routes.push({key:key,label:label,sortOrder:_bookingStopSortValue(label, sortOrder == null ? bucket.routes.length : sortOrder)});
 }
 
 function _finalizeBookingDisplayGroups(display) {
@@ -1030,7 +1051,7 @@ function _destinationGroupsForBookingPicker() {
       return {
         id: group.id || _cleanBookingGroupName(group.name),
         name: _cleanBookingGroupName(group.name),
-        routes: (group.routes || []).slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); })
+        routes: (group.routes || []).slice().sort(_bookingRouteCompare)
       };
     }).filter(function(group){ return group.routes.length; });
   }
@@ -1146,7 +1167,10 @@ function _rebuildRouteSelects() {
   var prevFrom = fromSel.value;
   var prevTo = toSel.value;
   fromSel.innerHTML = '';
-  Object.keys(ORIGIN_TIMES).forEach(function(key) {
+  Object.keys(ORIGIN_TIMES).sort(function(a,b){
+    return _bookingStopSortValue(ORIGIN_TIMES[a] && ORIGIN_TIMES[a].label, 999999) - _bookingStopSortValue(ORIGIN_TIMES[b] && ORIGIN_TIMES[b].label, 999999)
+      || String(ORIGIN_TIMES[a] && ORIGIN_TIMES[a].label || a).localeCompare(String(ORIGIN_TIMES[b] && ORIGIN_TIMES[b].label || b));
+  }).forEach(function(key) {
     var opt = document.createElement('option');
     opt.value = key;
     opt.textContent = ORIGIN_TIMES[key].label || key;
@@ -1158,7 +1182,7 @@ function _rebuildRouteSelects() {
       var groupName = _cleanBookingGroupName(group.name || 'ปลายทางอื่น');
       var optgroup = document.createElement('optgroup');
       optgroup.label = groupName;
-      (group.routes || []).slice().sort(function(a,b){return (a.sortOrder||0)-(b.sortOrder||0);}).forEach(function(route) {
+      (group.routes || []).slice().sort(_bookingRouteCompare).forEach(function(route) {
         var opt = document.createElement('option');
         var label = route.label || (LEG2_DEST[route.key] && LEG2_DEST[route.key].label) || route.key;
         opt.value = route.key;
@@ -1168,7 +1192,10 @@ function _rebuildRouteSelects() {
       toSel.appendChild(optgroup);
     });
   } else {
-    Object.keys(LEG2_DEST).forEach(function(key) {
+    Object.keys(LEG2_DEST).sort(function(a,b){
+      return _bookingStopSortValue(LEG2_DEST[a] && LEG2_DEST[a].label, 999999) - _bookingStopSortValue(LEG2_DEST[b] && LEG2_DEST[b].label, 999999)
+        || String(LEG2_DEST[a] && LEG2_DEST[a].label || a).localeCompare(String(LEG2_DEST[b] && LEG2_DEST[b].label || b));
+    }).forEach(function(key) {
       var opt = document.createElement('option');
       opt.value = key;
       opt.textContent = LEG2_DEST[key].label || key;

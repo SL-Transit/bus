@@ -26,6 +26,40 @@
     return id || String(fallback || 'id');
   }
 
+  var CANONICAL_STOP_ORDER = [
+    ['ฉะเชิงเทรา', 'ฉะเชิงเทรา (แปดริ้ว)', 'แปดริ้ว', 'chachoengsao'],
+    ['พนมสารคาม', 'phanom'],
+    ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'sanamchai'],
+    ['กม.1', 'กม 1', 'km1'],
+    ['กม.7', 'กม 7', 'km7'],
+    ['ห้วยโสม', 'huaisom'],
+    ['ท่าตะเกียบ', 'tatakiab'],
+    ['หนองคอก', 'nongkhok'],
+    ['คลองตะเคียน', 'khlongtakien'],
+    ['หนองเรือ', 'nongruea'],
+    ['ไพจิตร', 'ไพรจิต', 'phaijit'],
+    ['ทุ่งกมินทร์', 'ทุ่งกบินทร์', 'thoengkabintr'],
+    ['สี่แยกโคนม', 'siyaekkhonom'],
+    ['วังน้ำเย็น', 'wangnamyen'],
+    ['คลองหาด', 'klonghat', 'khlonghat']
+  ];
+
+  function cleanStopLabel(value) {
+    return String(value || '').replace(/\s+/g, '').replace(/[().]/g, '').toLowerCase();
+  }
+
+  function stopOrderValue(value, fallback) {
+    var clean = cleanStopLabel(value);
+    if (!clean) return fallback == null ? 999999 : Number(fallback);
+    for (var i = 0; i < CANONICAL_STOP_ORDER.length; i++) {
+      for (var j = 0; j < CANONICAL_STOP_ORDER[i].length; j++) {
+        var alias = cleanStopLabel(CANONICAL_STOP_ORDER[i][j]);
+        if (clean === alias || (alias.length >= 6 && (clean.indexOf(alias) !== -1 || alias.indexOf(clean) !== -1))) return i + 1;
+      }
+    }
+    return fallback == null ? 999999 : Number(fallback);
+  }
+
   function stopName(catalog, stopKey) {
     var stop = catalog && catalog.stops && catalog.stops[stopKey] || {};
     return stop.nameTh || stop.stopNameTh || stop.name || stop.stopTh || stopKey || '';
@@ -144,13 +178,16 @@
         scheduleMeta: scheduleMeta,
         price: Number(fare.amount || route.price) || 0,
         isActive: route.isActive !== false,
-        sortOrder: Number(route.sortOrder) || 0
+        sortOrder: stopOrderValue(routeLabel(catalog, route, 'to', 'toStopKey'), Number(route.sortOrder) || 999999)
       });
     });
 
     Object.keys(groups).forEach(function(groupId) {
       groups[groupId].routes.sort(function(a, b) {
-        return (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0) || String(a.from).localeCompare(String(b.from)) || String(a.to).localeCompare(String(b.to));
+        return stopOrderValue(a.from, Number(a.sortOrder) || 999999) - stopOrderValue(b.from, Number(b.sortOrder) || 999999)
+          || stopOrderValue(a.to, Number(a.sortOrder) || 999999) - stopOrderValue(b.to, Number(b.sortOrder) || 999999)
+          || String(a.from).localeCompare(String(b.from))
+          || String(a.to).localeCompare(String(b.to));
       });
     });
     return groups;
@@ -166,7 +203,7 @@
         name: stop && (stop.name || stop.nameTh || stop.stopNameTh || stop.stopTh) || key,
         lat: stop && stop.lat == null ? null : Number(stop && stop.lat),
         lng: stop && stop.lng == null ? null : Number(stop && stop.lng),
-        order: Number(stop && stop.order) || 999999,
+        order: stopOrderValue(stop && (stop.stopNameTh || stop.nameTh || stop.name || stop.stopTh) || key, Number(stop && stop.order) || 999999),
         stopType: stop && (stop.stopType || stop.type) || 'main',
         bookingEnabled: !stop || stop.bookingEnabled !== false
       });
@@ -355,7 +392,9 @@
     routeTripContext: routeTripContext,
     routeTimes: routeTimes,
     routeDisabledTimes: routeDisabledTimes,
-    routeTimesByDestination: routeTimesByDestination
+    routeTimesByDestination: routeTimesByDestination,
+    stopOrderValue: stopOrderValue,
+    canonicalStopOrder: function() { return CANONICAL_STOP_ORDER.map(function(item) { return item[0]; }); }
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitERP;

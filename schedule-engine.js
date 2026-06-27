@@ -10,6 +10,16 @@
   var routeDataWatchStarted = false;
   var firebaseWatchRetryTimer = null;
 
+  function scheduleStopOrderValue(label, fallback) {
+    if (global.SLTransitERP && typeof global.SLTransitERP.stopOrderValue === 'function') {
+      return global.SLTransitERP.stopOrderValue(label, fallback == null ? 999999 : fallback);
+    }
+    if (global.SLTransitCatalog && typeof global.SLTransitCatalog.stopOrderValue === 'function') {
+      return global.SLTransitCatalog.stopOrderValue(label, fallback == null ? 999999 : fallback);
+    }
+    return fallback == null ? 999999 : Number(fallback);
+  }
+
   // ===== โหลดค่าคิวจาก Firebase (settings/queueRotation) ถ้ามี — override ค่า fallback ด้านบน =====
   // เพื่อให้ admin แก้ไข base date / ลำดับคิวเริ่มต้นได้ในอนาคตโดยไม่ต้องแก้โค้ดไฟล์นี้
   function applyRotationConfig(cfg) {
@@ -212,8 +222,8 @@
       return ACTIVE_MAIN_STOP_KEYS;
     }
     var ordered = Object.keys(stops).filter(function(key) { return !!stops[key]; }).sort(function(a, b) {
-      var ai = Number(stops[a] && stops[a].order);
-      var bi = Number(stops[b] && stops[b].order);
+      var ai = scheduleStopOrderValue(stops[a] && (stops[a].stopNameTh || stops[a].name || a), Number(stops[a] && stops[a].order) || 999999);
+      var bi = scheduleStopOrderValue(stops[b] && (stops[b].stopNameTh || stops[b].name || b), Number(stops[b] && stops[b].order) || 999999);
       if (!isFinite(ai) || ai <= 0) ai = MAIN_STOP_KEYS.indexOf(a) >= 0 ? MAIN_STOP_KEYS.indexOf(a) + 1 : 999999;
       if (!isFinite(bi) || bi <= 0) bi = MAIN_STOP_KEYS.indexOf(b) >= 0 ? MAIN_STOP_KEYS.indexOf(b) + 1 : 999999;
       return ai - bi || String(a).localeCompare(String(b));

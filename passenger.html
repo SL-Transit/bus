@@ -13,10 +13,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
-<script src="catalog-engine.js?v=20260626catalog1"></script>
-<script src="erp-engine.js?v=20260626erp3"></script>
+<script src="catalog-engine.js?v=20260627catalog2"></script>
+<script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
-<script src="schedule-engine.js?v=20260623central2"></script>
+<script src="schedule-engine.js?v=20260627central3"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -1112,6 +1112,23 @@ function findKnownRouteLabel(label, collections) {
   return String(label || '').trim();
 }
 
+function passengerStopSortValue(label, fallback) {
+  if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
+    return window.SLTransitERP.stopOrderValue(label, fallback == null ? 999999 : fallback);
+  }
+  if (window.SLTransitCatalog && typeof window.SLTransitCatalog.stopOrderValue === 'function') {
+    return window.SLTransitCatalog.stopOrderValue(label, fallback == null ? 999999 : fallback);
+  }
+  return fallback == null ? 999999 : Number(fallback);
+}
+
+function sortStopLabels(list) {
+  list.sort(function(a, b) {
+    return passengerStopSortValue(a, 999999) - passengerStopSortValue(b, 999999)
+      || String(a || '').localeCompare(String(b || ''));
+  });
+}
+
 function addUnique(list, value) {
   if (value && list.indexOf(value) === -1) list.push(value);
 }
@@ -1212,6 +1229,9 @@ function applyPassengerRouteSettings(data) {
       }
     });
   });
+  sortStopLabels(ORIGIN_LIST);
+  sortStopLabels(DEST_NORMAL);
+  sortStopLabels(DEST_LEG2);
 
   buildDropdowns();
   renderSched();
@@ -1223,11 +1243,12 @@ function applyPassengerRouteData(data) {
   PASSENGER_ROUTE_DATA = data || null;
   var stops = data && data.stops ? data.stops : null;
   if (!stops) return;
-  var legacyOrder = ['klonghat','wangnamyen','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
   var order = Object.keys(stops).sort(function(a,b) {
     var ai = Number(stops[a] && stops[a].order), bi = Number(stops[b] && stops[b].order);
-    if (!isFinite(ai) || ai <= 0) ai = legacyOrder.indexOf(a) >= 0 ? legacyOrder.indexOf(a) + 1 : 999;
-    if (!isFinite(bi) || bi <= 0) bi = legacyOrder.indexOf(b) >= 0 ? legacyOrder.indexOf(b) + 1 : 999;
+    var an = stops[a] && (stops[a].stopNameTh || stops[a].name || a);
+    var bn = stops[b] && (stops[b].stopNameTh || stops[b].name || b);
+    if (!isFinite(ai) || ai <= 0) ai = passengerStopSortValue(an, 999999);
+    if (!isFinite(bi) || bi <= 0) bi = passengerStopSortValue(bn, 999999);
     return ai - bi || a.localeCompare(b);
   });
   var nextStops = order.map(function(key) {

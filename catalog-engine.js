@@ -28,6 +28,40 @@
     return id || String(fallback || 'id');
   }
 
+  var CANONICAL_STOP_ORDER = [
+    ['ฉะเชิงเทรา', 'ฉะเชิงเทรา (แปดริ้ว)', 'แปดริ้ว', 'chachoengsao'],
+    ['พนมสารคาม', 'phanom'],
+    ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'sanamchai'],
+    ['กม.1', 'กม 1', 'km1'],
+    ['กม.7', 'กม 7', 'km7'],
+    ['ห้วยโสม', 'huaisom'],
+    ['ท่าตะเกียบ', 'tatakiab'],
+    ['หนองคอก', 'nongkhok'],
+    ['คลองตะเคียน', 'khlongtakien'],
+    ['หนองเรือ', 'nongruea'],
+    ['ไพจิตร', 'ไพรจิต', 'phaijit'],
+    ['ทุ่งกมินทร์', 'ทุ่งกบินทร์', 'thoengkabintr'],
+    ['สี่แยกโคนม', 'siyaekkhonom'],
+    ['วังน้ำเย็น', 'wangnamyen'],
+    ['คลองหาด', 'klonghat', 'khlonghat']
+  ];
+
+  function cleanStopLabel(value) {
+    return String(value || '').replace(/\s+/g, '').replace(/[().]/g, '').toLowerCase();
+  }
+
+  function stopOrderValue(value, fallback) {
+    var clean = cleanStopLabel(value);
+    if (!clean) return fallback == null ? 999999 : Number(fallback);
+    for (var i = 0; i < CANONICAL_STOP_ORDER.length; i++) {
+      for (var j = 0; j < CANONICAL_STOP_ORDER[i].length; j++) {
+        var alias = cleanStopLabel(CANONICAL_STOP_ORDER[i][j]);
+        if (clean === alias || (alias.length >= 6 && (clean.indexOf(alias) !== -1 || alias.indexOf(clean) !== -1))) return i + 1;
+      }
+    }
+    return fallback == null ? 999999 : Number(fallback);
+  }
+
   function makeVersion(now) {
     var d = now || new Date();
     function pad(n) { return String(n).padStart(2, '0'); }
@@ -56,7 +90,7 @@
         lat: stop.lat == null ? null : Number(stop.lat),
         lng: stop.lng == null ? null : Number(stop.lng),
         icon: stop.icon || '',
-        order: Number(stop.order) || 999999,
+        order: stopOrderValue(stopName(stop, key), Number(stop.order) || 999999),
         stopType: stop.stopType || 'main',
         bookingEnabled: stop.bookingEnabled !== false,
         note: stop.note || '',
@@ -248,6 +282,8 @@
     buildFromLegacy: buildFromLegacy,
     legacySettingsRoutes: legacySettingsRoutes,
     legacyRouteData: legacyRouteData,
-    loadPublished: loadPublished
+    loadPublished: loadPublished,
+    stopOrderValue: stopOrderValue,
+    canonicalStopOrder: function() { return CANONICAL_STOP_ORDER.map(function(item) { return item[0]; }); }
   };
 })(window);

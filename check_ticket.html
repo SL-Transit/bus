@@ -16,12 +16,12 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-<script src="catalog-engine.js?v=20260626catalog1"></script>
-<script src="erp-engine.js?v=20260626erp3"></script>
+<script src="catalog-engine.js?v=20260627catalog2"></script>
+<script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
-<script src="schedule-engine.js?v=20260623central2"></script>
+<script src="schedule-engine.js?v=20260627central3"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -774,6 +774,15 @@
     var TICKET_CATALOG_ROUTES_APPLIED = false;
     var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
     var MAIN_ROUTE_STOPS_FROM_CATALOG = [];
+    function ticketStopSortValue(label, fallback) {
+      if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
+        return window.SLTransitERP.stopOrderValue(label, fallback == null ? 999999 : fallback);
+      }
+      if (window.SLTransitCatalog && typeof window.SLTransitCatalog.stopOrderValue === 'function') {
+        return window.SLTransitCatalog.stopOrderValue(label, fallback == null ? 999999 : fallback);
+      }
+      return fallback == null ? 999999 : Number(fallback);
+    }
     var lastPosition = null;
     var stationaryAnchor = null;
     var stationarySince = null;
@@ -858,14 +867,18 @@
         var lat = Number(stop.lat);
         var lng = Number(stop.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        return { key:key, name:String(stop.stopNameTh || stop.name || key).trim(), lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main', order:Number(stop.order) || 999999 };
+        var name = String(stop.stopNameTh || stop.name || key).trim();
+        return { key:key, name:name, lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main', order:ticketStopSortValue(name, Number(stop.order) || 999999) };
       }).filter(Boolean);
       if (!centralStops.length) return;
       MAIN_ROUTE_STOPS_FROM_CATALOG = buildMainRouteStopsFromRouteData(routeData, centralStops);
       var fallbackStops = STOP_LOCATIONS.slice();
       STOP_LOCATIONS = centralStops.concat(fallbackStops.filter(function(oldStop) {
         return !centralStops.some(function(centralStop) { return isSameStop(centralStop.name, oldStop.name); });
-      }));
+      })).sort(function(a, b) {
+        return ticketStopSortValue(a && a.name, a && a.order || 999999) - ticketStopSortValue(b && b.name, b && b.order || 999999)
+          || String(a && a.name || '').localeCompare(String(b && b.name || ''));
+      });
       if (!currentBooking) return;
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
       destinationLocation = resolveDestinationLocation(currentBooking);
@@ -878,26 +891,12 @@
     }
 
     function buildMainRouteStopsFromRouteData(routeData, centralStops) {
-      var byKey = {};
-      centralStops.forEach(function(stop) { if (stop.key) byKey[String(stop.key)] = stop; });
-      var best = [];
-      Object.keys((routeData && routeData.queues) || {}).forEach(function(queueKey) {
-        var trips = routeData.queues[queueKey] && routeData.queues[queueKey].trips || {};
-        Object.keys(trips).forEach(function(tripKey) {
-          var names = ((trips[tripKey] && trips[tripKey].stops) || []).map(function(stop) {
-            var key = String(stop && (stop.stopKey || stop.key || '') || '');
-            var matched = key && byKey[key];
-            return String((matched && matched.name) || stop.stopTh || stop.name || key || '').trim();
-          }).filter(Boolean);
-          if (names.length > best.length) best = names;
-        });
-      });
-      if (best.length >= 2) return best.filter(function(name, index) {
-        return !best.slice(0, index).some(function(previous) { return isSameStop(previous, name); });
-      });
       return centralStops
         .filter(function(stop) { return stop.stopType !== 'conditional'; })
-        .sort(function(a, b) { return a.order - b.order || String(a.name).localeCompare(String(b.name)); })
+        .sort(function(a, b) {
+          return ticketStopSortValue(a.name, a.order) - ticketStopSortValue(b.name, b.order)
+            || String(a.name).localeCompare(String(b.name));
+        })
         .map(function(stop) { return stop.name; });
     }
 
