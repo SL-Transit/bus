@@ -318,62 +318,14 @@ body{font-family:'Kanit',sans-serif;background:linear-gradient(180deg,#f7fbff,#e
         <div class="route-select-row">
           <div class="route-select-label">ต้นทาง</div>
           <select class="route-select" id="routeFrom" onchange="updateRoute()">
-            <option value="chachoengsao">ฉะเชิงเทรา (แปดริ้ว)</option>
-            <option value="phanom">พนมสารคาม</option>
-            <option value="sanamchai">ท่ารถสนามชัยเขต</option>
-            <option value="tatakiab">ท่าตะเกียบ</option>
-            <option value="nongkhok">หนองคอก</option>
-            <option value="khlongtakien">คลองตะเคียน</option>
-            <option value="nongruea">หนองเรือ</option>
-            <option value="phaijit">ไพจิตร</option>
-            <option value="thoengkabintr">ทุ่งกบินทร์</option>
-            <option value="siyaekkhonom">สี่แยกโคนม</option>
-            <option value="klonghat">คลองหาด</option>
+            <option value="">กำลังโหลดต้นทางจากระบบกลาง...</option>
           </select>
         </div>
         <div class="route-swap-icon">⇅</div>
         <div class="route-select-row">
           <div class="route-select-label">ปลายทาง</div>
           <select class="route-select is-native-backup" id="routeTo" onchange="updateRoute()">
-            <optgroup label="— เส้นทางหลัก —">
-              <option value="chachoengsao">ฉะเชิงเทรา (แปดริ้ว)</option>
-              <option value="phanom">พนมสารคาม</option>
-              <option value="sanamchai">ท่ารถสนามชัยเขต</option>
-              <option value="tatakiab">ท่าตะเกียบ</option>
-              <option value="nongkhok">หนองคอก</option>
-              <option value="khlongtakien">คลองตะเคียน</option>
-              <option value="nongruea">หนองเรือ</option>
-              <option value="phaijit">ไพจิตร</option>
-              <option value="thoengkabintr">ทุ่งกบินทร์</option>
-              <option value="siyaekkhonom">สี่แยกโคนม</option>
-              <option value="klonghat">คลองหาด</option>
-            </optgroup>
-            <optgroup label="— พัทยา-ระยอง-มีนบุรี —">
-              <option value="nongmon">ตลาดหนองมน</option>
-              <option value="bangsaen">บางแสน</option>
-              <option value="sriracha">ศรีราชา</option>
-              <option value="kaset">ม.เกษตร</option>
-              <option value="aoudom">อ่าวอุดม</option>
-              <option value="laemchabang">แหลมฉบัง</option>
-              <option value="pattaya">พัทยา</option>
-              <option value="yakaiyakan">แยกอัยการ</option>
-              <option value="sattahip">สัตหีบ</option>
-              <option value="km10">กม.10</option>
-              <option value="banchan">บ้านฉาง</option>
-              <option value="rayong">ระยอง</option>
-              <option value="minburi">ตลาดมีนบุรี</option>
-            </optgroup>
-            <optgroup label="— เอกมัย-หมอชิต-BTS —">
-              <option value="bts_jatujak">BTS จตุจักร</option>
-              <option value="yaeklatphrao">แยกลาดพร้าว</option>
-              <option value="ekkamai">เอกมัย</option>
-              <option value="homepro">โฮมโปร</option>
-              <option value="bangna">บางนา</option>
-              <option value="mochit">หมอชิต</option>
-              <option value="bts_bangchak">BTS บางจาก</option>
-              <option value="bts_phrakhanong">BTS พระโขนง</option>
-              <option value="bts_onnut">BTS อ่อนนุช</option>
-            </optgroup>
+            <option value="">กำลังโหลดปลายทางจากระบบกลาง...</option>
           </select>
           <div class="route-destination-picker" id="routeDestinationPicker" aria-label="destination groups">
             <button type="button" class="route-select route-destination-trigger" id="routeDestinationTrigger" aria-expanded="false">กำลังโหลดหมวดหมู่ปลายทางจากระบบกลาง...</button>
@@ -1250,7 +1202,7 @@ function _applyPendingSettingsUpdate() {
     selTime=previousTime;
     if(typeof updateRoute==='function')updateRoute(true);
     var activeTimes=typeof getAdminAwareSchedules==='function'?(getAdminAwareSchedules(selOrigin,selDest)||[]):[];
-    var travelDate=document.getElementById('travelDate').value||new Date().toISOString().split('T')[0];
+    var travelDate=document.getElementById('travelDate').value||bookingTodayDateKey();
     if(selTime&&(activeTimes.indexOf(selTime)===-1||!canBook(travelDate,selTime))){selTime=null;renderTimes();}
   }catch(e){console.error('[BOOKING SETTINGS] apply failed',e);}finally{setTimeout(_hideUpdateOverlay,120);}
 }
@@ -1592,6 +1544,22 @@ var selRoute  = 'go';
 var selTime   = null;
 var seats     = 1;
 var _routeNoticeAccepted = false;
+function bookingTodayDateKey(now) {
+  var date = now ? new Date(now) : new Date();
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(date);
+  } catch (e) {
+    var bangkok = new Date(date.getTime() + (7 * 60 * 60000));
+    return bangkok.getUTCFullYear() + '-' +
+      String(bangkok.getUTCMonth() + 1).padStart(2, '0') + '-' +
+      String(bangkok.getUTCDate()).padStart(2, '0');
+  }
+}
 var TRANSFER_BUFFER_MINUTES = [
   { keywords: ['พนม'], minutes: 50 },
   { keywords: ['สนามชัย', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'], minutes: 70 },
@@ -1605,8 +1573,8 @@ var TRANSFER_BUFFER_MINUTES = [
   { keywords: ['คลองหาด'], minutes: 200 }
 ];
 
-// Default date = today
-document.getElementById('travelDate').value = new Date().toISOString().split('T')[0];
+// Default date = today in Thailand, not UTC.
+document.getElementById('travelDate').value = bookingTodayDateKey();
 
 function isTransferPayment() {
   return PAYMENT_MODE === 'transfer';
@@ -1803,6 +1771,12 @@ function updateRoute(preserveSelectedTime) {
   selOrigin = document.getElementById('routeFrom').value;
   selDest   = document.getElementById('routeTo').value;
   selTime   = preserveSelectedTime === true ? previousTime : null;
+  if (!selOrigin || !selDest || (!_settingsLoaded && !ADMIN_ROUTE_SOURCE_LOADED)) {
+    document.getElementById('timeCard').style.display = 'none';
+    document.getElementById('timeCardPlaceholder').style.display = 'block';
+    renderDestinationGroupPicker();
+    return;
+  }
 
   // ป้องกันต้นทาง=ปลายทาง
   if (selOrigin === selDest) {
@@ -1928,6 +1902,10 @@ function renderTimes() {
     if (listEl) listEl.innerHTML = '<div class="route-loading-note">กำลังโหลดเวลาเดินรถจากระบบกลาง...</div>';
     return;
   }
+  if (!selOrigin || !selDest) {
+    if (listEl) listEl.innerHTML = '<div class="route-loading-note">กรุณาเลือกต้นทางและปลายทาง</div>';
+    return;
+  }
   var times;
   if (ADMIN_ROUTE_SOURCE_LOADED) {
     times = getAdminAwareSchedules(selOrigin, selDest);
@@ -1961,7 +1939,7 @@ function renderTimes() {
     times = (ORIGIN_TIMES[selOrigin] || ORIGIN_TIMES['chachoengsao']).times;
   }
   var dateStr = document.getElementById('travelDate').value;
-  if (!dateStr) dateStr = new Date().toISOString().split('T')[0];
+  if (!dateStr) dateStr = bookingTodayDateKey();
 
   times = Array.isArray(times) ? times : [];
   var html = '';
@@ -3263,11 +3241,13 @@ function newBooking() {
     uploadArea.querySelector('.upload-sub').textContent = 'รองรับ JPG, PNG ขนาดไม่เกิน 5MB';
   }
   document.getElementById('seatCount').textContent = '1';
-  document.getElementById('travelDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('travelDate').value = bookingTodayDateKey();
   document.getElementById('btnConfirm').disabled = false;
   document.getElementById('btnConfirm').textContent = '✅ ยืนยันการสำรองที่นั่ง';
-  document.getElementById('routeFrom').value = 'chachoengsao';
-  document.getElementById('routeTo').value = 'sanamchai';
+  var resetFromSel = document.getElementById('routeFrom');
+  var resetToSel = document.getElementById('routeTo');
+  if (resetFromSel) resetFromSel.value = resetFromSel.options[0] ? resetFromSel.options[0].value : '';
+  if (resetToSel) resetToSel.value = resetToSel.options[0] ? resetToSel.options[0].value : '';
   _consentAccepted = false;
   _consentLoaded = false;
   var _cBar = document.getElementById('consentStatusBar');
