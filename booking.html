@@ -1057,6 +1057,27 @@ function _setOriginSelectStatus(text) {
   fromSel.appendChild(opt);
 }
 
+function _bootstrapOriginSelectFromCanonicalStops() {
+  if (ADMIN_ROUTE_SOURCE_LOADED) return;
+  var fromSel = document.getElementById('routeFrom');
+  if (!fromSel || fromSel.options.length > 1) return;
+  var labels = window.SLTransitERP && typeof window.SLTransitERP.canonicalStopOrder === 'function'
+    ? window.SLTransitERP.canonicalStopOrder()
+    : [];
+  if (!labels.length) return;
+  ORIGIN_TIMES = {};
+  fromSel.innerHTML = '';
+  labels.forEach(function(label) {
+    var key = _routeKeyFromLabel(label);
+    ORIGIN_TIMES[key] = {label:label,times:[],bootstrap:true};
+    var opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = label;
+    fromSel.appendChild(opt);
+  });
+  fromSel.value = fromSel.options[0] ? fromSel.options[0].value : '';
+}
+
 function _destinationGroupsForBookingPicker() {
   if (ADMIN_ROUTE_GROUPS && ADMIN_ROUTE_GROUPS.length) {
     return ADMIN_ROUTE_GROUPS.slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); }).map(function(group) {
@@ -1813,7 +1834,7 @@ function updateRoute(preserveSelectedTime) {
   selOrigin = document.getElementById('routeFrom').value;
   selDest   = document.getElementById('routeTo').value;
   selTime   = preserveSelectedTime === true ? previousTime : null;
-  if (!selOrigin || !selDest || (!_settingsLoaded && !ADMIN_ROUTE_SOURCE_LOADED)) {
+  if (!selOrigin || !selDest || !ADMIN_ROUTE_SOURCE_LOADED) {
     document.getElementById('timeCard').style.display = 'none';
     document.getElementById('timeCardPlaceholder').style.display = 'block';
     renderDestinationGroupPicker();
@@ -3270,6 +3291,7 @@ function newBooking() {
 }
 
 // อัปเดตสถานะเวลาทุก 1 นาที
+_bootstrapOriginSelectFromCanonicalStops();
 renderDestinationGroupPicker();
 renderTimes();
 renderLeg2Info();
