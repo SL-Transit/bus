@@ -1078,6 +1078,34 @@ function _bootstrapOriginSelectFromCanonicalStops() {
   fromSel.value = fromSel.options[0] ? fromSel.options[0].value : '';
 }
 
+function _bootstrapDestinationSelectFromCanonicalStops() {
+  if (ADMIN_ROUTE_SOURCE_LOADED) return;
+  var toSel = document.getElementById('routeTo');
+  if (!toSel || toSel.options.length > 1) return;
+  var labels = window.SLTransitERP && typeof window.SLTransitERP.canonicalStopOrder === 'function'
+    ? window.SLTransitERP.canonicalStopOrder()
+    : [];
+  if (!labels.length) return;
+  LEG2_DEST = {};
+  ADMIN_ROUTE_GROUPS = [{
+    id:'bootstrap_main',
+    name:'เส้นทางหลัก',
+    sortOrder:0,
+    routes:[]
+  }];
+  toSel.innerHTML = '';
+  labels.forEach(function(label, index) {
+    var key = _routeKeyFromLabel(label);
+    LEG2_DEST[key] = {label:label,price:0,leg2:false,times:[],activeTimes:[],bootstrap:true,sortOrder:index};
+    ADMIN_ROUTE_GROUPS[0].routes.push({key:key,label:label,sortOrder:index});
+    var opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = label;
+    toSel.appendChild(opt);
+  });
+  toSel.value = toSel.options[1] ? toSel.options[1].value : (toSel.options[0] ? toSel.options[0].value : '');
+}
+
 function _destinationGroupsForBookingPicker() {
   if (ADMIN_ROUTE_GROUPS && ADMIN_ROUTE_GROUPS.length) {
     return ADMIN_ROUTE_GROUPS.slice().sort(function(a,b){ return (a.sortOrder||0) - (b.sortOrder||0); }).map(function(group) {
@@ -3292,6 +3320,7 @@ function newBooking() {
 
 // อัปเดตสถานะเวลาทุก 1 นาที
 _bootstrapOriginSelectFromCanonicalStops();
+_bootstrapDestinationSelectFromCanonicalStops();
 renderDestinationGroupPicker();
 renderTimes();
 renderLeg2Info();
