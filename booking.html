@@ -1692,13 +1692,8 @@ function getBookingErpContext(origin, destination, time) {
 }
 
 function getDirectSchedules(origin, destination) {
-  var originKey = confirmedScheduleKey(origin);
-  var destinationKey = confirmedScheduleKey(destination);
   if (ADMIN_ROUTE_TIMES[origin] && ADMIN_ROUTE_TIMES[origin][destination]) {
     return ADMIN_ROUTE_TIMES[origin][destination];
-  }
-  if (destinationKey === 'chachoengsao' && CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey]) {
-    return CONFIRMED_TO_CHACHOENGSAO_TIMES[originKey].slice();
   }
   return null;
 }
@@ -1706,7 +1701,6 @@ function getDirectSchedules(origin, destination) {
 function getTransferSchedules(origin, destination) {
   var leg1Times = getDirectSchedules(origin, TRANSFER_POINT_KEY);
   if (leg1Times && leg1Times.length) return leg1Times;
-  if (ORIGIN_TIMES[origin] && ORIGIN_TIMES[origin].times) return ORIGIN_TIMES[origin].times;
   return [];
 }
 
@@ -1906,38 +1900,7 @@ function renderTimes() {
     if (listEl) listEl.innerHTML = '<div class="route-loading-note">กรุณาเลือกต้นทางและปลายทาง</div>';
     return;
   }
-  var times;
-  if (ADMIN_ROUTE_SOURCE_LOADED) {
-    times = getAdminAwareSchedules(selOrigin, selDest);
-  } else if (ADMIN_ROUTE_TIMES[selOrigin] && ADMIN_ROUTE_TIMES[selOrigin][selDest]) {
-    times = ADMIN_ROUTE_TIMES[selOrigin][selDest];
-  } else if (selOrigin === 'chachoengsao' && CHACHOENGSAO_TIMES[selDest]) {
-    times = CHACHOENGSAO_TIMES[selDest];
-  } else if (selOrigin === 'phanom' && PHANOM_DEST_TIMES[selDest]) {
-    times = PHANOM_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'sanamchai' && SANAMCHAI_DEST_TIMES[selDest]) {
-    times = SANAMCHAI_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'tatakiab' && TATAKIAB_DEST_TIMES[selDest]) {
-    times = TATAKIAB_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'nongkhok' && NONGKHOK_DEST_TIMES[selDest]) {
-    times = NONGKHOK_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'khlongtakien' && KHLONGTAKIEN_DEST_TIMES[selDest]) {
-    times = KHLONGTAKIEN_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'nongruea' && NONGRUEA_DEST_TIMES[selDest]) {
-    times = NONGRUEA_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'phaijit' && PHAIJIT_DEST_TIMES[selDest]) {
-    times = PHAIJIT_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'thoengkabintr' && THORNGKABINTR_DEST_TIMES[selDest]) {
-    times = THORNGKABINTR_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'siyaekkhonom' && SIYAEKKHONOM_DEST_TIMES[selDest]) {
-    times = SIYAEKKHONOM_DEST_TIMES[selDest].times;
-  } else if (selOrigin === 'chachoengsao' && LEG2_DEST[selDest] && LEG2_DEST[selDest].leg2 && LEG2_DEST[selDest].times) {
-    // ต้นทางแปดริ้ว → ปลายทาง leg2 — ใช้เวลาออกจากแปดริ้วของสายนั้น
-    times = LEG2_DEST[selDest].times;
-  } else {
-    // ต้นทางอื่น (สนามชัย/คลองหาด ฯลฯ) → ใช้เวลาออกจากต้นทาง
-    times = (ORIGIN_TIMES[selOrigin] || ORIGIN_TIMES['chachoengsao']).times;
-  }
+  var times = ADMIN_ROUTE_SOURCE_LOADED ? getAdminAwareSchedules(selOrigin, selDest) : [];
   var dateStr = document.getElementById('travelDate').value;
   if (!dateStr) dateStr = bookingTodayDateKey();
 

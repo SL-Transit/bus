@@ -1394,24 +1394,7 @@
       if (!origin) origin = booking.transferPoint || booking.transferStopName || booking.transferHub || '';
       var erpTimes = getTicketErpDestinationTimes(origin, destination);
       if (erpTimes && erpTimes.length) return erpTimes;
-      var clean = String(destination || booking.destination || booking.to || '').replace(/\s+/g, '').toLowerCase();
-      for (var a = 0; a < ADMIN_DEST_SCHEDULES.length; a++) {
-        var adminSchedule = ADMIN_DEST_SCHEDULES[a];
-        for (var b = 0; b < adminSchedule.keywords.length; b++) {
-          if (clean.indexOf(adminSchedule.keywords[b].replace(/\s+/g, '').toLowerCase()) !== -1) {
-            return adminSchedule.times;
-          }
-        }
-      }
-      for (var i = 0; i < LEG2_DEST_SCHEDULES.length; i++) {
-        var schedule = LEG2_DEST_SCHEDULES[i];
-        for (var j = 0; j < schedule.keywords.length; j++) {
-          if (clean.indexOf(schedule.keywords[j].replace(/\s+/g, '').toLowerCase()) !== -1) {
-            return schedule.times;
-          }
-        }
-      }
-      return LEG2_TIMES_COMMON;
+      return [];
     }
 
     function getTicketErpDestinationTimes(origin, destination) {
@@ -1420,7 +1403,6 @@
       if (!dest) return null;
       var times = null;
       if (origin) times = window.SLTransitERP.routeTimesByDestination(TICKET_CATALOG_RAW, dest, origin);
-      if (!times || !times.length) times = window.SLTransitERP.routeTimesByDestination(TICKET_CATALOG_RAW, dest);
       return times && times.length ? times : null;
     }
 
@@ -1840,21 +1822,6 @@
     }
 
     function inferQueueNoFromBookingTrip(booking) {
-      if (!booking) return 0;
-      var time = String(booking.departTime || booking.time || booking.leg1Time || '').slice(0, 5);
-      if (!time) return 0;
-      var routeInfo = connectionRouteInfo(booking.route);
-      var origin = getTrackingPickupStopName(booking);
-      var destination = getTrackingRouteTargetName(booking);
-      for (var queueNo in queueTemplates) {
-        var template = queueTemplates[queueNo];
-        var trips = template && template.trips || [];
-        for (var i = 0; i < trips.length; i++) {
-          var trip = trips[i];
-          if (String(trip.departTime).slice(0, 5) !== time) continue;
-          if (isBookingCompatibleWithTrip(booking, routeInfo, origin, destination, trip, { skipTimeCheck: true })) return Number(queueNo);
-        }
-      }
       return 0;
     }
 
@@ -1872,8 +1839,6 @@
         });
       }
       if (queueNo && queueNo >= 1 && queueNo <= 4) {
-        var vehicleForQueue = getVehicleIdForQueue(queueNo, getServiceDateForBooking(booking));
-        if (vehicleForQueue) ids.push(vehicleForQueue);
         getVehicleIdsForLiveQueue(queueNo).forEach(function(id) { ids.push(id); });
       }
       if (booking && booking.plannedVehicleId) ids.push(String(booking.plannedVehicleId));
@@ -1934,30 +1899,17 @@
     }
 
     function fallbackQueueNoForVehicle(vehicleId, date) {
-      if (window.SLTransitSchedule && typeof window.SLTransitSchedule.queueForVehicleOnDate === 'function') {
-        return window.SLTransitSchedule.queueForVehicleOnDate(vehicleId, date);
-      }
-      var base = { car1: 3, car2: 1, car3: 2, car4: 4 };
-      return rotateQueueNo(base[String(vehicleId || '')], getRotationDayOffset(date));
+      return null;
     }
 
     function getVehicleIdForQueue(queueNo, date) {
-      queueNo = Number(queueNo || 0);
-      if (!queueNo) return '';
-      if (window.SLTransitSchedule && typeof window.SLTransitSchedule.vehicleIdForQueueOnDate === 'function') {
-        return window.SLTransitSchedule.vehicleIdForQueueOnDate(queueNo, date) || '';
-      }
-      for (var i = 0; i < ROTATING_VEHICLE_IDS.length; i++) {
-        var id = ROTATING_VEHICLE_IDS[i];
-        if (fallbackQueueNoForVehicle(id, date) === queueNo) return id;
-      }
       return '';
     }
 
     function liveQueueNoForVehicle(vehicleId) {
       var vehicle = (trackingLiveVehicleFeed && trackingLiveVehicleFeed[vehicleId]) || (trackingBusFeed && trackingBusFeed[vehicleId]) || null;
       var queueNo = Number(vehicle && (vehicle.todayQueueNo || vehicle.queueNo || vehicle.queueNumber || vehicle.queue || vehicle.queueIndex || 0));
-      return queueTemplates[queueNo] ? queueNo : null;
+      return queueNo || null;
     }
 
     function getVehicleIdsForLiveQueue(queueNo) {
@@ -1982,46 +1934,12 @@
       if (liveQueue) return liveQueue;
       var assigned = trackingDailyAssignments && trackingDailyAssignments[vehicleId];
       var queueNo = Number((assigned && (assigned.queueNo || assigned.queueNumber || assigned.queue || assigned.queueIndex)) || 0);
-      if (queueTemplates[queueNo]) return queueNo;
-      return fallbackQueueNoForVehicle(vehicleId, date);
+      return queueNo || null;
     }
 
     function getCurrentTripForVehicle(vehicleId, vehicleData, now) {
-      now = now || new Date();
-      if (!isActiveVehicle(vehicleId, vehicleData, now.getTime ? now.getTime() : now)) return null;
-      var preferredQueueNo = currentBooking && getBookingQueueNo(currentBooking);
-      var preferredVehicleId = preferredQueueNo ? getVehicleIdForQueue(preferredQueueNo, getServiceDateForBooking(currentBooking)) : '';
-      var queueNo = String(vehicleId) === String(preferredVehicleId) ? preferredQueueNo : getQueueNoForVehicle(vehicleId, getServiceDateForBooking(currentBooking));
-      var template = queueNo && queueTemplates[queueNo];
-      if (!template || !template.trips || !template.trips.length) return null;
-      var nowMin = now instanceof Date ? now.getHours() * 60 + now.getMinutes() : toMin(now);
-      var candidate = null;
-      for (var i = 0; i < template.trips.length; i++) {
-        var trip = template.trips[i];
-        var start = toMin(trip.departTime) - 60;
-        var end = template.trips[i + 1] ? toMin(template.trips[i + 1].departTime) - 5 : toMin(trip.departTime) + 240;
-        if (nowMin >= start && nowMin <= end) {
-          candidate = trip;
-          break;
-        }
-      }
-      if (!candidate) return null;
-      var pos = normalizeTrackingPoint(vehicleData);
-      var near = nearestStopOnTrip(pos, candidate);
-      var confidence = 0.55;
-      if (nowMin >= toMin(candidate.departTime) - 15) confidence += 0.1;
-      if (near.distanceKm <= 3) confidence += 0.25;
-      else if (near.distanceKm <= 10) confidence += 0.1;
-      else confidence -= 0.25;
-      return Object.assign({}, candidate, {
-        vehicleId: vehicleId,
-        queueNo: queueNo,
-        status: 'running',
-        confidence: Math.max(0, Math.min(1, confidence)),
-        source: 'auto'
-      });
+      return null;
     }
-
     function nearestStopOnTrip(pos, trip) {
       var best = { index: -1, distanceKm: Infinity };
       (trip.routeStops || []).forEach(function(stopName, index) {
@@ -3881,8 +3799,7 @@
     }
 
     function nextOriginTime(time) {
-      var now = toMin(time || '00:00');
-      return ORIGIN_TIMES.find(function(t) { return toMin(t) > now; }) || null;
+      return null;
     }
 
     function toMin(t) {

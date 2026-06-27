@@ -737,7 +737,7 @@ const LEG2_DESTINATIONS = {
   'BTS อ่อนนุช':   { leg2Times: LEG2_TIMES_EKAMAI,  group: 'เอกมัย-หมอชิต-BTS' },
 };
 
-const DEST_LEG2 = Object.keys(LEG2_DESTINATIONS);
+const DEST_LEG2 = [];
 const ADMIN_ROUTE_TIMES = {};
   const ADMIN_ROUTE_DISABLED_TIMES = {};
 let PASSENGER_ROUTE_DATA = null;
@@ -771,6 +771,11 @@ const DEST_NORMAL = [
   'สี่แยกโคนม',
   'คลองหาด',
 ];
+
+Object.keys(LEG2_DESTINATIONS).forEach(function(key){ delete LEG2_DESTINATIONS[key]; });
+ORIGIN_LIST.length = 0;
+DEST_NORMAL.length = 0;
+DEST_LEG2.length = 0;
 
 let lastPos=null;
 let allBusPositions={};
@@ -1073,8 +1078,8 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 }
 
 // ===== ROUTE SELECTION STATE =====
-let selOrigin = 'ท่ารถสนามชัยเขต';
-let selDest   = 'ฉะเชิงเทรา (แปดริ้ว)';
+let selOrigin = '';
+let selDest   = '';
 
 function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
 
@@ -1131,13 +1136,6 @@ function getPairTimes(from, to) {
   var erpTimes = getPassengerErpTimes(from, to, true);
   if (erpTimes) return erpTimes;
   if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to].slice();
-  if (ADMIN_ROUTE_SOURCE_LOADED) return null;
-  if (to === 'ฉะเชิงเทรา (แปดริ้ว)' && CONFIRMED_TO_CHACHOENGSAO_TIMES[from]) {
-    return CONFIRMED_TO_CHACHOENGSAO_TIMES[from].slice();
-  }
-  if (CONFIRMED_PAIR_TIMES[from] && CONFIRMED_PAIR_TIMES[from][to]) {
-    return CONFIRMED_PAIR_TIMES[from][to].slice();
-  }
   return null;
 }
 
@@ -1151,16 +1149,12 @@ function isPassengerTimeDisabled(from,to,time) {
   function getLeg1Times(){
   const pairTimes = getPairTimes(selOrigin, selDest);
   if (pairTimes) return pairTimes;
-  if (ADMIN_ROUTE_SOURCE_LOADED) return [];
-  if(ROUTES[selOrigin]) return ROUTES[selOrigin].times;
   return [];
 }
 
 function getLeg1TimesToTransferHub(origin, transferHubLabel) {
   const pairTimes = getPairTimes(origin, transferHubLabel);
   if (pairTimes) return pairTimes;
-  if (ADMIN_ROUTE_SOURCE_LOADED) return [];
-  if (ROUTES[origin]) return ROUTES[origin].times;
   return [];
 }
 
@@ -2234,7 +2228,7 @@ function renderNextBus() {
 
   // ถ้าต้นทางเป็น ฉะเชิงเทรา และปลายทางเป็น LEG2 ให้ใช้เวลา LEG2
   if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
-    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times);
+    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || []);
     label = `→ ${selDest}`;
   } else {
     times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
@@ -2260,7 +2254,7 @@ function getNextBusSummaryTime() {
   const now = nowMin();
   let times;
   if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
-    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || LEG2_DESTINATIONS[selDest].leg2Times);
+    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || []);
   } else {
     times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
   }
@@ -2294,12 +2288,17 @@ function splitBalanced(arr) {
 function renderSched() {
   const wrapper = document.getElementById('schedWrapper');
   const origin = selOrigin, dest = selDest;
+  if (!wrapper) return;
+  if (!origin || !dest || !ADMIN_ROUTE_SOURCE_LOADED) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดตารางเวลา</div><div class="sched-route-name">ระบบกำลังอ่านข้อมูลจากระบบกลาง</div></div><div class="time-grid"></div></div>';
+    return;
+  }
 
   if(isLeg2Dest(dest)){
     const transferHubLabel = 'ฉะเชิงเทรา (แปดริ้ว)';
     const startsAtTransferHub = normalizeRouteAlias(origin) === transferHubLabel || cleanRouteLabel(origin) === cleanRouteLabel(transferHubLabel);
     const leg1Times = startsAtTransferHub ? [] : getLeg1TimesToTransferHub(origin, transferHubLabel);
-    const leg2Times = getPairTimes(transferHubLabel, dest) || getPairTimes(origin, dest) || LEG2_DESTINATIONS[dest].leg2Times;
+    const leg2Times = getPairTimes(transferHubLabel, dest) || getPairTimes(origin, dest) || [];
 
     // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
     const [l1a, l1b] = splitBalanced(leg1Times);
@@ -2390,6 +2389,12 @@ function buildDropdowns(){
   originSel.innerHTML = '';
 
   // ต้นทาง
+  if (!ORIGIN_LIST.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'กำลังโหลดต้นทางจากระบบกลาง...';
+    originSel.appendChild(opt);
+  }
   ORIGIN_LIST.forEach(o=>{
     const opt = document.createElement('option');
     opt.value = o; opt.textContent = o;
@@ -2405,6 +2410,12 @@ function buildDropdowns(){
     // เส้นทางตรง
     const grp0 = document.createElement('optgroup');
     grp0.label = '— เส้นทางหลัก —';
+    if (!DEST_NORMAL.length && !DEST_LEG2.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'กำลังโหลดปลายทางจากระบบกลาง...';
+      grp0.appendChild(opt);
+    }
     DEST_NORMAL.forEach(d=>{
       if(d===selOrigin) return;
       const opt = document.createElement('option');
@@ -2462,6 +2473,10 @@ function buildDropdowns(){
     destSel.dataset.bound = '1';
   }
 }
+Object.keys(LEG2_DESTINATIONS).forEach(function(key){ delete LEG2_DESTINATIONS[key]; });
+ORIGIN_LIST.length = 0;
+DEST_NORMAL.length = 0;
+DEST_LEG2.length = 0;
 buildDropdowns();
 applyAdminTesterMode();
 

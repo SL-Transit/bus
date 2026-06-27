@@ -530,7 +530,7 @@
 
     if (!direction) return buildScheduleOnlyAssignment(input, serviceDate, origin, destination, pickupTime, direction);
 
-    var tripSources = ROUTE_DATA_TRIPS.length ? [ROUTE_DATA_TRIPS, QUEUE_TRIPS] : [QUEUE_TRIPS];
+    var tripSources = ROUTE_DATA_TRIPS.length ? [ROUTE_DATA_TRIPS] : [];
     for (var s = 0; s < tripSources.length; s++) {
       var tripSource = tripSources[s];
       for (var i = 0; i < tripSource.length; i++) {
