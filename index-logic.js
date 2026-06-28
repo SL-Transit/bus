@@ -472,27 +472,35 @@ function tryGPS(){
 
 /* ── IP Geolocation fallback ── */
 function tryIPGeo(){
-  fetch('https://ipapi.co/json/',{signal:AbortSignal.timeout(6000)})
-    .then(function(r){return r.json();})
+  var ctrl = null;
+  var timer = null;
+  try{
+    ctrl = new AbortController();
+    timer = setTimeout(function(){ ctrl.abort(); }, 6000);
+  }catch(e){ ctrl = null; }
+
+  var fetchOpts = ctrl ? {signal:ctrl.signal} : {};
+
+  fetch('https://ipapi.co/json/', fetchOpts)
+    .then(function(r){ return r.json(); })
     .then(function(d){
-      if(!d||!d.latitude||!d.longitude){throw new Error('no data');}
-      /* ตรวจว่า IP อยู่ในไทย และใกล้เส้นทางพอสมควร (< 300 กม.) */
-      var lat=Number(d.latitude),lng=Number(d.longitude);
-      var centerLat=13.5,centerLng=101.5;
+      if(timer) clearTimeout(timer);
+      if(!d||!d.latitude||!d.longitude){ throw new Error('no data'); }
+      var lat=Number(d.latitude), lng=Number(d.longitude);
+      var centerLat=13.5, centerLng=101.5;
       var roughDist=Math.sqrt(Math.pow(lat-centerLat,2)+Math.pow(lng-centerLng,2));
       if(roughDist>3){
-        /* IP อยู่ไกลมาก (ต่างประเทศ ฯลฯ) → error */
         setNearestError('ไม่พบตำแหน่งในพื้นที่ให้บริการ');
         return;
       }
       onPositionResolved(lat,lng,'ip');
-      /* แจ้งว่าใช้ IP เพื่อความโปร่งใส */
       var subEl=document.getElementById('nearest-sub');
       if(subEl&&selectedStop){
         subEl.textContent+=' (ประมาณจาก IP)';
       }
     })
     .catch(function(){
+      if(timer) clearTimeout(timer);
       setNearestError('ไม่สามารถระบุตำแหน่งได้');
     });
 }
