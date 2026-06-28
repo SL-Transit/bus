@@ -240,6 +240,99 @@ function selectStop(stop,distKmVal,outOfZone){
    ดึง routes จาก catalog (ERP) สำหรับป้ายที่เลือก
    ดึง routes จาก catalog กลาง (ERP) เท่านั้น — ห้ามใช้ hardcode
    ────────────────────────────────────────── */
+/* ══════════════════════════════════════════
+   ROUTE LOGIC — 5 ตัวเลือกต่อป้าย
+   ────────────────────────────────────────
+   กฎ:
+   - ป้ายปลายตะวันออก (คลองหาด):  ตัวเลือก 1+2 = ขาไป 2 ทิศ
+   - ป้ายปลายตะวันตก (ฉะเชิงเทรา): ตัวเลือก 1+2 = ขาไป 2 ทิศ
+   - ป้ายกลาง (ป้าย 2-12, 14):     ตัวเลือก 1 = ขาไป, 2 = ขากลับ
+   - ตัวเลือก 3 = กรุงเทพฯ (ทุกป้าย)
+   - ตัวเลือก 4 = ชลบุรี/พัทยา/ระยอง (ทุกป้าย)
+   - ตัวเลือก 5 = รถไฟ (ทุกป้าย)
+   catalog/ERP จะ override เมื่อโหลดเสร็จ
+══════════════════════════════════════════ */
+
+/* ตัวเลือก 3-5 เหมือนกันทุกป้าย เปลี่ยนแค่ต้นทาง */
+function _commonRoutes(from){
+  return [
+    {dest: from+' - เอกมัย / หมอชิต / มีนบุรี / รังสิต',                    tag:'กรุงเทพฯ'},
+    {dest: from+' - ชลบุรี / อ่าวอุดม / แหลมฉบัง / พัทยา / สัตหีบ / ระยอง', tag:'ตะวันออก'},
+    {dest: from+' - รถไฟ', sub:'(รถบางเที่ยวอาจจะไม่ได้เข้าสถานีรถไฟ)'},
+  ];
+}
+
+/* ────────────────────────────────────────
+   STOP_ROUTES — fallback ทุกป้าย
+   key = ชื่อป้าย (ตรงกับ STOPS[].name)
+────────────────────────────────────────── */
+var STOP_ROUTES = (function(){
+  var R = {};
+
+  /* ── ป้ายที่ 1: คลองหาด (terminal ตะวันออก) ── */
+  R['คลองหาด'] = [
+    {dest:'คลองหาด - หนองคอก / สนามชัยเขต',         tag:'ขาไป'},
+    {dest:'คลองหาด - พนมสารคาม / ฉะเชิงเทรา',        tag:'ขาไป'},
+  ].concat(_commonRoutes('คลองหาด'));
+
+  /* ── ป้ายที่ 2-9: กลางทางฝั่งคลองหาด ── */
+  ['วังน้ำเย็น','สี่แยกโคนม','ทุ่งกบินทร์','ไพรจิต','หนองเรือ','คลองตะเคียน'].forEach(function(s){
+    R[s] = [
+      {dest: s+' - สนามชัยเขต / พนมสารคาม / ฉะเชิงเทรา', tag:'ขาไป'},
+      {dest: s+' - คลองหาด',                               tag:'ขากลับ'},
+    ].concat(_commonRoutes(s));
+  });
+
+  R['หนองคอก'] = [
+    {dest:'หนองคอก - สนามชัยเขต / พนมสารคาม / ฉะเชิงเทรา', tag:'ขาไป'},
+    {dest:'หนองคอก - สี่แยกโคนม / ท่าตะเกียบ / คลองหาด',   tag:'ขากลับ'},
+  ].concat(_commonRoutes('หนองคอก'));
+
+  /* ── ป้ายที่ 9-12: กลางทางฝั่งสนามชัย ── */
+  ['ท่าตะเกียบ','ห้วยโสม','กม.7','กม.1'].forEach(function(s){
+    R[s] = [
+      {dest: s+' - สนามชัยเขต / พนมสารคาม / ฉะเชิงเทรา', tag:'ขาไป'},
+      {dest: s+' - หนองคอก / คลองหาด',                    tag:'ขากลับ'},
+    ].concat(_commonRoutes(s));
+  });
+
+  /* ── ป้ายที่ 13: สนามชัยเขต (terminal hub) ── */
+  R['สนามชัยเขต'] = [
+    {dest:'สนามชัยเขต - พนมสารคาม / ฉะเชิงเทรา', tag:'ขาไป'},
+    {dest:'สนามชัยเขต - หนองคอก / คลองหาด',      tag:'ขากลับ'},
+  ].concat(_commonRoutes('สนามชัยเขต'));
+  /* สนามชัยยังมี sub route พิเศษ: รถไฟ override */
+  R['สนามชัยเขต'][4].sub = '(รถบางเที่ยวอาจจะไม่ได้เข้าสถานีรถไฟ)';
+
+  /* ── ป้ายที่ 14: พนมสารคาม ── */
+  R['พนมสารคาม'] = [
+    {dest:'พนมสารคาม - ฉะเชิงเทรา',              tag:'ขาไป'},
+    {dest:'พนมสารคาม - สนามชัยเขต / หนองคอก / คลองหาด', tag:'ขากลับ'},
+  ].concat(_commonRoutes('พนมสารคาม'));
+
+  /* ── ป้ายที่ 15: ฉะเชิงเทรา (terminal ตะวันตก) ── */
+  R['ฉะเชิงเทรา'] = [
+    {dest:'ฉะเชิงเทรา - พนมสารคาม / สนามชัยเขต', tag:'ขาไป'},
+    {dest:'ฉะเชิงเทรา - หนองคอก / คลองหาด',      tag:'ขาไป'},
+  ].concat(_commonRoutes('ฉะเชิงเทรา'));
+
+  return R;
+})();
+
+function getFallbackRoutesForStop(stop){
+  var name = (stop&&stop.name)||'';
+  /* ตรงชื่อ */
+  if(STOP_ROUTES[name]) return STOP_ROUTES[name];
+  /* fuzzy match กรณีชื่อจาก Firebase อาจต่างนิดหน่อย */
+  var keys = Object.keys(STOP_ROUTES);
+  for(var i=0;i<keys.length;i++){
+    if(name.indexOf(keys[i])!==-1||keys[i].indexOf(name)!==-1)
+      return STOP_ROUTES[keys[i]];
+  }
+  /* fallback สุดท้าย → สนามชัยเขต */
+  return STOP_ROUTES['สนามชัยเขต']||[];
+}
+
 function getCatalogRoutesForStop(stop){
   if(!_catalog || !window.SLTransitERP) return null;
   var stopNameTh = stop.name||'';
@@ -272,8 +365,32 @@ function renderRouteList(stop){
   var list=document.getElementById('route-list');
   if(!list) return;
 
-  /* ดึงข้อมูลจาก catalog กลางเท่านั้น (ห้าม hardcode) */
-  var routes=getCatalogRoutesForStop(stop)||[];
+  /* Priority: 1) catalog/ERP  2) STOP_ROUTES fallback */
+  var routes = getCatalogRoutesForStop(stop);
+  if(!routes||!routes.length) routes = getFallbackRoutesForStop(stop);
+  if(!routes||!routes.length) routes = [];
+
+  if(!routes.length){
+    list.innerHTML=
+      '<div class="routes-empty">'+
+        '<div class="empty-icon">🔎</div>'+
+        'ไม่พบเส้นทางในระบบ<br>'+
+        '<small>กรุณารอข้อมูลโหลด หรือเลือกป้ายใหม่</small>'+
+      '</div>';
+    return;
+  }
+
+  list.innerHTML=routes.map(function(r){
+    return '<a href="booking.html" class="route-row">'+
+      '<div class="route-bus-icon"><img src="assets/icon-bus-pin-teal.png" width="28" height="28" style="object-fit:contain" alt=""> <!-- (icon-107: w=28px, h=28px, object-fit:contain) --></div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="route-name">'+escHtml(r.dest||r.name||'')+'</div>'+
+        (r.sub?'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+escHtml(r.sub)+'</div>':'')+
+      '</div>'+
+      '<div class="route-cta">เลือกเที่ยว ›</div>'+
+    '</a>';
+  }).join('');
+}
 
   if(!routes.length){
     list.innerHTML=
@@ -668,6 +785,7 @@ function loadAnnouncements(){
    เริ่ม GPS ทันที
 ══════════════════════════════════════════ */
 tryGPS();
+
 
 /* ══════════════════════════════════════════
    DRAWER — เลือกป้ายเอง
