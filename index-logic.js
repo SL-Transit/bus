@@ -310,31 +310,13 @@ function selectStop(stop,distKmVal,outOfZone){
 }
 
 function getCatalogRoutesForStop(stop){
+  /* ปิดไว้ก่อน — รอ catalog format ตรงกับ logic 5 ตัวเลือก
+     เมื่อ ERP พร้อม ค่อยเปิด block ด้านล่าง */
+  return null;
+
+  /* --- (reserved for future ERP integration) ---
   if(!_catalog||!window.SLTransitERP) return null;
-  var stopNameTh=stop.name||'';
-  var out=[];
-  var routes=_catalog.routes||{};
-  var seen={};
-  Object.keys(routes).forEach(function(rId){
-    var route=routes[rId];
-    if(!route||route.isActive===false) return;
-    var from=route.from||route.fromStopKey||'';
-    var fromClean=String(from).replace(/\s+/g,'').toLowerCase();
-    var nameClean=String(stopNameTh).replace(/\s+/g,'').toLowerCase();
-    if(!fromClean||!nameClean) return;
-    if(fromClean.indexOf(nameClean)===-1&&nameClean.indexOf(fromClean)===-1) return;
-    var to=route.to||route.toStopKey||'';
-    var dest=stopNameTh+' - '+to;
-    if(seen[dest]) return;
-    seen[dest]=true;
-    var times=SLTransitERP.routeTimes(_catalog,from,to)||[];
-    out.push({dest:dest,times:times,routeId:rId});
-  });
-  out.sort(function(a,b){
-    var fn=SLTransitERP.stopOrderValue||function(){return 0;};
-    return fn(a.dest.split(' - ')[1]||'')-fn(b.dest.split(' - ')[1]||'');
-  });
-  return out.length?out:null;
+  ... */
 }
 
 function renderRouteList(stop){
