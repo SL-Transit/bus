@@ -1,0 +1,320 @@
+/**
+ * booking-bridge.js  v2
+ * ตัวกลางเชื่อม booking.html ↔ catalog-engine.js ↔ schedule-engine.js
+ *
+ * ห้ามคำนวณรอบรถ/เส้นทางเองเด็ดขาด — delegate ให้ engine ทุกครั้ง
+ * ข้อมูล leg2 (ต่อรถ) อ่านจาก publishedCatalog routeGroups → legacy
+ */
+(function(global) {
+  'use strict';
+
+  /* ── สถานะภายใน ── */
+  var _catalog        = null;
+  var _stops          = {};
+  var _fares          = {};
+  var _catalogVersion = '';
+  var _db             = null;
+  var _ready          = false;
+  var _readyCallbacks = [];
+
+  /* ─────────────────────────────────────────
+     LEG-2 DATA
+     อ่านมาจาก repo booking.html เดิม (ไม่เขียนขึ้นเอง)
+     buffer = นาทีที่ต้องใช้เดินทางจากต้นทางถึง แปดริ้ว ก่อนต่อรถ
+  ───────────────────────────────────────── */
+  var TRANSFER_POINT_KEY = 'chachoengsao';   // จุดต่อรถกลาง
+
+  /* buffer จากต้นทางถึงจุดต่อ (แปดริ้ว) — ตรงกับ TRANSFER_BUFFER_MINUTES ใน repo */
+  var TRANSFER_BUFFER = {
+    phanom:       50,
+    sanamchai:    70,
+    tatakiab:     115,
+    nongkhok:     135,
+    khlongtakien: 150,
+    nongruea:     165,
+    phaijit:      170,
+    thoengkabintr:185,
+    siyaekkhonom: 190,
+    klonghat:     200
+  };
+
+  /* ตารางเวลาออกของรถ leg2 จากแปดริ้ว — ตรงกับ LEG2_TIMES_COMMON ใน repo */
+  var LEG2_TIMES_COMMON  = ['08:00','09:00','10:00','11:00','11:30','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+  var LEG2_TIMES_MOCHIT  = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+  var LEG2_TIMES_EKKAMAI = ['07:30','08:30','09:30','10:30','11:30','12:30','13:30','14:30','15:30','16:30','17:30','18:30','19:30','20:30'];
+  var LEG2_TIMES_MINBURI = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+  /* ปลายทาง leg2 — ตรงกับ LEG2_DEST ใน repo */
+  var LEG2_DEST = {
+    pattaya:       { label:'พัทยา',           buffer:40,  times:LEG2_TIMES_COMMON  },
+    yakaiyakan:    { label:'แยกอัยการ',        buffer:40,  times:LEG2_TIMES_COMMON  },
+    sattahip:      { label:'สัตหีบ',           buffer:40,  times:LEG2_TIMES_COMMON  },
+    rayong:        { label:'ระยอง',            buffer:45,  times:LEG2_TIMES_COMMON  },
+    km10:          { label:'กม.10',            buffer:35,  times:LEG2_TIMES_COMMON  },
+    nongmon:       { label:'ตลาดหนองมน',      buffer:30,  times:LEG2_TIMES_COMMON  },
+    bangsaen:      { label:'บางแสน',           buffer:35,  times:LEG2_TIMES_COMMON  },
+    aoudom:        { label:'อ่าวอุดม',          buffer:35,  times:LEG2_TIMES_COMMON  },
+    sriracha:      { label:'ศรีราชา',           buffer:35,  times:LEG2_TIMES_COMMON  },
+    kaset:         { label:'ม.เกษตร',          buffer:35,  times:LEG2_TIMES_COMMON  },
+    banchan:       { label:'บ้านฉาง',          buffer:45,  times:LEG2_TIMES_COMMON  },
+    laemchabang:   { label:'แหลมฉบัง',         buffer:35,  times:LEG2_TIMES_COMMON  },
+    mochit:        { label:'หมอชิต',           buffer:35,  times:LEG2_TIMES_MOCHIT  },
+    yaeklatphrao:  { label:'แยกลาดพร้าว',     buffer:35,  times:LEG2_TIMES_MOCHIT  },
+    minburi:       { label:'ตลาดมีนบุรี',       buffer:40,  times:LEG2_TIMES_MINBURI },
+    bts_ekkamai:   { label:'BTS เอกมัย',       buffer:35,  times:LEG2_TIMES_EKKAMAI },
+    bts_bangchak:  { label:'BTS บางจาก',       buffer:35,  times:LEG2_TIMES_EKKAMAI },
+    bts_phrakhanong:{ label:'BTS พระโขนง',    buffer:35,  times:LEG2_TIMES_EKKAMAI },
+    bts_onnut:     { label:'BTS อ่อนนุช',      buffer:35,  times:LEG2_TIMES_EKKAMAI }
+  };
+
+  /* ── helper ── */
+  function _toMin(t) {
+    var p = String(t||'00:00').split(':').map(Number);
+    return (p[0]||0)*60 + (p[1]||0);
+  }
+  function _addMin(t, m) {
+    var total = _toMin(t) + Number(m||0);
+    var h = Math.floor(total/60)%24, mm = total%60;
+    return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  }
+  function _todayISO() {
+    var d = new Date();
+    function pad(n){ return String(n).padStart(2,'0'); }
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  }
+
+  /* ── ตรวจว่าปลายทางต้องต่อรถ ── */
+  function isLeg2Dest(destKey) {
+    /* ก่อนอื่นตรวจ catalog routeGroups ว่าเป็น connectionType = 'leg2' / 'transfer' */
+    if (_catalog && _catalog.routeGroups) {
+      var rg = Object.values(_catalog.routeGroups);
+      for (var i = 0; i < rg.length; i++) {
+        var g = rg[i];
+        if (g.connectionType === 'leg2' || g.connectionType === 'transfer') {
+          var legacy = g.legacy || {};
+          if (legacy.routes && legacy.routes.some(function(r){
+            var se = global.SLTransitSchedule;
+            return se ? se.normalizeStopKey(r.toStopKey||r.to) === se.normalizeStopKey(destKey) : r.toStopKey === destKey;
+          })) return true;
+        }
+      }
+    }
+    /* fallback: ตรวจจาก LEG2_DEST table */
+    return !!(LEG2_DEST[destKey]);
+  }
+
+  /* ── คำนวณ leg2 time สำหรับการต่อรถ ──
+     logic เดิมจาก repo: buffer นาที + หา leg2 time ถัดไปที่ตรงหรือหลัง target
+  */
+  function getTransferInfo(originKey, destKey, leg1PickupTime) {
+    var destObj = LEG2_DEST[destKey];
+    if (!destObj) return null;
+
+    /* buffer จากต้นทาง */
+    var bufMin = (TRANSFER_BUFFER[originKey] != null)
+      ? TRANSFER_BUFFER[originKey]
+      : (destObj.buffer || 45);
+
+    /* เวลาที่ต้องถึงแปดริ้ว */
+    var earliestArrival = _addMin(leg1PickupTime, bufMin);
+    var targetMin = _toMin(earliestArrival);
+
+    /* หา leg2 time ถัดไปที่ >= target */
+    var times = destObj.times || LEG2_TIMES_COMMON;
+    var leg2Time = '';
+    for (var i = 0; i < times.length; i++) {
+      if (_toMin(times[i]) >= targetMin) { leg2Time = times[i]; break; }
+    }
+
+    return {
+      point:     'ฉะเชิงเทรา (แปดริ้ว)',
+      pointKey:  TRANSFER_POINT_KEY,
+      destLabel: destObj.label,
+      leg2Time:  leg2Time,       // เวลาออกจากแปดริ้ว
+      bufMin:    bufMin,
+      hasMatch:  !!leg2Time
+    };
+  }
+
+  /* ── init ── */
+  function init(db) {
+    _db = db;
+    return SLTransitCatalog.loadPublished(db).then(function(catalog) {
+      if (!catalog) console.warn('[BookingBridge] publishedCatalog ว่างเปล่า — ใช้ fallback engine');
+      _applyCatalog(catalog);
+      if (global.SLTransitSchedule && typeof SLTransitSchedule.applyPublishedCatalog === 'function') {
+        SLTransitSchedule.applyPublishedCatalog(catalog);
+      }
+      _ready = true;
+      _readyCallbacks.forEach(function(fn){ fn(_catalog); });
+      _readyCallbacks = [];
+    }).catch(function(err) {
+      console.error('[BookingBridge] loadPublished error:', err);
+      _ready = true;
+      _readyCallbacks.forEach(function(fn){ fn(null); });
+      _readyCallbacks = [];
+    });
+  }
+
+  function _applyCatalog(catalog) {
+    _catalog = catalog || null;
+    _catalogVersion = catalog && catalog.version || '';
+    _fares = (catalog && catalog.fares) || {};
+    _stops = {};
+    if (catalog && catalog.stops) {
+      Object.keys(catalog.stops).forEach(function(key) {
+        var s = catalog.stops[key];
+        if (s && s.bookingEnabled !== false) _stops[key] = s;
+      });
+    }
+  }
+
+  function onReady(fn) {
+    if (_ready) { fn(_catalog); return; }
+    _readyCallbacks.push(fn);
+  }
+
+  function getBookableStops() {
+    return Object.keys(_stops).map(function(key) {
+      return { key: key, nameTh: _stops[key].nameTh || key, order: _stops[key].order || 999 };
+    }).sort(function(a,b){ return a.order - b.order; });
+  }
+
+  function getFare(routeId) {
+    var f = _fares[routeId];
+    return f ? Number(f.amount)||0 : 0;
+  }
+
+  function getCatalogVersion() { return _catalogVersion; }
+
+  /* ────────────────────────────────────────────────────────
+     getAvailableTrips(originKey, destKey, serviceDate)
+     คืน array ของ trip + เที่ยวแรก (index 0) = "แนะนำ"
+     ถ้าปลายทาง leg2 จะ embed transferInfo พร้อม leg2Time
+  ──────────────────────────────────────────────────────── */
+  function getAvailableTrips(originKey, destKey, serviceDate) {
+    if (!global.SLTransitSchedule) return [];
+    var SE = global.SLTransitSchedule;
+    var normOrigin = SE.normalizeStopKey(originKey);
+    var normDest   = SE.normalizeStopKey(destKey);
+    var leg2 = isLeg2Dest(destKey);
+
+    /* ถ้า leg2: leg1 ไปถึง TRANSFER_POINT (แปดริ้ว), ไม่ใช่ปลายทางจริง */
+    var leg1Dest = leg2 ? TRANSFER_POINT_KEY : normDest;
+
+    var now = new Date();
+    var todayISO = _todayISO();
+    var isToday = (serviceDate === todayISO);
+    var currentMin = isToday ? now.getHours()*60 + now.getMinutes() : -1;
+
+    /* รวม trip sources จาก engine */
+    var allTrips = SE.queueTrips.concat(SE.routeDataTrips ? SE.routeDataTrips() : []);
+
+    /* เก็บ candidate pickup times */
+    var candidateTimes = {};
+    allTrips.forEach(function(trip) {
+      var stops = trip.routeStops || [];
+      var oIdx = stops.indexOf(normOrigin);
+      var dIdx = stops.indexOf(leg1Dest);
+      if (oIdx < 0 || dIdx < 0 || oIdx >= dIdx) return;
+      var t = (trip.stopTimes && trip.stopTimes[normOrigin]) || trip.departTime;
+      if (t) candidateTimes[t] = true;
+    });
+
+    var results = [];
+    Object.keys(candidateTimes).sort().forEach(function(time) {
+      var tripMin = _toMin(time);
+      if (isToday && tripMin <= currentMin) return; // เลยเวลาแล้ว
+
+      var assignment = SE.resolveTripAssignment({
+        originStopKey:      normOrigin,
+        destinationStopKey: leg1Dest,
+        pickupTime:         time,
+        serviceDate:        serviceDate || todayISO,
+        requiresTransfer:   leg2
+      });
+      if (!assignment) return;
+
+      /* transfer info (leg2) */
+      var transferInfo = null;
+      if (leg2) {
+        transferInfo = getTransferInfo(normOrigin, destKey, assignment.pickupTime);
+        /* ถ้าไม่มีเที่ยวต่อเลย ให้ยังแสดงแต่ flag hasMatch:false */
+      }
+
+      var fare = _fareForTrip(assignment, normOrigin, leg2 ? leg1Dest : normDest) || 55;
+
+      results.push({
+        pickupTime:    assignment.pickupTime,
+        label:         assignment.pickupTime + ' น.',
+        queueNo:       assignment.queueNo,
+        vehicleId:     assignment.plannedVehicleId,
+        routeStops:    assignment.routeStops,
+        scheduleOnly:  assignment.scheduleOnly,
+        fare:          fare,
+        isLeg2:        leg2,
+        transferInfo:  transferInfo,   // null ถ้าไม่ต่อรถ
+        assignment:    assignment
+      });
+    });
+
+    return results;
+  }
+
+  /* ── หาราคาจาก catalog.fares ── */
+  function _fareForTrip(assignment, normOrigin, normDest) {
+    if (!_catalog || !_catalog.routes || !_catalog.fares) return 0;
+    var routes = _catalog.routes, fares = _catalog.fares, found = 0;
+    var SE = global.SLTransitSchedule;
+    Object.keys(routes).forEach(function(rid) {
+      var r = routes[rid];
+      var fro = SE ? SE.normalizeStopKey(r.fromStopKey||r.from) : (r.fromStopKey||r.from);
+      var too = SE ? SE.normalizeStopKey(r.toStopKey  ||r.to  ) : (r.toStopKey  ||r.to  );
+      if ((fro === normOrigin || too === normDest) && fares[rid] && fares[rid].amount > 0) {
+        found = Number(fares[rid].amount);
+      }
+    });
+    return found;
+  }
+
+  /* ── buildBookingSnapshot — embed catalogVersion บังคับ ── */
+  function buildBookingSnapshot(params) {
+    return {
+      bookingCode:    params.bookingCode,
+      catalogVersion: _catalogVersion,   // ← snapshot บังคับ ห้ามหลุด
+      name:           params.name,
+      phone:          params.phone,
+      pax:            params.pax,
+      originStopKey:  params.originStopKey,
+      destStopKey:    params.destStopKey,
+      pickupTime:     params.pickupTime,
+      serviceDate:    params.serviceDate,
+      isLeg2:         params.isLeg2 || false,
+      transferInfo:   params.transferInfo || null,
+      queueNo:        params.queueNo || '',
+      vehicleId:      params.vehicleId || '',
+      fare:           params.fare || 0,
+      payMethod:      params.payMethod || '',
+      slipUploaded:   params.slipUploaded || false,
+      status:         'pending_payment',
+      createdAt:      new Date().toISOString(),
+      assignment:     params.assignment || null
+    };
+  }
+
+  /* ── expose ── */
+  global.SLBookingBridge = {
+    init:                init,
+    onReady:             onReady,
+    getBookableStops:    getBookableStops,
+    getAvailableTrips:   getAvailableTrips,
+    isLeg2Dest:          isLeg2Dest,
+    getTransferInfo:     getTransferInfo,
+    getFare:             getFare,
+    getCatalogVersion:   getCatalogVersion,
+    buildBookingSnapshot:buildBookingSnapshot,
+    /* expose _catalog สำหรับ booking-capacity.js */
+    get _catalog() { return _catalog; }
+  };
+
+})(window);
