@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>S.L.Transit - จองตั๋วรถโดยสาร</title>
+<title>S.L.Transit - จองตั๋วรถโดยสาร (Beta)</title>
 
 <!-- Firebase SDK (compat v9) — เหมือน index.html ของ project -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -975,13 +975,14 @@ body {
      DEV NAV — แถบทดสอบชั่วคราว (ลบทิ้งได้ตอน production)
      ============================================================ -->
 <div class="dev-nav" id="devNav">
-  <span class="dev-nav-label">🛠 ทดสอบ:</span>
+  <span class="dev-nav-label">🧪 BETA booking1.html</span>
   <button class="dev-btn active" id="devBtn1" onclick="devGoTo(1)">① เลือกเที่ยว</button>
   <button class="dev-btn"        id="devBtn2" onclick="devGoTo(2)">② ผู้โดยสาร</button>
   <button class="dev-btn"        id="devBtn3" onclick="devGoTo(3)">③ ชำระเงิน</button>
   <button class="dev-btn"        id="devBtn4" onclick="devGoTo(4)">④ ตั๋ว</button>
 </div>
-
+     PAGE 1: เลือกเที่ยว (Step 1)
+     ============================================================ -->
 <div id="page1" class="page active">
   <header class="header">
     <div class="page-container" style="width:100%;max-width:none;display:flex;align-items:center;justify-content:space-between;">
