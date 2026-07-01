@@ -111,9 +111,9 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 .ann-slide-bg{
   position:absolute;inset:0;
   background-size:cover;background-position:center;
-  transition:transform 6s ease-out;
+  /* ไม่ zoom/scale — ภาพอยู่นิ่ง */
 }
-.ann-slide.active .ann-slide-bg{ transform:scale(1.06); }
+.ann-slide.active .ann-slide-bg{ transform:none; } /* ข้อ 4: ห้าม zoom */
 /* overlay gradient */
 .ann-slide-overlay{
   position:absolute;inset:0;
@@ -260,7 +260,8 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   border-radius:18px 18px 0 0;
   box-shadow:0 12px 30px rgba(11,29,58,0.16);
 }
-#sl-map{width:100%;height:100%;}
+#sl-map{width:100%;height:100%;pointer-events:none;}
+.locate-btn{pointer-events:auto !important;}
 .leaflet-control-zoom,.leaflet-control-attribution{display:none!important}
 
 /* nearest stop card */
@@ -437,9 +438,8 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 }
 
 @media(min-width:1024px){
-  :root{--page-max:900px}
+  :root{--page-max:min(90vw,960px)} /* ── ข้อ 5: 90% viewport ──*/
 
-  /* ── พื้นหลัง navy เต็ม viewport ─────────────────── */
   html{background:var(--navy)}
   body{
     background:var(--navy);
