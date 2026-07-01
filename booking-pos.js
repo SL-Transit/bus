@@ -455,7 +455,7 @@
         var booking = res.booking;
         var linePayload = {
           event:          'booking_created',
-          source:         'booking-new.html',
+          source:         'booking1.html',
           booking_id:     booking.code,
           passenger_name: booking.name,
           route:          booking.route,
