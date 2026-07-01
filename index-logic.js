@@ -802,12 +802,8 @@ function renderDrawerList(){
   var list=document.getElementById('stop-drawer-list');
   if(!list) return;
   /* เรียงตามระยะห่างถ้ามี GPS */
+  /* เรียงตาม STOPS order (ลำดับป้ายตามเส้นทาง) */
   var sorted=STOPS.slice();
-  if(userPos){
-    sorted.sort(function(a,b){
-      return distKm(userPos,{lat:a.lat,lng:a.lng})-distKm(userPos,{lat:b.lat,lng:b.lng});
-    });
-  }
   list.innerHTML=sorted.map(function(s,i){
     var isSelected=selectedStop&&s.name===selectedStop.name;
     var dist=userPos?distKm(userPos,{lat:s.lat,lng:s.lng}):null;
