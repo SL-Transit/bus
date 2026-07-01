@@ -173,10 +173,17 @@ function initMap(){
 
   /* สร้างแผนที่ OpenStreetMap */
   mapObj = L.map('sl-map', {
-    center: [13.659022, 101.437482], /* ศูนย์กลางเส้นทาง */
-    zoom: 9,
+    center: [13.659022, 101.437482],
+    zoom: 10,
     zoomControl: false,
-    attributionControl: false
+    attributionControl: false,
+    dragging: false,
+    scrollWheelZoom: false,
+    touchZoom: false,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    tap: false
   });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -250,7 +257,12 @@ function highlightStop(stop){
   nearestPinOverlay.addTo(mapObj);
 
   /* pan ไปป้ายใกล้สุด */
-  focusMap({lat:stop.lat,lng:stop.lng}, 13, true);
+  /* ถ้ามี userPos → fitBounds ให้เห็นทั้งคู่ */
+  if(userPos){
+    fitToUserAndStop([userPos.lat,userPos.lng],[stop.lat,stop.lng]);
+  } else {
+    focusMap({lat:stop.lat,lng:stop.lng}, 13, true);
+  }
 }
 
 function focusMap(point, zoomLevel, animate){
@@ -260,6 +272,17 @@ function focusMap(point, zoomLevel, animate){
     mapObj.flyTo(latlng, zoomLevel||13, {duration:0.8});
   } else {
     mapObj.setView(latlng, zoomLevel||13);
+  }
+}
+
+/* ── ข้อ 3: zoom ให้เห็นทั้งผู้ใช้และป้ายที่ใกล้ที่สุด ── */
+function fitToUserAndStop(userLatLng, stopLatLng){
+  if(!mapObj) return;
+  try{
+    var bounds = L.latLngBounds([userLatLng, stopLatLng]);
+    mapObj.fitBounds(bounds, {padding:[60,60], maxZoom:15, animate:true});
+  }catch(e){
+    mapObj.flyTo(userLatLng, 14, {duration:0.8});
   }
 }
 
@@ -348,9 +371,13 @@ function onPositionResolved(lat,lng,source){
   userPos={lat:lat,lng:lng};
   placeUserMarker(userPos);
 
-  /* pan + zoom smooth ไปหาผู้ใช้ทันที (ตาม passenger.html) */
+  /* ถ้ามีป้ายอยู่แล้ว → fitBounds ให้เห็นทั้งผู้ใช้และป้าย */
   if(mapReady&&mapObj){
-    focusMap({lat:lat,lng:lng}, 14, true, true);
+    if(selectedStop){
+      fitToUserAndStop([lat,lng],[selectedStop.lat,selectedStop.lng]);
+    } else {
+      focusMap({lat:lat,lng:lng}, 14, true);
+    }
   }
 
   if(!stopsReady){
