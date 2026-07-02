@@ -725,18 +725,18 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
     </div>
 
     <!-- Nearest stop card -->
-    <div class="nearest-card" id="nearest-card">
+    <a href="#" class="nearest-card" id="nearest-card">
       <div class="nearest-icon"><img src="assets/icon-bus.png" width="32" height="32" alt="" style="object-fit:contain"> <!-- (icon-103: w=32px, h=32px, object-fit:contain) --></div>
       <div class="nearest-body">
         <div class="nearest-label">ป้ายใกล้คุณ</div>
         <div class="nearest-name" id="nearest-name">กำลังโหลด...</div>
         <div class="nearest-sub" id="nearest-sub">แตะเพื่อเปลี่ยนป้าย</div>
       </div>
-      <div class="nearest-action">
+      <div class="nearest-action" onclick="openStopDrawer(event)">
         เลือกป้ายเอง
         <img src="assets/icon-arrow-right.png" width="16" height="16" alt="" style="object-fit:contain;opacity:0.8"> <!-- (icon-104: w=16px, h=16px, opacity:0.8, object-fit:contain) -->
       </div>
-    </div>
+    </a>
   </div>
 
   <!-- ROUTES FROM THIS STOP -->
