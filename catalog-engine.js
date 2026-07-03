@@ -27,38 +27,57 @@
       .replace(/^_+|_+$/g, '');
     return id || String(fallback || 'id');
   }
-
-  var CANONICAL_STOP_ORDER = [
-    ['ฉะเชิงเทรา', 'ฉะเชิงเทรา (แปดริ้ว)', 'แปดริ้ว', 'chachoengsao'],
-    ['พนมสารคาม', 'phanom'],
-    ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'sanamchai'],
-    ['กม.1', 'กม 1', 'km1'],
-    ['กม.7', 'กม 7', 'km7'],
-    ['ห้วยโสม', 'huaisom'],
-    ['ท่าตะเกียบ', 'tatakiab'],
-    ['หนองคอก', 'nongkhok'],
-    ['คลองตะเคียน', 'khlongtakien'],
-    ['หนองเรือ', 'nongruea'],
-    ['ไพจิตร', 'ไพรจิต', 'phaijit'],
-    ['ทุ่งกมินทร์', 'ทุ่งกบินทร์', 'thoengkabintr'],
-    ['สี่แยกโคนม', 'siyaekkhonom'],
-    ['วังน้ำเย็น', 'wangnamyen'],
-    ['คลองหาด', 'klonghat', 'khlonghat']
-  ];
-
   function cleanStopLabel(value) {
     return String(value || '').replace(/\s+/g, '').replace(/[().]/g, '').toLowerCase();
   }
 
+  function stopCache() {
+    return global.SLTransit && global.SLTransit._stopsCache || {};
+  }
+
+  function stopAliases(key, stop) {
+    stop = stop || {};
+    var aliases = [key, stop.id, stop.stopKey, stop.nameTh, stop.stopNameTh, stop.name, stop.stopTh, stop.nameEn, stop.code];
+    if (Array.isArray(stop.aliases)) aliases = aliases.concat(stop.aliases);
+    return aliases.filter(Boolean);
+  }
+
   function stopOrderValue(value, fallback) {
     var clean = cleanStopLabel(value);
-    if (!clean) return fallback == null ? 999999 : Number(fallback);
-    for (var i = 0; i < CANONICAL_STOP_ORDER.length; i++) {
-      for (var j = 0; j < CANONICAL_STOP_ORDER[i].length; j++) {
-        var alias = cleanStopLabel(CANONICAL_STOP_ORDER[i][j]);
-        if (clean === alias || (alias.length >= 6 && (clean.indexOf(alias) !== -1 || alias.indexOf(clean) !== -1))) return i + 1;
+    var fallbackValue = fallback == null ? 999999 : Number(fallback);
+    if (!clean) return fallbackValue;
+    var stops = stopCache();
+    var found = fallbackValue;
+    Object.keys(stops).some(function(key) {
+      var stop = stops[key] || {};
+      var aliases = stopAliases(key, stop);
+      for (var i = 0; i < aliases.length; i++) {
+        var alias = cleanStopLabel(aliases[i]);
+        if (clean === alias || (alias.length >= 6 && (clean.indexOf(alias) !== -1 || alias.indexOf(clean) !== -1))) {
+          found = Number(stop.order == null ? fallbackValue : stop.order) || fallbackValue;
+          return true;
+        }
       }
-    }
+      return false;
+    });
+    return found;
+  }
+
+  function canonicalStopOrder() {
+    var stops = stopCache();
+    return Object.keys(stops).map(function(key) {
+      var stop = stops[key] || {};
+      return {
+        label: stop.nameTh || stop.stopNameTh || stop.name || stop.stopTh || key,
+        order: Number(stop.order == null ? 999999 : stop.order)
+      };
+    }).sort(function(a, b) {
+      return a.order - b.order || String(a.label).localeCompare(String(b.label));
+    }).map(function(item) {
+      return item.label;
+    });
+  }
+}
     return fallback == null ? 999999 : Number(fallback);
   }
 
@@ -284,6 +303,6 @@
     legacyRouteData: legacyRouteData,
     loadPublished: loadPublished,
     stopOrderValue: stopOrderValue,
-    canonicalStopOrder: function() { return CANONICAL_STOP_ORDER.map(function(item) { return item[0]; }); }
+    canonicalStopOrder: canonicalStopOrder
   };
 })(window);
