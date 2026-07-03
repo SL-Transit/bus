@@ -77,9 +77,6 @@
       return item.label;
     });
   }
-}
-    return fallback == null ? 999999 : Number(fallback);
-  }
 
   function makeVersion(now) {
     var d = now || new Date();

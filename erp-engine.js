@@ -75,9 +75,6 @@
       return item.label;
     });
   }
-}
-    return fallback == null ? 999999 : Number(fallback);
-  }
 
   function stopName(catalog, stopKey) {
     var stop = catalog && catalog.stops && catalog.stops[stopKey] || {};
