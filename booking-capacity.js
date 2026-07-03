@@ -384,6 +384,28 @@
   }
 
   /* ──────────────────────────────────────────────────────
+     [SCHEMA v3 PREP] getPriceAsync(originKey, destKey)
+     ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 7
+     โครงพร้อมเชื่อม SLTransit.db.getFare() เมื่อ erp-core.js มาถึง
+     ตอนนี้: fallback ไปที่ SEGMENT_PRICE (จาก catalog.fares) เสมอ
+     เมื่อ erp-core พร้อม ค่าบริการ (fare.rules) จะรวมมาให้อัตโนมัติ
+     ไม่ต้องมี SERVICE_FEE_AMOUNT แยกอีกต่อไป (ตาม briefing: "ค่าบริการ 5 บาท
+     อยู่ใน fare.rules อยู่แล้ว")
+  ────────────────────────────────────────────────────── */
+  function getPriceAsync(originKey, destKey) {
+    if (global.SLTransit && global.SLTransit.core && global.SLTransit.core.ready &&
+        global.SLTransit.db && typeof global.SLTransit.db.getFare === 'function') {
+      return global.SLTransit.db.getFare(originKey, destKey).then(function(fare) {
+        return fare ? Number(fare.base) || 0 : getSegmentPrice(originKey, destKey);
+      }).catch(function() {
+        return getSegmentPrice(originKey, destKey); /* erp-core error → fallback */
+      });
+    }
+    /* erp-core.js ยังไม่พร้อม → ใช้ SEGMENT_PRICE เดิมทันที (sync wrapped in Promise) */
+    return Promise.resolve(getSegmentPrice(originKey, destKey));
+  }
+
+  /* ──────────────────────────────────────────────────────
      expose
   ────────────────────────────────────────────────────── */
   global.SLBookingCapacity = {
@@ -402,7 +424,8 @@
     buildLegSchedule:        buildLegSchedule,
     getPlatformLabel:        getPlatformLabel,
     requestRouteContinue:    requestRouteContinue,
-    getSegmentPrice:         getSegmentPrice
+    getSegmentPrice:         getSegmentPrice,
+    getPriceAsync:           getPriceAsync  /* [SCHEMA v3 PREP] */
   };
 
 })(window);
