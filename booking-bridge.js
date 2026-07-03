@@ -24,7 +24,11 @@
   ───────────────────────────────────────── */
   var TRANSFER_POINT_KEY = 'chachoengsao';   // จุดต่อรถกลาง
 
-  /* buffer จากต้นทางถึงจุดต่อ (แปดริ้ว) — ตรงกับ TRANSFER_BUFFER_MINUTES ใน repo */
+  /* buffer จากต้นทางถึงจุดต่อ (แปดริ้ว) — ตรงกับ TRANSFER_BUFFER_MINUTES ใน repo
+     ⚠️ [SCHEMA v3 PENDING] ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 5 ต้องย้ายไปอ่านจาก
+     Firebase data/catalog/stops/{stopKey}/transferBufferMin แทน hardcode นี้
+     คงไว้เป็น FALLBACK ชั่วคราวจนกว่า erp-core.js + erp-data-adapter.js จะพร้อม
+     (ปัจจุบันยังไม่มีใน repo — ตรวจสอบแล้ว 2026-07-03) */
   var TRANSFER_BUFFER = {
     phanom:       50,
     sanamchai:    70,
@@ -37,6 +41,27 @@
     siyaekkhonom: 190,
     klonghat:     200
   };
+
+  /* ──────────────────────────────────────────────────────
+     [SCHEMA v3 PREP] getTransferBufferAsync(stopKey)
+     โครงพร้อมเชื่อม SLTransit.db.getStop() เมื่อ erp-core.js มาถึง
+     ตอนนี้: ยัง fallback ไปที่ TRANSFER_BUFFER hardcode ด้านบนเสมอ
+     เมื่อ erp-core พร้อม ให้ตัด fallback ออกได้ทันทีโดยไม่กระทบจุดเรียกใช้
+     (เพราะจุดเรียกทั้งหมดจะเรียกผ่านฟังก์ชันนี้ ไม่แตะ TRANSFER_BUFFER ตรงๆ)
+  ────────────────────────────────────────────────────── */
+  function getTransferBufferAsync(stopKey) {
+    if (global.SLTransit && global.SLTransit.core && global.SLTransit.core.ready &&
+        global.SLTransit.db && typeof global.SLTransit.db.getStop === 'function') {
+      return global.SLTransit.db.getStop(stopKey).then(function(stop) {
+        var v = stop && stop.transferBufferMin;
+        return (v != null) ? Number(v) : (TRANSFER_BUFFER[stopKey] || 0);
+      }).catch(function() {
+        return TRANSFER_BUFFER[stopKey] || 0; /* erp-core error → fallback */
+      });
+    }
+    /* erp-core.js ยังไม่พร้อม → ใช้ hardcode เดิมทันที (sync wrapped in Promise) */
+    return Promise.resolve(TRANSFER_BUFFER[stopKey] || 0);
+  }
 
   /* ตารางเวลาออกของรถ leg2 จากแปดริ้ว — ตรงกับ LEG2_TIMES_COMMON ใน repo */
   var LEG2_TIMES_COMMON  = ['08:00','09:00','10:00','11:00','11:30','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
@@ -198,63 +223,87 @@
     var normOrigin = SE.normalizeStopKey(originKey);
     var normDest   = SE.normalizeStopKey(destKey);
     var leg2 = isLeg2Dest(destKey);
-
-    /* ถ้า leg2: leg1 ไปถึง TRANSFER_POINT (แปดริ้ว), ไม่ใช่ปลายทางจริง */
-    var leg1Dest = leg2 ? TRANSFER_POINT_KEY : normDest;
+    var leg1DestKey = leg2 ? TRANSFER_POINT_KEY : normDest;
 
     var now = new Date();
     var todayISO = _todayISO();
     var isToday = (serviceDate === todayISO);
     var currentMin = isToday ? now.getHours()*60 + now.getMinutes() : -1;
 
-    /* รวม trip sources จาก engine */
-    var allTrips = SE.queueTrips.concat(SE.routeDataTrips ? SE.routeDataTrips() : []);
+    /* ดึง trips live จาก engine ทั้ง 2 แหล่ง */
+    var liveRouteTrips = typeof SE.routeDataTrips === 'function' ? SE.routeDataTrips() : [];
+    var allTrips = liveRouteTrips.concat(SE.queueTrips || []);
 
-    /* เก็บ candidate pickup times */
+    /* collect candidate pickup times — normalize stop keys ทุกตัว */
     var candidateTimes = {};
     allTrips.forEach(function(trip) {
       var stops = trip.routeStops || [];
-      var oIdx = stops.indexOf(normOrigin);
-      var dIdx = stops.indexOf(leg1Dest);
-      if (oIdx < 0 || dIdx < 0 || oIdx >= dIdx) return;
-      var t = (trip.stopTimes && trip.stopTimes[normOrigin]) || trip.departTime;
+      var normStops = stops.map(function(s) { return SE.normalizeStopKey(s); });
+      var oIdx = normStops.indexOf(normOrigin);
+      var dIdx = normStops.indexOf(leg1DestKey);
+      /* fallback: ถ้าไม่ match ลอง indexOf จาก from/to */
+      if (dIdx < 0) dIdx = normStops.indexOf(normDest);
+      if (oIdx < 0 || dIdx < 0 || oIdx >= dIdx) {
+        /* fallback: match by trip.from === normOrigin */
+        var fromKey = SE.normalizeStopKey(trip.from || trip.origin || '');
+        if (fromKey !== normOrigin) return;
+      }
+      var t = (trip.stopTimes && (trip.stopTimes[normOrigin] || trip.stopTimes[trip.from || ''])) || trip.departTime || trip.time;
       if (t) candidateTimes[t] = true;
     });
 
     var results = [];
     Object.keys(candidateTimes).sort().forEach(function(time) {
       var tripMin = _toMin(time);
-      if (isToday && tripMin <= currentMin) return; // เลยเวลาแล้ว
+      if (isToday && tripMin <= currentMin) return;
 
-      var assignment = SE.resolveTripAssignment({
-        originStopKey:      normOrigin,
-        destinationStopKey: leg1Dest,
-        pickupTime:         time,
-        serviceDate:        serviceDate || todayISO,
-        requiresTransfer:   leg2
-      });
-      if (!assignment) return;
+      /* resolveTripAssignment พร้อม fallback */
+      var assignment = null;
+      try {
+        assignment = SE.resolveTripAssignment({
+          originStopKey:      normOrigin,
+          destinationStopKey: leg1DestKey,
+          pickupTime:         time,
+          serviceDate:        serviceDate || todayISO,
+          requiresTransfer:   leg2
+        });
+      } catch(e) {}
 
-      /* transfer info (leg2) */
-      var transferInfo = null;
-      if (leg2) {
-        transferInfo = getTransferInfo(normOrigin, destKey, assignment.pickupTime);
-        /* ถ้าไม่มีเที่ยวต่อเลย ให้ยังแสดงแต่ flag hasMatch:false */
+      /* fallback: สร้าง assignment จาก trip โดยตรงถ้า engine คืน null */
+      if (!assignment) {
+        var srcTrip = null;
+        for (var i = 0; i < allTrips.length; i++) {
+          var t = allTrips[i];
+          var fromKey = SE.normalizeStopKey(t.from || t.origin || '');
+          var st = (t.stopTimes && t.stopTimes[fromKey]) || t.departTime;
+          if (fromKey === normOrigin && st === time) { srcTrip = t; break; }
+        }
+        assignment = {
+          pickupTime:       time,
+          departTime:       time,
+          queueNo:          srcTrip ? srcTrip.queueNo : null,
+          plannedVehicleId: srcTrip ? (srcTrip.vehicleId || '') : '',
+          routeStops:       srcTrip
+            ? (srcTrip.routeStops || []).map(function(s){ return SE.normalizeStopKey(s); })
+            : [normOrigin, leg1DestKey],
+          scheduleOnly:     true
+        };
       }
 
-      var fare = _fareForTrip(assignment, normOrigin, leg2 ? leg1Dest : normDest) || 55;
+      var transferInfo = leg2 ? getTransferInfo(normOrigin, destKey, assignment.pickupTime) : null;
+      var fare = _fareForTrip(assignment, normOrigin, leg2 ? leg1DestKey : normDest) || 55;
 
       results.push({
-        pickupTime:    assignment.pickupTime,
-        label:         assignment.pickupTime + ' น.',
-        queueNo:       assignment.queueNo,
-        vehicleId:     assignment.plannedVehicleId,
-        routeStops:    assignment.routeStops,
-        scheduleOnly:  assignment.scheduleOnly,
-        fare:          fare,
-        isLeg2:        leg2,
-        transferInfo:  transferInfo,   // null ถ้าไม่ต่อรถ
-        assignment:    assignment
+        pickupTime:   assignment.pickupTime,
+        label:        assignment.pickupTime + ' น.',
+        queueNo:      assignment.queueNo,
+        vehicleId:    assignment.plannedVehicleId || '',
+        routeStops:   assignment.routeStops || [],
+        scheduleOnly: !!assignment.scheduleOnly,
+        fare:         fare,
+        isLeg2:       leg2,
+        transferInfo: transferInfo,
+        assignment:   assignment
       });
     });
 
@@ -296,7 +345,8 @@
       fare:           params.fare || 0,
       payMethod:      params.payMethod || '',
       slipUploaded:   params.slipUploaded || false,
-      status:         'pending_payment',
+      /* [SCHEMA v3] ใช้ BOOKING_STATUS enum ถ้ามี (จาก booking-pos.js), fallback เผื่อยังไม่โหลด */
+      status:         (global.BOOKING_STATUS && global.BOOKING_STATUS.AWAITING_PAYMENT) || 'awaiting_payment',
       createdAt:      new Date().toISOString(),
       assignment:     params.assignment || null
     };
@@ -313,6 +363,7 @@
     getFare:             getFare,
     getCatalogVersion:   getCatalogVersion,
     buildBookingSnapshot:buildBookingSnapshot,
+    getTransferBufferAsync: getTransferBufferAsync,  /* [SCHEMA v3 PREP] */
     /* expose _catalog สำหรับ booking-capacity.js */
     get _catalog() { return _catalog; }
   };
