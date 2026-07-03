@@ -39,6 +39,39 @@
   global.SERVICE_FEE_AMOUNT      = 0;
 
   /* ──────────────────────────────────────────────────────
+     [SCHEMA v3] BOOKING STATUS ENUM
+     ตรงกับ BRIEFING_FOR_BOOKING_AI.md ข้อ 4 — พร้อมใช้ทันที
+     ไม่พึ่ง erp-core.js — เป็น constant ล้วนๆ
+  ────────────────────────────────────────────────────── */
+  var BOOKING_STATUS = {
+    AWAITING_PAYMENT: 'awaiting_payment',  // แทน pending (เดิม)
+    CONFIRMED:        'confirmed',          // แทน paid (เดิม)
+    CHECKED_IN:       'checked_in',         // ใหม่: GPS เช็คอิน
+    COMPLETED:        'completed',          // ใหม่: เดินทางถึงปลายทาง
+    CANCELLED:        'cancelled',
+    REFUNDED:         'refunded',           // ใหม่
+    EXPIRED:          'expired',            // ใหม่: จ่ายไม่ทัน
+    NO_SHOW:          'no_show'             // ใหม่
+  };
+  global.BOOKING_STATUS = BOOKING_STATUS;
+
+  /* ──────────────────────────────────────────────────────
+     [SCHEMA v3] BOOKING ID GENERATOR
+     ตรงกับ BRIEFING_FOR_BOOKING_AI.md ข้อ 3 — พร้อมใช้ทันที
+     รูปแบบใหม่: BK-YYYYMMDD-6X (สุ่ม 6 ตัวอักษร แทน sequential)
+     ป้องกันการเปิดเผยปริมาณธุรกิจจากเลขรันตามลำดับ
+  ────────────────────────────────────────────────────── */
+  function generateBookingId(prefix) {
+    var p = prefix || (global.TEST_MODE ? 'TB' : 'BK');
+    var date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    var rand = Math.random().toString(36).toUpperCase().slice(2, 8);
+    /* กันกรณี Math.random ให้ char น้อยกว่า 6 (โอกาสน้อยมากแต่กันไว้) */
+    while (rand.length < 6) rand += Math.random().toString(36).toUpperCase().slice(2, 3);
+    return p + '-' + date + '-' + rand.slice(0, 6);
+  }
+  global.generateBookingId = generateBookingId;
+
+  /* ──────────────────────────────────────────────────────
      [1] INPUT SANITIZER  (ตรงกับ repo booking.html)
   ────────────────────────────────────────────────────── */
   function sanitizeText(str) {
@@ -367,7 +400,7 @@
       .then(function(qResult) {
         /* Step 4: upload slip */
         if (btn) btn.textContent = '⏳ กำลังอัปโหลดสลิป...';
-        var code = (global.TEST_MODE ? 'TB' : 'BK') + now.toString().slice(-6);
+        var code = generateBookingId();
         var uploadPromise = (_slipFileObj && !global.TEST_MODE && global.PAYMENT_MODE === 'transfer')
           ? uploadSlipToStorage(storage, _slipFileObj, code)
           : Promise.resolve('');
@@ -427,6 +460,7 @@
         booking.paymentStatus    = result.slipUrl
           ? 'slip_uploaded'
           : (global.PAYMENT_MODE === 'transfer' ? 'mock_payment' : 'pay_on_site');
+        /* booking.status ถูก set แล้วโดย SLBookingBridge.buildBookingSnapshot() ด้วย BOOKING_STATUS.AWAITING_PAYMENT */
         booking.dupKey           = dupKey;
         booking.queueNumber      = result.queueNum;
         booking.bookingSequenceNumber = result.queueNum;
