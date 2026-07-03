@@ -297,6 +297,7 @@
     getGroup: getGroup,
     getService: getService,
     getSettings: getSettings,
+    getFinanceTransactions: getFinanceTransactions,
     getVehicles: getVehicles,
     getQueues: getQueues,
     getQueueOwners: getQueueOwners,
