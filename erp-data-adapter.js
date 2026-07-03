@@ -148,6 +148,12 @@
     }));
   }
 
+  function getQueueOwners() {
+    return Promise.resolve(Object.keys(valueOrEmpty(_fleet.queueOwners)).map(function(key) {
+      return Object.assign({ ownerId: key }, _fleet.queueOwners[key] || {});
+    }));
+  }
+
   function reorderStops(orderedKeys) {
     if (!Array.isArray(orderedKeys) || !orderedKeys.length) {
       return Promise.reject(new Error('orderedKeys must be a non-empty array'));
@@ -190,6 +196,14 @@
 
   function saveVehicle(vehicleId, data) {
     return requireDb().ref('data/fleet/vehicles/' + vehicleId).update(data || {}).then(refreshFleet);
+  }
+
+  function saveQueue(queueId, data) {
+    return requireDb().ref('data/fleet/queues/' + queueId).update(data || {}).then(refreshFleet);
+  }
+
+  function saveQueueOwner(ownerId, data) {
+    return requireDb().ref('data/fleet/queueOwners/' + ownerId).update(data || {}).then(refreshFleet);
   }
 
   function nextIdFromMap(map, prefix, width) {
@@ -285,6 +299,7 @@
     getSettings: getSettings,
     getVehicles: getVehicles,
     getQueues: getQueues,
+    getQueueOwners: getQueueOwners,
     reorderStops: reorderStops,
     watchBookings: watchBookings,
     watchLiveVehicles: watchLiveVehicles,
@@ -293,6 +308,8 @@
     saveTrip: saveTrip,
     saveFare: saveFare,
     saveVehicle: saveVehicle,
+    saveQueue: saveQueue,
+    saveQueueOwner: saveQueueOwner,
     nextRouteId: nextRouteId,
     nextTripId: nextTripId,
     nextVehicleId: nextVehicleId,
