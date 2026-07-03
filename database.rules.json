@@ -1,93 +1,65 @@
 {
   "rules": {
-    "adminUsers": {
+    "data": {
+      "catalog": {
+        ".read": true,
+        ".write": "auth != null"
+      },
+      "fleet": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "finance": {
+        ".read": "auth != null",
+        ".write": false
+      },
+      "settings": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
+    "operations": {
+      "bookings": {
+        ".read": "auth != null",
+        ".write": false,
+        ".indexOn": ["date", "originKey", "destKey", "status"],
+        "$bookingId": {
+          ".write": "auth != null"
+        }
+      },
+      "passengers": {
+        ".read": "auth != null",
+        ".write": false,
+        "$passengerId": {
+          ".write": false
+        }
+      },
+      "liveVehicles": {
+        ".read": true,
+        "$vehicleId": {
+          ".write": "auth != null"
+        }
+      },
+      "ticketLocations": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "driverLogs": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "sosAlerts": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "admin": {
       ".read": "auth != null",
       ".write": "auth != null"
     },
-    "bookings": {
+    "meta": {
       ".read": true,
-      ".write": true,
-      ".indexOn": ["dupKey", "date"]
-    },
-    "settings": {
-      ".read": true,
-      ".write": "auth != null"
-    },
-    "publishedCatalog": {
-      ".read": true,
-      ".write": "auth != null"
-    },
-    "catalogs": {
-      ".read": true,
-      ".write": "auth != null"
-    },
-    "catalogDraft": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "routeData": {
-      ".read": true,
-      ".write": "auth != null"
-    },
-    "announcements": {
-      ".read": true,
-      ".write": "auth != null"
-    },
-    "adminLogs": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "queues": {
-      ".read": true,
-      ".write": true
-    },
-    "bus": {
-      ".read": true,
-      ".write": true
-    },
-    "line_sent": {
-      ".read": "auth != null",
-      ".write": true
-    },
-    "ticketLocations": {
-      ".read": "auth != null",
-      ".write": true
-    },
-    "liveVehicles": {
-      ".read": true,
-      ".write": true
-    },
-    "testBookings": {
-      ".read": true,
-      ".write": true
-    },
-    "testQueues": {
-      ".read": true,
-      ".write": true
-    },
-    "testTicketLocations": {
-      ".read": true,
-      ".write": true
-    },
-    "test_booking_logs": {
-      ".read": "auth != null",
-      ".write": true
-    },
-    "test_line_logs": {
-      ".read": "auth != null",
-      ".write": true
-    },
-    "mockLogs": {
-      ".read": "auth != null",
-      ".write": true
-    },
-    "driverLogs": {
-      ".read": "auth != null",
-      ".write": true
-    },
-    "sosAlerts": {
-      ".read": "auth != null",
-      ".write": true
+      ".write": false
     }
   }
 }
