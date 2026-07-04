@@ -11,6 +11,16 @@
     databaseURL: 'https://bus-booking-1d68c-default-rtdb.firebaseio.com'
   };
 
+  var REQUIRED_FILES = [
+    'booking.html',
+    'check_ticket.html',
+    'passenger.html',
+    'booking-bridge.js',
+    'booking-capacity.js',
+    'admin-erp.html',
+    'driver-android/src/main/java/com/sanamchai/drivergps/GpsService.java'
+  ];
+
   function valueOrEmpty(value) {
     return value && typeof value === 'object' ? value : {};
   }
@@ -26,6 +36,20 @@
       hasTargetProject: body.indexOf(TARGET.projectId) >= 0,
       hasTargetDatabase: body.indexOf(TARGET.databaseURL) >= 0,
       findings: findings
+    };
+  }
+
+  function buildCutoverChecklist(files) {
+    var map = valueOrEmpty(files);
+    var provided = Object.keys(map);
+    var required = REQUIRED_FILES.map(function(name) {
+      return { file: name, present: Object.prototype.hasOwnProperty.call(map, name) };
+    });
+    return {
+      dryRun: true,
+      required: required,
+      missing: required.filter(function(item) { return !item.present; }).map(function(item) { return item.file; }),
+      extra: provided.filter(function(name) { return REQUIRED_FILES.indexOf(name) === -1; })
     };
   }
 
@@ -48,6 +72,7 @@
       readyForManualReview: blockers.length === 0,
       blockers: blockers,
       warnings: warnings,
+      checklist: buildCutoverChecklist(files),
       files: scans
     };
   }
@@ -56,7 +81,9 @@
   global.SLTransit.cutover = {
     TARGET: Object.assign({}, TARGET),
     LEGACY: Object.assign({}, LEGACY),
+    REQUIRED_FILES: REQUIRED_FILES.slice(),
     scanText: scanText,
+    buildCutoverChecklist: buildCutoverChecklist,
     buildCutoverReport: buildCutoverReport
   };
 })(window);
