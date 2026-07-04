@@ -109,6 +109,7 @@
     REQUIRED_FILES: REQUIRED_FILES.slice(),
     scanText: scanText,
     buildCutoverChecklist: buildCutoverChecklist,
+    buildCutoverReadiness: buildCutoverReadiness,
     buildCutoverReport: buildCutoverReport
   };
 })(window);
