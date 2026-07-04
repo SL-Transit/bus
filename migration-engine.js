@@ -103,6 +103,21 @@
     };
   }
 
+  function buildMigrationPlan(bookings, options) {
+    var preview = buildMigrationPreview(bookings);
+    var validation = validateMigrationPreview(preview);
+    var updates = buildUpdateMap(preview);
+    return {
+      dryRun: true,
+      generatedAt: (options && options.generatedAt) || new Date().toISOString(),
+      source: (options && options.source) || 'legacy-bookings-json',
+      targetRoot: 'operations/bookings',
+      summary: preview.summary,
+      validation: validation,
+      updates: updates
+    };
+  }
+
   function buildUpdateMap(preview) {
     var rows = Array.isArray(preview) ? preview : valueOrEmpty(preview).rows || [];
     return rows.reduce(function(updates, row) {
@@ -118,6 +133,7 @@
     normalizeBooking: normalizeBooking,
     buildMigrationPreview: buildMigrationPreview,
     validateMigrationPreview: validateMigrationPreview,
+    buildMigrationPlan: buildMigrationPlan,
     buildUpdateMap: buildUpdateMap
   };
 
