@@ -24,11 +24,62 @@
   ───────────────────────────────────────── */
   var TRANSFER_POINT_KEY = 'chachoengsao';   // จุดต่อรถกลาง
 
-  /* buffer จากต้นทางถึงจุดต่อ (แปดริ้ว) — ตรงกับ TRANSFER_BUFFER_MINUTES ใน repo
+  /* ตารางเวลาออกของรถ leg2 จากแปดริ้ว — ตรงกับ repo ทุกตัว */
+  var LEG2_TIMES_COMMON  = ['08:00','09:00','10:00','11:00','11:30','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+  var LEG2_TIMES_MOCHIT  = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+  var LEG2_TIMES_EKKAMAI = ['07:30','08:30','09:30','10:30','11:30','12:30','13:30','14:30','15:30','16:30','17:30','18:30','19:30','20:30'];
+  var LEG2_TIMES_MINBURI = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+  /* ─────────────────────────────────────────
+     LEG2_DEST — คัดลอกจาก repo booking.html ต้นฉบับ 100% (บรรทัด 1387+)
+     รวมทั้งจุดที่ไม่ต่อรถ (leg2:false, เป็นป้ายบนเส้นทางหลัก)
+     และจุดที่ต้องต่อรถที่แปดริ้ว (leg2:true พร้อม buffer + times)
+     ราคา (price) ต่อจุดหมาย — ตรงกับ repo เป๊ะ ไม่ใช่คำนวณจาก fare table แยก
+  ───────────────────────────────────────── */
+  var LEG2_DEST = {
+    chachoengsao:    { label:'ฉะเชิงเทรา (แปดริ้ว)', price:55,  leg2:false },
+    sanamchai:       { label:'ท่ารถสนามชัยเขต',      price:55,  leg2:false },
+    phanom:          { label:'พนมสารคาม',           price:55,  leg2:false },
+    nongkhok:        { label:'หนองคอก',              price:100, leg2:false },
+    khlongtakien:    { label:'คลองตะเคียน',          price:120, leg2:false },
+    klonghat:        { label:'คลองหาด',              price:160, leg2:false },
+    tatakiab:        { label:'ท่าตะเกียบ',            price:100, leg2:false },
+    siyaekkhonom:    { label:'สี่แยกโคนม',            price:150, leg2:false },
+
+    pattaya:         { label:'พัทยา',           price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON },
+    yakaiyakan:      { label:'แยกอัยการ',       price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON },
+    sattahip:        { label:'สัตหีบ',           price:150, leg2:true, buffer:40, times:LEG2_TIMES_COMMON },
+    rayong:          { label:'ระยอง',           price:150, leg2:true, buffer:45, times:LEG2_TIMES_COMMON },
+    km10:            { label:'กม.10',           price:160, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
+    nongmon:         { label:'ตลาดหนองมน',      price:90,  leg2:true, buffer:30, times:LEG2_TIMES_COMMON },
+    bangsaen:        { label:'บางแสน',           price:90,  leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
+    aoudom:          { label:'อ่าวอุดม',         price:120, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
+    sriracha:        { label:'ศรีราชา',          price:100, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
+    kaset:           { label:'ม.เกษตร',          price:120, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
+    banchan:         { label:'บ้านฉาง',          price:160, leg2:true, buffer:45, times:LEG2_TIMES_COMMON },
+    laemchabang:     { label:'แหลมฉบัง',         price:120, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
+
+    mochit:          { label:'หมอชิต',           price:120, leg2:true, buffer:35, times:LEG2_TIMES_MOCHIT },
+    yaeklatphrao:    { label:'แยกลาดพร้าว',      price:120, leg2:true, buffer:35, times:LEG2_TIMES_MOCHIT },
+    bts_jatujak:     { label:'BTS จตุจักร',       price:120, leg2:true, buffer:35, times:LEG2_TIMES_MOCHIT },
+
+    ekkamai:         { label:'เอกมัย',           price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
+    homepro:         { label:'โฮมโปร',           price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
+    bangna:          { label:'บางนา',            price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
+    bts_bangchak:    { label:'BTS บางจาก',       price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
+    bts_phrakhanong: { label:'BTS พระโขนง',      price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
+    bts_onnut:       { label:'BTS อ่อนนุช',       price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
+
+    minburi:         { label:'ตลาดมีนบุรี',       price:70,  leg2:true, buffer:40, times:LEG2_TIMES_MINBURI }
+  };
+
+  /* ⚠️ [ยังไม่มีใน repo ต้นฉบับ] "รังสิต" และ "รถไฟ" ไม่มีอยู่ใน LEG2_DEST ต้นฉบับ
+     ต้องยืนยันกับทีมก่อนเพิ่ม — ไม่ได้เพิ่มเองโดยไม่ได้รับการยืนยัน */
+
+  /* buffer จากต้นทางถึงจุดต่อ (แปดริ้ว) — คัดลอกจาก TRANSFER_BUFFER_MINUTES ใน repo ต้นฉบับเป๊ะ
      ⚠️ [SCHEMA v3 PENDING] ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 5 ต้องย้ายไปอ่านจาก
      Firebase data/catalog/stops/{stopKey}/transferBufferMin แทน hardcode นี้
-     คงไว้เป็น FALLBACK ชั่วคราวจนกว่า erp-core.js + erp-data-adapter.js จะพร้อม
-     (ปัจจุบันยังไม่มีใน repo — ตรวจสอบแล้ว 2026-07-03) */
+     คงไว้เป็น FALLBACK ชั่วคราวจนกว่า erp-core.js + erp-data-adapter.js จะพร้อม */
   var TRANSFER_BUFFER = {
     phanom:       50,
     sanamchai:    70,
@@ -46,8 +97,6 @@
      [SCHEMA v3 PREP] getTransferBufferAsync(stopKey)
      โครงพร้อมเชื่อม SLTransit.db.getStop() เมื่อ erp-core.js มาถึง
      ตอนนี้: ยัง fallback ไปที่ TRANSFER_BUFFER hardcode ด้านบนเสมอ
-     เมื่อ erp-core พร้อม ให้ตัด fallback ออกได้ทันทีโดยไม่กระทบจุดเรียกใช้
-     (เพราะจุดเรียกทั้งหมดจะเรียกผ่านฟังก์ชันนี้ ไม่แตะ TRANSFER_BUFFER ตรงๆ)
   ────────────────────────────────────────────────────── */
   function getTransferBufferAsync(stopKey) {
     if (global.SLTransit && global.SLTransit.core && global.SLTransit.core.ready &&
@@ -56,41 +105,11 @@
         var v = stop && stop.transferBufferMin;
         return (v != null) ? Number(v) : (TRANSFER_BUFFER[stopKey] || 0);
       }).catch(function() {
-        return TRANSFER_BUFFER[stopKey] || 0; /* erp-core error → fallback */
+        return TRANSFER_BUFFER[stopKey] || 0;
       });
     }
-    /* erp-core.js ยังไม่พร้อม → ใช้ hardcode เดิมทันที (sync wrapped in Promise) */
     return Promise.resolve(TRANSFER_BUFFER[stopKey] || 0);
   }
-
-  /* ตารางเวลาออกของรถ leg2 จากแปดริ้ว — ตรงกับ LEG2_TIMES_COMMON ใน repo */
-  var LEG2_TIMES_COMMON  = ['08:00','09:00','10:00','11:00','11:30','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
-  var LEG2_TIMES_MOCHIT  = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
-  var LEG2_TIMES_EKKAMAI = ['07:30','08:30','09:30','10:30','11:30','12:30','13:30','14:30','15:30','16:30','17:30','18:30','19:30','20:30'];
-  var LEG2_TIMES_MINBURI = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
-
-  /* ปลายทาง leg2 — ตรงกับ LEG2_DEST ใน repo */
-  var LEG2_DEST = {
-    pattaya:       { label:'พัทยา',           buffer:40,  times:LEG2_TIMES_COMMON  },
-    yakaiyakan:    { label:'แยกอัยการ',        buffer:40,  times:LEG2_TIMES_COMMON  },
-    sattahip:      { label:'สัตหีบ',           buffer:40,  times:LEG2_TIMES_COMMON  },
-    rayong:        { label:'ระยอง',            buffer:45,  times:LEG2_TIMES_COMMON  },
-    km10:          { label:'กม.10',            buffer:35,  times:LEG2_TIMES_COMMON  },
-    nongmon:       { label:'ตลาดหนองมน',      buffer:30,  times:LEG2_TIMES_COMMON  },
-    bangsaen:      { label:'บางแสน',           buffer:35,  times:LEG2_TIMES_COMMON  },
-    aoudom:        { label:'อ่าวอุดม',          buffer:35,  times:LEG2_TIMES_COMMON  },
-    sriracha:      { label:'ศรีราชา',           buffer:35,  times:LEG2_TIMES_COMMON  },
-    kaset:         { label:'ม.เกษตร',          buffer:35,  times:LEG2_TIMES_COMMON  },
-    banchan:       { label:'บ้านฉาง',          buffer:45,  times:LEG2_TIMES_COMMON  },
-    laemchabang:   { label:'แหลมฉบัง',         buffer:35,  times:LEG2_TIMES_COMMON  },
-    mochit:        { label:'หมอชิต',           buffer:35,  times:LEG2_TIMES_MOCHIT  },
-    yaeklatphrao:  { label:'แยกลาดพร้าว',     buffer:35,  times:LEG2_TIMES_MOCHIT  },
-    minburi:       { label:'ตลาดมีนบุรี',       buffer:40,  times:LEG2_TIMES_MINBURI },
-    bts_ekkamai:   { label:'BTS เอกมัย',       buffer:35,  times:LEG2_TIMES_EKKAMAI },
-    bts_bangchak:  { label:'BTS บางจาก',       buffer:35,  times:LEG2_TIMES_EKKAMAI },
-    bts_phrakhanong:{ label:'BTS พระโขนง',    buffer:35,  times:LEG2_TIMES_EKKAMAI },
-    bts_onnut:     { label:'BTS อ่อนนุช',      buffer:35,  times:LEG2_TIMES_EKKAMAI }
-  };
 
   /* ── helper ── */
   function _toMin(t) {
@@ -124,8 +143,10 @@
         }
       }
     }
-    /* fallback: ตรวจจาก LEG2_DEST table */
-    return !!(LEG2_DEST[destKey]);
+    /* fallback: ตรวจจาก LEG2_DEST table — ต้องเช็ค .leg2 === true เพราะ object
+       ตอนนี้รวมทั้งจุดที่ไม่ต่อรถ (leg2:false) และต่อรถ (leg2:true) ไว้ด้วยกัน
+       ตรงกับโครงสร้าง repo ต้นฉบับ ห้ามเช็คแค่ !!LEG2_DEST[destKey] เฉยๆ */
+    return !!(LEG2_DEST[destKey] && LEG2_DEST[destKey].leg2 === true);
   }
 
   /* ── คำนวณ leg2 time สำหรับการต่อรถ ──
@@ -133,7 +154,7 @@
   */
   function getTransferInfo(originKey, destKey, leg1PickupTime) {
     var destObj = LEG2_DEST[destKey];
-    if (!destObj) return null;
+    if (!destObj || destObj.leg2 !== true) return null;
 
     /* buffer จากต้นทาง */
     var bufMin = (TRANSFER_BUFFER[originKey] != null)
@@ -291,7 +312,12 @@
       }
 
       var transferInfo = leg2 ? getTransferInfo(normOrigin, destKey, assignment.pickupTime) : null;
-      var fare = _fareForTrip(assignment, normOrigin, leg2 ? leg1DestKey : normDest) || 55;
+      /* ราคา: ใช้ LEG2_DEST[destKey].price ก่อน (ตรงกับ repo ต้นฉบับ)
+         ถ้าไม่มีใน LEG2_DEST ค่อย fallback ไป catalog.fares */
+      var destPrice = LEG2_DEST[destKey] && LEG2_DEST[destKey].price;
+      var fare = (destPrice != null)
+        ? Number(destPrice)
+        : (_fareForTrip(assignment, normOrigin, leg2 ? leg1DestKey : normDest) || 55);
 
       results.push({
         pickupTime:   assignment.pickupTime,
