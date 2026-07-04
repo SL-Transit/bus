@@ -136,6 +136,20 @@
     return Promise.resolve(Object.assign({}, _settings));
   }
 
+  function getFinanceTransactions(monthKey) {
+    return read('data/finance/transactions').then(function(transactions) {
+      return Object.keys(valueOrEmpty(transactions)).map(function(key) {
+        return Object.assign({ id: key }, transactions[key] || {});
+      }).filter(function(tx) {
+        if (!monthKey) return true;
+        var stamp = String(tx.monthKey || tx.date || tx.createdAt || tx.timestamp || '');
+        return stamp.indexOf(monthKey) === 0;
+      }).sort(function(a, b) {
+        return String(b.createdAt || b.timestamp || b.date || '').localeCompare(String(a.createdAt || a.timestamp || a.date || ''));
+      });
+    });
+  }
+
   function getVehicles() {
     return Promise.resolve(Object.keys(valueOrEmpty(_fleet.vehicles)).map(function(key) {
       return Object.assign({ vehicleId: key }, _fleet.vehicles[key] || {});
