@@ -77,6 +77,32 @@
     return { summary: summary, rows: rows };
   }
 
+  function validateMigrationPreview(preview) {
+    var rows = Array.isArray(preview) ? preview : valueOrEmpty(preview).rows || [];
+    var seen = {};
+    var issues = [];
+    rows.forEach(function(row, index) {
+      var id = row && row.bookingId;
+      if (!id) issues.push({ level: 'error', index: index, message: 'missing booking id' });
+      if (id && seen[id]) issues.push({ level: 'error', bookingId: id, message: 'duplicate booking id' });
+      if (id) seen[id] = true;
+      if (row && row.warnings && row.warnings.length) {
+        row.warnings.forEach(function(warning) {
+          issues.push({ level: 'warning', bookingId: id || '', message: warning });
+        });
+      }
+      if (row && row.status && VALID_STATUS.indexOf(row.status) === -1) {
+        issues.push({ level: 'error', bookingId: id || '', message: 'invalid mapped status: ' + row.status });
+      }
+    });
+    return {
+      ok: issues.filter(function(issue) { return issue.level === 'error'; }).length === 0,
+      total: rows.length,
+      issueCount: issues.length,
+      issues: issues
+    };
+  }
+
   function buildUpdateMap(preview) {
     var rows = Array.isArray(preview) ? preview : valueOrEmpty(preview).rows || [];
     return rows.reduce(function(updates, row) {
@@ -91,6 +117,7 @@
     normalizeStatus: normalizeStatus,
     normalizeBooking: normalizeBooking,
     buildMigrationPreview: buildMigrationPreview,
+    validateMigrationPreview: validateMigrationPreview,
     buildUpdateMap: buildUpdateMap
   };
 
