@@ -70,6 +70,37 @@
     };
   }
 
+  function checkRateLimit(db, subjectId, options) {
+    if (!db || typeof db.ref !== 'function') {
+      return Promise.reject(new Error('Firebase database is required'));
+    }
+    return sha256Hex(subjectId).then(function(hex) {
+      var key = hex.slice(0, 24);
+      var opts = options || {};
+      var now = Number(opts.now || Date.now());
+      var maxAttempts = Number(opts.maxAttempts || DEFAULT_MAX_ATTEMPTS);
+      var windowMs = Number(opts.windowMs || DEFAULT_WINDOW_MS);
+      var path = 'data/security/rateLimits/' + key;
+      var finalResult = null;
+      return db.ref(path).transaction(function(current) {
+        var result = evaluateRateLimit(current || {}, {
+          now: now,
+          maxAttempts: maxAttempts,
+          windowMs: windowMs
+        });
+        finalResult = Object.assign({ key: key, path: path }, result);
+        return {
+          attempts: result.attempts,
+          windowStart: result.windowStart,
+          blockedUntil: result.blockedUntil,
+          updatedAt: now
+        };
+      }).then(function() {
+        return finalResult;
+      });
+    });
+  }
+
   function safeJson(value) {
     try { return JSON.parse(JSON.stringify(value == null ? null : value)); }
     catch (err) { return null; }
@@ -95,6 +126,7 @@
     sha256Hex: sha256Hex,
     hashLineUserId: hashLineUserId,
     evaluateRateLimit: evaluateRateLimit,
+    checkRateLimit: checkRateLimit,
     logAdminAction: logAdminAction
   };
 
