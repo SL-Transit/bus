@@ -53,8 +53,30 @@
     };
   }
 
+  function buildCutoverReadiness(report) {
+    var data = valueOrEmpty(report);
+    var checklist = valueOrEmpty(data.checklist);
+    var missing = Array.isArray(checklist.missing) ? checklist.missing.slice() : [];
+    var blockers = Array.isArray(data.blockers) ? data.blockers.slice() : [];
+    var warnings = Array.isArray(data.warnings) ? data.warnings.slice() : [];
+    var nextActions = [];
+    if (missing.length) nextActions.push('add required file text before review');
+    if (blockers.length) nextActions.push('remove legacy Firebase project or database references');
+    if (!missing.length && !blockers.length) nextActions.push('manual reviewer can inspect warnings before any switch');
+    return {
+      dryRun: true,
+      readyForManualReview: missing.length === 0 && blockers.length === 0,
+      readyForSwitch: false,
+      missingFiles: missing,
+      blockerCount: blockers.length,
+      warningCount: warnings.length,
+      nextActions: nextActions
+    };
+  }
+
   function buildCutoverReport(files) {
     var map = valueOrEmpty(files);
+    var checklist = buildCutoverChecklist(files);
     var scans = Object.keys(map).map(function(name) { return scanText(name, map[name]); });
     var blockers = [];
     var warnings = [];
@@ -64,17 +86,20 @@
         else warnings.push(finding);
       });
     });
-    return {
+    var report = {
       dryRun: true,
       target: Object.assign({}, TARGET),
       legacy: Object.assign({}, LEGACY),
       readyForSwitch: false,
-      readyForManualReview: blockers.length === 0,
+      readyForManualReview: false,
       blockers: blockers,
       warnings: warnings,
-      checklist: buildCutoverChecklist(files),
+      checklist: checklist,
       files: scans
     };
+    report.readiness = buildCutoverReadiness(report);
+    report.readyForManualReview = report.readiness.readyForManualReview;
+    return report;
   }
 
   global.SLTransit = global.SLTransit || {};
