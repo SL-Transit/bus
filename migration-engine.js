@@ -118,6 +118,25 @@
     };
   }
 
+  function assessMigrationReadiness(plan) {
+    var p = valueOrEmpty(plan);
+    var validation = valueOrEmpty(p.validation);
+    var updates = valueOrEmpty(p.updates);
+    var updateCount = Object.keys(updates).length;
+    var blockers = [];
+    if (p.dryRun !== true) blockers.push('plan must be dryRun=true');
+    if (!validation.ok) blockers.push('validation has errors');
+    if (!updateCount) blockers.push('plan has no booking updates');
+    if (p.targetRoot !== 'operations/bookings') blockers.push('targetRoot must be operations/bookings');
+    return {
+      readyForManualReview: blockers.length === 0,
+      readyForApply: false,
+      updateCount: updateCount,
+      blockers: blockers,
+      nextRequiredApproval: 'Owner must approve real Firebase migration separately'
+    };
+  }
+
   function buildUpdateMap(preview) {
     var rows = Array.isArray(preview) ? preview : valueOrEmpty(preview).rows || [];
     return rows.reduce(function(updates, row) {
@@ -134,6 +153,7 @@
     buildMigrationPreview: buildMigrationPreview,
     validateMigrationPreview: validateMigrationPreview,
     buildMigrationPlan: buildMigrationPlan,
+    assessMigrationReadiness: assessMigrationReadiness,
     buildUpdateMap: buildUpdateMap
   };
 
