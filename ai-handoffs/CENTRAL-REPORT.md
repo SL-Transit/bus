@@ -266,3 +266,35 @@ Blockers:
 
 Next action:
 - Requesting product owner supply real Firebase console credentials for `sl-transit-9464e`, or confirm which of the two options above to take.
+## 2026-07-06 00:50 +07 (Asia/Bangkok) - Main Backbone Lead AI - REVIEW
+
+Scope:
+- `erp-schema.js`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Adjusted dry-run readiness behavior so empty `operations/liveVehicles` is no longer a blocker for catalog/fleet/settings import review.
+- Moved `operations/liveVehicles` from required collections to optional collections because it is operational state, not seed catalog data.
+- Added warning-only `empty-operational-state` when no live vehicles are present.
+- Did not create fake live vehicle data.
+- Kept `operations/bookings` and `operations/passengers` blocked/private in the import validator.
+
+Evidence:
+- Commits: `faa38c1` (work lock), `be228de` (validator/readiness fix)
+- Validation: mock dry-run snapshot with `operations.liveVehicles: {}` returned `readyForReview=true`, `readyForApply=false`, no blocker paths, and warning `empty-operational-state`; mock private snapshot with `operations.bookings` and `operations.passengers` remained blocked by `private-snapshot-data`.
+- Actions: `pages-build-deployment` passed for `be228de`; custom `Deploy GitHub Pages` failed twice with transient Pages deployment error (`Deployment failed, try again later`).
+- Pages: live source verified at `https://sl-transit.com/erp-schema.js?v=be228de`; it contains `empty-operational-state`, has `operations/liveVehicles` optional, and no longer has the old required-collection pattern.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+- Private collections read: none.
+- Fake live vehicle data created: none.
+- Schema paths changed: none.
+
+Blockers:
+- Custom `Deploy GitHub Pages` workflow is still reporting a transient deployment failure even though the Pages build succeeded and live source is updated.
+
+Next action:
+- Data Import AI can rerun dry-run validator against the full snapshot. If only `operations/liveVehicles` is empty, it should warn rather than block.
