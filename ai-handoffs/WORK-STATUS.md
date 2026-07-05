@@ -19,7 +19,7 @@ Before changing any code or writing a plan, update or report your intended work 
 | Data import / catalog | Data Import AI | TODO | `data/catalog/*`, `data/fleet/*`, `data/settings/*` dry-run plan | - | - | - | Start with dry-run JSON only. |
 | QA / release guard | QA Release Guard AI | TODO | Actions, Pages, live source, regression checklist | - | - | - | Read-only by default. |
 | Booking bridge | Booking Logic AI | TODO | `booking.html`, booking logic, capacity/queue bridge | - | - | - | Audit + bridge plan first. |
-| Passenger bridge | Passenger AI | TODO | `passenger.html`, passenger timetable/status | - | - | - | Audit + bridge plan first. |
+| Passenger bridge | Passenger AI | REVIEW | `passenger.html`, `passenger-logic.js` (audit + plan only, no code changes this pass) | 2026-07-05 17:36 +07 | 2026-07-05 17:36 +07 | see `ai-handoffs/passenger-bridge-plan.md` | Audit complete. No Firebase writes, no passenger/private data touched. Plan requires Main Backbone Lead decision on 2 missing APIs before implementation. |
 | Check ticket bridge | Check Ticket AI | TODO | `check_ticket.html`, QR/ticket lookup contract | - | - | - | Audit + bridge plan first. |
 | Driver operations bridge | Driver Operations AI | TODO | driver app, `operations/liveVehicles`, fleet bridge | - | - | - | Mock tests only until approved. |
 | Main backbone support | Main Backbone Support AI | TODO | validators, readiness, contracts, handoff review | - | - | - | Assists Main Backbone Lead only. |
