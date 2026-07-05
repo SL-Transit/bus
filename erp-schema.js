@@ -34,8 +34,7 @@
     'data/catalog/routes',
     'data/catalog/trips',
     'data/fleet/vehicles',
-    'data/fleet/queues',
-    'operations/liveVehicles'
+    'data/fleet/queues'
   ];
 
   var OPTIONAL_COLLECTIONS = [
@@ -47,6 +46,7 @@
     'data/catalog/closures',
     'data/fleet/queueOwners',
     'data/finance/transactions',
+    'operations/liveVehicles',
     'operations/bookings',
     'operations/passengers',
     'operations/auditLogs'
@@ -220,6 +220,14 @@
     scanMap(root, PATHS.fleetVehicles, 'vehicle', warnings);
     scanMap(root, PATHS.fleetQueues, 'queue', warnings);
     scanMap(root, PATHS.operationsLiveVehicles, 'liveVehicle', warnings);
+    if (!hasCollection(root, PATHS.operationsLiveVehicles)) {
+      warnings.push({
+        level: 'warning',
+        code: 'empty-operational-state',
+        path: PATHS.operationsLiveVehicles,
+        message: 'No live vehicles are present; allowed for dry-run import because live vehicles are operational state.'
+      });
+    }
     scanReferences(root, warnings);
     scanLiveVehicleRecords(root, warnings);
     var readinessGate = {
