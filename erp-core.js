@@ -16,6 +16,7 @@
     if (global.SLTransitTransfer && !global.SLTransit.transfer) global.SLTransit.transfer = global.SLTransitTransfer;
     if (global.SLTransitStatus && !global.SLTransit.status) global.SLTransit.status = global.SLTransitStatus;
     if (global.SLTransitSecurity && !global.SLTransit.security) global.SLTransit.security = global.SLTransitSecurity;
+    if (global.SLTransitSchema && !global.SLTransit.schema) global.SLTransit.schema = global.SLTransitSchema;
   }
 
   function flushReadyCallbacks() {
