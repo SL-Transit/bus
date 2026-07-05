@@ -222,6 +222,19 @@
     scanMap(root, PATHS.operationsLiveVehicles, 'liveVehicle', warnings);
     scanReferences(root, warnings);
     scanLiveVehicleRecords(root, warnings);
+    var readinessGate = {
+      dryRun: true,
+      readyForBackboneReview: blockers.length === 0,
+      readyForSwitch: false,
+      blockers: blockers.slice(),
+      warnings: warnings.slice(),
+      requiredNextChecks: [
+        'data-import-dry-run-approved',
+        'feature-bridge-parity-verified',
+        'github-actions-pages-live-verified',
+        'private-collections-not-read-by-default'
+      ]
+    };
     return {
       dryRun: true,
       schemaVersion: SCHEMA_VERSION,
