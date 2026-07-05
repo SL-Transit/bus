@@ -16,6 +16,8 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
+<script src="erp-data-adapter.js?v=20260705a"></script>
+<script src="erp-core.js?v=20260705a"></script>
 <script src="catalog-engine.js?v=20260627catalog2"></script>
 <script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
@@ -73,6 +75,8 @@
 
     .back { color: var(--navy); text-decoration: none; font-size: 15px; font-weight: 700; }
     .pill { color: var(--navy); background: #effcff; border: 1px solid rgba(0,167,181,.28); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 700; }
+    .transfer-badge { display: inline-block; color: var(--navy); background: #effcff; border: 1px solid rgba(0,167,181,.28); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; margin: 2px 4px 2px 0; }
+    .transfer-badge.coming-soon { color: #92400e; background: #fffaeb; border-color: #fedf89; }
     .dbd-top-badge { display: inline-flex; align-items: center; justify-content: center; line-height: 0; text-decoration: none; }
     .dbd-top-badge img { display: block; width: 72px; max-width: 72px; height: auto; border: 0; object-fit: contain; }
     @media (max-width: 640px) { .dbd-top-badge img { width: 64px; max-width: 64px; } }
@@ -612,13 +616,13 @@
 
   <script>
     firebase.initializeApp({
-      apiKey: "AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw",
-      authDomain: "bus-booking-1d68c.firebaseapp.com",
-      databaseURL: "https://bus-booking-1d68c-default-rtdb.firebaseio.com",
-      projectId: "bus-booking-1d68c",
-      storageBucket: "bus-booking-1d68c.firebasestorage.app",
-      messagingSenderId: "481251007816",
-      appId: "1:481251007816:web:d8554178d954e7de16e77d"
+      apiKey: "TODO_FROM_FIREBASE_CONSOLE",
+      authDomain: "sl-transit-9464e.firebaseapp.com",
+      databaseURL: "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "sl-transit-9464e",
+      storageBucket: "sl-transit-9464e.firebasestorage.app",
+      messagingSenderId: "TODO_FROM_FIREBASE_CONSOLE",
+      appId: "TODO_FROM_FIREBASE_CONSOLE"
     });
 
     var db = firebase.database();
@@ -626,6 +630,14 @@
       console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
       return null;
     });
+    // ERP core/data-adapter are enhancement-only here (schema v3 catalog helpers);
+    // everything below already feature-detects window.SLTransitERP, so we do not
+    // block ticket lookup/check-in on this promise resolving.
+    if (window.SLTransit && window.SLTransit.core && typeof window.SLTransit.core.init === 'function') {
+      window.SLTransit.core.init(firebase.app()).catch(function(err) {
+        console.warn('[TICKET] SLTransit.core.init failed (ERP enhancements unavailable):', err && err.message ? err.message : err);
+      });
+    }
     if (window.SLTransitSchedule && typeof window.SLTransitSchedule.watchFirebaseData === 'function') {
       window.SLTransitSchedule.watchFirebaseData(db);
     }
@@ -813,10 +825,7 @@
     var trackingJourneyEta = null;
     var passengerAutoFocused = false;
     var trackingUserInteracted = false;
-    var trackingBusRef = null;
     var trackingLiveVehiclesRef = null;
-    var trackingAssignmentsRef = null;
-    var trackingBusFeed = {};
     var trackingLiveVehicleFeed = {};
     var trackingDailyAssignments = {};
     var trackingVehicleId = '';
@@ -833,13 +842,10 @@
     var ADMIN_TESTER_ID = 'admin';
     var ADMIN_TESTER_PHONE = '0929383999';
     var ADMIN_TESTER_NOTICE = 'แอดมินกำลังเช็คระบบการทำงานด้วย flow ผู้ใช้งานจริง';
-    var TEST_PATHS = {
-      bookings: 'testBookings/',
-      ticketLocations: 'testTicketLocations/',
-      notifications: 'mockLogs/checkTicketNotifications/'
-    };
+    // NOTE: schema v3 no longer has separate test* paths. Test bookings live in the
+    // same operations/bookings tree and are identified via booking.test === true.
 
-    db.ref('settings').on('value', function(snap) {
+    db.ref('data/settings').on('value', function(snap) {
       var settings = snap.val() || {};
       TEST_MODE = settings.testMode === true;
       MAPBOX_ACCESS_TOKEN = (settings.boxmap && settings.boxmap.accessToken) ||
@@ -868,7 +874,13 @@
         var lng = Number(stop.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
         var name = String(stop.stopNameTh || stop.name || key).trim();
-        return { key:key, name:name, lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main', order:ticketStopSortValue(name, Number(stop.order) || 999999) };
+        return {
+          key:key, name:name, lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main',
+          order:ticketStopSortValue(name, Number(stop.order) || 999999),
+          transferBufferMin: stop.transferBufferMin !== undefined ? Number(stop.transferBufferMin) : null,
+          transferOptions: stop.transferOptions || null,
+          crossPoints: stop.crossPoints || null
+        };
       }).filter(Boolean);
       if (!centralStops.length) return;
       MAIN_ROUTE_STOPS_FROM_CATALOG = buildMainRouteStopsFromRouteData(routeData, centralStops);
@@ -900,12 +912,9 @@
         .map(function(stop) { return stop.name; });
     }
 
-    db.ref('routeData').on('value', function(snap) {
-      if (TICKET_CATALOG_ROUTE_DATA_APPLIED) return;
-      applyTicketRouteData(snap.val() || {});
-    }, function(error) {
-      console.error('Ticket routeData load failed:', error && error.message ? error.message : error);
-    });
+    // NOTE: the standalone 'routeData' node no longer exists in schema v3.
+    // Legacy stop/queue data is now embedded at data/catalog (as .legacy.routeData)
+    // and is applied via applyTicketCatalog() -> SLTransitCatalog.legacyRouteData() below.
 
     function applyTicketCatalog(catalog, source) {
       if (!catalog) return;
@@ -961,9 +970,10 @@
       if (!version || version === TICKET_CATALOG_VERSION_APPLIED) return Promise.resolve(false);
       if (!/^[A-Za-z0-9._-]+$/.test(version)) return Promise.resolve(false);
       if (!TICKET_CATALOG_LOADS[version]) {
-        TICKET_CATALOG_LOADS[version] = db.ref('catalogs/' + version).once('value').then(function(snap) {
+        // Schema v3 keeps a single current catalog at data/catalog (no per-version history node).
+        TICKET_CATALOG_LOADS[version] = db.ref('data/catalog').once('value').then(function(snap) {
           if (!snap.exists()) return false;
-          applyTicketCatalog(snap.val(), 'catalogs/' + version);
+          applyTicketCatalog(snap.val(), 'data/catalog');
           return true;
         }).catch(function(error) {
           console.warn('[TICKET CATALOG] booking catalogVersion load failed', version, error && error.message ? error.message : error);
@@ -973,8 +983,8 @@
       return TICKET_CATALOG_LOADS[version];
     }
 
-    db.ref('publishedCatalog').on('value', function(snap) {
-      applyTicketCatalog(snap.val(), 'publishedCatalog');
+    db.ref('data/catalog').on('value', function(snap) {
+      applyTicketCatalog(snap.val(), 'data/catalog');
     }, function(error) {
       console.error('Ticket catalog load failed:', error && error.message ? error.message : error);
     });
@@ -993,9 +1003,12 @@
       var el = document.getElementById('testModeStatus');
       if (el) el.style.display = TEST_MODE ? 'block' : 'none';
     }
-    function bookingPathForCode(code, booking) {
-      if (TEST_MODE) return TEST_PATHS.bookings;
-      return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
+    function bookingPathForCode() {
+      return 'operations/bookings/';
+    }
+    function isValidBookingCode(code) {
+      // legacy format: BK/TB + 6 digits · new format: BK/TB-YYYYMMDD-6CHAR
+      return /^(BK|TB)\d{6}$/.test(code || '') || /^(BK|TB)-\d{8}-[A-Z0-9]{6}$/.test(code || '');
     }
     function buildAdminDestinationSchedules(routes) {
         var list = [];
@@ -1044,11 +1057,11 @@
       setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
       var task = authReady.then(function() {
-        if (/^(BK|TB)\d{6}$/.test(value)) {
+        if (isValidBookingCode(value)) {
           if (TEST_MODE && /^BK\d{6}$/.test(value)) {
             throw new Error('TEST_MODE_PRODUCTION_CODE');
           }
-          return db.ref(bookingPathForCode(value) + value).once('value').then(function(snap) {
+          return db.ref(bookingPathForCode() + value).once('value').then(function(snap) {
             return snap.exists() ? { code: value, booking: snap.val() } : null;
           });
         }
@@ -1102,8 +1115,7 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      var path = TEST_MODE ? TEST_PATHS.bookings.replace(/\/$/, '') : 'bookings';
-      return db.ref(path).orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
+      return db.ref('operations/bookings').orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
         if (!snap.exists()) return null;
         var matches = [];
         snap.forEach(function(child) {
@@ -1234,7 +1246,7 @@
     }
 
     function startBookingListener(code) {
-      var ref = db.ref(bookingPathForCode(code, currentBooking) + code);
+      var ref = db.ref(bookingPathForCode() + code);
       ref.off();
       ref.on('value', function(snap) {
         if (snap.exists() && currentCode === code) {
@@ -1263,7 +1275,13 @@
       }
       show('ticketPanel', true); show('checkinPanel', true); show('cancelPanel', true);
       document.getElementById('showCode').textContent = currentBooking.code;
-      document.getElementById('showStatus').textContent = statusLabel(currentBooking.status);
+      (function() {
+        var statusInfo = getStatusDisplay(currentBooking.status);
+        var el = document.getElementById('showStatus');
+        el.textContent = statusInfo.icon + ' ' + statusInfo.label;
+        el.style.background = statusInfo.color;
+        el.style.color = '#ffffff';
+      })();
       document.getElementById('showName').textContent = displayPassengerName(currentBooking.name);
       document.getElementById('showPhone').textContent = currentBooking.phone || '-';
       document.getElementById('showDate').textContent = formatDate(currentBooking.date);
@@ -1359,6 +1377,10 @@
     }
 
     function getTransferBufferMinutes(origin) {
+      var stop = findStopLocation(origin);
+      if (stop && stop.transferBufferMin !== undefined && stop.transferBufferMin !== null && !isNaN(stop.transferBufferMin)) {
+        return stop.transferBufferMin;
+      }
       var clean = String(origin || '').replace(/\s+/g, '');
       for (var i = 0; i < TRANSFER_BUFFER_MINUTES.length; i++) {
         var item = TRANSFER_BUFFER_MINUTES[i];
@@ -1367,6 +1389,21 @@
         }
       }
       return null;
+    }
+
+    // Renders transfer-option badges for a stop (stop.transferOptions), per schema v3.
+    function renderTransferOptions(stop) {
+      if (!stop || !stop.transferOptions) return '';
+      return Object.values(stop.transferOptions).map(function(opt) {
+        if (!opt) return '';
+        if (opt.status === 'active') {
+          return '<span class="transfer-badge">' + escapeHtml(opt.nameTh || '') + '</span>';
+        }
+        if (opt.status === 'coming_soon') {
+          return '<span class="transfer-badge coming-soon">' + escapeHtml(opt.nameTh || '') + ' (เร็วๆนี้)</span>';
+        }
+        return '';
+      }).join('');
     }
 
     function addMinutesToTime(time, minutes) {
@@ -1476,17 +1513,46 @@
 
     function statusLabel(status) {
       var map = {
+        awaiting_payment: 'รอชำระเงิน',
         confirmed: 'ยืนยันแล้ว',
         changed: 'เปลี่ยนเวลาแล้ว',
         cancelled: 'ยกเลิกแล้ว',
         checked_in: 'เช็คอินแล้ว',
+        completed: 'เดินทางเสร็จ',
+        refunded: 'คืนเงินแล้ว',
+        expired: 'หมดอายุ',
+        no_show: 'ไม่มาขึ้นรถ',
         transfer_nearby_notified: 'แจ้งใกล้ถึงแปดริ้วแล้ว',
         arrived_transfer_point: 'ถึงจุดต่อรถแล้ว',
         arrived_destination: 'ถึงปลายทางแล้ว',
         pending_admin_approval: 'รอแอดมินอนุมัติ',
-        waiting_admin_approval: 'รอแอดมินอนุมัติ'
+        waiting_admin_approval: 'รอแอดมินอนุมัติ',
+        // legacy support (old bookings still in system)
+        pending: 'รอชำระเงิน',
+        paid: 'ยืนยันแล้ว'
       };
       return map[status] || status || 'ยืนยันแล้ว';
+    }
+
+    // Display map used for the status badge (icon + color). Covers the schema v3
+    // 8-value BOOKING_STATUS enum plus legacy 2-value (pending/paid) bookings still
+    // in the system, and the finer-grained in-journey statuses this page also uses.
+    var BOOKING_STATUS_DISPLAY = {
+      awaiting_payment: { label: 'รอชำระเงิน', color: '#f59e0b', icon: '⏳' },
+      confirmed: { label: 'ยืนยันแล้ว', color: '#10b981', icon: '✅' },
+      checked_in: { label: 'เช็คอินแล้ว', color: '#3b82f6', icon: '📍' },
+      completed: { label: 'เดินทางเสร็จ', color: '#6b7280', icon: '🏁' },
+      cancelled: { label: 'ยกเลิกแล้ว', color: '#ef4444', icon: '❌' },
+      refunded: { label: 'คืนเงินแล้ว', color: '#8b5cf6', icon: '💰' },
+      expired: { label: 'หมดอายุ', color: '#ef4444', icon: '⌛' },
+      no_show: { label: 'ไม่มาขึ้นรถ', color: '#ef4444', icon: '🚫' },
+      // legacy support (old bookings still in system)
+      pending: { label: 'รอชำระเงิน', color: '#f59e0b', icon: '⏳' },
+      paid: { label: 'ยืนยันแล้ว', color: '#10b981', icon: '✅' }
+    };
+
+    function getStatusDisplay(status) {
+      return BOOKING_STATUS_DISPLAY[status] || { label: statusLabel(status), color: '#6b7280', icon: '❓' };
     }
 
     function loadBoxmapFromPassengerPattern() {
@@ -1602,13 +1668,8 @@
     }
 
     function stopTrackingSubscription() {
-      if (trackingBusRef) trackingBusRef.off();
       if (trackingLiveVehiclesRef) trackingLiveVehiclesRef.off();
-      if (trackingAssignmentsRef) trackingAssignmentsRef.off();
-      trackingBusRef = null;
       trackingLiveVehiclesRef = null;
-      trackingAssignmentsRef = null;
-      trackingBusFeed = {};
       trackingLiveVehicleFeed = {};
       trackingDailyAssignments = {};
       trackingVehicleId = '';
@@ -1625,48 +1686,33 @@
 
     function subscribeVanLocationForTicket() {
       stopTrackingSubscription();
-      trackingBusRef = db.ref('bus');
-      trackingBusRef.on('value', function(snap) {
-        trackingBusFeed = snap.val() || {};
-        refreshTrackingVehicleFromFeeds();
-      });
-      trackingLiveVehiclesRef = db.ref('liveVehicles');
+      trackingLiveVehiclesRef = db.ref('operations/liveVehicles');
       trackingLiveVehiclesRef.on('value', function(snap) {
         trackingLiveVehicleFeed = snap.val() || {};
-        refreshTrackingVehicleFromFeeds();
-      });
-      trackingAssignmentsRef = db.ref('dailyAssignments/' + getServiceDateForBooking(currentBooking));
-      trackingAssignmentsRef.on('value', function(snap) {
-        trackingDailyAssignments = snap.val() || {};
+        trackingDailyAssignments = extractDailyAssignmentsFromLiveVehicles(trackingLiveVehicleFeed);
         refreshTrackingVehicleFromFeeds();
       }, function(err) {
-        console.warn('dailyAssignments unavailable; using default queue fallback.', err);
+        console.warn('operations/liveVehicles unavailable.', err);
+        trackingLiveVehicleFeed = {};
         trackingDailyAssignments = {};
         refreshTrackingVehicleFromFeeds();
       });
     }
 
-    function mergeTrackingVehicleFeeds() {
-      var allIds = {};
-      Object.keys(trackingBusFeed || {}).forEach(function(id) { allIds[id] = true; });
-      Object.keys(trackingLiveVehicleFeed || {}).forEach(function(id) { allIds[id] = true; });
-      var merged = {};
-      Object.keys(allIds).forEach(function(id) {
-        var a = (trackingBusFeed || {})[id] || null;
-        var b = (trackingLiveVehicleFeed || {})[id] || null;
-        if (!a && !b) return;
-        if (!a) { merged[id] = b; return; }
-        if (!b) { merged[id] = a; return; }
-        // เลือก source ที่ gpsTs ใหม่กว่า ป้องกันข้อมูลเก่าทับข้อมูลใหม่
-        var gpsA = Number(a.gpsTs || a.gpsts || a.ts || 0);
-        var gpsB = Number(b.gpsTs || b.gpsts || b.ts || 0);
-        merged[id] = gpsB > gpsA ? b : a;
+    function extractDailyAssignmentsFromLiveVehicles(feed) {
+      var out = {};
+      Object.keys(feed || {}).forEach(function(id) {
+        var assignment = feed[id] && feed[id].dailyAssignment;
+        if (assignment) out[id] = assignment;
       });
-      return merged;
+      return out;
     }
 
+    // NOTE: 'bus' node no longer exists in schema v3 — operations/liveVehicles is the
+    // single source of truth now, so no feed merging is required.
+
     function refreshTrackingVehicleFromFeeds() {
-      var vehicles = mergeTrackingVehicleFeeds();
+      var vehicles = trackingLiveVehicleFeed || {};
       var match = resolveVehicleForBooking(currentBooking, vehicles);
       trackingVehicleId = match && match.id ? match.id : '';
       vanLocation = match && match.location ? match.location : null;
@@ -1906,7 +1952,7 @@
     }
 
     function liveQueueNoForVehicle(vehicleId) {
-      var vehicle = (trackingLiveVehicleFeed && trackingLiveVehicleFeed[vehicleId]) || (trackingBusFeed && trackingBusFeed[vehicleId]) || null;
+      var vehicle = (trackingLiveVehicleFeed && trackingLiveVehicleFeed[vehicleId]) || null;
       var queueNo = Number(vehicle && (vehicle.todayQueueNo || vehicle.queueNo || vehicle.queueNumber || vehicle.queue || vehicle.queueIndex || 0));
       return queueNo || null;
     }
@@ -1924,7 +1970,6 @@
         });
       }
       scan(trackingLiveVehicleFeed);
-      scan(trackingBusFeed);
       return ids;
     }
 
@@ -2533,7 +2578,7 @@
       }
       var queueNo = Number((assignment && assignment.queueNo) || getBookingQueueNo(booking) || 0);
       var plannedVehicleId = String((assignment && assignment.plannedVehicleId) || booking.plannedVehicleId || (queueNo ? getVehicleIdForQueue(queueNo, getServiceDateForBooking(booking)) : '') || '');
-      var vehicle = plannedVehicleId ? ((trackingLiveVehicleFeed && trackingLiveVehicleFeed[plannedVehicleId]) || (trackingBusFeed && trackingBusFeed[plannedVehicleId]) || null) : null;
+      var vehicle = plannedVehicleId ? ((trackingLiveVehicleFeed && trackingLiveVehicleFeed[plannedVehicleId]) || null) : null;
       var hasAnyPosition = !!normalizeTrackingPoint(vehicle);
       var hasFreshPosition = !!(plannedVehicleId && isActiveVehicle(plannedVehicleId, vehicle));
       var isStalePosition = !!(hasAnyPosition && !hasFreshPosition);
@@ -2678,7 +2723,7 @@
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
-      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code).update(update).catch(function(){});
+      db.ref(bookingPathForCode() + currentBooking.code).update(update).catch(function(){});
     }
 
     function calculateTransferOrDestinationEta() {
@@ -2825,7 +2870,7 @@
       if (arrived && !originAutoCheckinDone) maybeAutoOriginCheckin();
       if (arrived && !isOriginBoarded() && !originArrivalNoticeShown) {
         originArrivalNoticeShown = true;
-        db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originArrival').update({
+        db.ref(bookingPathForCode() + currentBooking.code + '/originArrival').update({
           passed: true,
           origin: pickupStopLocation.name,
           ts: firebase.database.ServerValue.TIMESTAMP
@@ -2860,16 +2905,21 @@
       if (!passengerAtPickup) return;
       originAutoCheckinDone = true;
       originCheckinAnchor = { lat: lastPosition.lat, lng: lastPosition.lng, ts: Date.now() };
-      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originCheckin').update({
-        status: 'boarded',
-        auto: true,
-        origin: pickupStopLocation.name,
-        lat: lastPosition.lat,
-        lng: lastPosition.lng,
-        vehicleId: trackingVehicleId || '',
-        queueNo: trackingCurrentTrip ? trackingCurrentTrip.queueNo : '',
-        tripIndex: trackingCurrentTrip ? trackingCurrentTrip.tripIndex : '',
-        ts: firebase.database.ServerValue.TIMESTAMP
+      db.ref(bookingPathForCode() + currentBooking.code).update({
+        status: 'checked_in',
+        originCheckin: {
+          status: 'boarded',
+          auto: true,
+          origin: pickupStopLocation.name,
+          lat: lastPosition.lat,
+          lng: lastPosition.lng,
+          vehicleId: trackingVehicleId || '',
+          queueNo: trackingCurrentTrip ? trackingCurrentTrip.queueNo : '',
+          tripIndex: trackingCurrentTrip ? trackingCurrentTrip.tripIndex : '',
+          ts: firebase.database.ServerValue.TIMESTAMP
+        }
+      }).then(function() {
+        if (currentBooking) currentBooking.status = 'checked_in';
       }).catch(function(){});
     }
 
@@ -2879,7 +2929,7 @@
       if (!dep || Date.now() - dep.getTime() < 30 * 60000) return;
       var movedKm = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng);
       if (movedKm > 3) return;
-      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originCheckin').update({
+      db.ref(bookingPathForCode() + currentBooking.code + '/originCheckin').update({
         status: 'not_boarded_suspected',
         reason: 'passenger_still_near_origin_30_minutes_after_departure',
         checkedAt: firebase.database.ServerValue.TIMESTAMP
@@ -2970,7 +3020,7 @@
 
       var movedEnough = !previous || distanceKm(previous.lat, previous.lng, next.lat, next.lng) >= 0.01;
       if (movedEnough) {
-        db.ref((TEST_MODE ? TEST_PATHS.ticketLocations : 'ticketLocations/') + currentBooking.code).set({
+        db.ref('operations/ticketLocations/' + currentBooking.code).set({
           lat: next.lat,
           lng: next.lng,
           distanceKm: currentDistanceKm,
@@ -3034,7 +3084,7 @@
         currentDistanceKm = roadKm;
         renderDistanceState();
         if (currentBooking) {
-          db.ref((TEST_MODE ? TEST_PATHS.ticketLocations : 'ticketLocations/') + currentBooking.code).update({
+          db.ref('operations/ticketLocations/' + currentBooking.code).update({
             distanceKm: currentDistanceKm,
             etaMinutes: currentEtaMinutes,
             distanceSource: road.source,
@@ -3561,7 +3611,7 @@
         lineMessagingAttemptId: linePayload.lineMessagingAttemptId
       });
 
-      var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
+      var ref = db.ref(bookingPathForCode() + currentBooking.code);
       return ref.transaction(function(existing) {
         if (!existing) return;
         if (eventName === 'checkin' && (existing.status === 'checked_in' || existing.status === 'transfer_nearby_notified') && !isAdminTesterBooking(existing)) return;
@@ -3604,10 +3654,11 @@
         original_payload: linePayload,
         update_payload: updatePayload || {}
       };
-      logPayload.timestamp = firebase.database.ServerValue.TIMESTAMP;
-      return db.ref('test_line_logs').push(logPayload).then(function() {
-        return { success: true, mock: true };
-      });
+      // NOTE: the 'test_line_logs' node is obsolete in schema v3 and has no replacement path;
+      // test-mode LINE sends are console-logged only, not persisted to Firebase.
+      logPayload.timestamp = Date.now();
+      console.log('[TEST MODE] mock LINE log', logPayload);
+      return Promise.resolve({ success: true, mock: true });
     }
 
     function realLineSend(linePayload, updatePayload, eventName) {
@@ -3677,7 +3728,7 @@
         checkin: updatePayload.checkin || {},
       };
       trigger.ts = firebase.database.ServerValue.TIMESTAMP;
-      return db.ref((TEST_MODE ? TEST_PATHS.notifications : 'bookings/') + triggerCode).set(trigger);
+      return db.ref('operations/bookings/' + triggerCode).update({ lineNotifyTrigger: trigger });
     }
 
     function buildLineMessage(data) {
