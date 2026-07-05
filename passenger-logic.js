@@ -318,7 +318,6 @@
   // ---- shared state (single source of truth — no hardcoded seed data) ----
   var selOrigin = '';
   var selDest   = '';
-  var lastPos = null;
   var allBusPositions = {};
   var rawBusPositions = {};
   var liveVehiclePositions = {};
@@ -363,16 +362,6 @@ function normalizeMapPoint(point) {
   var lon = Number(point.lon ?? point.lng ?? point.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null;
   return { lon: lon, lat: lat };
-}
-
-function vehicleStatusMessage(pos) {
-  var status = pos && pos.status ? String(pos.status) : '';
-  if (pos && pos.online === false) return 'รถโดยสารออฟไลน์ชั่วคราว ระบบจะอัปเดตเมื่อกลับมาออนไลน์';
-  if (status === 'locating') return 'ระบบกำลังค้นหาสัญญาณ GPS ของรถโดยสาร';
-  if (status === 'low_accuracy') return 'ระบบกำลังรอสัญญาณ GPS ที่แม่นยำขึ้นก่อนแสดงตำแหน่งรถ';
-  if (status === 'gps_error') return 'ระบบ GPS ของรถโดยสารขัดข้องชั่วคราว กรุณารอสักครู่';
-  if (status === 'moving') return 'ตำแหน่งรถโดยสารอัปเดตแบบเรียลไทม์';
-  return '';
 }
 
 function getVehicleTs(pos) {
@@ -428,11 +417,19 @@ function mergeVehicleFeeds() {
     merged[id] = sanitizeVehicleData(gpsB > gpsA ? b : a);
   });
   allBusPositions = merged;
-  lastPos = choosePrimaryBus(allBusPositions);
   if (mapReady && Object.keys(allBusPositions).length) {
     updateAllBusesOnMap(allBusPositions);
   }
-  emit('vehiclesUpdated', { all: allBusPositions, primary: lastPos });
+  emit('vehiclesUpdated', { all: allBusPositions, latestTs: getLatestVehicleTs(allBusPositions) });
+}
+
+function getLatestVehicleTs(buses) {
+  var latest = null;
+  Object.keys(buses || {}).forEach(function(id) {
+    var ts = getVehicleTs(buses[id]);
+    if (ts && (!latest || ts > latest)) latest = ts;
+  });
+  return latest;
 }
 
 function focusMap(point, zoomLevel, animate, lockInteraction) {
@@ -595,52 +592,6 @@ function getLeg1TimesToTransferHub(origin, transferHubLabel) {
   const pairTimes = getPairTimes(origin, transferHubLabel);
   if (pairTimes) return pairTimes;
   return [];
-}
-
-function getNextBusSummaryTime() {
-  const now = nowMin();
-  let times;
-  if(selOrigin==='ฉะเชิงเทรา (แปดริ้ว)' && isLeg2Dest(selDest)){
-    times = getActivePassengerTimes(selOrigin,selDest,getPairTimes(selOrigin, selDest) || []);
-  } else {
-    times = getActivePassengerTimes(selOrigin,selDest,getLeg1Times());
-  }
-  if (!Array.isArray(times)) return '--:--';
-  for(let i=0;i<times.length;i++){
-    if(toMin(times[i])>now) return times[i];
-  }
-  return '--:--';
-}
-
-function resolvePassengerTripAssignment() {
-  if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
-  var time = getNextBusSummaryTime();
-  if (!time || time === '--:--') return null;
-  var transferHub = 'ฉะเชิงเทรา (แปดริ้ว)';
-  var startsAtTransferHub = normalizeRouteAlias(selOrigin) === transferHub || cleanRouteLabel(selOrigin) === cleanRouteLabel(transferHub);
-  var isPublishedScheduleOnly = startsAtTransferHub && isLeg2Dest(selDest);
-  return window.SLTransitSchedule.resolveTripAssignment({
-    serviceDate: (function() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(),
-    origin: selOrigin,
-    destination: selDest,
-    departTime: time,
-    requiresTransfer: isLeg2Dest(selDest) && !startsAtTransferHub,
-    transferPoint: transferHub,
-    scheduleOnly: isPublishedScheduleOnly,
-    pickupStopKey: isPublishedScheduleOnly ? 'chachoengsao' : '',
-    pickupStopName: isPublishedScheduleOnly ? transferHub : '',
-    routeStops: isPublishedScheduleOnly ? ['chachoengsao', selDest] : [],
-    routeStopNames: isPublishedScheduleOnly ? [transferHub, selDest] : [],
-    assignmentSource: isPublishedScheduleOnly ? 'passenger_admin_schedule_only' : ''
-  });
-}
-
-function choosePrimaryBus(buses) {
-  var assignment = resolvePassengerTripAssignment();
-  if (!assignment || assignment.scheduleOnly || assignment.noLiveTracking || assignment.serviceType === 'schedule-only') return null;
-  var plannedVehicleId = String(assignment.plannedVehicleId || '');
-  var pos = plannedVehicleId && buses ? buses[plannedVehicleId] : null;
-  return pos ? Object.assign({ carId: plannedVehicleId }, pos) : null;
 }
 
 function applyPassengerRouteSettings(data) {
@@ -1094,8 +1045,6 @@ var busLastPacketPos = {};
 var BUS_ANIM_DURATION = 600; // ms — ลดให้ marker ตามตำแหน่งจริงไวขึ้น
 var BUS_PREDICT_MAX_MS = 10000;
 var BUS_PREDICT_MAX_METERS = 300;
-var BUS_DELAYED_SEC = 15;
-var BUS_OFFLINE_SEC = 60;
 var BUS_ROUTE_MAX_DISTANCE_METERS = 8000;
 
 function lerp(a, b, t) { return a + (b - a) * t; }
@@ -1601,33 +1550,6 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ===== STATUS =====
-function getStatusInfo(pos) {
-  if (pos) {
-    var statusNote = vehicleStatusMessage(pos);
-    if (pos.online === false || pos.status === 'locating' || pos.status === 'low_accuracy' || pos.status === 'gps_error') {
-      return {cls:'stopped', icon:'รถ', title:statusNote, sub:'สถานะจากแอปคนขับ'};
-    }
-  }
-  if (!pos) return {cls:'',icon:'🚌',title:'ยังไม่มีข้อมูลตำแหน่งรถ',sub:'ระบบกำลังรอข้อมูลจากแอปคนขับ'};
-  const elapsed=getVehicleAgeSec(pos);
-  const dir=pos.direction==='back'?STOPS_BACK:STOPS_GO;
-  const stopName=dir[pos.stopIdx]?.name||'?';
-  const nextStop=dir[(pos.stopIdx||0)+1]?.name||null;
-  const dirLabel=pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
-  const timeAgo=Math.round(elapsed/60);
-  const timeStr=timeAgo===0?'เพิ่งอัปเดต':`อัปเดต ${timeAgo} นาทีที่แล้ว`;
-  if (elapsed > BUS_OFFLINE_SEC)
-    return {cls:'stopped', icon:'🚌', title:'ตำแหน่งล่าสุดก่อนออฟไลน์', sub:`${timeStr} · ${dirLabel}`};
-  if (elapsed > BUS_DELAYED_SEC)
-    return {cls:'stopped', icon:'🚌', title:'ตำแหน่งล่าช้า', sub:`${timeStr} · ${dirLabel}`};
-  if (pos.status==='at'||elapsed>120)
-    return {cls:'stopped', icon:'🛑', title:`จอดที่ ${stopName}`, sub:dirLabel};
-  if (pos.status==='towards'&&nextStop)
-    return {cls:'arriving', icon:'🚍', title:`กำลังมุ่งหน้า ${nextStop}`, sub:dirLabel};
-  return {cls:'running', icon:'🚌', title:`กำลังวิ่ง · ออกจาก ${stopName}`, sub:dirLabel};
-}
-
 
   function setFollowUser(nextValue) {
     followUser = nextValue === true;
@@ -1718,7 +1640,6 @@ function getStatusInfo(pos) {
     getActiveTimes: getActivePassengerTimes,
     getLeg1Times: getLeg1Times,
     getLeg1TimesToTransferHub: getLeg1TimesToTransferHub,
-    getNextTime: getNextBusSummaryTime,
     getOriginList: function(){ return ORIGIN_LIST; },
     getDestNormalList: function(){ return DEST_NORMAL; },
     getDestLeg2List: function(){ return DEST_LEG2; },
@@ -1731,12 +1652,9 @@ function getStatusInfo(pos) {
 
   var vehiclesApi = {
     getAll: function(){ return allBusPositions; },
-    getPrimary: function(){ return lastPos; },
-    getStatusInfo: getStatusInfo,
+    getLatestTs: function(){ return getLatestVehicleTs(allBusPositions); },
     getVehicleTs: getVehicleTs,
     getVehicleAgeSec: getVehicleAgeSec,
-    resolveTripAssignment: resolvePassengerTripAssignment,
-    choosePrimaryBus: choosePrimaryBus,
     setRawFeed: function(v){ rawBusPositions = v || {}; mergeVehicleFeeds(); },
     setLiveFeed: function(v){ liveVehiclePositions = v || {}; mergeVehicleFeeds(); }
   };

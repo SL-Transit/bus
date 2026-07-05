@@ -818,118 +818,8 @@ window.selectPassengerStop = function(stopIndex) {
 window.selectPassengerBus = function(carId) {
   var pos = SLPassengerLogic.vehicles.getAll()[carId];
   if (!pos) return;
-  var dir = SLPassengerLogic.map.getCurrentStops();
-  var stopName = dir[pos.stopIdx]?.name || '?';
-  var nextStopName = dir[(pos.stopIdx || 0) + 1]?.name || '-';
-  var point = pos;
-  selectedMapFocus = String(carId) + ' อยู่ที่ ' + stopName + ' · ป้ายถัดไป ' + nextStopName;
-  updateBottomSheetSummary();
-  setBottomSheetState(true);
-  if (point) SLPassengerLogic.map.focusPoint(point, 14);
+  SLPassengerLogic.map.focusPoint(pos, 14);
 };
-
-
-// ===== LONGDO MAP =====
-
-
-// ===== RENDER =====
-function renderStatus(pos) {
-  const card = document.getElementById('statusCard');
-  if (!card) {
-    updateBottomSheetSummary();
-    return;
-  }
-  const info = SLPassengerLogic.vehicles.getStatusInfo(pos);
-  card.className = `status-card ${info.cls}`;
-  document.getElementById('statusIcon').textContent = info.icon;
-  document.getElementById('statusTitle').textContent = info.title;
-  const sub = document.getElementById('statusSub');
-  if (sub) sub.textContent = info.sub;
-  updateBottomSheetSummary();
-}
-
-function renderRouteStrip(pos) {
-  const stops=SLPassengerLogic.map.getCurrentStops();
-  const stopIdx=(pos&&pos.direction===SLPassengerLogic.map.getViewDir())?pos.stopIdx:null;
-  const dirLabel=pos&&pos.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
-  const badge=document.getElementById('routeDirBadge');
-  if(badge) badge.textContent=pos?dirLabel:'—';
-
-  // Bus list — รองรับหลายคัน (ขณะนี้ใช้ car1 ต่อไปจะ loop จาก allCars)
-  const busListWrapper=document.getElementById('busListWrapper');
-  if(busListWrapper){
-    const allBusPositions = SLPassengerLogic.vehicles.getAll();
-    const busRows = Object.keys(allBusPositions || {}).map(function(id){
-      const p = allBusPositions[id] || {};
-      const stopName = stops[p.stopIdx]?.name||'?';
-      const dir=p.direction==='back'?'แปดริ้ว → สนามชัย':'สนามชัย → แปดริ้ว';
-      const label=String(id).replace(/^car/i,'รถคันที่ ');
-      return `<div class="bus-list-item">
-        <span class="bus-list-id">${label}</span>
-        <span class="bus-list-loc">${stopName}</span>
-        <span class="bus-list-dir">${dir}</span>
-      </div>`;
-    }).join('');
-    if(busRows){
-      busListWrapper.innerHTML=`<div class="bus-list">${busRows}</div>`;
-    } else {
-      busListWrapper.innerHTML='';
-    }
-  }
-
-  const routeVisual = document.getElementById('routeVisual');
-  if (!routeVisual) return;
-
-  routeVisual.innerHTML=stops.map((s,i)=>{
-    const isA=i===stopIdx, isP=stopIdx!==null&&i<stopIdx;
-    return `<div class="stop-col">
-      <div class="stop-dot-w">
-        ${isA?'<div class="bus-anim"><img src="' + SLPassengerLogic.BUS_ICON_SRC + '" alt=""></div>':''}
-        <div class="stop-dot ${isA?'active':isP?'passed':''}"></div>
-      </div>
-      <div class="sn ${isA?'active':''}">${s.name}</div>
-    </div>${i<stops.length-1?`<div class="line-seg ${isP?'passed':''}"></div>`:''}`;
-  }).join('');
-}
-
-function renderNextBus() {
-  const nextTimeEl = document.getElementById('nextTime');
-  const nextDetailEl = document.getElementById('nextDetail');
-  if (!nextTimeEl || !nextDetailEl) {
-    updateBottomSheetSummary();
-    return;
-  }
-
-  const S = SLPassengerLogic.schedule;
-  const origin = SLPassengerLogic.state.getOrigin();
-  const dest = SLPassengerLogic.state.getDest();
-  const now = nowMin();
-  let times, label;
-
-  // ถ้าต้นทางเป็น ฉะเชิงเทรา และปลายทางเป็น LEG2 ให้ใช้เวลา LEG2
-  if(origin==='ฉะเชิงเทรา (แปดริ้ว)' && S.isLeg2Dest(dest)){
-    times = S.getActiveTimes(origin,dest,S.getPairTimes(origin, dest) || []);
-    label = `→ ${dest}`;
-  } else {
-    times = S.getActiveTimes(origin,dest,S.getLeg1Times());
-    label = origin !== dest ? `→ ${dest}` : '';
-  }
-
-  let nextTime = null;
-  for(let i=0;i<times.length;i++){
-    if(toMin(times[i])>now){ nextTime=times[i]; break; }
-  }
-  if(!nextTime){
-    nextTimeEl.textContent='--:--';
-    nextDetailEl.textContent='ไม่มีเที่ยวรถเพิ่มเติมในวันนี้';
-    return;
-  }
-  const diff = toMin(nextTime)-now;
-  nextTimeEl.textContent=nextTime+' น.';
-  nextDetailEl.textContent=
-    diff<=0?`กำลังจะออก! ${label}`.trim():`อีก ${diff} นาที ${label}`.trim();
-}
-
 
 function buildTimeCell(t, extraClass='', from, to) {
     if (from === undefined) from = SLPassengerLogic.state.getOrigin();
@@ -1035,19 +925,9 @@ function renderSched() {
   }
 }
 
-function updateLastUpdate(pos) {
-  var ts = SLPassengerLogic.vehicles.getVehicleTs(pos);
+function updateLastUpdate(ts) {
   document.getElementById('lastUpdate').textContent=
     ts?`เมื่อ ${new Date(ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
-}
-
-function fullRender(pos) {
-  renderStatus(pos);
-  renderRouteStrip(pos);
-  renderSched();
-  renderNextBus();
-  updateBottomSheetSummary();
-  updateLastUpdate(pos);
 }
 
 // ===== DROPDOWN INIT =====
@@ -1128,7 +1008,7 @@ function buildDropdowns(){
       if(state.getDest()===state.getOrigin()) state.setDest('ฉะเชิงเทรา (แปดริ้ว)');
       buildDestOptions();
       selectedMapFocus = null;
-      renderSched(); renderNextBus();
+      renderSched();
       SLPassengerLogic.map.refreshRoute();
       SLPassengerLogic.map.focusRoute();
       updateBottomSheetSummary();
@@ -1140,7 +1020,7 @@ function buildDropdowns(){
     destSel.addEventListener('change', function(){
       state.setDest(this.value);
       selectedMapFocus = null;
-      renderSched(); renderNextBus();
+      renderSched();
       SLPassengerLogic.map.refreshRoute();
       SLPassengerLogic.map.focusRoute();
       updateBottomSheetSummary();
@@ -1182,12 +1062,11 @@ SLPassengerLogic.watchLiveVehicles(function(normalized){
 
 // UI reacts to logic events — it never reaches into logic state directly.
 SLPassengerLogic.on('vehiclesUpdated', function(payload) {
-  fullRender(payload.primary);
+  updateLastUpdate(payload.latestTs);
 });
 SLPassengerLogic.on('scheduleUpdated', function() {
   buildDropdowns();
   renderSched();
-  renderNextBus();
   updateBottomSheetSummary();
 });
 
@@ -1199,13 +1078,10 @@ function tick() {
   const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   document.getElementById('dateText').textContent=
     `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
-  renderStatus(SLPassengerLogic.vehicles.getPrimary());
-  updateLastUpdate(SLPassengerLogic.vehicles.getPrimary());
-  renderNextBus();
   updateBottomSheetSummary();
 }
 tick(); setInterval(tick,1000);
-fullRender(null);
+updateLastUpdate(null);
 
 // Map init — รอ Leaflet พร้อม แล้ว retry แสดงตำแหน่งรถ
 document.addEventListener('DOMContentLoaded', async function(){
