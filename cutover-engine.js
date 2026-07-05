@@ -31,6 +31,7 @@
     var findings = [];
     if (body.indexOf(LEGACY.projectId) >= 0) findings.push({ level: 'blocker', code: 'legacy-project-id', file: filename });
     if (body.indexOf(LEGACY.databaseURL) >= 0) findings.push({ level: 'blocker', code: 'legacy-database-url', file: filename });
+    if (body.indexOf('TODO_FROM_FIREBASE_CONSOLE') >= 0) findings.push({ level: 'blocker', code: 'firebase-config-placeholder', file: filename });
     if (body.indexOf(TARGET.projectId) < 0 && /firebase|databaseURL|DB_URL/.test(body)) findings.push({ level: 'warning', code: 'target-project-not-detected', file: filename });
     return {
       file: filename,
@@ -62,6 +63,7 @@
     var warnings = Array.isArray(data.warnings) ? data.warnings.slice() : [];
     var nextActions = [];
     if (missing.length) nextActions.push('add required file text before review');
+    if (blockers.some(function(item) { return item.code === 'firebase-config-placeholder'; })) nextActions.push('replace Firebase console placeholders before review');
     if (blockers.length) nextActions.push('remove legacy Firebase project or database references');
     if (!missing.length && !blockers.length) nextActions.push('manual reviewer can inspect warnings before any switch');
     return {
