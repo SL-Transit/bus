@@ -92,17 +92,17 @@ Summary:
 - Found the schedule/dropdown code still depends on a pre-backbone `data/settings.routes` legacy shape as a fallback, because `data/catalog/routes`/`data/catalog/trips` are currently empty (Data Import AI has not seeded them yet) and `erp-data-adapter.js` has no list-style `getRoutes()`/`getTrips()` accessor yet.
 - No hard-coded stop coordinates, stop order, or fare values remain in passenger files.
 - Full field-mapping table, missing-API requests, bridge plan, risks, and test checklist written to `ai-handoffs/passenger-bridge-plan.md`.
-- Flagged (not actioned): product owner asked to restore the real Longdo Maps API in `passenger.html` in place of the current Leaflet+shim approach — this is UI/rendering-engine scope, not backbone schema, so raising it here for visibility rather than silently reverting already-pushed work.
+- Flagged (not actioned): product owner asked to restore the real Longdo Maps API in `passenger.html` in place of the current Leaflet+shim approach ? this is UI/rendering-engine scope, not backbone schema, so raising it here for visibility rather than silently reverting already-pushed work.
 
 Evidence:
-- Commit: `<pending — see next push>`
+- Commit: `<pending ? see next push>`
 - Actions: not run this pass (no code changed).
 - Pages: not applicable this pass.
 - Tests: read-only inspection of `erp-schema.js`/`erp-data-adapter.js`/`erp-engine.js` against current `passenger.html`/`passenger-logic.js` field usage.
 
 Safety:
 - Firebase writes: none.
-- Passenger/private data touched: none — `operations/bookings` and `operations/passengers` are not referenced anywhere in passenger files.
+- Passenger/private data touched: none ? `operations/bookings` and `operations/passengers` are not referenced anywhere in passenger files.
 
 Blockers:
 - `getRoutes()`/`getTrips()` list accessors needed in `erp-data-adapter.js` (Main Backbone Lead-owned file, Passenger AI will not add them directly per `COORDINATION-RULES.md` file ownership).
@@ -110,8 +110,8 @@ Blockers:
 - Data Import AI has not yet seeded `data/catalog/routes`/`trips`, so the bridge from legacy schedule data cannot be tested end-to-end yet.
 
 Next action:
-- Main Backbone Lead: review missing-API requests in `ai-handoffs/passenger-bridge-plan.md` §4.
-- Passenger AI: implement §5 bridge steps once `getRoutes()`/`getTrips()` are available; implement Longdo Maps restoration as an isolated commit once confirmed by product owner.
+- Main Backbone Lead: review missing-API requests in `ai-handoffs/passenger-bridge-plan.md` ?4.
+- Passenger AI: implement ?5 bridge steps once `getRoutes()`/`getTrips()` are available; implement Longdo Maps restoration as an isolated commit once confirmed by product owner.
 
 ## 2026-07-05 18:25 +07 (Asia/Bangkok) - Passenger AI - REVIEW
 
@@ -120,14 +120,14 @@ Scope:
 - `passenger-logic.js`
 
 Summary:
-- Restored the real Longdo Maps API per direct product-owner request (item flagged in `ai-handoffs/passenger-bridge-plan.md` §6, now actioned as an isolated change).
+- Restored the real Longdo Maps API per direct product-owner request (item flagged in `ai-handoffs/passenger-bridge-plan.md` ?6, now actioned as an isolated change).
 - Removed the Leaflet-backed Longdo-compatible shim added in an earlier pass. `passenger.html` now loads `https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a` again (byte-identical to the pre-migration script tag).
-- No changes to the map/GPS engine logic itself (Kalman filter, dead-reckoning prediction, marker/animation code) — it already called the Longdo API shape directly, so removing the shim required no changes to that logic, only to the shim file and the script tag.
+- No changes to the map/GPS engine logic itself (Kalman filter, dead-reckoning prediction, marker/animation code) ? it already called the Longdo API shape directly, so removing the shim required no changes to that logic, only to the shim file and the script tag.
 - One follow-up left open: a transfer-options popup badge that depended on a Leaflet-only method (`bindPopup`) was removed rather than guessed at a Longdo-native equivalent; noted in code as a follow-up if wanted.
-- This is independent of the backbone schema/data bridge work in `passenger-bridge-plan.md` — no schema paths, Firebase reads/writes, or booking logic affected.
+- This is independent of the backbone schema/data bridge work in `passenger-bridge-plan.md` ? no schema paths, Firebase reads/writes, or booking logic affected.
 
 Evidence:
-- Commit: `<pending — see next push>`
+- Commit: `<pending ? see next push>`
 - Actions: not yet verified post-push (will confirm in next report if requested).
 - Pages: not yet verified post-push.
 - Tests: syntax-checked both files; ran a mock-DOM smoke test confirming `passenger-logic.js`'s map engine drives a real-Longdo-shaped stub object with no shim interference.
@@ -178,3 +178,35 @@ Next action:
 - Passenger AI can re-audit bridge step against `SLTransit.db.getRoutes()` and `SLTransit.db.getTrips(routeId)` once catalog routes/trips are populated.
 - Data Import AI should continue dry-run backbone data plan.
 - QA Release Guard AI should include the new schema/adaptor markers in release regression checks.
+
+## 2026-07-05 Asia/Bangkok - Main Backbone Lead - DONE
+
+Scope:
+- `erp-import-plan.js`
+- `admin-erp.html`
+- `ai-handoffs/01-data-import-catalog-ai.md`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Added ERP import plan validator for Data Import AI dry-run JSON plans.
+- Validator requires `dryRun: true` and `writesEnabled: false`.
+- Validator blocks `operations/bookings` and `operations/passengers` in updates or snapshots.
+- Admin ERP now loads `erp-import-plan.js` after schema and before data adapter.
+- Data Import AI handoff now points to the validator.
+
+Evidence:
+- Commit: `7e579e9f360b4f146168f807d5d6ccab8ae8176d`
+- Actions: passed (`Deploy GitHub Pages`, `pages build and deployment`).
+- Pages: `built`.
+- Live: `https://sl-transit.com/erp-import-plan.js` returned 200 and contains `validateImportPlan`.
+- Tests: syntax check, admin inline script check, mock import plan validation for safe and unsafe plans.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+
+Blockers:
+- None for dry-run validation.
+
+Next action:
+- Data Import AI should submit a dry-run import plan and run it through `SLTransit.importPlan.validateImportPlan()`.
