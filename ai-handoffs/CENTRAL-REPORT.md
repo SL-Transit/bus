@@ -112,3 +112,32 @@ Blockers:
 Next action:
 - Main Backbone Lead: review missing-API requests in `ai-handoffs/passenger-bridge-plan.md` §4.
 - Passenger AI: implement §5 bridge steps once `getRoutes()`/`getTrips()` are available; implement Longdo Maps restoration as an isolated commit once confirmed by product owner.
+
+## 2026-07-05 18:25 +07 (Asia/Bangkok) - Passenger AI - REVIEW
+
+Scope:
+- `passenger.html`
+- `passenger-logic.js`
+
+Summary:
+- Restored the real Longdo Maps API per direct product-owner request (item flagged in `ai-handoffs/passenger-bridge-plan.md` §6, now actioned as an isolated change).
+- Removed the Leaflet-backed Longdo-compatible shim added in an earlier pass. `passenger.html` now loads `https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a` again (byte-identical to the pre-migration script tag).
+- No changes to the map/GPS engine logic itself (Kalman filter, dead-reckoning prediction, marker/animation code) — it already called the Longdo API shape directly, so removing the shim required no changes to that logic, only to the shim file and the script tag.
+- One follow-up left open: a transfer-options popup badge that depended on a Leaflet-only method (`bindPopup`) was removed rather than guessed at a Longdo-native equivalent; noted in code as a follow-up if wanted.
+- This is independent of the backbone schema/data bridge work in `passenger-bridge-plan.md` — no schema paths, Firebase reads/writes, or booking logic affected.
+
+Evidence:
+- Commit: `<pending — see next push>`
+- Actions: not yet verified post-push (will confirm in next report if requested).
+- Pages: not yet verified post-push.
+- Tests: syntax-checked both files; ran a mock-DOM smoke test confirming `passenger-logic.js`'s map engine drives a real-Longdo-shaped stub object with no shim interference.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+
+Blockers:
+- None for this change. Bridge-plan blockers (`getRoutes()`/`getTrips()`, `operations/liveVehicles` schema) from the previous report are still open and unrelated to this change.
+
+Next action:
+- Product owner: confirm visual/behavior parity on a real device once deployed (map rendering can only be verified in a live browser, not in this sandbox).

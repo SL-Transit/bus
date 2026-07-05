@@ -8,9 +8,9 @@
  * Covers (per PASSENGER_AI_BRIEFING.md):
  *   [1] Firebase project (sl-transit-9464e) bootstrap via erp-core / erp-data-adapter
  *   [2] New Firebase paths (data/settings, data/catalog, operations/liveVehicles)
- *   [3] Longdo Map -> Leaflet, exposed as a Longdo-API-compatible shim (window.longdo)
- *       so the existing marker/animation/Kalman-filter code in passenger.html
- *       (which must not be rewritten) keeps working unchanged against Leaflet.
+ *   [3] Map engine (Longdo Maps v3 — window.longdo, loaded via script tag in
+ *       passenger.html) — Kalman filter, dead-reckoning prediction, marker/
+ *       animation logic moved here unchanged; still the real Longdo API.
  *   [4] Stops read from Firebase catalog (data/catalog/stops, sorted by .order)
  *       — no hardcoded stop coordinates.
  *   [5] operations/liveVehicles shape, normalized to what passenger.html expects.
@@ -170,136 +170,11 @@
     return html;
   }
 
-  /* ────────────────────────────────────────────────────────────
-     [3] LONGDO-COMPATIBLE MAP SHIM, BACKED BY LEAFLET
-     Implements only the subset of the Longdo Maps API actually used in
-     passenger.html: Map / Marker / Polyline / OverlayWeight / EventName.
-     Internal point convention kept as {lat, lon} to match the rest of
-     passenger.html's vehicle-tracking math (Kalman filter, bearing,
-     dead-reckoning prediction, OSRM snap) untouched.
-  ──────────────────────────────────────────────────────────── */
-  function toLatLng(p) {
-    if (!p) return null;
-    var lat = Number(p.lat);
-    var lon = Number(p.lon != null ? p.lon : p.lng);
-    if (!isFinite(lat) || !isFinite(lon)) return null;
-    return [lat, lon];
-  }
-
-  function noop() {}
-
-  function ShimMap(options) {
-    options = options || {};
-    var placeholder = options.placeholder;
-    var startLoc = options.location || { lon: 101.245, lat: 13.710 };
-    var self = this;
-
-    this._leaflet = global.L.map(placeholder, {
-      center: [startLoc.lat, startLoc.lon],
-      zoom: options.zoom || 10,
-      zoomControl: true,
-      attributionControl: false,
-      dragging: true,
-      scrollWheelZoom: true,
-      touchZoom: true,
-      doubleClickZoom: true,
-      boxZoom: true,
-      tap: true
-    });
-
-    global.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(this._leaflet);
-
-    // Longdo fires 'ready'; Leaflet tiles are ready essentially on next tick.
-    setTimeout(function () {
-      self._leaflet.fire('ready');
-      self._leaflet.fire('idle');
-    }, 50);
-
-    // stub UI panels — Leaflet controls are simply not added by default
-    var hiddenPanel = { visible: noop };
-    this.Ui = {
-      DPad: hiddenPanel, Zoombar: hiddenPanel, Toolbar: hiddenPanel,
-      LayerSelector: hiddenPanel, Fullscreen: hiddenPanel, Scale: hiddenPanel,
-      Crosshair: hiddenPanel, Geolocation: hiddenPanel
-    };
-
-    var EVENT_MAP = { ready: 'ready', idle: 'idle', drag: 'drag', wheel: 'zoom', zoom: 'zoomend' };
-    this.Event = {
-      bind: function (name, cb) {
-        var evt = EVENT_MAP[name] || name;
-        self._leaflet.on(evt, cb);
-      }
-    };
-
-    this.Overlays = {
-      add: function (overlay) { if (overlay && overlay._layer) overlay._layer.addTo(self._leaflet); },
-      remove: function (overlay) { if (overlay && overlay._layer) self._leaflet.removeLayer(overlay._layer); }
-    };
-  }
-
-  ShimMap.prototype.location = function (point, animate) {
-    var ll = toLatLng(point);
-    if (!ll) return;
-    if (animate) this._leaflet.flyTo(ll, this._leaflet.getZoom(), { duration: 0.8 });
-    else this._leaflet.panTo(ll, { animate: false });
-  };
-
-  ShimMap.prototype.zoom = function (level, animate) {
-    if (!level) return;
-    this._leaflet.setZoom(level, { animate: !!animate });
-  };
-
-  ShimMap.prototype.resize = function () { this._leaflet.invalidateSize(); };
-  ShimMap.prototype.repaint = function () { this._leaflet.invalidateSize(); };
-
-  function ShimMarker(point, options) {
-    options = options || {};
-    var ll = toLatLng(point) || [0, 0];
-    var icon = options.icon || {};
-    var offset = icon.offset || { x: 0, y: 0 };
-
-    var divIcon = global.L.divIcon({
-      className: '',
-      html: icon.html || '',
-      iconSize: null,
-      iconAnchor: [offset.x, offset.y]
-    });
-
-    this._layer = global.L.marker(ll, { icon: divIcon, title: options.title || '' });
-  }
-
-  ShimMarker.prototype.move = function (point) {
-    var ll = toLatLng(point);
-    if (!ll) return false;
-    this._layer.setLatLng(ll);
-    return true;
-  };
-  ShimMarker.prototype.location = function (point) { return this.move(point); };
-
-  function ShimPolyline(points, options) {
-    options = options || {};
-    var latlngs = (points || []).map(toLatLng).filter(Boolean);
-    this._layer = global.L.polyline(latlngs, {
-      color: options.lineColor || '#1e40af',
-      weight: options.lineWidth || 5,
-      opacity: options.lineOpacity != null ? options.lineOpacity : 0.82
-    });
-  }
-
-  function installLongdoShim() {
-    if (global.longdo) return; // real Longdo SDK present — do not override
-    global.longdo = {
-      Map: ShimMap,
-      Marker: ShimMarker,
-      Polyline: ShimPolyline,
-      OverlayWeight: { Top: 1 },
-      EventName: { Drag: 'drag', Wheel: 'wheel', Zoom: 'zoom' }
-    };
-  }
-
+  /* NOTE: map engine below calls the real Longdo Maps API (window.longdo)
+     directly — Map / Marker / Polyline / Overlays / Ui / Event.bind are all
+     genuine Longdo Maps v3 methods, loaded via the Longdo script tag in
+     passenger.html. This file only separates that logic out of the page;
+     it does not replace or wrap the Longdo API. */
 
   /* ════════════════════════════════════════════════════════════
      ENGINE MODULE (moved wholesale from passenger.html so the page
@@ -840,10 +715,10 @@ function renderStationMarkers(routeData, skipEnsure) {
     try {
       var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
-      if (marker._layer && typeof marker._layer.bindPopup === 'function') {
-        var badges = SLPassengerLogic.buildTransferBadges(s);
-        marker._layer.bindPopup('<b>' + safeName + '</b>' + (badges ? '<div class="map-transfer-badges">' + badges + '</div>' : ''));
-      }
+      // NOTE: transfer-options badges (SLPassengerLogic.buildTransferBadges) are
+      // available per-stop but not yet wired into a Longdo-native popup here —
+      // Longdo Marker has no bindPopup() like Leaflet; add via longdo.Marker's
+      // own popup option or a custom overlay if this is wanted again.
     } catch(e) { console.warn('Stop marker error:', e); }
     try {
       var label = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-label" onclick="window.selectPassengerStop(' + i + ')">' + safeName + '</div>', offset: { x: 10, y: -10 } } });
@@ -1705,6 +1580,4 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
     map: mapApi,
     privacy: privacyApi
   };
-
-  installLongdoShim();
 })(typeof window !== 'undefined' ? window : globalThis);
