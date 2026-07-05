@@ -241,3 +241,28 @@ Blockers:
 
 Next action:
 - Read Data Import AI dry-run plan when submitted, validate with `SLTransit.importPlan.validateImportPlan()`, and return blockers or readiness report.
+## 2026-07-05 22:35 +07 (Asia/Bangkok) - Passenger AI - BLOCKED (critical, cross-cutting)
+
+Scope: not a code change — reporting a blocker found while investigating "stop markers and schedule disappeared" on `passenger.html`.
+
+Summary:
+- Root cause: `passenger-logic.js`'s `FIREBASE_CONFIG` points at the new project (`sl-transit-9464e`) but `apiKey`/`appId`/`messagingSenderId` are still placeholder values (`'TODO_FROM_FIREBASE_CONSOLE'`) — **this value has never been filled in anywhere in the repo**, including `admin-erp.html`'s own `FIREBASE_CONFIG_NEW`, which has the identical placeholder and explicitly refuses to call `firebase.initializeApp()` until it's real (`cfgOk()` check).
+- Because of this, `passenger.html` cannot read Firebase at all right now — not `data/catalog/stops`, not `data/settings`, not `operations/liveVehicles`. That's why both the map markers and the schedule table are empty — it isn't a passenger-side logic bug, the whole page has had no live Firebase connection since the sl-transit-9464e migration.
+- Separately: `booking.html` and `check_ticket.html` are **still on the old project** (`bus-booking-1d68c`, real working apiKey, old flat paths like `settings`/`routeData`/`bus`/`liveVehicles`) — they have not been migrated to Schema v3 / sl-transit-9464e at all yet. So even once `sl-transit-9464e` has a real apiKey, its `data/catalog` collections are almost certainly still empty (Data Import AI status is TODO per this board), meaning passenger would connect successfully but still show nothing until a real seed happens.
+- Net effect: passenger, booking, and check_ticket are currently pointed at **two different Firebase projects** with different schemas. This is a cutover-readiness gap, not something Passenger AI can resolve by itself (no real Firebase credentials, and reverting passenger's schema paths back to the old flat structure would violate the "no schema path changes" rule and diverge from the backbone migration everyone else is building toward).
+
+Evidence:
+- `passenger-logic.js`: `apiKey: 'TODO_FROM_FIREBASE_CONSOLE'`
+- `admin-erp.html`: identical placeholder in `FIREBASE_CONFIG_NEW`, with its own `cfgOk()` guard confirming the same gap independently.
+- `booking.html` / `check_ticket.html`: real apiKey `AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw`, `databaseURL` still `bus-booking-1d68c-default-rtdb.firebaseio.com`.
+
+Safety:
+- Firebase writes: none. Passenger/private data touched: none. No schema paths changed (reporting only).
+
+Blockers:
+1. Need the real `sl-transit-9464e` apiKey/appId/messagingSenderId from the Firebase console — nobody on the AI side has these credentials.
+2. Even with real credentials, `data/catalog` on `sl-transit-9464e` needs an actual seed from Data Import AI before passenger/booking would show real data.
+3. Decision needed from product owner / Main Backbone Lead: keep passenger pointed at `sl-transit-9464e` and wait for credentials + seed (page stays broken until then), or temporarily point passenger back at the old project/schema to restore visible function in the meantime.
+
+Next action:
+- Requesting product owner supply real Firebase console credentials for `sl-transit-9464e`, or confirm which of the two options above to take.
