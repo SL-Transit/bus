@@ -57,8 +57,11 @@
     route: ['id', 'fromStopKey', 'toStopKey'],
     trip: ['id', 'routeId', 'departTime'],
     vehicle: ['vehicleId', 'status'],
-    queue: ['queueId', 'groupId']
+    queue: ['queueId', 'groupId'],
+    liveVehicle: ['vehicleId', 'lat', 'lng', 'updatedAt', 'serviceStatus']
   };
+
+  var VALID_LIVE_VEHICLE_STATUS = ['active', 'moving', 'idle', 'standby', 'off_duty', 'offline'];
 
   function valueOrEmpty(value) {
     return value && typeof value === 'object' ? value : {};
@@ -109,6 +112,51 @@
       field: field,
       targetPath: targetPath,
       targetId: targetId
+    });
+  }
+
+
+  function addValidationIssue(issues, path, field, code, value) {
+    issues.push({
+      level: 'warning',
+      code: code,
+      path: path,
+      field: field,
+      value: value
+    });
+  }
+
+  function isFiniteNumber(value) {
+    return value !== null && value !== '' && isFinite(Number(value));
+  }
+
+  function isValidLatitude(value) {
+    var n = Number(value);
+    return isFiniteNumber(value) && n >= -90 && n <= 90;
+  }
+
+  function isValidLongitude(value) {
+    var n = Number(value);
+    return isFiniteNumber(value) && n >= -180 && n <= 180;
+  }
+
+  function scanLiveVehicleRecords(root, issues) {
+    var liveVehicles = valueOrEmpty(readPath(root, PATHS.operationsLiveVehicles));
+    var vehicles = valueOrEmpty(readPath(root, PATHS.fleetVehicles));
+    var queues = valueOrEmpty(readPath(root, PATHS.fleetQueues));
+    var trips = valueOrEmpty(readPath(root, PATHS.catalogTrips));
+
+    Object.keys(liveVehicles).forEach(function(key) {
+      var live = valueOrEmpty(liveVehicles[key]);
+      var path = PATHS.operationsLiveVehicles + '/' + key;
+      if (live.lat != null && !isValidLatitude(live.lat)) addValidationIssue(issues, path, 'lat', 'invalid-latitude', live.lat);
+      if (live.lng != null && !isValidLongitude(live.lng)) addValidationIssue(issues, path, 'lng', 'invalid-longitude', live.lng);
+      if (live.speed != null && !isFiniteNumber(live.speed)) addValidationIssue(issues, path, 'speed', 'invalid-number', live.speed);
+      if (live.heading != null && (!isFiniteNumber(live.heading) || Number(live.heading) < 0 || Number(live.heading) > 360)) addValidationIssue(issues, path, 'heading', 'invalid-heading', live.heading);
+      if (live.serviceStatus && VALID_LIVE_VEHICLE_STATUS.indexOf(String(live.serviceStatus)) === -1) addValidationIssue(issues, path, 'serviceStatus', 'invalid-live-vehicle-status', live.serviceStatus);
+      if (live.vehicleId && !hasRecord(vehicles, live.vehicleId)) addReferenceIssue(issues, path, 'vehicleId', PATHS.fleetVehicles, live.vehicleId);
+      if (live.queueId && !hasRecord(queues, live.queueId)) addReferenceIssue(issues, path, 'queueId', PATHS.fleetQueues, live.queueId);
+      if (live.currentTripId && !hasRecord(trips, live.currentTripId)) addReferenceIssue(issues, path, 'currentTripId', PATHS.catalogTrips, live.currentTripId);
     });
   }
 
@@ -171,13 +219,30 @@
     scanMap(root, PATHS.catalogTrips, 'trip', warnings);
     scanMap(root, PATHS.fleetVehicles, 'vehicle', warnings);
     scanMap(root, PATHS.fleetQueues, 'queue', warnings);
+    scanMap(root, PATHS.operationsLiveVehicles, 'liveVehicle', warnings);
     scanReferences(root, warnings);
+    scanLiveVehicleRecords(root, warnings);
+
+    var readinessGate = {
+      dryRun: true,
+      readyForBackboneReview: blockers.length === 0,
+      readyForSwitch: false,
+      blockers: blockers.slice(),
+      warnings: warnings.slice(),
+      requiredNextChecks: [
+        'data-import-dry-run-approved',
+        'feature-bridge-parity-verified',
+        'github-actions-pages-live-verified',
+        'private-collections-not-read-by-default'
+      ]
+    };
 
     return {
       dryRun: true,
       schemaVersion: SCHEMA_VERSION,
       readyForBackboneReview: blockers.length === 0,
       readyForSwitch: false,
+      readinessGate: readinessGate,
       requiredCollections: REQUIRED_COLLECTIONS.slice(),
       optionalCollections: OPTIONAL_COLLECTIONS.slice(),
       missingCollections: missingCollections,
@@ -187,6 +252,20 @@
   }
 
   function buildSeedSkeleton() {
+    var readinessGate = {
+      dryRun: true,
+      readyForBackboneReview: blockers.length === 0,
+      readyForSwitch: false,
+      blockers: blockers.slice(),
+      warnings: warnings.slice(),
+      requiredNextChecks: [
+        'data-import-dry-run-approved',
+        'feature-bridge-parity-verified',
+        'github-actions-pages-live-verified',
+        'private-collections-not-read-by-default'
+      ]
+    };
+
     return {
       dryRun: true,
       schemaVersion: SCHEMA_VERSION,
