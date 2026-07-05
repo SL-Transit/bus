@@ -19,6 +19,7 @@ You are the SL-Transit Data Import / Catalog AI. Your job is to prepare complete
 - `erp-data-adapter.js`
 - `admin-erp.html`
 - `erp-core.js`
+- `erp-import-plan.js`
 
 ## Tasks
 1. Build a complete dry-run import plan for backbone data:
@@ -51,3 +52,11 @@ You are the SL-Transit Data Import / Catalog AI. Your job is to prepare complete
 - driver app files
 
 Only inspect them if needed to discover source data or field assumptions.
+## Import Plan Validator
+Before returning the final dry-run JSON, validate its shape against `SLTransit.importPlan.validateImportPlan()` from `erp-import-plan.js`.
+
+The plan must set:
+- `dryRun: true`
+- `writesEnabled: false`
+- no `operations/bookings`
+- no `operations/passengers`
