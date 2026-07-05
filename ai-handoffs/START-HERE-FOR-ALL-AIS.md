@@ -1,13 +1,18 @@
 # Start Here For All SL-Transit AIs
 
 ## Command
-Read this file first, then read your role-specific handoff file in `ai-handoffs/`.
+Read this file first, then read the coordination files, then read your role-specific handoff file in `ai-handoffs/`.
 
 ## Repository
 https://github.com/SL-Transit/bus/tree/main
 
 ## Mandatory First Step
 Before doing anything, inspect the latest GitHub `main` commit and the current contents of your assigned files.
+
+Then read:
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+- `ai-handoffs/COORDINATION-RULES.md`
 
 ## Safety Rules
 - GitHub is the source of truth.
@@ -19,6 +24,10 @@ Before doing anything, inspect the latest GitHub `main` commit and the current c
 
 ## Coordination Rule
 The Main Backbone Lead owns the schema contract. If your work needs a new schema path, adapter function, or data shape, report it as a request instead of silently changing the contract.
+
+Before editing any file, check `WORK-STATUS.md`. If another AI has `IN_PROGRESS` on the same area or file, do not edit it. Add a report or wait for the Main Backbone Lead.
+
+After finishing, add or request a report in `CENTRAL-REPORT.md` so other AIs know what changed.
 
 ## Current Work Mode
 - Data Import AI: produce dry-run catalog/fleet/settings JSON plan.
