@@ -1675,6 +1675,35 @@ function getStatusInfo(pos) {
     console.log('[PASSENGER ERP] applied catalog', PASSENGER_CATALOG_VERSION_APPLIED);
   }
 
+  /* ────────────────────────────────────────────────────────────
+     PDPA — LOCATION CONSENT
+     Passenger GPS position is used only to draw "my position" on the
+     passenger's own device map and to auto-center it — it is never
+     sent to Firebase or any server (see requestPassengerCurrentLocation /
+     startPassengerLocation above: passengerPos stays in local memory
+     only). This module just gates *when* we ask the browser for that
+     GPS permission, so the passenger sees our own plain-language notice
+     before the OS permission prompt (PDPA §23 notice-at-collection),
+     and can decline without losing any other feature of the page.
+  ──────────────────────────────────────────────────────────── */
+  var LOCATION_CONSENT_KEY = 'slTransitLocationConsent';
+  var LOCATION_NOTICE_TEXT = 'แอปนี้ขอเข้าถึงตำแหน่งของคุณ เพื่อแสดงตำแหน่งของคุณบนแผนที่และช่วยหาป้ายที่ใกล้ที่สุด ตำแหน่งของคุณจะถูกใช้บนอุปกรณ์นี้เท่านั้น ไม่ถูกส่งหรือบันทึกไว้ที่เซิร์ฟเวอร์ของเรา';
+
+  function getLocationConsent() {
+    try { return global.localStorage.getItem(LOCATION_CONSENT_KEY); } catch(e) { return null; }
+  }
+  function setLocationConsent(value) {
+    try { global.localStorage.setItem(LOCATION_CONSENT_KEY, value); } catch(e) {}
+  }
+
+  var privacyApi = {
+    NOTICE_TEXT: LOCATION_NOTICE_TEXT,
+    getConsentStatus: function(){ return getLocationConsent(); }, // 'granted' | 'declined' | null (not yet decided)
+    grantLocationConsent: function(){ setLocationConsent('granted'); },
+    declineLocationConsent: function(){ setLocationConsent('declined'); }
+  };
+
+
   var stateApi = {
     getOrigin: function(){ return selOrigin; },
     setOrigin: function(v){ selOrigin = v || ''; },
@@ -1755,7 +1784,8 @@ function getStatusInfo(pos) {
     state: stateApi,
     schedule: scheduleApi,
     vehicles: vehiclesApi,
-    map: mapApi
+    map: mapApi,
+    privacy: privacyApi
   };
 
   installLongdoShim();
