@@ -19,7 +19,10 @@
     routes: {},
     trips: {},
     fares: {},
-    services: {}
+    services: {},
+    stopTimes: {},
+    capacities: {},
+    closures: {}
   };
   var _fleet = {
     vehicles: {},
@@ -43,6 +46,24 @@
       var bo = Number(b.order == null ? 999999 : b.order);
       if (ao !== bo) return ao - bo;
       return String(a.stopKey || a.id || a.key || '').localeCompare(String(b.stopKey || b.id || b.key || ''));
+    });
+  }
+
+
+  function valuesWithId(map, idField) {
+    return Object.keys(valueOrEmpty(map)).map(function(key) {
+      var item = Object.assign({}, map[key] || {});
+      if (item[idField] == null || item[idField] === '') item[idField] = key;
+      if (item.id == null || item.id === '') item.id = key;
+      return item;
+    }).sort(function(a, b) {
+      var ao = Number(a.sortOrder == null ? (a.order == null ? 999999 : a.order) : a.sortOrder);
+      var bo = Number(b.sortOrder == null ? (b.order == null ? 999999 : b.order) : b.sortOrder);
+      if (ao !== bo) return ao - bo;
+      var at = String(a.departTime || a.time || '');
+      var bt = String(b.departTime || b.time || '');
+      if (at !== bt) return at.localeCompare(bt);
+      return String(a[idField] || a.id || '').localeCompare(String(b[idField] || b.id || ''));
     });
   }
 
@@ -81,7 +102,10 @@
         routes: {},
         trips: {},
         fares: {},
-        services: {}
+        services: {},
+        stopTimes: {},
+        capacities: {},
+        closures: {}
       }, valueOrEmpty(catalog));
       global.SLTransit = global.SLTransit || {};
       global.SLTransit._stopsCache = _catalog.stops || {};
@@ -127,6 +151,33 @@
 
   function getTrip(tripId) {
     return Promise.resolve((_catalog.trips || {})[tripId] || null);
+  }
+
+
+  function getRoutes() {
+    return Promise.resolve(valuesWithId(_catalog.routes, 'routeId'));
+  }
+
+  function getTrips(routeId) {
+    var trips = valuesWithId(_catalog.trips, 'tripId');
+    if (routeId) {
+      trips = trips.filter(function(trip) { return trip.routeId === routeId; });
+    }
+    return Promise.resolve(trips);
+  }
+
+  function getFares() {
+    var fares = [];
+    Object.keys(valueOrEmpty(_catalog.fares)).forEach(function(originKey) {
+      Object.keys(valueOrEmpty(_catalog.fares[originKey])).forEach(function(destKey) {
+        fares.push(Object.assign({ originKey: originKey, destKey: destKey }, _catalog.fares[originKey][destKey] || {}));
+      });
+    });
+    return Promise.resolve(fares);
+  }
+
+  function getCapacities() {
+    return Promise.resolve(valuesWithId(_catalog.capacities, 'capacityId'));
   }
 
   function getFare(originKey, destKey) {
@@ -406,8 +457,12 @@
     getStops: getStops,
     getStop: getStop,
     getRoute: getRoute,
+    getRoutes: getRoutes,
     getTrip: getTrip,
+    getTrips: getTrips,
     getFare: getFare,
+    getFares: getFares,
+    getCapacities: getCapacities,
     getGroup: getGroup,
     getService: getService,
     getSettings: getSettings,
