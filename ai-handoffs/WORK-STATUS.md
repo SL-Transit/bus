@@ -22,7 +22,7 @@ Before changing any code or writing a plan, update or report your intended work 
 | Passenger bridge | Passenger AI | REVIEW | `passenger.html`, `passenger-logic.js` — restored real Longdo Maps API per product owner's direct request (removed the Leaflet shim from the earlier pass; map/GPS/Kalman logic unchanged) | 2026-07-05 17:36 +07 | 2026-07-05 18:25 +07 | see `ai-handoffs/passenger-bridge-plan.md` §6 | Bridge plan (schema/API gaps) still open, unaffected by this change. No Firebase writes, no passenger/private data touched, no schema path changed. |
 | Check ticket bridge | Check Ticket AI | TODO | `check_ticket.html`, QR/ticket lookup contract | - | - | - | Audit + bridge plan first. |
 | Driver operations bridge | Driver Operations AI | TODO | driver app, `operations/liveVehicles`, fleet bridge | - | - | - | Mock tests only until approved. |
-| Main backbone support | Main Backbone Support AI | TODO | validators, readiness, contracts, handoff review | - | - | - | Assists Main Backbone Lead only. |
+| Main backbone support | Main Backbone Support AI | IN_PROGRESS | `erp-schema.js`, `erp-data-adapter.js`, `admin-erp.html`, handoff review | 2026-07-05 18:xx +07 | 2026-07-05 18:xx +07 | planning approved by user | Firebase writes: none; additive validator/adapter/readiness support only. |
 
 ## How To Add / Update A Lock
 Use one row per work area. Keep scope narrow.
