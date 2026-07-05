@@ -19,6 +19,7 @@
     'booking-bridge.js',
     'booking-capacity.js',
     'admin-erp.html',
+    'erp-schema.js',
     'driver-android/src/main/java/com/sanamchai/drivergps/GpsService.java'
   ];
 
