@@ -187,6 +187,54 @@
       });
     });
   }
+  function getSchemaApi() {
+    return global.SLTransit && global.SLTransit.schema || global.SLTransitSchema || null;
+  }
+
+  function isPrivateBackbonePath(path) {
+    return path === schemaPath('operationsBookings', 'operations/bookings') || path === schemaPath('operationsPassengers', 'operations/passengers');
+  }
+
+  function buildBackboneSeedPlan(input) {
+    var schema = getSchemaApi();
+    if (!schema || typeof schema.validateSnapshot !== 'function') {
+      return Promise.reject(new Error('SLTransit schema validator is not loaded'));
+    }
+    var snapshot = input && input.snapshot ? input.snapshot : (input || {});
+    var validation = input && input.validation ? input.validation : schema.validateSnapshot(snapshot);
+    var skeleton = typeof schema.buildSeedSkeleton === 'function' ? schema.buildSeedSkeleton() : { data: {}, operations: {} };
+    var required = (validation.requiredCollections || schema.REQUIRED_COLLECTIONS || []).filter(function(path) { return !isPrivateBackbonePath(path); });
+    var optional = (validation.optionalCollections || schema.OPTIONAL_COLLECTIONS || []).filter(function(path) { return !isPrivateBackbonePath(path); });
+    var missing = validation.missingCollections || [];
+    var updates = {};
+    var collections = required.concat(optional).map(function(path) {
+      var seed = schema.readPath && schema.readPath(skeleton, path) || {};
+      var missingCollection = missing.indexOf(path) >= 0;
+      if (missingCollection) updates[path] = seed;
+      return {
+        path: path,
+        required: required.indexOf(path) >= 0,
+        missing: missingCollection,
+        seed: seed
+      };
+    });
+    return Promise.resolve({
+      dryRun: true,
+      schemaVersion: validation.schemaVersion || schema.SCHEMA_VERSION,
+      generatedAt: new Date().toISOString(),
+      source: 'erp-data-adapter buildBackboneSeedPlan',
+      action: 'review-only',
+      writesEnabled: false,
+      privateCollectionsExcluded: [
+        schemaPath('operationsBookings', 'operations/bookings'),
+        schemaPath('operationsPassengers', 'operations/passengers')
+      ],
+      missingCollections: missing.filter(function(path) { return !isPrivateBackbonePath(path); }),
+      updates: updates,
+      collections: collections,
+      validation: validation
+    });
+  }
 
   function getFinanceTransactions(monthKey) {
     return read(schemaPath('financeTransactions', 'data/finance/transactions')).then(function(transactions) {
@@ -366,6 +414,7 @@
     validateBackboneSnapshot: validateBackboneSnapshot,
     getBackboneSnapshot: getBackboneSnapshot,
     assessBackbone: assessBackbone,
+    buildBackboneSeedPlan: buildBackboneSeedPlan,
     getFinanceTransactions: getFinanceTransactions,
     getVehicles: getVehicles,
     getQueues: getQueues,
