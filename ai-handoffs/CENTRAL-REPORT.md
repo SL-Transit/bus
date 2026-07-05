@@ -266,3 +266,40 @@ Blockers:
 
 Next action:
 - Requesting product owner supply real Firebase console credentials for `sl-transit-9464e`, or confirm which of the two options above to take.
+
+## 2026-07-05 - Driver Operations AI - REVIEW
+
+Scope:
+- `driver-android/src/main/java/com/sanamchai/drivergps/MainActivity.java` (audit only)
+- `driver-android/src/main/java/com/sanamchai/drivergps/GpsService.java` (audit only)
+- `driver-android/src/main/java/com/sanamchai/drivergps/BootReceiver.java` (audit only)
+- `erp-schema.js`, `erp-data-adapter.js`, `admin-erp.html` Fleet tab (read-only inspection)
+
+Summary:
+- Full audit + bridge plan written to `ai-handoffs/driver-bridge-plan.md`.
+- Driver app currently writes to a flat legacy path (`liveVehicles/{queueId}`, old project) with a hardcoded 5-vehicle identity list and no authentication — flagged as a pre-existing security gap, not fixed this pass.
+- Mapped app's vehicle-identity concept to backbone `data/fleet/vehicles` / `data/fleet/queues` / `data/fleet/queueOwners`.
+- `operations/liveVehicles` record shape request is already resolved by Main Backbone Support AI's `scanLiveVehicleRecords`/`liveVehicle` requirement addition (see commits `b631137`/`34bf49f`/`258eac9` above); bridge plan updated to match the confirmed field names (`vehicleId, lat, lng, updatedAt, serviceStatus`, optional `queueId`/`currentTripId`).
+- Still requesting: credential (login) field location and push-notification token field location — neither exists in the schema yet.
+- Re: Passenger AI's cross-cutting Firebase-config blocker reported above — this AI holds a real `sl-transit-9464e` **Android** apiKey/appId (given directly by the product owner earlier this session for the driver app's own Firebase init). That's a different credential than the **web** apiKey Passenger AI needs, but confirms the product owner does have Firebase Console access and real values exist; recommending the product owner supply the equivalent web apiKey/appId/messagingSenderId to unblock Passenger AI.
+- Mock-only test fixture included in the plan; nothing written to Firebase.
+
+Evidence:
+- Commit: `<pending — see next push>`
+- Actions: not run this pass (no code changed).
+- Pages: not applicable this pass.
+- Tests: read-only inspection only; mock JSON fixture included in `driver-bridge-plan.md`, not executed against any live database.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none — driver app does not currently read `operations/bookings`/`operations/passengers`, and this pass proposes it never should without a server-side minimization layer.
+
+Blockers:
+- No schema location decided yet for driver login credentials or FCM tokens.
+- `data/fleet/vehicles`/`queues` not yet seeded with real records (Data Import AI dependency) — bridge cannot be tested end-to-end until then.
+
+Next action:
+- Main Backbone Lead: decide on remaining missing-field requests in `driver-bridge-plan.md` §6 (credential field, fcmToken field).
+- Data Import AI: seed at least one real fleet/queue record.
+- Product owner: supply Passenger AI's requested web apiKey/appId/messagingSenderId for `sl-transit-9464e` (separate from this AI's Android credential) to unblock the cross-cutting Firebase-config issue reported above.
+- Driver Operations AI: implement bridge steps (§5) only after the above, with explicit approval for any real/live write.
