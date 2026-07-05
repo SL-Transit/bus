@@ -298,3 +298,36 @@ Blockers:
 
 Next action:
 - Data Import AI can rerun dry-run validator against the full snapshot. If only `operations/liveVehicles` is empty, it should warn rather than block.
+
+## 2026-07-06 06:04 +07 (Asia/Bangkok) - Passenger AI - REVIEW (TEMPORARY ROLLBACK)
+
+Scope:
+- `passenger.html`
+- `passenger-logic.js`
+
+Summary — this is an explicit, owner-approved TEMPORARY COMPATIBILITY ROLLBACK, not a bridge/backbone change:
+- Owner approved pointing `passenger.html` back at the OLD Firebase project (`bus-booking-1d68c`) — the exact same project and config `booking.html`/`check_ticket.html` already use — because `sl-transit-9464e` still has no real apiKey/appId/messagingSenderId anywhere in the repo and its catalog is unseeded (see the earlier Passenger AI BLOCKED entry above).
+- `passenger-logic.js`: `FIREBASE_CONFIG` changed to the old project's real, working config (byte-identical to `booking.html`'s). The Schema v3 config is preserved commented-out in the same file with the 3 revert conditions spelled out.
+- `passenger.html`: Firebase listener paths changed from `data/settings`/`data/catalog`/`operations/liveVehicles` back to `settings`/`routeData`/`publishedCatalog`/`bus`/`liveVehicles` — old flat schema, matching `check_ticket.html`'s dual `bus`+`liveVehicles` vehicle-tracking listener exactly. The functions these paths feed (`applyPassengerRouteSettings`, `applyPassengerRouteData`, `applyUnifiedCatalog`, vehicle merge) were not changed — they already supported this exact old shape from before the Schema v3 migration, so this is a path-only reversion in the passenger surface, not new logic.
+- `passenger-logic.js`: `loadPassengerRouteData()`'s one-time bootstrap read changed from `data/catalog` back to `routeData`.
+- Removed the DOMContentLoaded call to `SLPassengerLogic.getStopsSorted()` (Schema v3 ERP-adapter-only, would just return empty against the old project) — stops now come entirely from the `routeData`/`publishedCatalog` listeners, same as pre-migration.
+- No changes to `booking.html`, `check_ticket.html`, `erp-schema.js`, `erp-data-adapter.js`, `erp-engine.js`, or `catalog-engine.js`.
+- No changes to the map/GPS/Kalman engine, Longdo Maps API usage, or any UI rendering logic — only Firebase config + path wiring.
+
+Evidence:
+- Commit: `<pending — see next push>`
+- Actions/Pages: to be verified immediately after push (required by owner instruction).
+- Tests: syntax-checked both files; ran a mock-Firebase smoke test confirming (a) `FIREBASE_CONFIG.projectId` is now `bus-booking-1d68c`, (b) `loadRouteData()` calls `db.ref('routeData')`, (c) old-shape `settings.routes` data correctly populates the origin/destination lists via `SLPassengerLogic.schedule.applySettings()`, (d) old-shape `bus` vehicle data correctly populates `SLPassengerLogic.vehicles.getAll()` via `setRawFeed()`.
+- Same-Firebase-project confirmation: **yes** — `passenger-logic.js`'s `FIREBASE_CONFIG` now matches `booking.html`'s config exactly (`projectId: bus-booking-1d68c`, same apiKey/authDomain/databaseURL/storageBucket/messagingSenderId/appId).
+
+Safety:
+- Firebase writes: none (read-only listeners only, same as before).
+- Passenger/private data touched: none — `bookings`/`ticketAccess`/`ticketLocations` paths are not referenced anywhere in `passenger.html`/`passenger-logic.js`.
+- Schema backbone changed: none (`erp-schema.js`, `erp-data-adapter.js`, `erp-engine.js`, `catalog-engine.js` untouched).
+- booking.html / check_ticket.html changed: none.
+
+Blockers: none for this rollback itself. Standing blockers for the real Schema v3 cutover are unchanged (real sl-transit-9464e credentials, catalog seed, Main Backbone Lead/Supervisor cutover approval).
+
+Next action:
+- Push, verify GitHub Actions + Pages, then confirm on the live Pages URL that `passenger.html` loads real stop markers and a real schedule table again.
+- Revert this block to the Schema v3 config/paths (kept commented in `passenger-logic.js`) only once the 3 conditions above are met and approved.

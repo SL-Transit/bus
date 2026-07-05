@@ -28,20 +28,44 @@
   'use strict';
 
   /* ────────────────────────────────────────────────────────────
-     [1] FIREBASE CONFIG — sl-transit-9464e
-     apiKey / appId / messagingSenderId are not committed to the repo yet
-     (same as admin-erp.html's FIREBASE_CONFIG_NEW) — fill in from the
-     Firebase console before deploying.
+     [1] FIREBASE CONFIG
+     *** TEMPORARY COMPATIBILITY ROLLBACK — see ai-handoffs/CENTRAL-REPORT.md ***
+     sl-transit-9464e has no real apiKey/appId/messagingSenderId anywhere in
+     the repo yet (same gap as admin-erp.html's own FIREBASE_CONFIG_NEW), and
+     its catalog is still unseeded. Per owner approval, this config is
+     temporarily pointed at the OLD project — the exact same project/config
+     booking.html and check_ticket.html already use — so passenger.html shows
+     real stops/schedule/live-vehicle data again while sl-transit-9464e isn't
+     ready. This is NOT a backbone schema change: only this config object and
+     the Firebase listener paths in passenger.html were changed to match.
+
+     Revert to the sl-transit-9464e block (kept below, commented out) once:
+       1. Real sl-transit-9464e apiKey/appId/messagingSenderId are available.
+       2. Data Import AI's catalog/fleet/settings seed has been applied.
+       3. Main Backbone Lead / Supervisor approves the cutover.
   ──────────────────────────────────────────────────────────── */
   var FIREBASE_CONFIG = {
-    apiKey: 'TODO_FROM_FIREBASE_CONSOLE',
-    authDomain: 'sl-transit-9464e.firebaseapp.com',
-    databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
-    projectId: 'sl-transit-9464e',
-    storageBucket: 'sl-transit-9464e.firebasestorage.app',
-    messagingSenderId: 'TODO_FROM_FIREBASE_CONSOLE',
-    appId: 'TODO_FROM_FIREBASE_CONSOLE'
+    apiKey: "AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw",
+    authDomain: "bus-booking-1d68c.firebaseapp.com",
+    databaseURL: "https://bus-booking-1d68c-default-rtdb.firebaseio.com",
+    projectId: "bus-booking-1d68c",
+    storageBucket: "bus-booking-1d68c.firebasestorage.app",
+    messagingSenderId: "481251007816",
+    appId: "1:481251007816:web:d8554178d954e7de16e77d"
   };
+
+  // Schema v3 config — restore this (and the Schema v3 paths in
+  // passenger.html's Firebase listener block) once the 3 conditions above
+  // are met:
+  // var FIREBASE_CONFIG = {
+  //   apiKey: 'TODO_FROM_FIREBASE_CONSOLE',
+  //   authDomain: 'sl-transit-9464e.firebaseapp.com',
+  //   databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
+  //   projectId: 'sl-transit-9464e',
+  //   storageBucket: 'sl-transit-9464e.firebasestorage.app',
+  //   messagingSenderId: 'TODO_FROM_FIREBASE_CONSOLE',
+  //   appId: 'TODO_FROM_FIREBASE_CONSOLE'
+  // };
 
   var _app = null;
   var _db = null;
@@ -678,7 +702,8 @@ function loadPassengerRouteData() {
   if (PASSENGER_ROUTE_DATA && PASSENGER_ROUTE_DATA.stops) {
     return Promise.resolve(currentPassengerRouteData());
   }
-  return db.ref('data/catalog').once('value').then(function(snap) {
+  // *** TEMPORARY COMPATIBILITY ROLLBACK — old project path, see FIREBASE_CONFIG note above ***
+  return db.ref('routeData').once('value').then(function(snap) {
     applyPassengerRouteData(snap.val());
     return currentPassengerRouteData();
   }).catch(function(err) {
