@@ -24,7 +24,7 @@ Before changing any code or writing a plan, update or report your intended work 
 | Driver operations bridge | Driver Operations AI | TODO | driver app, `operations/liveVehicles`, fleet bridge | - | - | - | Mock tests only until approved. |
 | Import plan validator | Main Backbone Lead | DONE | `erp-import-plan.js`, `admin-erp.html`, `ai-handoffs/01-data-import-catalog-ai.md` | 2026-07-05 | 2026-07-05 | `7e579e9` | Dry-run validator for Data Import AI plans; Actions/Pages/live verified. |
 | Main backbone support | Main Backbone Support AI | REVIEW | `erp-schema.js`, `erp-data-adapter.js`, `admin-erp.html`, handoff review | 2026-07-05 18:xx +07 | 2026-07-05 18:57 +07 | `34bf49f`, `258eac9`, report `563be00` | Added live vehicle validator/readiness gate and read-only catalog list accessors. Firebase writes: none; passenger/private data touched: none. |
-| Main backbone implementation | Main Backbone Implementation AI | IN_PROGRESS | `erp-schema.js`, `ai-handoffs/WORK-STATUS.md`, `ai-handoffs/CENTRAL-REPORT.md` | 2026-07-05 19:36 +07 | 2026-07-05 19:36 +07 | `pending` | Fix `buildSeedSkeleton()` dry-run ReferenceError; Firebase writes: none; passenger/private data touched: none. |
+| Main backbone implementation | Main Backbone Implementation AI | REVIEW | `erp-schema.js`, `ai-handoffs/WORK-STATUS.md`, `ai-handoffs/CENTRAL-REPORT.md` | 2026-07-05 19:36 +07 | 2026-07-05 19:58 +07 | `830265c` | Fixed `buildSeedSkeleton()` dry-run callable path and restored validation readiness gate after mock regression check. Firebase writes: none; passenger/private data touched: none. |
 
 ## How To Add / Update A Lock
 Use one row per work area. Keep scope narrow.
