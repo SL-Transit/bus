@@ -146,6 +146,48 @@
     return Promise.resolve(Object.assign({}, _settings));
   }
 
+  function validateBackboneSnapshot(snapshot) {
+    var schema = global.SLTransit && global.SLTransit.schema || global.SLTransitSchema;
+    if (!schema || typeof schema.validateSnapshot !== 'function') {
+      return Promise.reject(new Error('SLTransit schema validator is not loaded'));
+    }
+    return Promise.resolve(schema.validateSnapshot(snapshot || {}));
+  }
+
+  function getBackboneSnapshot(options) {
+    options = options || {};
+    var snapshot = { data: {}, operations: {} };
+    var reads = [
+      read(schemaPath('settings', 'data/settings')).then(function(value) { snapshot.data.settings = valueOrEmpty(value); }),
+      read(schemaPath('catalog', 'data/catalog')).then(function(value) { snapshot.data.catalog = valueOrEmpty(value); }),
+      read(schemaPath('fleet', 'data/fleet')).then(function(value) { snapshot.data.fleet = valueOrEmpty(value); }),
+      read(schemaPath('finance', 'data/finance')).then(function(value) { snapshot.data.finance = valueOrEmpty(value); }),
+      read(schemaPath('operationsLiveVehicles', 'operations/liveVehicles')).then(function(value) { snapshot.operations.liveVehicles = valueOrEmpty(value); }),
+      read(schemaPath('operationsAuditLogs', 'operations/auditLogs')).then(function(value) { snapshot.operations.auditLogs = valueOrEmpty(value); })
+    ];
+    if (options.includeBookings === true) {
+      reads.push(read(schemaPath('operationsBookings', 'operations/bookings')).then(function(value) { snapshot.operations.bookings = valueOrEmpty(value); }));
+    }
+    if (options.includePassengers === true) {
+      reads.push(read(schemaPath('operationsPassengers', 'operations/passengers')).then(function(value) { snapshot.operations.passengers = valueOrEmpty(value); }));
+    }
+    return Promise.all(reads).then(function() {
+      snapshot.dryRun = true;
+      snapshot.skippedPrivateCollections = [];
+      if (options.includeBookings !== true) snapshot.skippedPrivateCollections.push(schemaPath('operationsBookings', 'operations/bookings'));
+      if (options.includePassengers !== true) snapshot.skippedPrivateCollections.push(schemaPath('operationsPassengers', 'operations/passengers'));
+      return snapshot;
+    });
+  }
+
+  function assessBackbone(options) {
+    return getBackboneSnapshot(options).then(function(snapshot) {
+      return validateBackboneSnapshot(snapshot).then(function(validation) {
+        return { dryRun: true, snapshot: snapshot, validation: validation };
+      });
+    });
+  }
+
   function getFinanceTransactions(monthKey) {
     return read(schemaPath('financeTransactions', 'data/finance/transactions')).then(function(transactions) {
       return Object.keys(valueOrEmpty(transactions)).map(function(key) {
@@ -321,6 +363,9 @@
     getGroup: getGroup,
     getService: getService,
     getSettings: getSettings,
+    validateBackboneSnapshot: validateBackboneSnapshot,
+    getBackboneSnapshot: getBackboneSnapshot,
+    assessBackbone: assessBackbone,
     getFinanceTransactions: getFinanceTransactions,
     getVehicles: getVehicles,
     getQueues: getQueues,
