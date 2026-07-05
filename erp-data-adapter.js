@@ -57,6 +57,16 @@
     throw new Error('Firebase database is not available');
   }
 
+  function schemaPath(key, fallback) {
+    var schema = global.SLTransit && global.SLTransit.schema || global.SLTransitSchema;
+    if (schema && typeof schema.pathOf === 'function') return schema.pathOf(key) || fallback;
+    return fallback;
+  }
+
+  function joinPath() {
+    return Array.prototype.slice.call(arguments).filter(Boolean).join('/');
+  }
+
   function read(path) {
     return requireDb().ref(path).once('value').then(function(snap) {
       return snap.val();
@@ -64,7 +74,7 @@
   }
 
   function refreshCatalog() {
-    return read('data/catalog').then(function(catalog) {
+    return read(schemaPath('catalog', 'data/catalog')).then(function(catalog) {
       _catalog = Object.assign({
         stops: {},
         groups: {},
@@ -80,14 +90,14 @@
   }
 
   function refreshFleet() {
-    return read('data/fleet').then(function(fleet) {
+    return read(schemaPath('fleet', 'data/fleet')).then(function(fleet) {
       _fleet = Object.assign({ vehicles: {}, queues: {}, queueOwners: {} }, valueOrEmpty(fleet));
       return _fleet;
     });
   }
 
   function refreshSettings() {
-    return read('data/settings').then(function(settings) {
+    return read(schemaPath('settings', 'data/settings')).then(function(settings) {
       _settings = valueOrEmpty(settings);
       return _settings;
     });
@@ -137,7 +147,7 @@
   }
 
   function getFinanceTransactions(monthKey) {
-    return read('data/finance/transactions').then(function(transactions) {
+    return read(schemaPath('financeTransactions', 'data/finance/transactions')).then(function(transactions) {
       return Object.keys(valueOrEmpty(transactions)).map(function(key) {
         return Object.assign({ id: key }, transactions[key] || {});
       }).filter(function(tx) {
@@ -174,50 +184,50 @@
     }
     var updates = {};
     orderedKeys.forEach(function(key, index) {
-      updates['data/catalog/stops/' + key + '/order'] = index + 1;
+      updates[joinPath(schemaPath('catalogStops', 'data/catalog/stops'), key, 'order')] = index + 1;
     });
     return requireDb().ref().update(updates).then(refreshCatalog);
   }
 
   function watchBookings(date, cb) {
-    var ref = requireDb().ref('operations/bookings');
+    var ref = requireDb().ref(schemaPath('operationsBookings', 'operations/bookings'));
     var query = date ? ref.orderByChild('date').equalTo(date) : ref;
     query.on('value', cb);
     return function unsubscribe() { query.off('value', cb); };
   }
 
   function watchLiveVehicles(cb) {
-    var ref = requireDb().ref('operations/liveVehicles');
+    var ref = requireDb().ref(schemaPath('operationsLiveVehicles', 'operations/liveVehicles'));
     ref.on('value', cb);
     return function unsubscribe() { ref.off('value', cb); };
   }
 
   function saveStop(stopKey, data) {
-    return requireDb().ref('data/catalog/stops/' + stopKey).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogStops', 'data/catalog/stops'), stopKey)).update(data || {}).then(refreshCatalog);
   }
 
   function saveRoute(routeId, data) {
-    return requireDb().ref('data/catalog/routes/' + routeId).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogRoutes', 'data/catalog/routes'), routeId)).update(data || {}).then(refreshCatalog);
   }
 
   function saveTrip(tripId, data) {
-    return requireDb().ref('data/catalog/trips/' + tripId).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogTrips', 'data/catalog/trips'), tripId)).update(data || {}).then(refreshCatalog);
   }
 
   function saveFare(originKey, destKey, data) {
-    return requireDb().ref('data/catalog/fares/' + originKey + '/' + destKey).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogFares', 'data/catalog/fares'), originKey, destKey)).update(data || {}).then(refreshCatalog);
   }
 
   function saveVehicle(vehicleId, data) {
-    return requireDb().ref('data/fleet/vehicles/' + vehicleId).update(data || {}).then(refreshFleet);
+    return requireDb().ref(joinPath(schemaPath('fleetVehicles', 'data/fleet/vehicles'), vehicleId)).update(data || {}).then(refreshFleet);
   }
 
   function saveQueue(queueId, data) {
-    return requireDb().ref('data/fleet/queues/' + queueId).update(data || {}).then(refreshFleet);
+    return requireDb().ref(joinPath(schemaPath('fleetQueues', 'data/fleet/queues'), queueId)).update(data || {}).then(refreshFleet);
   }
 
   function saveQueueOwner(ownerId, data) {
-    return requireDb().ref('data/fleet/queueOwners/' + ownerId).update(data || {}).then(refreshFleet);
+    return requireDb().ref(joinPath(schemaPath('fleetQueueOwners', 'data/fleet/queueOwners'), ownerId)).update(data || {}).then(refreshFleet);
   }
 
   function nextIdFromMap(map, prefix, width) {
@@ -268,7 +278,7 @@
     if (VALID_BOOKING_STATUS.indexOf(payload.status) === -1) {
       return Promise.reject(new Error('invalid status: ' + payload.status));
     }
-    return requireDb().ref('operations/bookings/' + bookingId).set(payload).then(function() {
+    return requireDb().ref(joinPath(schemaPath('operationsBookings', 'operations/bookings'), bookingId)).set(payload).then(function() {
       return bookingId;
     });
   }
@@ -277,7 +287,7 @@
     if (VALID_BOOKING_STATUS.indexOf(status) === -1) {
       return Promise.reject(new Error('invalid status: ' + status));
     }
-    return requireDb().ref('operations/bookings/' + bookingId).update({
+    return requireDb().ref(joinPath(schemaPath('operationsBookings', 'operations/bookings'), bookingId)).update({
       status: status,
       updatedAt: Date.now()
     });
@@ -286,7 +296,7 @@
   function logTransaction(data) {
     var txId = 'TX-' + Date.now() + '-' + randomCode(4);
     var payload = Object.assign({}, data || {}, { transactionId: txId, createdAt: Date.now() });
-    return requireDb().ref('data/finance/transactions/' + txId).set(payload).then(function() {
+    return requireDb().ref(joinPath(schemaPath('financeTransactions', 'data/finance/transactions'), txId)).set(payload).then(function() {
       return txId;
     });
   }
@@ -294,7 +304,7 @@
   function createPassenger(hashedId, data) {
     var passengerId = String(hashedId || '');
     if (passengerId.indexOf('PSG_') !== 0) passengerId = 'PSG_' + passengerId;
-    return requireDb().ref('operations/passengers/' + passengerId).update(data || {}).then(function() {
+    return requireDb().ref(joinPath(schemaPath('operationsPassengers', 'operations/passengers'), passengerId)).update(data || {}).then(function() {
       return passengerId;
     });
   }
