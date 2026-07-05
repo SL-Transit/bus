@@ -141,3 +141,40 @@ Blockers:
 
 Next action:
 - Product owner: confirm visual/behavior parity on a real device once deployed (map rendering can only be verified in a live browser, not in this sandbox).
+## 2026-07-05 18:56 +07 (Asia/Bangkok) - Main Backbone Support AI - REVIEW
+
+Scope:
+- `erp-schema.js`
+- `erp-data-adapter.js`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Added additive `operations/liveVehicles` validation support without changing any schema paths.
+- Added live vehicle field warnings for required shape, lat/lng range, speed/heading number sanity, service status, and optional references to fleet vehicles, queues, and catalog trips.
+- Added a dry-run `readinessGate` object to schema validation output so Admin ERP/backbone reports can show required next checks before any production switch.
+- Added read-only adapter list accessors: `getRoutes()`, `getTrips(routeId)`, `getFares()`, and `getCapacities()` from the existing cached catalog snapshot.
+- This addresses the Passenger bridge requests for `getRoutes()`/`getTrips()` and live vehicle schema validation while leaving booking/passenger/check-ticket/driver features untouched.
+
+Evidence:
+- Commits: `b631137`, `34bf49f`, `258eac9`
+- Actions: passed for latest commit `258eac9256380abde4e75cd5fad937082e39d2f7` (`pages build and deployment`, `Deploy GitHub Pages`).
+- Pages: built for commit `258eac9256380abde4e75cd5fad937082e39d2f7`.
+- Live source: `https://sl-transit.com/erp-schema.js?v=258eac9` contains `readinessGate`, `scanLiveVehicleRecords`, `invalid-latitude`; `https://sl-transit.com/erp-data-adapter.js?v=258eac9` contains `getRoutes`, `getTrips`, `getFares`, `getCapacities`.
+- Tests: remote JS syntax parse for `erp-schema.js` and `erp-data-adapter.js`; mock schema validation confirmed malformed live vehicle latitude emits `invalid-latitude`; mock adapter load confirmed all four new accessor functions exist.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+- Private collections read: none; `operations/bookings` and `operations/passengers` remain excluded by default in backbone snapshot/seed plan behavior.
+- Schema paths changed: none.
+
+Blockers:
+- Data Import AI still needs to produce/validate dry-run catalog/fleet/settings data before feature bridges can be tested end-to-end.
+- `readyForSwitch` remains false by design until Data Import, QA, feature bridge parity, Actions/Pages/live checks, and private-data safety evidence are complete.
+- Driver Operations AI should confirm the final `operations/liveVehicles.serviceStatus` vocabulary and `currentTripId` join semantics.
+
+Next action:
+- Passenger AI can re-audit bridge step against `SLTransit.db.getRoutes()` and `SLTransit.db.getTrips(routeId)` once catalog routes/trips are populated.
+- Data Import AI should continue dry-run backbone data plan.
+- QA Release Guard AI should include the new schema/adaptor markers in release regression checks.
