@@ -97,6 +97,64 @@
       }
     });
   }
+  function hasRecord(map, id) {
+    return id != null && id !== '' && !!valueOrEmpty(map)[id];
+  }
+
+  function addReferenceIssue(issues, path, field, targetPath, targetId, code) {
+    issues.push({
+      level: 'warning',
+      code: code || 'missing-reference',
+      path: path,
+      field: field,
+      targetPath: targetPath,
+      targetId: targetId
+    });
+  }
+
+  function scanReferences(root, issues) {
+    var stops = valueOrEmpty(readPath(root, PATHS.catalogStops));
+    var routes = valueOrEmpty(readPath(root, PATHS.catalogRoutes));
+    var trips = valueOrEmpty(readPath(root, PATHS.catalogTrips));
+    var fares = valueOrEmpty(readPath(root, PATHS.catalogFares));
+    var vehicles = valueOrEmpty(readPath(root, PATHS.fleetVehicles));
+    var queues = valueOrEmpty(readPath(root, PATHS.fleetQueues));
+    var queueOwners = valueOrEmpty(readPath(root, PATHS.fleetQueueOwners));
+
+    Object.keys(routes).forEach(function(key) {
+      var route = valueOrEmpty(routes[key]);
+      if (route.fromStopKey && !hasRecord(stops, route.fromStopKey)) addReferenceIssue(issues, PATHS.catalogRoutes + '/' + key, 'fromStopKey', PATHS.catalogStops, route.fromStopKey);
+      if (route.toStopKey && !hasRecord(stops, route.toStopKey)) addReferenceIssue(issues, PATHS.catalogRoutes + '/' + key, 'toStopKey', PATHS.catalogStops, route.toStopKey);
+    });
+
+    Object.keys(trips).forEach(function(key) {
+      var trip = valueOrEmpty(trips[key]);
+      if (trip.routeId && !hasRecord(routes, trip.routeId)) addReferenceIssue(issues, PATHS.catalogTrips + '/' + key, 'routeId', PATHS.catalogRoutes, trip.routeId);
+      if (trip.vehicleId && !hasRecord(vehicles, trip.vehicleId)) addReferenceIssue(issues, PATHS.catalogTrips + '/' + key, 'vehicleId', PATHS.fleetVehicles, trip.vehicleId);
+      (Array.isArray(trip.stopTimes) ? trip.stopTimes : []).forEach(function(stopTime, index) {
+        var stopKey = valueOrEmpty(stopTime).stopKey;
+        if (stopKey && !hasRecord(stops, stopKey)) addReferenceIssue(issues, PATHS.catalogTrips + '/' + key + '/stopTimes/' + index, 'stopKey', PATHS.catalogStops, stopKey);
+      });
+    });
+
+    Object.keys(fares).forEach(function(originKey) {
+      if (!hasRecord(stops, originKey)) addReferenceIssue(issues, PATHS.catalogFares + '/' + originKey, 'originKey', PATHS.catalogStops, originKey);
+      Object.keys(valueOrEmpty(fares[originKey])).forEach(function(destKey) {
+        if (!hasRecord(stops, destKey)) addReferenceIssue(issues, PATHS.catalogFares + '/' + originKey + '/' + destKey, 'destKey', PATHS.catalogStops, destKey);
+      });
+    });
+
+    Object.keys(vehicles).forEach(function(key) {
+      var vehicle = valueOrEmpty(vehicles[key]);
+      if (vehicle.queueId && !hasRecord(queues, vehicle.queueId)) addReferenceIssue(issues, PATHS.fleetVehicles + '/' + key, 'queueId', PATHS.fleetQueues, vehicle.queueId);
+    });
+
+    Object.keys(queues).forEach(function(key) {
+      var queue = valueOrEmpty(queues[key]);
+      if (queue.vehicleId && !hasRecord(vehicles, queue.vehicleId)) addReferenceIssue(issues, PATHS.fleetQueues + '/' + key, 'vehicleId', PATHS.fleetVehicles, queue.vehicleId);
+      if (queue.ownerId && !hasRecord(queueOwners, queue.ownerId)) addReferenceIssue(issues, PATHS.fleetQueues + '/' + key, 'ownerId', PATHS.fleetQueueOwners, queue.ownerId);
+    });
+  }
 
   function validateSnapshot(snapshot) {
     var root = valueOrEmpty(snapshot);
@@ -113,6 +171,7 @@
     scanMap(root, PATHS.catalogTrips, 'trip', warnings);
     scanMap(root, PATHS.fleetVehicles, 'vehicle', warnings);
     scanMap(root, PATHS.fleetQueues, 'queue', warnings);
+    scanReferences(root, warnings);
 
     return {
       dryRun: true,
@@ -168,6 +227,7 @@
     REQUIRED_COLLECTIONS: REQUIRED_COLLECTIONS.slice(),
     OPTIONAL_COLLECTIONS: OPTIONAL_COLLECTIONS.slice(),
     RECORD_REQUIREMENTS: Object.assign({}, RECORD_REQUIREMENTS),
+    scanReferences: scanReferences,
     pathOf: pathOf,
     readPath: readPath,
     validateSnapshot: validateSnapshot,
