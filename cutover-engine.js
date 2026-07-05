@@ -15,6 +15,7 @@
     'booking.html',
     'check_ticket.html',
     'passenger.html',
+    'passenger-logic.js',
     'booking-bridge.js',
     'booking-capacity.js',
     'admin-erp.html',
