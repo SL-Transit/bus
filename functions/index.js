@@ -11,6 +11,26 @@ const checkinLineTo = defineSecret("LINE_CHECKIN_TO_ID");
 const slip2GoSecret = defineSecret("SLIP2GO_SECRET_KEY");
 const slip2GoApiBase = defineString("SLIP2GO_API_BASE");
 
+// ทั้งโปรเจกต์ Functions นี้ deploy อยู่ใต้ bus-booking-1d68c (ดู .firebaserc)
+// แต่ sl-transit-9464e เป็นโปรเจกต์ใหม่แยกกัน — ต้องมี Admin app "ที่สอง" ผูกกับ
+// service account ของ sl-transit-9464e โดยเฉพาะ เพื่อ mint custom token/อ่าน DB ของโปรเจกต์นั้น
+// ‼️ ห้าม commit ไฟล์ service account JSON ลง repo เด็ดขาด — เก็บเป็น secret เท่านั้น
+// ตั้งค่าด้วย: firebase functions:secrets:set SL_TRANSIT_SERVICE_ACCOUNT_JSON
+//   (วางเนื้อหาทั้งไฟล์ .json ที่ดาวน์โหลดจาก Firebase Console เป็นค่า secret)
+const slTransitServiceAccount = defineSecret("SL_TRANSIT_SERVICE_ACCOUNT_JSON");
+const SL_TRANSIT_DB_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+let slTransitApp = null;
+function getSlTransitApp() {
+  if (slTransitApp) return slTransitApp;
+  const serviceAccount = JSON.parse(slTransitServiceAccount.value());
+  slTransitApp = admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: SL_TRANSIT_DB_URL,
+  }, "slTransit");
+  return slTransitApp;
+}
+
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
 }
@@ -261,4 +281,96 @@ exports.sendLineOnPaymentVerified = onValueUpdated({
   if (before.paymentStatus === "payment_verified") return;
   if (after.paymentStatus !== "payment_verified") return;
   await sendLineForBooking(event.data.after.ref, code, after);
+});
+
+// ===== Bootstrap: ตั้ง custom claim role='admin' ให้ account แอดมินใน sl-transit-9464e =====
+// ใช้ครั้งเดียวตอน setup แต่ละ account แอดมิน ป้องกันด้วย secret token (ไม่ใช่ auth != null
+// เพราะตอนนี้ยังไม่มี admin คนไหนมี claim เลย เป็น chicken-and-egg) — แนะนำให้ลบ/ปิดฟังก์ชันนี้
+// ทิ้งหลังตั้งค่า admin ครบทุกคนแล้ว เพื่อไม่ให้เป็นช่องโหว่ยกระดับสิทธิ์ค้างไว้ถาวร
+// เรียกด้วย: POST { "email": "...", "secret": "..." }
+// ตั้ง secret ด้วย: firebase functions:secrets:set ADMIN_BOOTSTRAP_SECRET
+const adminBootstrapSecret = defineSecret("ADMIN_BOOTSTRAP_SECRET");
+
+exports.bootstrapAdminClaim = onRequest({
+  region: "us-central1",
+  cors: true,
+  secrets: [slTransitServiceAccount, adminBootstrapSecret],
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 5
+}, async (req, res) => {
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { jsonResponse(res, 405, { error: "method_not_allowed" }); return; }
+
+  const email = String((req.body && req.body.email) || "").trim();
+  const secret = String((req.body && req.body.secret) || "");
+  if (!email) { jsonResponse(res, 400, { error: "missing_email" }); return; }
+  if (secret !== adminBootstrapSecret.value()) {
+    jsonResponse(res, 403, { error: "invalid_secret" });
+    return;
+  }
+
+  try {
+    const app = getSlTransitApp();
+    const user = await app.auth().getUserByEmail(email);
+    await app.auth().setCustomUserClaims(user.uid, { role: "admin" });
+    jsonResponse(res, 200, { ok: true, uid: user.uid, email: user.email, role: "admin" });
+  } catch (err) {
+    console.error("bootstrapAdminClaim error", err);
+    jsonResponse(res, 500, { error: "internal_error", message: err.message });
+  }
+});
+// อ่าน data/fleet/vehicles/{plateNo} จาก sl-transit-9464e โดยตรง (plateNo == vehicleId ตามที่ตกลง)
+// คืน custom token ผูก claims { role, vehicleId, groupId, queueId } ให้ database rules ใช้ตรวจสิทธิ์ต่อ
+exports.verifyDriverLogin = onRequest({
+  region: "us-central1",
+  cors: true,
+  secrets: [slTransitServiceAccount],
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { jsonResponse(res, 405, { error: "method_not_allowed" }); return; }
+
+  const plateNo = String((req.body && req.body.plateNo) || "").trim().toUpperCase();
+  const password = String((req.body && req.body.password) || "");
+  if (!plateNo || !password) {
+    jsonResponse(res, 400, { error: "missing_plateNo_or_password" });
+    return;
+  }
+
+  try {
+    const app = getSlTransitApp();
+    const vehicleRef = app.database().ref("data/fleet/vehicles/" + plateNo);
+    const snap = await vehicleRef.get();
+    const vehicle = snap.val();
+
+    if (!vehicle || !vehicle.password || String(vehicle.password) !== password) {
+      jsonResponse(res, 401, { error: "invalid_credentials" });
+      return;
+    }
+    if (vehicle.active === false) {
+      jsonResponse(res, 403, { error: "vehicle_inactive" });
+      return;
+    }
+
+    const claims = {
+      role: "driver",
+      vehicleId: plateNo,
+      groupId: vehicle.groupId || null,
+      queueId: vehicle.queueId || null,
+    };
+    const token = await app.auth().createCustomToken(plateNo, claims);
+
+    jsonResponse(res, 200, {
+      token,
+      vehicleId: plateNo,
+      groupId: claims.groupId,
+      queueId: claims.queueId,
+    });
+  } catch (err) {
+    console.error("verifyDriverLogin error", err);
+    jsonResponse(res, 500, { error: "internal_error" });
+  }
 });

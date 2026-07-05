@@ -46,6 +46,7 @@ import java.net.URL;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -69,6 +70,11 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_COORDS = "last_coords";
     static final String KEY_LAST_ERROR = "last_error";
     static final String KEY_VEHICLE_ID = "vehicle_id";
+    static final String KEY_GROUP_ID = "group_id";
+    static final String KEY_QUEUE_ID = "queue_id_assigned";
+    // Cloud Function ตรวจสอบ ป้ายทะเบียน+รหัสผ่าน ที่ ERP เป็นคนตั้งให้ (ไม่มี SMS OTP)
+    private static final String LOGIN_FUNCTION_URL =
+            "https://us-central1-sl-transit-9464e.cloudfunctions.net/verifyDriverLogin";
     static final String KEY_BATTERY_PROMPTED  = "battery_prompted";
     static final String KEY_LAST_RESTART      = "last_restart";
     static final String KEY_RESTART_COUNT     = "restart_count";
@@ -81,7 +87,7 @@ public class MainActivity extends Activity {
     static final String KEY_TODAY_QUEUE       = "today_queue_label";
     static final String KEY_FIREBASE_STATUS   = "firebase_status";
 
-    private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
+    private static final String DB_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
     private static final String ST_TRANSIT_PHONE = "0XXXXXXXXX"; // TODO: ใส่เบอร์สำนักงาน ST Transit จริง
 
     // ===== S.L.Transit Theme =====
@@ -100,9 +106,8 @@ public class MainActivity extends Activity {
     // ===== OSRM road-routing สำหรับ ETA ตามเส้นทางจริง (ข้อ 6.2) =====
     private static final String OSRM_BASE = "https://router.project-osrm.org/route/v1/driving/";
 
-    private static final String[] VEHICLE_IDS = {
-        "car1", "car2", "car3", "car4", "car5"
-    };
+    // VEHICLE_IDS (hardcode car1-car5) ถูกถอดออก — รายชื่อรถ/สายมาจาก Firebase ผ่านการ login เท่านั้น
+    // ไม่จำกัดจำนวนรถ/สายอีกต่อไป (รองรับ ERP เพิ่มรถ/สายใหม่ได้โดยไม่ต้องแก้โค้ด)
 
     private SharedPreferences prefs;
     private Button mainButton;
@@ -235,8 +240,9 @@ public class MainActivity extends Activity {
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
         initFirebaseListener();
         if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
-            // ติดตั้งใหม่ — ยังไม่เลือกรถ ไม่ default เป็น car1
-            autoSelectAvailableVehicle();
+            // ติดตั้งใหม่ หรือ logout — ต้อง login ด้วยป้ายทะเบียน+รหัสผ่านก่อนเสมอ
+            // (เดิม auto-select รถว่างโดยไม่ตรวจสอบตัวตนเลย — เป็นช่องโหว่ ตัดออก)
+            showDriverLoginDialog();
         }
         buildUi();
         loadTestModeSetting();
@@ -255,53 +261,141 @@ public class MainActivity extends Activity {
         initRemoteCommandListener();
     }
 
-    // ===== เลือก car ที่ว่างอัตโนมัติตอนติดตั้งใหม่ =====
-    private void autoSelectAvailableVehicle() {
-        long staleMs = 30 * 60 * 1000; // ถือว่า "ว่าง" ถ้าไม่มีการส่งสัญญาณนานกว่า 30 นาที
-        long now = System.currentTimeMillis();
-        try {
-            FirebaseDatabase.getInstance().getReference("liveVehicles")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot snap) {
-                for (String id : VEHICLE_IDS) {
-                    DataSnapshot v = snap.child(id);
-                    boolean online = Boolean.TRUE.equals(v.child("online").getValue(Boolean.class));
-                    Long ts = v.child("sentTs").getValue(Long.class);
-                    boolean recentlyActive = ts != null && (now - ts) < staleMs;
-                    if (!online && !recentlyActive) {
-                        // เจอ car ที่ว่าง — ตั้งค่าและอัพเดท UI
-                        prefs.edit().putString(KEY_VEHICLE_ID, id).apply();
-                        runOnUiThread(() -> {
-                            if (vehiclePickerText != null)
-                                vehiclePickerText.setText(id + "\n▾");
-                            if (versionLabel != null)
-                                versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + id + ")");
-                            refreshTodaySchedule();
-                        });
-                        return;
-                    }
+    // ===== Login ด้วยป้ายทะเบียน + รหัสผ่าน (ตั้งโดย admin/ERP เท่านั้น ไม่มี SMS) =====
+    private void showDriverLoginDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(20);
+        box.setPadding(pad, pad, pad, pad);
+
+        final android.widget.EditText plateInput = new android.widget.EditText(this);
+        plateInput.setHint("ป้ายทะเบียนรถ (เช่น 70-1234)");
+        plateInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        box.addView(plateInput);
+
+        final android.widget.EditText passInput = new android.widget.EditText(this);
+        passInput.setHint("รหัสผ่าน");
+        passInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        box.addView(passInput);
+
+        final TextView errorLabel = new TextView(this);
+        errorLabel.setTextColor(COLOR_RED);
+        errorLabel.setPadding(0, dp(8), 0, 0);
+        box.addView(errorLabel);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("เข้าสู่ระบบคนขับ")
+                .setView(box)
+                .setCancelable(false)
+                .setPositiveButton("เข้าสู่ระบบ", null) // set ทีหลังกัน dialog ปิดก่อน validate
+                .create();
+        dialog.setOnShowListener(d -> {
+            android.widget.Button okBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            okBtn.setOnClickListener(v -> {
+                String plateNo = plateInput.getText().toString().trim().toUpperCase();
+                String password = passInput.getText().toString();
+                if (plateNo.isEmpty() || password.isEmpty()) {
+                    errorLabel.setText("กรุณากรอกป้ายทะเบียนและรหัสผ่านให้ครบ");
+                    return;
                 }
-                // ถ้าทุก car ถูกใช้อยู่ — คง car1 ไว้แต่แสดงเตือน
+                okBtn.setEnabled(false);
+                errorLabel.setText("กำลังตรวจสอบ...");
+                performDriverLogin(plateNo, password, dialog, okBtn, errorLabel);
+            });
+        });
+        dialog.show();
+    }
+
+    private void performDriverLogin(String plateNo, String password, AlertDialog dialog,
+                                     android.widget.Button okBtn, TextView errorLabel) {
+        new Thread(() -> {
+            try {
+                JSONObject payload = new JSONObject();
+                payload.put("plateNo", plateNo);
+                payload.put("password", password);
+
+                HttpURLConnection conn = (HttpURLConnection) new URL(LOGIN_FUNCTION_URL).openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                conn.setDoOutput(true);
+                byte[] body = payload.toString().getBytes("UTF-8");
+                conn.getOutputStream().write(body);
+                conn.getOutputStream().flush();
+                conn.getOutputStream().close();
+
+                int code = conn.getResponseCode();
+                InputStreamReader isr = new InputStreamReader(
+                        code == 200 ? conn.getInputStream() : conn.getErrorStream());
+                BufferedReader reader = new BufferedReader(isr);
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+                JSONObject resp = new JSONObject(sb.toString());
+
+                if (code == 200 && resp.has("token")) {
+                    String token = resp.getString("token");
+                    String vehicleId = resp.getString("vehicleId");
+                    String groupId = resp.optString("groupId", null);
+                    String queueId = resp.optString("queueId", null);
+                    FirebaseAuth.getInstance().signInWithCustomToken(token)
+                            .addOnSuccessListener(authResult -> runOnUiThread(() -> {
+                                prefs.edit()
+                                        .putString(KEY_VEHICLE_ID, vehicleId)
+                                        .putString(KEY_GROUP_ID, groupId)
+                                        .putString(KEY_QUEUE_ID, queueId)
+                                        .apply();
+                                dialog.dismiss();
+                                if (vehiclePickerText != null) vehiclePickerText.setText(vehicleId + "\n▾");
+                                if (versionLabel != null)
+                                    versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + vehicleId + ")");
+                                refreshTodaySchedule();
+                            }))
+                            .addOnFailureListener(err -> runOnUiThread(() -> {
+                                okBtn.setEnabled(true);
+                                errorLabel.setText("เข้าสู่ระบบไม่สำเร็จ: " + err.getMessage());
+                            }));
+                } else {
+                    String errMsg = resp.optString("error", "invalid_credentials");
+                    String friendly = "invalid_credentials".equals(errMsg)
+                            ? "ป้ายทะเบียนหรือรหัสผ่านไม่ถูกต้อง"
+                            : "vehicle_inactive".equals(errMsg)
+                                    ? "รถคันนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน"
+                                    : "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่";
+                    runOnUiThread(() -> {
+                        okBtn.setEnabled(true);
+                        errorLabel.setText(friendly);
+                    });
+                }
+            } catch (Exception e) {
                 runOnUiThread(() -> {
-                    if (vehiclePickerText != null)
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("⚠️ รถทุกคันถูกใช้งานอยู่")
-                                .setMessage("กรุณาเลือกรหัสรถด้วยตนเอง")
-                                .setPositiveButton("ตกลง", null).show();
+                    okBtn.setEnabled(true);
+                    errorLabel.setText("เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ต แล้วลองใหม่");
                 });
             }
-            @Override public void onCancelled(DatabaseError e) {}
-        });
-        } catch (Exception error) {
-            prefs.edit().putString(KEY_LAST_ERROR,
-                    error.getMessage() == null ? "vehicle selection unavailable" : error.getMessage()).apply();
-        }
+        }).start();
+    }
+
+    private void logoutDriver() {
+        stopGpsService();
+        FirebaseAuth.getInstance().signOut();
+        prefs.edit()
+                .remove(KEY_VEHICLE_ID)
+                .remove(KEY_GROUP_ID)
+                .remove(KEY_QUEUE_ID)
+                .remove(KEY_ENABLED)
+                .apply();
+        showDriverLoginDialog();
     }
 
 
     private void reportVersionToFirebase() {
         try {
-            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
             Map<String, Object> data = new HashMap<>();
             data.put("appVersionCode", BuildConfig.VERSION_CODE);
             data.put("appVersionName", BuildConfig.VERSION_NAME);
@@ -521,10 +615,10 @@ public class MainActivity extends Activity {
         try {
             if (FirebaseApp.getApps(this).isEmpty()) {
                 FirebaseOptions options = new FirebaseOptions.Builder()
-                        .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
-                        .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
+                        .setApiKey("AIzaSyCkIm74ysuQ9Y2tFP9VkrGNvGg0a_LqeGg")
+                        .setApplicationId("1:480076551107:android:f5929194925bc19fbfe376")
                         .setDatabaseUrl(DB_URL)
-                        .setProjectId("bus-booking-1d68c")
+                        .setProjectId("sl-transit-9464e")
                         .build();
                 FirebaseApp.initializeApp(this, options);
             }
@@ -1040,7 +1134,7 @@ public class MainActivity extends Activity {
     private void setServiceAvailable(boolean available) {
         serviceAvailable = available;
         prefs.edit().putString(KEY_SERVICE_STATUS, available ? "available" : "unavailable").apply();
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         // เขียนขึ้น liveVehicles ด้วย เพื่อให้แผนที่ผู้โดยสารรู้ว่ารถนี้ไม่พร้อมรับ แม้ GPS ยังส่งอยู่
         FirebaseDatabase.getInstance().getReference("liveVehicles/" + vehicleId + "/serviceStatus")
                 .setValue(available ? "available" : "unavailable");
@@ -1239,7 +1333,9 @@ public class MainActivity extends Activity {
             if (amp >= 0) code = code.substring(0, amp);
         }
         final String finalCode = code.trim().toUpperCase(java.util.Locale.US);
-        if (!finalCode.matches("^(BK|TB)[A-Z0-9]{6,20}$")) {
+        // รองรับทั้ง format เก่า BK004369 และ format ใหม่ BK-20260703-A3F7K2
+        if (!finalCode.matches("^(BK|TB)[A-Z0-9]{6,20}$")
+                && !finalCode.matches("^(BK|TB)-\\d{8}-[A-Z0-9]{6}$")) {
             new AlertDialog.Builder(this).setTitle("QR ตั๋วไม่ถูกต้อง")
                     .setMessage("กรุณาสแกน QR จากหน้าตั๋ว S.L.Transit")
                     .setPositiveButton("ตกลง", null).show();
@@ -1510,7 +1606,7 @@ public class MainActivity extends Activity {
 
     // ===== 3.3) รายงานปัญหา app — พิกัดปัจจุบัน + ข้อมูลการวินิจฉัยทั้งหมด (ย้ายมาจากหน้าหลักเดิม) =====
     private void showDiagnosticReport() {
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         String coords = prefs.getString(KEY_LAST_COORDS, "---.-----,  ---.-----");
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
         long sent = prefs.getLong(KEY_LAST_SENT, 0);
@@ -1618,7 +1714,7 @@ public class MainActivity extends Activity {
     }
 
     private void showIncidentConfirmDialog(String incidentType) {
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         String coords = prefs.getString(KEY_LAST_COORDS, "ไม่มีพิกัด");
 
         new AlertDialog.Builder(this)
@@ -1672,7 +1768,7 @@ public class MainActivity extends Activity {
     }
 
     private void sendSosSignal() {
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         String coords = prefs.getString(KEY_LAST_COORDS, "");
         Map<String, Object> data = new HashMap<>();
         data.put("vehicleId", vehicleId);
@@ -1818,7 +1914,7 @@ public class MainActivity extends Activity {
 
         // versionLabel สร้างไว้ก่อน จะ addView ที่ท้ายสุด (ข้อ 2)
         versionLabel = new TextView(this);
-        versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + ")");
+        versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + prefs.getString(KEY_VEHICLE_ID, "-") + ")");
         versionLabel.setTextColor(COLOR_TEXT_MUTED);
         versionLabel.setTextSize(10);
         versionLabel.setGravity(Gravity.CENTER);
@@ -2386,7 +2482,7 @@ public class MainActivity extends Activity {
         sendLp.setMargins(0, dp(16), 0, dp(8));
         sendBtn.setLayoutParams(sendLp);
         sendBtn.setOnClickListener(v -> {
-            String vid = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            String vid = prefs.getString(KEY_VEHICLE_ID, "-");
             logIssueToFirebase("ผู้ใช้กดส่งรายงานปัญหาด้วยตนเอง", -1, -1, true);
             new AlertDialog.Builder(this)
                     .setTitle("ส่งแล้ว ✓")
@@ -2432,7 +2528,7 @@ public class MainActivity extends Activity {
         if (container == null) return;
 
         // ===== ดึงข้อมูลปัจจุบัน =====
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         String coords    = prefs.getString(KEY_LAST_COORDS, "—");
         boolean enabled  = prefs.getBoolean(KEY_ENABLED, false);
         long sent = prefs.getLong(KEY_LAST_SENT, 0);
@@ -2725,7 +2821,7 @@ public class MainActivity extends Activity {
 
     private void buildTodayReportContent(LinearLayout root) {
         root.removeAllViews();
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         String today = new java.text.SimpleDateFormat("dd MMM yyyy", new java.util.Locale("th")).format(new java.util.Date());
 
         // Header
@@ -3315,53 +3411,23 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    // ---- Dialog เลือกรถ + ล็อคคันที่ online อยู่ ----
+    // ---- Dialog แสดงข้อมูลบัญชี + ออกจากระบบ (เดิมเป็นตัวเลือกรถแบบเปิด ไม่มีรหัสผ่าน — ตัดออกเพราะเป็นช่องโหว่ปลอมตัวเป็นรถคันอื่นได้) ----
     private void showVehicleDialog() {
-        String myCurrentId = prefs.getString(KEY_VEHICLE_ID, null);
-        boolean iAmOnline = prefs.getBoolean(KEY_ENABLED, false);
-
-        // สร้าง label แต่ละตัวเลือก — ขีดค่าถ้าถูกใช้อยู่
-        android.text.SpannableString[] labels = new android.text.SpannableString[VEHICLE_IDS.length];
-        boolean[] isBlocked = new boolean[VEHICLE_IDS.length];
-        for (int i = 0; i < VEHICLE_IDS.length; i++) {
-            String id = VEHICLE_IDS[i];
-            boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(id))
-                    && !(id.equals(myCurrentId) && iAmOnline);
-            isBlocked[i] = onlineByOther;
-            String raw = onlineByOther ? id + "  (ใช้งานอยู่)" : id;
-            android.text.SpannableString ss = new android.text.SpannableString(raw);
-            if (onlineByOther) {
-                ss.setSpan(new android.text.style.StrikethroughSpan(), 0, raw.length(), 0);
-                ss.setSpan(new android.text.style.ForegroundColorSpan(COLOR_TEXT_MUTED), 0, raw.length(), 0);
-            }
-            labels[i] = ss;
-        }
-
-        int currentIdx = -1;
-        for (int i = 0; i < VEHICLE_IDS.length; i++) {
-            if (VEHICLE_IDS[i].equals(myCurrentId)) { currentIdx = i; break; }
-        }
-
+        String myVehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
+        String myGroupId = prefs.getString(KEY_GROUP_ID, "-");
         new AlertDialog.Builder(this)
-                .setTitle("เลือกรหัสรถ")
-                .setSingleChoiceItems(labels, currentIdx, (dialog, which) -> {
-                    if (isBlocked[which]) {
-                        new AlertDialog.Builder(this)
-                                .setTitle("ไม่สามารถเลือกได้")
-                                .setMessage(VEHICLE_IDS[which] + " กำลังถูกใช้งานอยู่\nกรุณาเลือกรหัสรถอื่น")
-                                .setPositiveButton("ตกลง", null).show();
-                        return;
-                    }
-                    String selectedId = VEHICLE_IDS[which];
-                    prefs.edit().putString(KEY_VEHICLE_ID, selectedId).apply();
-                    vehiclePickerText.setText(selectedId + "\n▾");
-                    if (versionLabel != null)
-                        versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + selectedId + ")");
-                    dialog.dismiss();
-                    refreshTodaySchedule();
-                    if (iAmOnline) { stopGpsService(); startGpsService(); }
+                .setTitle("บัญชีคนขับ")
+                .setMessage("ป้ายทะเบียน/รหัสรถ: " + myVehicleId + "\nสาย/กลุ่ม: " + myGroupId
+                        + "\n\nหากต้องการเปลี่ยนรถ ให้ออกจากระบบแล้วเข้าสู่ระบบใหม่ด้วยป้ายทะเบียน+รหัสผ่านของรถคันนั้น")
+                .setPositiveButton("ออกจากระบบ", (d, w) -> {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("ยืนยันออกจากระบบ")
+                            .setMessage("ต้องการออกจากระบบและหยุดส่งตำแหน่งใช่หรือไม่?")
+                            .setPositiveButton("ออกจากระบบ", (d2, w2) -> logoutDriver())
+                            .setNegativeButton("ยกเลิก", null)
+                            .show();
                 })
-                .setNegativeButton("ยกเลิก", null)
+                .setNegativeButton("ปิด", null)
                 .show();
     }
 
@@ -3613,7 +3679,7 @@ public class MainActivity extends Activity {
             lastDailyStatsWriteAt = now;
             refreshPassengerSummary(); // อัพเดทแถบสรุปผู้โดยสารพร้อมกันทุก 30 วินาที
             try {
-                String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+                String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
                 Map<String, Object> data = new HashMap<>();
                 data.put("date", dateKey);
                 data.put("activeSec", activeSec);
@@ -3637,7 +3703,7 @@ public class MainActivity extends Activity {
         if (!force && now - lastIssueLogAt < 5 * 60 * 1000) return; // กันสแปม ส่งซ้ำห่างกันอย่างน้อย 5 นาที (ยกเว้นรายงานที่คนขับกดส่งเอง)
         lastIssueLogAt = now;
         try {
-            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
             DatabaseReference logRef = FirebaseDatabase.getInstance()
                     .getReference("driverLogs/" + vehicleId).push();
             Map<String, Object> data = new HashMap<>();
@@ -3729,7 +3795,7 @@ public class MainActivity extends Activity {
 
     private void refreshUi() {
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "-");
         vehiclePickerText.setText(vehicleId + "\n▾");
 
         if (!hasLocationPermission()) {

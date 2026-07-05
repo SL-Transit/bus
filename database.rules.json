@@ -6,8 +6,15 @@
         ".write": "auth != null"
       },
       "fleet": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && auth.token.role === 'admin'",
+        ".write": "auth != null && auth.token.role === 'admin'",
+        "vehicles": {
+          "$vehicleId": {
+            "password": {
+              ".read": false
+            }
+          }
+        }
       },
       "finance": {
         ".read": "auth != null",
@@ -37,7 +44,7 @@
       "liveVehicles": {
         ".read": true,
         "$vehicleId": {
-          ".write": "auth != null"
+          ".write": "auth != null && (auth.token.role === 'admin' || auth.token.vehicleId === $vehicleId)"
         }
       },
       "ticketLocations": {
@@ -45,17 +52,17 @@
         ".write": "auth != null"
       },
       "driverLogs": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && auth.token.role === 'admin'",
+        ".write": "auth != null && (auth.token.role === 'driver' || auth.token.role === 'admin')"
       },
       "sosAlerts": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && auth.token.role === 'admin'",
+        ".write": "auth != null && (auth.token.role === 'driver' || auth.token.role === 'admin')"
       }
     },
     "admin": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": "auth != null && auth.token.role === 'admin'"
     },
     "meta": {
       ".read": true,

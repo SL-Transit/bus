@@ -59,7 +59,7 @@ public class GpsService extends Service implements SensorEventListener {
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
-    private static final String DB_URL              = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
+    private static final String DB_URL              = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
     private static final String MODE_MOVING         = "moving";
     private static final String MODE_SLOW           = "slow";
     private static final String MODE_STOPPED        = "stopped";
@@ -821,10 +821,10 @@ public class GpsService extends Service implements SensorEventListener {
         queueId = prefs.getString(MainActivity.KEY_VEHICLE_ID, "car1");
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseOptions opts = new FirebaseOptions.Builder()
-                    .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
-                    .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
+                    .setApiKey("AIzaSyCkIm74ysuQ9Y2tFP9VkrGNvGg0a_LqeGg")
+                    .setApplicationId("1:480076551107:android:f5929194925bc19fbfe376")
                     .setDatabaseUrl(DB_URL)
-                    .setProjectId("bus-booking-1d68c")
+                    .setProjectId("sl-transit-9464e")
                     .build();
             FirebaseApp.initializeApp(this, opts);
         }
@@ -1488,6 +1488,7 @@ public class GpsService extends Service implements SensorEventListener {
         }
         data.put("direction",    "go");
         data.put("queueId",      queueId);
+        data.put("vehicleId",    queueId); // เพิ่มไว้เป็น alias ของ queueId ตาม schema ใหม่ (ยังไม่มี VH00x id จริง)
         if (todayQueueNo > 0) {
             data.put("queue",        todayQueueNo);
             data.put("queueNo",      todayQueueNo);
