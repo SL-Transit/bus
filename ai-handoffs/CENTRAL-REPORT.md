@@ -285,7 +285,7 @@ Summary:
 - Mock-only test fixture included in the plan; nothing written to Firebase.
 
 Evidence:
-- Commit: `<pending — see next push>`
+- Commit: `de590d8532e2d0e4ca07e22f9a458926acb3432a`
 - Actions: not run this pass (no code changed).
 - Pages: not applicable this pass.
 - Tests: read-only inspection only; mock JSON fixture included in `driver-bridge-plan.md`, not executed against any live database.
