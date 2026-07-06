@@ -315,8 +315,9 @@ Summary — this is an explicit, owner-approved TEMPORARY COMPATIBILITY ROLLBACK
 - No changes to the map/GPS/Kalman engine, Longdo Maps API usage, or any UI rendering logic — only Firebase config + path wiring.
 
 Evidence:
-- Commit: `<pending — see next push>`
-- Actions/Pages: to be verified immediately after push (required by owner instruction).
+- Commit: `e149ae8a` (pushed to `main`)
+- Actions: `Deploy GitHub Pages` and `pages build and deployment` both `completed`/`success` for `e149ae8a` (verified via GitHub API).
+- Pages: `GET /repos/SL-Transit/bus/pages` reports `status: built`, custom domain `sl-transit.com` verified with HTTPS certificate approved; latest `github-pages` deployment confirmed for `e149ae8a` via the deployments API. Fetching the live page content directly from this sandbox is not possible (network egress restrictions on this AI session), so live rendering must be confirmed by the owner in a real browser.
 - Tests: syntax-checked both files; ran a mock-Firebase smoke test confirming (a) `FIREBASE_CONFIG.projectId` is now `bus-booking-1d68c`, (b) `loadRouteData()` calls `db.ref('routeData')`, (c) old-shape `settings.routes` data correctly populates the origin/destination lists via `SLPassengerLogic.schedule.applySettings()`, (d) old-shape `bus` vehicle data correctly populates `SLPassengerLogic.vehicles.getAll()` via `setRawFeed()`.
 - Same-Firebase-project confirmation: **yes** — `passenger-logic.js`'s `FIREBASE_CONFIG` now matches `booking.html`'s config exactly (`projectId: bus-booking-1d68c`, same apiKey/authDomain/databaseURL/storageBucket/messagingSenderId/appId).
 
