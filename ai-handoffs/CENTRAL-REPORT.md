@@ -332,3 +332,23 @@ Blockers: none for this rollback itself. Standing blockers for the real Schema v
 Next action:
 - Push, verify GitHub Actions + Pages, then confirm on the live Pages URL that `passenger.html` loads real stop markers and a real schedule table again.
 - Revert this block to the Schema v3 config/paths (kept commented in `passenger-logic.js`) only once the 3 conditions above are met and approved.
+
+## 2026-07-06 (Asia/Bangkok) - Passenger AI - CORRECTION (read-only, audit only)
+
+Scope: correcting a conclusion from the prior read-only compatibility audit (booking.html/booking1.html cutover check). No code changed.
+
+Owner clarification received and recorded as the governing principle for `passenger.html`:
+- Passenger is a display-only counter. It has no business logic or hard-coded rules of its own — it only asks the ERP backend and renders whatever it is told, nothing more. If ERP says show a schedule for every stop, passenger shows a schedule for every stop. If ERP sends live positions for every vehicle, passenger shows every vehicle on the map with every station's position. Passenger must never independently classify, restrict, or filter what ERP provides (e.g. Nongkhok is a normal primary stop like any other — passenger has no basis to treat it as special).
+
+Correction to the 2026-07-06 NEEDS_OWNER_DECISION report above:
+- Findings (3), (4), and part of (6) — which suggested passenger needs its own pass_through/external_pay classification logic — are **withdrawn**. Per the principle above, adding such logic to passenger would itself be a violation (passenger deciding what's "special"), not a fix. Any stop classification/restriction belongs in ERP's data or in the booking flow, not in passenger's display code.
+- Findings (1), (2), and (5) stand unchanged (confirmed: passenger only reads from ERP-owned nodes, has no write paths, and is unaffected by `bookings/`).
+
+New finding from the same review, consistent with the stated principle — flagging, not fixing (audit-only):
+- `passenger-logic.js` currently contains its own decision logic that computes things ERP should already be providing pre-computed: `isLeg2Dest()`, `normalizeRouteAlias()`, `cleanRouteLabel()`, `getLeg1TimesToTransferHub()` decide, inside passenger, whether a destination requires a transfer, which hub, and split leg-1/leg-2 times. Per the display-only principle, this is passenger-side logic that shouldn't exist — ERP should send a ready-to-render schedule/transfer structure, and passenger should just render it.
+- Also: the schedule table currently requires picking one origin+destination pair from a dropdown before showing times, rather than showing the schedule for every stop at once as described by the owner. This is a UI/data-flow difference from the stated intent, not yet confirmed as something to change.
+
+Safety: no code/Firebase/data changes made in this correction pass.
+
+Next action:
+- Owner/Main Backbone Lead to decide: (a) should the transfer/leg-splitting computation move into ERP's data (pre-computed schedule) so passenger can drop `isLeg2Dest`/`normalizeRouteAlias`/`cleanRouteLabel`/`getLeg1TimesToTransferHub` entirely, and (b) should the schedule view change from dropdown-pair-selection to showing every stop's schedule at once. No implementation until approved.
