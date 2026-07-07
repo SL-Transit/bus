@@ -1,28 +1,38 @@
 /**
  * passenger-logic.js
- * Logic layer for passenger.html — Schema v3 / sl-transit-9464e
+ * Logic layer for passenger.html
  *
- * passenger.html should contain UX/UI only. All data access, Firebase paths,
+ * passenger.html contains UX/UI only. All data access, Firebase paths,
  * and the map engine live here.
  *
- * Covers (per PASSENGER_AI_BRIEFING.md):
- *   [1] Firebase project (sl-transit-9464e) bootstrap via erp-core / erp-data-adapter
- *   [2] New Firebase paths (data/settings, data/catalog, operations/liveVehicles)
+ * *** TEMPORARY COMPATIBILITY ROLLBACK IN EFFECT *** — see FIREBASE_CONFIG
+ * below and ai-handoffs/CENTRAL-REPORT.md. Currently pointed at the old
+ * Firebase project (bus-booking-1d68c), same as booking.html/check_ticket.html.
+ *
+ * Governing principle (owner directive): passenger.html is a display-only
+ * counter. It has no business logic or hard-coded rules of its own — it
+ * only asks the ERP backend and renders whatever it is told. It must never
+ * independently classify, restrict, or compute schedule/transfer decisions.
+ *
+ * Covers:
+ *   [1] Firebase bootstrap (currently old project, see rollback note above)
+ *   [2] Firebase paths (currently old flat schema: settings/routeData/
+ *       publishedCatalog/bus/liveVehicles — see rollback note above)
  *   [3] Map engine (Longdo Maps v3 — window.longdo, loaded via script tag in
  *       passenger.html) — Kalman filter, dead-reckoning prediction, marker/
- *       animation logic moved here unchanged; still the real Longdo API.
- *   [4] Stops read from Firebase catalog (data/catalog/stops, sorted by .order)
- *       — no hardcoded stop coordinates.
- *   [5] operations/liveVehicles shape, normalized to what passenger.html expects.
+ *       animation logic; the real Longdo API, not a shim.
+ *   [4] Stops read from Firebase catalog, sorted by ERP's own .order field
+ *       — no hardcoded stop coordinates, no passenger-side order guessing.
+ *   [5] Live vehicle feed, normalized to what passenger.html expects.
  *   [6] Transfer options badge builder.
  *
- * NOTE: route/trip/fare schedule catalog (data/catalog/routes, /trips, /fares)
- * is not yet queryable in bulk from erp-data-adapter.js (only single-record
- * getRoute()/getTrip() lookups exist there today — see admin-erp.html's
- * fetchRoutesFromCache(), which is still a stub). Until that lands, the
- * schedule/fare dropdown logic in passenger.html keeps reading its existing
- * Firebase-driven override (applyPassengerRouteSettings/applyPassengerRouteData)
- * — that part is a follow-up once the ERP team ships list-style catalog reads.
+ * SCHEDULE: passenger no longer computes routes/transfers/disabled-times
+ * itself (isLeg2Dest/normalizeRouteAlias/cleanRouteLabel/
+ * getLeg1TimesToTransferHub/the legacy data/settings.routes parser were all
+ * removed). It reads one precomputed, ready-to-render node instead — see
+ * getScheduleOrigins()/getScheduleDestinations()/getSchedulePair() below and
+ * ai-handoffs/passenger-schedule-node-request.md for the requested shape.
+ * Until ERP provides that node, the schedule UI shows "waiting for data".
  */
 (function (global) {
   'use strict';
@@ -235,21 +245,7 @@
   var STOPS_BACK = [];
 
   // Schedule/fare data — starts empty; populated only from Firebase (no hardcode)
-  var ROUTES = {};
-  var CONFIRMED_TO_CHACHOENGSAO_TIMES = {};
-  var CONFIRMED_PAIR_TIMES = {};
-  var LEG2_DESTINATIONS = {};
-  var DEST_LEG2 = [];
-  var ADMIN_ROUTE_TIMES = {};
-  var ADMIN_ROUTE_DISABLED_TIMES = {};
   var PASSENGER_ROUTE_DATA = null;
-  var ADMIN_ROUTE_SOURCE_LOADED = false;
-  var ORIGIN_LIST = [];
-  var DEST_NORMAL = [];
-  var PASSENGER_CATALOG_ROUTES_APPLIED = false;
-  var PASSENGER_CATALOG_ROUTE_DATA_APPLIED = false;
-  var PASSENGER_CATALOG_VERSION_APPLIED = '';
-  var PASSENGER_CATALOG_RAW = null;
 
 function toMin(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m;}
 function nowMin(){const n=new Date();return n.getHours()*60+n.getMinutes();}
@@ -399,171 +395,53 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
   });
 }
 
-function isLeg2Dest(dest){ return !!LEG2_DESTINATIONS[dest]; }
+// ===== SCHEDULE — display-only =====
+// Per owner directive: passenger.html must not decide anything about
+// transfers, aliases, or which times are valid -- it only asks ERP and
+// shows what it gets back. All of that (isLeg2Dest / normalizeRouteAlias /
+// cleanRouteLabel / getLeg1TimesToTransferHub / disabled-time computation /
+// the legacy data/settings.routes parser) has been removed. Passenger now
+// reads one precomputed, ready-to-render node instead:
+// data/catalog/publishedSchedule (name TBD by Main Backbone Lead) -- see
+// ai-handoffs/passenger-schedule-node-request.md for the requested shape.
+// Until that node exists, PUBLISHED_SCHEDULE stays null and the schedule UI
+// shows "waiting for schedule data" -- this is expected during migration.
+var PUBLISHED_SCHEDULE = null;
 
-function cleanRouteLabel(label) {
-  return String(label || '').replace(/\s+/g, '').toLowerCase();
-}
-
-function normalizeRouteAlias(label) {
-  const clean = cleanRouteLabel(label);
-  if (!clean) return '';
-  if (clean.indexOf('ขนส่งฉะเชิงเทรา') >= 0 || clean.indexOf('ฉะเชิงเทรา') >= 0 || clean.indexOf('แปดริ้ว') >= 0) return 'ฉะเชิงเทรา (แปดริ้ว)';
-  if (clean.indexOf('สนามชัย') >= 0) return 'ท่ารถสนามชัยเขต';
-  if (clean.indexOf('ไพจิต') >= 0 || clean.indexOf('ไพรจิต') >= 0) return 'ไพรจิต';
-  if (clean.indexOf('btsบางฉาง') >= 0 || clean.indexOf('บางฉาง') >= 0) return 'BTS บางจาก';
-  return '';
-}
-
-function findKnownRouteLabel(label, collections) {
-  const alias = normalizeRouteAlias(label);
-  if (alias) return alias;
-  const clean = cleanRouteLabel(label);
-  if (!clean) return '';
-  for (const collection of collections) {
-    const match = Object.keys(collection).find(function(key) {
-      const keyClean = cleanRouteLabel(key);
-      return keyClean === clean || keyClean.indexOf(clean) >= 0 || clean.indexOf(keyClean) >= 0;
-    });
-    if (match) return match;
-  }
-  return String(label || '').trim();
-}
-
-function passengerStopSortValue(label, fallback) {
-  if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
-    return window.SLTransitERP.stopOrderValue(label, fallback == null ? 999999 : fallback);
-  }
-  if (window.SLTransitCatalog && typeof window.SLTransitCatalog.stopOrderValue === 'function') {
-    return window.SLTransitCatalog.stopOrderValue(label, fallback == null ? 999999 : fallback);
-  }
-  return fallback == null ? 999999 : Number(fallback);
-}
-
-function sortStopLabels(list) {
-  list.sort(function(a, b) {
-    return passengerStopSortValue(a, 999999) - passengerStopSortValue(b, 999999)
-      || String(a || '').localeCompare(String(b || ''));
-  });
-}
-
-function addUnique(list, value) {
-  if (value && list.indexOf(value) === -1) list.push(value);
-}
-
-function isMainRouteLabel(label) {
-  return ORIGIN_LIST.indexOf(label) !== -1 || DEST_NORMAL.indexOf(label) !== -1;
-}
-
-function getPassengerErpTimes(from, to, includeDisabled) {
-  if (!PASSENGER_CATALOG_RAW || !window.SLTransitERP || typeof window.SLTransitERP.routeTimes !== 'function') return null;
-  var times = window.SLTransitERP.routeTimes(PASSENGER_CATALOG_RAW, from, to, includeDisabled === true);
-  return Array.isArray(times) && times.length ? times.slice() : null;
-}
-
-function getPassengerErpDisabledTimes(from, to) {
-  if (!PASSENGER_CATALOG_RAW || !window.SLTransitERP || typeof window.SLTransitERP.routeDisabledTimes !== 'function') return null;
-  var times = window.SLTransitERP.routeDisabledTimes(PASSENGER_CATALOG_RAW, from, to);
-  return Array.isArray(times) ? times.slice() : null;
-}
-
-function getPairTimes(from, to) {
-  var erpTimes = getPassengerErpTimes(from, to, true);
-  if (erpTimes) return erpTimes;
-  if (ADMIN_ROUTE_TIMES[from] && ADMIN_ROUTE_TIMES[from][to]) return ADMIN_ROUTE_TIMES[from][to].slice();
-  return null;
-}
-
-function isPassengerTimeDisabled(from,to,time) {
-    var erpDisabled = getPassengerErpDisabledTimes(from, to);
-    if (erpDisabled) return erpDisabled.indexOf(time) !== -1;
-    return !!(ADMIN_ROUTE_DISABLED_TIMES[from] && ADMIN_ROUTE_DISABLED_TIMES[from][to] && ADMIN_ROUTE_DISABLED_TIMES[from][to].indexOf(time) !== -1);
-  }
-  function getActivePassengerTimes(from,to,times) { return (times || []).filter(function(time){ return !isPassengerTimeDisabled(from,to,time); }); }
-
-  function getLeg1Times(){
-  const pairTimes = getPairTimes(selOrigin, selDest);
-  if (pairTimes) return pairTimes;
-  return [];
-}
-
-function getLeg1TimesToTransferHub(origin, transferHubLabel) {
-  const pairTimes = getPairTimes(origin, transferHubLabel);
-  if (pairTimes) return pairTimes;
-  return [];
-}
-
-function applyPassengerRouteSettings(data) {
-  const routesData = data && data.routes ? data.routes : null;
-  if (!routesData) return;
-
-  ADMIN_ROUTE_SOURCE_LOADED = true;
-  Object.keys(ADMIN_ROUTE_TIMES).forEach(function(key){ delete ADMIN_ROUTE_TIMES[key]; });
-  Object.keys(ADMIN_ROUTE_DISABLED_TIMES).forEach(function(key){ delete ADMIN_ROUTE_DISABLED_TIMES[key]; });
-  Object.keys(ROUTES).forEach(function(key){ delete ROUTES[key]; });
-  Object.keys(LEG2_DESTINATIONS).forEach(function(key){ delete LEG2_DESTINATIONS[key]; });
-  ORIGIN_LIST.length = 0;
-  DEST_NORMAL.length = 0;
-  DEST_LEG2.length = 0;
-
-  Object.entries(routesData).forEach(function(entry) {
-    const group = entry[1];
-    if (!group || !Array.isArray(group.routes)) return;
-    if (group.isActive === false) return;
-    const groupName = group.name || entry[0] || '';
-    const isLegacyGroup = group.id === 'origins' || group.id === 'local' || groupName === 'ต้นทางตาม passenger.html' || groupName === 'เส้นทางย่อยทั้งหมด';
-    const isLeg2Group = group.connectionType === 'transfer' || (!group.connectionType && (group.id === 'coastal' || group.id === 'bangkok' || /พัทยา|ระยอง|มีนบุรี|หมอชิต|เอกมัย|BTS/i.test(groupName)));
-    group.routes.forEach(function(route) {
-      if (!route || !route.from || !route.to || !Array.isArray(route.times)) return;
-      if (route.isActive === false) return;
-
-      const rawFrom = String(route.from || '').trim();
-      const rawTo = String(route.to || '').trim();
-      const from = normalizeRouteAlias(rawFrom) || rawFrom;
-      const to = normalizeRouteAlias(rawTo) || rawTo;
-      const disabledTimes = Array.isArray(route.disabledTimes) ? route.disabledTimes : [];
-      const times = route.times.filter(Boolean).slice().sort(function(a,b){ return toMin(a) - toMin(b); });
-      if (!from || !to) return;
-
-      if (!ADMIN_ROUTE_TIMES[from]) ADMIN_ROUTE_TIMES[from] = {};
-      if (!ADMIN_ROUTE_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_TIMES[from][to] = times;
-        if (!ADMIN_ROUTE_DISABLED_TIMES[from]) ADMIN_ROUTE_DISABLED_TIMES[from] = {};
-        if (!ADMIN_ROUTE_DISABLED_TIMES[from][to] || !isLegacyGroup) ADMIN_ROUTE_DISABLED_TIMES[from][to] = disabledTimes.slice();
-
-      if (!ROUTES[from]) ROUTES[from] = { times: [] };
-      if ((!isLegacyGroup && to === 'ฉะเชิงเทรา (แปดริ้ว)') || !ROUTES[from].times.length) {
-        ROUTES[from].times = times.slice();
-      }
-      addUnique(ORIGIN_LIST, from);
-      addUnique(DEST_NORMAL, from);
-
-      if (isLeg2Group) {
-        LEG2_DESTINATIONS[to] = { leg2Times: times.slice(), group: groupName || 'ต่อรถ' };
-        addUnique(DEST_LEG2, to);
-      } else {
-        if (!ROUTES[to]) ROUTES[to] = { times: [] };
-        addUnique(ORIGIN_LIST, to);
-        addUnique(DEST_NORMAL, to);
-      }
-    });
-  });
-  sortStopLabels(ORIGIN_LIST);
-  sortStopLabels(DEST_NORMAL);
-  sortStopLabels(DEST_LEG2);
-
+function applyPublishedSchedule(node) {
+  PUBLISHED_SCHEDULE = node || null;
   emit('scheduleUpdated');
+}
+
+function getScheduleOrigins() {
+  return (PUBLISHED_SCHEDULE && Array.isArray(PUBLISHED_SCHEDULE.origins)) ? PUBLISHED_SCHEDULE.origins : [];
+}
+
+function getScheduleDestinations() {
+  return (PUBLISHED_SCHEDULE && PUBLISHED_SCHEDULE.destinations) ? PUBLISHED_SCHEDULE.destinations : {};
+}
+
+function getSchedulePair(originLabel, destLabel) {
+  if (!PUBLISHED_SCHEDULE || !PUBLISHED_SCHEDULE.pairs) return null;
+  return PUBLISHED_SCHEDULE.pairs[originLabel + '__' + destLabel] || null;
+}
+
+function isScheduleReady() {
+  return !!PUBLISHED_SCHEDULE;
 }
 
 function applyPassengerRouteData(data) {
   PASSENGER_ROUTE_DATA = data || null;
   var stops = data && data.stops ? data.stops : null;
   if (!stops) return;
+  // Ordering is entirely ERP's responsibility now (data/catalog/stops[].order,
+  // maintained by Main Backbone/Data Import AI per stop-sequence task) --
+  // passenger no longer guesses order from stop names when it's missing.
   var order = Object.keys(stops).sort(function(a,b) {
-    var ai = Number(stops[a] && stops[a].order), bi = Number(stops[b] && stops[b].order);
-    var an = stops[a] && (stops[a].nameTh || stops[a].stopNameTh || stops[a].name || a);
-    var bn = stops[b] && (stops[b].nameTh || stops[b].stopNameTh || stops[b].name || b);
-    if (!isFinite(ai) || ai <= 0) ai = passengerStopSortValue(an, 999999);
-    if (!isFinite(bi) || bi <= 0) bi = passengerStopSortValue(bn, 999999);
+    var ai = Number(stops[a] && stops[a].order);
+    var bi = Number(stops[b] && stops[b].order);
+    if (!isFinite(ai)) ai = 999999;
+    if (!isFinite(bi)) bi = 999999;
     return ai - bi || a.localeCompare(b);
   });
   var nextStops = order.map(function(key) {
@@ -1471,30 +1349,17 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   // against double-apply the same way the original per-path listeners did.
   function applyUnifiedCatalog(catalog) {
     if (!catalog) return;
-    PASSENGER_CATALOG_RAW = catalog;
     var view = global.SLTransitERP && typeof global.SLTransitERP.catalogView === 'function'
       ? global.SLTransitERP.catalogView(catalog)
       : null;
-    var settingsRoutes = view && view.settingsRoutes
-      ? view.settingsRoutes
-      : global.SLTransitCatalog && typeof global.SLTransitCatalog.legacySettingsRoutes === 'function'
-        ? global.SLTransitCatalog.legacySettingsRoutes(catalog)
-        : {};
     var legacyRouteData = view && view.routeData
       ? view.routeData
       : global.SLTransitCatalog && typeof global.SLTransitCatalog.legacyRouteData === 'function'
         ? global.SLTransitCatalog.legacyRouteData(catalog)
         : {};
-    if (settingsRoutes && Object.keys(settingsRoutes).length) {
-      applyPassengerRouteSettings({ routes: settingsRoutes, currentCatalogVersion: catalog.version || '' });
-      PASSENGER_CATALOG_ROUTES_APPLIED = true;
-    }
     if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
       applyPassengerRouteData(legacyRouteData);
-      PASSENGER_CATALOG_ROUTE_DATA_APPLIED = true;
     }
-    PASSENGER_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
-    console.log('[PASSENGER ERP] applied catalog', PASSENGER_CATALOG_VERSION_APPLIED);
   }
 
   /* ────────────────────────────────────────────────────────────
@@ -1534,20 +1399,11 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   };
 
   var scheduleApi = {
-    isLeg2Dest: isLeg2Dest,
-    getPairTimes: getPairTimes,
-    isTimeDisabled: isPassengerTimeDisabled,
-    getActiveTimes: getActivePassengerTimes,
-    getLeg1Times: getLeg1Times,
-    getLeg1TimesToTransferHub: getLeg1TimesToTransferHub,
-    getOriginList: function(){ return ORIGIN_LIST; },
-    getDestNormalList: function(){ return DEST_NORMAL; },
-    getDestLeg2List: function(){ return DEST_LEG2; },
-    getLeg2Destinations: function(){ return LEG2_DESTINATIONS; },
-    isSourceLoaded: function(){ return ADMIN_ROUTE_SOURCE_LOADED; },
-    applySettings: applyPassengerRouteSettings,
-    cleanRouteLabel: cleanRouteLabel,
-    normalizeRouteAlias: normalizeRouteAlias
+    getOrigins: getScheduleOrigins,
+    getDestinations: getScheduleDestinations,
+    getPair: getSchedulePair,
+    isReady: isScheduleReady,
+    applyPublishedSchedule: applyPublishedSchedule
   };
 
   var vehiclesApi = {

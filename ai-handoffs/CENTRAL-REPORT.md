@@ -352,3 +352,35 @@ Safety: no code/Firebase/data changes made in this correction pass.
 
 Next action:
 - Owner/Main Backbone Lead to decide: (a) should the transfer/leg-splitting computation move into ERP's data (pre-computed schedule) so passenger can drop `isLeg2Dest`/`normalizeRouteAlias`/`cleanRouteLabel`/`getLeg1TimesToTransferHub` entirely, and (b) should the schedule view change from dropdown-pair-selection to showing every stop's schedule at once. No implementation until approved.
+
+## 2026-07-07 13:52 +07 (Asia/Bangkok) - Passenger AI - REVIEW
+
+Scope:
+- `passenger.html`
+- `passenger-logic.js`
+- `ai-handoffs/passenger-schedule-node-request.md` (new)
+
+Summary — owner approved moving straight to the "precomputed node" design discussed in the prior correction entry, even though the node doesn't exist yet (no live passengers using this page currently):
+- Removed all passenger-side schedule/transfer decision logic: `isLeg2Dest`, `cleanRouteLabel`, `normalizeRouteAlias`, `findKnownRouteLabel`, `getPassengerErpTimes`, `getPassengerErpDisabledTimes`, `getPairTimes`, `isPassengerTimeDisabled`, `getActivePassengerTimes`, `getLeg1Times`, `getLeg1TimesToTransferHub`, and the entire legacy `data/settings.routes` parser `applyPassengerRouteSettings`. State vars `ROUTES`, `CONFIRMED_*`, `LEG2_DESTINATIONS`, `DEST_LEG2`, `ADMIN_ROUTE_TIMES`, `ADMIN_ROUTE_DISABLED_TIMES`, `ORIGIN_LIST`, `DEST_NORMAL`, `ADMIN_ROUTE_SOURCE_LOADED`, `PASSENGER_CATALOG_ROUTES_APPLIED/ROUTE_DATA_APPLIED/VERSION_APPLIED/RAW` all removed.
+- Removed the passenger-side stop-order guessing fallback (`passengerStopSortValue`, `sortStopLabels`, `addUnique`, `isMainRouteLabel`) — `applyPassengerRouteData()` now sorts stops purely by ERP's own `.order` field (missing order just sorts last + falls back to key order), consistent with the in-progress Main AI stop-ordering task.
+- Added a new, display-only schedule API: `SLPassengerLogic.schedule.getOrigins()` / `getDestinations()` / `getPair(origin, dest)` / `isReady()` / `applyPublishedSchedule(node)`, reading a single precomputed node (requested as `publishedSchedule`, see the new spec doc) that already contains ready-to-render origins, destinations (with ERP-assigned group labels), and per-pair segments with per-time `disabled` flags and optional per-segment `note` strings (e.g. for external-pay legs).
+- Rewrote `buildDropdowns()`/`renderSched()`/`buildTimeCell()`/`buildLeg2TimeItem()` in `passenger.html` to just render this node — zero decisions left in passenger about transfers, aliases, disabled times, or which destinations are "special".
+- Wrote `ai-handoffs/passenger-schedule-node-request.md`: full requested JSON shape, design rationale, and an explicit list of what passenger will never decide again.
+- The node does not exist yet, so the schedule UI currently shows "waiting for schedule data" — accepted by the owner since no live passengers are using this page.
+
+Evidence:
+- Commit: `<pending — see next push>`
+- Tests: syntax-checked both files; ran a mock `applyPublishedSchedule()` smoke test confirming direct-route and transfer-route pairs both render correctly, including a segment `note` (external-pay style) passing through untouched.
+
+Safety:
+- Firebase writes: none — this is a specification request, not an implementation. Whoever owns write access (Main Backbone Lead / Data Import AI) would build the real node.
+- Passenger/private data touched: none.
+- Schema backbone changed: none (`erp-schema.js`, `erp-data-adapter.js`, `erp-engine.js`, `catalog-engine.js` untouched).
+- booking.html / check_ticket.html changed: none.
+
+Blockers:
+- `publishedSchedule` node does not exist yet — schedule UI is non-functional until it's built and populated. Acceptable for now per owner (no live passengers).
+- Standing rollback-revert conditions (real sl-transit-9464e credentials, catalog seed, cutover approval) unchanged from the earlier rollback entry.
+
+Next action:
+- Requesting Main Backbone Lead / Data Import AI review `ai-handoffs/passenger-schedule-node-request.md` and build the `publishedSchedule` node (or propose an alternative shape/path — passenger's renderer just needs *a* precomputed node in roughly this shape, the exact path/name is backbone's call).

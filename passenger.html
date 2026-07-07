@@ -820,20 +820,21 @@ window.selectPassengerBus = function(carId) {
   SLPassengerLogic.map.focusPoint(pos, 14);
 };
 
-function buildTimeCell(t, extraClass='', from, to) {
-    if (from === undefined) from = SLPassengerLogic.state.getOrigin();
-    if (to === undefined) to = SLPassengerLogic.state.getDest();
-    const now = nowMin(), disabled = SLPassengerLogic.schedule.isTimeDisabled(from,to,t);
-    const isNow = !disabled && now >= toMin(t)-5 && now <= toMin(t)+15;
-    const cls = ['time-cell',isNow?'now-cell':'',disabled?'disabled-time':'',extraClass].filter(Boolean).join(' ');
-    return '<div class="'+cls+'">'+t+(disabled?'<span class="now-badge">งดให้บริการ</span>':(isNow?'<span class="now-badge">กำลังวิ่ง</span>':''))+'</div>';
-  }
+function buildTimeCell(entry, extraClass='') {
+  if (!entry) return '';
+  const now = nowMin();
+  const disabled = !!entry.disabled;
+  const isNow = !disabled && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
+  const cls = ['time-cell',isNow?'now-cell':'',disabled?'disabled-time':'',extraClass].filter(Boolean).join(' ');
+  return '<div class="'+cls+'">'+entry.time+(disabled?'<span class="now-badge">งดให้บริการ</span>':(isNow?'<span class="now-badge">กำลังวิ่ง</span>':''))+'</div>';
+}
 
-function buildLeg2TimeItem(t, from, to) {
-  if(!t) return '<div class="leg2-time-item empty"></div>';
-  const now = nowMin(), disabled = SLPassengerLogic.schedule.isTimeDisabled(from,to,t);
-  const isNow = !disabled && now >= toMin(t)-5 && now <= toMin(t)+15;
-  return '<div class="leg2-time-item'+(isNow?' now-cell':'')+(disabled?' disabled-time':'')+'">'+t+(disabled?'<span class="now-badge">งดให้บริการ</span>':(isNow?'<span class="now-badge">วิ่งอยู่</span>':''))+'</div>';
+function buildLeg2TimeItem(entry) {
+  if(!entry) return '<div class="leg2-time-item empty"></div>';
+  const now = nowMin();
+  const disabled = !!entry.disabled;
+  const isNow = !disabled && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
+  return '<div class="leg2-time-item'+(isNow?' now-cell':'')+(disabled?' disabled-time':'')+'">'+entry.time+(disabled?'<span class="now-badge">งดให้บริการ</span>':(isNow?'<span class="now-badge">วิ่งอยู่</span>':''))+'</div>';
 }
 
 // แบ่ง array เป็น 2 คอลัมน์ สมดุล (ซ้ายมากกว่าได้ 1 ถ้าคี่)
@@ -842,63 +843,52 @@ function splitBalanced(arr) {
   return [arr.slice(0, half), arr.slice(half)];
 }
 
+// Passenger only renders what ERP's precomputed schedule node says — it does
+// not decide transfers, hubs, or disabled times itself. See
+// ai-handoffs/passenger-schedule-node-request.md for the requested node shape.
 function renderSched() {
   const wrapper = document.getElementById('schedWrapper');
   const S = SLPassengerLogic.schedule;
   const origin = SLPassengerLogic.state.getOrigin(), dest = SLPassengerLogic.state.getDest();
   if (!wrapper) return;
-  if (!origin || !dest || !S.isSourceLoaded()) {
+  if (!origin || !dest || !S.isReady()) {
     wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดตารางเวลา</div><div class="sched-route-name">ระบบกำลังอ่านข้อมูลจากระบบกลาง</div></div><div class="time-grid"></div></div>';
     return;
   }
 
-  if(S.isLeg2Dest(dest)){
-    const transferHubLabel = 'ฉะเชิงเทรา (แปดริ้ว)';
-    const startsAtTransferHub = S.normalizeRouteAlias(origin) === transferHubLabel || S.cleanRouteLabel(origin) === S.cleanRouteLabel(transferHubLabel);
-    const leg1Times = startsAtTransferHub ? [] : S.getLeg1TimesToTransferHub(origin, transferHubLabel);
-    const leg2Times = S.getPairTimes(transferHubLabel, dest) || S.getPairTimes(origin, dest) || [];
+  const pair = S.getPair(origin, dest);
+  if (!pair || !Array.isArray(pair.segments) || !pair.segments.length) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">ไม่พบตารางเวลา</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+    return;
+  }
 
-    // แบ่ง 2 คอลัมน์สมดุลแยกสำหรับแต่ละ leg
-    const [l1a, l1b] = splitBalanced(leg1Times);
-    const [l2a, l2b] = splitBalanced(leg2Times);
-    const maxL1 = Math.max(l1a.length, l1b.length);
-    const maxL2 = Math.max(l2a.length, l2b.length);
-
-    function buildTwoColItems(colA, colB, maxR, from, to) {
+  if (pair.transfer) {
+    function buildTwoColItems(times) {
+      const parts = splitBalanced(times || []);
+      const a = parts[0], b = parts[1];
+      const maxR = Math.max(a.length, b.length);
       let html = '';
-      for(let i=0;i<maxR;i++){
-        html += buildLeg2TimeItem(colA[i]||null,from,to) + buildLeg2TimeItem(colB[i]||null,from,to);
-      }
+      for (let i=0;i<maxR;i++) html += buildLeg2TimeItem(a[i]||null) + buildLeg2TimeItem(b[i]||null);
       return html;
     }
-
-    const leg1Html = startsAtTransferHub ? '' : `
-      <div class="leg2-cols" style="background:#f8faff;">
-        <div class="leg2-col-head" style="background:#f0f6ff;">
-          <div class="leg2-col-sub">เที่ยวที่ 1</div>
-          <div class="leg2-col-name" style="color:#1e3a8a;">${origin} → แปดริ้ว</div>
-        </div>
-        <div class="leg2-col-head" style="background:#f0f6ff;border-right:none;">
-          <div class="leg2-col-sub">&nbsp;</div>
-          <div class="leg2-col-name">&nbsp;</div>
-        </div>
-      </div>
-      <div class="leg2-times">${buildTwoColItems(l1a, l1b, maxL1, origin, transferHubLabel)}</div>`;
-
-    // leg2 section
-    const leg2Html = `
-      <div class="leg2-cols">
-        <div class="leg2-col-head">
-          <div class="leg2-col-sub">เที่ยวที่ 2</div>
-          <div class="leg2-col-name">${startsAtTransferHub ? origin : transferHubLabel} → ${dest}</div>
-          <div class="leg2-col-note">จุดต่อรถ: ชานชาลา 6</div>
+    const segHtml = pair.segments.map(function(seg, idx) {
+      const isFirst = idx === 0;
+      const isLast = idx === pair.segments.length - 1;
+      return `
+      <div class="leg2-cols"${isFirst?' style="background:#f8faff;"':''}>
+        <div class="leg2-col-head"${isFirst?' style="background:#f0f6ff;"':''}>
+          <div class="leg2-col-sub">${seg.label || ('เที่ยวที่ ' + (idx+1))}</div>
+          <div class="leg2-col-name"${isFirst?' style="color:#1e3a8a;"':''}>${seg.fromLabel} → ${seg.toLabel}</div>
+          ${seg.note ? '<div class="leg2-col-note">'+seg.note+'</div>' : ''}
         </div>
         <div class="leg2-col-head" style="border-right:none;">
           <div class="leg2-col-sub">&nbsp;</div>
           <div class="leg2-col-name">&nbsp;</div>
         </div>
       </div>
-      <div class="leg2-times">${buildTwoColItems(l2a, l2b, maxL2, transferHubLabel, dest)}</div>`;
+      <div class="leg2-times">${buildTwoColItems(seg.times)}</div>
+      ${isLast ? '' : '<div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>'}`;
+    }).join('');
 
     wrapper.innerHTML = `
       <div class="leg2-card">
@@ -906,20 +896,17 @@ function renderSched() {
           <div class="leg2-header-top">ข้อมูลเส้นทางต่อรถ</div>
           <div class="leg2-header-route">${origin} → ${dest}</div>
         </div>
-        ${leg1Html}
-        ${startsAtTransferHub ? '' : '<div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>'}
-        ${leg2Html}
+        ${segHtml}
       </div>`;
   } else {
-    // เส้นทางตรง — 3-col grid
-    const times = S.getLeg1Times();
+    const seg = pair.segments[0];
     wrapper.innerHTML = `
       <div class="sched-card">
         <div class="sched-route-header">
           <div class="sched-route-from">เส้นทาง</div>
           <div class="sched-route-name">${origin} → ${dest}</div>
         </div>
-        <div class="time-grid">${times.map(t=>buildTimeCell(t)).join('')}</div>
+        <div class="time-grid">${(seg.times||[]).map(t=>buildTimeCell(t)).join('')}</div>
       </div>`;
   }
 }
@@ -930,6 +917,8 @@ function updateLastUpdate(ts) {
 }
 
 // ===== DROPDOWN INIT =====
+// Origins/destinations come straight from ERP's precomputed schedule node —
+// passenger just lists whatever it's given, in the order/grouping given.
 function buildDropdowns(){
   const S = SLPassengerLogic.schedule;
   const state = SLPassengerLogic.state;
@@ -937,19 +926,17 @@ function buildDropdowns(){
   const destSel   = document.getElementById('selDest');
   originSel.innerHTML = '';
 
-  const ORIGIN_LIST = S.getOriginList();
-  const DEST_NORMAL = S.getDestNormalList();
-  const DEST_LEG2 = S.getDestLeg2List();
-  const LEG2_DESTINATIONS = S.getLeg2Destinations();
+  const origins = S.getOrigins();
+  const destinations = S.getDestinations(); // { label: { group: null|"ต่อรถ" } }
 
   // ต้นทาง
-  if (!ORIGIN_LIST.length) {
+  if (!origins.length) {
     const opt = document.createElement('option');
     opt.value = '';
     opt.textContent = 'กำลังโหลดต้นทางจากระบบกลาง...';
     originSel.appendChild(opt);
   }
-  ORIGIN_LIST.forEach(o=>{
+  origins.forEach(o=>{
     const opt = document.createElement('option');
     opt.value = o; opt.textContent = o;
     if(o===state.getOrigin()) opt.selected=true;
@@ -957,39 +944,48 @@ function buildDropdowns(){
   });
   if (originSel.value) state.setOrigin(originSel.value);
 
-  // ปลายทาง — แยกกลุ่ม LEG2 ตาม group
+  // ปลายทาง — จัดกลุ่มตาม .group ที่ ERP กำหนดมา (ไม่ใช่ passenger เดาเอง)
   function buildDestOptions(){
     destSel.innerHTML = '';
+    const destLabels = Object.keys(destinations);
 
-    // เส้นทางตรง
-    const grp0 = document.createElement('optgroup');
-    grp0.label = '— เส้นทางหลัก —';
-    if (!DEST_NORMAL.length && !DEST_LEG2.length) {
+    if (!destLabels.length) {
+      const grp0 = document.createElement('optgroup');
+      grp0.label = '— เส้นทางหลัก —';
       const opt = document.createElement('option');
       opt.value = '';
       opt.textContent = 'กำลังโหลดปลายทางจากระบบกลาง...';
       grp0.appendChild(opt);
+      destSel.appendChild(grp0);
+      return;
     }
-    DEST_NORMAL.forEach(d=>{
-      if(d===state.getOrigin()) return;
-      const opt = document.createElement('option');
-      opt.value=d; opt.textContent=d;
-      if(d===state.getDest()) opt.selected=true;
-      grp0.appendChild(opt);
-    });
-    destSel.appendChild(grp0);
 
-    // LEG2 แยกตาม group
-    const groups = {};
-    DEST_LEG2.forEach(d=>{
-      const g = LEG2_DESTINATIONS[d].group || 'ต่อรถ';
-      if(!groups[g]) groups[g] = [];
-      groups[g].push(d);
+    const groups = {}; // groupLabel -> [destLabel, ...], null-group first
+    destLabels.forEach(d=>{
+      if (d === state.getOrigin()) return;
+      const g = (destinations[d] && destinations[d].group) || null;
+      const key = g || '__main__';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(d);
     });
-    Object.keys(groups).forEach(gLabel=>{
+
+    if (groups.__main__) {
+      const grp0 = document.createElement('optgroup');
+      grp0.label = '— เส้นทางหลัก —';
+      groups.__main__.forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value=d; opt.textContent=d;
+        if(d===state.getDest()) opt.selected=true;
+        grp0.appendChild(opt);
+      });
+      destSel.appendChild(grp0);
+    }
+
+    Object.keys(groups).forEach(key=>{
+      if (key === '__main__') return;
       const grp = document.createElement('optgroup');
-      grp.label = `— ${gLabel} —`;
-      groups[gLabel].forEach(d=>{
+      grp.label = `— ${key} —`;
+      groups[key].forEach(d=>{
         const opt = document.createElement('option');
         opt.value=d; opt.textContent=d;
         if(d===state.getDest()) opt.selected=true;
@@ -1004,7 +1000,7 @@ function buildDropdowns(){
   if (originSel.dataset.bound !== '1') {
     originSel.addEventListener('change', function(){
       state.setOrigin(this.value);
-      if(state.getDest()===state.getOrigin()) state.setDest('ฉะเชิงเทรา (แปดริ้ว)');
+      if(state.getDest()===state.getOrigin()) state.setDest('');
       buildDestOptions();
       selectedMapFocus = null;
       renderSched();
@@ -1044,7 +1040,6 @@ db.ref('settings').on('value', function(snap) {
   const settings = snap.val() || {};
   TEST_MODE = settings.testMode === true;
   applyTestModeUI();
-  SLPassengerLogic.schedule.applySettings(settings);
 }, function(err) {
   console.error('Passenger settings load failed:', err && err.message ? err.message : err);
 });
@@ -1059,6 +1054,16 @@ db.ref('publishedCatalog').on('value', function(snap) {
   SLPassengerLogic.applyUnifiedCatalog(snap.val());
 }, function(err) {
   console.error('Passenger catalog load failed:', err && err.message ? err.message : err);
+});
+
+// Precomputed, ready-to-render schedule — requested from Main Backbone Lead /
+// Data Import AI (see ai-handoffs/passenger-schedule-node-request.md). Node
+// does not exist yet; this listener just waits until it does. Passenger does
+// not compute origins/destinations/transfers/disabled-times itself anymore.
+db.ref('publishedSchedule').on('value', function(snap) {
+  SLPassengerLogic.schedule.applyPublishedSchedule(snap.val());
+}, function(err) {
+  console.error('Passenger publishedSchedule load failed:', err && err.message ? err.message : err);
 });
 
 // Firebase — bus/car1, bus/car2, ... (old shape) + liveVehicles, same dual
