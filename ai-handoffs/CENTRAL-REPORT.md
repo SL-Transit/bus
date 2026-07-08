@@ -44,6 +44,44 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-08 00:00 +07 (Asia/Bangkok) - Main Backbone Support AI - REVIEW
+
+Scope:
+- `erp-import-plan.js`
+- `erp-schema.js`
+- `erp-data-adapter.js`
+- `ai-handoffs/01-data-import-catalog-ai.md`
+- `ai-handoffs/MAIN-AI-DASHBOARD.md`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Patched import/readiness guard so seed/import targets must be under `data/erpDataCenter/*` only.
+- Marked legacy roots (`data/catalog/*`, `publishedCatalog`, `routeData`, `settings/routes`) as source-only and blocked as import targets.
+- Blocked private/runtime paths including bookings, passengers, ticket/check-in records, driver logs, LINE logs, legacy live vehicle records, and runtime operations paths.
+- Added fleet guard rules for `car1`-`car4` alias-only use, `car5` provisional/approval requirement, required `vehicleId`, duplicate `registrationNo` detection when login index exists, and plaintext credential field blocking.
+- Added provider/payment guard rules requiring `paymentOwnership` for fares/fareSegments, enforcing `group_005/train` as `external_pay`, and blocking provider-owned fares without provider registry.
+- Kept `dryRun=true`, `writesEnabled=false`, and import `readyForApply=false`.
+
+Evidence:
+- Commit: `<pending>`
+- Actions: `<pending>`
+- Pages: `<pending>`
+- Tests: Node syntax checks for `erp-schema.js`, `erp-import-plan.js`, `erp-data-adapter.js`; mock import-plan validation for valid `data/erpDataCenter` plan, legacy `data/catalog` update, runtime `operations/liveVehicles`, private `bookings`, fleet alias/credential, provider-owned fare without registry, `group_005/train` non-external-pay; mock `buildBackboneSeedPlan()` emits only `data/erpDataCenter/*` missing/update paths and excludes runtime/private collections.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+- Real booking/ticket/driver/live vehicle/LINE data touched: none.
+- LINE notifications sent: none.
+- Seed applied: no.
+
+Blockers:
+- Provider registry content still needs owner/Data Import AI source approval before provider-owned fares can become apply-ready.
+- Production apply remains blocked by owner approval; `readyForApply` remains false by design.
+
+Next action:
+- QA Release Guard AI should verify GitHub Actions, GitHub Pages, and live file markers for the guard patch.
+
 ## 2026-07-05 Asia/Bangkok - Main Backbone Lead - REVIEW
 
 Scope:
