@@ -63,9 +63,9 @@ Summary:
 - Kept `dryRun=true`, `writesEnabled=false`, and import `readyForApply=false`.
 
 Evidence:
-- Commit: `<pending>`
-- Actions: `<pending>`
-- Pages: `<pending>`
+- Commits: `43d52e1, 8a18652, 0a96c06, a08c418, caaa94c, 076f8cb, 55f9c91`; latest code commit `55f9c91`
+- Actions: `<pending post-report verification>`
+- Pages: `<pending post-report verification>`
 - Tests: Node syntax checks for `erp-schema.js`, `erp-import-plan.js`, `erp-data-adapter.js`; mock import-plan validation for valid `data/erpDataCenter` plan, legacy `data/catalog` update, runtime `operations/liveVehicles`, private `bookings`, fleet alias/credential, provider-owned fare without registry, `group_005/train` non-external-pay; mock `buildBackboneSeedPlan()` emits only `data/erpDataCenter/*` missing/update paths and excludes runtime/private collections.
 
 Safety:
