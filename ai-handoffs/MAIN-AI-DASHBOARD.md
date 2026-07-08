@@ -8,7 +8,7 @@ Source of truth:
 - Data Import dry-run snapshot: readyForReview true, readyForApply false
 - Production apply / Firebase seed: NOT approved
 
-Shared approved contract:
+Shared approved ERP Data Center contract:
 - settings: 1
 - stops: 49
 - routes: 244
@@ -24,6 +24,9 @@ Shared approved contract:
 - nongkhok: pass_through
 - group_005/train: external_pay; passenger pays outside SL-Transit; SL-Transit collects no train fare
 - canonical destination keys: system-managed and stable
+- seed/import target root: data/erpDataCenter/*
+- legacy sources only: data/catalog/*, publishedCatalog, routeData, settings/routes
+- runtime contract-only paths: operations/dailyAssignments, operations/vehicleSessions, operations/liveVehicles, operations/notificationEvents, operations/notificationDeliveries
 
 Global hard constraints:
 - Read latest GitHub main before starting.
@@ -97,23 +100,24 @@ Role: Data Import / Catalog AI for SL-Transit.
 Task: Maintain the dry-run import snapshot and answer contract questions from bridge AIs.
 
 Scope:
-- data/settings dry-run plan
-- data/catalog/stops, routes, trips, fares dry-run plan
-- data/fleet/vehicles and queues dry-run plan
-- operations/liveVehicles only as empty operational state for dry-run
+- data/erpDataCenter/settings dry-run plan
+- data/erpDataCenter/catalog/stops, routes, trips, fares, fareSegments dry-run plan
+- data/erpDataCenter/fleet/vehicles and queues dry-run plan
+- data/erpDataCenter/providerRegistry when provider-owned fares exist
 
 Work:
 1. Keep the validator-ready dry-run snapshot aligned with owner decisions.
 2. Answer bridge AI questions about stop keys, destination classifications, fares, train external_pay, route/trip references, vehicle/queue references.
 3. If a bridge AI finds a missing key/reference, classify it as data gap, contract gap, or bridge misunderstanding.
 4. Do not generate new real data unless owner explicitly approves the source and apply step.
-5. Keep publishedCatalog/fares unchanged.
+5. Treat publishedCatalog/fares as source-only legacy data, not seed targets.
 
 Do not:
 - write Firebase
 - seed data
 - touch bookings/passengers
 - invent real vehicle, owner, or passenger data
+- target data/catalog/*, publishedCatalog, routeData, settings/routes, or operations/* runtime paths in import plans
 
 Return only the short Supervisor report format.
 ```
