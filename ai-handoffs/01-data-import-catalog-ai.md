@@ -3,7 +3,7 @@
 Repository: https://github.com/SL-Transit/bus/tree/main
 
 ## Role
-You are the SL-Transit Data Import / Catalog AI. Your job is to prepare complete backbone data as a dry-run import plan for the Main Backbone Lead.
+You are the SL-Transit Data Import / Catalog AI. Your job is to prepare complete ERP Data Center data as a dry-run import plan for the Main Backbone Lead.
 
 ## Hard Constraints
 - GitHub is the source of truth. Inspect the latest `main` branch before every step.
@@ -23,21 +23,25 @@ You are the SL-Transit Data Import / Catalog AI. Your job is to prepare complete
 
 ## Tasks
 1. Build a complete dry-run import plan for backbone data:
-   - `data/settings`
-   - `data/catalog/stops`
-   - `data/catalog/groups`
-   - `data/catalog/routes`
-   - `data/catalog/trips`
-   - `data/catalog/fares`
-   - `data/catalog/services`
-   - `data/catalog/stopTimes`
-   - `data/catalog/capacities`
-   - `data/catalog/closures`
-   - `data/fleet/vehicles`
-   - `data/fleet/queues`
-   - `data/fleet/queueOwners`
-   - `data/finance` only as structure/rules, not real transactions
+   - `data/erpDataCenter/settings`
+   - `data/erpDataCenter/catalog/stops`
+   - `data/erpDataCenter/catalog/groups`
+   - `data/erpDataCenter/catalog/routes`
+   - `data/erpDataCenter/catalog/trips`
+   - `data/erpDataCenter/catalog/fares`
+   - `data/erpDataCenter/catalog/fareSegments`
+   - `data/erpDataCenter/catalog/services`
+   - `data/erpDataCenter/catalog/stopTimes`
+   - `data/erpDataCenter/catalog/capacities`
+   - `data/erpDataCenter/catalog/closures`
+   - `data/erpDataCenter/fleet/vehicles`
+   - `data/erpDataCenter/fleet/queues`
+   - `data/erpDataCenter/fleet/queueOwners`
+   - `data/erpDataCenter/fleet/vehicleLoginIndex` only as hashed/index metadata, never plaintext credentials
+   - `data/erpDataCenter/finance` only as structure/rules, not real transactions
+   - `data/erpDataCenter/providerRegistry` when provider-owned fares exist
 2. Reconcile existing repo data and hard-coded logic into the schema format.
+   - `data/catalog/*`, `publishedCatalog`, `routeData`, and `settings/routes` are source inputs only, never seed/import targets.
 3. Output JSON dry-run plan only. No Firebase writes.
 4. Validate against:
    - required collections
@@ -58,5 +62,8 @@ Before returning the final dry-run JSON, validate its shape against `SLTransit.i
 The plan must set:
 - `dryRun: true`
 - `writesEnabled: false`
-- no `operations/bookings`
-- no `operations/passengers`
+- only `data/erpDataCenter/*` targets
+- no `data/catalog/*`, `publishedCatalog`, `routeData`, or `settings/routes`
+- no runtime paths such as `operations/liveVehicles`, `operations/dailyAssignments`, `operations/notificationEvents`
+- no `bookings`, `testBookings`, `operations/bookings`, `passengers`, or `operations/passengers`
+- no driver logs, LINE logs, ticket/check-in records, or live vehicle runtime records
