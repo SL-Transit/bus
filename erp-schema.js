@@ -4,52 +4,90 @@
   var SCHEMA_VERSION = 'erp/backbone-v1';
 
   var PATHS = {
-    settings: 'data/settings',
-    catalog: 'data/catalog',
-    catalogStops: 'data/catalog/stops',
-    catalogGroups: 'data/catalog/groups',
-    catalogRoutes: 'data/catalog/routes',
-    catalogTrips: 'data/catalog/trips',
-    catalogFares: 'data/catalog/fares',
-    catalogServices: 'data/catalog/services',
-    catalogStopTimes: 'data/catalog/stopTimes',
-    catalogCapacities: 'data/catalog/capacities',
-    catalogClosures: 'data/catalog/closures',
-    fleet: 'data/fleet',
-    fleetVehicles: 'data/fleet/vehicles',
-    fleetQueues: 'data/fleet/queues',
-    fleetQueueOwners: 'data/fleet/queueOwners',
-    finance: 'data/finance',
-    financeTransactions: 'data/finance/transactions',
+    erpDataCenter: 'data/erpDataCenter',
+    settings: 'data/erpDataCenter/settings',
+    catalog: 'data/erpDataCenter/catalog',
+    catalogStops: 'data/erpDataCenter/catalog/stops',
+    catalogGroups: 'data/erpDataCenter/catalog/groups',
+    catalogRoutes: 'data/erpDataCenter/catalog/routes',
+    catalogTrips: 'data/erpDataCenter/catalog/trips',
+    catalogFares: 'data/erpDataCenter/catalog/fares',
+    catalogFareSegments: 'data/erpDataCenter/catalog/fareSegments',
+    catalogServices: 'data/erpDataCenter/catalog/services',
+    catalogStopTimes: 'data/erpDataCenter/catalog/stopTimes',
+    catalogCapacities: 'data/erpDataCenter/catalog/capacities',
+    catalogClosures: 'data/erpDataCenter/catalog/closures',
+    fleet: 'data/erpDataCenter/fleet',
+    fleetVehicles: 'data/erpDataCenter/fleet/vehicles',
+    fleetQueues: 'data/erpDataCenter/fleet/queues',
+    fleetQueueOwners: 'data/erpDataCenter/fleet/queueOwners',
+    fleetVehicleLoginIndex: 'data/erpDataCenter/fleet/vehicleLoginIndex',
+    finance: 'data/erpDataCenter/finance',
+    financeTransactions: 'data/erpDataCenter/finance/transactions',
+    providerRegistry: 'data/erpDataCenter/providerRegistry',
     operations: 'operations',
+    operationsDailyAssignments: 'operations/dailyAssignments',
+    operationsVehicleSessions: 'operations/vehicleSessions',
     operationsBookings: 'operations/bookings',
     operationsPassengers: 'operations/passengers',
     operationsLiveVehicles: 'operations/liveVehicles',
+    operationsNotificationEvents: 'operations/notificationEvents',
+    operationsNotificationDeliveries: 'operations/notificationDeliveries',
     operationsAuditLogs: 'operations/auditLogs'
   };
 
   var REQUIRED_COLLECTIONS = [
-    'data/settings',
-    'data/catalog/stops',
-    'data/catalog/routes',
-    'data/catalog/trips',
-    'data/fleet/vehicles',
-    'data/fleet/queues'
+    'data/erpDataCenter/settings',
+    'data/erpDataCenter/catalog/stops',
+    'data/erpDataCenter/catalog/routes',
+    'data/erpDataCenter/catalog/trips',
+    'data/erpDataCenter/catalog/fares',
+    'data/erpDataCenter/fleet/vehicles',
+    'data/erpDataCenter/fleet/queues'
   ];
 
   var OPTIONAL_COLLECTIONS = [
-    'data/catalog/groups',
-    'data/catalog/fares',
-    'data/catalog/services',
-    'data/catalog/stopTimes',
-    'data/catalog/capacities',
-    'data/catalog/closures',
-    'data/fleet/queueOwners',
-    'data/finance/transactions',
+    'data/erpDataCenter/catalog/groups',
+    'data/erpDataCenter/catalog/fareSegments',
+    'data/erpDataCenter/catalog/services',
+    'data/erpDataCenter/catalog/stopTimes',
+    'data/erpDataCenter/catalog/capacities',
+    'data/erpDataCenter/catalog/closures',
+    'data/erpDataCenter/fleet/queueOwners',
+    'data/erpDataCenter/fleet/vehicleLoginIndex',
+    'data/erpDataCenter/finance/transactions',
+    'data/erpDataCenter/providerRegistry'
+  ];
+
+  var LEGACY_SOURCE_PATHS = ['data/settings', 'data/catalog', 'data/fleet', 'data/finance', 'publishedCatalog', 'routeData', 'settings/routes'];
+  var RUNTIME_CONTRACT_PATHS = [
+    'operations/dailyAssignments',
+    'operations/vehicleSessions',
     'operations/liveVehicles',
+    'operations/notificationEvents',
+    'operations/notificationDeliveries'
+  ];
+  var PRIVATE_RUNTIME_PATHS = [
+    'bookings',
+    'testBookings',
     'operations/bookings',
+    'passengers',
     'operations/passengers',
-    'operations/auditLogs'
+    'tickets',
+    'ticketRecords',
+    'checkins',
+    'checkIns',
+    'operations/tickets',
+    'operations/checkins',
+    'operations/checkIns',
+    'driverLogs',
+    'operations/driverLogs',
+    'line_sent',
+    'lineLogs',
+    'test_line_logs',
+    'mockLogs/checkTicketNotifications',
+    'liveVehicles',
+    'bus'
   ];
 
   var RECORD_REQUIREMENTS = {
@@ -58,7 +96,8 @@
     trip: ['id', 'routeId', 'departTime'],
     vehicle: ['vehicleId', 'status'],
     queue: ['queueId', 'groupId'],
-    liveVehicle: ['vehicleId', 'lat', 'lng', 'updatedAt', 'serviceStatus']
+    fare: ['paymentOwnership'],
+    fareSegment: ['paymentOwnership']
   };
 
   var VALID_LIVE_VEHICLE_STATUS = ['active', 'moving', 'idle', 'standby', 'off_duty', 'offline'];
@@ -76,6 +115,10 @@
       if (!node || typeof node !== 'object') return undefined;
       return node[part];
     }, root || {});
+  }
+
+  function startsWithPath(path, prefix) {
+    return path === prefix || path.indexOf(prefix + '/') === 0;
   }
 
   function hasCollection(root, path) {
@@ -128,6 +171,37 @@
 
   function isFiniteNumber(value) {
     return value !== null && value !== '' && isFinite(Number(value));
+  }
+
+  function isCarAlias(value) {
+    return /^car[1-4]$/.test(String(value || '').trim());
+  }
+
+  function isCar5Alias(value) {
+    return String(value || '').trim() === 'car5';
+  }
+
+  function hasOwnerApproval(record) {
+    record = valueOrEmpty(record);
+    return record.ownerApproved === true || record.ownerApproval === true || !!record.ownerApprovalId || !!record.ownerApprovedAt;
+  }
+
+  function isInactiveOrProvisional(record) {
+    var status = String(valueOrEmpty(record).status || valueOrEmpty(record).serviceStatus || '').toLowerCase();
+    return status === 'inactive' || status === 'provisional';
+  }
+
+  function hasSensitiveCredentialField(record) {
+    var found = false;
+    function scan(value) {
+      if (found || !value || typeof value !== 'object') return;
+      Object.keys(value).forEach(function(key) {
+        if (/password|passcode|pin|otp|secret|token/i.test(key)) found = true;
+        scan(value[key]);
+      });
+    }
+    scan(record);
+    return found;
   }
 
   function isValidLatitude(value) {
@@ -204,6 +278,117 @@
     });
   }
 
+  function scanBlockedImportTargets(root, blockers) {
+    LEGACY_SOURCE_PATHS.concat(RUNTIME_CONTRACT_PATHS, PRIVATE_RUNTIME_PATHS).forEach(function(path) {
+      var value = readPath(root, path);
+      if (value && typeof value === 'object' && Object.keys(value).length) {
+        blockers.push({
+          level: 'blocker',
+          code: startsWithPath(path, 'operations') ? 'runtime-path-not-seed-target' : 'blocked-import-target',
+          path: path,
+          message: 'Seed/import snapshots may only target data/erpDataCenter/*; legacy, private, and runtime paths are source/contract-only.'
+        });
+      }
+    });
+  }
+
+  function scanFleetRules(root, blockers, warnings) {
+    var vehicles = valueOrEmpty(readPath(root, PATHS.fleetVehicles));
+    var loginIndex = valueOrEmpty(readPath(root, PATHS.fleetVehicleLoginIndex));
+    var registrationSeen = {};
+
+    Object.keys(vehicles).forEach(function(key) {
+      var vehicle = valueOrEmpty(vehicles[key]);
+      var path = PATHS.fleetVehicles + '/' + key;
+      var aliases = Array.isArray(vehicle.aliases) ? vehicle.aliases.map(String) : [];
+      if (isCarAlias(key) || isCarAlias(vehicle.vehicleId)) {
+        blockers.push({ level: 'blocker', code: 'car-alias-used-as-master-key', path: path, message: 'car1-car4 are aliases only; vehicle master data must use canonical vehicleId keys.' });
+      }
+      if (isCar5Alias(key) || isCar5Alias(vehicle.vehicleId) || aliases.some(isCar5Alias)) {
+        if (!isInactiveOrProvisional(vehicle) && !hasOwnerApproval(vehicle)) {
+          blockers.push({ level: 'blocker', code: 'car5-requires-owner-approval', path: path, message: 'car5 must stay inactive/provisional unless owner approval metadata exists.' });
+        }
+      }
+      if (hasSensitiveCredentialField(vehicle)) {
+        blockers.push({ level: 'blocker', code: 'plaintext-credential-field', path: path, message: 'Vehicle/fleet master data must not contain plaintext password, pin, otp, secret, or token fields.' });
+      }
+      if (vehicle.vehicleId == null || vehicle.vehicleId === '') {
+        blockers.push({ level: 'blocker', code: 'missing-vehicle-id', path: path, message: 'vehicleId is required for every vehicle record.' });
+      }
+      var registration = String(vehicle.registrationNo || '').trim();
+      if (registration && Object.keys(loginIndex).length) {
+        if (registrationSeen[registration]) {
+          blockers.push({ level: 'blocker', code: 'duplicate-registration-no', path: path, registrationNo: registration, message: 'registrationNo must be unique when vehicle login index is present.' });
+        }
+        registrationSeen[registration] = true;
+      }
+    });
+    Object.keys(loginIndex).forEach(function(key) {
+      if (hasSensitiveCredentialField(loginIndex[key])) {
+        blockers.push({ level: 'blocker', code: 'plaintext-login-credential-field', path: PATHS.fleetVehicleLoginIndex + '/' + key, message: 'Vehicle login index must not contain plaintext password, pin, otp, secret, or token fields.' });
+      }
+    });
+  }
+
+  function paymentOwnershipOf(record) {
+    record = valueOrEmpty(record);
+    return String(record.paymentOwnership || record.paymentOwner || '').trim();
+  }
+
+  function providerIdOf(record) {
+    record = valueOrEmpty(record);
+    return String(record.providerId || record.provider || record.operatorId || '').trim();
+  }
+
+  function isProviderOwned(owner) {
+    return owner && owner !== 'sl_transit' && owner !== 'sl-transit' && owner !== 'internal';
+  }
+
+  function isTrainGroup005(path, fare) {
+    fare = valueOrEmpty(fare);
+    var text = [path, fare.groupId, fare.groupKey, fare.routeId, fare.routeKey, fare.serviceType, fare.providerId, fare.provider, fare.destinationKey, fare.toStopKey].join(' ').toLowerCase();
+    return text.indexOf('group_005') !== -1 || text.indexOf('train') !== -1;
+  }
+
+  function scanFarePaymentRules(root, blockers) {
+    var fares = valueOrEmpty(readPath(root, PATHS.catalogFares));
+    var fareSegments = valueOrEmpty(readPath(root, PATHS.catalogFareSegments));
+    var providerRegistry = valueOrEmpty(readPath(root, PATHS.providerRegistry));
+    var hasProviderOwnedFare = false;
+
+    function scanFareMap(map, basePath, type) {
+      Object.keys(map).forEach(function(key) {
+        var item = valueOrEmpty(map[key]);
+        var path = basePath + '/' + key;
+        var owner = paymentOwnershipOf(item);
+        if (!owner) {
+          blockers.push({ level: 'blocker', code: 'missing-payment-ownership', path: path, type: type, message: 'paymentOwnership is required for fares and fareSegments.' });
+        }
+        if (isProviderOwned(owner)) hasProviderOwnedFare = true;
+        if (isTrainGroup005(path, item) && owner !== 'external_pay') {
+          blockers.push({ level: 'blocker', code: 'group-005-train-must-be-external-pay', path: path, message: 'group_005/train fares must be external_pay.' });
+        }
+      });
+    }
+
+    Object.keys(fares).forEach(function(originKey) {
+      var nested = valueOrEmpty(fares[originKey]);
+      var nestedKeys = Object.keys(nested);
+      if (nestedKeys.some(function(k) { return typeof nested[k] === 'object'; })) {
+        nestedKeys.forEach(function(destKey) {
+          scanFareMap((function() { var o = {}; o[originKey + '/' + destKey] = nested[destKey]; return o; })(), PATHS.catalogFares, 'fare');
+        });
+      } else {
+        scanFareMap((function() { var o = {}; o[originKey] = nested; return o; })(), PATHS.catalogFares, 'fare');
+      }
+    });
+    scanFareMap(fareSegments, PATHS.catalogFareSegments, 'fareSegment');
+
+    if (hasProviderOwnedFare && !Object.keys(providerRegistry).length) {
+      blockers.push({ level: 'blocker', code: 'missing-provider-registry', path: PATHS.providerRegistry, message: 'Provider registry is required before provider-owned fares can be apply-ready.' });
+    }
+  }
+
   function validateSnapshot(snapshot) {
     var root = valueOrEmpty(snapshot);
     var missingCollections = REQUIRED_COLLECTIONS.filter(function(path) { return !hasCollection(root, path); });
@@ -214,22 +399,16 @@
       blockers.push({ level: 'blocker', code: 'missing-required-collection', path: path });
     });
 
+    scanBlockedImportTargets(root, blockers);
     scanMap(root, PATHS.catalogStops, 'stop', warnings);
     scanMap(root, PATHS.catalogRoutes, 'route', warnings);
     scanMap(root, PATHS.catalogTrips, 'trip', warnings);
     scanMap(root, PATHS.fleetVehicles, 'vehicle', warnings);
     scanMap(root, PATHS.fleetQueues, 'queue', warnings);
-    scanMap(root, PATHS.operationsLiveVehicles, 'liveVehicle', warnings);
-    if (!hasCollection(root, PATHS.operationsLiveVehicles)) {
-      warnings.push({
-        level: 'warning',
-        code: 'empty-operational-state',
-        path: PATHS.operationsLiveVehicles,
-        message: 'No live vehicles are present; allowed for dry-run import because live vehicles are operational state.'
-      });
-    }
     scanReferences(root, warnings);
     scanLiveVehicleRecords(root, warnings);
+    scanFleetRules(root, blockers, warnings);
+    scanFarePaymentRules(root, blockers);
     var readinessGate = {
       dryRun: true,
       readyForBackboneReview: blockers.length === 0,
@@ -237,10 +416,11 @@
       blockers: blockers.slice(),
       warnings: warnings.slice(),
       requiredNextChecks: [
-        'data-import-dry-run-approved',
+        'erp-data-center-dry-run-approved',
         'feature-bridge-parity-verified',
         'github-actions-pages-live-verified',
-        'private-collections-not-read-by-default'
+        'private-runtime-paths-blocked',
+        'readyForApply-owner-approval-required'
       ]
     };
     return {
@@ -262,32 +442,31 @@
       dryRun: true,
       schemaVersion: SCHEMA_VERSION,
       data: {
-        settings: {},
-        catalog: {
-          stops: {},
-          groups: {},
-          routes: {},
-          trips: {},
-          fares: {},
-          services: {},
-          stopTimes: {},
-          capacities: {},
-          closures: {}
-        },
-        fleet: {
-          vehicles: {},
-          queues: {},
-          queueOwners: {}
-        },
-        finance: {
-          transactions: {}
+        erpDataCenter: {
+          settings: {},
+          catalog: {
+            stops: {},
+            groups: {},
+            routes: {},
+            trips: {},
+            fares: {},
+            fareSegments: {},
+            services: {},
+            stopTimes: {},
+            capacities: {},
+            closures: {}
+          },
+          fleet: {
+            vehicles: {},
+            queues: {},
+            queueOwners: {},
+            vehicleLoginIndex: {}
+          },
+          finance: {
+            transactions: {}
+          },
+          providerRegistry: {}
         }
-      },
-      operations: {
-        bookings: {},
-        passengers: {},
-        liveVehicles: {},
-        auditLogs: {}
       }
     };
   }
@@ -297,6 +476,9 @@
     PATHS: Object.assign({}, PATHS),
     REQUIRED_COLLECTIONS: REQUIRED_COLLECTIONS.slice(),
     OPTIONAL_COLLECTIONS: OPTIONAL_COLLECTIONS.slice(),
+    LEGACY_SOURCE_PATHS: LEGACY_SOURCE_PATHS.slice(),
+    RUNTIME_CONTRACT_PATHS: RUNTIME_CONTRACT_PATHS.slice(),
+    PRIVATE_RUNTIME_PATHS: PRIVATE_RUNTIME_PATHS.slice(),
     RECORD_REQUIREMENTS: Object.assign({}, RECORD_REQUIREMENTS),
     scanReferences: scanReferences,
     pathOf: pathOf,
