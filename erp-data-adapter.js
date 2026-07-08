@@ -95,7 +95,7 @@
   }
 
   function refreshCatalog() {
-    return read(schemaPath('catalog', 'data/catalog')).then(function(catalog) {
+    return read(schemaPath('catalog', 'data/erpDataCenter/catalog')).then(function(catalog) {
       _catalog = Object.assign({
         stops: {},
         groups: {},
@@ -114,14 +114,14 @@
   }
 
   function refreshFleet() {
-    return read(schemaPath('fleet', 'data/fleet')).then(function(fleet) {
+    return read(schemaPath('fleet', 'data/erpDataCenter/fleet')).then(function(fleet) {
       _fleet = Object.assign({ vehicles: {}, queues: {}, queueOwners: {} }, valueOrEmpty(fleet));
       return _fleet;
     });
   }
 
   function refreshSettings() {
-    return read(schemaPath('settings', 'data/settings')).then(function(settings) {
+    return read(schemaPath('settings', 'data/erpDataCenter/settings')).then(function(settings) {
       _settings = valueOrEmpty(settings);
       return _settings;
     });
@@ -209,12 +209,7 @@
     options = options || {};
     var snapshot = { data: {}, operations: {} };
     var reads = [
-      read(schemaPath('settings', 'data/settings')).then(function(value) { snapshot.data.settings = valueOrEmpty(value); }),
-      read(schemaPath('catalog', 'data/catalog')).then(function(value) { snapshot.data.catalog = valueOrEmpty(value); }),
-      read(schemaPath('fleet', 'data/fleet')).then(function(value) { snapshot.data.fleet = valueOrEmpty(value); }),
-      read(schemaPath('finance', 'data/finance')).then(function(value) { snapshot.data.finance = valueOrEmpty(value); }),
-      read(schemaPath('operationsLiveVehicles', 'operations/liveVehicles')).then(function(value) { snapshot.operations.liveVehicles = valueOrEmpty(value); }),
-      read(schemaPath('operationsAuditLogs', 'operations/auditLogs')).then(function(value) { snapshot.operations.auditLogs = valueOrEmpty(value); })
+      read(schemaPath('erpDataCenter', 'data/erpDataCenter')).then(function(value) { snapshot.data.erpDataCenter = valueOrEmpty(value); })
     ];
     if (options.includeBookings === true) {
       reads.push(read(schemaPath('operationsBookings', 'operations/bookings')).then(function(value) { snapshot.operations.bookings = valueOrEmpty(value); }));
@@ -243,7 +238,13 @@
   }
 
   function isPrivateBackbonePath(path) {
-    return path === schemaPath('operationsBookings', 'operations/bookings') || path === schemaPath('operationsPassengers', 'operations/passengers');
+    return path === schemaPath('operationsBookings', 'operations/bookings') ||
+      path === schemaPath('operationsPassengers', 'operations/passengers') ||
+      path === schemaPath('operationsLiveVehicles', 'operations/liveVehicles') ||
+      path === schemaPath('operationsDailyAssignments', 'operations/dailyAssignments') ||
+      path === schemaPath('operationsVehicleSessions', 'operations/vehicleSessions') ||
+      path === schemaPath('operationsNotificationEvents', 'operations/notificationEvents') ||
+      path === schemaPath('operationsNotificationDeliveries', 'operations/notificationDeliveries');
   }
 
   function buildBackboneSeedPlan(input) {
@@ -278,7 +279,12 @@
       writesEnabled: false,
       privateCollectionsExcluded: [
         schemaPath('operationsBookings', 'operations/bookings'),
-        schemaPath('operationsPassengers', 'operations/passengers')
+        schemaPath('operationsPassengers', 'operations/passengers'),
+        schemaPath('operationsLiveVehicles', 'operations/liveVehicles'),
+        schemaPath('operationsDailyAssignments', 'operations/dailyAssignments'),
+        schemaPath('operationsVehicleSessions', 'operations/vehicleSessions'),
+        schemaPath('operationsNotificationEvents', 'operations/notificationEvents'),
+        schemaPath('operationsNotificationDeliveries', 'operations/notificationDeliveries')
       ],
       missingCollections: missing.filter(function(path) { return !isPrivateBackbonePath(path); }),
       updates: updates,
@@ -288,7 +294,7 @@
   }
 
   function getFinanceTransactions(monthKey) {
-    return read(schemaPath('financeTransactions', 'data/finance/transactions')).then(function(transactions) {
+    return read(schemaPath('financeTransactions', 'data/erpDataCenter/finance/transactions')).then(function(transactions) {
       return Object.keys(valueOrEmpty(transactions)).map(function(key) {
         return Object.assign({ id: key }, transactions[key] || {});
       }).filter(function(tx) {
@@ -325,7 +331,7 @@
     }
     var updates = {};
     orderedKeys.forEach(function(key, index) {
-      updates[joinPath(schemaPath('catalogStops', 'data/catalog/stops'), key, 'order')] = index + 1;
+      updates[joinPath(schemaPath('catalogStops', 'data/erpDataCenter/catalog/stops'), key, 'order')] = index + 1;
     });
     return requireDb().ref().update(updates).then(refreshCatalog);
   }
@@ -344,31 +350,31 @@
   }
 
   function saveStop(stopKey, data) {
-    return requireDb().ref(joinPath(schemaPath('catalogStops', 'data/catalog/stops'), stopKey)).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogStops', 'data/erpDataCenter/catalog/stops'), stopKey)).update(data || {}).then(refreshCatalog);
   }
 
   function saveRoute(routeId, data) {
-    return requireDb().ref(joinPath(schemaPath('catalogRoutes', 'data/catalog/routes'), routeId)).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogRoutes', 'data/erpDataCenter/catalog/routes'), routeId)).update(data || {}).then(refreshCatalog);
   }
 
   function saveTrip(tripId, data) {
-    return requireDb().ref(joinPath(schemaPath('catalogTrips', 'data/catalog/trips'), tripId)).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogTrips', 'data/erpDataCenter/catalog/trips'), tripId)).update(data || {}).then(refreshCatalog);
   }
 
   function saveFare(originKey, destKey, data) {
-    return requireDb().ref(joinPath(schemaPath('catalogFares', 'data/catalog/fares'), originKey, destKey)).update(data || {}).then(refreshCatalog);
+    return requireDb().ref(joinPath(schemaPath('catalogFares', 'data/erpDataCenter/catalog/fares'), originKey, destKey)).update(data || {}).then(refreshCatalog);
   }
 
   function saveVehicle(vehicleId, data) {
-    return requireDb().ref(joinPath(schemaPath('fleetVehicles', 'data/fleet/vehicles'), vehicleId)).update(data || {}).then(refreshFleet);
+    return requireDb().ref(joinPath(schemaPath('fleetVehicles', 'data/erpDataCenter/fleet/vehicles'), vehicleId)).update(data || {}).then(refreshFleet);
   }
 
   function saveQueue(queueId, data) {
-    return requireDb().ref(joinPath(schemaPath('fleetQueues', 'data/fleet/queues'), queueId)).update(data || {}).then(refreshFleet);
+    return requireDb().ref(joinPath(schemaPath('fleetQueues', 'data/erpDataCenter/fleet/queues'), queueId)).update(data || {}).then(refreshFleet);
   }
 
   function saveQueueOwner(ownerId, data) {
-    return requireDb().ref(joinPath(schemaPath('fleetQueueOwners', 'data/fleet/queueOwners'), ownerId)).update(data || {}).then(refreshFleet);
+    return requireDb().ref(joinPath(schemaPath('fleetQueueOwners', 'data/erpDataCenter/fleet/queueOwners'), ownerId)).update(data || {}).then(refreshFleet);
   }
 
   function nextIdFromMap(map, prefix, width) {
@@ -437,7 +443,7 @@
   function logTransaction(data) {
     var txId = 'TX-' + Date.now() + '-' + randomCode(4);
     var payload = Object.assign({}, data || {}, { transactionId: txId, createdAt: Date.now() });
-    return requireDb().ref(joinPath(schemaPath('financeTransactions', 'data/finance/transactions'), txId)).set(payload).then(function() {
+    return requireDb().ref(joinPath(schemaPath('financeTransactions', 'data/erpDataCenter/finance/transactions'), txId)).set(payload).then(function() {
       return txId;
     });
   }
