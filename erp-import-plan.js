@@ -2,8 +2,40 @@
   'use strict';
 
   var PLAN_VERSION = 'erp/import-plan-v1';
-  var PRIVATE_PATHS = ['operations/bookings', 'operations/passengers'];
-  var ALLOWED_ROOTS = ['data/settings', 'data/catalog', 'data/fleet', 'data/finance', 'operations/liveVehicles', 'operations/auditLogs'];
+  var ERP_DATA_CENTER_ROOT = 'data/erpDataCenter';
+  var ALLOWED_ROOTS = [ERP_DATA_CENTER_ROOT];
+  var LEGACY_SOURCE_PATHS = ['data/settings', 'data/catalog', 'data/fleet', 'data/finance', 'publishedCatalog', 'routeData', 'settings/routes'];
+  var RUNTIME_CONTRACT_PATHS = [
+    'operations/dailyAssignments',
+    'operations/vehicleSessions',
+    'operations/liveVehicles',
+    'operations/notificationEvents',
+    'operations/notificationDeliveries'
+  ];
+  var PRIVATE_RUNTIME_PATHS = [
+    'bookings',
+    'testBookings',
+    'operations/bookings',
+    'passengers',
+    'operations/passengers',
+    'tickets',
+    'ticketRecords',
+    'checkins',
+    'checkIns',
+    'operations/tickets',
+    'operations/checkins',
+    'operations/checkIns',
+    'driverLogs',
+    'operations/driverLogs',
+    'line_sent',
+    'lineLogs',
+    'test_line_logs',
+    'mockLogs/checkTicketNotifications',
+    'liveVehicles',
+    'bus',
+    'operations/liveVehicles'
+  ];
+  var BLOCKED_IMPORT_PATHS = LEGACY_SOURCE_PATHS.concat(RUNTIME_CONTRACT_PATHS, PRIVATE_RUNTIME_PATHS);
 
   function valueOrEmpty(value) {
     return value && typeof value === 'object' ? value : {};
@@ -17,8 +49,15 @@
     return path === prefix || path.indexOf(prefix + '/') === 0;
   }
 
-  function isPrivatePath(path) {
-    return PRIVATE_PATHS.some(function(prefix) { return startsWithPath(path, prefix); });
+  function readPath(root, path) {
+    return String(path || '').split('/').filter(Boolean).reduce(function(node, part) {
+      if (!node || typeof node !== 'object') return undefined;
+      return node[part];
+    }, root || {});
+  }
+
+  function isBlockedPath(path) {
+    return BLOCKED_IMPORT_PATHS.some(function(prefix) { return startsWithPath(path, prefix); });
   }
 
   function isAllowedPath(path) {
@@ -59,10 +98,19 @@
     list.push({ level: level, code: code, path: path || '', message: message || '' });
   }
 
+  function inspectSnapshotPaths(snapshot, blockers) {
+    BLOCKED_IMPORT_PATHS.forEach(function(path) {
+      var value = readPath(snapshot, path);
+      if (value && typeof value === 'object' && Object.keys(value).length) {
+        issue(blockers, 'blocker', 'blocked-snapshot-path', path, 'Import plan must not seed legacy, private, or runtime contract paths.');
+      }
+    });
+  }
+
   function inspectUpdatePaths(plan, blockers, warnings) {
     flattenUpdates(plan.updates).forEach(function(entry) {
-      if (isPrivatePath(entry.path)) issue(blockers, 'blocker', 'private-path-update', entry.path, 'Import plan must not include passenger or booking private paths.');
-      if (!isAllowedPath(entry.path)) issue(warnings, 'warning', 'unknown-import-path', entry.path, 'Path is outside the current backbone import allowlist.');
+      if (isBlockedPath(entry.path)) issue(blockers, 'blocker', 'blocked-import-path', entry.path, 'Import plan must not target legacy, private, or runtime contract paths.');
+      if (!isAllowedPath(entry.path)) issue(blockers, 'blocker', 'non-erp-data-center-target', entry.path, 'Seed/import targets must be under data/erpDataCenter/* only.');
     });
   }
 
@@ -79,12 +127,7 @@
     inspectUpdatePaths(plan, blockers, warnings);
 
     var snapshot = snapshotFromPlan(plan);
-    PRIVATE_PATHS.forEach(function(path) {
-      var privateValue = schema && schema.readPath ? schema.readPath(snapshot, path) : null;
-      if (privateValue && typeof privateValue === 'object' && Object.keys(privateValue).length) {
-        issue(blockers, 'blocker', 'private-snapshot-data', path, 'Import plan snapshot must not include private passenger or booking data.');
-      }
-    });
+    inspectSnapshotPaths(snapshot, blockers);
 
     var schemaValidation = schema && typeof schema.validateSnapshot === 'function' ? schema.validateSnapshot(snapshot) : null;
     if (schemaValidation) {
@@ -98,7 +141,10 @@
       readyForReview: blockers.length === 0,
       readyForApply: false,
       writesEnabled: false,
-      privatePathsBlocked: PRIVATE_PATHS.slice(),
+      erpDataCenterRoot: ERP_DATA_CENTER_ROOT,
+      blockedImportPaths: BLOCKED_IMPORT_PATHS.slice(),
+      runtimeContractPaths: RUNTIME_CONTRACT_PATHS.slice(),
+      legacySourcePaths: LEGACY_SOURCE_PATHS.slice(),
       allowedRoots: ALLOWED_ROOTS.slice(),
       snapshot: snapshot,
       schemaValidation: schemaValidation,
@@ -115,18 +161,23 @@
       generatedAt: new Date().toISOString(),
       source: 'manual-dry-run',
       data: {
-        settings: {},
-        catalog: { stops: {}, groups: {}, routes: {}, trips: {}, fares: {}, services: {}, stopTimes: {}, capacities: {}, closures: {} },
-        fleet: { vehicles: {}, queues: {}, queueOwners: {} },
-        finance: {}
-      },
-      operations: { liveVehicles: {}, auditLogs: {} }
+        erpDataCenter: {
+          settings: {},
+          catalog: { stops: {}, groups: {}, routes: {}, trips: {}, fares: {}, fareSegments: {}, services: {}, stopTimes: {}, capacities: {}, closures: {} },
+          fleet: { vehicles: {}, queues: {}, queueOwners: {}, vehicleLoginIndex: {} },
+          finance: {},
+          providerRegistry: {}
+        }
+      }
     };
   }
 
   var api = {
     PLAN_VERSION: PLAN_VERSION,
-    PRIVATE_PATHS: PRIVATE_PATHS.slice(),
+    ERP_DATA_CENTER_ROOT: ERP_DATA_CENTER_ROOT,
+    BLOCKED_IMPORT_PATHS: BLOCKED_IMPORT_PATHS.slice(),
+    RUNTIME_CONTRACT_PATHS: RUNTIME_CONTRACT_PATHS.slice(),
+    LEGACY_SOURCE_PATHS: LEGACY_SOURCE_PATHS.slice(),
     ALLOWED_ROOTS: ALLOWED_ROOTS.slice(),
     validateImportPlan: validateImportPlan,
     buildEmptyImportPlan: buildEmptyImportPlan,
