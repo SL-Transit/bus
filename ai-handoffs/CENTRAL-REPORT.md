@@ -44,6 +44,42 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-10 00:00 +07 (Asia/Bangkok) - Main Backbone Support AI - REVIEW
+
+Scope:
+- `erp-import-plan.js`
+- `erp-schema.js`
+- `erp-data-adapter.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Added explicit nested forbidden descendant validation under `data/erpDataCenter/*`.
+- Blocked descendant names anywhere under `data/erpDataCenter`: `bookings`, `testBookings`, `passengers`, `tickets`, `ticketRecords`, `ticketAccess`, `checkIns`, `driverLogs`, `lineLogs`.
+- Blocked nested runtime/private operation subtrees under `data/erpDataCenter/operations`: `bookings`, `passengers`, `liveVehicles`, `notificationEvents`, `notificationDeliveries`, `vehicleSessions`, `dailyAssignments`.
+- Mirrored the guard in both import-plan validation and schema snapshot validation so allowed-root checks cannot bypass it.
+- Gated adapter private write helpers (`createBooking`, `updateBookingStatus`, `createPassenger`) to reject by default instead of writing `operations/bookings` or `operations/passengers`.
+- Kept `dryRun=true`, `writesEnabled=false`, `readyForApply=false`, and `data/erpDataCenter/*` as the only seed/import target.
+
+Evidence:
+- Commit: `<pending>`
+- Actions: `<pending>`
+- Pages: `<pending>`
+- Tests: Node syntax checks passed for `erp-import-plan.js`, `erp-schema.js`, `erp-data-adapter.js`; mock validation blocked `data/erpDataCenter/bookings/b1`, `data/erpDataCenter/passengers/p1`, `data/erpDataCenter/ticketAccess/t1`, `data/erpDataCenter/foo/lineLogs/l1` with `forbidden-erp-descendant-name`; blocked `data/erpDataCenter/operations/liveVehicles/v1`, `data/erpDataCenter/operations/notificationDeliveries/d1`, and snapshot `data.erpDataCenter.operations.vehicleSessions` with `forbidden-erp-operations-subtree`; valid `data/erpDataCenter` dry-run plan remained `readyForReview=true`, `readyForApply=false`; adapter `createBooking`, `updateBookingStatus`, and `createPassenger` rejected with private/runtime write guard errors.
+
+Safety:
+- Firebase writes: none.
+- Seed applied: no.
+- Passenger/private data touched: none.
+- Real booking/ticket/driver/live vehicle/LINE data touched: none.
+- LINE notifications sent: none.
+
+Blockers:
+- None for nested forbidden import guard.
+- Production apply remains owner-blocked; `readyForApply` remains false by design.
+
+Next action:
+- QA Release Guard AI should verify Actions, Pages, live markers, and the nested forbidden-path cases against GitHub main.
+
 ## 2026-07-08 00:00 +07 (Asia/Bangkok) - Main Backbone Support AI - REVIEW
 
 Scope:
