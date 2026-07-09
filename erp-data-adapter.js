@@ -72,6 +72,10 @@
     return _db;
   }
 
+  function runtimeWriteDisabled(operation, path) {
+    return Promise.reject(new Error('ERP Data Center guard blocks ' + operation + ' writes to private/runtime path: ' + path));
+  }
+
   function getDatabaseFromApp(firebaseApp) {
     if (firebaseApp && typeof firebaseApp.database === 'function') return firebaseApp.database();
     if (global.firebase && typeof global.firebase.database === 'function') return global.firebase.database();
@@ -416,6 +420,7 @@
   }
 
   function createBooking(data) {
+    return runtimeWriteDisabled('createBooking', schemaPath('operationsBookings', 'operations/bookings'));
     var bookingId = 'BK-' + todayStamp() + '-' + randomCode(6);
     var payload = Object.assign({}, data || {}, {
       bookingId: bookingId,
@@ -431,6 +436,7 @@
   }
 
   function updateBookingStatus(bookingId, status) {
+    return runtimeWriteDisabled('updateBookingStatus', schemaPath('operationsBookings', 'operations/bookings'));
     if (VALID_BOOKING_STATUS.indexOf(status) === -1) {
       return Promise.reject(new Error('invalid status: ' + status));
     }
@@ -449,6 +455,7 @@
   }
 
   function createPassenger(hashedId, data) {
+    return runtimeWriteDisabled('createPassenger', schemaPath('operationsPassengers', 'operations/passengers'));
     var passengerId = String(hashedId || '');
     if (passengerId.indexOf('PSG_') !== 0) passengerId = 'PSG_' + passengerId;
     return requireDb().ref(joinPath(schemaPath('operationsPassengers', 'operations/passengers'), passengerId)).update(data || {}).then(function() {
