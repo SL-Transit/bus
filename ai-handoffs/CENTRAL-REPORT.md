@@ -61,7 +61,7 @@ Summary:
 - Kept `dryRun=true`, `writesEnabled=false`, `readyForApply=false`, and `data/erpDataCenter/*` as the only seed/import target.
 
 Evidence:
-- Commit: `<pending>`
+- Commits: `1e974fd, 87d54cd, 5428162, 7073e5e, ac2f045`; latest patch commit `ac2f045`
 - Actions: `<pending>`
 - Pages: `<pending>`
 - Tests: Node syntax checks passed for `erp-import-plan.js`, `erp-schema.js`, `erp-data-adapter.js`; mock validation blocked `data/erpDataCenter/bookings/b1`, `data/erpDataCenter/passengers/p1`, `data/erpDataCenter/ticketAccess/t1`, `data/erpDataCenter/foo/lineLogs/l1` with `forbidden-erp-descendant-name`; blocked `data/erpDataCenter/operations/liveVehicles/v1`, `data/erpDataCenter/operations/notificationDeliveries/d1`, and snapshot `data.erpDataCenter.operations.vehicleSessions` with `forbidden-erp-operations-subtree`; valid `data/erpDataCenter` dry-run plan remained `readyForReview=true`, `readyForApply=false`; adapter `createBooking`, `updateBookingStatus`, and `createPassenger` rejected with private/runtime write guard errors.
