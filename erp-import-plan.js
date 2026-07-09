@@ -36,6 +36,26 @@
     'operations/liveVehicles'
   ];
   var BLOCKED_IMPORT_PATHS = LEGACY_SOURCE_PATHS.concat(RUNTIME_CONTRACT_PATHS, PRIVATE_RUNTIME_PATHS);
+  var FORBIDDEN_ERP_DESCENDANT_NAMES = [
+    'bookings',
+    'testBookings',
+    'passengers',
+    'tickets',
+    'ticketRecords',
+    'ticketAccess',
+    'checkIns',
+    'driverLogs',
+    'lineLogs'
+  ];
+  var FORBIDDEN_ERP_OPERATIONS_SUBTREES = [
+    'data/erpDataCenter/operations/bookings',
+    'data/erpDataCenter/operations/passengers',
+    'data/erpDataCenter/operations/liveVehicles',
+    'data/erpDataCenter/operations/notificationEvents',
+    'data/erpDataCenter/operations/notificationDeliveries',
+    'data/erpDataCenter/operations/vehicleSessions',
+    'data/erpDataCenter/operations/dailyAssignments'
+  ];
 
   function valueOrEmpty(value) {
     return value && typeof value === 'object' ? value : {};
@@ -58,6 +78,19 @@
 
   function isBlockedPath(path) {
     return BLOCKED_IMPORT_PATHS.some(function(prefix) { return startsWithPath(path, prefix); });
+  }
+
+  function isForbiddenErpOperationsPath(path) {
+    return FORBIDDEN_ERP_OPERATIONS_SUBTREES.some(function(prefix) { return startsWithPath(path, prefix); });
+  }
+
+  function forbiddenErpDescendantName(path) {
+    if (!startsWithPath(path, ERP_DATA_CENTER_ROOT)) return '';
+    var parts = String(path || '').split('/').filter(Boolean);
+    for (var i = 2; i < parts.length; i++) {
+      if (FORBIDDEN_ERP_DESCENDANT_NAMES.indexOf(parts[i]) !== -1) return parts[i];
+    }
+    return '';
   }
 
   function isAllowedPath(path) {
@@ -98,6 +131,26 @@
     list.push({ level: level, code: code, path: path || '', message: message || '' });
   }
 
+  function inspectErpDataCenterPath(path, blockers) {
+    if (isForbiddenErpOperationsPath(path)) {
+      issue(blockers, 'blocker', 'forbidden-erp-operations-subtree', path, 'Runtime/private operations subtrees must not be nested under data/erpDataCenter.');
+      return;
+    }
+    var forbiddenName = forbiddenErpDescendantName(path);
+    if (forbiddenName) {
+      issue(blockers, 'blocker', 'forbidden-erp-descendant-name', path, 'Forbidden private/runtime descendant name under data/erpDataCenter: ' + forbiddenName + '.');
+    }
+  }
+
+  function walkSnapshotPaths(node, basePath, callback) {
+    if (!node || typeof node !== 'object') return;
+    Object.keys(node).forEach(function(key) {
+      var path = basePath ? basePath + '/' + key : key;
+      callback(path, node[key]);
+      walkSnapshotPaths(node[key], path, callback);
+    });
+  }
+
   function inspectSnapshotPaths(snapshot, blockers) {
     BLOCKED_IMPORT_PATHS.forEach(function(path) {
       var value = readPath(snapshot, path);
@@ -105,11 +158,15 @@
         issue(blockers, 'blocker', 'blocked-snapshot-path', path, 'Import plan must not seed legacy, private, or runtime contract paths.');
       }
     });
+    walkSnapshotPaths(snapshot, '', function(path) {
+      inspectErpDataCenterPath(path, blockers);
+    });
   }
 
   function inspectUpdatePaths(plan, blockers, warnings) {
     flattenUpdates(plan.updates).forEach(function(entry) {
       if (isBlockedPath(entry.path)) issue(blockers, 'blocker', 'blocked-import-path', entry.path, 'Import plan must not target legacy, private, or runtime contract paths.');
+      inspectErpDataCenterPath(entry.path, blockers);
       if (!isAllowedPath(entry.path)) issue(blockers, 'blocker', 'non-erp-data-center-target', entry.path, 'Seed/import targets must be under data/erpDataCenter/* only.');
     });
   }
@@ -143,6 +200,8 @@
       writesEnabled: false,
       erpDataCenterRoot: ERP_DATA_CENTER_ROOT,
       blockedImportPaths: BLOCKED_IMPORT_PATHS.slice(),
+      forbiddenErpDescendantNames: FORBIDDEN_ERP_DESCENDANT_NAMES.slice(),
+      forbiddenErpOperationsSubtrees: FORBIDDEN_ERP_OPERATIONS_SUBTREES.slice(),
       runtimeContractPaths: RUNTIME_CONTRACT_PATHS.slice(),
       legacySourcePaths: LEGACY_SOURCE_PATHS.slice(),
       allowedRoots: ALLOWED_ROOTS.slice(),
@@ -176,6 +235,8 @@
     PLAN_VERSION: PLAN_VERSION,
     ERP_DATA_CENTER_ROOT: ERP_DATA_CENTER_ROOT,
     BLOCKED_IMPORT_PATHS: BLOCKED_IMPORT_PATHS.slice(),
+    FORBIDDEN_ERP_DESCENDANT_NAMES: FORBIDDEN_ERP_DESCENDANT_NAMES.slice(),
+    FORBIDDEN_ERP_OPERATIONS_SUBTREES: FORBIDDEN_ERP_OPERATIONS_SUBTREES.slice(),
     RUNTIME_CONTRACT_PATHS: RUNTIME_CONTRACT_PATHS.slice(),
     LEGACY_SOURCE_PATHS: LEGACY_SOURCE_PATHS.slice(),
     ALLOWED_ROOTS: ALLOWED_ROOTS.slice(),
