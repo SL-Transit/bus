@@ -89,6 +89,26 @@
     'liveVehicles',
     'bus'
   ];
+  var FORBIDDEN_ERP_DESCENDANT_NAMES = [
+    'bookings',
+    'testBookings',
+    'passengers',
+    'tickets',
+    'ticketRecords',
+    'ticketAccess',
+    'checkIns',
+    'driverLogs',
+    'lineLogs'
+  ];
+  var FORBIDDEN_ERP_OPERATIONS_SUBTREES = [
+    'data/erpDataCenter/operations/bookings',
+    'data/erpDataCenter/operations/passengers',
+    'data/erpDataCenter/operations/liveVehicles',
+    'data/erpDataCenter/operations/notificationEvents',
+    'data/erpDataCenter/operations/notificationDeliveries',
+    'data/erpDataCenter/operations/vehicleSessions',
+    'data/erpDataCenter/operations/dailyAssignments'
+  ];
 
   var RECORD_REQUIREMENTS = {
     stop: ['stopKey', 'nameTh', 'order'],
@@ -119,6 +139,28 @@
 
   function startsWithPath(path, prefix) {
     return path === prefix || path.indexOf(prefix + '/') === 0;
+  }
+
+  function walkSnapshotPaths(node, basePath, callback) {
+    if (!node || typeof node !== 'object') return;
+    Object.keys(node).forEach(function(key) {
+      var path = basePath ? basePath + '/' + key : key;
+      callback(path, node[key]);
+      walkSnapshotPaths(node[key], path, callback);
+    });
+  }
+
+  function isForbiddenErpOperationsPath(path) {
+    return FORBIDDEN_ERP_OPERATIONS_SUBTREES.some(function(prefix) { return startsWithPath(path, prefix); });
+  }
+
+  function forbiddenErpDescendantName(path) {
+    if (!startsWithPath(path, PATHS.erpDataCenter)) return '';
+    var parts = String(path || '').split('/').filter(Boolean);
+    for (var i = 2; i < parts.length; i++) {
+      if (FORBIDDEN_ERP_DESCENDANT_NAMES.indexOf(parts[i]) !== -1) return parts[i];
+    }
+    return '';
   }
 
   function hasCollection(root, path) {
@@ -287,6 +329,27 @@
           code: startsWithPath(path, 'operations') ? 'runtime-path-not-seed-target' : 'blocked-import-target',
           path: path,
           message: 'Seed/import snapshots may only target data/erpDataCenter/*; legacy, private, and runtime paths are source/contract-only.'
+        });
+      }
+    });
+    walkSnapshotPaths(root, '', function(path) {
+      if (isForbiddenErpOperationsPath(path)) {
+        blockers.push({
+          level: 'blocker',
+          code: 'forbidden-erp-operations-subtree',
+          path: path,
+          message: 'Runtime/private operations subtrees must not be nested under data/erpDataCenter.'
+        });
+        return;
+      }
+      var forbiddenName = forbiddenErpDescendantName(path);
+      if (forbiddenName) {
+        blockers.push({
+          level: 'blocker',
+          code: 'forbidden-erp-descendant-name',
+          path: path,
+          name: forbiddenName,
+          message: 'Forbidden private/runtime descendant name under data/erpDataCenter: ' + forbiddenName + '.'
         });
       }
     });
@@ -479,6 +542,8 @@
     LEGACY_SOURCE_PATHS: LEGACY_SOURCE_PATHS.slice(),
     RUNTIME_CONTRACT_PATHS: RUNTIME_CONTRACT_PATHS.slice(),
     PRIVATE_RUNTIME_PATHS: PRIVATE_RUNTIME_PATHS.slice(),
+    FORBIDDEN_ERP_DESCENDANT_NAMES: FORBIDDEN_ERP_DESCENDANT_NAMES.slice(),
+    FORBIDDEN_ERP_OPERATIONS_SUBTREES: FORBIDDEN_ERP_OPERATIONS_SUBTREES.slice(),
     RECORD_REQUIREMENTS: Object.assign({}, RECORD_REQUIREMENTS),
     scanReferences: scanReferences,
     pathOf: pathOf,
