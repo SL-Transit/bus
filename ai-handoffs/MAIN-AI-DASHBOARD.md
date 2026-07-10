@@ -1,32 +1,144 @@
 # SL-Transit Main AI Dashboard
 
-Purpose: coordinate the main AI roles after the Data Import dry-run snapshot passed review and bridge audits were opened.
+Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
 
 Source of truth:
-- Latest reviewed main before this dashboard: 892744ed15a0e96a5652d42591f7b594efa6d1af
+- Latest reviewed main before this dashboard update: dd6e5ffa76a4c6a2460ede105abccb42c1870974
 - Bridge audit dashboard: ai-handoffs/BRIDGE-AUDIT-DASHBOARD.md
-- Data Import dry-run snapshot: readyForReview true, readyForApply false
+- Owner-approved network decisions in this dashboard override stale `main`, `bangkok`, `coastal`, vehicle/queue, and `nongkhok: pass_through` assumptions in older coordination notes.
+- Completion Round 2 remains local/uncommitted and must be revised against this dashboard before commit.
+- Data Import dry-run state: readyForReview true, readyForApply false
 - Production apply / Firebase seed: NOT approved
 
 Shared approved ERP Data Center contract:
-- settings: 1
-- stops: 49
+- SL-Transit is an interconnected journey-planning and transport-service platform, not a single-main-route website.
+- Canonical flow: ERP Data Center -> ERP Logic Center -> Page Logic Adapters -> UX/UI.
+- ERP Data Center owns static/versioned network, timetable, fleet/queue, fare, capability, and lineage data.
+- ERP Logic Center owns multi-leg path finding, trip/transfer feasibility, fare decisions, assignments, and ETA.
+- Consumer pages must not recreate business rules.
+- current destination/network locations: 49
+- source-proven group_001 corridor stops: 15
 - routes: 244
 - trips: 819
+- accepted route sequence evidence: 16
+- unique proven stopTimes: 84
 - fares: 720
-- vehicles: 4
-- queues: 4
+- vehicles: 5
+- queues: 5 after the approved queue_005 correction
 - liveVehicles: 0
 - direct fares: 233
 - via_chachoengsao fares: 322
 - external_pay fares: 165
 - primary stops: chachoengsao, sanamchaikhet, khlonghat
-- nongkhok: pass_through
+- canonical stop corrections: huaisom display is `ห้วยโสม`; `nongkhok` is not permanently pass-through-only
 - group_005/train: external_pay; passenger pays outside SL-Transit; SL-Transit collects no train fare
 - canonical destination keys: system-managed and stable
 - seed/import target root: data/erpDataCenter/*
 - legacy sources only: data/catalog/*, publishedCatalog, routeData, settings/routes
 - runtime contract-only paths: operations/dailyAssignments, operations/vehicleSessions, operations/liveVehicles, operations/notificationEvents, operations/notificationDeliveries
+
+## Owner-Approved Platform Vision And Current Priority
+
+- ERP Data Center is the blocking heart of the project. Pause Admin expansion and Booking/Passenger/Check Ticket/Driver/Payment/LINE implementation until the ERP Data Center Phase 1 contract and dry-run snapshot pass owner review and QA.
+- The network behaves like an interconnected web: a passenger starts near home, travels to a city terminal or transfer node, and may continue through other vehicle, van, bus, or train services.
+- A location may participate in multiple service groups, routes, terminals, boarding points, and transfers.
+- Phase capability is configurable. A node that is origin-disabled now is not permanently destination-only.
+- `group_001` is the Phase 1 pilot. Other groups may later enable origin selection and live tracking through approved data/config without page-code changes.
+
+### Neutral Service Groups
+
+| Legacy alias | Canonical ID |
+|---|---|
+| `main` | `group_001` |
+| `bangkok` | `group_002` |
+| `coastal` | `group_003` |
+| `group_004` | `group_004` |
+| `group_005` | `group_005` |
+
+- Legacy names are migration aliases only and must not drive business rules.
+- Admin-editable display order must not determine journey order. ERP Logic Center calculates group/route order per journey.
+
+### Network Entity Boundary
+
+- `networkNode`: stable opaque physical/network location identity.
+- `terminal`: facility associated with a network node.
+- `boardingPoint`: exact boarding location associated with a node and optionally a terminal.
+- `groupStop`: one service group's use of a network node.
+- `routeSequenceVersion`: direction-specific, effective-dated node/group-stop order.
+- `transferConnection`: explicit route/group connection at an approved node.
+- Stable IDs must be opaque and independent from editable names and corridor position codes.
+- Stop, terminal, boarding-point, and group-stop records remain distinct; do not collapse all location concepts into one record.
+
+### group_001 Corridor
+
+- Current corridor codes are both group stop codes and canonical corridor positions.
+- Base/outbound direction: `g01p001` -> `g01p015`.
+- Return direction: `g01p015` -> `g01p001`.
+- Mapping:
+  1. `g01p001` ฉะเชิงเทรา
+  2. `g01p002` พนมสารคาม
+  3. `g01p003` สนามชัยเขต
+  4. `g01p004` กม.1
+  5. `g01p005` กม.7
+  6. `g01p006` ห้วยโสม
+  7. `g01p007` ท่าตะเกียบ
+  8. `g01p008` หนองคอก
+  9. `g01p009` คลองตะเคียน
+  10. `g01p010` หนองเรือ
+  11. `g01p011` ไพรจิต
+  12. `g01p012` ทุ่งกบินทร์
+  13. `g01p013` สี่แยกโคนม
+  14. `g01p014` วังน้ำเย็น
+  15. `g01p015` คลองหาด
+- `nodeId` and `groupStopId` remain internally stable. Code/order changes require a new sequence version and version-scoped historical aliases.
+- Trips and tickets must retain the exact sequence version they used. Never rewrite historical sequence references.
+- A stop's origin/intermediate/destination role is trip-specific, not a permanent node classification.
+
+### Fleet, Queues, And Assignments
+
+- Vehicle identity and queue/work schedule are separate.
+- Vehicles are analogous to employees; queues are work schedules; queue trips are the work performed during that schedule.
+- `veh_001` through `veh_004` rotate across `queue_001` through `queue_004` through an effective-dated rotation rule.
+- `veh_005` is fixed to `queue_005`, does not join the rotation, begins its workday at `g01p008` หนองคอก, and ends its workday at the same stop.
+- Current queue_005 evidence:
+  - 06:20 หนองคอก -> ฉะเชิงเทรา
+  - 17:20 ฉะเชิงเทรา -> หนองคอก
+- `veh_005` has an assignment and is not schedule-only merely because it lacks GPS.
+- `veh_005.liveTrackingAvailable=false` until real live data exists. Never create fake GPS or ETA.
+- Assignment modes must support `rotation`, `fixed`, and `manual_override`.
+- Daily assignments are runtime/derived and must not be seed master data.
+- Booking snapshots use `assignmentId`, `queueId`, and `vehicleId`; `car1` through `car5` remain legacy aliases only.
+- Queue schedules and assignment rules must be versioned/effective-dated and support future vehicle/queue additions without hard-coded counts.
+
+### Journey Planning And Passenger ETA
+
+- ERP Logic Center calculates multi-leg paths, trip selection, transfer feasibility, fare totals, assignment/tracking availability, and ETA.
+- Platform service fee is one configurable amount per booking, not an assumed per-leg allocation.
+- Transfer feasibility uses `feasible`, `infeasible`, or `unknown` until owner-approved timing thresholds exist.
+- Passenger Phase 1 continues to read static timetable/stop/route data from ERP Data Center and real positions from `operations/liveVehicles/{vehicleId}`.
+- Passenger may request a narrow group_001 ETA result from ERP Logic Center; do not introduce a full PassengerViewModel in Phase 1.
+- Passenger displays the result only and must not calculate fare, queue, assignment, transfer, booking, LINE, GPS, or ETA rules.
+- If real position/trip mapping is unavailable or stale under a future approved policy, return ETA unavailable. Never estimate from fake data.
+
+### Payment And Service Fee Policy
+
+- SL-Transit is the booking/payment platform and settlement intermediary for approved non-train services.
+- Standard platform service fee is currently THB 5 per booking, Admin-configurable.
+- Trial-period effective service fee is THB 0.
+- Service fee applies to every group, including train.
+- Train platform fare is THB 0 / `external_pay`; passengers pay the railway directly.
+- Checkout shows fare, service fee, and total. Ticket fare excludes the service fee; post-payment summary separates the amounts.
+- Real settlement remains blocked until recipients and payout data are owner-approved.
+
+### Current ERP Data Center Gate
+
+- Proven active routes: 244. Keep `ROUTE-MAIN-211` through `ROUTE-MAIN-221` review-only and excluded from active Phase 1 data.
+- Proven unique stopTimes: 84 from 120 raw rows after 36 corroborating duplicates were removed.
+- `km_1` 15:10, `km_7` 15:15, `huaisom`/ห้วยโสม 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
+- The current local Round 2 snapshot was built before the network/group-stop/queue_005 corrections and must not be committed unchanged.
+- Required next evidence task: audit `queue_001` through `queue_005`, reconcile routeData/schedule-engine/published sources, and correct the queue_002 08:00 ordering anomaly before Round 2 resumes.
+- `readyForReview=true` may describe an internally valid dry-run only. It is not production approval.
+- `readyForApply=false` remains a hard stop.
 
 Global hard constraints:
 - Read latest GitHub main before starting.
