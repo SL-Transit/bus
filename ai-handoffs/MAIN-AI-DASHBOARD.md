@@ -126,6 +126,18 @@ Shared approved ERP Data Center contract:
 - Passenger displays the result only and must not calculate fare, queue, assignment, transfer, booking, LINE, GPS, or ETA rules.
 - If real position/trip mapping is unavailable or stale under a future approved policy, return ETA unavailable. Never estimate from fake data.
 
+### Timetable Time Semantics
+
+- Scheduled timetable values are planning estimates and are not a guarantee that a vehicle will pass a stop at the exact minute.
+- Distinguish at least:
+  - `scheduled_origin_departure`: planned departure from the trip/offer origin.
+  - `estimated_pass_through`: owner-approved estimated time a vehicle will pass an intermediate stop.
+  - live ETA: a separate ERP Logic Center result calculated only from real operational position/trip evidence.
+- The 73 group_001 offers previously classified as `needs_review/missing_stop_time` are owner-approved estimated timetable offers. Classify them as `estimated_schedule`, not missing data.
+- An estimated offer may be used for journey planning, but must not claim a queueTrip, vehicle, assignment, GPS, live tracking, or ETA unless separately evidence-mapped.
+- Passenger-facing surfaces must label estimated timetable values clearly, for example: `เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง`.
+- Preserve the planned timetable even when a live ETA is available; do not overwrite scheduled/estimated source data with runtime predictions.
+
 ### Payment And Service Fee Policy
 
 - SL-Transit is the booking/payment platform and settlement intermediary for approved non-train services.
