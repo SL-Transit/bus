@@ -100,10 +100,12 @@ Shared approved ERP Data Center contract:
 - Vehicles are analogous to employees; queues are work schedules; queue trips are the work performed during that schedule.
 - `veh_001` through `veh_004` rotate across `queue_001` through `queue_004` through an effective-dated rotation rule.
 - `veh_005` is fixed to `queue_005`, does not join the rotation, begins its workday at `g01p008` หนองคอก, and ends its workday at the same stop.
-- Current queue_005 evidence:
-  - 06:20 หนองคอก -> ฉะเชิงเทรา
-  - 17:20 ฉะเชิงเทรา -> หนองคอก
+- Owner-approved queue_005 schedule runs every day with no regular day off:
+  - 06:20 หนองคอก -> 06:35 ท่าตะเกียบ -> 07:20 สนามชัยเขต -> 07:40 พนมสารคาม -> 08:20 ฉะเชิงเทรา
+  - 17:20 ฉะเชิงเทรา -> 18:00 พนมสารคาม -> 18:20 สนามชัยเขต -> 18:50 ท่าตะเกียบ -> 19:05 หนองคอก
+- The 08:20 and 19:05 arrivals are owner-approved from matching reference durations: หนองคอก -> ฉะเชิงเทรา 120 minutes and ฉะเชิงเทรา -> หนองคอก 105 minutes.
 - `veh_005` has an assignment and is not schedule-only merely because it lacks GPS.
+- Queue_005 booking/assignment state is `assignmentMode=fixed`, `scheduleOnly=false`, and `liveTrackingAvailable=false`.
 - `veh_005.liveTrackingAvailable=false` until real live data exists. Never create fake GPS or ETA.
 - Assignment modes must support `rotation`, `fixed`, and `manual_override`.
 - Daily assignments are runtime/derived and must not be seed master data.
@@ -136,7 +138,10 @@ Shared approved ERP Data Center contract:
 - Proven unique stopTimes: 84 from 120 raw rows after 36 corroborating duplicates were removed.
 - `km_1` 15:10, `km_7` 15:15, `huaisom`/ห้วยโสม 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
 - The current local Round 2 snapshot was built before the network/group-stop/queue_005 corrections and must not be committed unchanged.
-- Required next evidence task: audit `queue_001` through `queue_005`, reconcile routeData/schedule-engine/published sources, and correct the queue_002 08:00 ordering anomaly before Round 2 resumes.
+- Fleet Queue Audit established that queue_001-queue_004 rotate veh_001-veh_004 and queue_005 is fixed to veh_005. Round 2 must recalculate queue, assignment-rule, route-sequence, and stopTime counts before implementation resumes.
+- Candidate count changes requiring Data Import verification: queues 4 -> 5, assignment rules 1 -> at least 2, add two queue_005 trips, add ten queue_005 stopTimes, route-sequence evidence may become 18, and unique stopTimes may become 94 after deduplication/trip-link validation.
+- Queue_002 08:00 raw order is not authoritative. Use the approved reverse corridor order and chronological times; preserve the malformed raw ordering only as source-conflict evidence.
+- The legacy singleton rows at กม.1 15:10, กม.7 15:15, ห้วยโสม 15:20, and ท่าตะเกียบ 15:30 are intermediate evidence for the queue_003 14:00 trip, not separate queue_004/005/006 trips.
 - `readyForReview=true` may describe an internally valid dry-run only. It is not production approval.
 - `readyForApply=false` remains a hard stop.
 
