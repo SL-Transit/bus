@@ -222,10 +222,28 @@
       data: {
         erpDataCenter: {
           settings: {},
+          destinations: {},
+          stops: {},
+          boardingPoints: {},
+          terminals: {},
+          providers: {},
+          serviceGroups: {},
+          routes: {},
+          routeStopSequences: {},
+          trips: {},
+          stopTimes: {},
+          fares: {},
+          fareSegments: {},
+          transferRules: {},
+          paymentOwnership: {},
+          temporaryClosures: {},
+          serviceFees: {},
+          settlementRecipients: {},
           catalog: { stops: {}, groups: {}, routes: {}, trips: {}, fares: {}, fareSegments: {}, services: {}, stopTimes: {}, capacities: {}, closures: {} },
-          fleet: { vehicles: {}, queues: {}, queueOwners: {}, vehicleLoginIndex: {} },
+          fleet: { vehicles: {}, queues: {}, assignmentRules: {}, drivers: {}, queueOwners: {}, vehicleLoginIndex: {} },
           finance: {},
-          providerRegistry: {}
+          providerRegistry: {},
+          meta: { versions: {}, audit: {} }
         }
       }
     };

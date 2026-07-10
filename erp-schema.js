@@ -6,6 +6,25 @@
   var PATHS = {
     erpDataCenter: 'data/erpDataCenter',
     settings: 'data/erpDataCenter/settings',
+    destinations: 'data/erpDataCenter/destinations',
+    stops: 'data/erpDataCenter/stops',
+    boardingPoints: 'data/erpDataCenter/boardingPoints',
+    terminals: 'data/erpDataCenter/terminals',
+    providers: 'data/erpDataCenter/providers',
+    serviceGroups: 'data/erpDataCenter/serviceGroups',
+    routes: 'data/erpDataCenter/routes',
+    routeStopSequences: 'data/erpDataCenter/routeStopSequences',
+    trips: 'data/erpDataCenter/trips',
+    stopTimes: 'data/erpDataCenter/stopTimes',
+    fares: 'data/erpDataCenter/fares',
+    fareSegments: 'data/erpDataCenter/fareSegments',
+    transferRules: 'data/erpDataCenter/transferRules',
+    paymentOwnership: 'data/erpDataCenter/paymentOwnership',
+    temporaryClosures: 'data/erpDataCenter/temporaryClosures',
+    serviceFees: 'data/erpDataCenter/serviceFees',
+    settlementRecipients: 'data/erpDataCenter/settlementRecipients',
+    metaVersions: 'data/erpDataCenter/meta/versions',
+    metaAudit: 'data/erpDataCenter/meta/audit',
     catalog: 'data/erpDataCenter/catalog',
     catalogStops: 'data/erpDataCenter/catalog/stops',
     catalogGroups: 'data/erpDataCenter/catalog/groups',
@@ -20,6 +39,8 @@
     fleet: 'data/erpDataCenter/fleet',
     fleetVehicles: 'data/erpDataCenter/fleet/vehicles',
     fleetQueues: 'data/erpDataCenter/fleet/queues',
+    fleetAssignmentRules: 'data/erpDataCenter/fleet/assignmentRules',
+    fleetDrivers: 'data/erpDataCenter/fleet/drivers',
     fleetQueueOwners: 'data/erpDataCenter/fleet/queueOwners',
     fleetVehicleLoginIndex: 'data/erpDataCenter/fleet/vehicleLoginIndex',
     finance: 'data/erpDataCenter/finance',
@@ -47,6 +68,27 @@
   ];
 
   var OPTIONAL_COLLECTIONS = [
+    'data/erpDataCenter/destinations',
+    'data/erpDataCenter/stops',
+    'data/erpDataCenter/boardingPoints',
+    'data/erpDataCenter/terminals',
+    'data/erpDataCenter/providers',
+    'data/erpDataCenter/serviceGroups',
+    'data/erpDataCenter/routes',
+    'data/erpDataCenter/routeStopSequences',
+    'data/erpDataCenter/trips',
+    'data/erpDataCenter/stopTimes',
+    'data/erpDataCenter/fares',
+    'data/erpDataCenter/fareSegments',
+    'data/erpDataCenter/transferRules',
+    'data/erpDataCenter/paymentOwnership',
+    'data/erpDataCenter/temporaryClosures',
+    'data/erpDataCenter/serviceFees',
+    'data/erpDataCenter/settlementRecipients',
+    'data/erpDataCenter/fleet/assignmentRules',
+    'data/erpDataCenter/fleet/drivers',
+    'data/erpDataCenter/meta/versions',
+    'data/erpDataCenter/meta/audit',
     'data/erpDataCenter/catalog/groups',
     'data/erpDataCenter/catalog/fareSegments',
     'data/erpDataCenter/catalog/services',
@@ -118,6 +160,30 @@
     queue: ['queueId', 'groupId'],
     fare: ['paymentOwnership'],
     fareSegment: ['paymentOwnership']
+  };
+
+  var MASTER_DATA_ENTITIES = {
+    destination: { path: 'data/erpDataCenter/destinations', idField: 'destinationId', labelFields: ['displayNameTh', 'displayNameEn', 'nameTh'] },
+    stop: { path: 'data/erpDataCenter/stops', idField: 'stopKey', labelFields: ['displayNameTh', 'displayNameEn', 'nameTh'] },
+    boardingPoint: { path: 'data/erpDataCenter/boardingPoints', idField: 'boardingPointId', labelFields: ['displayNameTh', 'displayNameEn', 'nameTh'] },
+    terminal: { path: 'data/erpDataCenter/terminals', idField: 'terminalId', labelFields: ['displayNameTh', 'displayNameEn', 'nameTh'] },
+    queue: { path: 'data/erpDataCenter/fleet/queues', idField: 'queueId', labelFields: ['displayNameTh', 'displayNameEn', 'name'] },
+    provider: { path: 'data/erpDataCenter/providers', idField: 'providerId', labelFields: ['displayNameTh', 'displayNameEn', 'name'] },
+    serviceGroup: { path: 'data/erpDataCenter/serviceGroups', idField: 'serviceGroupId', labelFields: ['displayNameTh', 'displayNameEn', 'name'] },
+    route: { path: 'data/erpDataCenter/routes', idField: 'routeId', labelFields: ['displayNameTh', 'displayNameEn', 'name'] },
+    vehicle: { path: 'data/erpDataCenter/fleet/vehicles', idField: 'vehicleId', labelFields: ['registrationNo', 'displayName'] },
+    driver: { path: 'data/erpDataCenter/fleet/drivers', idField: 'driverId', labelFields: ['displayName'] },
+    settlementRecipient: { path: 'data/erpDataCenter/settlementRecipients', idField: 'settlementRecipientId', labelFields: ['displayNameTh', 'displayNameEn', 'name'] },
+    serviceFee: { path: 'data/erpDataCenter/serviceFees', idField: 'serviceFeeId', labelFields: ['displayName'] }
+  };
+
+  var VALID_MASTER_STATUS = ['draft', 'test', 'active', 'inactive', 'archived', 'provisional'];
+  var SERVICE_FEE_POLICY = {
+    currency: 'THB',
+    defaultStandardFee: 5,
+    defaultTrialEffectiveFee: 0,
+    appliesTo: 'all_service_groups',
+    includesExternalPayGroups: true
   };
 
   var VALID_LIVE_VEHICLE_STATUS = ['active', 'moving', 'idle', 'standby', 'off_duty', 'offline'];
@@ -215,6 +281,32 @@
     return value !== null && value !== '' && isFinite(Number(value));
   }
 
+  function isNonNegativeFiniteMoney(value) {
+    return isFiniteNumber(value) && Number(value) >= 0;
+  }
+
+  function serviceFeeStandardAmount(record) {
+    record = valueOrEmpty(record);
+    if (record.standardFee != null) return record.standardFee;
+    if (record.standardAmount != null) return record.standardAmount;
+    if (record.amount != null) return record.amount;
+    return null;
+  }
+
+  function isTrialEnabled(record) {
+    record = valueOrEmpty(record);
+    return record.trialEnabled === true || record.promotionEnabled === true || String(record.activePromotion || '') === 'free_trial';
+  }
+
+  function serviceFeeEffectiveAmount(record) {
+    record = valueOrEmpty(record);
+    if (record.effectiveFee != null) return record.effectiveFee;
+    if (record.effectiveAmount != null) return record.effectiveAmount;
+    if (record.trialEffectiveFee != null) return record.trialEffectiveFee;
+    if (record.trialEffectiveAmount != null) return record.trialEffectiveAmount;
+    return isTrialEnabled(record) ? 0 : serviceFeeStandardAmount(record);
+  }
+
   function isCarAlias(value) {
     return /^car[1-4]$/.test(String(value || '').trim());
   }
@@ -244,6 +336,85 @@
     }
     scan(record);
     return found;
+  }
+
+  function hasOperationalOrPrivateField(record) {
+    var found = '';
+    function scan(value, path) {
+      if (found || !value || typeof value !== 'object') return;
+      Object.keys(value).forEach(function(key) {
+        var next = path ? path + '.' + key : key;
+        if (/booking|passenger|ticket|checkin|checkIn|driverLog|notification|lineLog|liveVehicle|gps/i.test(key)) found = next;
+        scan(value[key], next);
+      });
+    }
+    scan(record, '');
+    return found;
+  }
+
+  function idFieldValue(record, config) {
+    record = valueOrEmpty(record);
+    var fields = [config.idField].concat(config.alternateIdFields || []);
+    for (var i = 0; i < fields.length; i++) {
+      if (record[fields[i]] != null && record[fields[i]] !== '') return String(record[fields[i]]);
+    }
+    return '';
+  }
+
+  function scanMasterDataMap(root, entityType, config, blockers, warnings) {
+    var map = valueOrEmpty(readPath(root, config.path));
+    Object.keys(map).forEach(function(key) {
+      var record = valueOrEmpty(map[key]);
+      var path = config.path + '/' + key;
+      var recordId = idFieldValue(record, config);
+      var status = String(record.status || record.lifecycleStatus || '').trim();
+      if (!recordId) blockers.push({ level: 'blocker', code: 'missing-stable-id', path: path, entityType: entityType, field: config.idField, message: 'Master data records require stable immutable IDs independent from editable display names.' });
+      if (recordId && recordId !== key) blockers.push({ level: 'blocker', code: 'stable-id-key-mismatch', path: path, entityType: entityType, field: config.idField, value: recordId, message: 'Master data map key must match the stable ID field.' });
+      if (record.idChanged === true || record.previousId || record.newId || record.renameToId) blockers.push({ level: 'blocker', code: 'stable-id-rewrite-request', path: path, entityType: entityType, message: 'Admin master-data changes must not rewrite stable IDs.' });
+      if (status && VALID_MASTER_STATUS.indexOf(status) === -1) warnings.push({ level: 'warning', code: 'unknown-master-status', path: path, entityType: entityType, value: status });
+      if ((status === 'test' || record.environmentStatus === 'test') && record.productionReady === true) blockers.push({ level: 'blocker', code: 'test-identity-marked-production-ready', path: path, entityType: entityType, message: 'Test identities must not be exposed as production-ready.' });
+      if (entityType === 'serviceFee' && (record.fareAmount != null || record.baseFare != null || record.originStopKey != null || record.destStopKey != null)) blockers.push({ level: 'blocker', code: 'fare-mixed-with-service-fee', path: path, message: 'Fare configuration must stay separate from service fee configuration.' });
+      if (entityType === 'serviceFee') {
+        var standardAmount = serviceFeeStandardAmount(record);
+        var effectiveAmount = serviceFeeEffectiveAmount(record);
+        var appliesTo = String(record.appliesTo || record.appliesToServiceGroups || '');
+        if (record.currency && String(record.currency) !== SERVICE_FEE_POLICY.currency) blockers.push({ level: 'blocker', code: 'service-fee-currency-not-thb', path: path, message: 'Standard platform service fee must be THB.' });
+        if (standardAmount == null || !isNonNegativeFiniteMoney(standardAmount)) blockers.push({ level: 'blocker', code: 'invalid-standard-service-fee', path: path, message: 'standardFee must be a finite number >= 0.' });
+        if (effectiveAmount == null || !isNonNegativeFiniteMoney(effectiveAmount)) blockers.push({ level: 'blocker', code: 'invalid-effective-service-fee', path: path, message: 'effectiveFee must be derived as a finite number >= 0.' });
+        if (isTrialEnabled(record) && isNonNegativeFiniteMoney(effectiveAmount) && Number(effectiveAmount) !== 0) blockers.push({ level: 'blocker', code: 'trial-effective-service-fee-not-zero', path: path, message: 'Current free-trial effective fee must be THB 0.' });
+        if (!isTrialEnabled(record) && isNonNegativeFiniteMoney(standardAmount) && isNonNegativeFiniteMoney(effectiveAmount) && Number(effectiveAmount) !== Number(standardAmount)) blockers.push({ level: 'blocker', code: 'effective-fee-not-derived-from-standard-fee', path: path, message: 'When free trial is off, effectiveFee must follow configured standardFee.' });
+        if (appliesTo && appliesTo !== SERVICE_FEE_POLICY.appliesTo && appliesTo !== 'all') blockers.push({ level: 'blocker', code: 'service-fee-not-all-groups', path: path, message: 'Platform service fee applies to every service group, including train.' });
+        if (record.includesExternalPayGroups === false || record.includeTrain === false) blockers.push({ level: 'blocker', code: 'service-fee-excludes-train', path: path, message: 'Platform service fee must apply to train/external_pay service groups too.' });
+      }
+      if (entityType === 'vehicle') {
+        var aliases = Array.isArray(record.legacyAliases) ? record.legacyAliases.map(String) : Array.isArray(record.aliases) ? record.aliases.map(String) : [];
+        if (isCarAlias(key) || isCar5Alias(key) || isCarAlias(record.vehicleId) || isCar5Alias(record.vehicleId)) blockers.push({ level: 'blocker', code: 'legacy-alias-used-as-vehicle-id', path: path, message: 'veh_001-style vehicleId must be separate from car1-car5 legacy aliases.' });
+        if ((key === 'veh_005' || aliases.indexOf('car5') !== -1) && record.liveTrackingAvailable !== false) warnings.push({ level: 'warning', code: 'veh-005-live-tracking-should-be-false', path: path, message: 'veh_005/car5 bridge should explicitly support liveTrackingAvailable=false unless owner activates it later.' });
+        if ((aliases.indexOf('car5') !== -1 || key === 'veh_005') && record.productionReady === true && (!record.registrationNo || !record.loginIndexReady)) blockers.push({ level: 'blocker', code: 'veh-005-production-ready-without-login-data', path: path, message: 'veh_005 must remain productionReady=false until real registration and login data exist.' });
+      }
+      if (entityType === 'settlementRecipient' && /bank|account|promptpay|taxId|nationalId/i.test(JSON.stringify(record))) blockers.push({ level: 'blocker', code: 'financial-identity-not-allowed-in-batch-1', path: path, message: 'Batch 1 must not create real-looking personal or financial settlement data.' });
+      var operationalField = hasOperationalOrPrivateField(record);
+      if (operationalField) blockers.push({ level: 'blocker', code: 'operational-field-in-master-data', path: path, field: operationalField, message: 'Master data must not contain booking/passenger/ticket/check-in/GPS/notification operational data.' });
+    });
+  }
+
+  function scanMasterData(root, blockers, warnings) {
+    Object.keys(MASTER_DATA_ENTITIES).forEach(function(entityType) {
+      scanMasterDataMap(root, entityType, MASTER_DATA_ENTITIES[entityType], blockers, warnings);
+    });
+    var fares = valueOrEmpty(readPath(root, PATHS.fares));
+    Object.keys(fares).forEach(function(originKey) {
+      Object.keys(valueOrEmpty(fares[originKey])).forEach(function(destKey) {
+        var fare = valueOrEmpty(fares[originKey][destKey]);
+        if (fare.serviceFee != null || fare.serviceFeeAmount != null || fare.platformFee != null) {
+          blockers.push({ level: 'blocker', code: 'service-fee-mixed-with-fare', path: PATHS.fares + '/' + originKey + '/' + destKey, message: 'Service fee configuration must be separate from fare configuration.' });
+        }
+        if (isTrainGroup005(PATHS.fares + '/' + originKey + '/' + destKey, fare)) {
+          if (paymentOwnershipOf(fare) !== 'external_pay') blockers.push({ level: 'blocker', code: 'train-fare-must-be-external-pay', path: PATHS.fares + '/' + originKey + '/' + destKey, message: 'Train fare must remain external_pay.' });
+          if (Number(fare.platformFareAmount || fare.collectedAmount || fare.amount || 0) !== 0) blockers.push({ level: 'blocker', code: 'train-platform-fare-not-zero', path: PATHS.fares + '/' + originKey + '/' + destKey, message: 'Train platform fare collected by SL-Transit must be 0.' });
+        }
+      });
+    });
   }
 
   function isValidLatitude(value) {
@@ -368,8 +539,8 @@
         blockers.push({ level: 'blocker', code: 'car-alias-used-as-master-key', path: path, message: 'car1-car4 are aliases only; vehicle master data must use canonical vehicleId keys.' });
       }
       if (isCar5Alias(key) || isCar5Alias(vehicle.vehicleId) || aliases.some(isCar5Alias)) {
-        if (!isInactiveOrProvisional(vehicle) && !hasOwnerApproval(vehicle)) {
-          blockers.push({ level: 'blocker', code: 'car5-requires-owner-approval', path: path, message: 'car5 must stay inactive/provisional unless owner approval metadata exists.' });
+        if (vehicle.productionReady === true && (!vehicle.registrationNo || !vehicle.loginIndexReady)) {
+          blockers.push({ level: 'blocker', code: 'veh-005-production-ready-without-login-data', path: path, message: 'veh_005/car5 must remain productionReady=false until real registration and login data exist.' });
         }
       }
       if (hasSensitiveCredentialField(vehicle)) {
@@ -472,6 +643,7 @@
     scanLiveVehicleRecords(root, warnings);
     scanFleetRules(root, blockers, warnings);
     scanFarePaymentRules(root, blockers);
+    scanMasterData(root, blockers, warnings);
     var readinessGate = {
       dryRun: true,
       readyForBackboneReview: blockers.length === 0,
@@ -507,6 +679,23 @@
       data: {
         erpDataCenter: {
           settings: {},
+          destinations: {},
+          stops: {},
+          boardingPoints: {},
+          terminals: {},
+          providers: {},
+          serviceGroups: {},
+          routes: {},
+          routeStopSequences: {},
+          trips: {},
+          stopTimes: {},
+          fares: {},
+          fareSegments: {},
+          transferRules: {},
+          paymentOwnership: {},
+          temporaryClosures: {},
+          serviceFees: {},
+          settlementRecipients: {},
           catalog: {
             stops: {},
             groups: {},
@@ -522,6 +711,8 @@
           fleet: {
             vehicles: {},
             queues: {},
+            assignmentRules: {},
+            drivers: {},
             queueOwners: {},
             vehicleLoginIndex: {}
           },
@@ -529,6 +720,11 @@
             transactions: {}
           },
           providerRegistry: {}
+          ,
+          meta: {
+            versions: {},
+            audit: {}
+          }
         }
       }
     };
@@ -545,7 +741,11 @@
     FORBIDDEN_ERP_DESCENDANT_NAMES: FORBIDDEN_ERP_DESCENDANT_NAMES.slice(),
     FORBIDDEN_ERP_OPERATIONS_SUBTREES: FORBIDDEN_ERP_OPERATIONS_SUBTREES.slice(),
     RECORD_REQUIREMENTS: Object.assign({}, RECORD_REQUIREMENTS),
+    MASTER_DATA_ENTITIES: JSON.parse(JSON.stringify(MASTER_DATA_ENTITIES)),
+    VALID_MASTER_STATUS: VALID_MASTER_STATUS.slice(),
+    SERVICE_FEE_POLICY: Object.assign({}, SERVICE_FEE_POLICY),
     scanReferences: scanReferences,
+    scanMasterData: scanMasterData,
     pathOf: pathOf,
     readPath: readPath,
     validateSnapshot: validateSnapshot,

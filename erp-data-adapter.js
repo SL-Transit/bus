@@ -27,7 +27,30 @@
   var _fleet = {
     vehicles: {},
     queues: {},
-    queueOwners: {}
+    assignmentRules: {},
+    drivers: {},
+    queueOwners: {},
+    vehicleLoginIndex: {}
+  };
+  var _master = {
+    destinations: {},
+    stops: {},
+    boardingPoints: {},
+    terminals: {},
+    providers: {},
+    serviceGroups: {},
+    routes: {},
+    routeStopSequences: {},
+    trips: {},
+    stopTimes: {},
+    fares: {},
+    fareSegments: {},
+    transferRules: {},
+    paymentOwnership: {},
+    temporaryClosures: {},
+    serviceFees: {},
+    settlementRecipients: {},
+    meta: { versions: {}, audit: {} }
   };
   var _settings = {};
   var _ready = false;
@@ -119,8 +142,35 @@
 
   function refreshFleet() {
     return read(schemaPath('fleet', 'data/erpDataCenter/fleet')).then(function(fleet) {
-      _fleet = Object.assign({ vehicles: {}, queues: {}, queueOwners: {} }, valueOrEmpty(fleet));
+      _fleet = Object.assign({ vehicles: {}, queues: {}, assignmentRules: {}, drivers: {}, queueOwners: {}, vehicleLoginIndex: {} }, valueOrEmpty(fleet));
       return _fleet;
+    });
+  }
+
+  function refreshMasterData() {
+    return read(schemaPath('erpDataCenter', 'data/erpDataCenter')).then(function(root) {
+      root = valueOrEmpty(root);
+      _master = Object.assign({
+        destinations: {},
+        stops: {},
+        boardingPoints: {},
+        terminals: {},
+        providers: {},
+        serviceGroups: {},
+        routes: {},
+        routeStopSequences: {},
+        trips: {},
+        stopTimes: {},
+        fares: {},
+        fareSegments: {},
+        transferRules: {},
+        paymentOwnership: {},
+        temporaryClosures: {},
+        serviceFees: {},
+        settlementRecipients: {},
+        meta: { versions: {}, audit: {} }
+      }, root);
+      return _master;
     });
   }
 
@@ -133,7 +183,7 @@
 
   function init(firebaseApp) {
     _db = getDatabaseFromApp(firebaseApp);
-    return Promise.all([refreshCatalog(), refreshFleet(), refreshSettings()]).then(function() {
+    return Promise.all([refreshCatalog(), refreshFleet(), refreshSettings(), refreshMasterData()]).then(function() {
       _ready = true;
       return api;
     });
@@ -329,6 +379,53 @@
     }));
   }
 
+  function masterValues(map, idField) {
+    return valuesWithId(map, idField);
+  }
+
+  function getDestinations() { return Promise.resolve(masterValues(_master.destinations, 'destinationId')); }
+  function getBoardingPoints() { return Promise.resolve(masterValues(_master.boardingPoints, 'boardingPointId')); }
+  function getTerminals() { return Promise.resolve(masterValues(_master.terminals, 'terminalId')); }
+  function getProviders() { return Promise.resolve(masterValues(_master.providers, 'providerId')); }
+  function getServiceGroups() { return Promise.resolve(masterValues(_master.serviceGroups, 'serviceGroupId')); }
+  function getMasterRoutes() { return Promise.resolve(masterValues(_master.routes, 'routeId')); }
+  function getDrivers() { return Promise.resolve(masterValues(_fleet.drivers || _master.fleet && _master.fleet.drivers || {}, 'driverId')); }
+  function getSettlementRecipients() { return Promise.resolve(masterValues(_master.settlementRecipients, 'settlementRecipientId')); }
+  function getServiceFees() { return Promise.resolve(masterValues(_master.serviceFees, 'serviceFeeId')); }
+
+  function getAdminMasterDataCatalog() {
+    return Promise.resolve({
+      destinations: valueOrEmpty(_master.destinations),
+      stops: valueOrEmpty(_master.stops),
+      boardingPoints: valueOrEmpty(_master.boardingPoints),
+      terminals: valueOrEmpty(_master.terminals),
+      providers: valueOrEmpty(_master.providers),
+      serviceGroups: valueOrEmpty(_master.serviceGroups),
+      routes: valueOrEmpty(_master.routes),
+      vehicles: valueOrEmpty(_fleet.vehicles),
+      drivers: valueOrEmpty(_fleet.drivers),
+      queues: valueOrEmpty(_fleet.queues),
+      settlementRecipients: valueOrEmpty(_master.settlementRecipients),
+      serviceFees: valueOrEmpty(_master.serviceFees)
+    });
+  }
+
+  function validateMasterDataChange(change) {
+    var guard = global.SLTransit && global.SLTransit.adminMasterData;
+    if (!guard || typeof guard.validateMasterDataChange !== 'function') {
+      return Promise.reject(new Error('SLTransit admin master-data guard is not loaded'));
+    }
+    return Promise.resolve(guard.validateMasterDataChange(change || {}));
+  }
+
+  function buildMasterDataPlan(change) {
+    var guard = global.SLTransit && global.SLTransit.adminMasterData;
+    if (!guard || typeof guard.buildMasterDataPlan !== 'function') {
+      return Promise.reject(new Error('SLTransit admin master-data guard is not loaded'));
+    }
+    return Promise.resolve(guard.buildMasterDataPlan(change || {}));
+  }
+
   function reorderStops(orderedKeys) {
     if (!Array.isArray(orderedKeys) || !orderedKeys.length) {
       return Promise.reject(new Error('orderedKeys must be a non-empty array'));
@@ -467,6 +564,7 @@
     init: init,
     isReady: isReady,
     refreshCatalog: refreshCatalog,
+    refreshMasterData: refreshMasterData,
     getStops: getStops,
     getStop: getStop,
     getRoute: getRoute,
@@ -487,6 +585,18 @@
     getVehicles: getVehicles,
     getQueues: getQueues,
     getQueueOwners: getQueueOwners,
+    getDestinations: getDestinations,
+    getBoardingPoints: getBoardingPoints,
+    getTerminals: getTerminals,
+    getProviders: getProviders,
+    getServiceGroups: getServiceGroups,
+    getMasterRoutes: getMasterRoutes,
+    getDrivers: getDrivers,
+    getSettlementRecipients: getSettlementRecipients,
+    getServiceFees: getServiceFees,
+    getAdminMasterDataCatalog: getAdminMasterDataCatalog,
+    validateMasterDataChange: validateMasterDataChange,
+    buildMasterDataPlan: buildMasterDataPlan,
     reorderStops: reorderStops,
     watchBookings: watchBookings,
     watchLiveVehicles: watchLiveVehicles,
