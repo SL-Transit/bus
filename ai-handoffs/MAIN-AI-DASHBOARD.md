@@ -20,8 +20,12 @@ Shared approved ERP Data Center contract:
 - source-proven group_001 corridor stops: 15
 - routes: 244
 - trips: 819
-- accepted route sequence evidence: 16
-- unique proven stopTimes: 84
+- raw legacy route sequence evidence containers: 16 (12 complete queue trips + 4 singleton fragments)
+- owner-approved queue_005 sequence evidence: 2 additional complete trips
+- unique active routeSequenceVersions after normalization: 6
+- active queue trips: 14
+- unique proven stopTimes: 94
+- total retained lineage containers: 26
 - fares: 720
 - vehicles: 5
 - queues: 5 after the approved queue_005 correction
@@ -135,11 +139,13 @@ Shared approved ERP Data Center contract:
 ### Current ERP Data Center Gate
 
 - Proven active routes: 244. Keep `ROUTE-MAIN-211` through `ROUTE-MAIN-221` review-only and excluded from active Phase 1 data.
-- Proven unique stopTimes: 84 from 120 raw rows after 36 corroborating duplicates were removed.
+- Proven unique stopTimes before queue_005 correction: 84 from 120 raw rows after 36 corroborating duplicates were removed.
+- Owner-approved queue_005 adds 10 unique stopTimes with no overlap, producing 94 active Phase 1 stopTimes.
 - `km_1` 15:10, `km_7` 15:15, `huaisom`/ห้วยโสม 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
 - The current local Round 2 snapshot was built before the network/group-stop/queue_005 corrections and must not be committed unchanged.
-- Fleet Queue Audit established that queue_001-queue_004 rotate veh_001-veh_004 and queue_005 is fixed to veh_005. Round 2 must recalculate queue, assignment-rule, route-sequence, and stopTime counts before implementation resumes.
-- Candidate count changes requiring Data Import verification: queues 4 -> 5, assignment rules 1 -> at least 2, add two queue_005 trips, add ten queue_005 stopTimes, route-sequence evidence may become 18, and unique stopTimes may become 94 after deduplication/trip-link validation.
+- Fleet Queue Audit established that queue_001-queue_004 rotate veh_001-veh_004 and queue_005 is fixed to veh_005.
+- Owner-approved normalized Round 2 counts: vehicles 5, queues 5, queue schedule versions 5, active queue trips 14, assignment rules 2, unique routeSequenceVersions 6, trip-to-sequence assignments 14, unique stopTimes 94, and retained raw lineage containers 26.
+- The six active sequence versions are: สนามชัยเขต -> ฉะเชิงเทรา, ฉะเชิงเทรา -> คลองหาด, คลองหาด -> ฉะเชิงเทรา, ฉะเชิงเทรา -> สนามชัยเขต, หนองคอก -> ฉะเชิงเทรา, and ฉะเชิงเทรา -> หนองคอก.
 - Queue_002 08:00 raw order is not authoritative. Use the approved reverse corridor order and chronological times; preserve the malformed raw ordering only as source-conflict evidence.
 - The legacy singleton rows at กม.1 15:10, กม.7 15:15, ห้วยโสม 15:20, and ท่าตะเกียบ 15:30 are intermediate evidence for the queue_003 14:00 trip, not separate queue_004/005/006 trips.
 - `readyForReview=true` may describe an internally valid dry-run only. It is not production approval.
