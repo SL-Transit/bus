@@ -128,15 +128,19 @@ Shared approved ERP Data Center contract:
 
 ### Timetable Time Semantics
 
-- Scheduled timetable values are planning estimates and are not a guarantee that a vehicle will pass a stop at the exact minute.
-- Distinguish at least:
-  - `scheduled_origin_departure`: planned departure from the trip/offer origin.
-  - `estimated_pass_through`: owner-approved estimated time a vehicle will pass an intermediate stop.
+- The primary timetable authority is each queueTrip's planned departure from its actual starting stop.
+- Intermediate-stop and planned-arrival times are rough planning estimates and are not a guarantee that a vehicle will pass a stop at the exact minute.
+- Distinguish:
+  - `scheduled_origin_departure`: the planned departure from the actual queueTrip origin; this is the timetable's primary time.
+  - `estimated_pass_through`: a rough time the vehicle may pass an intermediate stop.
+  - `estimated_arrival`: a rough planned arrival at the queueTrip destination.
   - live ETA: a separate ERP Logic Center result calculated only from real operational position/trip evidence.
-- The 73 group_001 offers previously classified as `needs_review/missing_stop_time` are owner-approved estimated timetable offers. Classify them as `estimated_schedule`, not missing data.
-- An estimated offer may be used for journey planning, but must not claim a queueTrip, vehicle, assignment, GPS, live tracking, or ETA unless separately evidence-mapped.
+- For the 14 active queueTrips and 94 stopTimes, expect 14 origin departures and treat the remaining intermediate/destination times as estimates; Data Import must verify the exact role counts rather than assume every stopTime is equally authoritative.
+- The 73 group_001 offers previously classified as `needs_review/missing_stop_time` are owner-created estimated timetable offers, not missing data. Reclassify them under estimated timetable semantics using the actual queue-origin boundary.
+- An estimated offer may be used for journey planning/reference, but must not claim an exact pickup time, queueTrip, vehicle, assignment, GPS, live tracking, or ETA unless separately evidence-mapped.
 - Passenger-facing surfaces must label estimated timetable values clearly, for example: `เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง`.
 - Preserve the planned timetable even when a live ETA is available; do not overwrite scheduled/estimated source data with runtime predictions.
+- For intermediate-stop pickup, the platform should focus on the real vehicle position and approaching-stop ETA when available; the rough pass-through time remains reference data only.
 
 ### Payment And Service Fee Policy
 
