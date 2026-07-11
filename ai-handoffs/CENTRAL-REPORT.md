@@ -481,3 +481,26 @@ Blockers: none.
 
 Next action:
 - Owner to confirm the fix on a real device (same admin test session that surfaced the bug), including checking that the Allow/Deny buttons are now reachable with the admin banner visible.
+
+## 2026-07-11 12:32 +07 (Asia/Bangkok) - Passenger AI - REVIEW
+
+Scope:
+- `passenger.html` (JS + CSS)
+
+Summary — follow-up bug reported by owner (screenshot confirmed the previous popup-clipping fix worked, buttons now visible), two new issues:
+1. Accidentally tapped "ไม่อนุญาต" (deny), then tapping the follow-me button again to reconsider showed nothing — popup never reappeared.
+   - Root cause: `requestLocationConsent()` had a hard `if (status === 'declined') return Promise.resolve(false)` with no way to override it, so **any** caller — including the follow-me button, which is supposed to let the user reconsider — got silently blocked forever after one decline, not just the automatic page-load check.
+   - Fix: added a `forcePrompt` parameter. The automatic page-load call stays parameterless (still respects a prior decline, doesn't nag every visit). The follow-me button now calls `requestLocationConsent(true)`, which always re-shows the popup unless consent was already granted.
+2. Reported buttons "not centered" / easy to mis-tap — CSS already used flexbox with equal-width buttons; added an explicit `text-align:center` on `.lc-btn` as a defensive fix in case of a font/rendering-specific offset. Could not fully reproduce root cause from the screenshot alone; flagging that this part may need another look if still off after this deploy.
+
+Evidence:
+- Commit: `<pending — see next push>`
+- Tests: syntax-checked the inline script; traced the call sites of `requestLocationConsent()` (auto page-load vs. follow-me button click) to confirm only the button path now force-reprompts.
+
+Safety:
+- Firebase writes: none. Passenger/private data touched: none. Schema backbone changed: none. booking.html/check_ticket.html changed: none.
+
+Blockers: none.
+
+Next action:
+- Owner to re-test: (a) tap "ไม่อนุญาต" once, then tap the follow-me button again and confirm the popup reappears; (b) confirm whether the button-centering issue is resolved or needs another screenshot to diagnose further.

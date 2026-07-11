@@ -30,6 +30,7 @@ Before changing any code or writing a plan, update or report your intended work 
 | ERP Data Center import guard round 2 | Main Backbone Support AI | REVIEW | `erp-import-plan.js`, `erp-schema.js`, `erp-data-adapter.js`, handoff docs | 2026-07-10 00:00 +07 | 2026-07-10 00:00 +07 | guard patch `ac2f045` | Patch nested forbidden descendants/subtrees under `data/erpDataCenter/*` and gate adapter private writes; Firebase writes none. |
 
 | Passenger UI bug fix | Passenger AI | REVIEW | `passenger.html` — fixed location-consent popup buttons being clipped off-screen (reported by owner with screenshot, admin test session) | 2026-07-11 12:22 +07 | 2026-07-11 12:22 +07 | see `ai-handoffs/CENTRAL-REPORT.md` (12:22 entry) | CSS-only fix (position:fixed instead of position:absolute for the consent overlay). No Firebase/schema/data changes. |
+| Passenger UI bug fix (follow-up) | Passenger AI | REVIEW | `passenger.html` — fixed consent popup never reappearing after a decline (follow-me button couldn't re-prompt); button text-align defensive fix | 2026-07-11 12:32 +07 | 2026-07-11 12:32 +07 | see `ai-handoffs/CENTRAL-REPORT.md` (12:32 entry) | JS+CSS only. No Firebase/schema/data changes. |
 
 ## How To Add / Update A Lock
 Use one row per work area. Keep scope narrow.

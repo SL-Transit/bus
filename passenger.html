@@ -461,7 +461,7 @@ body { background:#edf6f8; }
 .location-consent-title { font-weight:700; font-size:16px; color:var(--text); margin-bottom:8px; }
 .location-consent-body { font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:16px; }
 .location-consent-actions { display:flex; gap:10px; }
-.lc-btn { flex:1; padding:11px; border-radius:10px; font-family:'Kanit',sans-serif; font-size:14px; font-weight:700; cursor:pointer; border:1px solid transparent; }
+.lc-btn { flex:1; padding:11px; border-radius:10px; font-family:'Kanit',sans-serif; font-size:14px; font-weight:700; cursor:pointer; border:1px solid transparent; text-align:center; }
 .lc-btn-primary { background:var(--teal-dark); color:#fff; }
 .lc-btn-secondary { background:#fff; color:var(--muted); border-color:var(--border); }
 .location-consent-note { font-size:11px; color:var(--muted); margin-top:12px; }
@@ -701,10 +701,10 @@ function updateFollowUserButton() {
   btn.textContent = isOn ? 'กำลังติดตามตำแหน่งของฉัน' : 'ติดตามตำแหน่งของฉัน';
 }
 
-function requestLocationConsent() {
+function requestLocationConsent(forcePrompt) {
   var status = SLPassengerLogic.privacy.getConsentStatus();
   if (status === 'granted') return Promise.resolve(true);
-  if (status === 'declined') return Promise.resolve(false);
+  if (status === 'declined' && !forcePrompt) return Promise.resolve(false);
 
   return new Promise(function(resolve) {
     var overlay = document.getElementById('locationConsentOverlay');
@@ -734,7 +734,7 @@ function bindFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn || btn.dataset.bound === '1') return;
   btn.addEventListener('click', async function() {
-    var ok = await requestLocationConsent();
+    var ok = await requestLocationConsent(true);
     if (!ok) return;
     SLPassengerLogic.map.setFollowUser(true);
   });
