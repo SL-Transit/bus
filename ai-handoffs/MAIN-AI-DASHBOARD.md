@@ -49,6 +49,16 @@ Shared approved ERP Data Center contract:
 - Phase capability is configurable. A node that is origin-disabled now is not permanently destination-only.
 - `group_001` is the Phase 1 pilot. Other groups may later enable origin selection and live tracking through approved data/config without page-code changes.
 
+### Owner Vision: Real-World Travel Routine
+
+- SL-Transit must digitize the way local travel already works in real life, not force drivers or passengers into artificial rules.
+- Before leaving home, a passenger plans the journey, chooses a nearby stop, checks the approximate time a vehicle may pass that stop, and books or reserves the ride like the old phone-booking routine.
+- While waiting at the stop, the passenger uses the planned pass-through time as a waiting aid. When real tracking is available, live vehicle position and ETA become the stronger signal.
+- A vehicle follows its assigned queueTrip, passes intermediate stops, stops for pickup/drop-off demand, and continues immediately. Intermediate stops are not waiting points unless the specific queueTrip explicitly defines that stop as a scheduled departure or waiting point.
+- When a passenger boards, the system should help answer the normal real-world question: "about how many minutes until my destination or transfer stop?"
+- At a destination or transfer node, the platform should eventually help the passenger see the next queue/route, departure time, fare, and boarding point instead of requiring the passenger to ask every terminal manually.
+- ERP Data Center stores the real-world network, queue schedules, route sequences, stop roles, and reference timetable data. ERP Logic Center turns that into journey planning, ETA, transfer guidance, fare visibility, and notification decisions. UI pages display the result and must not invent business rules locally.
+
 ### Neutral Service Groups
 
 | Legacy alias | Canonical ID |
@@ -125,15 +135,25 @@ Shared approved ERP Data Center contract:
 - Passenger may request a narrow group_001 ETA result from ERP Logic Center; do not introduce a full PassengerViewModel in Phase 1.
 - Passenger displays the result only and must not calculate fare, queue, assignment, transfer, booking, LINE, GPS, or ETA rules.
 - If real position/trip mapping is unavailable or stale under a future approved policy, return ETA unavailable. Never estimate from fake data.
+- ETA has two approved passenger contexts:
+  - pre-boarding ETA: estimate when the assigned vehicle will reach the passenger pickup stop.
+  - in-vehicle ETA: after boarding, estimate when the same vehicle will reach the passenger drop-off stop or transfer node.
+- Both ETA contexts must be calculated by ERP Logic Center from real live vehicle position, route sequence, queueTrip, stop/node positions, and booking/trip context. Static schedule estimates must not override real ETA when live evidence exists.
+- LINE or other notifications may use ETA outputs only through ERP Notification Service after separate owner approval. UI pages must not send notifications directly.
 
 ### Timetable Time Semantics
 
 - The primary timetable authority is each queueTrip's planned departure from its actual starting stop.
 - Intermediate-stop and planned-arrival times are rough planning estimates and are not a guarantee that a vehicle will pass a stop at the exact minute.
+- Intermediate stop times exist so passengers who board along the route can estimate when to wait near their stop. They are passenger waiting aids and driver-schedule estimates, not guaranteed departure times.
+- Vehicles do not wait at every intermediate stop. They stop for pickup/drop-off demand and continue immediately unless that queueTrip defines the stop as a scheduled departure or conditional waiting point.
 - Distinguish:
   - `scheduled_origin_departure`: the planned departure from the actual queueTrip origin; this is the timetable's primary time.
   - `estimated_pass_through`: a rough time the vehicle may pass an intermediate stop.
   - `estimated_arrival`: a rough planned arrival at the queueTrip destination.
+  - `pickup_on_demand`: vehicle may stop for passenger pickup/drop-off demand.
+  - `no_waiting_stop`: vehicle should not wait after pickup/drop-off is complete.
+  - `conditional_waiting_point`: a stop where a specific owner-approved queueTrip may wait until its scheduled departure time.
   - live ETA: a separate ERP Logic Center result calculated only from real operational position/trip evidence.
 - For the 14 active queueTrips and 94 stopTimes, expect 14 origin departures and treat the remaining intermediate/destination times as estimates; Data Import must verify the exact role counts rather than assume every stopTime is equally authoritative.
 - The 73 group_001 offers previously classified as `needs_review/missing_stop_time` are owner-created estimated timetable offers, not missing data. Reclassify them under estimated timetable semantics using the actual queue-origin boundary.
