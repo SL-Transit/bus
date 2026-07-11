@@ -458,3 +458,26 @@ Blockers:
 
 Next action:
 - Requesting Main Backbone Lead / Data Import AI review `ai-handoffs/passenger-schedule-node-request.md` and build the `publishedSchedule` node (or propose an alternative shape/path — passenger's renderer just needs *a* precomputed node in roughly this shape, the exact path/name is backbone's call).
+
+## 2026-07-11 12:22 +07 (Asia/Bangkok) - Passenger AI - REVIEW
+
+Scope:
+- `passenger.html` (CSS only)
+
+Summary — bug reported directly by owner with a screenshot (admin test session on live `sl-transit.com/passenger.html`):
+- The location-consent popup ("ขอเข้าถึงตำแหน่งของคุณ") showed its title and body text but the Allow/Deny buttons and privacy-policy link were not visible or reachable, so the popup couldn't be dismissed.
+- Root cause: `.location-consent-overlay` used `position:absolute; inset:0;` sized to `.map-page`'s box. `.map-page` is `height:100dvh` in the mobile layout, but the admin-test banner (`.admin-test-strip`, shown only for admin test sessions) sits in normal flow *before* `.map-page` and is not accounted for in that height. With `body`/`.map-page` both `overflow:hidden`, the extra banner height pushed the bottom of `.map-page` (and everything positioned relative to it, including the consent card's buttons) below the visible viewport with no way to scroll to it.
+- Fix: changed the overlay to `position:fixed; inset:0;` so it anchors to the true viewport regardless of what's pushed above `.map-page`, added `overflow-y:auto` on both the overlay and the card as a defensive fallback for any other extreme-viewport case (small screens, on-screen keyboard, unusual browser chrome), and added `env(safe-area-inset-bottom)` padding for devices with a home-indicator bar. Bumped z-index from 60 to 200 for extra safety margin above all other fixed/absolute elements on the page (previous max in use was 60).
+- No JS changes — CSS only, so no behavior change to consent logic, geolocation handling, or any data flow.
+
+Evidence:
+- Commit: `<pending — see next push>`
+- Tests: syntax-checked the inline script (unchanged, confirms no JS regression); visually traced the CSS cascade for `.map-page`/`.admin-test-strip`/`.location-consent-overlay` to confirm the root cause matches the reported symptom exactly (title+body visible, buttons clipped).
+
+Safety:
+- Firebase writes: none. Passenger/private data touched: none. Schema backbone changed: none. booking.html/check_ticket.html changed: none.
+
+Blockers: none.
+
+Next action:
+- Owner to confirm the fix on a real device (same admin test session that surfaced the bug), including checking that the Allow/Deny buttons are now reachable with the admin banner visible.
