@@ -34,7 +34,8 @@ function firstEstimatedTime(publishedSchedule) {
 }
 
 function firstUnknownTransferPair(publishedSchedule) {
-  return values(publishedSchedule.pairs).find((pair) => pair.transferStatus === 'unknown');
+  return values(publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {})
+    .find((pair) => pair.transferStatus === 'unknown');
 }
 
 function firstExternalTime(publishedSchedule) {
@@ -47,8 +48,12 @@ function firstExternalTime(publishedSchedule) {
   return null;
 }
 
+function firstVisiblePair(publishedSchedule) {
+  return values(publishedSchedule.pairs)[0] || null;
+}
+
 function firstEmptyUnknownTransferPair(publishedSchedule) {
-  return values(publishedSchedule.pairs).find((pair) => (
+  return values(publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {}).find((pair) => (
     pair.transferStatus === 'unknown' &&
     pair.referenceOnly === true &&
     (pair.segments || []).some((segment) => !segment.times || segment.times.length === 0)
@@ -79,9 +84,11 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.mappingStatusSummary.departure_only === 262, 'departure_only count mismatch');
   assert(schedule.mappingStatusSummary.external_schedule === 132, 'external_schedule count mismatch');
   assert((schedule.mappingStatusSummary.needs_review || 0) === 0, 'needs_review must be zero');
-  assert(schedule.counts.pairs === 529, 'pair count mismatch');
+  assert(schedule.counts.pairs === 207, 'visible pair count mismatch');
+  assert(schedule.counts.visiblePairs === 207, 'visible pair count alias mismatch');
   assert(schedule.counts.transferUnknownPairs === 322, 'transfer unknown count mismatch');
   assert(schedule.counts.transferReferencePairs === 322, 'transfer reference count mismatch');
+  assert(schedule.counts.excludedFromPreview.transferUnknown === 322, 'excluded transfer unknown count mismatch');
   assert(schedule.counts.estimatedReferenceTimes === 360, 'estimated reference time count mismatch');
 
   values(schedule.pairs).forEach((pair) => {
@@ -94,6 +101,8 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
     assert(pair.canonicalPairKey.indexOf(pair.destinationLabel) === -1, 'canonical key must not include destination label');
     assert(schedule.compatibilityKeyIndex[pair.compatibilityPairKey].canonicalPairKey === pair.canonicalPairKey, 'compatibility key index mismatch');
   });
+
+  assert(values(schedule.pairs).every((pair) => pair.transferStatus !== 'unknown'), 'transfer unknown pairs must be hidden from Passenger Preview pairs');
 
   assert(schedule.origins.indexOf('ฉะเชิงเทรา (แปดริ้ว)') !== -1, 'origin list must include Chachoengsao display label');
   assert(schedule.destinations['หมอชิต'], 'destination list must include Bangkok destination');
@@ -109,7 +118,7 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(estimated.disabled === false, 'referenceOnly time must not be disabled');
 
   const unknownTransfer = firstUnknownTransferPair(schedule);
-  assert(unknownTransfer, 'must include transfer-rule-backed preview pairs');
+  assert(unknownTransfer, 'must retain transfer-rule-backed pairs in excludedPreviewPairs');
   assert(unknownTransfer.transfer && unknownTransfer.transfer.required === true, 'unknown transfer pair must carry transfer metadata');
   assert(unknownTransfer.transferDisclaimerTh, 'unknown transfer pair must carry disclaimer');
   assert(unknownTransfer.referenceOnly === true, 'unknown transfer pair must be reference-only');
@@ -144,31 +153,43 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(validatePublishedSchedule(missingEstimatedBadge).blockers.some((blocker) => blocker.code === 'estimated-time-badge-missing'), 'missing estimated badge must fail validation');
 
   const labelDerivedId = clone(schedule);
-  const labelPair = firstUnknownTransferPair(labelDerivedId);
+  const labelPair = firstVisiblePair(labelDerivedId);
   labelPair.pairId = labelPair.compatibilityPairKey;
   labelPair.canonicalPairKey = labelPair.compatibilityPairKey;
   assert(validatePublishedSchedule(labelDerivedId).blockers.some((blocker) => blocker.code === 'label-derived-canonical-pair-id'), 'label-derived canonical pair ID must fail validation');
 
   const missingCompatibilityMark = clone(schedule);
-  firstUnknownTransferPair(missingCompatibilityMark).compatibilityOnly = false;
+  firstVisiblePair(missingCompatibilityMark).compatibilityOnly = false;
   assert(validatePublishedSchedule(missingCompatibilityMark).blockers.some((blocker) => blocker.code === 'compatibility-pair-key-not-marked'), 'compatibility pair key must be marked compatibility-only');
 
   const collisionIndex = clone(schedule);
-  const collisionPair = firstUnknownTransferPair(collisionIndex);
+  const collisionPair = firstVisiblePair(collisionIndex);
   collisionIndex.compatibilityKeyIndex[collisionPair.compatibilityPairKey].canonicalPairKey = 'psv1_pair_wrong_collision';
   assert(validatePublishedSchedule(collisionIndex).blockers.some((blocker) => blocker.code === 'compatibility-key-index-missing'), 'compatibility key collision/index mismatch must fail validation');
 
+  const visibleUnknownTransfer = clone(schedule);
+  const hiddenTransfer = firstUnknownTransferPair(visibleUnknownTransfer);
+  visibleUnknownTransfer.pairs[hiddenTransfer.compatibilityPairKey] = hiddenTransfer;
+  visibleUnknownTransfer.compatibilityKeyIndex[hiddenTransfer.compatibilityPairKey] = {
+    keyType: 'compatibility_label_pair',
+    compatibilityOnly: true,
+    canonicalPairKey: hiddenTransfer.canonicalPairKey,
+    originLabel: hiddenTransfer.originLabel,
+    destinationLabel: hiddenTransfer.destinationLabel
+  };
+  assert(validatePublishedSchedule(visibleUnknownTransfer).blockers.some((blocker) => blocker.code === 'unknown-transfer-visible-in-preview'), 'visible unknown transfer must fail validation');
+
   const missingTransferDisclaimer = clone(schedule);
   firstUnknownTransferPair(missingTransferDisclaimer).transferDisclaimerTh = null;
-  assert(validatePublishedSchedule(missingTransferDisclaimer).blockers.some((blocker) => blocker.code === 'unknown-transfer-missing-disclaimer'), 'unknown transfer without disclaimer must fail validation');
+  assert(validatePublishedSchedule(missingTransferDisclaimer).blockers.some((blocker) => blocker.code === 'excluded-transfer-missing-disclaimer'), 'excluded unknown transfer without disclaimer must fail validation');
 
   const activeUnknownTransfer = clone(schedule);
   firstUnknownTransferPair(activeUnknownTransfer).routeChoiceStatus = 'preview_available';
-  assert(validatePublishedSchedule(activeUnknownTransfer).blockers.some((blocker) => blocker.code === 'unknown-transfer-not-reference-unavailable'), 'unknown transfer must not be active route choice');
+  assert(validatePublishedSchedule(activeUnknownTransfer).blockers.some((blocker) => blocker.code === 'excluded-transfer-not-reference-unavailable'), 'excluded unknown transfer must remain unavailable/reference');
 
   const unsafeEmptyTransfer = clone(schedule);
   firstEmptyUnknownTransferPair(unsafeEmptyTransfer).segments[0].unavailable = false;
-  assert(validatePublishedSchedule(unsafeEmptyTransfer).blockers.some((blocker) => blocker.code === 'empty-transfer-segment-not-marked-unavailable'), 'empty transfer segment must be marked unavailable/reference');
+  assert(validatePublishedSchedule(unsafeEmptyTransfer).blockers.some((blocker) => blocker.code === 'excluded-transfer-segment-not-marked-unavailable'), 'empty transfer segment must be marked unavailable/reference');
 
   const unsafeExternal = clone(schedule);
   firstExternalTime(unsafeExternal).referenceOnly = false;

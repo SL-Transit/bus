@@ -200,6 +200,7 @@ function validatePublishedSchedule(publishedSchedule) {
 
   const pairs = publishedSchedule.pairs || {};
   const compatibilityKeyIndex = publishedSchedule.compatibilityKeyIndex || {};
+  const excludedTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {};
   const scheduleOfferIds = [];
   const canonicalKeys = new Set();
   Object.keys(pairs).forEach((pairKey) => {
@@ -223,20 +224,10 @@ function validatePublishedSchedule(publishedSchedule) {
     if (!compatibilityKeyIndex[pairKey] || compatibilityKeyIndex[pairKey].canonicalPairKey !== pair.canonicalPairKey) {
       block('compatibility-key-index-missing', `publishedSchedule/compatibilityKeyIndex/${pairKey}`);
     }
-    if (pair.transferStatus === 'unknown' && !pair.transferDisclaimerTh) {
-      block('unknown-transfer-missing-disclaimer', `publishedSchedule/pairs/${pairKey}`);
-    }
     if (pair.transferStatus === 'unknown') {
-      if (pair.referenceOnly !== true || pair.routeChoiceStatus !== 'unavailable_reference') {
-        block('unknown-transfer-not-reference-unavailable', `publishedSchedule/pairs/${pairKey}`);
-      }
+      block('unknown-transfer-visible-in-preview', `publishedSchedule/pairs/${pairKey}`);
     }
     (pair.segments || []).forEach((segment, segmentIndex) => {
-      if (pair.transferStatus === 'unknown' && (!segment.times || segment.times.length === 0)) {
-        if (segment.referenceOnly !== true || segment.unavailable !== true || segment.availabilityStatus !== 'needs_confirmation') {
-          block('empty-transfer-segment-not-marked-unavailable', `publishedSchedule/pairs/${pairKey}/segments/${segmentIndex}`);
-        }
-      }
       (segment.times || []).forEach((time, timeIndex) => {
         scheduleOfferIds.push(time.scheduleOfferId);
         if (time.mappingStatus === 'external_schedule') {
@@ -255,6 +246,21 @@ function validatePublishedSchedule(publishedSchedule) {
           if (time.disclaimerKey !== ESTIMATED_DISCLAIMER_KEY || !time.disclaimerTh) block('estimated-time-disclaimer-missing', `publishedSchedule/pairs/${pairKey}/segments/${segmentIndex}/times/${timeIndex}`);
         }
       });
+    });
+  });
+
+  Object.keys(excludedTransferPairs).forEach((pairKey) => {
+    const pair = excludedTransferPairs[pairKey];
+    if (pair.transferStatus !== 'unknown' || pair.referenceOnly !== true || pair.routeChoiceStatus !== 'unavailable_reference') {
+      block('excluded-transfer-not-reference-unavailable', `publishedSchedule/excludedPreviewPairs/transferUnknown/${pairKey}`);
+    }
+    if (!pair.transferDisclaimerTh) {
+      block('excluded-transfer-missing-disclaimer', `publishedSchedule/excludedPreviewPairs/transferUnknown/${pairKey}`);
+    }
+    (pair.segments || []).forEach((segment, segmentIndex) => {
+      if ((segment.times || []).length !== 0 || segment.referenceOnly !== true || segment.unavailable !== true || segment.availabilityStatus !== 'needs_confirmation') {
+        block('excluded-transfer-segment-not-marked-unavailable', `publishedSchedule/excludedPreviewPairs/transferUnknown/${pairKey}/segments/${segmentIndex}`);
+      }
     });
   });
 
@@ -290,10 +296,6 @@ async function buildPublishedScheduleV1DryRun() {
   const destinationsById = erp.destinations;
   const networkNodesById = erp.networkNodes;
   const routesById = erp.routes;
-  const transferRuleByPair = values(erp.transferRules).reduce((map, rule) => {
-    map[`${rule.originStopKey}__${rule.destStopKey}`] = rule;
-    return map;
-  }, {});
   const originSort = buildOriginSort(erp);
   const originDestinations = values(destinationsById)
     .filter((destination) => destination.originSelectable === true && destination.status !== 'inactive')
@@ -318,6 +320,7 @@ async function buildPublishedScheduleV1DryRun() {
   }, {});
 
   const pairs = {};
+  const excludedTransferPairs = {};
   values(erp.scheduleOffers).forEach((offer) => {
     const route = routesById[offer.routeId];
     if (!route || offer.status === 'inactive') return;
@@ -331,7 +334,6 @@ async function buildPublishedScheduleV1DryRun() {
 
     const pairKey = compatibilityPairKey(originLabel, destinationLabel);
     if (!pairs[pairKey]) {
-      const transferRule = transferRuleByPair[`${offer.originDestinationId}__${offer.destinationId}`];
       const canonicalPairKey = scheduledCanonicalPairKey(offer);
       pairs[pairKey] = {
         pairId: canonicalPairKey,
@@ -355,11 +357,11 @@ async function buildPublishedScheduleV1DryRun() {
         externalReference: offer.mappingStatus === 'external_schedule',
         externalDisclaimerKey: offer.mappingStatus === 'external_schedule' ? EXTERNAL_SERVICE_DISCLAIMER_KEY : null,
         externalDisclaimerTh: offer.mappingStatus === 'external_schedule' ? EXTERNAL_SERVICE_DISCLAIMER_TH : null,
-        transfer: transferRule ? { required: true, viaStopKey: transferRule.viaStopKey } : null,
-        transferStatus: transferRule ? 'unknown' : 'not_required',
-        transferDisclaimerKey: transferRule ? TRANSFER_UNKNOWN_DISCLAIMER_KEY : null,
-        transferDisclaimerTh: transferRule ? TRANSFER_UNKNOWN_DISCLAIMER_TH : null,
-        transferRuleId: transferRule ? transferRule.transferRuleId : null,
+        transfer: null,
+        transferStatus: 'not_required',
+        transferDisclaimerKey: null,
+        transferDisclaimerTh: null,
+        transferRuleId: null,
         segments: [],
         sourceLineage: []
       };
@@ -376,20 +378,7 @@ async function buildPublishedScheduleV1DryRun() {
     const originLabel = originDestination.displayNameTh;
     const destinationLabel = destination.displayNameTh;
     const pairKey = compatibilityPairKey(originLabel, destinationLabel);
-    if (!pairs[pairKey]) {
-      pairs[pairKey] = buildTransferReferencePair(rule, originLabel, destinationLabel, viaDestination.displayNameTh);
-      return;
-    }
-    pairs[pairKey].transfer = { required: true, viaStopKey: rule.viaStopKey };
-    pairs[pairKey].transferStatus = 'unknown';
-    pairs[pairKey].referenceOnly = true;
-    pairs[pairKey].previewDisplayMode = 'reference_needs_confirmation';
-    pairs[pairKey].routeChoiceStatus = 'unavailable_reference';
-    pairs[pairKey].unavailableReasonCode = 'transfer_feasibility_unknown';
-    pairs[pairKey].transferDisclaimerKey = TRANSFER_UNKNOWN_DISCLAIMER_KEY;
-    pairs[pairKey].transferDisclaimerTh = TRANSFER_UNKNOWN_DISCLAIMER_TH;
-    pairs[pairKey].transferRuleId = rule.transferRuleId;
-    pairs[pairKey].sourceLineage = pairs[pairKey].sourceLineage.concat(rule.sourceLineage || []);
+    excludedTransferPairs[pairKey] = buildTransferReferencePair(rule, originLabel, destinationLabel, viaDestination.displayNameTh);
   });
 
   Object.keys(pairs).forEach((pairKey) => {
@@ -400,7 +389,7 @@ async function buildPublishedScheduleV1DryRun() {
 
   const mappingStatusSummary = summarizeMappingStatus(erp.scheduleOffers);
   const timeTypeSummary = summarizeTimeTypes(pairs);
-  const transferUnknownPairs = values(pairs).filter((pair) => pair.transferStatus === 'unknown').length;
+  const transferUnknownPairs = Object.keys(excludedTransferPairs).length;
   const compatibilityKeyIndex = Object.keys(pairs).sort().reduce((map, pairKey) => {
     const pair = pairs[pairKey];
     map[pairKey] = {
@@ -447,9 +436,13 @@ async function buildPublishedScheduleV1DryRun() {
       origins: origins.length,
       destinations: Object.keys(destinations).length,
       pairs: Object.keys(pairs).length,
+      visiblePairs: Object.keys(pairs).length,
       scheduleOfferTimes: values(erp.scheduleOffers).length,
       transferUnknownPairs,
-      transferReferencePairs: values(pairs).filter((pair) => pair.transferStatus === 'unknown' && pair.referenceOnly === true).length,
+      transferReferencePairs: values(excludedTransferPairs).filter((pair) => pair.transferStatus === 'unknown' && pair.referenceOnly === true).length,
+      excludedFromPreview: {
+        transferUnknown: Object.keys(excludedTransferPairs).length
+      },
       estimatedReferenceTimes
     },
     mappingStatusSummary,
@@ -457,6 +450,9 @@ async function buildPublishedScheduleV1DryRun() {
     origins,
     destinations,
     compatibilityKeyIndex,
+    excludedPreviewPairs: {
+      transferUnknown: excludedTransferPairs
+    },
     pairs
   };
 
