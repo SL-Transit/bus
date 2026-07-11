@@ -3,10 +3,10 @@
 Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
 
 Source of truth:
-- Latest reviewed main before this dashboard update: dd6e5ffa76a4c6a2460ede105abccb42c1870974
+- Latest reviewed main before this dashboard update: a65d535d5e57ff3311052a45ab087fb838773278
 - Bridge audit dashboard: ai-handoffs/BRIDGE-AUDIT-DASHBOARD.md
 - Owner-approved network decisions in this dashboard override stale `main`, `bangkok`, `coastal`, vehicle/queue, and `nongkhok: pass_through` assumptions in older coordination notes.
-- Completion Round 2 remains local/uncommitted and must be revised against this dashboard before commit.
+- Completion Round 2 dry-run snapshot and tests were committed and pushed at `2f4fbca28427cec818cb7aebca2bf0b62826c087`; post-push QA passed for the four ERP snapshot/registry implementation and test files.
 - Data Import dry-run state: readyForReview true, readyForApply false
 - Production apply / Firebase seed: NOT approved
 
@@ -178,7 +178,7 @@ Shared approved ERP Data Center contract:
 - Proven unique stopTimes before queue_005 correction: 84 from 120 raw rows after 36 corroborating duplicates were removed.
 - Owner-approved queue_005 adds 10 unique stopTimes with no overlap, producing 94 active Phase 1 stopTimes.
 - `km_1` 15:10, `km_7` 15:15, `huaisom`/ห้วยโสม 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
-- The current local Round 2 snapshot was built before the network/group-stop/queue_005 corrections and must not be committed unchanged.
+- Older local Round 2 drafts must not be used. The current reviewed Round 2 artifact is commit `2f4fbca28427cec818cb7aebca2bf0b62826c087`, with `readyForReview=true` for internal dry-run review only; `readyForApply=false` remains enforced, and Firebase seed/production apply is not approved.
 - Fleet Queue Audit established that queue_001-queue_004 rotate veh_001-veh_004 and queue_005 is fixed to veh_005.
 - Owner-approved normalized Round 2 counts: vehicles 5, queues 5, queue schedule versions 5, active queue trips 14, assignment rules 2, unique routeSequenceVersions 6, trip-to-sequence assignments 14, unique stopTimes 94, and retained raw lineage containers 26.
 - The six active sequence versions are: สนามชัยเขต -> ฉะเชิงเทรา, ฉะเชิงเทรา -> คลองหาด, คลองหาด -> ฉะเชิงเทรา, ฉะเชิงเทรา -> สนามชัยเขต, หนองคอก -> ฉะเชิงเทรา, and ฉะเชิงเทรา -> หนองคอก.
