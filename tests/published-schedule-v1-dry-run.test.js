@@ -5,6 +5,10 @@ const {
   ESTIMATED_BADGE_TH,
   ESTIMATED_DISCLAIMER_KEY,
   EXTERNAL_SERVICE_DISCLAIMER_KEY,
+  TRANSFER_REFERENCE_BADGE_TH,
+  TRANSFER_REFERENCE_DISCLAIMER_KEY,
+  TRANSFER_REFERENCE_DISCLAIMER_TH,
+  TRANSFER_POLICY,
   buildPublishedScheduleV1DryRun,
   validatePublishedSchedule
 } = require('../tools/published-schedule-v1-dry-run.js');
@@ -38,6 +42,15 @@ function firstUnknownTransferPair(publishedSchedule) {
     .find((pair) => pair.transferStatus === 'unknown');
 }
 
+function firstFeasibleTransferPair(publishedSchedule) {
+  return values(publishedSchedule.pairs).find((pair) => pair.transferStatus === 'feasible_reference');
+}
+
+function firstInfeasibleTransferPair(publishedSchedule) {
+  return values(publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferInfeasible || {})
+    .find((pair) => pair.transferStatus === 'infeasible');
+}
+
 function firstExternalTime(publishedSchedule) {
   for (const pair of values(publishedSchedule.pairs)) {
     for (const segment of pair.segments || []) {
@@ -53,8 +66,8 @@ function firstVisiblePair(publishedSchedule) {
 }
 
 function firstEmptyUnknownTransferPair(publishedSchedule) {
-  return values(publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {}).find((pair) => (
-    pair.transferStatus === 'unknown' &&
+  return values(publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferInfeasible || {}).find((pair) => (
+    pair.transferStatus === 'infeasible' &&
     pair.referenceOnly === true &&
     (pair.segments || []).some((segment) => !segment.times || segment.times.length === 0)
   ));
@@ -84,11 +97,14 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.mappingStatusSummary.departure_only === 262, 'departure_only count mismatch');
   assert(schedule.mappingStatusSummary.external_schedule === 132, 'external_schedule count mismatch');
   assert((schedule.mappingStatusSummary.needs_review || 0) === 0, 'needs_review must be zero');
-  assert(schedule.counts.pairs === 207, 'visible pair count mismatch');
-  assert(schedule.counts.visiblePairs === 207, 'visible pair count alias mismatch');
-  assert(schedule.counts.transferUnknownPairs === 322, 'transfer unknown count mismatch');
-  assert(schedule.counts.transferReferencePairs === 322, 'transfer reference count mismatch');
-  assert(schedule.counts.excludedFromPreview.transferUnknown === 322, 'excluded transfer unknown count mismatch');
+  assert(schedule.counts.pairs === 471, 'visible pair count mismatch');
+  assert(schedule.counts.visiblePairs === 471, 'visible pair count alias mismatch');
+  assert(schedule.counts.transferUnknownPairs === 0, 'transfer unknown count mismatch');
+  assert(schedule.counts.transferReferencePairs === 264, 'transfer reference count mismatch');
+  assert(schedule.counts.transferFeasibleReferencePairs === 264, 'transfer feasible reference count mismatch');
+  assert(schedule.counts.transferInfeasibleAuditPairs === 58, 'transfer infeasible audit count mismatch');
+  assert(schedule.counts.excludedFromPreview.transferUnknown === 0, 'excluded transfer unknown count mismatch');
+  assert(schedule.counts.excludedFromPreview.transferInfeasible === 58, 'excluded transfer infeasible count mismatch');
   assert(schedule.counts.estimatedReferenceTimes === 360, 'estimated reference time count mismatch');
 
   values(schedule.pairs).forEach((pair) => {
@@ -117,19 +133,36 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(estimated.passengerDisplayMode === 'reference', 'referenceOnly means display as reference, not disabled');
   assert(estimated.disabled === false, 'referenceOnly time must not be disabled');
 
-  const unknownTransfer = firstUnknownTransferPair(schedule);
-  assert(unknownTransfer, 'must retain transfer-rule-backed pairs in excludedPreviewPairs');
-  assert(unknownTransfer.transfer && unknownTransfer.transfer.required === true, 'unknown transfer pair must carry transfer metadata');
-  assert(unknownTransfer.transferDisclaimerTh, 'unknown transfer pair must carry disclaimer');
-  assert(unknownTransfer.referenceOnly === true, 'unknown transfer pair must be reference-only');
-  assert(unknownTransfer.routeChoiceStatus === 'unavailable_reference', 'unknown transfer pair must not look like confirmed active route choice');
+  const feasibleTransfer = firstFeasibleTransferPair(schedule);
+  assert(feasibleTransfer, 'must expose feasible transfer pairs as visible references');
+  assert(feasibleTransfer.transfer && feasibleTransfer.transfer.required === true, 'feasible transfer pair must carry transfer metadata');
+  assert(feasibleTransfer.transferStatus === 'feasible_reference', 'feasible transfer pair must be marked feasible_reference');
+  assert(feasibleTransfer.routeChoiceStatus === 'reference_only', 'feasible transfer must be reference only');
+  assert(feasibleTransfer.previewDisplayMode === 'transfer_reference', 'feasible transfer display mode mismatch');
+  assert(feasibleTransfer.referenceOnly === true, 'feasible transfer pair must be reference-only');
+  assert(feasibleTransfer.bookingEligible === false, 'feasible transfer must not be booking eligible');
+  assert(feasibleTransfer.guaranteedTransfer === false, 'feasible transfer must not claim a guaranteed connection');
+  assert(feasibleTransfer.displayBadgeTh === TRANSFER_REFERENCE_BADGE_TH, 'feasible transfer badge mismatch');
+  assert(feasibleTransfer.transferDisclaimerKey === TRANSFER_REFERENCE_DISCLAIMER_KEY, 'feasible transfer disclaimer key mismatch');
+  assert(feasibleTransfer.transferDisclaimerTh === TRANSFER_REFERENCE_DISCLAIMER_TH, 'feasible transfer disclaimer mismatch');
+  assert(feasibleTransfer.transferTiming.bestConnection.waitMinutes >= TRANSFER_POLICY.minTransferMinutes, 'feasible transfer wait below policy');
+  assert(feasibleTransfer.transferTiming.bestConnection.waitMinutes <= TRANSFER_POLICY.maxRecommendedWaitMinutes, 'feasible transfer wait above policy');
+  assert(feasibleTransfer.transferTiming.bestConnection.sourceEvidence.transferRule.length > 0, 'feasible transfer must preserve source evidence');
+
+  const infeasibleTransfer = firstInfeasibleTransferPair(schedule);
+  assert(infeasibleTransfer, 'must retain infeasible transfer pairs in excludedPreviewPairs');
+  assert(infeasibleTransfer.transferStatus === 'infeasible', 'infeasible transfer status mismatch');
+  assert(infeasibleTransfer.infeasibleReason.indexOf('wait time outside policy') !== -1, 'infeasible transfer reason mismatch');
+  assert(infeasibleTransfer.routeChoiceStatus === 'unavailable_reference', 'infeasible transfer must stay hidden/unavailable');
+  assert(infeasibleTransfer.bookingEligible === false, 'infeasible transfer must not be booking eligible');
+  assert(infeasibleTransfer.guaranteedTransfer === false, 'infeasible transfer must not claim a guaranteed connection');
 
   const emptyUnknownTransfer = firstEmptyUnknownTransferPair(schedule);
-  assert(emptyUnknownTransfer, 'must include empty transfer reference pairs');
+  assert(emptyUnknownTransfer, 'must include hidden infeasible transfer reference pairs');
   emptyUnknownTransfer.segments.forEach((segment) => {
-    assert(segment.referenceOnly === true, 'empty transfer segment must be reference-only');
-    assert(segment.unavailable === true, 'empty transfer segment must be unavailable');
-    assert(segment.availabilityStatus === 'needs_confirmation', 'empty transfer segment must require confirmation');
+    assert(segment.referenceOnly === true, 'hidden transfer segment must be reference-only');
+    assert(segment.unavailable === true, 'hidden transfer segment must be unavailable');
+    assert(segment.availabilityStatus === 'infeasible', 'hidden transfer segment must be marked infeasible');
   });
 
   const external = firstExternalTime(schedule);
@@ -168,7 +201,8 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(validatePublishedSchedule(collisionIndex).blockers.some((blocker) => blocker.code === 'compatibility-key-index-missing'), 'compatibility key collision/index mismatch must fail validation');
 
   const visibleUnknownTransfer = clone(schedule);
-  const hiddenTransfer = firstUnknownTransferPair(visibleUnknownTransfer);
+  const hiddenTransfer = firstInfeasibleTransferPair(visibleUnknownTransfer);
+  hiddenTransfer.transferStatus = 'unknown';
   visibleUnknownTransfer.pairs[hiddenTransfer.compatibilityPairKey] = hiddenTransfer;
   visibleUnknownTransfer.compatibilityKeyIndex[hiddenTransfer.compatibilityPairKey] = {
     keyType: 'compatibility_label_pair',
@@ -180,16 +214,24 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(validatePublishedSchedule(visibleUnknownTransfer).blockers.some((blocker) => blocker.code === 'unknown-transfer-visible-in-preview'), 'visible unknown transfer must fail validation');
 
   const missingTransferDisclaimer = clone(schedule);
-  firstUnknownTransferPair(missingTransferDisclaimer).transferDisclaimerTh = null;
-  assert(validatePublishedSchedule(missingTransferDisclaimer).blockers.some((blocker) => blocker.code === 'excluded-transfer-missing-disclaimer'), 'excluded unknown transfer without disclaimer must fail validation');
+  firstFeasibleTransferPair(missingTransferDisclaimer).transferDisclaimerTh = null;
+  assert(validatePublishedSchedule(missingTransferDisclaimer).blockers.some((blocker) => blocker.code === 'feasible-transfer-display-policy-missing'), 'feasible transfer without disclaimer must fail validation');
 
   const activeUnknownTransfer = clone(schedule);
-  firstUnknownTransferPair(activeUnknownTransfer).routeChoiceStatus = 'preview_available';
-  assert(validatePublishedSchedule(activeUnknownTransfer).blockers.some((blocker) => blocker.code === 'excluded-transfer-not-reference-unavailable'), 'excluded unknown transfer must remain unavailable/reference');
+  firstInfeasibleTransferPair(activeUnknownTransfer).routeChoiceStatus = 'preview_available';
+  assert(validatePublishedSchedule(activeUnknownTransfer).blockers.some((blocker) => blocker.code === 'excluded-infeasible-transfer-not-unavailable'), 'excluded infeasible transfer must remain unavailable/reference');
 
   const unsafeEmptyTransfer = clone(schedule);
   firstEmptyUnknownTransferPair(unsafeEmptyTransfer).segments[0].unavailable = false;
-  assert(validatePublishedSchedule(unsafeEmptyTransfer).blockers.some((blocker) => blocker.code === 'excluded-transfer-segment-not-marked-unavailable'), 'empty transfer segment must be marked unavailable/reference');
+  assert(validatePublishedSchedule(unsafeEmptyTransfer).blockers.some((blocker) => blocker.code === 'excluded-infeasible-transfer-segment-not-hidden'), 'hidden transfer segment must be marked unavailable/reference');
+
+  const bookingTransfer = clone(schedule);
+  firstFeasibleTransferPair(bookingTransfer).bookingEligible = true;
+  assert(validatePublishedSchedule(bookingTransfer).blockers.some((blocker) => blocker.code === 'feasible-transfer-operational-claim'), 'feasible transfer must not allow booking');
+
+  const guaranteedTransfer = clone(schedule);
+  firstFeasibleTransferPair(guaranteedTransfer).guaranteedTransfer = true;
+  assert(validatePublishedSchedule(guaranteedTransfer).blockers.some((blocker) => blocker.code === 'feasible-transfer-operational-claim'), 'feasible transfer must not claim a guarantee');
 
   const unsafeExternal = clone(schedule);
   firstExternalTime(unsafeExternal).referenceOnly = false;

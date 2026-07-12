@@ -8,6 +8,18 @@ const ESTIMATED_DISCLAIMER_KEY = 'estimated_travel_time_may_change';
 const ESTIMATED_DISCLAIMER_TH = 'เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง';
 const TRANSFER_UNKNOWN_DISCLAIMER_KEY = 'transfer_feasibility_not_confirmed';
 const TRANSFER_UNKNOWN_DISCLAIMER_TH = 'ข้อมูลต่อรถเป็นข้อมูลอ้างอิง ต้องยืนยันจุดต่อรถและความพร้อมให้บริการก่อนใช้งานจริง';
+const TRANSFER_REFERENCE_BADGE_TH = '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e2d\u0e49\u0e32\u0e07\u0e2d\u0e34\u0e07';
+const TRANSFER_REFERENCE_DISCLAIMER_KEY = 'transfer_reference_confirm_before_travel';
+const TRANSFER_REFERENCE_DISCLAIMER_TH = '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e40\u0e1b\u0e47\u0e19\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2d\u0e49\u0e32\u0e07\u0e2d\u0e34\u0e07 \u0e15\u0e49\u0e2d\u0e07\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e41\u0e25\u0e30\u0e04\u0e27\u0e32\u0e21\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e43\u0e2b\u0e49\u0e1a\u0e23\u0e34\u0e01\u0e32\u0e23\u0e01\u0e48\u0e2d\u0e19\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19\u0e08\u0e23\u0e34\u0e07';
+const TRANSFER_POLICY = {
+  minTransferMinutes: 15,
+  idealWaitMinutes: 30,
+  maxRecommendedWaitMinutes: 60,
+  sourceWorkbook: 'SL-Transit_ทั้งหมด_20260627.xlsx',
+  policySheetName: '02_กลุ่มเส้นทาง',
+  policySheetRows: '2-6',
+  queueTimesSheetName: '05_คิวรถและเวลา'
+};
 const EXTERNAL_SERVICE_DISCLAIMER_KEY = 'external_service_confirm_outside_sl_transit';
 const EXTERNAL_SERVICE_DISCLAIMER_TH = 'บริการหรือค่าโดยสารนี้ต้องชำระหรือยืนยันภายนอกระบบ SL-Transit';
 const FORBIDDEN_OPERATIONAL_FIELDS = ['gps', 'eta', 'vehicleId', 'assignmentId', 'liveVehicleId', 'liveTrackingAvailable', 'driverId'];
@@ -26,6 +38,77 @@ function scheduledCanonicalPairKey(offer) {
 
 function transferCanonicalPairKey(rule) {
   return `psv1_pair_dest_${rule.originStopKey}_to_${rule.destStopKey}_via_${rule.viaStopKey}`;
+}
+
+function timeToMinutes(time) {
+  const match = /^(\d\d?):(\d\d)$/.exec(String(time || ''));
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function lineagePaths(items) {
+  return values(items).reduce((paths, item) => {
+    (item && item.sourceLineage || []).forEach((lineage) => {
+      if (lineage && lineage.sourcePath && paths.indexOf(lineage.sourcePath) === -1) paths.push(lineage.sourcePath);
+    });
+    return paths;
+  }, []);
+}
+
+function transferPolicyEvidence() {
+  return {
+    workbook: TRANSFER_POLICY.sourceWorkbook,
+    sheet: TRANSFER_POLICY.policySheetName,
+    rows: TRANSFER_POLICY.policySheetRows,
+    minTransferMinutes: TRANSFER_POLICY.minTransferMinutes,
+    idealWaitMinutes: TRANSFER_POLICY.idealWaitMinutes,
+    maxRecommendedWaitMinutes: TRANSFER_POLICY.maxRecommendedWaitMinutes
+  };
+}
+
+function queueTripSource(queueTrip) {
+  if (!queueTrip) return null;
+  const sourcePath = (queueTrip.sourceLineage || [])
+    .map((lineage) => lineage.sourcePath || '')
+    .find((path) => /^routeData\/queues\/\d+\/trips\/\d+$/.test(path));
+  if (!sourcePath) return null;
+  const match = /^routeData\/queues\/(\d+)\/trips\/(\d+)$/.exec(sourcePath);
+  return {
+    sourcePath,
+    queue: Number(match[1]),
+    trip: Number(match[2])
+  };
+}
+
+function workbookRowForStopTime(erp, queueTrip, stopTime) {
+  const source = queueTripSource(queueTrip);
+  if (!source || !stopTime) return null;
+  const priorStopRows = values(erp.fleet && erp.fleet.queueTrips || {}).reduce((total, candidate) => {
+    const candidateSource = queueTripSource(candidate);
+    if (!candidateSource) return total;
+    if (candidateSource.queue < source.queue || (candidateSource.queue === source.queue && candidateSource.trip < source.trip)) {
+      return total + (candidate.orderedStopTimes || []).length;
+    }
+    return total;
+  }, 0);
+  return 2 + priorStopRows + Math.max(0, Number(stopTime.sequence || 1) - 1);
+}
+
+function queueTripWorkbookEvidence(erp, queueTrip, stopTime) {
+  if (!queueTrip || !stopTime) return null;
+  const source = queueTripSource(queueTrip);
+  if (!source) return null;
+  return {
+    workbook: TRANSFER_POLICY.sourceWorkbook,
+    sheet: TRANSFER_POLICY.queueTimesSheetName,
+    row: workbookRowForStopTime(erp, queueTrip, stopTime),
+    sourcePath: `${source.sourcePath}/stops/${Math.max(0, Number(stopTime.sequence || 1) - 1)}`,
+    queue: String(source.queue),
+    trip: String(source.trip),
+    sequence: stopTime.sequence,
+    stopKey: stopTime.stopKey,
+    time: stopTime.departureTime || stopTime.arrivalTime
+  };
 }
 
 function buildOriginSort(erp) {
@@ -151,6 +234,170 @@ function buildTransferReferencePair(rule, originLabel, destinationLabel, viaLabe
   };
 }
 
+function findTransferLegEvidence(erp, routeId, fromStopKey, toStopKey) {
+  return values(erp.scheduleOffers)
+    .filter((offer) => (
+      offer.routeId === routeId &&
+      offer.originDestinationId === fromStopKey &&
+      offer.destinationId === toStopKey &&
+      offer.status !== 'inactive'
+    ))
+    .map((offer) => {
+      const queueTrip = offer.queueTripId && erp.fleet && erp.fleet.queueTrips && erp.fleet.queueTrips[offer.queueTripId] || null;
+      const queueStopTimes = queueTrip ? values(erp.stopTimes).filter((stopTime) => stopTime.queueTripId === queueTrip.queueTripId) : [];
+      const originStopTime = queueStopTimes.find((stopTime) => stopTime.stopKey === fromStopKey) || null;
+      const destinationStopTime = queueStopTimes.find((stopTime) => stopTime.stopKey === toStopKey) || null;
+      return {
+        offer,
+        queueTrip,
+        originStopTime,
+        destinationStopTime,
+        departureMinutes: timeToMinutes(offer.departureTime),
+        arrivalMinutes: timeToMinutes(destinationStopTime && (destinationStopTime.arrivalTime || destinationStopTime.departureTime) || offer.departureTime)
+      };
+    });
+}
+
+function boardingPointForStopKey(erp, stopKey) {
+  const destination = erp.destinations && erp.destinations[stopKey];
+  if (!destination) return null;
+  return values(erp.boardingPoints).find((boardingPoint) => boardingPoint.nodeId === destination.nodeId) || null;
+}
+
+function buildTransferAudit(rule, erp) {
+  const routeIds = rule.segmentRouteIds || [];
+  const leg1 = findTransferLegEvidence(erp, routeIds[0], rule.originStopKey, rule.viaStopKey);
+  const leg2 = findTransferLegEvidence(erp, routeIds[1], rule.viaStopKey, rule.destStopKey);
+  const boardingPoint = boardingPointForStopKey(erp, rule.viaStopKey);
+  const policy = transferPolicyEvidence();
+  const candidates = [];
+
+  leg1.forEach((arrivalLeg) => {
+    leg2.forEach((departureLeg) => {
+      if (arrivalLeg.arrivalMinutes == null || departureLeg.departureMinutes == null) return;
+      const waitMinutes = departureLeg.departureMinutes - arrivalLeg.arrivalMinutes;
+      if (waitMinutes < 0) return;
+      const feasible = waitMinutes >= TRANSFER_POLICY.minTransferMinutes && waitMinutes <= TRANSFER_POLICY.maxRecommendedWaitMinutes;
+      candidates.push({
+        feasible,
+        waitMinutes,
+        arrivalTimeAtTransfer: arrivalLeg.destinationStopTime && (arrivalLeg.destinationStopTime.arrivalTime || arrivalLeg.destinationStopTime.departureTime) || arrivalLeg.offer.departureTime,
+        nextDepartureTime: departureLeg.offer.departureTime,
+        transferStopKey: rule.viaStopKey,
+        leg1ScheduleOfferId: arrivalLeg.offer.legacyPublishedTripId,
+        leg2ScheduleOfferId: departureLeg.offer.legacyPublishedTripId,
+        leg1RouteId: arrivalLeg.offer.routeId,
+        leg2RouteId: departureLeg.offer.routeId,
+        leg1MappingStatus: arrivalLeg.offer.mappingStatus,
+        leg2MappingStatus: departureLeg.offer.mappingStatus,
+        leg1TimeType: arrivalLeg.offer.timeType,
+        leg2TimeType: departureLeg.offer.timeType,
+        workbookEvidence: {
+          policy,
+          leg1OriginStop: queueTripWorkbookEvidence(erp, arrivalLeg.queueTrip, arrivalLeg.originStopTime),
+          leg1TransferStop: queueTripWorkbookEvidence(erp, arrivalLeg.queueTrip, arrivalLeg.destinationStopTime),
+          leg2TransferStop: queueTripWorkbookEvidence(erp, departureLeg.queueTrip, departureLeg.originStopTime)
+        },
+        sourceEvidence: {
+          transferRule: lineagePaths([rule]),
+          leg1ScheduleOffer: lineagePaths([arrivalLeg.offer]),
+          leg2ScheduleOffer: lineagePaths([departureLeg.offer]),
+          leg1StopTime: lineagePaths([arrivalLeg.originStopTime, arrivalLeg.destinationStopTime]),
+          leg2StopTime: lineagePaths([departureLeg.originStopTime])
+        }
+      });
+    });
+  });
+
+  const feasibleCandidates = candidates.filter((candidate) => candidate.feasible === true);
+  const sortByPolicyFit = (a, b) => (
+    Math.abs(a.waitMinutes - TRANSFER_POLICY.idealWaitMinutes) - Math.abs(b.waitMinutes - TRANSFER_POLICY.idealWaitMinutes) ||
+    a.waitMinutes - b.waitMinutes ||
+    a.nextDepartureTime.localeCompare(b.nextDepartureTime)
+  );
+  feasibleCandidates.sort(sortByPolicyFit);
+  candidates.sort(sortByPolicyFit);
+
+  const missing = [];
+  if (!routeIds[0] || !routeIds[1]) missing.push('missing_transfer_route_segments');
+  if (!leg1.length) missing.push('missing_arrival_leg_time');
+  if (!leg2.length) missing.push('missing_next_leg_time');
+  if (!boardingPoint) missing.push('missing_boarding_point');
+  if (!candidates.length) missing.push('missing_transfer_buffer_candidate');
+
+  return {
+    status: feasibleCandidates.length ? 'feasible' : 'infeasible',
+    policy,
+    bestCandidate: feasibleCandidates[0] || candidates[0] || null,
+    candidateCount: candidates.length,
+    feasibleCandidateCount: feasibleCandidates.length,
+    missing,
+    boardingPoint: boardingPoint ? {
+      boardingPointId: boardingPoint.boardingPointId,
+      nodeId: boardingPoint.nodeId,
+      sourceLineage: boardingPoint.sourceLineage || []
+    } : null,
+    reason: feasibleCandidates.length ? null : 'wait_time_outside_policy_or_missing_transfer_timing'
+  };
+}
+
+function applyFeasibleTransferPolicy(pair, audit) {
+  pair.transferStatus = 'feasible_reference';
+  pair.routeChoiceStatus = 'reference_only';
+  pair.previewDisplayMode = 'transfer_reference';
+  pair.referenceOnly = true;
+  pair.bookingEligible = false;
+  pair.guaranteedTransfer = false;
+  pair.displayBadgeTh = TRANSFER_REFERENCE_BADGE_TH;
+  pair.transferDisclaimerKey = TRANSFER_REFERENCE_DISCLAIMER_KEY;
+  pair.transferDisclaimerTh = TRANSFER_REFERENCE_DISCLAIMER_TH;
+  pair.transferTiming = {
+    policy: audit.policy,
+    bestConnection: audit.bestCandidate,
+    candidateCount: audit.candidateCount,
+    feasibleCandidateCount: audit.feasibleCandidateCount,
+    boardingPoint: audit.boardingPoint
+  };
+  pair.segments.forEach((segment) => {
+    segment.note = TRANSFER_REFERENCE_DISCLAIMER_TH;
+    segment.unavailable = false;
+    segment.availabilityStatus = 'reference_only';
+    segment.routeChoiceStatus = 'reference_only';
+  });
+  return pair;
+}
+
+function applyInfeasibleTransferPolicy(pair, audit) {
+  pair.transferStatus = 'infeasible';
+  pair.routeChoiceStatus = 'unavailable_reference';
+  pair.previewDisplayMode = 'reference_unavailable';
+  pair.referenceOnly = true;
+  pair.bookingEligible = false;
+  pair.guaranteedTransfer = false;
+  pair.unavailableReasonCode = 'transfer_wait_time_outside_policy';
+  pair.infeasibleReason = 'wait time outside policy';
+  pair.displayBadgeTh = TRANSFER_REFERENCE_BADGE_TH;
+  pair.transferDisclaimerKey = TRANSFER_REFERENCE_DISCLAIMER_KEY;
+  pair.transferDisclaimerTh = TRANSFER_REFERENCE_DISCLAIMER_TH;
+  pair.transferTiming = {
+    policy: audit.policy,
+    bestConnection: audit.bestCandidate,
+    candidateCount: audit.candidateCount,
+    feasibleCandidateCount: audit.feasibleCandidateCount,
+    missing: audit.missing,
+    reason: audit.reason,
+    boardingPoint: audit.boardingPoint
+  };
+  pair.segments.forEach((segment) => {
+    segment.note = TRANSFER_REFERENCE_DISCLAIMER_TH;
+    segment.referenceOnly = true;
+    segment.unavailable = true;
+    segment.availabilityStatus = 'infeasible';
+    segment.routeChoiceStatus = 'unavailable_reference';
+  });
+  return pair;
+}
+
 function summarizeMappingStatus(scheduleOffers) {
   return values(scheduleOffers).reduce((summary, offer) => {
     summary[offer.mappingStatus] = (summary[offer.mappingStatus] || 0) + 1;
@@ -201,6 +448,7 @@ function validatePublishedSchedule(publishedSchedule) {
   const pairs = publishedSchedule.pairs || {};
   const compatibilityKeyIndex = publishedSchedule.compatibilityKeyIndex || {};
   const excludedTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {};
+  const excludedInfeasibleTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferInfeasible || {};
   const scheduleOfferIds = [];
   const canonicalKeys = new Set();
   Object.keys(pairs).forEach((pairKey) => {
@@ -226,6 +474,20 @@ function validatePublishedSchedule(publishedSchedule) {
     }
     if (pair.transferStatus === 'unknown') {
       block('unknown-transfer-visible-in-preview', `publishedSchedule/pairs/${pairKey}`);
+    }
+    if (pair.transferStatus === 'feasible_reference') {
+      if (pair.referenceOnly !== true || pair.routeChoiceStatus !== 'reference_only' || pair.previewDisplayMode !== 'transfer_reference') {
+        block('feasible-transfer-not-reference-only', `publishedSchedule/pairs/${pairKey}`);
+      }
+      if (pair.bookingEligible !== false || pair.guaranteedTransfer !== false) {
+        block('feasible-transfer-operational-claim', `publishedSchedule/pairs/${pairKey}`);
+      }
+      if (pair.displayBadgeTh !== TRANSFER_REFERENCE_BADGE_TH || pair.transferDisclaimerKey !== TRANSFER_REFERENCE_DISCLAIMER_KEY || pair.transferDisclaimerTh !== TRANSFER_REFERENCE_DISCLAIMER_TH) {
+        block('feasible-transfer-display-policy-missing', `publishedSchedule/pairs/${pairKey}`);
+      }
+      if (!pair.transferTiming || !pair.transferTiming.bestConnection || pair.transferTiming.bestConnection.waitMinutes < TRANSFER_POLICY.minTransferMinutes || pair.transferTiming.bestConnection.waitMinutes > TRANSFER_POLICY.maxRecommendedWaitMinutes) {
+        block('feasible-transfer-policy-evidence-missing', `publishedSchedule/pairs/${pairKey}/transferTiming`);
+      }
     }
     (pair.segments || []).forEach((segment, segmentIndex) => {
       (segment.times || []).forEach((time, timeIndex) => {
@@ -260,6 +522,27 @@ function validatePublishedSchedule(publishedSchedule) {
     (pair.segments || []).forEach((segment, segmentIndex) => {
       if ((segment.times || []).length !== 0 || segment.referenceOnly !== true || segment.unavailable !== true || segment.availabilityStatus !== 'needs_confirmation') {
         block('excluded-transfer-segment-not-marked-unavailable', `publishedSchedule/excludedPreviewPairs/transferUnknown/${pairKey}/segments/${segmentIndex}`);
+      }
+    });
+  });
+
+  Object.keys(excludedInfeasibleTransferPairs).forEach((pairKey) => {
+    const pair = excludedInfeasibleTransferPairs[pairKey];
+    if (pair.transferStatus !== 'infeasible' || pair.referenceOnly !== true || pair.routeChoiceStatus !== 'unavailable_reference') {
+      block('excluded-infeasible-transfer-not-unavailable', `publishedSchedule/excludedPreviewPairs/transferInfeasible/${pairKey}`);
+    }
+    if (pair.bookingEligible !== false || pair.guaranteedTransfer !== false) {
+      block('excluded-infeasible-transfer-operational-claim', `publishedSchedule/excludedPreviewPairs/transferInfeasible/${pairKey}`);
+    }
+    if (!String(pair.infeasibleReason || '').includes('wait time outside policy')) {
+      block('excluded-infeasible-transfer-reason-missing', `publishedSchedule/excludedPreviewPairs/transferInfeasible/${pairKey}`);
+    }
+    if (!pair.transferTiming || !pair.transferTiming.policy || !pair.transferTiming.bestConnection) {
+      block('excluded-infeasible-transfer-evidence-missing', `publishedSchedule/excludedPreviewPairs/transferInfeasible/${pairKey}/transferTiming`);
+    }
+    (pair.segments || []).forEach((segment, segmentIndex) => {
+      if ((segment.times || []).length !== 0 || segment.referenceOnly !== true || segment.unavailable !== true || segment.availabilityStatus !== 'infeasible') {
+        block('excluded-infeasible-transfer-segment-not-hidden', `publishedSchedule/excludedPreviewPairs/transferInfeasible/${pairKey}/segments/${segmentIndex}`);
       }
     });
   });
@@ -321,6 +604,7 @@ async function buildPublishedScheduleV1DryRun() {
 
   const pairs = {};
   const excludedTransferPairs = {};
+  const excludedInfeasibleTransferPairs = {};
   values(erp.scheduleOffers).forEach((offer) => {
     const route = routesById[offer.routeId];
     if (!route || offer.status === 'inactive') return;
@@ -378,7 +662,13 @@ async function buildPublishedScheduleV1DryRun() {
     const originLabel = originDestination.displayNameTh;
     const destinationLabel = destination.displayNameTh;
     const pairKey = compatibilityPairKey(originLabel, destinationLabel);
-    excludedTransferPairs[pairKey] = buildTransferReferencePair(rule, originLabel, destinationLabel, viaDestination.displayNameTh);
+    const transferPair = buildTransferReferencePair(rule, originLabel, destinationLabel, viaDestination.displayNameTh);
+    const audit = buildTransferAudit(rule, erp);
+    if (audit.status === 'feasible') {
+      pairs[pairKey] = applyFeasibleTransferPolicy(transferPair, audit);
+    } else {
+      excludedInfeasibleTransferPairs[pairKey] = applyInfeasibleTransferPolicy(transferPair, audit);
+    }
   });
 
   Object.keys(pairs).forEach((pairKey) => {
@@ -390,6 +680,8 @@ async function buildPublishedScheduleV1DryRun() {
   const mappingStatusSummary = summarizeMappingStatus(erp.scheduleOffers);
   const timeTypeSummary = summarizeTimeTypes(pairs);
   const transferUnknownPairs = Object.keys(excludedTransferPairs).length;
+  const transferFeasibleReferencePairs = values(pairs).filter((pair) => pair.transferStatus === 'feasible_reference').length;
+  const transferInfeasibleAuditPairs = Object.keys(excludedInfeasibleTransferPairs).length;
   const compatibilityKeyIndex = Object.keys(pairs).sort().reduce((map, pairKey) => {
     const pair = pairs[pairKey];
     map[pairKey] = {
@@ -429,6 +721,10 @@ async function buildPublishedScheduleV1DryRun() {
       estimatedDisclaimerTh: ESTIMATED_DISCLAIMER_TH,
       unknownTransferDisclaimerKey: TRANSFER_UNKNOWN_DISCLAIMER_KEY,
       unknownTransferDisclaimerTh: TRANSFER_UNKNOWN_DISCLAIMER_TH,
+      transferReferenceBadgeTh: TRANSFER_REFERENCE_BADGE_TH,
+      transferReferenceDisclaimerKey: TRANSFER_REFERENCE_DISCLAIMER_KEY,
+      transferReferenceDisclaimerTh: TRANSFER_REFERENCE_DISCLAIMER_TH,
+      transferReferencePolicy: transferPolicyEvidence(),
       externalServiceDisclaimerKey: EXTERNAL_SERVICE_DISCLAIMER_KEY,
       externalServiceDisclaimerTh: EXTERNAL_SERVICE_DISCLAIMER_TH
     },
@@ -439,9 +735,12 @@ async function buildPublishedScheduleV1DryRun() {
       visiblePairs: Object.keys(pairs).length,
       scheduleOfferTimes: values(erp.scheduleOffers).length,
       transferUnknownPairs,
-      transferReferencePairs: values(excludedTransferPairs).filter((pair) => pair.transferStatus === 'unknown' && pair.referenceOnly === true).length,
+      transferReferencePairs: transferFeasibleReferencePairs,
+      transferFeasibleReferencePairs,
+      transferInfeasibleAuditPairs,
       excludedFromPreview: {
-        transferUnknown: Object.keys(excludedTransferPairs).length
+        transferUnknown: Object.keys(excludedTransferPairs).length,
+        transferInfeasible: transferInfeasibleAuditPairs
       },
       estimatedReferenceTimes
     },
@@ -451,7 +750,8 @@ async function buildPublishedScheduleV1DryRun() {
     destinations,
     compatibilityKeyIndex,
     excludedPreviewPairs: {
-      transferUnknown: excludedTransferPairs
+      transferUnknown: excludedTransferPairs,
+      transferInfeasible: excludedInfeasibleTransferPairs
     },
     pairs
   };
@@ -492,6 +792,10 @@ module.exports = {
   ESTIMATED_DISCLAIMER_TH,
   TRANSFER_UNKNOWN_DISCLAIMER_KEY,
   TRANSFER_UNKNOWN_DISCLAIMER_TH,
+  TRANSFER_REFERENCE_BADGE_TH,
+  TRANSFER_REFERENCE_DISCLAIMER_KEY,
+  TRANSFER_REFERENCE_DISCLAIMER_TH,
+  TRANSFER_POLICY,
   EXTERNAL_SERVICE_DISCLAIMER_KEY,
   EXTERNAL_SERVICE_DISCLAIMER_TH,
   buildPublishedScheduleV1DryRun,
