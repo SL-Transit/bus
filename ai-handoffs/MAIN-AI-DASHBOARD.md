@@ -2,6 +2,46 @@
 
 Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
 
+## Current Priority: ERP Data Center Near Completion / Continue ERP Logic Center
+
+Owner status:
+- ERP Data Center is near completion.
+- Firebase preview data has already been written and independently verified at `preview/publishedSchedule`.
+- `readyForReview=true`
+- `readyForApply=false`
+- Production apply is still not approved.
+
+Progress:
+- ERP Data Center: about 99.5%
+- Passenger Preview Readiness: about 98%
+- Whole SL-Transit production readiness: about 60%
+
+Important reminder:
+- ERP Data Center is almost complete, but the system is not fully finished because ERP Logic Center work remains.
+- Do not forget pending legacy logic migration.
+- Work must proceed in order. If the main task is waiting or blocked, continue the next safe dependency task instead of jumping to unrelated production work.
+- While Passenger Preview or other main UI work is waiting, continue ERP Logic Center.
+
+Pending legacy logic that must be inventoried and centralized:
+- 2.5 km check-in radius
+- distance / geofence logic
+- passenger near-transfer notification
+- LINE notification trigger
+- ETA calculation
+- transfer feasibility
+- queue / vehicle / trip assignment
+- booking availability / capacity
+- ticket/check-in policy
+
+ERP Logic Center immediate work order:
+- Read and inventory old business logic currently scattered across UI pages and helper engines.
+- Identify which logic belongs in ERP Logic Center, which logic stays as UI display-only, and what must be kept as Notification Service / operational runtime behavior.
+- Start read-only/design-first unless the owner separately approves implementation.
+- Do not write Firebase.
+- Do not seed.
+- Do not production apply.
+- Do not touch bookings/passengers/tickets/driver/live vehicle/payment/LINE data.
+
 ## 2026-07-12 Active Work Orders: Passenger / Booking / Check Ticket
 
 Plain owner summary: ERP Data Center preview data has been written and read back successfully at `preview/publishedSchedule`. Passenger, Booking, and Check Ticket may now work against the preview data only. Do not write production data, do not seed, and do not enable production booking.
@@ -20,6 +60,12 @@ Current approved preview source:
 Goal: prepare the preview-safe journey planning logic contract and dry-run resolver that consumes `preview/publishedSchedule` without changing Passenger, Booking, Check Ticket, Driver, LINE, or production data.
 
 This work can proceed while Passenger Preview implementation is waiting. It must remain logic/design/dry-run only unless the owner separately approves implementation.
+
+First required pass:
+- Read and inventory the existing legacy logic that must be migrated or centralized before building new ERP Logic Center behavior.
+- Inspect at least: `geo-engine.js`, `network-engine.js`, `ticket-policy-engine.js`, `line-event-engine.js`, `schedule-engine.js`, `booking-bridge.js`, `booking-capacity.js`, `booking-pos.js`, `passenger-logic.js`, and `check_ticket.html`.
+- Focus on radius/geofence logic, 2.5 km check-in radius, ETA calculation, LINE notification trigger, ticket/check-in policy, transfer feasibility, queue/vehicle/trip assignment, booking capacity/closed-booking rules, Passenger live vehicle display logic, and any UI-local business rules that should move to ERP Logic Center.
+- Return a migration inventory before changing code: discovered logic groups, current file/function locations, what moves to ERP Logic Center, what remains UI display-only, risks if left duplicated, recommended migration order, and no-write confirmation.
 
 Required behavior:
 - Read the verified preview contract from `preview/publishedSchedule` as the input shape.
