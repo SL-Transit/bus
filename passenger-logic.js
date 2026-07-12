@@ -401,11 +401,13 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 // shows what it gets back. All of that (isLeg2Dest / normalizeRouteAlias /
 // cleanRouteLabel / getLeg1TimesToTransferHub / disabled-time computation /
 // the legacy data/settings.routes parser) has been removed. Passenger now
-// reads one precomputed, ready-to-render node instead:
-// data/catalog/publishedSchedule (name TBD by Main Backbone Lead) -- see
-// ai-handoffs/passenger-schedule-node-request.md for the requested shape.
-// Until that node exists, PUBLISHED_SCHEDULE stays null and the schedule UI
-// shows "waiting for schedule data" -- this is expected during migration.
+// reads one precomputed, ready-to-render node instead: preview/publishedSchedule
+// (schemaVersion publishedSchedule.v1.preview, ERP Data Center Round 2 preview
+// output -- dryRun/writesEnabled=false, readyForApply=false at the source).
+// Pair lookup key is "<originLabel>__<destLabel>", matching the generator's
+// compatibilityPairKey(). Only pairs in PUBLISHED_SCHEDULE.pairs are ever
+// read -- excludedPreviewPairs (transferUnknown/transferInfeasible) are never
+// consulted, so those never surface as selectable journeys.
 var PUBLISHED_SCHEDULE = null;
 
 function applyPublishedSchedule(node) {

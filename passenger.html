@@ -225,6 +225,17 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   font-size:9px; font-weight:700; color:var(--teal-dark);
   letter-spacing:0.5px; margin-top:4px;
 }
+.badge-estimated {
+  display:block; font-family:'Kanit',sans-serif;
+  font-size:9px; font-weight:700;
+  letter-spacing:0.3px; margin-top:2px;
+  color:#a15c07;
+}
+.time-cell.estimated-time { background:#fff8ec; }
+.leg2-time-item.estimated-time { background:#fff8ec; }
+.sched-disclaimers { padding:10px 14px; }
+.sched-disclaimer-line { font-size:11px; color:var(--muted); line-height:1.5; margin-top:4px; }
+.sched-disclaimer-line:first-child { margin-top:0; }
 
 /* ===== SCHEDULE — LEG2 (2 columns) ===== */
 .leg2-card {
@@ -825,22 +836,59 @@ window.selectPassengerBus = function(carId) {
   SLPassengerLogic.map.focusPoint(pos, 14);
 };
 
+function timeEntryBadgesHtml(entry) {
+  var html = '';
+  if (entry.disabled) return '<span class="now-badge">งดให้บริการ</span>';
+  if (entry.isEstimated && entry.displayBadgeTh) html += '<span class="badge-estimated">'+entry.displayBadgeTh+'</span>';
+  return html;
+}
+
 function buildTimeCell(entry, extraClass='') {
   if (!entry) return '';
   const now = nowMin();
   const disabled = !!entry.disabled;
-  const isNow = !disabled && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
-  const cls = ['time-cell',isNow?'now-cell':'',disabled?'disabled-time':'',extraClass].filter(Boolean).join(' ');
-  return '<div class="'+cls+'">'+entry.time+(disabled?'<span class="now-badge">งดให้บริการ</span>':(isNow?'<span class="now-badge">กำลังวิ่ง</span>':''))+'</div>';
+  const isNow = !disabled && !entry.isEstimated && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
+  const cls = ['time-cell',isNow?'now-cell':'',disabled?'disabled-time':'',entry.isEstimated?'estimated-time':'',extraClass].filter(Boolean).join(' ');
+  const badges = timeEntryBadgesHtml(entry) || (isNow ? '<span class="now-badge">กำลังวิ่ง</span>' : '');
+  return '<div class="'+cls+'">'+entry.time+badges+'</div>';
 }
 
 function buildLeg2TimeItem(entry) {
   if(!entry) return '<div class="leg2-time-item empty"></div>';
   const now = nowMin();
   const disabled = !!entry.disabled;
-  const isNow = !disabled && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
-  return '<div class="leg2-time-item'+(isNow?' now-cell':'')+(disabled?' disabled-time':'')+'">'+entry.time+(disabled?'<span class="now-badge">งดให้บริการ</span>':(isNow?'<span class="now-badge">วิ่งอยู่</span>':''))+'</div>';
+  const isNow = !disabled && !entry.isEstimated && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
+  const badges = timeEntryBadgesHtml(entry) || (isNow ? '<span class="now-badge">วิ่งอยู่</span>' : '');
+  return '<div class="leg2-time-item'+(isNow?' now-cell':'')+(disabled?' disabled-time':'')+(entry.isEstimated?' estimated-time':'')+'">'+entry.time+badges+'</div>';
 }
+
+// รวบรวมข้อความ disclaimer จาก ERP มาแสดง 1 ครั้งต่อรายการ (ไม่ซ้ำ) — passenger
+// ไม่แต่งข้อความเอง แค่หยิบ pair.transferDisclaimerTh / entry.disclaimerTh ที่มากับข้อมูล
+function collectPairDisclaimers(pair) {
+  const notes = [];
+  function addNote(n) { if (n && notes.indexOf(n) === -1) notes.push(n); }
+  addNote(pair.transferDisclaimerTh);
+  addNote(pair.externalDisclaimerTh);
+  (pair.segments || []).forEach(function(seg) {
+    (seg.times || []).forEach(function(t) {
+      if (t.isEstimated) addNote(t.disclaimerTh);
+      if (t.externalReference) addNote(t.disclaimerTh);
+    });
+  });
+  if (!notes.length) return '';
+  return '<div class="sched-disclaimers">' + notes.map(function(n) {
+    return '<div class="sched-disclaimer-line">⚠️ ' + n + '</div>';
+  }).join('') + '</div>';
+}
+
+// Pure time-string helpers -- generic display formatting, not an ERP decision,
+// so kept local like splitBalanced() below. (Bug fix: these were previously
+// called here but only ever defined inside passenger-logic.js's private scope
+// -- would have thrown ReferenceError the first time renderSched() got real
+// pair data with times to render; dormant until now because publishedSchedule
+// was always null before this pass.)
+function toMin(hhmm){ const parts = String(hhmm||'').split(':').map(Number); return (parts[0]||0)*60 + (parts[1]||0); }
+function nowMin(){ const n = new Date(); return n.getHours()*60 + n.getMinutes(); }
 
 // แบ่ง array เป็น 2 คอลัมน์ สมดุล (ซ้ายมากกว่าได้ 1 ถ้าคี่)
 function splitBalanced(arr) {
@@ -849,8 +897,9 @@ function splitBalanced(arr) {
 }
 
 // Passenger only renders what ERP's precomputed schedule node says — it does
-// not decide transfers, hubs, or disabled times itself. See
-// ai-handoffs/passenger-schedule-node-request.md for the requested node shape.
+// not decide transfers, hubs, disabled times, or which pairs are reference-only
+// itself. Reads preview/publishedSchedule (Schema publishedSchedule.v1.preview).
+// See ai-handoffs/passenger-schedule-node-request.md.
 function renderSched() {
   const wrapper = document.getElementById('schedWrapper');
   const S = SLPassengerLogic.schedule;
@@ -861,11 +910,19 @@ function renderSched() {
     return;
   }
 
+  // getPair() only ever looks at PUBLISHED_SCHEDULE.pairs -- excludedPreviewPairs
+  // (transferUnknown / transferInfeasible) are never consulted, so those never
+  // render as selectable journeys, by construction.
   const pair = S.getPair(origin, dest);
   if (!pair || !Array.isArray(pair.segments) || !pair.segments.length) {
-    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">ไม่พบตารางเวลา</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">ไม่พบตารางเวลาสำหรับเส้นทางนี้</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
     return;
   }
+
+  const referenceBadge = pair.displayBadgeTh
+    ? '<div class="leg2-header-top" style="color:#fde68a;">'+pair.displayBadgeTh+'</div>'
+    : '';
+  const disclaimersHtml = collectPairDisclaimers(pair);
 
   if (pair.transfer) {
     function buildTwoColItems(times) {
@@ -898,21 +955,23 @@ function renderSched() {
     wrapper.innerHTML = `
       <div class="leg2-card">
         <div class="leg2-header">
-          <div class="leg2-header-top">ข้อมูลเส้นทางต่อรถ</div>
+          ${referenceBadge || '<div class="leg2-header-top">ข้อมูลเส้นทางต่อรถ</div>'}
           <div class="leg2-header-route">${origin} → ${dest}</div>
         </div>
         ${segHtml}
-      </div>`;
+      </div>
+      ${disclaimersHtml}`;
   } else {
     const seg = pair.segments[0];
     wrapper.innerHTML = `
       <div class="sched-card">
         <div class="sched-route-header">
-          <div class="sched-route-from">เส้นทาง</div>
+          <div class="sched-route-from">${pair.displayBadgeTh || 'เส้นทาง'}</div>
           <div class="sched-route-name">${origin} → ${dest}</div>
         </div>
         <div class="time-grid">${(seg.times||[]).map(t=>buildTimeCell(t)).join('')}</div>
-      </div>`;
+      </div>
+      ${disclaimersHtml}`;
   }
 }
 
@@ -1061,14 +1120,16 @@ db.ref('publishedCatalog').on('value', function(snap) {
   console.error('Passenger catalog load failed:', err && err.message ? err.message : err);
 });
 
-// Precomputed, ready-to-render schedule — requested from Main Backbone Lead /
-// Data Import AI (see ai-handoffs/passenger-schedule-node-request.md). Node
-// does not exist yet; this listener just waits until it does. Passenger does
-// not compute origins/destinations/transfers/disabled-times itself anymore.
-db.ref('publishedSchedule').on('value', function(snap) {
+// Precomputed, ready-to-render schedule -- ERP Data Center Round 2 preview
+// output (publishedSchedule.v1.preview). preview.dryRun=true / writesEnabled=
+// false / readyForApply=false at the source; this is a read-only preview,
+// not production booking data. Passenger renders exactly what this node
+// provides (badges, disclaimers, reference-only/external flags included) and
+// never computes routes/transfers/fares/disabled-times itself.
+db.ref('preview/publishedSchedule').on('value', function(snap) {
   SLPassengerLogic.schedule.applyPublishedSchedule(snap.val());
 }, function(err) {
-  console.error('Passenger publishedSchedule load failed:', err && err.message ? err.message : err);
+  console.error('Passenger preview/publishedSchedule load failed:', err && err.message ? err.message : err);
 });
 
 // Firebase — bus/car1, bus/car2, ... (old shape) + liveVehicles, same dual
