@@ -9,6 +9,7 @@ const {
   TRANSFER_REFERENCE_DISCLAIMER_KEY,
   TRANSFER_REFERENCE_DISCLAIMER_TH,
   TRANSFER_POLICY,
+  OWNER_WORKBOOK_INTERPRETATION,
   buildPublishedScheduleV1DryRun,
   validatePublishedSchedule
 } = require('../tools/published-schedule-v1-dry-run.js');
@@ -107,15 +108,40 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.counts.excludedFromPreview.transferInfeasible === 58, 'excluded transfer infeasible count mismatch');
   assert(schedule.counts.estimatedReferenceTimes === 360, 'estimated reference time count mismatch');
 
+  assert(TRANSFER_POLICY.sourceWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'transfer policy source workbook must use latest owner workbook');
+  assert(schedule.source.ownerWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'latest owner workbook source mismatch');
+  assert(schedule.displayPolicy.transferReferencePolicy.workbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'transfer policy evidence must cite latest workbook');
+  assert(schedule.ownerWorkbookInterpretation.sourceWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'owner workbook interpretation source mismatch');
+  assert(schedule.ownerWorkbookInterpretation.stopSequence.stopCountPolicy === 'route_sequence_version_dynamic', 'stop count must be versioned/dynamic');
+  assert(schedule.ownerWorkbookInterpretation.stopSequence.currentActiveStopCount === schedule.counts.origins, 'interpretation stop count must come from dry-run origins');
+  assert(schedule.ownerWorkbookInterpretation.stopSequence.currentExpectedDestinationsPerOrigin === schedule.counts.origins - 1, 'per-origin destination rows must be derived from stop count');
+  assert(schedule.ownerWorkbookInterpretation.routeIdentity.routeIdIsUniqueOdId === false, 'Sheet 03 route_id must not be treated as unique OD ID');
+  assert(schedule.ownerWorkbookInterpretation.routeIdentity.duplicateOriginBucketsAllowedOnlyWhenDestinationKeyDiffers === true, 'origin bucket duplicate rule missing');
+  assert(schedule.ownerWorkbookInterpretation.routeIdentity.uniqueOdIdentityFields.indexOf('originStopKey') !== -1, 'OD identity must include origin stop key');
+  assert(schedule.ownerWorkbookInterpretation.routeIdentity.uniqueOdIdentityFields.indexOf('destinationKey') !== -1, 'OD identity must include destination key');
+  assert(schedule.ownerWorkbookInterpretation.bookingAvailability.defaultWhenBlank === 'open', 'blank booking cells must default open');
+  assert(schedule.ownerWorkbookInterpretation.bookingAvailability.blankMeansClosed === false, 'blank booking cells must not mean closed');
+  assert(schedule.ownerWorkbookInterpretation.bookingAvailability.specialOverrides.wangNamYen.bookingEligible === false, 'Wang Nam Yen booking override must be disabled');
+  assert(schedule.ownerWorkbookInterpretation.transferPolicy.globalTransferHub === null, 'global transfer hub must not be configured');
+  assert(schedule.ownerWorkbookInterpretation.transferPolicy.transferNodeScope === 'per_journey_candidate', 'transfer node must be per journey candidate');
+  assert(schedule.ownerWorkbookInterpretation.queueCodeInterpretation.numericQueueCodeMap['5'] === 'Q_005', 'numeric queue code 5 must map to Q_005');
+  assert(schedule.ownerWorkbookInterpretation.queueCodeInterpretation.q005FallbackPolicy.source === 'owner_approved_policy', 'Q_005 fallback must preserve owner-approved lineage');
+  assert(schedule.ownerWorkbookInterpretation.vehicleDriverLogin.previewOnly === true, 'vehicle/driver/login data must be preview-only');
+  assert(schedule.ownerWorkbookInterpretation.vehicleDriverLogin.productionCredentialUseAllowed === false, 'preview credentials must not be production-ready');
+
   values(schedule.pairs).forEach((pair) => {
     assert(pair.keyType === 'compatibility_label_pair', 'pair map key must be marked as compatibility label key');
     assert(pair.compatibilityOnly === true, 'compatibility pair key must be compatibility-only');
     assert(pair.compatibilityPairKey, 'compatibilityPairKey missing');
+    assert(pair.originDestinationId && pair.destinationId, 'OD pair identity must include origin and destination IDs');
     assert(pair.pairId === pair.canonicalPairKey, 'pairId must use canonical stable key');
     assert(pair.pairId !== pair.compatibilityPairKey, 'pairId must not be label-derived');
     assert(pair.canonicalPairKey.indexOf(pair.originLabel) === -1, 'canonical key must not include origin label');
     assert(pair.canonicalPairKey.indexOf(pair.destinationLabel) === -1, 'canonical key must not include destination label');
     assert(schedule.compatibilityKeyIndex[pair.compatibilityPairKey].canonicalPairKey === pair.canonicalPairKey, 'compatibility key index mismatch');
+    if (pair.originDestinationId === 'wangnamyen' || pair.destinationId === 'wangnamyen') {
+      assert(pair.bookingEligible !== true, 'Wang Nam Yen must not be booking eligible in preview');
+    }
   });
 
   assert(values(schedule.pairs).every((pair) => pair.transferStatus !== 'unknown'), 'transfer unknown pairs must be hidden from Passenger Preview pairs');
@@ -199,6 +225,42 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   const collisionPair = firstVisiblePair(collisionIndex);
   collisionIndex.compatibilityKeyIndex[collisionPair.compatibilityPairKey].canonicalPairKey = 'psv1_pair_wrong_collision';
   assert(validatePublishedSchedule(collisionIndex).blockers.some((blocker) => blocker.code === 'compatibility-key-index-missing'), 'compatibility key collision/index mismatch must fail validation');
+
+  const hardCodedStopCount = clone(schedule);
+  hardCodedStopCount.ownerWorkbookInterpretation.stopSequence.stopCountPolicy = 'fixed_15_stops';
+  assert(validatePublishedSchedule(hardCodedStopCount).blockers.some((blocker) => blocker.code === 'stop-count-hard-coded-policy'), 'hard-coded stop count policy must fail validation');
+
+  const duplicateOriginBucketAsOd = clone(schedule);
+  duplicateOriginBucketAsOd.ownerWorkbookInterpretation.routeIdentity.routeIdIsUniqueOdId = true;
+  assert(validatePublishedSchedule(duplicateOriginBucketAsOd).blockers.some((blocker) => blocker.code === 'origin-bucket-duplicate-policy-missing'), 'Sheet 03 route_id unique-OD interpretation must fail validation');
+
+  const missingDestinationIdentity = clone(schedule);
+  missingDestinationIdentity.ownerWorkbookInterpretation.routeIdentity.uniqueOdIdentityFields = ['originBucketCode', 'originStopKey'];
+  assert(validatePublishedSchedule(missingDestinationIdentity).blockers.some((blocker) => blocker.code === 'od-identity-must-include-origin-destination'), 'OD identity without destination key must fail validation');
+
+  const blankBookingClosed = clone(schedule);
+  blankBookingClosed.ownerWorkbookInterpretation.bookingAvailability.blankMeansClosed = true;
+  assert(validatePublishedSchedule(blankBookingClosed).blockers.some((blocker) => blocker.code === 'booking-blank-default-policy-missing'), 'blank booking closed interpretation must fail validation');
+
+  const wangNamYenOpen = clone(schedule);
+  wangNamYenOpen.ownerWorkbookInterpretation.bookingAvailability.specialOverrides.wangNamYen.bookingEligible = true;
+  assert(validatePublishedSchedule(wangNamYenOpen).blockers.some((blocker) => blocker.code === 'wang-nam-yen-booking-override-missing'), 'missing Wang Nam Yen disabled override must fail validation');
+
+  const globalTransferHub = clone(schedule);
+  globalTransferHub.ownerWorkbookInterpretation.transferPolicy.globalTransferHub = 'chachoengsao';
+  assert(validatePublishedSchedule(globalTransferHub).blockers.some((blocker) => blocker.code === 'global-transfer-hub-forbidden'), 'global transfer hub must fail validation');
+
+  const q005WithoutLineage = clone(schedule);
+  q005WithoutLineage.ownerWorkbookInterpretation.queueCodeInterpretation.q005FallbackPolicy.source = 'sheet05';
+  assert(validatePublishedSchedule(q005WithoutLineage).blockers.some((blocker) => blocker.code === 'q005-owner-policy-lineage-missing'), 'Q_005 fallback without owner lineage must fail validation');
+
+  const productionCredentials = clone(schedule);
+  productionCredentials.ownerWorkbookInterpretation.vehicleDriverLogin.productionCredentialUseAllowed = true;
+  assert(validatePublishedSchedule(productionCredentials).blockers.some((blocker) => blocker.code === 'preview-credentials-production-forbidden'), 'production credential interpretation must fail validation');
+
+  const pairWithoutOdIdentity = clone(schedule);
+  firstVisiblePair(pairWithoutOdIdentity).destinationId = null;
+  assert(validatePublishedSchedule(pairWithoutOdIdentity).blockers.some((blocker) => blocker.code === 'od-identity-missing-on-pair'), 'pair without destination identity must fail validation');
 
   const visibleUnknownTransfer = clone(schedule);
   const hiddenTransfer = firstInfeasibleTransferPair(visibleUnknownTransfer);

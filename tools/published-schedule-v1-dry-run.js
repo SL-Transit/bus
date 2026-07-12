@@ -20,12 +20,123 @@ const TRANSFER_POLICY = {
   policySheetRows: '2-6',
   queueTimesSheetName: '05_คิวรถและเวลา'
 };
+const OWNER_WORKBOOK_INTERPRETATION = {
+  sourceWorkbook: 'SL-Transit_\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14_20260712.xlsx',
+  sheets: {
+    stops: '01_\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e1b\u0e49\u0e32\u0e22\u0e01\u0e25\u0e32\u0e07',
+    routeGroups: '02_\u0e01\u0e25\u0e38\u0e48\u0e21\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07',
+    routesAndPrices: '03_\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07\u0e41\u0e25\u0e30\u0e23\u0e32\u0e04\u0e32',
+    timetable: '04_\u0e23\u0e2d\u0e1a\u0e40\u0e27\u0e25\u0e32',
+    queueTimes: '05_\u0e04\u0e34\u0e27\u0e23\u0e16\u0e41\u0e25\u0e30\u0e40\u0e27\u0e25\u0e32',
+    vehiclesAndQueues: '06_\u0e23\u0e16\u0e41\u0e25\u0e30\u0e04\u0e34\u0e27'
+  },
+  stopSequence: {
+    stopCountPolicy: 'route_sequence_version_dynamic',
+    currentRouteSequenceVersionId: 'owner_workbook_20260712_current_corridor',
+    requireNewRouteSequenceVersionOnStopChange: true,
+    neverRewriteHistoricalRouteSequences: true,
+    perOriginDestinationRowsFormula: 'activeStopCount - 1',
+    dependentRegenerationTargets: [
+      'origin_bucket_rows',
+      'route_price_matrix',
+      'timetable_rows',
+      'queue_stop_sequences',
+      'pass_through_estimates',
+      'booking_restrictions',
+      'fare_segments',
+      'publishedSchedule_pairs'
+    ]
+  },
+  routeIdentity: {
+    sheet03RouteIdSemantics: 'origin_bucket_origin_stop_code',
+    duplicateOriginBucketCodesAllowed: true,
+    duplicateOriginBucketsAllowedOnlyWhenDestinationKeyDiffers: true,
+    uniqueOdIdentityFields: ['originBucketCode', 'originStopKey', 'destinationKey'],
+    routeIdIsUniqueOdId: false
+  },
+  bookingAvailability: {
+    defaultWhenBlank: 'open',
+    blankMeansClosed: false,
+    explicitRestrictionsOnly: true,
+    restrictions: [
+      {
+        queueCode: 'Q_001',
+        departureTime: '11:20',
+        direction: 'chachoengsao_to_klonghat',
+        closeBookingDestinationStopKeys: ['phanom', 'sanamchaikhet', 'km_1']
+      },
+      {
+        queueCode: 'Q_002',
+        direction: 'klonghat_to_chachoengsao',
+        closeBookingDestinationStopKeys: ['sanamchaikhet', 'phanom', 'km_1', 'km_7']
+      }
+    ],
+    specialOverrides: {
+      wangNamYen: {
+        bookingEligible: false,
+        overrideWorkbookOpen: true,
+        reason: 'owner_not_enabled_yet'
+      }
+    }
+  },
+  transferPolicy: {
+    globalTransferHub: null,
+    globalTransferHubAllowed: false,
+    transferNodeScope: 'per_journey_candidate',
+    explicitTransferNodeRequired: true,
+    chachoengsaoOnlyWhenEvidenceSupports: true,
+    feasibleTransfersBookingEligible: false,
+    feasibleTransfersDisplayMode: 'transfer_reference'
+  },
+  queueCodeInterpretation: {
+    numericQueueCodeMap: {
+      '1': 'Q_001',
+      '2': 'Q_002',
+      '3': 'Q_003',
+      '4': 'Q_004',
+      '5': 'Q_005'
+    },
+    queueTripCanonicalPattern: 'G_001-Q_001-T_001',
+    q005Sheet05Evidence: false,
+    q005FallbackPolicy: {
+      source: 'owner_approved_policy',
+      directSheet05Evidence: false,
+      trips: [
+        { direction: 'nongkhok_to_chachoengsao', departureTime: '06:20' },
+        { direction: 'chachoengsao_to_nongkhok', departureTime: '17:20' }
+      ]
+    }
+  },
+  vehicleDriverLogin: {
+    previewOnly: true,
+    vehicleIdsArePreviewMasterData: true,
+    rotationVehicles: ['V_001', 'V_002', 'V_003', 'V_004'],
+    fixedVehicleAssignments: [{ vehicleCode: 'V_005', queueCode: 'Q_005' }],
+    provisionalDriverCodes: ['D_001', 'D_002', 'D_003', 'D_004', 'D_005'],
+    loginAndTemporaryPasswordUse: 'workbook_test_preview_only',
+    productionCredentialUseAllowed: false,
+    createProductionCredentials: false,
+    createBankOrSettlementRecords: false
+  }
+};
+TRANSFER_POLICY.sourceWorkbook = OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook;
 const EXTERNAL_SERVICE_DISCLAIMER_KEY = 'external_service_confirm_outside_sl_transit';
 const EXTERNAL_SERVICE_DISCLAIMER_TH = 'บริการหรือค่าโดยสารนี้ต้องชำระหรือยืนยันภายนอกระบบ SL-Transit';
 const FORBIDDEN_OPERATIONAL_FIELDS = ['gps', 'eta', 'vehicleId', 'assignmentId', 'liveVehicleId', 'liveTrackingAvailable', 'driverId'];
 
 function values(map) {
   return Object.keys(map || {}).map((key) => map[key]);
+}
+
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function buildOwnerWorkbookInterpretation(activeStopCount) {
+  const interpretation = clonePlain(OWNER_WORKBOOK_INTERPRETATION);
+  interpretation.stopSequence.currentActiveStopCount = activeStopCount;
+  interpretation.stopSequence.currentExpectedDestinationsPerOrigin = Math.max(0, activeStopCount - 1);
+  return interpretation;
 }
 
 function compatibilityPairKey(originLabel, destinationLabel) {
@@ -57,7 +168,7 @@ function lineagePaths(items) {
 
 function transferPolicyEvidence() {
   return {
-    workbook: TRANSFER_POLICY.sourceWorkbook,
+    workbook: OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook,
     sheet: TRANSFER_POLICY.policySheetName,
     rows: TRANSFER_POLICY.policySheetRows,
     minTransferMinutes: TRANSFER_POLICY.minTransferMinutes,
@@ -99,7 +210,7 @@ function queueTripWorkbookEvidence(erp, queueTrip, stopTime) {
   const source = queueTripSource(queueTrip);
   if (!source) return null;
   return {
-    workbook: TRANSFER_POLICY.sourceWorkbook,
+    workbook: OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook,
     sheet: TRANSFER_POLICY.queueTimesSheetName,
     row: workbookRowForStopTime(erp, queueTrip, stopTime),
     sourcePath: `${source.sourcePath}/stops/${Math.max(0, Number(stopTime.sequence || 1) - 1)}`,
@@ -445,6 +556,54 @@ function validatePublishedSchedule(publishedSchedule) {
   if (publishedSchedule.productionReady !== false) block('production-ready-not-false', 'publishedSchedule/productionReady');
   if (publishedSchedule.readyForApply !== false) block('ready-for-apply-not-false', 'publishedSchedule/readyForApply');
 
+  const interpretation = publishedSchedule.ownerWorkbookInterpretation || {};
+  const stopSequence = interpretation.stopSequence || {};
+  const routeIdentity = interpretation.routeIdentity || {};
+  const bookingAvailability = interpretation.bookingAvailability || {};
+  const transferPolicy = interpretation.transferPolicy || {};
+  const queueCodeInterpretation = interpretation.queueCodeInterpretation || {};
+  const vehicleDriverLogin = interpretation.vehicleDriverLogin || {};
+  if (interpretation.sourceWorkbook !== OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook) {
+    block('owner-workbook-source-missing', 'publishedSchedule/ownerWorkbookInterpretation/sourceWorkbook');
+  }
+  if (stopSequence.stopCountPolicy !== 'route_sequence_version_dynamic' || stopSequence.requireNewRouteSequenceVersionOnStopChange !== true || stopSequence.neverRewriteHistoricalRouteSequences !== true) {
+    block('stop-count-hard-coded-policy', 'publishedSchedule/ownerWorkbookInterpretation/stopSequence');
+  }
+  if (publishedSchedule.counts && stopSequence.currentActiveStopCount !== publishedSchedule.counts.origins) {
+    block('stop-count-interpretation-mismatch', 'publishedSchedule/ownerWorkbookInterpretation/stopSequence/currentActiveStopCount');
+  }
+  if (publishedSchedule.counts && stopSequence.currentExpectedDestinationsPerOrigin !== Math.max(0, publishedSchedule.counts.origins - 1)) {
+    block('per-origin-destination-formula-mismatch', 'publishedSchedule/ownerWorkbookInterpretation/stopSequence/currentExpectedDestinationsPerOrigin');
+  }
+  if (routeIdentity.routeIdIsUniqueOdId !== false || routeIdentity.duplicateOriginBucketsAllowedOnlyWhenDestinationKeyDiffers !== true) {
+    block('origin-bucket-duplicate-policy-missing', 'publishedSchedule/ownerWorkbookInterpretation/routeIdentity');
+  }
+  const odIdentityFields = routeIdentity.uniqueOdIdentityFields || [];
+  if (odIdentityFields.indexOf('originStopKey') === -1 || odIdentityFields.indexOf('destinationKey') === -1) {
+    block('od-identity-must-include-origin-destination', 'publishedSchedule/ownerWorkbookInterpretation/routeIdentity/uniqueOdIdentityFields');
+  }
+  if (bookingAvailability.defaultWhenBlank !== 'open' || bookingAvailability.blankMeansClosed !== false || bookingAvailability.explicitRestrictionsOnly !== true) {
+    block('booking-blank-default-policy-missing', 'publishedSchedule/ownerWorkbookInterpretation/bookingAvailability');
+  }
+  if (!bookingAvailability.specialOverrides || !bookingAvailability.specialOverrides.wangNamYen || bookingAvailability.specialOverrides.wangNamYen.bookingEligible !== false || bookingAvailability.specialOverrides.wangNamYen.overrideWorkbookOpen !== true) {
+    block('wang-nam-yen-booking-override-missing', 'publishedSchedule/ownerWorkbookInterpretation/bookingAvailability/specialOverrides/wangNamYen');
+  }
+  if (transferPolicy.globalTransferHub != null || transferPolicy.globalTransferHubAllowed !== false || transferPolicy.transferNodeScope !== 'per_journey_candidate' || transferPolicy.explicitTransferNodeRequired !== true) {
+    block('global-transfer-hub-forbidden', 'publishedSchedule/ownerWorkbookInterpretation/transferPolicy');
+  }
+  if (!queueCodeInterpretation.numericQueueCodeMap || queueCodeInterpretation.numericQueueCodeMap['5'] !== 'Q_005') {
+    block('numeric-queue-code-map-missing', 'publishedSchedule/ownerWorkbookInterpretation/queueCodeInterpretation/numericQueueCodeMap');
+  }
+  if (queueCodeInterpretation.q005Sheet05Evidence === false) {
+    const q005Fallback = queueCodeInterpretation.q005FallbackPolicy || {};
+    if (q005Fallback.source !== 'owner_approved_policy' || q005Fallback.directSheet05Evidence !== false || !Array.isArray(q005Fallback.trips) || q005Fallback.trips.length !== 2) {
+      block('q005-owner-policy-lineage-missing', 'publishedSchedule/ownerWorkbookInterpretation/queueCodeInterpretation/q005FallbackPolicy');
+    }
+  }
+  if (vehicleDriverLogin.previewOnly !== true || vehicleDriverLogin.productionCredentialUseAllowed !== false || vehicleDriverLogin.createProductionCredentials !== false || vehicleDriverLogin.createBankOrSettlementRecords !== false) {
+    block('preview-credentials-production-forbidden', 'publishedSchedule/ownerWorkbookInterpretation/vehicleDriverLogin');
+  }
+
   const pairs = publishedSchedule.pairs || {};
   const compatibilityKeyIndex = publishedSchedule.compatibilityKeyIndex || {};
   const excludedTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {};
@@ -462,6 +621,9 @@ function validatePublishedSchedule(publishedSchedule) {
     if (!pair.canonicalPairKey || pair.pairId !== pair.canonicalPairKey) {
       block('canonical-pair-id-missing', `publishedSchedule/pairs/${pairKey}`);
     }
+    if (!pair.originDestinationId || !pair.destinationId) {
+      block('od-identity-missing-on-pair', `publishedSchedule/pairs/${pairKey}`);
+    }
     if (pair.canonicalPairKey === pairKey || pair.pairId === pairKey || !String(pair.canonicalPairKey || '').startsWith('psv1_pair_')) {
       block('label-derived-canonical-pair-id', `publishedSchedule/pairs/${pairKey}`, pair.canonicalPairKey || pair.pairId);
     }
@@ -474,6 +636,9 @@ function validatePublishedSchedule(publishedSchedule) {
     }
     if (pair.transferStatus === 'unknown') {
       block('unknown-transfer-visible-in-preview', `publishedSchedule/pairs/${pairKey}`);
+    }
+    if ((pair.originDestinationId === 'wangnamyen' || pair.destinationId === 'wangnamyen') && pair.bookingEligible === true) {
+      block('wang-nam-yen-booking-override-not-enforced', `publishedSchedule/pairs/${pairKey}`);
     }
     if (pair.transferStatus === 'feasible_reference') {
       if (pair.referenceOnly !== true || pair.routeChoiceStatus !== 'reference_only' || pair.previewDisplayMode !== 'transfer_reference') {
@@ -707,6 +872,7 @@ async function buildPublishedScheduleV1DryRun() {
       erpDataCenterSnapshot: 'Round 2 dry-run',
       erpReadyForReview: erpResult.validation.readyForReview,
       erpReadyForApply: erpResult.validation.readyForApply,
+      ownerWorkbook: OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook,
       sourcePaths: [
         'data/erpDataCenter/destinations',
         'data/erpDataCenter/scheduleOffers',
@@ -728,6 +894,7 @@ async function buildPublishedScheduleV1DryRun() {
       externalServiceDisclaimerKey: EXTERNAL_SERVICE_DISCLAIMER_KEY,
       externalServiceDisclaimerTh: EXTERNAL_SERVICE_DISCLAIMER_TH
     },
+    ownerWorkbookInterpretation: buildOwnerWorkbookInterpretation(origins.length),
     counts: {
       origins: origins.length,
       destinations: Object.keys(destinations).length,
@@ -796,6 +963,7 @@ module.exports = {
   TRANSFER_REFERENCE_DISCLAIMER_KEY,
   TRANSFER_REFERENCE_DISCLAIMER_TH,
   TRANSFER_POLICY,
+  OWNER_WORKBOOK_INTERPRETATION,
   EXTERNAL_SERVICE_DISCLAIMER_KEY,
   EXTERNAL_SERVICE_DISCLAIMER_TH,
   buildPublishedScheduleV1DryRun,
