@@ -15,6 +15,52 @@ Current approved preview source:
 - Verified counts: origins 15, destinations 49, visible pairs 471, schedule time rows 819, feasible transfer reference pairs 264, infeasible transfer audit pairs 58, transfer unknown pairs 0
 - Safety verified: no GPS, ETA, live vehicle, vehicle assignment, driver, booking, ticket, payment, LINE, notification, or operations data in the preview payload
 
+### ERP Logic Center AI: approved parallel work
+
+Goal: prepare the preview-safe journey planning logic contract and dry-run resolver that consumes `preview/publishedSchedule` without changing Passenger, Booking, Check Ticket, Driver, LINE, or production data.
+
+This work can proceed while Passenger Preview implementation is waiting. It must remain logic/design/dry-run only unless the owner separately approves implementation.
+
+Required behavior:
+- Read the verified preview contract from `preview/publishedSchedule` as the input shape.
+- Build or design a resolver boundary that can answer: origin, destination, visible route choices, reference-only transfer choices, estimated pass-through times, external reference rows, and unavailable cases.
+- Preserve `readyForApply=false`, `productionReady=false`, and `writesEnabled=false` as hard preview gates.
+- Do not treat `group_001`, Chachoengsao, or any single node as a permanent transfer hub.
+- Transfer nodes must be per-candidate, derived from preview/ERP data.
+- Feasible transfer pairs remain reference-only: not guaranteed, not booking-enabled.
+- Infeasible transfer pairs remain excluded/audit-only.
+- External/train rows remain external-reference only and must not imply SL-Transit fare collection.
+- Estimated/pass-through timetable values remain reference data and must not become GPS/ETA.
+- Logic must not create fake vehicle, driver, assignment, GPS, ETA, booking, ticket, or payment state.
+
+Suggested dry-run outputs:
+- `getAvailableOrigins()` from preview origins.
+- `getAvailableDestinations(originKey)` from visible pairs.
+- `getJourneyPreview(originKey, destinationKey)` returning only prepared preview data: segments, times, badges, disclaimers, external-reference status, transfer-reference status, unavailable reason.
+- `validatePreviewJourneyContract(payload)` guarding counts, flags, no operational fields, no global transfer hub, no production-ready credentials, no visible infeasible transfer, no fake ETA/GPS.
+
+Strict ERP Logic Center safety:
+- Do not write Firebase.
+- Do not seed.
+- Do not production apply.
+- Do not modify Passenger, Booking, Check Ticket, Driver, Payment, LINE, GPS, ETA, or operations/private data.
+- Do not create bookings, tickets, check-ins, notifications, fake GPS, fake ETA, fake vehicles, fake drivers, or fake assignments.
+- If code is changed, keep it isolated to logic/dry-run/helper/test files and report exact files.
+
+Return:
+1. PASS / FAIL / NEEDS_OWNER_DECISION
+2. Files changed, if any
+3. Exact logic contract or helper added
+4. Counts verified from preview input
+5. Sample journey previews for:
+   - Chachoengsao -> Phanom Sarakham
+   - Phanom Sarakham -> Phai Chit
+   - Nong Khok -> Chachoengsao
+   - Chachoengsao -> Hua Takhe
+   - Huai Som -> Ao Udom
+6. Remaining blockers before Passenger/Booking consumption
+7. Explicit no-write/no-production confirmation
+
 ### Passenger Preview AI: approved next work
 
 Goal: make `passenger.html` / passenger preview load and render the verified Firebase preview data so the owner can inspect it on the website.
