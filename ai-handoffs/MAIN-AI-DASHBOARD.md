@@ -2,6 +2,94 @@
 
 Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
 
+## 2026-07-12 Active Work Orders: Passenger / Booking / Check Ticket
+
+Plain owner summary: ERP Data Center preview data has been written and read back successfully at `preview/publishedSchedule`. Passenger, Booking, and Check Ticket may now work against the preview data only. Do not write production data, do not seed, and do not enable production booking.
+
+Current approved preview source:
+- Firebase preview path: `preview/publishedSchedule`
+- Source commit: `9599a7b5d7af2916cc0be09f7136518a6c8fcad3`
+- Backup metadata path: `previewBackups/publishedSchedule/20260712T072812Z_9599a7b5d7af2916cc0be09f7136518a6c8fcad3`
+- Top-level `publishedSchedule`: intentionally not written
+- Preview metadata: `dryRun=true`, `writesEnabled=false`, `readyForApply=false`, `productionReady=false`, `publicationStatus=preview`
+- Verified counts: origins 15, destinations 49, visible pairs 471, schedule time rows 819, feasible transfer reference pairs 264, infeasible transfer audit pairs 58, transfer unknown pairs 0
+- Safety verified: no GPS, ETA, live vehicle, vehicle assignment, driver, booking, ticket, payment, LINE, notification, or operations data in the preview payload
+
+### Passenger Preview AI: approved next work
+
+Goal: make `passenger.html` / passenger preview load and render the verified Firebase preview data so the owner can inspect it on the website.
+
+Required behavior:
+- Read only from `preview/publishedSchedule` for this preview phase.
+- Populate origin and destination selectors from preview data.
+- Render only visible `pairs`.
+- Do not render `excludedPreviewPairs.transferInfeasible` as selectable journeys.
+- Treat feasible transfers as reference-only, not guaranteed and not booking-enabled.
+- Show estimated/pass-through times with badge `เวลาโดยประมาณ`.
+- Show estimated disclaimer: `เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง`.
+- Render external/train rows as external reference only. Do not imply SL-Transit fare collection or operational guarantee.
+- If a pair is missing, show unavailable/no-route message. Do not invent route, time, transfer, fare, queue, vehicle, GPS, or ETA.
+- Passenger remains display-only. It must not calculate route, transfer feasibility, fare, queue assignment, booking eligibility, GPS, ETA, LINE, or payment rules locally.
+
+Strict Passenger safety:
+- Do not write Firebase.
+- Do not seed.
+- Do not production apply.
+- Do not touch Booking, Check Ticket, Driver, Payment, LINE, GPS, ETA, or operations/private data.
+- Do not create fake GPS or fake ETA.
+- Return files changed, read path, UI behavior, smoke-test evidence, and whether owner can inspect Passenger Preview.
+
+### Booking AI: approved next work
+
+Goal: prepare Booking to consume preview schedule choices safely after Passenger Preview can display them. This is preview/cutover preparation only, not production booking activation.
+
+Required behavior:
+- Use `preview/publishedSchedule` only as read-only preview input.
+- Respect preview flags: `readyForApply=false`, `productionReady=false`, `writesEnabled=false`.
+- Do not allow booking from reference-only transfer pairs unless a later owner approval explicitly enables it.
+- Do not allow booking from external/train reference rows as SL-Transit fare collection.
+- Preserve booking restrictions from owner rules, including Wang Nam Yen booking disabled and specific queue/time restrictions encoded in preview policy.
+- If implementing UI wiring, keep it behind preview/test gating and return clear evidence that no real booking write occurred.
+- Booking must not duplicate ERP Logic Center rules locally. If data is insufficient, show unavailable or owner-review state.
+
+Strict Booking safety:
+- Do not create real bookings.
+- Do not write `operations/bookings`, passenger records, payments, tickets, driver records, notifications, or live vehicles.
+- Do not seed or production apply.
+- Do not send LINE/SMS/OTP.
+- Return scope, files changed, preview gates, blocked production actions, and no-write evidence.
+
+### Check Ticket AI: approved next work
+
+Goal: prepare Check Ticket to display/validate preview-compatible ticket information after Booking preview is ready. This is not live check-in production activation.
+
+Required behavior:
+- Do not create or modify tickets.
+- Do not create check-ins.
+- Do not mark passengers boarded.
+- Do not write operational ticket/check-in logs.
+- If reading preview schedule data, read only from `preview/publishedSchedule` and treat it as preview/reference data.
+- Check Ticket must display ticket/schedule information only when provided by approved preview/booking outputs. It must not infer fare, transfer, queue, vehicle, driver, ETA, or payment state locally.
+- If no preview booking/ticket object exists yet, report the missing dependency instead of creating fake ticket data.
+
+Strict Check Ticket safety:
+- No Firebase writes.
+- No seed.
+- No production apply.
+- No ticket/check-in/passenger/driver/payment/LINE writes.
+- No fake tickets, fake check-ins, fake GPS, or fake ETA.
+- Return dependency status, files changed if any, test evidence, and no-write confirmation.
+
+### Coordination order
+
+Recommended order:
+1. Passenger Preview reads and renders `preview/publishedSchedule`.
+2. QA verifies Passenger Preview live UI.
+3. Booking preview/cutover preparation consumes the same preview data behind safe gates.
+4. Check Ticket preview preparation follows Booking preview outputs.
+
+Do not skip straight to production `publishedSchedule`, real booking, real ticket, check-in, payment, LINE, GPS, or ETA. Owner approval is required for each production-facing step.
+
 Source of truth:
 - Latest reviewed main before this dashboard update: a65d535d5e57ff3311052a45ab087fb838773278
 - Bridge audit dashboard: ai-handoffs/BRIDGE-AUDIT-DASHBOARD.md
