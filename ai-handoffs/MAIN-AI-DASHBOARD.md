@@ -57,6 +57,30 @@ Current approved preview source:
 
 ### ERP Logic Center AI: approved parallel work
 
+Appointed role:
+- Official role name: `ERP Logic Center AI`.
+- Owner intent: this AI owns the central business logic layer for SL-Transit, similar in importance to ERP Data Center AI.
+- Position in architecture: `ERP Data Center -> ERP Logic Center -> Page Logic Adapters -> UX/UI`.
+- ERP Data Center stores facts and versioned source data. ERP Logic Center turns those facts into decisions and journey results.
+- Passenger, Booking, Check Ticket, Driver, Payment, and LINE must consume ERP Logic Center results instead of recreating business rules locally.
+
+Core ownership:
+- Journey planning and route choice.
+- Transfer feasibility and transfer wait-time interpretation.
+- ETA and distance/geofence interpretation when real operational evidence exists.
+- 2.5 km check-in radius and ticket/check-in policy.
+- Queue, vehicle, trip, assignment, and schedule-readiness interpretation.
+- Booking availability, capacity, closed-stop, and owner override rules.
+- Notification decision rules, including LINE trigger eligibility, without directly sending messages unless separately approved.
+- Fare/fee/payment ownership interpretation from ERP-approved data.
+- Preview vs production gating: `readyForReview`, `readyForApply`, `productionReady`, and reference-only states.
+
+Non-ownership:
+- ERP Logic Center must not own raw master data storage; that belongs to ERP Data Center.
+- ERP Logic Center must not own UI rendering; that belongs to Page Logic Adapters and UX/UI pages.
+- ERP Logic Center must not write Firebase runtime paths, create bookings, send notifications, seed production data, or mutate operational/private data unless the owner separately approves a production apply step.
+- ERP Logic Center must not invent fake GPS, fake ETA, fake vehicle, fake driver, fake ticket, fake assignment, fake capacity, or fake payment state.
+
 Goal: prepare the preview-safe journey planning logic contract and dry-run resolver that consumes `preview/publishedSchedule` without changing Passenger, Booking, Check Ticket, Driver, LINE, or production data.
 
 This work can proceed while Passenger Preview implementation is waiting. It must remain logic/design/dry-run only unless the owner separately approves implementation.
