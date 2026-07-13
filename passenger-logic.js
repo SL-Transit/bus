@@ -16,8 +16,9 @@
  *
  * Covers:
  *   [1] Firebase bootstrap (currently old project, see rollback note above)
- *   [2] Firebase paths (currently old flat schema: settings/routeData/
- *       publishedCatalog/bus/liveVehicles — see rollback note above)
+ *   [2] Firebase paths: passenger schedule preview reads use the
+ *       preview/publishedSchedule contract; legacy route/catalog/vehicle
+ *       fallbacks are not used for Passenger Preview.
  *   [3] Map engine (Longdo Maps v3 — window.longdo, loaded via script tag in
  *       passenger.html) — Kalman filter, dead-reckoning prediction, marker/
  *       animation logic; the real Longdo API, not a shim.
@@ -940,14 +941,7 @@ function loadPassengerRouteData() {
   if (PASSENGER_ROUTE_DATA && PASSENGER_ROUTE_DATA.stops) {
     return Promise.resolve(currentPassengerRouteData());
   }
-  // *** TEMPORARY COMPATIBILITY ROLLBACK — old project path, see FIREBASE_CONFIG note above ***
-  return db.ref('routeData').once('value').then(function(snap) {
-    applyPassengerRouteData(snap.val());
-    return currentPassengerRouteData();
-  }).catch(function(err) {
-    console.warn('Passenger central routeData load failed:', err && err.message ? err.message : err);
-    return currentPassengerRouteData();
-  });
+  return Promise.resolve(currentPassengerRouteData());
 }
 function renderRoutePolyline(routeData) {
   return drawRoute(routeData);
@@ -1101,6 +1095,12 @@ function updatePassengerOnMap(latlng, forceCenter) {
 function drawRoute(routeData) {
   if (!mapReady) return Promise.resolve();
   const stops = routeData && Array.isArray(routeData.stations) ? routeData.stations : (viewDir==='go' ? STOPS_GO : STOPS_BACK);
+  if (!Array.isArray(stops) || stops.length < 2) {
+    knownRouteLinePoints = [];
+    try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
+    routeLine = null;
+    return Promise.resolve();
+  }
   const coords = stops.map(function(s){ return s.lng + ',' + s.lat; }).join(';');
   const renderSeq = ++routeRenderSeq;
   function setRouteLine(coordinates) {
@@ -1704,22 +1704,11 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
     STOPS_BACK = mapped.slice();
   }
 
-  // Unified Schema-v3 catalog listener (data/catalog): applies both schedule
-  // settings-shape and stop/route legacy-shape views in one pass, guarding
-  // against double-apply the same way the original per-path listeners did.
+  // Passenger Preview no longer derives stop/order/map data from catalog
+  // adapters. Approved display data comes from the publishedSchedule preview
+  // contract; live runtime views stay unavailable until a new path is approved.
   function applyUnifiedCatalog(catalog) {
-    if (!catalog) return;
-    var view = global.SLTransitERP && typeof global.SLTransitERP.catalogView === 'function'
-      ? global.SLTransitERP.catalogView(catalog)
-      : null;
-    var legacyRouteData = view && view.routeData
-      ? view.routeData
-      : global.SLTransitCatalog && typeof global.SLTransitCatalog.legacyRouteData === 'function'
-        ? global.SLTransitCatalog.legacyRouteData(catalog)
-        : {};
-    if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
-      applyPassengerRouteData(legacyRouteData);
-    }
+    return catalog;
   }
 
   /* ────────────────────────────────────────────────────────────

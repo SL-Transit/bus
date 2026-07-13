@@ -1000,7 +1000,7 @@ function renderSched() {
 
 function updateLastUpdate(ts) {
   document.getElementById('lastUpdate').textContent=
-    ts?`เมื่อ ${new Date(ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูล';
+    ts?`เมื่อ ${new Date(ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์';
 }
 
 // ===== DROPDOWN INIT =====
@@ -1149,15 +1149,6 @@ buildDropdowns();
 applyAdminTesterMode();
 
 // ---- Firebase wiring: subscribe here, hand data to passenger-logic.js to process ----
-// *** TEMPORARY COMPATIBILITY ROLLBACK (see ai-handoffs/CENTRAL-REPORT.md) ***
-// Paths below point at the OLD flat schema (same project/paths as booking.html
-// and check_ticket.html: settings / routeData / publishedCatalog / bus /
-// liveVehicles) instead of the Schema v3 paths (data/settings / data/catalog /
-// operations/liveVehicles), because sl-transit-9464e has no real Firebase
-// config in the repo yet and its catalog is still unseeded. Revert this block
-// back to the Schema v3 paths once: (1) real sl-transit-9464e credentials are
-// in place, (2) Data Import AI's catalog/fleet/settings seed is applied, and
-// (3) Main Backbone Lead / Supervisor approves the cutover.
 db.ref('settings').on('value', function(snap) {
   const settings = snap.val() || {};
   TEST_MODE = settings.testMode === true;
@@ -1220,32 +1211,6 @@ db.ref('settings').on('value', function(snap) {
   });
 })();
 
-db.ref('routeData').on('value', function(snap) {
-  SLPassengerLogic.map.applyLiveStopsData(snap.val());
-}, function(err) {
-  console.error('Passenger routeData load failed:', err && err.message ? err.message : err);
-});
-
-db.ref('publishedCatalog').on('value', function(snap) {
-  SLPassengerLogic.applyUnifiedCatalog(snap.val());
-}, function(err) {
-  console.error('Passenger catalog load failed:', err && err.message ? err.message : err);
-});
-
-// Firebase — bus/car1, bus/car2, ... (old shape) + liveVehicles, same dual
-// listener check_ticket.html still uses on the old project.
-db.ref('bus').on('value', function(snap){
-  SLPassengerLogic.vehicles.setRawFeed(snap.val() || {});
-}, function(error) {
-  console.error('Firebase bus listener error:', error && error.message ? error.message : error);
-});
-
-db.ref('liveVehicles').on('value', function(snap){
-  SLPassengerLogic.vehicles.setLiveFeed(snap.val() || {});
-}, function(error) {
-  console.error('Firebase liveVehicles listener error:', error && error.message ? error.message : error);
-});
-
 // UI reacts to logic events — it never reaches into logic state directly.
 SLPassengerLogic.on('vehiclesUpdated', function(payload) {
   updateLastUpdate(payload.latestTs);
@@ -1269,20 +1234,14 @@ function tick() {
 tick(); setInterval(tick,1000);
 updateLastUpdate(null);
 
-// Map init — รอ Longdo Map พร้อม แล้ว retry แสดงตำแหน่งรถ
+// Map init — route/vehicle runtime views are not read from legacy paths.
 document.addEventListener('DOMContentLoaded', async function(){
   bindFollowUserButton();
   bindBottomSheet();
-  // *** TEMPORARY COMPATIBILITY ROLLBACK ***
-  // SLPassengerLogic.getStopsSorted() reads Schema v3's data/catalog/stops via
-  // the ERP adapter, which is empty/unreachable on the old project right now.
-  // Stops are populated instead by loadRouteData()/applyLiveStopsData() below,
-  // which read the old routeData/publishedCatalog paths -- same as the
-  // pre-migration passenger.html and current booking.html/check_ticket.html.
   try {
     await _erpReady;
   } catch(e) {
-    console.warn('SLPassengerLogic.init() did not fully resolve (expected while on the temporary old-project fallback):', e && e.message ? e.message : e);
+    console.warn('SLPassengerLogic.init() did not fully resolve:', e && e.message ? e.message : e);
   }
   await SLPassengerLogic.map.init();
   const routeData = await SLPassengerLogic.map.loadRouteData();

@@ -307,12 +307,21 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
 
 (async function runLazyScheduleTests() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'passenger.html'), 'utf8');
+  const logicSource = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
+  assert(!html.includes("db.ref('routeData')"), 'Passenger must not read legacy routeData');
+  assert(!html.includes("db.ref('publishedCatalog')"), 'Passenger must not read legacy publishedCatalog');
+  assert(!html.includes("db.ref('bus')"), 'Passenger must not read legacy bus vehicle feed');
+  assert(!html.includes("db.ref('liveVehicles')"), 'Passenger must not read legacy liveVehicles feed');
+  assert(!logicSource.includes("db.ref('routeData')"), 'Passenger logic must not fallback-read legacy routeData');
+  assert(!logicSource.includes('legacyRouteData'), 'Passenger logic must not derive route/map data from legacy catalog adapters');
   assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.on\s*\(/.test(html), 'Passenger must not subscribe to full preview/publishedSchedule on initial load');
   assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.once\s*\(/.test(html), 'Passenger must not once-read full preview/publishedSchedule on initial load');
   assert(html.includes(".child('originOptions')"), 'Passenger must read originOptions as lightweight initial data');
   assert(html.includes(".child('destinationOptionsByOrigin')"), 'Passenger must read destinationOptionsByOrigin as lightweight initial data');
   assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
+  assert(html.includes('ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์'), 'Passenger must show live tracking unavailable when no approved new live data exists');
+  assert(!/fake\s*(gps|eta|vehicle|assignment)/i.test(html + '\n' + logicSource), 'Passenger must not create fake GPS/ETA/vehicle/assignment data');
 
   const sourcePairs = sampleSchedule().pairs;
   const loadCalls = [];
