@@ -3492,6 +3492,10 @@
       var legSchedule = getLegSchedule(bookingForSchedule, nextTime);
       var shouldBatchCheckin = eventName === 'checkin' && routeInfo.type === 'secondary_connection';
       var lineAttemptId = eventName + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      var alertPlan = buildCheckTicketAlertPlan(eventName, update, {
+        distanceKm: distanceKm,
+        etaMinutes: etaMinutes
+      });
       var linePayload = {
         event: eventName,
         source: 'check_ticket.html',
@@ -3540,6 +3544,9 @@
         distanceKm: distanceKm,
         speedKmh: speedKmh,
         etaMinutes: etaMinutes,
+        alertCenterEvent: alertPlan ? alertPlan.event : '',
+        alertCenterOnceKey: alertPlan ? alertPlan.onceKey : '',
+        alertCenterRecipientRole: alertPlan ? alertPlan.recipientRole : '',
         adminBypassCheckin: update.adminBypassCheckin === true || checkin.adminBypass === true,
         legSchedule: legSchedule,
         timestamp: new Date(eventAt).toISOString()
@@ -3580,6 +3587,9 @@
         lineMessagingMode: linePayload.notifyMode,
         lineMessagingBatchKey: linePayload.batchKey,
         lineMessagingBatchWindowMs: linePayload.batchWindowMs,
+        alertCenterEvent: linePayload.alertCenterEvent,
+        alertCenterOnceKey: linePayload.alertCenterOnceKey,
+        alertCenterRecipientRole: linePayload.alertCenterRecipientRole,
         lineMessagingAt: firebase.database.ServerValue.TIMESTAMP,
         lineMessagingStatus: TEST_MODE ? 'mock_skipped' : 'pending',
         lineMessagingAttemptId: linePayload.lineMessagingAttemptId
@@ -3606,6 +3616,17 @@
           setStatus('lookupStatus', 'bad', 'บันทึกข้อมูลเพื่อแจ้ง LINE ไม่สำเร็จ กรุณาลองใหม่');
           throw err;
         });
+    }
+
+    function buildCheckTicketAlertPlan(eventName, update, metrics) {
+      if (eventName !== 'checkin' || !window.SLTransitAlertCenter || typeof window.SLTransitAlertCenter.transferArrivalAlert !== 'function') return null;
+      return window.SLTransitAlertCenter.transferArrivalAlert({
+        booking: Object.assign({}, currentBooking || {}, { transferTerminalLineId: CHECKIN_LINE_GROUP_ID }),
+        terminalLineId: CHECKIN_LINE_GROUP_ID,
+        distanceKm: metrics && metrics.distanceKm,
+        radiusKm: CHECKIN_RADIUS_KM,
+        etaMinutes: metrics && metrics.etaMinutes
+      });
     }
 
     function isEffectiveTestMode() {
