@@ -51,6 +51,7 @@
   var _app = null;
   var _db = null;
   var _readyPromise = null;
+  var _stopLiveVehicles = null;
 
   function init() {
     if (_readyPromise) return _readyPromise;
@@ -65,6 +66,7 @@
       return Promise.reject(new Error('erp-data-adapter.js not loaded'));
     }
     _readyPromise = global.SLTransit.core.init(_app).then(function () {
+      startLiveVehicleFeed();
       return { app: _app, db: _db };
     });
     return _readyPromise;
@@ -84,6 +86,24 @@
       console.error('watchSettings failed:', err && err.message ? err.message : err);
     });
     return function unsubscribe() { ref.off('value', callback); };
+  }
+
+  function applyLiveVehicleSnapshot(snapshot) {
+    var raw = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : snapshot;
+    var vehicles = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    updateAllBusesOnMap(vehicles);
+    emit('vehiclesChanged', allBusPositions);
+    return allBusPositions;
+  }
+
+  function startLiveVehicleFeed() {
+    if (_stopLiveVehicles) return _stopLiveVehicles;
+    var adapter = global.SLTransit && global.SLTransit.db;
+    if (!adapter || typeof adapter.watchLiveVehicles !== 'function') {
+      throw new Error('ERP live vehicle watcher unavailable');
+    }
+    _stopLiveVehicles = adapter.watchLiveVehicles(applyLiveVehicleSnapshot);
+    return _stopLiveVehicles;
   }
 
 
@@ -752,8 +772,8 @@ function placeBusMarkerAt(carId, latlng) {
 }
 
 function updateAllBusesOnMap(buses) {
-  if (!mapReady || !mapObj) return;
   allBusPositions = buses || {};
+  if (!mapReady || !mapObj) return;
   if (window.SLTransitMapDisplayCenter && typeof window.SLTransitMapDisplayCenter.prepareVehicleLayer === 'function') {
     var signals = Object.keys(buses || {}).map(function(id) {
       return Object.assign({ vehicleId: id }, buses[id] || {});

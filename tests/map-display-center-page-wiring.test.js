@@ -4,6 +4,7 @@ const path = require('path');
 
 const passengerHtml = fs.readFileSync(path.join(__dirname, '..', 'passenger.html'), 'utf8');
 const passengerLogic = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
+const erpDataAdapter = fs.readFileSync(path.join(__dirname, '..', 'erp-data-adapter.js'), 'utf8');
 const checkTicketHtml = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'utf8');
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
@@ -16,6 +17,34 @@ const passengerUpdateBlock = passengerLogic.slice(passengerUpdateStart, passenge
 assert(passengerUpdateBlock.includes('SLTransitMapDisplayCenter.prepareVehicleLayer'), 'Passenger vehicle layer must ask Map Display Center');
 assert(passengerUpdateBlock.includes('placeBusMarkerAt'), 'Passenger must remain display-only and place the prepared markers');
 
+assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
+assert(passengerLogic.includes('adapter.watchLiveVehicles(applyLiveVehicleSnapshot)'), 'Passenger must watch the central operations/liveVehicles contract');
+assert(erpDataAdapter.includes("schemaPath('operationsLiveVehicles', 'operations/liveVehicles')"), 'ERP adapter live vehicle watcher must target operations/liveVehicles');
+assert(!passengerLogic.includes("db.ref('liveVehicles')"), 'Passenger must not read the legacy top-level liveVehicles path');
+assert(!passengerLogic.includes("db.ref('bus')"), 'Passenger must not read the legacy top-level bus path');
+
+let liveVehicleCallback = null;
+global.window = global;
+global.firebase = {
+  initializeApp: function() {
+    return { database: function() { return {}; } };
+  }
+};
+global.SLTransit = {
+  db: {
+    init: function() { return Promise.resolve(); },
+    watchLiveVehicles: function(callback) {
+      liveVehicleCallback = callback;
+      return function unsubscribe() {};
+    }
+  },
+  core: {
+    init: function() { return Promise.resolve(global.SLTransit); }
+  }
+};
+require('../map-display-center.js');
+require('../passenger-logic.js');
+
 const checkVanStart = checkTicketHtml.indexOf('function updateVanMarkerSmoothly');
 const checkVanEnd = checkTicketHtml.indexOf('function updateTrackingRouteLine', checkVanStart);
 assert(checkVanStart !== -1 && checkVanEnd !== -1, 'Check Ticket vehicle marker block missing');
@@ -23,4 +52,23 @@ const checkVanBlock = checkTicketHtml.slice(checkVanStart, checkVanEnd);
 assert(checkVanBlock.includes('SLTransitMapDisplayCenter.planVehicleMarker'), 'Check Ticket booked vehicle marker must ask Map Display Center');
 assert(checkVanBlock.includes('animateTrackingMarker'), 'Check Ticket should still render with its existing marker animation');
 
-console.log('map-display-center page wiring ok');
+global.SLPassengerLogic.init().then(function() {
+  assert.strictEqual(typeof liveVehicleCallback, 'function', 'Passenger init must start the central live vehicle watcher');
+  liveVehicleCallback({
+    val: function() {
+      return {
+        veh_001: { lat: 13.692383, lng: 101.054183 },
+        veh_002: { lat: 13.7, lng: 101.1 }
+      };
+    }
+  });
+  assert.deepStrictEqual(
+    Object.keys(global.SLPassengerLogic.vehicles.getAll()),
+    ['veh_001', 'veh_002'],
+    'Passenger must retain every central vehicle signal even before the map is ready'
+  );
+  console.log('map-display-center page wiring ok');
+}).catch(function(error) {
+  console.error(error);
+  process.exitCode = 1;
+});
