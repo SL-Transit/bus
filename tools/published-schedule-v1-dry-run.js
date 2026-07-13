@@ -239,8 +239,82 @@ function displayGroupForDestination(destination, serviceGroups) {
   if (!destination || !Array.isArray(destination.serviceGroupIds)) return null;
   if (destination.serviceGroupIds.indexOf('group_001') !== -1) return null;
   const groupId = destination.serviceGroupIds[0];
+  if (groupId === 'group_005') return 'สถานีรถไฟ';
   const group = serviceGroups[groupId];
   return group && (group.displayNameTh || group.nameTh || group.serviceGroupId) || groupId || null;
+}
+
+function buildDestinationOrder(erp, destinationList) {
+  const corridorOrderByNodeId = {};
+  values(erp.groupStops).forEach((groupStop) => {
+    if (groupStop.serviceGroupId === 'group_001') corridorOrderByNodeId[groupStop.nodeId] = groupStop.corridorPosition;
+  });
+  const groupOrder = {
+    group_001: 0,
+    group_002: 10000,
+    group_003: 20000,
+    group_004: 30000,
+    group_005: 40000
+  };
+  return destinationList.reduce((map, destination, index) => {
+    const groupId = Array.isArray(destination.serviceGroupIds) && destination.serviceGroupIds[0] || 'group_999';
+    const corridorOrder = corridorOrderByNodeId[destination.nodeId];
+    map[destination.destinationId] = Number.isFinite(Number(corridorOrder))
+      ? Number(corridorOrder)
+      : (groupOrder[groupId] || 90000) + index;
+    return map;
+  }, {});
+}
+
+function destinationOptionFromPair(pair, destination, destinations, displayOrder) {
+  const destinationEntry = destinations[pair.destinationLabel] || {};
+  return {
+    label: pair.destinationLabel,
+    destinationLabel: pair.destinationLabel,
+    destinationId: pair.destinationId,
+    nodeId: pair.destinationNodeId || destination && destination.nodeId || destinationEntry.nodeId || null,
+    group: destinationEntry.group || null,
+    displayOrder,
+    visible: true,
+    pairKey: pair.compatibilityPairKey,
+    canonicalPairKey: pair.canonicalPairKey,
+    routeChoiceStatus: pair.routeChoiceStatus,
+    previewDisplayMode: pair.previewDisplayMode,
+    referenceOnly: pair.referenceOnly === true,
+    transferStatus: pair.transferStatus || 'not_required',
+    externalReference: pair.externalReference === true
+  };
+}
+
+function buildOriginOptions(originDestinations) {
+  return originDestinations.map((destination, index) => ({
+    label: destination.displayNameTh,
+    originLabel: destination.displayNameTh,
+    originDestinationId: destination.destinationId,
+    nodeId: destination.nodeId,
+    displayOrder: index,
+    visible: true
+  }));
+}
+
+function buildDestinationOptionsByOrigin(originOptions, pairs, destinationsById, destinations, destinationOrderById) {
+  const optionMaps = {};
+  values(pairs).forEach((pair) => {
+    const originOption = originOptions.find((origin) => origin.originDestinationId === pair.originDestinationId);
+    if (!originOption || pair.originLabel === pair.destinationLabel) return;
+    const destination = destinationsById[pair.destinationId] || null;
+    const displayOrder = destinationOrderById[pair.destinationId] == null ? 999999 : destinationOrderById[pair.destinationId];
+    const option = destinationOptionFromPair(pair, destination, destinations, displayOrder);
+    optionMaps[originOption.originLabel] = optionMaps[originOption.originLabel] || {};
+    optionMaps[originOption.originLabel][option.pairKey] = option;
+  });
+  return originOptions.reduce((map, origin) => {
+    const options = values(optionMaps[origin.originLabel] || {})
+      .sort((a, b) => a.displayOrder - b.displayOrder || String(a.label).localeCompare(String(b.label), 'th'))
+      .map((option, index) => Object.assign({}, option, { displayOrder: index }));
+    map[origin.originLabel] = options;
+    return map;
+  }, {});
 }
 
 function timeEntryFromOffer(offer) {
@@ -608,8 +682,43 @@ function validatePublishedSchedule(publishedSchedule) {
   const compatibilityKeyIndex = publishedSchedule.compatibilityKeyIndex || {};
   const excludedTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferUnknown || {};
   const excludedInfeasibleTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferInfeasible || {};
+  const originOptions = Array.isArray(publishedSchedule.originOptions) ? publishedSchedule.originOptions : [];
+  const destinationOptionsByOrigin = publishedSchedule.destinationOptionsByOrigin || {};
   const scheduleOfferIds = [];
   const canonicalKeys = new Set();
+  if (!originOptions.length) {
+    block('origin-options-missing', 'publishedSchedule/originOptions');
+  }
+  originOptions.forEach((origin, index) => {
+    if (!origin || !origin.originLabel || !origin.originDestinationId || origin.displayOrder !== index) {
+      block('origin-option-invalid', `publishedSchedule/originOptions/${index}`);
+    }
+    if (!Array.isArray(destinationOptionsByOrigin[origin.originLabel])) {
+      block('destination-options-by-origin-missing', `publishedSchedule/destinationOptionsByOrigin/${origin.originLabel}`);
+    }
+  });
+  Object.keys(destinationOptionsByOrigin).forEach((originLabel) => {
+    const options = destinationOptionsByOrigin[originLabel];
+    if (!Array.isArray(options)) {
+      block('destination-options-by-origin-not-array', `publishedSchedule/destinationOptionsByOrigin/${originLabel}`);
+      return;
+    }
+    options.forEach((option, index) => {
+      if (!option || !option.label || !option.destinationId || !option.pairKey) {
+        block('destination-option-invalid', `publishedSchedule/destinationOptionsByOrigin/${originLabel}/${index}`);
+        return;
+      }
+      if (option.label === originLabel) {
+        block('destination-option-selected-origin-visible', `publishedSchedule/destinationOptionsByOrigin/${originLabel}/${index}`);
+      }
+      if (option.displayOrder !== index) {
+        block('destination-option-display-order-invalid', `publishedSchedule/destinationOptionsByOrigin/${originLabel}/${index}`);
+      }
+      if (!pairs[option.pairKey]) {
+        block('destination-option-pair-key-missing', `publishedSchedule/destinationOptionsByOrigin/${originLabel}/${index}/pairKey`, option.pairKey);
+      }
+    });
+  });
   Object.keys(pairs).forEach((pairKey) => {
     const pair = pairs[pairKey];
     if (pair.keyType !== 'compatibility_label_pair' || pair.compatibilityOnly !== true) {
@@ -766,6 +875,8 @@ async function buildPublishedScheduleV1DryRun() {
     };
     return map;
   }, {});
+  const originOptions = buildOriginOptions(originDestinations);
+  const destinationOrderById = buildDestinationOrder(erp, destinationList);
 
   const pairs = {};
   const excludedTransferPairs = {};
@@ -861,6 +972,7 @@ async function buildPublishedScheduleV1DryRun() {
   const estimatedReferenceTimes = values(pairs).reduce((total, pair) => total + (pair.segments || []).reduce((segTotal, segment) => (
     segTotal + (segment.times || []).filter((time) => time.isEstimated === true && time.referenceOnly === true).length
   ), 0), 0);
+  const destinationOptionsByOrigin = buildDestinationOptionsByOrigin(originOptions, pairs, destinationsById, destinations, destinationOrderById);
 
   const publishedSchedule = {
     schemaVersion: 'publishedSchedule.v1.preview',
@@ -914,7 +1026,9 @@ async function buildPublishedScheduleV1DryRun() {
     mappingStatusSummary,
     timeTypeSummary,
     origins,
+    originOptions,
     destinations,
+    destinationOptionsByOrigin,
     compatibilityKeyIndex,
     excludedPreviewPairs: {
       transferUnknown: excludedTransferPairs,

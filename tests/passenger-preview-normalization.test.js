@@ -179,6 +179,42 @@ function sampleSchedule() {
   };
 }
 
+function sampleScheduleWithDestinationOptions() {
+  const schedule = sampleSchedule();
+  schedule.destinationOptionsByOrigin = {
+    [TH.chachoengsao]: [
+      {
+        label: TH.pattaya,
+        destinationLabel: TH.pattaya,
+        pairKey: encodedPair1,
+        group: TH.transferGroup,
+        displayOrder: 0
+      },
+      {
+        label: TH.chachoengsao,
+        destinationLabel: TH.chachoengsao,
+        pairKey: encodedPair7,
+        displayOrder: 1
+      },
+      {
+        label: TH.km7,
+        destinationLabel: TH.km7,
+        pairKey: encodedPair7,
+        displayOrder: 2
+      }
+    ],
+    [TH.phanom]: [
+      {
+        label: TH.phaijit,
+        destinationLabel: TH.phaijit,
+        pairKey: 'phanomPhaijit',
+        displayOrder: 0
+      }
+    ]
+  };
+  return schedule;
+}
+
 const sandbox = loadPassengerLogic();
 const schedule = sandbox.SLPassengerLogic.schedule;
 let scheduleUpdatedCount = 0;
@@ -216,5 +252,15 @@ assert(!schedule.getPair(TH.chachoengsao, TH.rangsit), 'excludedPreviewPairs mus
 assert(schedule.getPair(TH.chachoengsao, TH.km1).segments[0].times[0].displayBadgeTh === TH.estimatedBadge, 'estimated badge must pass through');
 assert(schedule.getPair(TH.chachoengsao, TH.km10).transferDisclaimerTh === TH.transferDisclaimer, 'transfer disclaimer must pass through');
 assert(scheduleUpdatedCount === 1, 'scheduleUpdated must fire as soon as preview schedule is applied');
+
+schedule.applyPublishedSchedule(sampleScheduleWithDestinationOptions());
+assert(schedule.hasDestinationOptionsByOrigin() === true, 'schedule must report ERP-provided destinationOptionsByOrigin');
+const optionLabels = Array.from(schedule.getDestinationLabels(TH.chachoengsao));
+assert.deepStrictEqual(optionLabels, [TH.pattaya, TH.chachoengsao, TH.km7], 'destinationOptionsByOrigin order/content must be rendered exactly as ERP provides it');
+assert(JSON.stringify(schedule.getDestinationOptions(TH.chachoengsao).map((option) => option.group || null)) === JSON.stringify([TH.transferGroup, null, null]), 'destination option groups must come from ERP options');
+assert(schedule.getPair(TH.chachoengsao, TH.pattaya) === schedule.getPair(TH.chachoengsao, TH.km1), 'pair lookup must use pairKey supplied by destination option');
+assert(schedule.getPair(TH.chachoengsao, TH.chachoengsao) === schedule.getPair(TH.chachoengsao, TH.km7), 'Passenger must not filter selected-origin option when ERP provides it');
+assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.phanom)), [TH.phaijit], 'origin-specific destination options must not be derived from visible pairs');
+assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backed preview schedule is applied');
 
 console.log('passenger preview normalization ok');

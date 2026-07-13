@@ -412,6 +412,9 @@ var PUBLISHED_SCHEDULE = null;
 var PUBLISHED_SCHEDULE_DESTINATIONS = {};
 var PUBLISHED_SCHEDULE_DESTINATION_LABELS = [];
 var PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = {};
+var PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN = {};
+var PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS = {};
+var PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN = false;
 var PUBLISHED_SCHEDULE_PAIR_ALIASES = {};
 
 function previewEncodingIndex(node, name) {
@@ -535,6 +538,29 @@ function normalizePreviewDestinationsByOrigin(node, destinations) {
   return byOrigin;
 }
 
+function normalizePreviewDestinationOptionsByOrigin(node) {
+  var raw = node && node.destinationOptionsByOrigin ? node.destinationOptionsByOrigin : null;
+  var byOrigin = {};
+  var pairKeys = {};
+  if (!raw || typeof raw !== 'object') return { byOrigin: byOrigin, pairKeys: pairKeys, hasOptions: false };
+  Object.keys(raw).forEach(function(originLabel) {
+    var options = Array.isArray(raw[originLabel]) ? raw[originLabel] : [];
+    byOrigin[originLabel] = [];
+    pairKeys[originLabel] = {};
+    options.forEach(function(option) {
+      if (!option || typeof option !== 'object') return;
+      var label = option.label || option.destinationLabel || option.displayNameTh;
+      if (!label || isEncodedPreviewKey(label)) return;
+      var normalized = Object.assign({}, option);
+      normalized.label = label;
+      normalized.destinationLabel = normalized.destinationLabel || label;
+      byOrigin[originLabel].push(normalized);
+      if (normalized.pairKey) pairKeys[originLabel][label] = normalized.pairKey;
+    });
+  });
+  return { byOrigin: byOrigin, pairKeys: pairKeys, hasOptions: Object.keys(raw).length > 0 };
+}
+
 function addPreviewPairAlias(aliases, fromKey, toKey) {
   if (fromKey && toKey && fromKey !== toKey) aliases[fromKey] = toKey;
 }
@@ -561,6 +587,15 @@ function normalizePreviewPairAliases(node) {
       addPreviewPairAlias(aliases, pair.originLabel + '__' + pair.destinationLabel, key);
     }
   });
+  Object.keys(node && node.destinationOptionsByOrigin || {}).forEach(function(originLabel) {
+    var options = Array.isArray(node.destinationOptionsByOrigin[originLabel]) ? node.destinationOptionsByOrigin[originLabel] : [];
+    options.forEach(function(option) {
+      if (!option || !option.pairKey) return;
+      addPreviewPairAlias(aliases, option.pairKey, option.pairKey);
+      if (option.label) addPreviewPairAlias(aliases, originLabel + '__' + option.label, option.pairKey);
+      if (option.destinationLabel) addPreviewPairAlias(aliases, originLabel + '__' + option.destinationLabel, option.pairKey);
+    });
+  });
   return aliases;
 }
 
@@ -568,7 +603,13 @@ function applyPublishedSchedule(node) {
   PUBLISHED_SCHEDULE = node || null;
   PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
   PUBLISHED_SCHEDULE_DESTINATION_LABELS = normalizePreviewDestinationLabels(PUBLISHED_SCHEDULE_DESTINATIONS);
-  PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = normalizePreviewDestinationsByOrigin(PUBLISHED_SCHEDULE, PUBLISHED_SCHEDULE_DESTINATIONS);
+  var destinationOptions = normalizePreviewDestinationOptionsByOrigin(PUBLISHED_SCHEDULE);
+  PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN = destinationOptions.byOrigin;
+  PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS = destinationOptions.pairKeys;
+  PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN = destinationOptions.hasOptions;
+  PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN
+    ? {}
+    : normalizePreviewDestinationsByOrigin(PUBLISHED_SCHEDULE, PUBLISHED_SCHEDULE_DESTINATIONS);
   PUBLISHED_SCHEDULE_PAIR_ALIASES = normalizePreviewPairAliases(PUBLISHED_SCHEDULE);
   emit('scheduleUpdated');
 }
@@ -581,7 +622,27 @@ function getScheduleDestinations() {
   return PUBLISHED_SCHEDULE_DESTINATIONS;
 }
 
+function getScheduleDestinationOptions(originLabel) {
+  if (originLabel && PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) {
+    return (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).map(function(option) {
+      return Object.assign({}, option);
+    });
+  }
+  return getScheduleDestinationLabels(originLabel).map(function(label) {
+    return Object.assign({ label: label, destinationLabel: label }, PUBLISHED_SCHEDULE_DESTINATIONS[label] || {});
+  });
+}
+
+function hasScheduleDestinationOptionsByOrigin() {
+  return PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN === true;
+}
+
 function getScheduleDestinationLabels(originLabel) {
+  if (originLabel && PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) {
+    return (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).map(function(option) {
+      return option.label;
+    });
+  }
   if (originLabel && PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN[originLabel]) {
     return PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN[originLabel].slice();
   }
@@ -590,6 +651,13 @@ function getScheduleDestinationLabels(originLabel) {
 
 function getSchedulePair(originLabel, destLabel) {
   if (!PUBLISHED_SCHEDULE || !PUBLISHED_SCHEDULE.pairs) return null;
+  var optionPairKey = originLabel && destLabel && PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS[originLabel]
+    ? PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS[originLabel][destLabel]
+    : null;
+  if (optionPairKey) {
+    var optionResolvedKey = PUBLISHED_SCHEDULE.pairs[optionPairKey] ? optionPairKey : PUBLISHED_SCHEDULE_PAIR_ALIASES[optionPairKey];
+    return optionResolvedKey ? (PUBLISHED_SCHEDULE.pairs[optionResolvedKey] || null) : null;
+  }
   var pairKey = originLabel + '__' + destLabel;
   var resolvedKey = PUBLISHED_SCHEDULE.pairs[pairKey] ? pairKey : PUBLISHED_SCHEDULE_PAIR_ALIASES[pairKey];
   return resolvedKey ? (PUBLISHED_SCHEDULE.pairs[resolvedKey] || null) : null;
@@ -1570,6 +1638,8 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   var scheduleApi = {
     getOrigins: getScheduleOrigins,
     getDestinations: getScheduleDestinations,
+    getDestinationOptions: getScheduleDestinationOptions,
+    hasDestinationOptionsByOrigin: hasScheduleDestinationOptionsByOrigin,
     getDestinationLabels: getScheduleDestinationLabels,
     getPair: getSchedulePair,
     isReady: isScheduleReady,

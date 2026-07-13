@@ -35,6 +35,10 @@ function pairByOd(publishedSchedule, originDestinationId, destinationId) {
   ));
 }
 
+function destinationOptionById(publishedSchedule, originLabel, destinationId) {
+  return ((publishedSchedule.destinationOptionsByOrigin || {})[originLabel] || []).find((option) => option.destinationId === destinationId);
+}
+
 function pairTimes(pair) {
   return (pair && pair.segments || []).flatMap((segment) => (segment.times || []).map((entry) => entry.time)).sort();
 }
@@ -118,10 +122,19 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.counts.excludedFromPreview.transferUnknown === 0, 'excluded transfer unknown count mismatch');
   assert(schedule.counts.excludedFromPreview.transferInfeasible === 58, 'excluded transfer infeasible count mismatch');
   assert(schedule.counts.estimatedReferenceTimes === 360, 'estimated reference time count mismatch');
+  assert(Array.isArray(schedule.originOptions) && schedule.originOptions.length === schedule.counts.origins, 'originOptions count mismatch');
+  assert(schedule.originOptions.every((origin, index) => origin.displayOrder === index && origin.originLabel && origin.originDestinationId), 'originOptions must be ordered ERP options');
 
   const chachoengsaoTatakiab = pairByOd(schedule, 'chachoengsao', 'tatakiab');
   assert(chachoengsaoTatakiab, 'Chachoengsao to Tatakiab pair missing');
   assert(JSON.stringify(pairTimes(chachoengsaoTatakiab)) === JSON.stringify(['11:20', '14:00', '17:20']), 'Chachoengsao to Tatakiab times mismatch');
+  const chachoengsaoOriginLabel = chachoengsaoTatakiab.originLabel;
+  const tatakiabOption = destinationOptionById(schedule, chachoengsaoOriginLabel, 'tatakiab');
+  assert(tatakiabOption, 'Chachoengsao to Tatakiab destination option missing');
+  assert(tatakiabOption.label === chachoengsaoTatakiab.destinationLabel, 'Tatakiab option label mismatch');
+  assert(tatakiabOption.pairKey === chachoengsaoTatakiab.compatibilityPairKey, 'Tatakiab option pairKey mismatch');
+  assert(tatakiabOption.displayOrder >= 0, 'Tatakiab option display order missing');
+  assert(((schedule.destinationOptionsByOrigin || {})[chachoengsaoOriginLabel] || []).every((option) => option.label !== chachoengsaoOriginLabel), 'selected origin must be excluded by builder');
   const tatakiab1720 = chachoengsaoTatakiab.segments[0].times.find((entry) => entry.time === '17:20');
   assert(tatakiab1720.scheduleOfferId === 'TRIP-ROUTE-MAIN-011-1720', 'Tatakiab 17:20 schedule offer ID mismatch');
   assert(tatakiab1720.mappingStatus === 'mapped_queue_trip', 'Tatakiab 17:20 mapping status mismatch');
@@ -132,6 +145,10 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   const chachoengsaoNongkhok = pairByOd(schedule, 'chachoengsao', 'nongkhok');
   assert(chachoengsaoNongkhok, 'Chachoengsao to Nongkhok pair missing');
   assert(pairTimes(chachoengsaoNongkhok).indexOf('17:20') !== -1, 'Chachoengsao to Nongkhok must keep 17:20');
+  const nongkhokOption = destinationOptionById(schedule, chachoengsaoOriginLabel, 'nongkhok');
+  assert(nongkhokOption && nongkhokOption.pairKey === chachoengsaoNongkhok.compatibilityPairKey, 'Nongkhok option pairKey mismatch');
+  assert(values(schedule.destinations).some((destination) => destination.group === 'สถานีรถไฟ'), 'train destinations must use owner-approved group label');
+  assert(values(schedule.destinations).every((destination) => destination.group !== 'กลุ่มรถไฟ'), 'train destinations must not use invented train group label');
 
   assert(TRANSFER_POLICY.sourceWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'transfer policy source workbook must use latest owner workbook');
   assert(schedule.source.ownerWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'latest owner workbook source mismatch');
@@ -250,6 +267,23 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   const collisionPair = firstVisiblePair(collisionIndex);
   collisionIndex.compatibilityKeyIndex[collisionPair.compatibilityPairKey].canonicalPairKey = 'psv1_pair_wrong_collision';
   assert(validatePublishedSchedule(collisionIndex).blockers.some((blocker) => blocker.code === 'compatibility-key-index-missing'), 'compatibility key collision/index mismatch must fail validation');
+
+  const missingDestinationOptions = clone(schedule);
+  delete missingDestinationOptions.destinationOptionsByOrigin[chachoengsaoOriginLabel];
+  assert(validatePublishedSchedule(missingDestinationOptions).blockers.some((blocker) => blocker.code === 'destination-options-by-origin-missing'), 'missing destinationOptionsByOrigin must fail validation');
+
+  const badDestinationOptionPairKey = clone(schedule);
+  destinationOptionById(badDestinationOptionPairKey, chachoengsaoOriginLabel, 'tatakiab').pairKey = 'missing_pair_key';
+  assert(validatePublishedSchedule(badDestinationOptionPairKey).blockers.some((blocker) => blocker.code === 'destination-option-pair-key-missing'), 'destination option with missing pairKey must fail validation');
+
+  const selectedOriginOption = clone(schedule);
+  selectedOriginOption.destinationOptionsByOrigin[chachoengsaoOriginLabel].push({
+    label: chachoengsaoOriginLabel,
+    destinationId: 'chachoengsao',
+    pairKey: chachoengsaoTatakiab.compatibilityPairKey,
+    displayOrder: selectedOriginOption.destinationOptionsByOrigin[chachoengsaoOriginLabel].length
+  });
+  assert(validatePublishedSchedule(selectedOriginOption).blockers.some((blocker) => blocker.code === 'destination-option-selected-origin-visible'), 'builder must exclude selected origin from destination options');
 
   const hardCodedStopCount = clone(schedule);
   hardCodedStopCount.ownerWorkbookInterpretation.stopSequence.stopCountPolicy = 'fixed_15_stops';

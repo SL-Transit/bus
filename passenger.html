@@ -1020,7 +1020,12 @@ function buildDropdowns(){
   function buildDestOptions(){
     destSel.innerHTML = '';
     const originValue = state.getOrigin() || originSel.value;
-    const destLabels = typeof S.getDestinationLabels === 'function' ? S.getDestinationLabels(originValue) : Object.keys(destinations);
+    const destinationOptions = typeof S.getDestinationOptions === 'function'
+      ? S.getDestinationOptions(originValue)
+      : (typeof S.getDestinationLabels === 'function' ? S.getDestinationLabels(originValue) : Object.keys(destinations)).map(function(label) {
+        return Object.assign({ label: label, destinationLabel: label }, destinations[label] || {});
+      });
+    const destLabels = destinationOptions.map(function(option) { return option.label; });
 
     if (!destLabels.length) {
       const grp0 = document.createElement('optgroup');
@@ -1031,6 +1036,33 @@ function buildDropdowns(){
       grp0.appendChild(opt);
       destSel.appendChild(grp0);
       state.setDest('');
+      return;
+    }
+
+    if (typeof S.getDestinationOptions === 'function' && typeof S.hasDestinationOptionsByOrigin === 'function' && S.hasDestinationOptionsByOrigin()) {
+      let currentGroup = null;
+      let currentParent = destSel;
+      destinationOptions.forEach(option=>{
+        const label = option.label || option.destinationLabel;
+        if (!label) return;
+        const group = option.group || null;
+        if (group !== currentGroup) {
+          currentGroup = group;
+          if (group) {
+            currentParent = document.createElement('optgroup');
+            currentParent.label = `โ€” ${group} โ€”`;
+            destSel.appendChild(currentParent);
+          } else {
+            currentParent = destSel;
+          }
+        }
+        const opt = document.createElement('option');
+        opt.value=label; opt.textContent=label;
+        if(label===state.getDest()) opt.selected=true;
+        currentParent.appendChild(opt);
+      });
+      if (destSel.value) state.setDest(destSel.value);
+      else state.setDest('');
       return;
     }
 
