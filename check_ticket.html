@@ -1820,6 +1820,7 @@
 
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking) return null;
+      if (booking.assignment && booking.assignment.contractVersion === 'booking_assignment_v1') return booking.assignment;
       if (isScheduleOnlyAssignment(booking)) return booking;
       var persistedQueueNo = Number(booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex || 0);
       var persistedVehicleId = String(booking.plannedVehicleId || '');

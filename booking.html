@@ -19,6 +19,7 @@
 <script src="erp-engine.js?v=20260627erp4"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
+<script src="booking-assignment-center.js?v=20260713a"></script>
 <script src="qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -2735,6 +2736,24 @@ function submitBooking() {
       var tripIdentity = ADMIN_TRIP_IDENTITIES[selOrigin+'|'+selDest+'|'+selTime] || {};
       var snapshotRouteId = erpBookingContext.routeId || tripIdentity.routeId || '';
       var snapshotTripId = erpBookingContext.tripId || tripIdentity.tripId || '';
+      var assignmentPlan = window.SLTransitBookingAssignmentCenter
+        && typeof window.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
+        ? window.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract({
+          resolvedAssignment: tripAssignment,
+          serviceDate: dateVal,
+          routeId: snapshotRouteId,
+          tripId: snapshotTripId,
+          departTime: selTime,
+          originName: fromName
+        })
+        : { status: 'missing_assignment_contract', assignment: null };
+      if (!assignmentPlan.assignment) {
+        var assignmentError = new Error('ASSIGNMENT_CONTRACT_UNAVAILABLE');
+        assignmentError.missing = assignmentPlan.missing || [];
+        throw assignmentError;
+      }
+      var assignmentContract = assignmentPlan.assignment;
+      vehicleQueueNum = Number(assignmentContract.queueNo || 0);
       var isAdminTester = isAdminTesterPhone(safePhone);
       if(isAdminTester)setAdminTesterSession(true);
 
@@ -2760,20 +2779,21 @@ function submitBooking() {
         leg2Route:   legSchedule.leg2,
         leg2Time:    legSchedule.leg2Time,
         legSchedule: legSchedule,
-        queueNo:     vehicleQueueNum || '',
-        plannedVehicleId: tripAssignment.plannedVehicleId || '',
-        tripIndex:   tripAssignment.tripIndex || '',
-        departTime:  tripAssignment.departTime || selTime,
-        pickupTime:  tripAssignment.pickupTime || selTime,
-        pickupStopKey: tripAssignment.pickupStopKey || '',
-        pickupStopName: tripAssignment.pickupStopName || fromName,
-        routeDirection: tripAssignment.routeDirection || '',
-        routeStops: tripAssignment.routeStops || [],
-        routeStopNames: tripAssignment.routeStopNames || [],
-        serviceType: tripAssignment.serviceType || 'normal',
-        scheduleOnly: tripAssignment.scheduleOnly === true,
-        noLiveTracking: tripAssignment.noLiveTracking === true,
-        assignmentSource: tripAssignment.assignmentSource || '',
+        assignment:  assignmentContract,
+        queueNo:     assignmentContract.queueNo || '',
+        plannedVehicleId: assignmentContract.plannedVehicleId || '',
+        tripIndex:   assignmentContract.tripIndex || '',
+        departTime:  assignmentContract.departTime || selTime,
+        pickupTime:  assignmentContract.pickupTime || selTime,
+        pickupStopKey: assignmentContract.pickupStopKey || '',
+        pickupStopName: assignmentContract.pickupStopName || fromName,
+        routeDirection: assignmentContract.routeDirection || '',
+        routeStops: assignmentContract.routeStops || [],
+        routeStopNames: assignmentContract.routeStopNames || [],
+        serviceType: assignmentContract.serviceType || 'normal',
+        scheduleOnly: assignmentContract.scheduleOnly === true,
+        noLiveTracking: assignmentContract.noLiveTracking === true,
+        assignmentSource: assignmentContract.assignmentSource || '',
         seats:       seats,
         ticketQrVersion: 'SLT1',
         passengerIdentity: { status:'pending', verifiedAt:null, verifiedBy:'', vehicleId:'' },
@@ -2871,6 +2891,8 @@ function submitBooking() {
         btn.disabled = true;
         btn.textContent = '❌ ตรวจสอบสลิปไม่ผ่าน';
         return;
+      } else if (err && err.message === 'ASSIGNMENT_CONTRACT_UNAVAILABLE') {
+        alert('ยังไม่พบข้อมูลคิว เที่ยว และรถจากระบบกลาง กรุณาเลือกรอบใหม่หรือลองอีกครั้ง');
       } else {
         alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
       }
