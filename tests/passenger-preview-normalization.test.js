@@ -420,6 +420,7 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!html.includes("db.ref('publishedCatalog')"), 'Passenger must not read legacy publishedCatalog');
   assert(!html.includes("db.ref('bus')"), 'Passenger must not read legacy bus vehicle feed');
   assert(!html.includes("db.ref('liveVehicles')"), 'Passenger must not read legacy liveVehicles feed');
+  assert(!logicSource.includes("operations/liveVehicles"), 'Passenger logic must not read operations/liveVehicles directly');
   assert(!logicSource.includes("db.ref('routeData')"), 'Passenger logic must not fallback-read legacy routeData');
   assert(!logicSource.includes('legacyRouteData'), 'Passenger logic must not derive route/map data from legacy catalog adapters');
   assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.on\s*\(/.test(html), 'Passenger must not subscribe to full preview/publishedSchedule on initial load');
@@ -430,12 +431,34 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
   assert(!logicSource.includes('router.project-osrm.org'), 'Passenger must not fetch route geometry from OSRM');
-  assert(html.includes('SLPassengerLogic.map.loadRouteData().then(function(freshRouteData)'), 'Passenger map retry must load fresh route data');
-  assert(html.includes('SLPassengerLogic.map.renderStops(freshRouteData)'), 'Passenger map retry must render fresh route data');
+  assert(!html.includes('setInterval(function(){'), 'Passenger must not keep a page-local map/vehicle retry loop');
+  assert(!html.includes('SLPassengerLogic.map.updateVehicles(allBusPositions)'), 'Passenger page must not push locally cached vehicle positions back onto the map');
   assert(html.includes('Destination option contract unavailable'), 'Passenger must show an explicit destination contract-unavailable state');
   assert(!logicSource.includes('normalizePreviewDestinationsByOrigin'), 'Passenger must not derive destinations from pairs');
   assert(!logicSource.includes('normalizePreviewDestinationLabels'), 'Passenger must not locally sort destination labels');
   assert(!html.includes('Object.keys(destinations)'), 'Passenger must not build destination options from local destination maps');
+  assert(!html.includes('กำลังวิ่ง') && !html.includes('วิ่งอยู่'), 'Passenger must not infer running status from local time');
+  assert(!html.includes('nowMin()') && !html.includes('toMin(entry.time)'), 'Passenger schedule display must not compare current time to timetable entries');
+  assert(!html.includes('SLPassengerLogic.map.focusRoute()'), 'Passenger page must not request destination-inclusive route focus');
+  assert(!logicSource.includes('focusRoute:'), 'Passenger logic must not expose destination-inclusive route focus');
+  assert(!logicSource.includes('.sort('), 'Passenger logic must not sort stops or destination options locally');
+  [
+    'getVehicleTs',
+    'getLatestVehicleTs',
+    'distanceMeters',
+    'navigator.geolocation',
+    'watchPosition',
+    'getCurrentPosition',
+    'startUserLocation',
+    'requestCurrentLocation',
+    'USER_ANIM',
+    'projectPoint',
+    'snapPoint',
+    'accuracy',
+    'heading'
+  ].forEach((forbidden) => {
+    assert(!logicSource.includes(forbidden), 'Passenger logic must not contain GPS/vehicle motion helper: ' + forbidden);
+  });
   assert(!/fake\s*(gps|eta|vehicle|assignment)/i.test(html + '\n' + logicSource), 'Passenger must not create fake GPS/ETA/vehicle/assignment data');
 
   const mapFirstSandbox = loadPassengerLogic();
@@ -476,6 +499,11 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   const previewRouteData = await sandbox.SLPassengerLogic.map.loadRouteData();
   assert(Array.isArray(previewRouteData.stations) && previewRouteData.stations.length === 15, 'Passenger must accept map stops from publishedSchedule mapView');
   assert(previewRouteData.stations[0].name === TH.chachoengsao, 'Passenger map stop labels must come from mapView');
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(previewRouteData.stations.map((station) => station.key))),
+    corridor.map((_, index) => 'stop_' + index),
+    'Passenger map stops must preserve backend-provided order exactly'
+  );
   assert(previewRouteData.stations.every((station) => station.name && Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lng))), 'Passenger map adapter must consume all visible map stops');
   assert(previewRouteData.geometryType === 'stops_only', 'Passenger map must be stop-position only for now');
   assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length === 0, 'Passenger must not use mapView.routes polyline for now');

@@ -219,7 +219,6 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
 .time-grid .time-cell:nth-last-child(1),
 .time-grid .time-cell:nth-last-child(2),
 .time-grid .time-cell:nth-last-child(3) { border-bottom:none; }
-.time-cell.now-cell { background:#eefdfa; color:var(--teal-dark); }
 .now-badge {
   display:block; font-family:'Kanit',sans-serif;
   font-size:9px; font-weight:700; color:var(--teal-dark);
@@ -272,7 +271,6 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   min-width:0;
 }
 .leg2-time-item:last-child { border-bottom:none; }
-.leg2-time-item.now-cell { background:#eefdfa; color:var(--teal-dark); }
   .time-cell.disabled-time,.leg2-time-item.disabled-time{text-decoration:line-through;color:#94a3b8;background:#f1f5f9;}
 .leg2-time-item.empty { background:#fafbfc; min-height:58px; }
 
@@ -712,41 +710,10 @@ function updateFollowUserButton() {
   btn.textContent = isOn ? 'กำลังติดตามตำแหน่งของฉัน' : 'ติดตามตำแหน่งของฉัน';
 }
 
-function requestLocationConsent(forcePrompt) {
-  var status = SLPassengerLogic.privacy.getConsentStatus();
-  if (status === 'granted') return Promise.resolve(true);
-  if (status === 'declined' && !forcePrompt) return Promise.resolve(false);
-
-  return new Promise(function(resolve) {
-    var overlay = document.getElementById('locationConsentOverlay');
-    var text = document.getElementById('locationConsentText');
-    var allowBtn = document.getElementById('locationConsentAllow');
-    var denyBtn = document.getElementById('locationConsentDeny');
-    if (!overlay || !allowBtn || !denyBtn) { resolve(false); return; }
-
-    text.textContent = SLPassengerLogic.privacy.NOTICE_TEXT;
-    overlay.style.display = 'flex';
-
-    function cleanup(result) {
-      overlay.style.display = 'none';
-      allowBtn.removeEventListener('click', onAllow);
-      denyBtn.removeEventListener('click', onDeny);
-      resolve(result);
-    }
-    function onAllow() { SLPassengerLogic.privacy.grantLocationConsent(); cleanup(true); }
-    function onDeny() { SLPassengerLogic.privacy.declineLocationConsent(); cleanup(false); }
-
-    allowBtn.addEventListener('click', onAllow);
-    denyBtn.addEventListener('click', onDeny);
-  });
-}
-
 function bindFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn || btn.dataset.bound === '1') return;
-  btn.addEventListener('click', async function() {
-    var ok = await requestLocationConsent(true);
-    if (!ok) return;
+  btn.addEventListener('click', function() {
     SLPassengerLogic.map.setFollowUser(true);
   });
   SLPassengerLogic.on('followChanged', updateFollowUserButton);
@@ -845,21 +812,17 @@ function timeEntryBadgesHtml(entry) {
 
 function buildTimeCell(entry, extraClass='') {
   if (!entry) return '';
-  const now = nowMin();
   const disabled = !!entry.disabled;
-  const isNow = !disabled && !entry.isEstimated && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
-  const cls = ['time-cell',isNow?'now-cell':'',disabled?'disabled-time':'',entry.isEstimated?'estimated-time':'',extraClass].filter(Boolean).join(' ');
-  const badges = timeEntryBadgesHtml(entry) || (isNow ? '<span class="now-badge">กำลังวิ่ง</span>' : '');
+  const cls = ['time-cell',disabled?'disabled-time':'',entry.isEstimated?'estimated-time':'',extraClass].filter(Boolean).join(' ');
+  const badges = timeEntryBadgesHtml(entry);
   return '<div class="'+cls+'">'+entry.time+badges+'</div>';
 }
 
 function buildLeg2TimeItem(entry) {
   if(!entry) return '<div class="leg2-time-item empty"></div>';
-  const now = nowMin();
   const disabled = !!entry.disabled;
-  const isNow = !disabled && !entry.isEstimated && now >= toMin(entry.time)-5 && now <= toMin(entry.time)+15;
-  const badges = timeEntryBadgesHtml(entry) || (isNow ? '<span class="now-badge">วิ่งอยู่</span>' : '');
-  return '<div class="leg2-time-item'+(isNow?' now-cell':'')+(disabled?' disabled-time':'')+(entry.isEstimated?' estimated-time':'')+'">'+entry.time+badges+'</div>';
+  const badges = timeEntryBadgesHtml(entry);
+  return '<div class="leg2-time-item'+(disabled?' disabled-time':'')+(entry.isEstimated?' estimated-time':'')+'">'+entry.time+badges+'</div>';
 }
 
 // รวบรวมข้อความ disclaimer จาก ERP มาแสดง 1 ครั้งต่อรายการ (ไม่ซ้ำ) — passenger
@@ -880,15 +843,6 @@ function collectPairDisclaimers(pair) {
     return '<div class="sched-disclaimer-line">⚠️ ' + n + '</div>';
   }).join('') + '</div>';
 }
-
-// Pure time-string helpers -- generic display formatting, not an ERP decision,
-// so kept local like splitBalanced() below. (Bug fix: these were previously
-// called here but only ever defined inside passenger-logic.js's private scope
-// -- would have thrown ReferenceError the first time renderSched() got real
-// pair data with times to render; dormant until now because publishedSchedule
-// was always null before this pass.)
-function toMin(hhmm){ const parts = String(hhmm||'').split(':').map(Number); return (parts[0]||0)*60 + (parts[1]||0); }
-function nowMin(){ const n = new Date(); return n.getHours()*60 + n.getMinutes(); }
 
 // แบ่ง array เป็น 2 คอลัมน์ สมดุล (ซ้ายมากกว่าได้ 1 ถ้าคี่)
 function splitBalanced(arr) {
@@ -1092,7 +1046,7 @@ function buildDropdowns(){
       selectedMapFocus = null;
       renderSched();
       SLPassengerLogic.map.refreshRoute();
-      SLPassengerLogic.map.focusRoute();
+      SLPassengerLogic.map.focusOrigin();
       updateBottomSheetSummary();
     });
     originSel.dataset.bound = '1';
@@ -1104,7 +1058,7 @@ function buildDropdowns(){
       selectedMapFocus = null;
       renderSched();
       SLPassengerLogic.map.refreshRoute();
-      SLPassengerLogic.map.focusRoute();
+      SLPassengerLogic.map.focusOrigin();
       updateBottomSheetSummary();
     });
     destSel.dataset.bound = '1';
@@ -1178,10 +1132,6 @@ db.ref('settings').on('value', function(snap) {
   });
 })();
 
-// UI reacts to logic events — it never reaches into logic state directly.
-SLPassengerLogic.on('vehiclesUpdated', function(payload) {
-  updateLastUpdate(payload.latestTs);
-});
 SLPassengerLogic.on('scheduleUpdated', function() {
   buildDropdowns();
   renderSched();
@@ -1216,30 +1166,9 @@ document.addEventListener('DOMContentLoaded', async function(){
   SLPassengerLogic.map.renderStops(routeData);
   updateBottomSheetSummary();
   SLPassengerLogic.map.refreshSize();
-  const locationConsented = await requestLocationConsent();
-  const initialPassengerLocation = locationConsented ? await SLPassengerLogic.map.startUserLocation() : null;
-  if (!SLPassengerLogic.map.getFollowUser() || !initialPassengerLocation) {
-    SLPassengerLogic.map.focusRoute();
-  }
+  SLPassengerLogic.map.focusOrigin();
 
   window.addEventListener('resize', SLPassengerLogic.map.refreshSize);
-
-  var retryCount = 0;
-  var retryTimer = setInterval(function(){
-    retryCount++;
-    SLPassengerLogic.map.loadRouteData().then(function(freshRouteData) {
-      SLPassengerLogic.map.renderStops(freshRouteData);
-      SLPassengerLogic.map.refreshSize();
-    }).catch(function(err) {
-      console.warn('Passenger map retry render failed:', err && err.message ? err.message : err);
-    });
-    var allBusPositions = SLPassengerLogic.vehicles.getAll();
-    if (SLPassengerLogic.map.isReady() && Object.keys(allBusPositions).length) {
-      SLPassengerLogic.map.updateVehicles(allBusPositions);
-      clearInterval(retryTimer);
-    }
-    if (retryCount > 15) clearInterval(retryTimer);
-  }, 2000);
 });
 </script>
 </body>
