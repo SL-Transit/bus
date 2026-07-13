@@ -53,7 +53,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import android.text.SpannableString;
 import android.text.style.StrikethroughSpan;
@@ -99,6 +98,8 @@ public class MainActivity extends Activity {
     static final String KEY_SERVICE_STATUS = "service_status"; // "available" | "unavailable" — ข้อ 3
     // ===== OSRM road-routing สำหรับ ETA ตามเส้นทางจริง (ข้อ 6.2) =====
     private static final String OSRM_BASE = "https://router.project-osrm.org/route/v1/driving/";
+    private static final String DRIVER_WORK_PATH = "operations/driverWorkByServiceDate";
+    private static final String DRIVER_WORK_CONTRACT_VERSION = "driver_work_v1";
 
     private static final String[] VEHICLE_IDS = {
         "car1", "car2", "car3", "car4", "car5"
@@ -134,11 +135,10 @@ public class MainActivity extends Activity {
     private boolean serviceAvailable = true;
     private Boolean testMode = null;
 
-    // ===== ข้อมูลจริงจากตารางคิว/ป้าย/เวลา (Firebase: routeData/stops, routeData/queues) =====
+    // ===== ชุดงานพร้อมใช้จาก ERP Logic Center =====
     private final Map<String, double[]> stopCoordsCache = new HashMap<>();
     private final Map<String, String> stopNameCache = new HashMap<>();
     private boolean stopsCacheLoaded = false;
-    private final java.util.List<Trip> cachedTrips = new ArrayList<>();
     private Trip activeTrip = null;
 
     // โครงสร้างป้ายภายใน 1 รอบ (trip) ของคิวนั้นๆ
@@ -154,14 +154,6 @@ public class MainActivity extends Activity {
     private static class Trip {
         String tripNo, direction, routeKey, routeNameTh;
         java.util.List<TripStop> stops = new ArrayList<>();
-        int firstMinuteOfDay() { return toMinutes(stops.get(0).time); }
-        int lastMinuteOfDay() { return toMinutes(stops.get(stops.size() - 1).time); }
-        static int toMinutes(String hhmm) {
-            try {
-                String[] p = hhmm.split(":");
-                return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]);
-            } catch (Exception e) { return -1; }
-        }
     }
 
     // ===== ข้อ 6.1: การ์ดความพร้อมการเดินทาง (เช็ค GPS + Firebase) =====
@@ -767,268 +759,136 @@ public class MainActivity extends Activity {
         });
     }
 
-    // ===== ข้อ 3: ดึงข้อมูลจริงจาก routeData/stops + routeData/queues/{คิว}/trips =====
-    // โครงสร้างที่ใช้ (มาจากตาราง Excel ที่พี่ทำ — import เป็น JSON ตามที่ผมส่งให้):
-    //   routeData/stops/{stopKey}            = { name, lat, lng, type, bookingEnabled, note }
-    //   routeData/queues/{คิว}/trips/{tripNo} = { direction, routeKey, routeNameTh, stops: [{order, stopKey, stopTh, time, eventType, isConditional, note}, ...] }
-    private void fetchStopsCacheIfNeeded(Runnable then) {
-        if (stopsCacheLoaded) { if (then != null) then.run(); return; }
-        FirebaseDatabase.getInstance().getReference("settings/currentCatalogVersion")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot versionSnap) {
-                String version = strOrDash(versionSnap.getValue());
-                if (version.isEmpty() || "-".equals(version)) {
-                    fetchLegacyStopsCache(then);
-                    return;
-                }
-                FirebaseDatabase.getInstance().getReference("catalogs/" + version + "/stops")
-                        .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override public void onDataChange(DataSnapshot snap) {
-                        boolean loaded = false;
-                        for (DataSnapshot s : snap.getChildren()) {
-                            String key = s.getKey();
-                            Double lat = s.child("lat").getValue(Double.class);
-                            Double lng = s.child("lng").getValue(Double.class);
-                            if (key != null && lat != null && lng != null) {
-                                stopCoordsCache.put(key, new double[]{lat, lng});
-                                String name = strOrDash(s.child("nameTh").getValue());
-                                if (name.isEmpty() || "-".equals(name)) name = strOrDash(s.child("name").getValue());
-                                stopNameCache.put(key, name);
-                                loaded = true;
-                            }
-                        }
-                        if (!loaded) {
-                            fetchLegacyStopsCache(then);
-                            return;
-                        }
-                        stopsCacheLoaded = true;
-                        if (then != null) runOnUiThread(then);
-                    }
-                    @Override public void onCancelled(DatabaseError error) { fetchLegacyStopsCache(then); }
-                });
-            }
-            @Override public void onCancelled(DatabaseError error) { fetchLegacyStopsCache(then); }
-        });
-    }
-
-    private void fetchLegacyStopsCache(Runnable then) {
-        FirebaseDatabase.getInstance().getReference("routeData/stops")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot snap) {
-                for (DataSnapshot s : snap.getChildren()) {
-                    String key = s.getKey();
-                    Double lat = s.child("lat").getValue(Double.class);
-                    Double lng = s.child("lng").getValue(Double.class);
-                    if (key != null && lat != null && lng != null) {
-                        stopCoordsCache.put(key, new double[]{lat, lng});
-                        stopNameCache.put(key, strOrDash(s.child("name").getValue()));
-                    }
-                }
-                stopsCacheLoaded = true;
-                if (then != null) runOnUiThread(then);
-            }
-            @Override public void onCancelled(DatabaseError error) { if (then != null) runOnUiThread(then); }
-        });
-    }
-
+    // ===== งานประจำวันที่ ERP Logic Center จัดให้รถคันนี้ =====
     private void refreshTodaySchedule() {
         final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
         if (vehicleId == null) {
             showUnassignedQueue("ยังไม่ได้เลือกรถ");
             return;
         }
-        FirebaseDatabase.getInstance().getReference("settings/queueRotation")
+        final String serviceDate = serviceDateToday();
+        FirebaseDatabase.getInstance().getReference(DRIVER_WORK_PATH)
+                .child(serviceDate).child(vehicleId)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
-                String baseDate = snap.child("baseDate").getValue(String.class);
-                if (baseDate == null || !baseDate.matches("\\d{4}-\\d{2}-\\d{2}")) {
-                    baseDate = "2026-06-14";
-                }
-                Long configuredBaseQueue = snap.child("carQueueOnBaseDate")
-                        .child(vehicleId).getValue(Long.class);
-                int baseQueue = configuredBaseQueue != null
-                        ? configuredBaseQueue.intValue()
-                        : fallbackBaseQueue(vehicleId);
-                loadTodayScheduleForQueue(vehicleId, calculateTodayQueue(baseDate, baseQueue));
+                applyDriverWorkContract(snap, serviceDate, vehicleId);
             }
             @Override public void onCancelled(DatabaseError error) {
-                loadTodayScheduleForQueue(vehicleId,
-                        calculateTodayQueue("2026-06-14", fallbackBaseQueue(vehicleId)));
+                showUnassignedQueue("โหลดงานจากระบบกลางไม่สำเร็จ");
             }
         });
     }
 
-    private int fallbackBaseQueue(String vehicleId) {
-        if ("car1".equals(vehicleId)) return 1;
-        if ("car2".equals(vehicleId)) return 2;
-        if ("car3".equals(vehicleId)) return 3;
-        if ("car4".equals(vehicleId)) return 4;
-        return -1;
-    }
-
-    private int calculateTodayQueue(String baseDate, int baseQueue) {
-        if (baseQueue < 1 || baseQueue > 4) return -1;
-        try {
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(
-                    "yyyy-MM-dd", java.util.Locale.US);
-            java.util.Date base = sdf.parse(baseDate);
-            java.util.Date today = sdf.parse(sdf.format(new java.util.Date()));
-            if (base == null || today == null) return baseQueue;
-            int diffDays = (int) ((today.getTime() - base.getTime()) / 86400000L);
-            return ((baseQueue - 1 + diffDays) % 4 + 4) % 4 + 1;
-        } catch (Exception e) {
-            return baseQueue;
-        }
+    private String serviceDateToday() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        return sdf.format(new java.util.Date());
     }
 
     private void showUnassignedQueue(String message) {
         runOnUiThread(() -> {
-            cachedTrips.clear();
             activeTrip = null;
+            stopCoordsCache.clear();
+            stopNameCache.clear();
+            stopsCacheLoaded = false;
             if (queueValueText != null) queueValueText.setText("ยังไม่มีคิว");
             if (routeValueText != null) routeValueText.setText(message);
             if (nextRoundValueText != null) nextRoundValueText.setText("—");
         });
     }
 
-    private void loadTodayScheduleForQueue(String vehicleId, int queueNo) {
-        if (queueNo < 1 || queueNo > 4) {
-            showUnassignedQueue("ยังไม่ได้กำหนดคิวให้ " + vehicleId);
+    private void applyDriverWorkContract(DataSnapshot snap, String serviceDate, String vehicleId) {
+        String contractVersion = snap.child("contractVersion").getValue(String.class);
+        String contractStatus = snap.child("status").getValue(String.class);
+        String contractDate = snap.child("serviceDate").getValue(String.class);
+        String contractVehicleId = snap.child("vehicleId").getValue(String.class);
+        if (!DRIVER_WORK_CONTRACT_VERSION.equals(contractVersion)
+                || !serviceDate.equals(contractDate)
+                || !vehicleId.equals(contractVehicleId)) {
+            showUnassignedQueue("ยังไม่มีชุดงานที่ถูกต้องจากระบบกลาง");
             return;
         }
-        fetchStopsCacheIfNeeded(null);
-        loadCatalogScheduleForQueue(vehicleId, queueNo, () -> loadLegacyTodayScheduleForQueue(vehicleId, queueNo));
-    }
-
-    private void loadCatalogScheduleForQueue(String vehicleId, int queueNo, Runnable fallback) {
-        FirebaseDatabase.getInstance().getReference("settings/currentCatalogVersion")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot versionSnap) {
-                String version = strOrDash(versionSnap.getValue());
-                if (version.isEmpty() || "-".equals(version)) {
-                    fallback.run();
-                    return;
-                }
-                FirebaseDatabase.getInstance().getReference("catalogs/" + version + "/stopTimes")
-                        .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override public void onDataChange(DataSnapshot snap) {
-                        if (!vehicleId.equals(prefs.getString(KEY_VEHICLE_ID, null))) return;
-                        java.util.List<Trip> trips = new ArrayList<>();
-                        for (DataSnapshot tripSnap : snap.getChildren()) {
-                            Long q = tripSnap.child("queueNo").getValue(Long.class);
-                            if (q == null || q.intValue() != queueNo) continue;
-                            Trip trip = new Trip();
-                            trip.tripNo = strOrDash(tripSnap.child("tripNo").getValue());
-                            if (trip.tripNo.isEmpty() || "-".equals(trip.tripNo)) trip.tripNo = tripSnap.getKey();
-                            trip.direction = strOrDash(tripSnap.child("direction").getValue());
-                            trip.routeKey = strOrDash(tripSnap.child("routeKey").getValue());
-                            trip.routeNameTh = strOrDash(tripSnap.child("routeNameTh").getValue());
-                            for (DataSnapshot stopSnap : tripSnap.child("stops").getChildren()) {
-                                trip.stops.add(new TripStop(
-                                        strOrDash(stopSnap.child("stopKey").getValue()),
-                                        strOrDash(stopSnap.child("stopTh").getValue()),
-                                        strOrDash(stopSnap.child("time").getValue()),
-                                        strOrDash(stopSnap.child("eventType").getValue()),
-                                        Boolean.TRUE.equals(stopSnap.child("isConditional").getValue(Boolean.class))));
-                            }
-                            if (!trip.stops.isEmpty()) trips.add(trip);
-                        }
-                        if (trips.isEmpty()) {
-                            fallback.run();
-                            return;
-                        }
-                        Collections.sort(trips, (a, b) -> {
-                            try { return Integer.parseInt(a.tripNo) - Integer.parseInt(b.tripNo); }
-                            catch (Exception e) { return String.valueOf(a.tripNo).compareTo(String.valueOf(b.tripNo)); }
-                        });
-                        runOnUiThread(() -> {
-                            cachedTrips.clear();
-                            cachedTrips.addAll(trips);
-                            computeActiveTripAndUpdateCard(String.valueOf(queueNo));
-                        });
-                    }
-                    @Override public void onCancelled(DatabaseError error) { fallback.run(); }
-                });
-            }
-            @Override public void onCancelled(DatabaseError error) { fallback.run(); }
-        });
-    }
-
-    private void loadLegacyTodayScheduleForQueue(String vehicleId, int queueNo) {
-        FirebaseDatabase.getInstance().getReference("routeData/queues/" + queueNo + "/trips")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot snap) {
-                if (!vehicleId.equals(prefs.getString(KEY_VEHICLE_ID, null))) return;
-                java.util.List<Trip> trips = new ArrayList<>();
-                for (DataSnapshot tripSnap : snap.getChildren()) {
-                    Trip trip = new Trip();
-                    trip.tripNo = tripSnap.getKey();
-                    trip.direction = strOrDash(tripSnap.child("direction").getValue());
-                    trip.routeKey = strOrDash(tripSnap.child("routeKey").getValue());
-                    trip.routeNameTh = strOrDash(tripSnap.child("routeNameTh").getValue());
-                    for (DataSnapshot stopSnap : tripSnap.child("stops").getChildren()) {
-                        trip.stops.add(new TripStop(
-                                strOrDash(stopSnap.child("stopKey").getValue()),
-                                strOrDash(stopSnap.child("stopTh").getValue()),
-                                strOrDash(stopSnap.child("time").getValue()),
-                                strOrDash(stopSnap.child("eventType").getValue()),
-                                Boolean.TRUE.equals(stopSnap.child("isConditional").getValue(Boolean.class))));
-                    }
-                    if (!trip.stops.isEmpty()) trips.add(trip);
-                }
-                Collections.sort(trips, (a, b) -> {
-                    try { return Integer.parseInt(a.tripNo) - Integer.parseInt(b.tripNo); }
-                    catch (Exception e) { return 0; }
-                });
-                runOnUiThread(() -> {
-                    cachedTrips.clear();
-                    cachedTrips.addAll(trips);
-                    computeActiveTripAndUpdateCard(String.valueOf(queueNo));
-                });
-            }
-            @Override public void onCancelled(DatabaseError error) {
-                showUnassignedQueue("โหลดตารางคิวไม่สำเร็จ");
-            }
-        });
-    }
-
-    // หาว่า "ตอนนี้" อยู่ในรอบ (trip) ไหนของคิวที่เลือก โดยเทียบกับเวลานาฬิกาจริง
-    private void computeActiveTripAndUpdateCard(String queueNo) {
-        if (queueValueText != null) queueValueText.setText("คิว " + queueNo);
-        if (cachedTrips.isEmpty()) {
-            if (routeValueText != null) routeValueText.setText("ยังไม่มีข้อมูลเที่ยววิ่งของคิวนี้");
-            if (nextRoundValueText != null) nextRoundValueText.setText("—");
-            activeTrip = null;
+        if ("unassigned".equals(contractStatus)) {
+            showUnassignedQueue("ระบบกลางยังไม่ได้มอบหมายงานให้รถคันนี้");
             return;
         }
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        int nowMin = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE);
 
-        Trip current = null, next = null;
-        for (int i = 0; i < cachedTrips.size(); i++) {
-            Trip t = cachedTrips.get(i);
-            int first = t.firstMinuteOfDay(), last = t.lastMinuteOfDay();
-            if (first < 0 || last < 0) continue;
-            if (nowMin >= first && nowMin <= last) {
-                current = t;
-                next = (i + 1 < cachedTrips.size()) ? cachedTrips.get(i + 1) : null;
-                break;
-            }
-            if (nowMin < first) { next = t; break; }
+        String assignmentId = snap.child("assignmentId").getValue(String.class);
+        String assignmentMode = snap.child("assignmentMode").getValue(String.class);
+        String queueId = snap.child("queueId").getValue(String.class);
+        Long queueNo = snap.child("queueNo").getValue(Long.class);
+        boolean validMode = "rotation".equals(assignmentMode)
+                || "fixed".equals(assignmentMode)
+                || "manual_override".equals(assignmentMode);
+        if (assignmentId == null || assignmentId.isEmpty() || queueId == null || queueId.isEmpty()
+                || queueNo == null || !validMode) {
+            showUnassignedQueue("ข้อมูลการมอบหมายจากระบบกลางไม่ครบ");
+            return;
         }
+
+        stopCoordsCache.clear();
+        stopNameCache.clear();
+        Trip current = readDriverWorkTrip(snap.child("currentTrip"));
+        Trip next = readDriverWorkTrip(snap.child("nextTrip"));
+        if ("assigned".equals(contractStatus) && current == null && next == null) {
+            showUnassignedQueue("ระบบกลางไม่ได้ส่งเที่ยวปัจจุบันหรือเที่ยวถัดไป");
+            return;
+        }
+        if (!"assigned".equals(contractStatus) && !"service_complete".equals(contractStatus)) {
+            showUnassignedQueue("สถานะชุดงานจากระบบกลางไม่ถูกต้อง");
+            return;
+        }
+
+        stopsCacheLoaded = !stopCoordsCache.isEmpty();
         activeTrip = current;
-        if (routeValueText != null) {
-            if (current != null) routeValueText.setText(current.routeNameTh);
-            else routeValueText.setText(next != null ? "รอรอบถัดไป" : "หมดรอบวันนี้แล้ว");
-        }
-        if (nextRoundValueText != null) {
-            if (next != null) {
-                TripStop firstStop = next.stops.get(0);
-                nextRoundValueText.setText(firstStop.time + " น.  (" + next.routeNameTh + ")");
-            } else {
-                nextRoundValueText.setText("หมดรอบวันนี้แล้ว");
+        runOnUiThread(() -> {
+            if (queueValueText != null) queueValueText.setText("คิว " + queueNo);
+            if (routeValueText != null) {
+                if (current != null) routeValueText.setText(current.routeNameTh);
+                else routeValueText.setText(next != null ? "รอรอบถัดไป" : "หมดรอบวันนี้แล้ว");
             }
+            if (nextRoundValueText != null) {
+                if (next != null && !next.stops.isEmpty()) {
+                    TripStop firstStop = next.stops.get(0);
+                    nextRoundValueText.setText(firstStop.time + " น.  (" + next.routeNameTh + ")");
+                } else {
+                    nextRoundValueText.setText("หมดรอบวันนี้แล้ว");
+                }
+            }
+        });
+    }
+
+    private Trip readDriverWorkTrip(DataSnapshot tripSnap) {
+        if (tripSnap == null || !tripSnap.exists()) return null;
+        String queueTripId = tripSnap.child("queueTripId").getValue(String.class);
+        String routeId = tripSnap.child("routeId").getValue(String.class);
+        String routeSequenceVersionId = tripSnap.child("routeSequenceVersionId").getValue(String.class);
+        if (queueTripId == null || queueTripId.isEmpty() || routeId == null || routeId.isEmpty()
+                || routeSequenceVersionId == null || routeSequenceVersionId.isEmpty()) return null;
+
+        Trip trip = new Trip();
+        trip.tripNo = strOrDash(tripSnap.child("tripNo").getValue());
+        trip.direction = strOrDash(tripSnap.child("routeDirection").getValue());
+        trip.routeKey = routeId;
+        trip.routeNameTh = strOrDash(tripSnap.child("routeNameTh").getValue());
+        for (DataSnapshot stopSnap : tripSnap.child("orderedStops").getChildren()) {
+            String stopKey = stopSnap.child("stopKey").getValue(String.class);
+            String stopNameTh = stopSnap.child("stopNameTh").getValue(String.class);
+            String time = stopSnap.child("time").getValue(String.class);
+            Double lat = stopSnap.child("lat").getValue(Double.class);
+            Double lng = stopSnap.child("lng").getValue(Double.class);
+            if (stopKey == null || stopKey.isEmpty() || stopNameTh == null || stopNameTh.isEmpty()
+                    || time == null || time.isEmpty() || lat == null || lng == null) return null;
+            trip.stops.add(new TripStop(
+                    stopKey,
+                    stopNameTh,
+                    time,
+                    strOrDash(stopSnap.child("eventType").getValue()),
+                    Boolean.TRUE.equals(stopSnap.child("isConditional").getValue(Boolean.class))));
+            stopCoordsCache.put(stopKey, new double[]{lat, lng});
+            stopNameCache.put(stopKey, stopNameTh);
         }
+        return trip.stops.size() >= 2 ? trip : null;
     }
 
     private String strOrDash(Object v) {
