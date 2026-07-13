@@ -972,12 +972,18 @@ function initPassengerMap() {
 }
 
 function currentPassengerRouteData() {
-  var route = PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.mapRoutes) && PASSENGER_ROUTE_DATA.mapRoutes[0]
-    ? PASSENGER_ROUTE_DATA.mapRoutes[0]
-    : null;
+  var mapRoutes = PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.mapRoutes)
+    ? PASSENGER_ROUTE_DATA.mapRoutes
+    : [];
+  var route = mapRoutes.find(function(candidate) {
+    return candidate && candidate.geometryType === 'road_polyline' && Array.isArray(candidate.polyline) && candidate.polyline.length >= 2;
+  }) || mapRoutes.find(function(candidate) {
+    return candidate && candidate.geometryType === 'stop_to_stop_fallback' && Array.isArray(candidate.polyline) && candidate.polyline.length >= 2;
+  }) || null;
   return {
     stations: curStops().slice(),
-    polyline: route && Array.isArray(route.polyline) ? route.polyline.slice() : []
+    polyline: route && Array.isArray(route.polyline) ? route.polyline.slice() : [],
+    geometryType: route && route.geometryType || ''
   };
 }
 

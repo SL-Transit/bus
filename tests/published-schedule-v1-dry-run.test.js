@@ -131,7 +131,11 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.mapView.stops.every((stop, index) => stop.label && stop.displayOrder === index && Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)) && stop.icon), 'mapView stops must have label/displayOrder/lat/lng/icon');
   assert(schedule.mapView.stops.every((stop) => stop.referenceOnly === true && stop.previewDisplayMode === 'static_map_reference' && Array.isArray(stop.sourceLineage) && stop.sourceLineage.length), 'mapView stops must be reference-only with lineage');
   assert(Array.isArray(schedule.mapView.routes) && schedule.mapView.routes.length === 1, 'mapView route missing');
-  assert(schedule.mapView.routes[0].polyline.length === 15, 'mapView route polyline must follow ordered stops');
+  assert(schedule.mapView.stops.every((stop) => stop.visible === true), 'mapView must expose 15 visible stops');
+  assert(schedule.mapView.routes[0].geometryType === 'road_polyline', 'mapView route must use road-following geometry when available');
+  assert(schedule.mapView.routes[0].polyline.length > schedule.mapView.stops.length, 'road polyline must have more points than stop count');
+  assert(schedule.mapView.routes[0].referenceOnly === true && schedule.mapView.routes[0].operationalProof === false, 'mapView route must be reference-only and non-operational');
+  assert(schedule.mapView.routes[0].sourceLineage.some((lineage) => lineage.sourcePath === 'tools/published-schedule-map-road-polyline.json'), 'road polyline source lineage missing');
   assert(schedule.mapView.operationalProof === false && schedule.mapView.liveVehicleMarkers === false, 'mapView must not claim operational proof');
 
   const chachoengsaoTatakiab = pairByOd(schedule, 'chachoengsao', 'tatakiab');

@@ -2,6 +2,7 @@
 'use strict';
 
 const { buildDryRunSnapshot } = require('./erp-data-center-dry-run-snapshot.js');
+const ROAD_POLYLINE_POINTS = require('./published-schedule-map-road-polyline.json');
 
 const ESTIMATED_BADGE_TH = 'เวลาโดยประมาณ';
 const ESTIMATED_DISCLAIMER_KEY = 'estimated_travel_time_may_change';
@@ -140,6 +141,13 @@ const PREVIEW_MAP_COORDINATES = {
   wangnamyen: { lat: 13.460000, lng: 102.170000 },
   klonghat: { lat: 13.453565, lng: 102.299330 }
 };
+const ROAD_POLYLINE_SOURCE = {
+  sourceSystem: 'osrm_public_route_snapshot',
+  sourcePath: 'tools/published-schedule-map-road-polyline.json',
+  sourceId: 'group_001_corridor_osrm_20260713',
+  importedBy: 'published-schedule-v1-dry-run',
+  notes: 'road-following preview geometry imported once by Data Import; reference-only map shape, not GPS, ETA, vehicle, or operational proof'
+};
 
 function values(map) {
   return Object.keys(map || {}).map((key) => map[key]);
@@ -241,14 +249,19 @@ function buildMapView(erp) {
       sourceLineage: previewMapSourceLineage(stopKey, groupStop)
     };
   });
-  const polyline = stops
+  const fallbackPolyline = stops
     .filter((stop) => Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)))
     .map((stop) => ({ lat: stop.lat, lng: stop.lng }));
+  const roadPolyline = (Array.isArray(ROAD_POLYLINE_POINTS) ? ROAD_POLYLINE_POINTS : [])
+    .map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+  const hasRoadPolyline = roadPolyline.length > fallbackPolyline.length;
+  const polyline = hasRoadPolyline ? roadPolyline : fallbackPolyline;
   return {
     schemaVersion: 'publishedSchedule.mapView.v1.preview',
     previewDisplayMode: 'static_map_reference',
     referenceOnly: true,
-    routeLineSource: 'derived_from_ordered_preview_stops',
+    routeLineSource: hasRoadPolyline ? 'imported_road_polyline_reference' : 'derived_from_ordered_preview_stops',
     operationalProof: false,
     gps: false,
     eta: false,
@@ -259,17 +272,22 @@ function buildMapView(erp) {
         routeViewId: 'map_route_group_001_corridor_preview',
         serviceGroupId: 'group_001',
         direction: 'corridor_display_order',
+        geometryType: hasRoadPolyline ? 'road_polyline' : 'stop_to_stop_fallback',
         stopKeys: stops.map((stop) => stop.stopKey),
         polyline,
         previewDisplayMode: 'static_map_reference',
         referenceOnly: true,
+        operationalProof: false,
         sourceLineage: [
+          ...(hasRoadPolyline ? [ROAD_POLYLINE_SOURCE] : []),
           {
             sourceSystem: 'erp_preview_contract',
             sourcePath: 'publishedSchedule/mapView/stops',
             sourceId: 'group_001_corridor_display_order',
             importedBy: 'published-schedule-v1-dry-run',
-            notes: 'preview route line derived from ordered static stops; not road-certified, GPS, ETA, or operational proof'
+            notes: hasRoadPolyline
+              ? 'stop order anchors the imported road polyline for Passenger Preview'
+              : 'preview route line derived from ordered static stops; fallback only, not owner-approved road geometry, GPS, ETA, or operational proof'
           }
         ]
       }
@@ -809,8 +827,23 @@ function validatePublishedSchedule(publishedSchedule) {
       block('map-view-stop-lineage-invalid', `publishedSchedule/mapView/stops/${index}`);
     }
   });
-  if (!mapRoutes.length || !Array.isArray(mapRoutes[0].stopKeys) || mapRoutes[0].stopKeys.length !== mapStops.length || !Array.isArray(mapRoutes[0].polyline) || mapRoutes[0].polyline.length !== mapStops.length) {
+  const primaryMapRoute = mapRoutes[0] || {};
+  const routeGeometryType = primaryMapRoute.geometryType;
+  const routePolyline = Array.isArray(primaryMapRoute.polyline) ? primaryMapRoute.polyline : [];
+  if (!mapRoutes.length || !Array.isArray(primaryMapRoute.stopKeys) || primaryMapRoute.stopKeys.length !== mapStops.length || !Array.isArray(primaryMapRoute.sourceLineage) || !primaryMapRoute.sourceLineage.length || primaryMapRoute.referenceOnly !== true || primaryMapRoute.operationalProof !== false) {
     block('map-view-route-invalid', 'publishedSchedule/mapView/routes/0');
+  }
+  if (routeGeometryType !== 'road_polyline' && routeGeometryType !== 'stop_to_stop_fallback') {
+    block('map-view-route-geometry-type-invalid', 'publishedSchedule/mapView/routes/0/geometryType', routeGeometryType);
+  }
+  if (!routePolyline.length || routePolyline.some((point) => !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lng)))) {
+    block('map-view-route-invalid', 'publishedSchedule/mapView/routes/0');
+  }
+  if (routeGeometryType === 'road_polyline' && routePolyline.length <= mapStops.length) {
+    block('map-view-road-polyline-too-short', 'publishedSchedule/mapView/routes/0/polyline', { expectedMoreThan: mapStops.length, actual: routePolyline.length });
+  }
+  if (routeGeometryType === 'stop_to_stop_fallback' && routePolyline.length !== mapStops.length) {
+    block('map-view-fallback-polyline-invalid', 'publishedSchedule/mapView/routes/0/polyline', { expected: mapStops.length, actual: routePolyline.length });
   }
   originOptions.forEach((origin, index) => {
     if (!origin || !origin.originLabel || !origin.originDestinationId || origin.displayOrder !== index) {

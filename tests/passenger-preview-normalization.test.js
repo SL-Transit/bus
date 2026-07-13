@@ -220,6 +220,15 @@ function sampleOptionOnlySchedule() {
   delete schedule.pairs;
   delete schedule.destinations;
   schedule.originOptions = corridor.map((label, displayOrder) => ({ label, displayOrder }));
+  const stopToStopPolyline = corridor.map((_, displayOrder) => ({ lat: 13.4 + displayOrder / 100, lng: 101.0 + displayOrder / 100 }));
+  const roadPolyline = stopToStopPolyline.flatMap((point, index) => {
+    if (index === stopToStopPolyline.length - 1) return [point];
+    const next = stopToStopPolyline[index + 1];
+    return [
+      point,
+      { lat: Number(((point.lat + next.lat) / 2 + 0.001).toFixed(6)), lng: Number(((point.lng + next.lng) / 2 + 0.001).toFixed(6)) }
+    ];
+  });
   schedule.mapView = {
     schemaVersion: 'publishedSchedule.mapView.v1.preview',
     referenceOnly: true,
@@ -240,15 +249,30 @@ function sampleOptionOnlySchedule() {
       referenceOnly: true,
       sourceLineage: [{ sourcePath: 'publishedSchedule/mapView/stops/' + displayOrder }]
     })),
-    routes: [{
-      routeViewId: 'map_route_group_001_corridor_preview',
-      serviceGroupId: 'group_001',
-      direction: 'corridor_display_order',
-      stopKeys: corridor.map((_, displayOrder) => 'stop_' + displayOrder),
-      polyline: corridor.map((_, displayOrder) => ({ lat: 13.4 + displayOrder / 100, lng: 101.0 + displayOrder / 100 })),
-      referenceOnly: true,
-      previewDisplayMode: 'static_map_reference'
-    }]
+    routes: [
+      {
+        routeViewId: 'map_route_group_001_corridor_fallback',
+        serviceGroupId: 'group_001',
+        direction: 'corridor_display_order',
+        geometryType: 'stop_to_stop_fallback',
+        stopKeys: corridor.map((_, displayOrder) => 'stop_' + displayOrder),
+        polyline: stopToStopPolyline,
+        referenceOnly: true,
+        operationalProof: false,
+        previewDisplayMode: 'static_map_reference'
+      },
+      {
+        routeViewId: 'map_route_group_001_corridor_preview',
+        serviceGroupId: 'group_001',
+        direction: 'corridor_display_order',
+        geometryType: 'road_polyline',
+        stopKeys: corridor.map((_, displayOrder) => 'stop_' + displayOrder),
+        polyline: roadPolyline,
+        referenceOnly: true,
+        operationalProof: false,
+        previewDisplayMode: 'static_map_reference'
+      }
+    ]
   };
   schedule.destinationOptionsByOrigin = {
     [TH.chachoengsao]: [
@@ -370,7 +394,9 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   const previewRouteData = await sandbox.SLPassengerLogic.map.loadRouteData();
   assert(Array.isArray(previewRouteData.stations) && previewRouteData.stations.length === 15, 'Passenger must accept map stops from publishedSchedule mapView');
   assert(previewRouteData.stations[0].name === TH.chachoengsao, 'Passenger map stop labels must come from mapView');
-  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length === 15, 'Passenger static route line must come from mapView polyline');
+  assert(previewRouteData.stations.every((station) => station.name && Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lng))), 'Passenger map adapter must consume all visible map stops');
+  assert(previewRouteData.geometryType === 'road_polyline', 'Passenger must prefer road_polyline over stop-to-stop fallback');
+  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length > previewRouteData.stations.length, 'Passenger road route line must come from mapView road polyline');
   assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya), null, 'option-only initial state must not have full pairs loaded');
 
   const loadedPair = await schedule.loadPair(TH.chachoengsao, TH.pattaya);
