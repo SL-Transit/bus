@@ -3,36 +3,80 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
-
-const sandbox = {
-  console,
-  setTimeout,
-  clearTimeout,
-  setInterval,
-  clearInterval,
-  requestAnimationFrame: function() {},
-  cancelAnimationFrame: function() {},
-  navigator: { geolocation: null },
-  localStorage: {
-    getItem: function() { return null; },
-    setItem: function() {}
-  },
-  firebase: {
-    initializeApp: function() { return { database: function() { return {}; } }; },
-    app: function() { return { database: function() { return {}; } }; }
-  },
-  SLTransit: {
-    core: { init: function() { return Promise.resolve(); } },
-    db: { init: function() {}, getStops: function() { return Promise.resolve([]); } }
-  }
+const TH = {
+  chachoengsao: '\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',
+  phanom: '\u0e1e\u0e19\u0e21\u0e2a\u0e32\u0e23\u0e04\u0e32\u0e21',
+  sanamchai: '\u0e17\u0e48\u0e32\u0e23\u0e16\u0e2a\u0e19\u0e32\u0e21\u0e0a\u0e31\u0e22\u0e40\u0e02\u0e15',
+  km1: '\u0e01\u0e21.1',
+  km7: '\u0e01\u0e21.7',
+  km10: '\u0e01\u0e21.10',
+  huaiSom: '\u0e2b\u0e49\u0e27\u0e22\u0e42\u0e2a\u0e21',
+  tatakiab: '\u0e17\u0e48\u0e32\u0e15\u0e30\u0e40\u0e01\u0e35\u0e22\u0e1a',
+  nongkhok: '\u0e2b\u0e19\u0e2d\u0e07\u0e04\u0e2d\u0e01',
+  khlongTakien: '\u0e04\u0e25\u0e2d\u0e07\u0e15\u0e30\u0e40\u0e04\u0e35\u0e22\u0e19',
+  nongruea: '\u0e2b\u0e19\u0e2d\u0e07\u0e40\u0e23\u0e37\u0e2d',
+  phaijit: '\u0e44\u0e1e\u0e23\u0e08\u0e34\u0e15',
+  thoengkabin: '\u0e17\u0e38\u0e48\u0e07\u0e01\u0e1a\u0e34\u0e19\u0e17\u0e23\u0e4c',
+  siyaekkhonom: '\u0e2a\u0e35\u0e48\u0e41\u0e22\u0e01\u0e42\u0e04\u0e19\u0e21',
+  wangNamYen: '\u0e27\u0e31\u0e07\u0e19\u0e49\u0e33\u0e40\u0e22\u0e47\u0e19',
+  khlonghat: '\u0e04\u0e25\u0e2d\u0e07\u0e2b\u0e32\u0e14',
+  pattaya: '\u0e1e\u0e31\u0e17\u0e22\u0e32',
+  rangsit: '\u0e23\u0e31\u0e07\u0e2a\u0e34\u0e15',
+  transferGroup: '\u0e15\u0e48\u0e2d\u0e23\u0e16',
+  estimatedBadge: '\u0e40\u0e27\u0e25\u0e32\u0e42\u0e14\u0e22\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13',
+  estimatedDisclaimer: '\u0e40\u0e27\u0e25\u0e32\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13\u0e01\u0e32\u0e23 \u0e2d\u0e32\u0e08\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e41\u0e1b\u0e25\u0e07\u0e15\u0e32\u0e21\u0e2a\u0e20\u0e32\u0e1e\u0e01\u0e32\u0e23\u0e40\u0e14\u0e34\u0e19\u0e17\u0e32\u0e07',
+  transferBadge: '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e2d\u0e49\u0e32\u0e07\u0e2d\u0e34\u0e07',
+  transferDisclaimer: '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e40\u0e1b\u0e47\u0e19\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2d\u0e49\u0e32\u0e07\u0e2d\u0e34\u0e07'
 };
-sandbox.window = sandbox;
-sandbox.globalThis = sandbox;
 
-vm.runInNewContext(source, sandbox, { filename: 'passenger-logic.js' });
+const corridor = [
+  TH.chachoengsao,
+  TH.phanom,
+  TH.sanamchai,
+  TH.km1,
+  TH.km7,
+  TH.huaiSom,
+  TH.tatakiab,
+  TH.nongkhok,
+  TH.khlongTakien,
+  TH.nongruea,
+  TH.phaijit,
+  TH.thoengkabin,
+  TH.siyaekkhonom,
+  TH.wangNamYen,
+  TH.khlonghat
+];
 
-const schedule = sandbox.SLPassengerLogic.schedule;
+function loadPassengerLogic() {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
+  const sandbox = {
+    console,
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval,
+    requestAnimationFrame: function() {},
+    cancelAnimationFrame: function() {},
+    navigator: { geolocation: null },
+    localStorage: {
+      getItem: function() { return null; },
+      setItem: function() {}
+    },
+    firebase: {
+      initializeApp: function() { return { database: function() { return {}; } }; },
+      app: function() { return { database: function() { return {}; } }; }
+    },
+    SLTransit: {
+      core: { init: function() { return Promise.resolve(); } },
+      db: { init: function() {}, getStops: function() { return Promise.resolve([]); } }
+    }
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(source, sandbox, { filename: 'passenger-logic.js' });
+  return sandbox;
+}
+
 const encodedDest1 = 'k_4LiB4LihLjE';
 const encodedDest7 = 'k_4LiB4LihLjc';
 const encodedDest10 = 'k_4LiB4LihLjEw';
@@ -40,80 +84,115 @@ const encodedPair1 = 'k_pair_chachoengsao_km1';
 const encodedPair7 = 'k_pair_chachoengsao_km7';
 const encodedPair10 = 'k_pair_chachoengsao_km10';
 
-schedule.applyPublishedSchedule({
-  origins: ['ฉะเชิงเทรา (แปดริ้ว)'],
-  destinations: {
-    [encodedDest1]: { group: null },
-    [encodedDest7]: { group: null },
-    [encodedDest10]: { group: null },
-    normalDest: { label: 'คลองหาด', group: 'ต่อรถ' }
-  },
-  pairs: {
-    [encodedPair1]: {
-      compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__กม.1',
-      originLabel: 'ฉะเชิงเทรา (แปดริ้ว)',
-      destinationLabel: 'กม.1',
-      segments: [{ times: [{ time: '09:00', isEstimated: true, displayBadgeTh: 'เวลาโดยประมาณ', disclaimerTh: 'เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง' }] }]
+function pairKey(origin, dest) {
+  return origin + '__' + dest;
+}
+
+function sampleSchedule() {
+  return {
+    origins: corridor,
+    destinations: {
+      [encodedDest1]: { destinationId: 'km_1' },
+      [encodedDest7]: { destinationId: 'km_7' },
+      [encodedDest10]: { destinationId: 'km_10', group: TH.transferGroup, displayOrder: 2 },
+      [TH.khlongTakien]: { destinationId: 'khlong_takien' },
+      [TH.khlonghat]: { destinationId: 'khlonghat' },
+      [TH.chachoengsao]: { destinationId: 'chachoengsao' },
+      [TH.phanom]: { destinationId: 'phanom' },
+      [TH.sanamchai]: { destinationId: 'sanamchai' },
+      [TH.huaiSom]: { destinationId: 'huai_som' },
+      [TH.tatakiab]: { destinationId: 'tatakiab' },
+      [TH.nongkhok]: { destinationId: 'nongkhok' },
+      [TH.nongruea]: { destinationId: 'nongruea' },
+      [TH.phaijit]: { destinationId: 'phaijit' },
+      [TH.thoengkabin]: { destinationId: 'thoengkabin' },
+      [TH.siyaekkhonom]: { destinationId: 'siyaekkhonom' },
+      [TH.wangNamYen]: { destinationId: 'wang_nam_yen' },
+      [TH.pattaya]: { group: TH.transferGroup, displayOrder: 1 }
     },
-    [encodedPair7]: {
-      compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__กม.7',
-      originLabel: 'ฉะเชิงเทรา (แปดริ้ว)',
-      destinationLabel: 'กม.7',
-      segments: [{ times: [{ time: '10:00' }] }]
+    pairs: {
+      [encodedPair1]: {
+        compatibilityPairKey: pairKey(TH.chachoengsao, TH.km1),
+        originLabel: TH.chachoengsao,
+        destinationLabel: TH.km1,
+        segments: [{ times: [{ time: '09:00', isEstimated: true, displayBadgeTh: TH.estimatedBadge, disclaimerTh: TH.estimatedDisclaimer }] }]
+      },
+      [encodedPair7]: {
+        compatibilityPairKey: pairKey(TH.chachoengsao, TH.km7),
+        originLabel: TH.chachoengsao,
+        destinationLabel: TH.km7,
+        segments: [{ times: [{ time: '10:00' }] }]
+      },
+      [encodedPair10]: {
+        compatibilityPairKey: pairKey(TH.chachoengsao, TH.km10),
+        originLabel: TH.chachoengsao,
+        destinationLabel: TH.km10,
+        displayBadgeTh: TH.transferBadge,
+        transferDisclaimerTh: TH.transferDisclaimer,
+        segments: [{ times: [{ time: '11:00' }] }]
+      }
     },
-    [encodedPair10]: {
-      compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__กม.10',
-      originLabel: 'ฉะเชิงเทรา (แปดริ้ว)',
-      destinationLabel: 'กม.10',
-      displayBadgeTh: 'ข้อมูลต่อรถอ้างอิง',
-      transferDisclaimerTh: 'ข้อมูลต่อรถเป็นข้อมูลอ้างอิง',
-      segments: [{ times: [{ time: '11:00' }] }]
-    }
-  },
-  compatibilityKeyIndex: {
-    [encodedPair1]: { compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__กม.1' },
-    [encodedPair7]: { compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__กม.7' },
-    [encodedPair10]: { compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__กม.10' }
-  },
-  excludedPreviewPairs: {
-    transferUnknown: {
-      hiddenPair: { compatibilityPairKey: 'ฉะเชิงเทรา (แปดริ้ว)__รังสิต' }
-    }
-  },
-  firebaseKeyEncoding: {
-    encodedKeyIndex: {
-      destinations: {
-        [encodedDest1]: 'กม.1',
-        [encodedDest7]: 'กม.7',
-        [encodedDest10]: 'กม.10'
-      },
-      pairs: {
-        [encodedPair1]: 'ฉะเชิงเทรา (แปดริ้ว)__กม.1',
-        [encodedPair7]: 'ฉะเชิงเทรา (แปดริ้ว)__กม.7',
-        [encodedPair10]: 'ฉะเชิงเทรา (แปดริ้ว)__กม.10'
-      },
-      compatibilityKeyIndex: {
-        [encodedPair1]: 'ฉะเชิงเทรา (แปดริ้ว)__กม.1',
-        [encodedPair7]: 'ฉะเชิงเทรา (แปดริ้ว)__กม.7',
-        [encodedPair10]: 'ฉะเชิงเทรา (แปดริ้ว)__กม.10'
+    compatibilityKeyIndex: {
+      [encodedPair1]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km1) },
+      [encodedPair7]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km7) },
+      [encodedPair10]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km10) }
+    },
+    excludedPreviewPairs: {
+      transferUnknown: {
+        hiddenPair: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.rangsit) }
+      }
+    },
+    firebaseKeyEncoding: {
+      encodedKeyIndex: {
+        destinations: {
+          [encodedDest1]: TH.km1,
+          [encodedDest7]: TH.km7,
+          [encodedDest10]: TH.km10
+        },
+        pairs: {
+          [encodedPair1]: pairKey(TH.chachoengsao, TH.km1),
+          [encodedPair7]: pairKey(TH.chachoengsao, TH.km7),
+          [encodedPair10]: pairKey(TH.chachoengsao, TH.km10)
+        },
+        compatibilityKeyIndex: {
+          [encodedPair1]: pairKey(TH.chachoengsao, TH.km1),
+          [encodedPair7]: pairKey(TH.chachoengsao, TH.km7),
+          [encodedPair10]: pairKey(TH.chachoengsao, TH.km10)
+        }
       }
     }
-  }
+  };
+}
+
+const sandbox = loadPassengerLogic();
+const schedule = sandbox.SLPassengerLogic.schedule;
+let scheduleUpdatedCount = 0;
+sandbox.SLPassengerLogic.on('scheduleUpdated', function() {
+  scheduleUpdatedCount += 1;
 });
 
+schedule.applyPublishedSchedule(sampleSchedule());
+
 const destinations = schedule.getDestinations();
-const labels = Object.keys(destinations);
+const labels = Array.from(Object.keys(destinations));
+const orderedLabels = Array.from(schedule.getDestinationLabels());
+const mainLabels = orderedLabels.filter((label) => !(destinations[label] && destinations[label].group));
+const expectedMainLabels = corridor.filter((label) => labels.includes(label));
+const labelsForOriginKm1 = orderedLabels.filter((label) => label !== TH.km1);
 
-assert(labels.includes('กม.1'), 'กม.1 destination label must be restored');
-assert(labels.includes('กม.7'), 'กม.7 destination label must be restored');
-assert(labels.includes('กม.10'), 'กม.10 destination label must be restored');
+assert.deepStrictEqual(mainLabels, expectedMainLabels, 'main destination labels must follow corridor order');
+assert(!labelsForOriginKm1.includes(TH.km1), 'selected origin must be excluded by dropdown filtering');
+assert(labels.includes(TH.km1), 'km1 destination label must be restored');
+assert(labels.includes(TH.km7), 'km7 destination label must be restored');
+assert(labels.includes(TH.km10), 'km10 destination label must be restored');
 assert(!labels.some((label) => label.startsWith('k_')), 'visible destination labels must not expose encoded Firebase keys');
-
-assert(schedule.getPair('ฉะเชิงเทรา (แปดริ้ว)', 'กม.1'), 'กม.1 pair lookup must resolve through encoded key');
-assert(schedule.getPair('ฉะเชิงเทรา (แปดริ้ว)', 'กม.7'), 'กม.7 pair lookup must resolve through encoded key');
-assert(schedule.getPair('ฉะเชิงเทรา (แปดริ้ว)', 'กม.10'), 'กม.10 pair lookup must resolve through encoded key');
-assert(!schedule.getPair('ฉะเชิงเทรา (แปดริ้ว)', 'รังสิต'), 'excludedPreviewPairs must remain hidden');
-assert(schedule.getPair('ฉะเชิงเทรา (แปดริ้ว)', 'กม.1').segments[0].times[0].displayBadgeTh === 'เวลาโดยประมาณ', 'estimated badge must pass through');
-assert(schedule.getPair('ฉะเชิงเทรา (แปดริ้ว)', 'กม.10').transferDisclaimerTh === 'ข้อมูลต่อรถเป็นข้อมูลอ้างอิง', 'transfer disclaimer must pass through');
+assert(orderedLabels.indexOf(TH.km1) < orderedLabels.indexOf(TH.km7), 'destination sorting must not follow encoded Firebase key order');
+assert(schedule.getPair(TH.chachoengsao, TH.km1), 'km1 pair lookup must resolve through encoded key');
+assert(schedule.getPair(TH.chachoengsao, TH.km7), 'km7 pair lookup must resolve through encoded key');
+assert(schedule.getPair(TH.chachoengsao, TH.km10), 'km10 pair lookup must resolve through encoded key');
+assert(!schedule.getPair(TH.chachoengsao, TH.rangsit), 'excludedPreviewPairs must remain hidden');
+assert(schedule.getPair(TH.chachoengsao, TH.km1).segments[0].times[0].displayBadgeTh === TH.estimatedBadge, 'estimated badge must pass through');
+assert(schedule.getPair(TH.chachoengsao, TH.km10).transferDisclaimerTh === TH.transferDisclaimer, 'transfer disclaimer must pass through');
+assert(scheduleUpdatedCount === 1, 'scheduleUpdated must fire as soon as preview schedule is applied');
 
 console.log('passenger preview normalization ok');

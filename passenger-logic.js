@@ -410,6 +410,7 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 // consulted, so those never surface as selectable journeys.
 var PUBLISHED_SCHEDULE = null;
 var PUBLISHED_SCHEDULE_DESTINATIONS = {};
+var PUBLISHED_SCHEDULE_DESTINATION_LABELS = [];
 var PUBLISHED_SCHEDULE_PAIR_ALIASES = {};
 
 function previewEncodingIndex(node, name) {
@@ -432,6 +433,10 @@ function displayLabelFromPreviewEntry(key, entry, index) {
 function normalizePreviewDestinations(node) {
   var raw = node && node.destinations ? node.destinations : {};
   var index = previewEncodingIndex(node, 'destinations');
+  var originOrder = {};
+  (Array.isArray(node && node.origins) ? node.origins : []).forEach(function(label, idx) {
+    originOrder[label] = idx;
+  });
   var normalized = {};
   Object.keys(raw).forEach(function(key) {
     var entry = raw[key];
@@ -441,8 +446,46 @@ function normalizePreviewDestinations(node) {
     normalized[label].label = normalized[label].label || label;
     normalized[label].destinationLabel = normalized[label].destinationLabel || label;
     normalized[label].firebaseKey = key;
+    if (!isFinite(Number(normalized[label].displayOrder)) && originOrder[label] != null) {
+      normalized[label].displayOrder = originOrder[label];
+    }
   });
   return normalized;
+}
+
+function destinationGroupLabel(entry) {
+  return entry && (entry.group || entry.groupLabel || entry.groupName || entry.destinationGroup || entry.routeGroup) || null;
+}
+
+function destinationOrderValue(label, entry, fallback) {
+  var candidates = [
+    entry && entry.displayOrder,
+    entry && entry.groupStopCode,
+    entry && entry.order,
+    entry && entry.sortOrder
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    var value = Number(candidates[i]);
+    if (isFinite(value)) return value;
+  }
+  return fallback;
+}
+
+function normalizePreviewDestinationLabels(destinations) {
+  var labels = Object.keys(destinations || {});
+  labels.sort(function(a, b) {
+    var ga = destinationGroupLabel(destinations[a]);
+    var gb = destinationGroupLabel(destinations[b]);
+    var mainA = ga ? 1 : 0;
+    var mainB = gb ? 1 : 0;
+    if (mainA !== mainB) return mainA - mainB;
+    if (ga !== gb) return String(ga || '').localeCompare(String(gb || ''), 'th');
+    var oa = destinationOrderValue(a, destinations[a], Number.MAX_SAFE_INTEGER);
+    var ob = destinationOrderValue(b, destinations[b], Number.MAX_SAFE_INTEGER);
+    if (oa !== ob) return oa - ob;
+    return String(a || '').localeCompare(String(b || ''), 'th');
+  });
+  return labels;
 }
 
 function addPreviewPairAlias(aliases, fromKey, toKey) {
@@ -477,6 +520,7 @@ function normalizePreviewPairAliases(node) {
 function applyPublishedSchedule(node) {
   PUBLISHED_SCHEDULE = node || null;
   PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
+  PUBLISHED_SCHEDULE_DESTINATION_LABELS = normalizePreviewDestinationLabels(PUBLISHED_SCHEDULE_DESTINATIONS);
   PUBLISHED_SCHEDULE_PAIR_ALIASES = normalizePreviewPairAliases(PUBLISHED_SCHEDULE);
   emit('scheduleUpdated');
 }
@@ -487,6 +531,10 @@ function getScheduleOrigins() {
 
 function getScheduleDestinations() {
   return PUBLISHED_SCHEDULE_DESTINATIONS;
+}
+
+function getScheduleDestinationLabels() {
+  return PUBLISHED_SCHEDULE_DESTINATION_LABELS.slice();
 }
 
 function getSchedulePair(originLabel, destLabel) {
@@ -1471,6 +1519,7 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   var scheduleApi = {
     getOrigins: getScheduleOrigins,
     getDestinations: getScheduleDestinations,
+    getDestinationLabels: getScheduleDestinationLabels,
     getPair: getSchedulePair,
     isReady: isScheduleReady,
     applyPublishedSchedule: applyPublishedSchedule

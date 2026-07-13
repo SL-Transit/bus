@@ -992,6 +992,7 @@ function buildDropdowns(){
 
   const origins = S.getOrigins();
   const destinations = S.getDestinations(); // { label: { group: null|"ต่อรถ" } }
+  const destinationLabels = typeof S.getDestinationLabels === 'function' ? S.getDestinationLabels() : Object.keys(destinations);
 
   // ต้นทาง
   if (!origins.length) {
@@ -1011,7 +1012,7 @@ function buildDropdowns(){
   // ปลายทาง — จัดกลุ่มตาม .group ที่ ERP กำหนดมา (ไม่ใช่ passenger เดาเอง)
   function buildDestOptions(){
     destSel.innerHTML = '';
-    const destLabels = Object.keys(destinations);
+    const destLabels = destinationLabels.slice();
 
     if (!destLabels.length) {
       const grp0 = document.createElement('optgroup');
@@ -1108,6 +1109,15 @@ db.ref('settings').on('value', function(snap) {
   console.error('Passenger settings load failed:', err && err.message ? err.message : err);
 });
 
+// Precomputed, ready-to-render schedule -- ERP Data Center Round 2 preview.
+// Register this before map/catalog/vehicle feeds so dropdowns become usable as
+// soon as preview schedule data arrives; those other feeds remain independent.
+db.ref('preview/publishedSchedule').on('value', function(snap) {
+  SLPassengerLogic.schedule.applyPublishedSchedule(snap.val());
+}, function(err) {
+  console.error('Passenger preview/publishedSchedule load failed:', err && err.message ? err.message : err);
+});
+
 db.ref('routeData').on('value', function(snap) {
   SLPassengerLogic.map.applyLiveStopsData(snap.val());
 }, function(err) {
@@ -1118,18 +1128,6 @@ db.ref('publishedCatalog').on('value', function(snap) {
   SLPassengerLogic.applyUnifiedCatalog(snap.val());
 }, function(err) {
   console.error('Passenger catalog load failed:', err && err.message ? err.message : err);
-});
-
-// Precomputed, ready-to-render schedule -- ERP Data Center Round 2 preview
-// output (publishedSchedule.v1.preview). preview.dryRun=true / writesEnabled=
-// false / readyForApply=false at the source; this is a read-only preview,
-// not production booking data. Passenger renders exactly what this node
-// provides (badges, disclaimers, reference-only/external flags included) and
-// never computes routes/transfers/fares/disabled-times itself.
-db.ref('preview/publishedSchedule').on('value', function(snap) {
-  SLPassengerLogic.schedule.applyPublishedSchedule(snap.val());
-}, function(err) {
-  console.error('Passenger preview/publishedSchedule load failed:', err && err.message ? err.message : err);
 });
 
 // Firebase — bus/car1, bus/car2, ... (old shape) + liveVehicles, same dual
