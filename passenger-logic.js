@@ -868,11 +868,7 @@ function applyPassengerRouteData(data) {
   STOPS_GO.splice.apply(STOPS_GO, [0, STOPS_GO.length].concat(nextStops));
   STOPS_BACK.splice.apply(STOPS_BACK, [0, STOPS_BACK.length].concat(nextStops));
   if (mapReady) {
-    loadPassengerRouteData().then(function(routeData) {
-      return renderRoutePolyline(routeData).then(function() {
-        renderStationMarkers(routeData);
-      });
-    }).catch(function(err) {
+    renderCurrentPassengerStops().catch(function(err) {
       console.warn('Passenger routeData render failed:', err && err.message ? err.message : err);
     });
   }
@@ -923,6 +919,9 @@ function initMap() {
         console.log('Longdo map loaded');
         refreshMapSizeSafely();
         bindManualMapInteractionPause();
+        renderCurrentPassengerStops().catch(function(err) {
+          console.warn('Passenger mapView render failed:', err && err.message ? err.message : err);
+        });
         if (Object.keys(allBusPositions).length) updateAllBusesOnMap(allBusPositions);
         resolve(mapObj);
       }
@@ -989,12 +988,19 @@ function renderRoutePolyline(routeData) {
   return drawRoute(routeData);
 }
 
+function renderCurrentPassengerStops() {
+  if (!mapReady || !mapObj) return Promise.resolve(null);
+  return loadPassengerRouteData().then(function(routeData) {
+    return renderRoutePolyline(routeData).then(function() {
+      renderStationMarkers(routeData);
+      refreshMapSizeSafely();
+      return routeData;
+    });
+  });
+}
+
 async function refreshPassengerMapRoute() {
-  if (!mapReady || !mapObj) return;
-  const routeData = await loadPassengerRouteData();
-  await renderRoutePolyline(routeData);
-  renderStationMarkers(routeData);
-  refreshMapSizeSafely();
+  await renderCurrentPassengerStops();
 }
 
 function clearStationMarkers() {
@@ -1142,17 +1148,6 @@ function drawRoute(routeData) {
     try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
     routeLine = null;
     return Promise.resolve();
-  }
-  if (routeData && Array.isArray(routeData.polyline) && routeData.polyline.length >= 2) {
-    const renderSeq = ++routeRenderSeq;
-    const pts = routeData.polyline.map(function(point) { return normalizeMapPoint(point); }).filter(Boolean);
-    if (pts.length >= 2) {
-      knownRouteLinePoints = pts;
-      try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
-      routeLine = new longdo.Polyline(pts, { lineColor: viewDir==='go' ? '#1e40af' : '#dc2626', lineWidth: 5, lineOpacity: 0.82 });
-      if (renderSeq === routeRenderSeq) mapObj.Overlays.add(routeLine);
-      return Promise.resolve();
-    }
   }
   knownRouteLinePoints = [];
   try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
@@ -1771,6 +1766,7 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
     loadRouteData: loadPassengerRouteData,
     renderRoute: renderRoutePolyline,
     renderStops: renderStationMarkers,
+    renderCurrentStops: renderCurrentPassengerStops,
     refreshSize: refreshMapSizeSafely,
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,

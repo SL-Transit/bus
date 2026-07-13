@@ -1262,8 +1262,12 @@ document.addEventListener('DOMContentLoaded', async function(){
   var retryCount = 0;
   var retryTimer = setInterval(function(){
     retryCount++;
-    SLPassengerLogic.map.renderStops(routeData);
-    SLPassengerLogic.map.refreshSize();
+    SLPassengerLogic.map.loadRouteData().then(function(freshRouteData) {
+      SLPassengerLogic.map.renderStops(freshRouteData);
+      SLPassengerLogic.map.refreshSize();
+    }).catch(function(err) {
+      console.warn('Passenger map retry render failed:', err && err.message ? err.message : err);
+    });
     var allBusPositions = SLPassengerLogic.vehicles.getAll();
     if (SLPassengerLogic.map.isReady() && Object.keys(allBusPositions).length) {
       SLPassengerLogic.map.updateVehicles(allBusPositions);

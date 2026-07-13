@@ -77,6 +77,63 @@ function loadPassengerLogic() {
   return sandbox;
 }
 
+function installMapStub(sandbox) {
+  const state = {
+    markers: [],
+    polylines: [],
+    removed: [],
+    resizeCount: 0,
+    repaintCount: 0
+  };
+  const mapObj = {
+    Ui: ['DPad', 'Zoombar', 'Toolbar', 'LayerSelector', 'Fullscreen', 'Scale', 'Crosshair', 'Geolocation']
+      .reduce((ui, name) => {
+        ui[name] = { visible: function() {} };
+        return ui;
+      }, {}),
+    Event: {
+      bind: function(eventName, callback) {
+        if (eventName === 'ready') sandbox.setTimeout(callback, 0);
+      }
+    },
+    Overlays: {
+      add: function(overlay) {
+        if (overlay && overlay.__type === 'polyline') state.polylines.push(overlay);
+        else state.markers.push(overlay);
+      },
+      remove: function(overlay) {
+        state.removed.push(overlay);
+      }
+    },
+    resize: function() {
+      state.resizeCount += 1;
+    },
+    repaint: function() {
+      state.repaintCount += 1;
+    }
+  };
+  sandbox.document = {
+    getElementById: function() {
+      return { addEventListener: function() {} };
+    }
+  };
+  sandbox.longdo = {
+    OverlayWeight: { Top: 'top' },
+    Map: function() { return mapObj; },
+    Marker: function(point, options) {
+      return { __type: 'marker', point, options };
+    },
+    Polyline: function(points, options) {
+      return { __type: 'polyline', points, options };
+    }
+  };
+  return state;
+}
+
+function waitForAsyncMapWork() {
+  return new Promise((resolve) => setTimeout(resolve, 30));
+}
+
 const encodedDest1 = 'k_4LiB4LihLjE';
 const encodedDest7 = 'k_4LiB4LihLjc';
 const encodedDest10 = 'k_4LiB4LihLjEw';
@@ -376,8 +433,30 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
   assert(!logicSource.includes('router.project-osrm.org'), 'Passenger must not fetch route geometry from OSRM');
+  assert(html.includes('SLPassengerLogic.map.loadRouteData().then(function(freshRouteData)'), 'Passenger map retry must load fresh route data');
+  assert(html.includes('SLPassengerLogic.map.renderStops(freshRouteData)'), 'Passenger map retry must render fresh route data');
   assert(html.includes('ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์'), 'Passenger must show live tracking unavailable when no approved new live data exists');
   assert(!/fake\s*(gps|eta|vehicle|assignment)/i.test(html + '\n' + logicSource), 'Passenger must not create fake GPS/ETA/vehicle/assignment data');
+
+  const mapFirstSandbox = loadPassengerLogic();
+  const mapFirstState = installMapStub(mapFirstSandbox);
+  await mapFirstSandbox.SLPassengerLogic.map.init();
+  await waitForAsyncMapWork();
+  assert.strictEqual(mapFirstState.markers.length, 0, 'map init before mapView must not render empty/stale markers');
+  mapFirstSandbox.SLPassengerLogic.schedule.applyPublishedScheduleOptions(sampleOptionOnlySchedule());
+  await waitForAsyncMapWork();
+  assert.strictEqual(mapFirstState.markers.length, 30, 'mapView arriving after map init must render 15 marker+label overlays');
+  assert.strictEqual(mapFirstState.polylines.length, 0, 'mapView arriving after map init must not render route polyline');
+
+  const dataFirstSandbox = loadPassengerLogic();
+  const dataFirstState = installMapStub(dataFirstSandbox);
+  dataFirstSandbox.SLPassengerLogic.schedule.applyPublishedScheduleOptions(sampleOptionOnlySchedule());
+  await waitForAsyncMapWork();
+  assert.strictEqual(dataFirstState.markers.length, 0, 'mapView before map init must wait for map readiness');
+  await dataFirstSandbox.SLPassengerLogic.map.init();
+  await waitForAsyncMapWork();
+  assert.strictEqual(dataFirstState.markers.length, 30, 'map init after mapView must render 15 marker+label overlays');
+  assert.strictEqual(dataFirstState.polylines.length, 0, 'map init after mapView must not render route polyline');
 
   const sourcePairs = sampleSchedule().pairs;
   const loadCalls = [];
