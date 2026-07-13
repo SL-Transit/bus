@@ -1727,6 +1727,15 @@
           status: 'schedule_only'
         };
       }
+      if (centerMatch && centerMatch.status === 'missing_assignment_contract') {
+        return {
+          id: '',
+          location: null,
+          currentTrip: null,
+          pickupEta: null,
+          status: 'missing_assignment_contract'
+        };
+      }
       var assignedVehicleId = centerMatch && centerMatch.vehicleId ? centerMatch.vehicleId : String((assignment && assignment.plannedVehicleId) || booking.plannedVehicleId || '');
       if (assignedVehicleId) {
         var assignedVehicle = centerMatch && centerMatch.vehicle ? centerMatch.vehicle : buses[assignedVehicleId];
@@ -1761,7 +1770,7 @@
         location: null,
         currentTrip: null,
         pickupEta: null,
-        status: 'missing_assignment'
+        status: 'missing_assignment_contract'
       };
     }
 
@@ -2563,8 +2572,18 @@
         };
       }
       var queueNo = Number((assignment && assignment.queueNo) || getBookingQueueNo(booking) || 0);
-      var plannedVehicleId = String((assignment && assignment.plannedVehicleId) || booking.plannedVehicleId || (queueNo ? getVehicleIdForQueue(queueNo, getServiceDateForBooking(booking)) : '') || '');
-      var vehicle = plannedVehicleId ? ((trackingLiveVehicleFeed && trackingLiveVehicleFeed[plannedVehicleId]) || (trackingBusFeed && trackingBusFeed[plannedVehicleId]) || null) : null;
+      var vehicles = mergeTrackingVehicleFeeds();
+      var centerMatch = window.SLTransitVehicleAssignmentCenter && typeof window.SLTransitVehicleAssignmentCenter.selectBookedVehicle === 'function'
+        ? window.SLTransitVehicleAssignmentCenter.selectBookedVehicle({
+          booking: booking,
+          vehicles: vehicles,
+          assignment: assignment,
+          scheduleOnly: isScheduleOnlyAssignment(assignment),
+          isActiveVehicle: isActiveVehicle
+        })
+        : null;
+      var plannedVehicleId = centerMatch && centerMatch.vehicleId ? centerMatch.vehicleId : '';
+      var vehicle = centerMatch && centerMatch.vehicle ? centerMatch.vehicle : null;
       var hasAnyPosition = !!normalizeTrackingPoint(vehicle);
       var hasFreshPosition = !!(plannedVehicleId && isActiveVehicle(plannedVehicleId, vehicle));
       var isStalePosition = !!(hasAnyPosition && !hasFreshPosition);
@@ -2576,7 +2595,8 @@
         hasAnyPosition: hasAnyPosition,
         hasFreshPosition: hasFreshPosition,
         isStalePosition: isStalePosition,
-        hasLivePosition: hasFreshPosition
+        hasLivePosition: hasFreshPosition,
+        missingAssignmentContract: !!(centerMatch && centerMatch.status === 'missing_assignment_contract')
       };
     }
 

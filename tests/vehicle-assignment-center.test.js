@@ -2,7 +2,7 @@ const assert = require('assert');
 const center = require('../vehicle-assignment-center.js');
 
 assert.strictEqual(center.plannedVehicleIdForBooking({ plannedVehicleId: 'car1' }, {}), 'car1');
-assert.strictEqual(center.plannedVehicleIdForBooking({ vehicleId: 'car2' }, {}), 'car2');
+assert.strictEqual(center.plannedVehicleIdForBooking({ vehicleId: 'car2' }, {}), '');
 assert.strictEqual(center.plannedVehicleIdForBooking({}, { plannedVehicleId: 'car3' }), 'car3');
 
 const ready = center.selectBookedVehicle({
@@ -14,7 +14,13 @@ assert.strictEqual(ready.id, 'car1');
 assert.strictEqual(ready.location.lat, 13.7);
 
 const missingAssignment = center.selectBookedVehicle({ booking: { code: 'TB000001' }, vehicles: {} });
-assert.strictEqual(missingAssignment.status, 'missing_assignment');
+assert.strictEqual(missingAssignment.status, 'missing_assignment_contract');
+
+const legacyOnly = center.selectBookedVehicle({
+  booking: { code: 'TB000002', vehicleId: 'car2', carId: 'car2' },
+  vehicles: { car2: { lat: 13.7, lng: 101.1 } }
+});
+assert.strictEqual(legacyOnly.status, 'missing_assignment_contract');
 
 const missingVehicle = center.selectBookedVehicle({
   booking: { plannedVehicleId: 'car9' },

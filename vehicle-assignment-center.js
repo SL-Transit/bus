@@ -16,7 +16,7 @@
   function plannedVehicleIdForBooking(booking, assignment) {
     booking = booking || {};
     assignment = assignment || {};
-    return clean(assignment.plannedVehicleId || booking.plannedVehicleId || booking.vehicleId || booking.assignedVehicleId || booking.driverVehicleId || booking.carId || booking.busId);
+    return clean(assignment.plannedVehicleId || booking.plannedVehicleId);
   }
 
   function selectBookedVehicle(input) {
@@ -28,7 +28,7 @@
       return { id: '', vehicleId: '', vehicle: null, location: null, status: 'schedule_only' };
     }
     var vehicleId = plannedVehicleIdForBooking(booking, assignment);
-    if (!vehicleId) return { id: '', vehicleId: '', vehicle: null, location: null, status: 'missing_assignment' };
+    if (!vehicleId) return { id: '', vehicleId: '', vehicle: null, location: null, status: 'missing_assignment_contract' };
     var vehicle = buses[vehicleId] || null;
     var location = normalizePoint(vehicle);
     var isActive = typeof input.isActiveVehicle === 'function'
