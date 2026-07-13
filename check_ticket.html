@@ -19,6 +19,9 @@
 <script src="catalog-engine.js?v=20260627catalog2"></script>
 <script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
+<script src="erp-calculator-center.js?v=20260713center1"></script>
+<script src="map-display-center.js?v=20260713center1"></script>
+<script src="erp-alert-center.js?v=20260713center1"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
@@ -2568,9 +2571,12 @@
 
     function calculateVehicleEtaToPickup(vehicleLocation, pickupLocation) {
       if (!normalizeTrackingPoint(vehicleLocation) || !pickupLocation) return null;
-      var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateVehicleEta === 'function'
-        ? window.SLTransitGeo.estimateVehicleEta(vehicleLocation, pickupLocation, {
-          roadDistanceFactor: ROAD_DISTANCE_FACTOR,
+      var sharedEta = window.SLTransitCalculatorCenter && typeof window.SLTransitCalculatorCenter.estimateEta === 'function'
+        ? window.SLTransitCalculatorCenter.estimateEta({
+          from: vehicleLocation,
+          to: pickupLocation,
+          speedKmh: Number(vehicleLocation.speed || vehicleLocation.speedKmh || 0),
+          fallbackRoadDistanceFactor: ROAD_DISTANCE_FACTOR,
           minMovingSpeedKmh: 2
         })
         : null;
@@ -2642,7 +2648,14 @@
       var arrivalTime = arrival ? String(arrival.getHours()).padStart(2, '0') + ':' + String(arrival.getMinutes()).padStart(2, '0') : (currentBooking.leg2Time || currentBooking.transferTime || currentBooking.connectionTime || '');
       var min = toMin(arrivalTime || currentBooking.time || '00:00') + TRANSFER_TRIP_BUFFER_MINUTES;
       var times = getLeg2TimesForBooking(currentBooking);
-      var next = times.find(function(t) { return toMin(t) >= min; }) || '';
+      var centerTrip = window.SLTransitCalculatorCenter && typeof window.SLTransitCalculatorCenter.findCatchableTrip === 'function'
+        ? window.SLTransitCalculatorCenter.findCatchableTrip({
+          arrivalMinutesOfDay: toMin(arrivalTime || currentBooking.time || '00:00'),
+          transferBufferMinutes: TRANSFER_TRIP_BUFFER_MINUTES,
+          trips: times.map(function(time) { return { time: time }; })
+        })
+        : null;
+      var next = centerTrip ? centerTrip.time : (times.find(function(t) { return toMin(t) >= min; }) || '');
       return next ? 'รอบที่คาดว่าจะทัน ' + next + ' น.' : 'ยังไม่พบรอบต่อรถที่คาดว่าจะทัน';
     }
 
@@ -2689,13 +2702,12 @@
       }
       if (!normalizeTrackingPoint(source) || !target) return scheduledJourneyEtaMinutes();
       var speed = Number(source.speed || (vanLocation && vanLocation.speed) || 0);
-      var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateVehicleEta === 'function'
-        ? window.SLTransitGeo.estimateVehicleEta({
-          lat: source.lat,
-          lng: source.lng,
-          speedKmh: Math.max(speed, 28)
-        }, target, {
-          roadDistanceFactor: ROAD_DISTANCE_FACTOR,
+      var sharedEta = window.SLTransitCalculatorCenter && typeof window.SLTransitCalculatorCenter.estimateEta === 'function'
+        ? window.SLTransitCalculatorCenter.estimateEta({
+          from: source,
+          to: target,
+          speedKmh: Math.max(speed, 28),
+          fallbackRoadDistanceFactor: ROAD_DISTANCE_FACTOR,
           minMovingSpeedKmh: 0
         })
         : null;
@@ -2995,8 +3007,12 @@
         document.getElementById('etaText').style.fontSize = '18px';
         document.getElementById('etaUnit').textContent = '';
       } else {
-        var sharedEta = window.SLTransitGeo && typeof window.SLTransitGeo.estimateEtaFromDistanceKm === 'function'
-          ? window.SLTransitGeo.estimateEtaFromDistanceKm(currentDistanceKm, currentSpeedKmh, { minMovingSpeedKmh: 1 })
+        var sharedEta = window.SLTransitCalculatorCenter && typeof window.SLTransitCalculatorCenter.estimateEta === 'function'
+          ? window.SLTransitCalculatorCenter.estimateEta({
+            roadDistanceKm: currentDistanceKm,
+            speedKmh: currentSpeedKmh,
+            minMovingSpeedKmh: 1
+          })
           : null;
         currentEtaMinutes = sharedEta && sharedEta.etaMinutes !== null
           ? sharedEta.etaMinutes
