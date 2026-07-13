@@ -388,6 +388,8 @@ function buildNetworkModel(destinations, stops) {
       serviceGroupId: 'group_001',
       nodeId,
       displayNameTh: corridorEntry.displayNameTh,
+      lat: stops[destinationId].lat,
+      lng: stops[destinationId].lng,
       aliases: corridorEntry.aliases.slice(),
       corridorPosition: Number(corridorEntry.code.slice(-3)),
       capabilities: {
@@ -415,11 +417,15 @@ function buildStops(routeData) {
   orderedValues(routeData.stops).forEach((stop, index) => {
     const stopKey = normalizeStopKey(stop.stopKey || stop.key || stop.id);
     const displayNameTh = cleanLabel(stop.stopNameTh || stop.nameTh || stop.name || stopKey);
+    const lat = Number(stop.lat);
+    const lng = Number(stop.lng);
     stops[stopKey] = {
       stopKey,
       nameTh: displayNameTh,
       displayNameTh,
       order: Number(stop.order || index + 1),
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
       classification: classifyDestination(stopKey),
       status: 'active',
       sourceLineage: [buildLineage(`routeData/stops/${stop.stopKey || stop.key || index}`, stopKey, 'source-proven exact stop')]
@@ -440,6 +446,8 @@ function buildBoardingPoints(stops) {
       nodeId: stop.nodeId,
       groupStopId: stop.groupStopId,
       displayNameTh: stop.displayNameTh,
+      lat: stop.lat,
+      lng: stop.lng,
       exactness: 'source_proven_stop',
       phase1Role: 'source_proven_main_origin_boarding_point',
       originSelectable: true,
@@ -1429,6 +1437,7 @@ function validateReferences(erp) {
   Object.values(groupStops).forEach((groupStop) => {
     if (!networkNodes[groupStop.nodeId]) block('group-stop-node-missing', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`, groupStop.nodeId);
     if (!erp.serviceGroups[groupStop.serviceGroupId]) block('group-stop-service-group-missing', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`, groupStop.serviceGroupId);
+    if (!Number.isFinite(groupStop.lat) || !Number.isFinite(groupStop.lng)) block('group-stop-coordinates-missing', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`);
     if (groupStop.stopRole || groupStop.waitingPolicy || groupStop.conditionalWaitingPoint === true) block('global-group-stop-operational-role-forbidden', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`);
   });
   Object.values(networkNodes).forEach((node) => {

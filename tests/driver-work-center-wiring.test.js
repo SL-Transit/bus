@@ -10,6 +10,7 @@ const driver = fs.readFileSync(
 assert(driver.includes('operations/driverWorkByServiceDate'), 'Driver app must read the ERP Logic Center daily work contract');
 assert(driver.includes('DRIVER_WORK_CONTRACT_VERSION = "driver_work_v1"'), 'Driver app must require the driver work contract version');
 assert(driver.includes('applyDriverWorkContract(snap, serviceDate, vehicleId)'), 'Driver app must render the central work contract');
+assert(driver.includes('snap.child("erpVehicleId")'), 'Driver app must require the stable ERP vehicle identity');
 assert(driver.includes('readDriverWorkTrip(snap.child("currentTrip"))'), 'Driver app must use the centrally selected current trip');
 assert(driver.includes('readDriverWorkTrip(snap.child("nextTrip"))'), 'Driver app must use the centrally selected next trip');
 

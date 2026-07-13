@@ -802,9 +802,11 @@ public class MainActivity extends Activity {
         String contractStatus = snap.child("status").getValue(String.class);
         String contractDate = snap.child("serviceDate").getValue(String.class);
         String contractVehicleId = snap.child("vehicleId").getValue(String.class);
+        String erpVehicleId = snap.child("erpVehicleId").getValue(String.class);
         if (!DRIVER_WORK_CONTRACT_VERSION.equals(contractVersion)
                 || !serviceDate.equals(contractDate)
-                || !vehicleId.equals(contractVehicleId)) {
+                || !vehicleId.equals(contractVehicleId)
+                || erpVehicleId == null || erpVehicleId.isEmpty()) {
             showUnassignedQueue("ยังไม่มีชุดงานที่ถูกต้องจากระบบกลาง");
             return;
         }

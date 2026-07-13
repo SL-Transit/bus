@@ -17,7 +17,8 @@ const trip = {
 const ready = center.buildDriverWorkContract({
   status: 'assigned',
   serviceDate: '2026-07-14',
-  vehicleId: 'veh_001',
+  vehicleId: 'car1',
+  erpVehicleId: 'veh_001',
   assignmentId: 'daily_20260714_veh001',
   assignmentMode: 'rotation',
   queueId: 'queue_001',
@@ -28,20 +29,22 @@ const ready = center.buildDriverWorkContract({
 });
 assert.strictEqual(ready.status, 'ready');
 assert.strictEqual(ready.contract.contractVersion, 'driver_work_v1');
+assert.strictEqual(ready.contract.vehicleId, 'car1');
+assert.strictEqual(ready.contract.erpVehicleId, 'veh_001');
 assert.strictEqual(ready.contract.currentTrip.queueTripId, 'qt_000001');
 assert.strictEqual(ready.contract.currentTrip.orderedStops[0].lat, 13.65);
 
-const unassigned = center.buildDriverWorkContract({ status: 'unassigned', serviceDate: '2026-07-14', vehicleId: 'veh_009' });
+const unassigned = center.buildDriverWorkContract({ status: 'unassigned', serviceDate: '2026-07-14', vehicleId: 'car9', erpVehicleId: 'veh_009' });
 assert.strictEqual(unassigned.status, 'unassigned');
 assert.strictEqual(unassigned.contract.queueId, undefined);
 
 const missingQueue = center.buildDriverWorkContract({
-  serviceDate: '2026-07-14', vehicleId: 'veh_001', assignmentId: 'x', assignmentMode: 'rotation', currentTrip: trip
+  serviceDate: '2026-07-14', vehicleId: 'car1', erpVehicleId: 'veh_001', assignmentId: 'x', assignmentMode: 'rotation', currentTrip: trip
 });
 assert.strictEqual(missingQueue.status, 'invalid_contract');
 
 const badMode = center.buildDriverWorkContract({
-  serviceDate: '2026-07-14', vehicleId: 'veh_001', assignmentId: 'x', assignmentMode: 'guessed', queueId: 'queue_001', queueNo: 1, currentTrip: trip
+  serviceDate: '2026-07-14', vehicleId: 'car1', erpVehicleId: 'veh_001', assignmentId: 'x', assignmentMode: 'guessed', queueId: 'queue_001', queueNo: 1, currentTrip: trip
 });
 assert.strictEqual(badMode.status, 'invalid_contract');
 

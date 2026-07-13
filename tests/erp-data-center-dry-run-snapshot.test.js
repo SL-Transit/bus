@@ -185,6 +185,7 @@ const EXPECTED_TRIP_MAPPINGS = {
   const mergedTimes = values(erp.stopTimes).filter((stopTime) => stopTime.queueTripId === mergedQueueTrip.queueTripId);
   ['km_1', 'km_7', 'huaisom', 'tatakiab'].forEach((stopKey) => assert(mergedTimes.some((stopTime) => stopTime.stopKey === stopKey), `singleton not merged: ${stopKey}`));
   assert(values(erp.fleet.queueTrips).every((trip) => trip.orderedStopTimes.length > 1), 'singleton active queue trip found');
+  assert(values(erp.groupStops).every((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lng)), 'source-proven group stop coordinates missing');
   assert(values(erp.stopTimes).filter((stopTime) => erp.fleet.queueTrips[stopTime.queueTripId].queueId === 'queue_005').length === 10, 'queue_005 stop-time count mismatch');
   assert(result.lineage.retainedEvidenceContainers.length === 26, 'lineage container count mismatch');
 

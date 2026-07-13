@@ -55,7 +55,8 @@
     var status = clean(input.status || 'assigned');
     var serviceDate = clean(input.serviceDate);
     var vehicleId = clean(input.vehicleId);
-    if (!serviceDate || !vehicleId) return { status: 'invalid_contract', contract: null };
+    var erpVehicleId = clean(input.erpVehicleId);
+    if (!serviceDate || !vehicleId || !erpVehicleId) return { status: 'invalid_contract', contract: null };
     if (status === 'unassigned') {
       return {
         status: 'unassigned',
@@ -63,7 +64,8 @@
           contractVersion: 'driver_work_v1',
           status: 'unassigned',
           serviceDate: serviceDate,
-          vehicleId: vehicleId
+          vehicleId: vehicleId,
+          erpVehicleId: erpVehicleId
         }
       };
     }
@@ -85,6 +87,7 @@
         status: serviceComplete ? 'service_complete' : 'assigned',
         serviceDate: serviceDate,
         vehicleId: vehicleId,
+        erpVehicleId: erpVehicleId,
         assignmentId: clean(input.assignmentId),
         assignmentMode: assignmentMode,
         queueId: clean(input.queueId),
