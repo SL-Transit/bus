@@ -5,6 +5,7 @@ const vm = require('vm');
 
 const TH = {
   chachoengsao: '\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32 (\u0e41\u0e1b\u0e14\u0e23\u0e34\u0e49\u0e27)',
+  chachoengsaoShort: '\u0e09\u0e30\u0e40\u0e0a\u0e34\u0e07\u0e40\u0e17\u0e23\u0e32',
   phanom: '\u0e1e\u0e19\u0e21\u0e2a\u0e32\u0e23\u0e04\u0e32\u0e21',
   sanamchai: '\u0e17\u0e48\u0e32\u0e23\u0e16\u0e2a\u0e19\u0e32\u0e21\u0e0a\u0e31\u0e22\u0e40\u0e02\u0e15',
   km1: '\u0e01\u0e21.1',
@@ -297,7 +298,7 @@ function sampleOptionOnlySchedule() {
       nodeId: 'node_' + displayOrder,
       groupStopId: 'gs_' + displayOrder,
       groupStopCode: 'g01p' + String(displayOrder + 1).padStart(3, '0'),
-      label,
+      label: displayOrder === 0 ? TH.chachoengsaoShort : label,
       displayOrder,
       lat: 13.4 + displayOrder / 100,
       lng: 101.0 + displayOrder / 100,
@@ -430,6 +431,12 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(html.includes(".child('mapView')"), 'Passenger must read mapView as lightweight initial data');
   assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
+  assert(html.includes('opt.value = o; opt.textContent = o;'), 'origin dropdown value must be the exact ERP originOptions label');
+  const selectStopStart = html.indexOf('window.selectPassengerStop');
+  const selectStopEnd = html.indexOf('window.selectPassengerBus', selectStopStart);
+  const selectStopBlock = html.slice(selectStopStart, selectStopEnd);
+  assert(selectStopStart !== -1 && selectStopEnd !== -1, 'Passenger map stop handler must exist');
+  assert(!selectStopBlock.includes('setOrigin'), 'map stop focus must not overwrite selected origin contract label');
   assert(!logicSource.includes('router.project-osrm.org'), 'Passenger must not fetch route geometry from OSRM');
   assert(!html.includes('setInterval(function(){'), 'Passenger must not keep a page-local map/vehicle retry loop');
   assert(!html.includes('SLPassengerLogic.map.updateVehicles(allBusPositions)'), 'Passenger page must not push locally cached vehicle positions back onto the map');
@@ -492,13 +499,15 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(schedule.hasDestinationOptionsByOrigin() === true, 'option-only schedule must report ERP destination options');
   assert.deepStrictEqual(Array.from(schedule.getOrigins()), corridor, 'originOptions must be enough to build origins');
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.chachoengsao)), [TH.pattaya, TH.chachoengsao, TH.km7], 'option-only destinations must keep ERP order/content exactly');
+  assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.chachoengsaoShort)), [], 'short map stop label must not be used as a destinationOptionsByOrigin key');
+  assert.strictEqual(schedule.getDestinationContractStatus(TH.chachoengsaoShort), 'missing_origin_options', 'short map stop label must show contract-unavailable instead of alias guessing');
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.km1)), [TH.km7], 'encoded destinationOptionsByOrigin keys must resolve to display origin labels');
   assert.strictEqual(schedule.getDestinationContractStatus(TH.rangsit), 'missing_origin_options', 'missing selected origin must be a contract-unavailable state');
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.rangsit)), [], 'missing selected origin must not derive substitute destinations from pairs');
   assert(!schedule.getDestinationLabels(TH.chachoengsao).includes(TH.rangsit), 'excludedPreviewPairs must not become destination options');
   const previewRouteData = await sandbox.SLPassengerLogic.map.loadRouteData();
   assert(Array.isArray(previewRouteData.stations) && previewRouteData.stations.length === 15, 'Passenger must accept map stops from publishedSchedule mapView');
-  assert(previewRouteData.stations[0].name === TH.chachoengsao, 'Passenger map stop labels must come from mapView');
+  assert(previewRouteData.stations[0].name === TH.chachoengsaoShort, 'Passenger map stop labels must come from mapView without replacing originOptions labels');
   assert.deepStrictEqual(
     JSON.parse(JSON.stringify(previewRouteData.stations.map((station) => station.key))),
     corridor.map((_, index) => 'stop_' + index),
