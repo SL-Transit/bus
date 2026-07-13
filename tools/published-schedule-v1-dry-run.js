@@ -141,6 +141,23 @@ const PREVIEW_MAP_COORDINATES = {
   wangnamyen: { lat: 13.460000, lng: 102.170000 },
   klonghat: { lat: 13.453565, lng: 102.299330 }
 };
+const OWNER_WORKBOOK_STOP_ICONS = {
+  klonghat: { icon: '\u{1F68F}', workbookStopKey: 'klonghat', row: 2 },
+  wangnamyen: { icon: '\u{1F68F}', workbookStopKey: 'wangnamyen', row: 3 },
+  siyaekkhonom: { icon: '\u{1F68F}', workbookStopKey: 'siyaekkhonom', row: 4 },
+  thoengkabintr: { icon: '\u{1F68F}', workbookStopKey: 'thoengkabintr', row: 5 },
+  phaijit: { icon: '\u{1F68F}', workbookStopKey: 'phaijit', row: 6 },
+  nongruea: { icon: '\u{1F68F}', workbookStopKey: 'nongruea', row: 7 },
+  khlongtakien: { icon: '\u{1F68F}', workbookStopKey: 'khlongtakien', row: 8 },
+  nongkhok: { icon: '\u{1F68F}', workbookStopKey: 'nongkhok', row: 9 },
+  tatakiab: { icon: '\u{1F68F}', workbookStopKey: 'tatakiab', row: 10 },
+  huaisom: { icon: '\u{1F68F}', workbookStopKey: 'huaisom', row: 11 },
+  km_7: { icon: '\u{1F68F}', workbookStopKey: 'km_7', row: 12 },
+  km_1: { icon: '\u{1F68F}', workbookStopKey: 'km_1', row: 13 },
+  sanamchaikhet: { icon: '\u{1F68F}', workbookStopKey: 'sanamchai', row: 14 },
+  phanom: { icon: '\u{1F68F}', workbookStopKey: 'phanom', row: 15 },
+  chachoengsao: { icon: '\u{1F68F}', workbookStopKey: 'chachoengsao', row: 16 }
+};
 const ROAD_POLYLINE_SOURCE = {
   sourceSystem: 'osrm_public_route_snapshot',
   sourcePath: 'tools/published-schedule-map-road-polyline.json',
@@ -203,6 +220,7 @@ function transferPolicyEvidence() {
 }
 
 function previewMapSourceLineage(stopKey, stop) {
+  const iconSource = OWNER_WORKBOOK_STOP_ICONS[stopKey];
   return [
     {
       sourceSystem: 'erp_preview_contract',
@@ -217,6 +235,13 @@ function previewMapSourceLineage(stopKey, stop) {
       sourceId: stopKey,
       importedBy: 'published-schedule-v1-dry-run',
       notes: 'static stop coordinates for Passenger Preview map only; not GPS, ETA, vehicle, or operational proof'
+    },
+    {
+      sourceSystem: 'owner_workbook',
+      sourcePath: `${OWNER_WORKBOOK_INTERPRETATION.sheets.stops}!F${iconSource ? iconSource.row : '?'}`,
+      sourceId: iconSource ? iconSource.workbookStopKey : stopKey,
+      importedBy: 'published-schedule-v1-dry-run',
+      notes: 'Passenger Preview stop icon from owner workbook column ไอคอน'
     }
   ].concat(stop.sourceLineage || []);
 }
@@ -233,6 +258,7 @@ function buildMapView(erp) {
     const stop = stopsByGroupStopId[groupStop.groupStopId] || {};
     const stopKey = stop.stopKey || (groupStop.sourceLineage && groupStop.sourceLineage[0] && groupStop.sourceLineage[0].sourceId) || groupStop.groupStopCode;
     const coord = PREVIEW_MAP_COORDINATES[stopKey] || {};
+    const iconSource = OWNER_WORKBOOK_STOP_ICONS[stopKey] || {};
     return {
       stopKey,
       nodeId: groupStop.nodeId,
@@ -242,7 +268,7 @@ function buildMapView(erp) {
       displayOrder: index,
       lat: coord.lat,
       lng: coord.lng,
-      icon: index === 0 || index === corridorStops.length - 1 ? '🚍' : '🚏',
+      icon: iconSource.icon,
       visible: coord.lat != null && coord.lng != null,
       previewDisplayMode: 'static_map_reference',
       referenceOnly: true,
@@ -817,14 +843,21 @@ function validatePublishedSchedule(publishedSchedule) {
     block('map-view-stop-count-mismatch', 'publishedSchedule/mapView/stops', { expected: publishedSchedule.counts && publishedSchedule.counts.origins, actual: mapStops.length });
   }
   mapStops.forEach((stop, index) => {
+    const expectedIconSource = stop && OWNER_WORKBOOK_STOP_ICONS[stop.stopKey];
     if (!stop || !stop.stopKey || !stop.nodeId || !stop.groupStopId || !stop.groupStopCode || !stop.label || stop.displayOrder !== index) {
       block('map-view-stop-identity-invalid', `publishedSchedule/mapView/stops/${index}`);
     }
     if (!Number.isFinite(Number(stop.lat)) || !Number.isFinite(Number(stop.lng)) || !stop.icon) {
       block('map-view-stop-coordinate-invalid', `publishedSchedule/mapView/stops/${index}`);
     }
+    if (!expectedIconSource || stop.icon !== expectedIconSource.icon) {
+      block('map-view-stop-icon-mismatch', `publishedSchedule/mapView/stops/${index}/icon`, { expected: expectedIconSource && expectedIconSource.icon, actual: stop.icon });
+    }
     if (stop.referenceOnly !== true || stop.previewDisplayMode !== 'static_map_reference' || !Array.isArray(stop.sourceLineage) || !stop.sourceLineage.length) {
       block('map-view-stop-lineage-invalid', `publishedSchedule/mapView/stops/${index}`);
+    }
+    if (!Array.isArray(stop.sourceLineage) || !stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && /!F\d+$/.test(lineage.sourcePath || ''))) {
+      block('map-view-stop-icon-lineage-missing', `publishedSchedule/mapView/stops/${index}/sourceLineage`);
     }
   });
   const primaryMapRoute = mapRoutes[0] || {};

@@ -129,6 +129,8 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.mapView && schedule.mapView.schemaVersion === 'publishedSchedule.mapView.v1.preview', 'mapView schema missing');
   assert(Array.isArray(schedule.mapView.stops) && schedule.mapView.stops.length === 15, 'mapView must expose 15 corridor stops');
   assert(schedule.mapView.stops.every((stop, index) => stop.label && stop.displayOrder === index && Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)) && stop.icon), 'mapView stops must have label/displayOrder/lat/lng/icon');
+  assert(schedule.mapView.stops.every((stop) => stop.icon === '🚏'), 'mapView stop icons must come from owner workbook Sheet 01 column ไอคอน');
+  assert(schedule.mapView.stops.every((stop) => stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && /^01_ข้อมูลป้ายกลาง!F\d+$/.test(lineage.sourcePath || ''))), 'mapView stop icon workbook lineage missing');
   assert(schedule.mapView.stops.every((stop) => stop.referenceOnly === true && stop.previewDisplayMode === 'static_map_reference' && Array.isArray(stop.sourceLineage) && stop.sourceLineage.length), 'mapView stops must be reference-only with lineage');
   assert(Array.isArray(schedule.mapView.routes) && schedule.mapView.routes.length === 1, 'mapView route missing');
   assert(schedule.mapView.stops.every((stop) => stop.visible === true), 'mapView must expose 15 visible stops');
