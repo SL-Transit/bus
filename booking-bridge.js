@@ -262,13 +262,8 @@
       var normStops = stops.map(function(s) { return SE.normalizeStopKey(s); });
       var oIdx = normStops.indexOf(normOrigin);
       var dIdx = normStops.indexOf(leg1DestKey);
-      /* fallback: ถ้าไม่ match ลอง indexOf จาก from/to */
-      if (dIdx < 0) dIdx = normStops.indexOf(normDest);
-      if (oIdx < 0 || dIdx < 0 || oIdx >= dIdx) {
-        /* fallback: match by trip.from === normOrigin */
-        var fromKey = SE.normalizeStopKey(trip.from || trip.origin || '');
-        if (fromKey !== normOrigin) return;
-      }
+      /* ต้องมีต้นทางและปลายทางอยู่ในเส้นทางที่ศูนย์กลางส่งมา */
+      if (oIdx < 0 || dIdx < 0 || oIdx >= dIdx) return;
       var t = (trip.stopTimes && (trip.stopTimes[normOrigin] || trip.stopTimes[trip.from || ''])) || trip.departTime || trip.time;
       if (t) candidateTimes[t] = true;
     });
@@ -278,7 +273,7 @@
       var tripMin = _toMin(time);
       if (isToday && tripMin <= currentMin) return;
 
-      /* resolveTripAssignment พร้อม fallback */
+      /* ขอข้อมูลการมอบหมายจาก schedule engine กลาง */
       var assignment = null;
       try {
         assignment = SE.resolveTripAssignment({
@@ -290,26 +285,19 @@
         });
       } catch(e) {}
 
-      /* fallback: สร้าง assignment จาก trip โดยตรงถ้า engine คืน null */
-      if (!assignment) {
-        var srcTrip = null;
-        for (var i = 0; i < allTrips.length; i++) {
-          var t = allTrips[i];
-          var fromKey = SE.normalizeStopKey(t.from || t.origin || '');
-          var st = (t.stopTimes && t.stopTimes[fromKey]) || t.departTime;
-          if (fromKey === normOrigin && st === time) { srcTrip = t; break; }
-        }
-        assignment = {
-          pickupTime:       time,
-          departTime:       time,
-          queueNo:          srcTrip ? srcTrip.queueNo : null,
-          plannedVehicleId: srcTrip ? (srcTrip.vehicleId || '') : '',
-          routeStops:       srcTrip
-            ? (srcTrip.routeStops || []).map(function(s){ return SE.normalizeStopKey(s); })
-            : [normOrigin, leg1DestKey],
-          scheduleOnly:     true
-        };
-      }
+      /* ไม่มีข้อมูลกลางหรือสัญญาไม่ครบ จะไม่แสดงเที่ยวนี้ */
+      if (!assignment) return;
+      var assignmentPlan = global.SLTransitBookingAssignmentCenter
+        && typeof global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
+        ? global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract({
+          resolvedAssignment: assignment,
+          serviceDate: serviceDate || todayISO,
+          departTime: time,
+          originName: normOrigin
+        })
+        : { assignment: null };
+      if (!assignmentPlan.assignment) return;
+      assignment = assignmentPlan.assignment;
 
       var transferInfo = leg2 ? getTransferInfo(normOrigin, destKey, assignment.pickupTime) : null;
       /* ราคา: ใช้ LEG2_DEST[destKey].price ก่อน (ตรงกับ repo ต้นฉบับ)

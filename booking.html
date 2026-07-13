@@ -2728,9 +2728,6 @@ function submitBooking() {
         leg2Time: transferInfo ? (transferInfo.transferTime || '') : ''
       };
       var tripAssignment = resolveBookingTripAssignment(selOrigin, selDest, selTime, requiresTransfer, dateVal);
-      if (!tripAssignment.queueNo && !tripAssignment.scheduleOnly && !tripAssignment.noLiveTracking) {
-        tripAssignment = resolveBookingTripAssignmentByLabel(fromName, toName, selTime, requiresTransfer, dateVal);
-      }
       var vehicleQueueNum = Number(tripAssignment.queueNo || 0);
       var erpBookingContext = getBookingErpContext(selOrigin, selDest, selTime) || {};
       var tripIdentity = ADMIN_TRIP_IDENTITIES[selOrigin+'|'+selDest+'|'+selTime] || {};
@@ -2932,21 +2929,6 @@ function computePriceServerSide(origin, dest) {
 }
 
 var MAIN_TRIP_STOP_KEYS = ['klonghat','siyaekkhonom','thoengkabintr','phaijit','nongruea','khlongtakien','nongkhok','tatakiab','sanamchai','phanom','chachoengsao'];
-var BOOKING_QUEUE_TRIPS = [
-  { queueNo: 1, vehicleId: 'car1', tripIndex: 1, departTime: '09:00', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-  { queueNo: 1, vehicleId: 'car1', tripIndex: 2, departTime: '11:20', from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao' },
-  { queueNo: 2, vehicleId: 'car2', tripIndex: 1, departTime: '08:00', from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao' },
-  { queueNo: 2, vehicleId: 'car2', tripIndex: 2, departTime: '12:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-  { queueNo: 2, vehicleId: 'car2', tripIndex: 3, departTime: '13:40', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-  { queueNo: 2, vehicleId: 'car2', tripIndex: 4, departTime: '15:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-  { queueNo: 3, vehicleId: 'car3', tripIndex: 1, departTime: '06:20', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-  { queueNo: 3, vehicleId: 'car3', tripIndex: 2, departTime: '09:40', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' },
-  { queueNo: 3, vehicleId: 'car3', tripIndex: 3, departTime: '12:10', from: 'sanamchai', to: 'chachoengsao', direction: 'to_chachoengsao' },
-  { queueNo: 3, vehicleId: 'car3', tripIndex: 4, departTime: '14:00', from: 'chachoengsao', to: 'klonghat', direction: 'from_chachoengsao' },
-  { queueNo: 4, vehicleId: 'car4', tripIndex: 1, departTime: '11:30', from: 'klonghat', to: 'chachoengsao', direction: 'to_chachoengsao' },
-  { queueNo: 4, vehicleId: 'car4', tripIndex: 2, departTime: '16:20', from: 'chachoengsao', to: 'sanamchai', direction: 'from_chachoengsao' }
-];
-
 function mainStopIndexForBooking(key) {
   return MAIN_TRIP_STOP_KEYS.indexOf(String(key || ''));
 }
@@ -2971,10 +2953,6 @@ function normalizeBookingStopKey(value) {
   };
   if (map[raw]) return map[raw];
   return String(value || '');
-}
-
-function resolveBookingTripAssignmentByLabel(originLabel, destLabel, time, requiresTransfer, serviceDate) {
-  return resolveBookingTripAssignment(normalizeBookingStopKey(originLabel), normalizeBookingStopKey(destLabel), time, requiresTransfer, serviceDate);
 }
 
 function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serviceDate) {
@@ -3014,34 +2992,10 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
     }
     var shared = window.SLTransitSchedule.resolveTripAssignment(sharedInput);
     if (shared && (shared.queueNo || shared.scheduleOnly || shared.noLiveTracking)) {
-      return { queueNo: shared.queueNo || '', plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || time, pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || 'schedule_engine' };
+      return { queueNo: shared.queueNo || '', plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || time, pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || '' };
     }
   }
-  var target = requiresTransfer ? TRANSFER_POINT_KEY : dest;
-  var originIdx = mainStopIndexForBooking(origin);
-  var targetIdx = mainStopIndexForBooking(target);
-  if (originIdx < 0 || targetIdx < 0 || originIdx === targetIdx || !time) return {};
-  var direction = originIdx < targetIdx ? 'to_chachoengsao' : 'from_chachoengsao';
-  var match = BOOKING_QUEUE_TRIPS.find(function(trip) {
-    var fromIdx = mainStopIndexForBooking(trip.from);
-    var toIdx = mainStopIndexForBooking(trip.to);
-    if (trip.departTime !== time || trip.direction !== direction || fromIdx < 0 || toIdx < 0) return false;
-    return direction === 'to_chachoengsao'
-      ? fromIdx <= originIdx && targetIdx <= toIdx
-      : fromIdx >= originIdx && targetIdx >= toIdx;
-  });
-  if (!match) return {};
-  var plannedVehicleId = '';
-  if (window.SLTransitSchedule && typeof window.SLTransitSchedule.vehicleIdForQueueOnDate === 'function') {
-    plannedVehicleId = window.SLTransitSchedule.vehicleIdForQueueOnDate(match.queueNo, serviceDate) || '';
-  }
-  return {
-    queueNo: match.queueNo,
-    plannedVehicleId: plannedVehicleId,
-    tripIndex: match.tripIndex,
-    departTime: match.departTime,
-    routeDirection: match.direction
-  };
+  return {};
 }
 
 function drawRoundRect(ctx, x, y, w, h, r) {

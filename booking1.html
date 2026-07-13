@@ -28,6 +28,7 @@
 <!-- S.L.Transit Engine + POS Layer -->
 <script src="catalog-engine.js"></script>
 <script src="schedule-engine.js"></script>
+<script src="booking-assignment-center.js?v=20260713b"></script>
 <script src="booking-bridge.js"></script>
 <script src="booking-capacity.js"></script>
 <script src="booking-pos.js"></script>
@@ -2391,6 +2392,20 @@ function goToTicket() {
   state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
 
   /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
+  var assignmentPlan = window.SLTransitBookingAssignmentCenter
+    && typeof window.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
+    ? window.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract({
+      resolvedAssignment: state.tripAssignment || {},
+      serviceDate: _serviceDateISO(),
+      departTime: state.tripTime,
+      originName: state.originName
+    })
+    : { assignment: null };
+  if (!assignmentPlan.assignment) {
+    alert('ยังไม่พบข้อมูลคิว เที่ยว และรถจากระบบกลาง กรุณาเลือกรอบใหม่หรือลองอีกครั้ง');
+    return;
+  }
+  var assignmentContract = assignmentPlan.assignment;
   var bookingSnap = SLBookingBridge.buildBookingSnapshot({
     bookingCode:   state.bookingCode,
     name:          state.name,
@@ -2402,12 +2417,12 @@ function goToTicket() {
     serviceDate:   _serviceDateISO(),
     isLeg2:        state.isLeg2Dest || false,
     transferInfo:  state.transferInfo || null,
-    queueNo:       state.tripAssignment && state.tripAssignment.queueNo   || '',
-    vehicleId:     state.tripAssignment && state.tripAssignment.plannedVehicleId || '',
+    queueNo:       assignmentContract.queueNo || '',
+    vehicleId:     assignmentContract.plannedVehicleId || '',
     fare:          state._totalFare || (state.tripFare * state.pax),
     payMethod:     currentPayMethod || '',
     slipUploaded:  !!state.slipFile,
-    assignment:    state.tripAssignment || null
+    assignment:    assignmentContract
   });
   /* bookingSnap.catalogVersion ← ถูก embed โดย bridge อัตโนมัติ */
   console.log('[Booking] snapshot ready:', bookingSnap.bookingCode, 'catalogVersion:', bookingSnap.catalogVersion);

@@ -102,7 +102,6 @@ function createBookingRuntime(bookingSource, engine, settings) {
     ORIGIN_TIMES: {},
     ADMIN_ROUTE_TIMES: {},
     TRANSFER_POINT_KEY: 'chachoengsao',
-    BOOKING_QUEUE_TRIPS: [],
     mainStopIndexForBooking: key => MAIN_STOP_KEYS.indexOf(key)
   };
   context.globalThis = context;
@@ -141,7 +140,6 @@ function createBookingRuntime(bookingSource, engine, settings) {
 
   vm.runInContext([
     extractFunction(bookingSource, 'normalizeBookingStopKey'),
-    extractFunction(bookingSource, 'resolveBookingTripAssignmentByLabel'),
     extractFunction(bookingSource, 'resolveBookingTripAssignment')
   ].join('\n'), context);
 
@@ -201,14 +199,9 @@ async function main() {
 
     const originKey = runtime.fromKeyByLabel.get(row.origin) || runtime.toKeyByLabel.get(row.origin);
     const destinationKey = runtime.toKeyByLabel.get(row.destination) || runtime.fromKeyByLabel.get(row.destination);
-    let bookingAssignment = runtime.context.resolveBookingTripAssignment(
+    const bookingAssignment = runtime.context.resolveBookingTripAssignment(
       originKey, destinationKey, row.time, row.requiresTransfer, SERVICE_DATE
     );
-    if (!bookingAssignment.queueNo && !bookingAssignment.scheduleOnly && !bookingAssignment.noLiveTracking) {
-      bookingAssignment = runtime.context.resolveBookingTripAssignmentByLabel(
-        row.origin, row.destination, row.time, row.requiresTransfer, SERVICE_DATE
-      );
-    }
 
     const resultCategory = category(bookingAssignment);
     assert.notEqual(resultCategory, 'invalid/missing', 'Booking wrapper missing at row ' + index + ': ' + JSON.stringify(row));

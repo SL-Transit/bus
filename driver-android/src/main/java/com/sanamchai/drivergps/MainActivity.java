@@ -712,10 +712,23 @@ public class MainActivity extends Activity {
 
     private boolean bookingBelongsToVehicle(DataSnapshot booking, String vehicleId) {
         if (booking == null || vehicleId == null || vehicleId.isEmpty()) return false;
-        if (Boolean.TRUE.equals(booking.child("scheduleOnly").getValue(Boolean.class))
-                || Boolean.TRUE.equals(booking.child("noLiveTracking").getValue(Boolean.class))) return false;
-        String plannedVehicleId = booking.child("plannedVehicleId").getValue(String.class);
+        DataSnapshot assignment = booking.child("assignment");
+        String contractVersion = assignment.child("contractVersion").getValue(String.class);
+        boolean hasCentralContract = "booking_assignment_v1".equals(contractVersion);
+        DataSnapshot source = hasCentralContract ? assignment : booking;
+        if (Boolean.TRUE.equals(source.child("scheduleOnly").getValue(Boolean.class))
+                || Boolean.TRUE.equals(source.child("noLiveTracking").getValue(Boolean.class))) return false;
+        String plannedVehicleId = source.child("plannedVehicleId").getValue(String.class);
         return vehicleId.equals(plannedVehicleId);
+    }
+
+    private String plannedVehicleIdForBooking(DataSnapshot booking) {
+        if (booking == null) return null;
+        DataSnapshot assignment = booking.child("assignment");
+        if ("booking_assignment_v1".equals(assignment.child("contractVersion").getValue(String.class))) {
+            return assignment.child("plannedVehicleId").getValue(String.class);
+        }
+        return booking.child("plannedVehicleId").getValue(String.class);
     }
     private void loadBookingsForDate(String date, ValueEventListener listener) {
         DatabaseReference ref = FirebaseDatabase.getInstance().getReference(bookingsPath());
@@ -1285,7 +1298,7 @@ public class MainActivity extends Activity {
                     return;
                 }
                 if (!bookingBelongsToVehicle(snap, vehicleId)) {
-                    String planned = snap.child("plannedVehicleId").getValue(String.class);
+                    String planned = plannedVehicleIdForBooking(snap);
                     String detail = (planned == null || planned.isEmpty())
                             ? "ตั๋วนี้ไม่มีรถสำหรับติดตามสด"
                             : "ตั๋วนี้กำหนดให้ " + planned + " ไม่ใช่ " + vehicleId;

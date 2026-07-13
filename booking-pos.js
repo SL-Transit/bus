@@ -321,6 +321,20 @@
 
     /* ── Date ── */
     var dateVal = typeof global._serviceDateISO === 'function' ? global._serviceDateISO() : _todayISO();
+    var assignmentPlan = global.SLTransitBookingAssignmentCenter
+      && typeof global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
+      ? global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract({
+        resolvedAssignment: appState.tripAssignment || {},
+        serviceDate: dateVal,
+        departTime: appState.tripTime,
+        originName: appState.originName
+      })
+      : { assignment: null };
+    if (!assignmentPlan.assignment) {
+      alert('ยังไม่พบข้อมูลคิว เที่ยว และรถจากระบบกลาง กรุณาเลือกรอบใหม่หรือลองอีกครั้ง');
+      return;
+    }
+    var assignmentContract = assignmentPlan.assignment;
 
     /* ── Capacity & Admin Close checks (via SLBookingCapacity) ── */
     var CAP = global.SLBookingCapacity;
@@ -437,12 +451,12 @@
           serviceDate:   dateVal,
           isLeg2:        appState.isLeg2Dest || false,
           transferInfo:  ti,
-          queueNo:       appState.tripAssignment && appState.tripAssignment.queueNo || '',
-          vehicleId:     appState.tripAssignment && appState.tripAssignment.plannedVehicleId || '',
+          queueNo:       assignmentContract.queueNo || '',
+          vehicleId:     assignmentContract.plannedVehicleId || '',
           fare:          grandTotal,
           payMethod:     global.PAYMENT_MODE,
           slipUploaded:  !!result.slipUrl,
-          assignment:    appState.tripAssignment || null
+          assignment:    assignmentContract
         });
 
         /* fields ครบเหมือน repo */
