@@ -44,6 +44,40 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-13 19:35 +07 (Asia/Bangkok) - Check Ticket AI / ERP Centers - DONE
+
+Scope:
+- `check_ticket.html`
+- `tests/check-ticket-center-wiring.test.js`
+
+Summary:
+- Wired Check Ticket to load ERP Calculator Center, Map Display Center, and ERP Alert Center.
+- Moved Check Ticket pickup ETA, journey/transfer ETA, current-distance ETA, and transfer-trip catchability calls to ERP Calculator Center as the primary path.
+- Added a static regression guard so these Check Ticket ETA decision points do not call Geo ETA helpers directly again.
+- This is a scoped wiring step only. It does not remove existing Check Ticket ticket/check-in flows or write paths.
+
+Evidence:
+- Commit: `9b199c6`
+- Actions: not checked after push.
+- Pages: not checked after push.
+- Tests: `node tests\check-ticket-center-wiring.test.js`; `node tests\erp-calculator-center.test.js`; `node tests\map-display-center.test.js`; `node tests\erp-alert-center.test.js`; `node tests\passenger-preview-normalization.test.js`; `node tests\geo-engine.test.js`; `node tests\line-event-engine.test.js`; `git diff --check` passed with line-ending warning only for pre-existing dirty `database.rules.json`.
+
+Safety:
+- Firebase writes: none.
+- Seed applied: no.
+- Production apply: no.
+- Passenger/private data touched: none.
+- Operational/private data touched: none.
+- LINE notifications sent: none.
+- `database.rules.json` remains dirty from unrelated prior work and was not committed.
+
+Blockers:
+- Check Ticket still contains legacy/local route, schedule, notification, and geolocation flows that need later scoped migration to ERP Logic Center, Map Display Center, and ERP Alert Center.
+- Backend-ready vehicle display contracts are not yet wired into Passenger or Check Ticket.
+
+Next action:
+- Continue with Map Display Center wiring for vehicle marker movement/display, then move Alert Center ownership of one-time transfer terminal alerts in a separate scoped pass.
+
 ## 2026-07-13 19:18 +07 (Asia/Bangkok) - Supervisor AI / ERP Centers - DONE
 
 Scope:
