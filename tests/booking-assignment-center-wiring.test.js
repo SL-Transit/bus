@@ -19,7 +19,8 @@ assert(!booking.includes('BOOKING_QUEUE_TRIPS'), 'Booking must not keep a local 
 assert(!booking.includes('resolveBookingTripAssignmentByLabel'), 'Booking must not retry assignment through local label guessing');
 assert(booking1.includes('booking-assignment-center.js'), 'Booking beta must load Booking Assignment Center');
 assert(booking1.includes('assignment:    assignmentContract'), 'Booking beta preview must use the central assignment contract');
-assert(bridge.includes('SLTransitBookingAssignmentCenter.buildBookingAssignmentContract'), 'Booking bridge must validate assignments through the center');
+assert(bridge.includes("assignmentSource: 'none'"), 'Booking bridge must support schedule-only no-assignment options');
+assert(bridge.includes('liveTrackingAvailable: false'), 'Booking bridge must hide live tracking for no-assignment options');
 assert(!bridge.includes('plannedVehicleId: srcTrip'), 'Booking bridge must not construct a vehicle assignment from raw trips');
 assert(!bridge.includes('if (fromKey !== normOrigin)'), 'Booking bridge must not guess trip coverage from a matching origin');
 assert(pos.includes('resolvedAssignment: appState.tripAssignment || {}'), 'Booking POS must validate the selected central assignment before any write');

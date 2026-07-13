@@ -1,385 +1,448 @@
 /**
- * booking-bridge.js  v2
- * ตัวกลางเชื่อม booking.html ↔ catalog-engine.js ↔ schedule-engine.js
+ * booking-bridge.js
+ * Booking1 page adapter for /preview/publishedSchedule.
  *
- * ห้ามคำนวณรอบรถ/เส้นทางเองเด็ดขาด — delegate ให้ engine ทุกครั้ง
- * ข้อมูล leg2 (ต่อรถ) อ่านจาก publishedCatalog routeGroups → legacy
+ * This file intentionally consumes the ERP preview contract. It does not read
+ * routeData, publishedCatalog, settings/routes, or local static fare tables as
+ * booking authority.
  */
 (function(global) {
   'use strict';
 
-  /* ── สถานะภายใน ── */
-  var _catalog        = null;
-  var _stops          = {};
-  var _fares          = {};
-  var _catalogVersion = '';
-  var _db             = null;
-  var _ready          = false;
+  var PREVIEW_BASE_PATH = 'preview/publishedSchedule';
+  var _db = null;
+  var _ready = false;
   var _readyCallbacks = [];
-
-  /* ─────────────────────────────────────────
-     LEG-2 DATA
-     อ่านมาจาก repo booking.html เดิม (ไม่เขียนขึ้นเอง)
-     buffer = นาทีที่ต้องใช้เดินทางจากต้นทางถึง แปดริ้ว ก่อนต่อรถ
-  ───────────────────────────────────────── */
-  var TRANSFER_POINT_KEY = 'chachoengsao';   // จุดต่อรถกลาง
-
-  /* ตารางเวลาออกของรถ leg2 จากแปดริ้ว — ตรงกับ repo ทุกตัว */
-  var LEG2_TIMES_COMMON  = ['08:00','09:00','10:00','11:00','11:30','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
-  var LEG2_TIMES_MOCHIT  = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
-  var LEG2_TIMES_EKKAMAI = ['07:30','08:30','09:30','10:30','11:30','12:30','13:30','14:30','15:30','16:30','17:30','18:30','19:30','20:30'];
-  var LEG2_TIMES_MINBURI = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
-
-  /* ─────────────────────────────────────────
-     LEG2_DEST — คัดลอกจาก repo booking.html ต้นฉบับ 100% (บรรทัด 1387+)
-     รวมทั้งจุดที่ไม่ต่อรถ (leg2:false, เป็นป้ายบนเส้นทางหลัก)
-     และจุดที่ต้องต่อรถที่แปดริ้ว (leg2:true พร้อม buffer + times)
-     ราคา (price) ต่อจุดหมาย — ตรงกับ repo เป๊ะ ไม่ใช่คำนวณจาก fare table แยก
-  ───────────────────────────────────────── */
-  var LEG2_DEST = {
-    chachoengsao:    { label:'ฉะเชิงเทรา (แปดริ้ว)', price:55,  leg2:false },
-    sanamchai:       { label:'ท่ารถสนามชัยเขต',      price:55,  leg2:false },
-    phanom:          { label:'พนมสารคาม',           price:55,  leg2:false },
-    nongkhok:        { label:'หนองคอก',              price:100, leg2:false },
-    khlongtakien:    { label:'คลองตะเคียน',          price:120, leg2:false },
-    klonghat:        { label:'คลองหาด',              price:160, leg2:false },
-    tatakiab:        { label:'ท่าตะเกียบ',            price:100, leg2:false },
-    siyaekkhonom:    { label:'สี่แยกโคนม',            price:150, leg2:false },
-
-    pattaya:         { label:'พัทยา',           price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON },
-    yakaiyakan:      { label:'แยกอัยการ',       price:140, leg2:true, buffer:40, times:LEG2_TIMES_COMMON },
-    sattahip:        { label:'สัตหีบ',           price:150, leg2:true, buffer:40, times:LEG2_TIMES_COMMON },
-    rayong:          { label:'ระยอง',           price:150, leg2:true, buffer:45, times:LEG2_TIMES_COMMON },
-    km10:            { label:'กม.10',           price:160, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
-    nongmon:         { label:'ตลาดหนองมน',      price:90,  leg2:true, buffer:30, times:LEG2_TIMES_COMMON },
-    bangsaen:        { label:'บางแสน',           price:90,  leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
-    aoudom:          { label:'อ่าวอุดม',         price:120, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
-    sriracha:        { label:'ศรีราชา',          price:100, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
-    kaset:           { label:'ม.เกษตร',          price:120, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
-    banchan:         { label:'บ้านฉาง',          price:160, leg2:true, buffer:45, times:LEG2_TIMES_COMMON },
-    laemchabang:     { label:'แหลมฉบัง',         price:120, leg2:true, buffer:35, times:LEG2_TIMES_COMMON },
-
-    mochit:          { label:'หมอชิต',           price:120, leg2:true, buffer:35, times:LEG2_TIMES_MOCHIT },
-    yaeklatphrao:    { label:'แยกลาดพร้าว',      price:120, leg2:true, buffer:35, times:LEG2_TIMES_MOCHIT },
-    bts_jatujak:     { label:'BTS จตุจักร',       price:120, leg2:true, buffer:35, times:LEG2_TIMES_MOCHIT },
-
-    ekkamai:         { label:'เอกมัย',           price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
-    homepro:         { label:'โฮมโปร',           price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
-    bangna:          { label:'บางนา',            price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
-    bts_bangchak:    { label:'BTS บางจาก',       price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
-    bts_phrakhanong: { label:'BTS พระโขนง',      price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
-    bts_onnut:       { label:'BTS อ่อนนุช',       price:120, leg2:true, buffer:35, times:LEG2_TIMES_EKKAMAI },
-
-    minburi:         { label:'ตลาดมีนบุรี',       price:70,  leg2:true, buffer:40, times:LEG2_TIMES_MINBURI }
+  var _preview = {
+    schemaVersion: '',
+    generatedAt: '',
+    sourceCommitSha: '',
+    readyForApply: false,
+    readyForReview: false,
+    productionReady: false,
+    writesEnabled: false,
+    publicationStatus: '',
+    originOptions: [],
+    destinationOptionsByOrigin: {},
+    firebaseKeyEncoding: {},
+    validation: null
   };
+  var _pairCache = {};
+  var _pairLoadStatus = {};
+  var _lastFareContractStatus = null;
+  var _lastLoadedPair = null;
 
-  /* ⚠️ [ยังไม่มีใน repo ต้นฉบับ] "รังสิต" และ "รถไฟ" ไม่มีอยู่ใน LEG2_DEST ต้นฉบับ
-     ต้องยืนยันกับทีมก่อนเพิ่ม — ไม่ได้เพิ่มเองโดยไม่ได้รับการยืนยัน */
-
-  /* buffer จากต้นทางถึงจุดต่อ (แปดริ้ว) — คัดลอกจาก TRANSFER_BUFFER_MINUTES ใน repo ต้นฉบับเป๊ะ
-     ⚠️ [SCHEMA v3 PENDING] ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 5 ต้องย้ายไปอ่านจาก
-     Firebase data/catalog/stops/{stopKey}/transferBufferMin แทน hardcode นี้
-     คงไว้เป็น FALLBACK ชั่วคราวจนกว่า erp-core.js + erp-data-adapter.js จะพร้อม */
-  var TRANSFER_BUFFER = {
-    phanom:       50,
-    sanamchai:    70,
-    tatakiab:     115,
-    nongkhok:     135,
-    khlongtakien: 150,
-    nongruea:     165,
-    phaijit:      170,
-    thoengkabintr:185,
-    siyaekkhonom: 190,
-    klonghat:     200
-  };
-
-  /* ──────────────────────────────────────────────────────
-     [SCHEMA v3 PREP] getTransferBufferAsync(stopKey)
-     โครงพร้อมเชื่อม SLTransit.db.getStop() เมื่อ erp-core.js มาถึง
-     ตอนนี้: ยัง fallback ไปที่ TRANSFER_BUFFER hardcode ด้านบนเสมอ
-  ────────────────────────────────────────────────────── */
-  function getTransferBufferAsync(stopKey) {
-    if (global.SLTransit && global.SLTransit.core && global.SLTransit.core.ready &&
-        global.SLTransit.db && typeof global.SLTransit.db.getStop === 'function') {
-      return global.SLTransit.db.getStop(stopKey).then(function(stop) {
-        var v = stop && stop.transferBufferMin;
-        return (v != null) ? Number(v) : (TRANSFER_BUFFER[stopKey] || 0);
-      }).catch(function() {
-        return TRANSFER_BUFFER[stopKey] || 0;
-      });
-    }
-    return Promise.resolve(TRANSFER_BUFFER[stopKey] || 0);
+  function _asArray(value) {
+    return Array.isArray(value) ? value : [];
   }
 
-  /* ── helper ── */
-  function _toMin(t) {
-    var p = String(t||'00:00').split(':').map(Number);
-    return (p[0]||0)*60 + (p[1]||0);
-  }
-  function _addMin(t, m) {
-    var total = _toMin(t) + Number(m||0);
-    var h = Math.floor(total/60)%24, mm = total%60;
-    return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
-  }
-  function _todayISO() {
-    var d = new Date();
-    function pad(n){ return String(n).padStart(2,'0'); }
-    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  function _num(value) {
+    var n = Number(value);
+    return isFinite(n) ? n : null;
   }
 
-  /* ── ตรวจว่าปลายทางต้องต่อรถ ── */
-  function isLeg2Dest(destKey) {
-    /* ก่อนอื่นตรวจ catalog routeGroups ว่าเป็น connectionType = 'leg2' / 'transfer' */
-    if (_catalog && _catalog.routeGroups) {
-      var rg = Object.values(_catalog.routeGroups);
-      for (var i = 0; i < rg.length; i++) {
-        var g = rg[i];
-        if (g.connectionType === 'leg2' || g.connectionType === 'transfer') {
-          var legacy = g.legacy || {};
-          if (legacy.routes && legacy.routes.some(function(r){
-            var se = global.SLTransitSchedule;
-            return se ? se.normalizeStopKey(r.toStopKey||r.to) === se.normalizeStopKey(destKey) : r.toStopKey === destKey;
-          })) return true;
-        }
-      }
-    }
-    /* fallback: ตรวจจาก LEG2_DEST table — ต้องเช็ค .leg2 === true เพราะ object
-       ตอนนี้รวมทั้งจุดที่ไม่ต่อรถ (leg2:false) และต่อรถ (leg2:true) ไว้ด้วยกัน
-       ตรงกับโครงสร้าง repo ต้นฉบับ ห้ามเช็คแค่ !!LEG2_DEST[destKey] เฉยๆ */
-    return !!(LEG2_DEST[destKey] && LEG2_DEST[destKey].leg2 === true);
+  function _optionLabel(option) {
+    if (!option) return '';
+    if (typeof option === 'string') return option;
+    return option.label || option.originLabel || option.destinationLabel || option.displayNameTh || option.nameTh || option.name || '';
   }
 
-  /* ── คำนวณ leg2 time สำหรับการต่อรถ ──
-     logic เดิมจาก repo: buffer นาที + หา leg2 time ถัดไปที่ตรงหรือหลัง target
-  */
-  function getTransferInfo(originKey, destKey, leg1PickupTime) {
-    var destObj = LEG2_DEST[destKey];
-    if (!destObj || destObj.leg2 !== true) return null;
-
-    /* buffer จากต้นทาง */
-    var bufMin = (TRANSFER_BUFFER[originKey] != null)
-      ? TRANSFER_BUFFER[originKey]
-      : (destObj.buffer || 45);
-
-    /* เวลาที่ต้องถึงแปดริ้ว */
-    var earliestArrival = _addMin(leg1PickupTime, bufMin);
-    var targetMin = _toMin(earliestArrival);
-
-    /* หา leg2 time ถัดไปที่ >= target */
-    var times = destObj.times || LEG2_TIMES_COMMON;
-    var leg2Time = '';
-    for (var i = 0; i < times.length; i++) {
-      if (_toMin(times[i]) >= targetMin) { leg2Time = times[i]; break; }
-    }
-
-    return {
-      point:     'ฉะเชิงเทรา (แปดริ้ว)',
-      pointKey:  TRANSFER_POINT_KEY,
-      destLabel: destObj.label,
-      leg2Time:  leg2Time,       // เวลาออกจากแปดริ้ว
-      bufMin:    bufMin,
-      hasMatch:  !!leg2Time
-    };
+  function _optionOrder(option, index) {
+    var order = option && (option.displayOrder != null ? option.displayOrder : option.order);
+    order = Number(order);
+    return isFinite(order) ? order : index;
   }
 
-  /* ── init ── */
-  function init(db) {
-    _db = db;
-    return SLTransitCatalog.loadPublished(db).then(function(catalog) {
-      if (!catalog) console.warn('[BookingBridge] publishedCatalog ว่างเปล่า — ใช้ fallback engine');
-      _applyCatalog(catalog);
-      if (global.SLTransitSchedule && typeof SLTransitSchedule.applyPublishedCatalog === 'function') {
-        SLTransitSchedule.applyPublishedCatalog(catalog);
-      }
-      _ready = true;
-      _readyCallbacks.forEach(function(fn){ fn(_catalog); });
-      _readyCallbacks = [];
-    }).catch(function(err) {
-      console.error('[BookingBridge] loadPublished error:', err);
-      _ready = true;
-      _readyCallbacks.forEach(function(fn){ fn(null); });
-      _readyCallbacks = [];
+  function _encodedIndex(section) {
+    var idx = _preview.firebaseKeyEncoding && _preview.firebaseKeyEncoding.encodedKeyIndex;
+    return idx && idx[section] || {};
+  }
+
+  function _decodedPreviewKey(rawKey, section) {
+    var idx = _encodedIndex(section);
+    return idx && idx[rawKey] || rawKey;
+  }
+
+  function _normalizeOrigins(options) {
+    return _asArray(options).map(function(option, index) {
+      var label = _optionLabel(option);
+      return {
+        key: label,
+        nameTh: label,
+        label: label,
+        originLabel: option && option.originLabel || label,
+        originDestinationId: option && option.originDestinationId || '',
+        order: _optionOrder(option, index),
+        option: option || null
+      };
+    }).filter(function(option) {
+      return !!option.label;
     });
   }
 
-  function _applyCatalog(catalog) {
-    _catalog = catalog || null;
-    _catalogVersion = catalog && catalog.version || '';
-    _fares = (catalog && catalog.fares) || {};
-    _stops = {};
-    if (catalog && catalog.stops) {
-      Object.keys(catalog.stops).forEach(function(key) {
-        var s = catalog.stops[key];
-        if (s && s.bookingEnabled !== false) _stops[key] = s;
+  function _normalizeDestinationOptions(raw) {
+    var result = {};
+    Object.keys(raw || {}).forEach(function(originKey) {
+      var originLabel = _decodedPreviewKey(originKey, 'destinationOptionsByOrigin');
+      result[originLabel] = _asArray(raw[originKey]).map(function(option, index) {
+        var label = _optionLabel(option);
+        var pairKey = option && option.pairKey || '';
+        return Object.assign({}, option || {}, {
+          key: label,
+          label: label,
+          nameTh: label,
+          pairKey: pairKey,
+          storageKey: _resolvePairStorageKey(pairKey),
+          order: _optionOrder(option, index)
+        });
+      }).filter(function(option) {
+        return !!option.label;
       });
-    }
+    });
+    return result;
+  }
+
+  function _resolvePairStorageKey(pairKey) {
+    if (!pairKey) return '';
+    var pairIndex = _encodedIndex('pairs');
+    var compatibilityIndex = _encodedIndex('compatibilityKeyIndex');
+    if (pairIndex[pairKey]) return pairKey;
+    if (compatibilityIndex[pairKey]) return pairKey;
+    var found = Object.keys(pairIndex || {}).filter(function(storageKey) {
+      return pairIndex[storageKey] === pairKey;
+    })[0];
+    if (found) return found;
+    found = Object.keys(compatibilityIndex || {}).filter(function(storageKey) {
+      return compatibilityIndex[storageKey] === pairKey;
+    })[0];
+    return found || pairKey;
+  }
+
+  function _markReady() {
+    _ready = true;
+    _readyCallbacks.forEach(function(fn) { fn(_preview); });
+    _readyCallbacks = [];
+  }
+
+  function init(db) {
+    _db = db;
+    var baseRef = db.ref(PREVIEW_BASE_PATH);
+    return Promise.all([
+      baseRef.child('schemaVersion').once('value'),
+      baseRef.child('generatedAt').once('value'),
+      baseRef.child('sourceCommitSha').once('value'),
+      baseRef.child('dryRun').once('value'),
+      baseRef.child('writesEnabled').once('value'),
+      baseRef.child('readyForReview').once('value'),
+      baseRef.child('readyForApply').once('value'),
+      baseRef.child('publicationStatus').once('value'),
+      baseRef.child('productionReady').once('value'),
+      baseRef.child('originOptions').once('value'),
+      baseRef.child('destinationOptionsByOrigin').once('value'),
+      baseRef.child('firebaseKeyEncoding').once('value'),
+      baseRef.child('validation').once('value')
+    ]).then(function(parts) {
+      _preview = {
+        schemaVersion: parts[0].val() || '',
+        generatedAt: parts[1].val() || '',
+        sourceCommitSha: parts[2].val() || '',
+        dryRun: parts[3].val() === true,
+        writesEnabled: parts[4].val() === true,
+        readyForReview: parts[5].val() === true,
+        readyForApply: parts[6].val() === true,
+        publicationStatus: parts[7].val() || '',
+        productionReady: parts[8].val() === true,
+        originOptions: _normalizeOrigins(parts[9].val() || []),
+        destinationOptionsByOrigin: {},
+        firebaseKeyEncoding: parts[11].val() || {},
+        validation: parts[12].val() || null
+      };
+      _preview.destinationOptionsByOrigin = _normalizeDestinationOptions(parts[10].val() || {});
+      _markReady();
+      return _preview;
+    }).catch(function(err) {
+      console.error('[BookingBridge] preview publishedSchedule load failed:', err);
+      _preview.originOptions = [];
+      _preview.destinationOptionsByOrigin = {};
+      _markReady();
+      return _preview;
+    });
   }
 
   function onReady(fn) {
-    if (_ready) { fn(_catalog); return; }
+    if (_ready) { fn(_preview); return; }
     _readyCallbacks.push(fn);
   }
 
   function getBookableStops() {
-    return Object.keys(_stops).map(function(key) {
-      return { key: key, nameTh: _stops[key].nameTh || key, order: _stops[key].order || 999 };
-    }).sort(function(a,b){ return a.order - b.order; });
+    return _preview.originOptions.slice();
   }
 
-  function getFare(routeId) {
-    var f = _fares[routeId];
-    return f ? Number(f.amount)||0 : 0;
+  function getDestinationOptions(originLabel) {
+    return (_preview.destinationOptionsByOrigin[originLabel] || []).slice();
   }
 
-  function getCatalogVersion() { return _catalogVersion; }
-
-  /* ────────────────────────────────────────────────────────
-     getAvailableTrips(originKey, destKey, serviceDate)
-     คืน array ของ trip + เที่ยวแรก (index 0) = "แนะนำ"
-     ถ้าปลายทาง leg2 จะ embed transferInfo พร้อม leg2Time
-  ──────────────────────────────────────────────────────── */
-  function getAvailableTrips(originKey, destKey, serviceDate) {
-    if (!global.SLTransitSchedule) return [];
-    var SE = global.SLTransitSchedule;
-    var normOrigin = SE.normalizeStopKey(originKey);
-    var normDest   = SE.normalizeStopKey(destKey);
-    var leg2 = isLeg2Dest(destKey);
-    var leg1DestKey = leg2 ? TRANSFER_POINT_KEY : normDest;
-
-    var now = new Date();
-    var todayISO = _todayISO();
-    var isToday = (serviceDate === todayISO);
-    var currentMin = isToday ? now.getHours()*60 + now.getMinutes() : -1;
-
-    /* ดึง trips live จาก engine ทั้ง 2 แหล่ง */
-    var liveRouteTrips = typeof SE.routeDataTrips === 'function' ? SE.routeDataTrips() : [];
-    var allTrips = liveRouteTrips.concat(SE.queueTrips || []);
-
-    /* collect candidate pickup times — normalize stop keys ทุกตัว */
-    var candidateTimes = {};
-    allTrips.forEach(function(trip) {
-      var stops = trip.routeStops || [];
-      var normStops = stops.map(function(s) { return SE.normalizeStopKey(s); });
-      var oIdx = normStops.indexOf(normOrigin);
-      var dIdx = normStops.indexOf(leg1DestKey);
-      /* ต้องมีต้นทางและปลายทางอยู่ในเส้นทางที่ศูนย์กลางส่งมา */
-      if (oIdx < 0 || dIdx < 0 || oIdx >= dIdx) return;
-      var t = (trip.stopTimes && (trip.stopTimes[normOrigin] || trip.stopTimes[trip.from || ''])) || trip.departTime || trip.time;
-      if (t) candidateTimes[t] = true;
-    });
-
-    var results = [];
-    Object.keys(candidateTimes).sort().forEach(function(time) {
-      var tripMin = _toMin(time);
-      if (isToday && tripMin <= currentMin) return;
-
-      /* ขอข้อมูลการมอบหมายจาก schedule engine กลาง */
-      var assignment = null;
-      try {
-        assignment = SE.resolveTripAssignment({
-          originStopKey:      normOrigin,
-          destinationStopKey: leg1DestKey,
-          pickupTime:         time,
-          serviceDate:        serviceDate || todayISO,
-          requiresTransfer:   leg2
-        });
-      } catch(e) {}
-
-      /* ไม่มีข้อมูลกลางหรือสัญญาไม่ครบ จะไม่แสดงเที่ยวนี้ */
-      if (!assignment) return;
-      var assignmentPlan = global.SLTransitBookingAssignmentCenter
-        && typeof global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
-        ? global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract({
-          resolvedAssignment: assignment,
-          serviceDate: serviceDate || todayISO,
-          departTime: time,
-          originName: normOrigin
-        })
-        : { assignment: null };
-      if (!assignmentPlan.assignment) return;
-      assignment = assignmentPlan.assignment;
-
-      var transferInfo = leg2 ? getTransferInfo(normOrigin, destKey, assignment.pickupTime) : null;
-      /* ราคา: ใช้ LEG2_DEST[destKey].price ก่อน (ตรงกับ repo ต้นฉบับ)
-         ถ้าไม่มีใน LEG2_DEST ค่อย fallback ไป catalog.fares */
-      var destPrice = LEG2_DEST[destKey] && LEG2_DEST[destKey].price;
-      var fare = (destPrice != null)
-        ? Number(destPrice)
-        : (_fareForTrip(assignment, normOrigin, leg2 ? leg1DestKey : normDest) || 55);
-
-      results.push({
-        pickupTime:   assignment.pickupTime,
-        label:        assignment.pickupTime + ' น.',
-        queueNo:      assignment.queueNo,
-        vehicleId:    assignment.plannedVehicleId || '',
-        routeStops:   assignment.routeStops || [],
-        scheduleOnly: !!assignment.scheduleOnly,
-        fare:         fare,
-        isLeg2:       leg2,
-        transferInfo: transferInfo,
-        assignment:   assignment
-      });
-    });
-
-    return results;
+  function getDestinationContractStatus(originLabel) {
+    if (!_preview.originOptions.length) return 'missing_origin_options';
+    if (!_preview.destinationOptionsByOrigin || !Object.keys(_preview.destinationOptionsByOrigin).length) {
+      return 'missing_destination_options';
+    }
+    if (!_preview.destinationOptionsByOrigin[originLabel]) return 'missing_origin_options';
+    return 'ready';
   }
 
-  /* ── หาราคาจาก catalog.fares ── */
-  function _fareForTrip(assignment, normOrigin, normDest) {
-    if (!_catalog || !_catalog.routes || !_catalog.fares) return 0;
-    var routes = _catalog.routes, fares = _catalog.fares, found = 0;
-    var SE = global.SLTransitSchedule;
-    Object.keys(routes).forEach(function(rid) {
-      var r = routes[rid];
-      var fro = SE ? SE.normalizeStopKey(r.fromStopKey||r.from) : (r.fromStopKey||r.from);
-      var too = SE ? SE.normalizeStopKey(r.toStopKey  ||r.to  ) : (r.toStopKey  ||r.to  );
-      if ((fro === normOrigin || too === normDest) && fares[rid] && fares[rid].amount > 0) {
-        found = Number(fares[rid].amount);
+  function _selectedDestinationOption(originLabel, destLabel) {
+    return getDestinationOptions(originLabel).filter(function(option) {
+      return option.label === destLabel || option.destinationLabel === destLabel || option.key === destLabel;
+    })[0] || null;
+  }
+
+  function _extractFare(pair, segment, timeEntry, option) {
+    var sources = [timeEntry, segment, pair, option];
+    var fields = ['fareAmount', 'fare', 'amount', 'price'];
+    for (var i = 0; i < sources.length; i++) {
+      var source = sources[i] || {};
+      for (var f = 0; f < fields.length; f++) {
+        var n = _num(source[fields[f]]);
+        if (n != null) {
+          return {
+            amount: n,
+            sourceField: fields[f],
+            sourceScope: i === 0 ? 'time' : i === 1 ? 'segment' : i === 2 ? 'pair' : 'destinationOption',
+            paymentOwnership: source.paymentOwnership || pair.paymentOwnership || option.paymentOwnership || 'sl_transit',
+            externalPaymentRequired: source.externalPaymentRequired === true || pair.externalPaymentRequired === true || option.externalPaymentRequired === true
+          };
+        }
       }
-    });
-    return found;
-  }
-
-  /* ── buildBookingSnapshot — embed catalogVersion บังคับ ── */
-  function buildBookingSnapshot(params) {
+    }
     return {
-      bookingCode:    params.bookingCode,
-      catalogVersion: _catalogVersion,   // ← snapshot บังคับ ห้ามหลุด
-      name:           params.name,
-      phone:          params.phone,
-      pax:            params.pax,
-      originStopKey:  params.originStopKey,
-      destStopKey:    params.destStopKey,
-      pickupTime:     params.pickupTime,
-      serviceDate:    params.serviceDate,
-      isLeg2:         params.isLeg2 || false,
-      transferInfo:   params.transferInfo || null,
-      queueNo:        params.queueNo || '',
-      vehicleId:      params.vehicleId || '',
-      fare:           params.fare || 0,
-      payMethod:      params.payMethod || '',
-      slipUploaded:   params.slipUploaded || false,
-      /* [SCHEMA v3] ใช้ BOOKING_STATUS enum ถ้ามี (จาก booking-pos.js), fallback เผื่อยังไม่โหลด */
-      status:         (global.BOOKING_STATUS && global.BOOKING_STATUS.AWAITING_PAYMENT) || 'awaiting_payment',
-      createdAt:      new Date().toISOString(),
-      assignment:     params.assignment || null
+      amount: null,
+      sourceField: null,
+      sourceScope: null,
+      paymentOwnership: pair.paymentOwnership || option.paymentOwnership || '',
+      externalPaymentRequired: pair.externalPaymentRequired === true || option.externalPaymentRequired === true,
+      missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount'
     };
   }
 
-  /* ── expose ── */
-  global.SLBookingBridge = {
-    init:                init,
-    onReady:             onReady,
-    getBookableStops:    getBookableStops,
-    getAvailableTrips:   getAvailableTrips,
-    isLeg2Dest:          isLeg2Dest,
-    getTransferInfo:     getTransferInfo,
-    getFare:             getFare,
-    getCatalogVersion:   getCatalogVersion,
-    buildBookingSnapshot:buildBookingSnapshot,
-    getTransferBufferAsync: getTransferBufferAsync,  /* [SCHEMA v3 PREP] */
-    /* expose _catalog สำหรับ booking-capacity.js */
-    get _catalog() { return _catalog; }
-  };
+  function _disclaimers(pair, segment, timeEntry) {
+    var list = [];
+    [pair && pair.transferDisclaimerTh, pair && pair.externalDisclaimerTh, pair && pair.disclaimerTh,
+     segment && segment.disclaimerTh, timeEntry && timeEntry.disclaimerTh].forEach(function(text) {
+      if (text && list.indexOf(text) === -1) list.push(text);
+    });
+    return list;
+  }
 
+  function _pairIsExternal(pair, segment, timeEntry, fareContract) {
+    return pair.paymentOwnership === 'external_pay' ||
+      segment.paymentOwnership === 'external_pay' ||
+      timeEntry.paymentOwnership === 'external_pay' ||
+      pair.slTransitFareCollection === false ||
+      segment.slTransitFareCollection === false ||
+      timeEntry.slTransitFareCollection === false ||
+      pair.externalReference === true ||
+      segment.externalReference === true ||
+      timeEntry.externalReference === true ||
+      fareContract.externalPaymentRequired === true ||
+      fareContract.paymentOwnership === 'external_pay';
+  }
+
+  function _timeLabel(timeEntry) {
+    var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
+    return time ? time + ' น.' : (timeEntry.label || timeEntry.displayTimeTh || 'เวลาอ้างอิง');
+  }
+
+  function _pairToTrips(pair, option, serviceDate) {
+    var trips = [];
+    (pair.segments || []).forEach(function(segment, segmentIndex) {
+      (segment.times || []).forEach(function(timeEntry, timeIndex) {
+        var fareContract = _extractFare(pair, segment, timeEntry, option);
+        var isReference = pair.referenceOnly === true || segment.referenceOnly === true || timeEntry.referenceOnly === true;
+        var isExternal = _pairIsExternal(pair, segment || {}, timeEntry || {}, fareContract);
+        var fareMissing = fareContract.amount == null && !isExternal;
+        var bookingEligible = pair.bookingEligible === true && !isReference && !isExternal && !fareMissing && _preview.readyForApply === true;
+        var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
+        trips.push({
+          pickupTime: time,
+          label: _timeLabel(timeEntry),
+          queueNo: '',
+          vehicleId: '',
+          routeStops: [],
+          scheduleOnly: true,
+          fare: fareContract.amount || 0,
+          fareAmount: fareContract.amount,
+          fareContract: fareContract,
+          fareMissing: fareMissing,
+          missingFareField: fareContract.missingField || '',
+          paymentOwnership: fareContract.paymentOwnership || (isExternal ? 'external_pay' : 'sl_transit'),
+          externalPaymentRequired: isExternal,
+          isLeg2: pair.transfer && pair.transfer.required === true,
+          transferInfo: pair.transfer || null,
+          referenceOnly: isReference,
+          externalReference: isExternal,
+          bookingEligible: pair.bookingEligible === true,
+          bookingAllowed: bookingEligible,
+          disabledReason: isExternal ? 'external_pay' : isReference ? 'reference_only' : fareMissing ? 'missing_fare' : (_preview.readyForApply ? '' : 'preview_not_apply_ready'),
+          displayBadgeTh: timeEntry.displayBadgeTh || segment.displayBadgeTh || pair.displayBadgeTh || '',
+          passengerDisplayMode: timeEntry.passengerDisplayMode || segment.passengerDisplayMode || pair.previewDisplayMode || '',
+          disclaimers: _disclaimers(pair, segment, timeEntry),
+          pairKey: option && option.pairKey || pair.compatibilityPairKey || pair.pairId || '',
+          pairId: pair.pairId || pair.canonicalPairKey || '',
+          canonicalPairKey: pair.canonicalPairKey || '',
+          storageKey: option && option.storageKey || '',
+          sourcePair: pair,
+          sourceSegment: segment,
+          sourceTime: timeEntry,
+          segmentIndex: segmentIndex,
+          timeIndex: timeIndex,
+          serviceDate: serviceDate || '',
+          assignment: {
+            assignmentId: undefined,
+            queueId: undefined,
+            vehicleId: undefined,
+            assignmentSource: 'none',
+            scheduleOnly: true,
+            liveTrackingAvailable: false
+          }
+        });
+      });
+    });
+    _lastFareContractStatus = trips.some(function(trip) { return trip.fareMissing; })
+      ? { status: 'missing_fare', missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
+      : { status: 'ready' };
+    return trips;
+  }
+
+  function loadPair(originLabel, destLabel) {
+    var option = _selectedDestinationOption(originLabel, destLabel);
+    if (!option || !option.pairKey) {
+      _pairLoadStatus[originLabel + '\0' + destLabel] = 'missing';
+      return Promise.resolve(null);
+    }
+    var storageKey = option.storageKey || _resolvePairStorageKey(option.pairKey);
+    if (!storageKey) return Promise.resolve(null);
+    if (_pairCache[storageKey]) return Promise.resolve(_pairCache[storageKey]);
+    return _db.ref(PREVIEW_BASE_PATH).child('pairs').child(storageKey).once('value').then(function(snap) {
+      var pair = snap.val();
+      if (!pair) {
+        _pairLoadStatus[originLabel + '\0' + destLabel] = 'missing';
+        return null;
+      }
+      pair.__storageKey = storageKey;
+      _pairCache[storageKey] = pair;
+      _lastLoadedPair = pair;
+      _pairLoadStatus[originLabel + '\0' + destLabel] = 'loaded';
+      return pair;
+    });
+  }
+
+  function loadAvailableTrips(originLabel, destLabel, serviceDate) {
+    var option = _selectedDestinationOption(originLabel, destLabel);
+    return loadPair(originLabel, destLabel).then(function(pair) {
+      if (!pair) return [];
+      return _pairToTrips(pair, option, serviceDate);
+    });
+  }
+
+  function getAvailableTrips(originLabel, destLabel, serviceDate) {
+    var option = _selectedDestinationOption(originLabel, destLabel);
+    if (!option) return [];
+    var storageKey = option.storageKey || _resolvePairStorageKey(option.pairKey);
+    var pair = storageKey && _pairCache[storageKey];
+    return pair ? _pairToTrips(pair, option, serviceDate) : [];
+  }
+
+  function getFare() {
+    return 0;
+  }
+
+  function getCatalogVersion() {
+    return _preview.schemaVersion || '';
+  }
+
+  function canCreateProductionBookings() {
+    return _preview.readyForApply === true && _preview.productionReady === true && _preview.writesEnabled === true;
+  }
+
+  function getLastFareContractStatus() {
+    return _lastFareContractStatus;
+  }
+
+  function isLeg2Dest(destLabel) {
+    var pair = _lastLoadedPair;
+    return !!(pair && pair.destinationLabel === destLabel && pair.transfer && pair.transfer.required === true);
+  }
+
+  function getTransferInfo() {
+    var pair = _lastLoadedPair;
+    return pair && pair.transfer || null;
+  }
+
+  function getTransferBufferAsync() {
+    return Promise.resolve(0);
+  }
+
+  function buildBookingSnapshot(params) {
+    var assignment = params.assignment || {
+      assignmentSource: 'none',
+      scheduleOnly: true,
+      liveTrackingAvailable: false
+    };
+    return {
+      bookingCode: params.bookingCode,
+      catalogVersion: _preview.schemaVersion || '',
+      publishedSchedule: {
+        schemaVersion: _preview.schemaVersion || '',
+        sourceCommitSha: _preview.sourceCommitSha || '',
+        generatedAt: _preview.generatedAt || '',
+        readyForApply: _preview.readyForApply === true,
+        publicationStatus: _preview.publicationStatus || ''
+      },
+      name: params.name,
+      phone: params.phone,
+      pax: params.pax,
+      originStopKey: params.originStopKey,
+      destStopKey: params.destStopKey,
+      pickupTime: params.pickupTime,
+      serviceDate: params.serviceDate,
+      pairKey: params.pairKey || '',
+      pairId: params.pairId || '',
+      canonicalPairKey: params.canonicalPairKey || '',
+      fare: params.fare || 0,
+      fareAmount: params.fareAmount || 0,
+      fareContract: params.fareContract || null,
+      paymentOwnership: params.paymentOwnership || 'sl_transit',
+      externalPaymentRequired: params.externalPaymentRequired === true,
+      referenceOnly: params.referenceOnly === true,
+      payMethod: params.payMethod || '',
+      slipUploaded: params.slipUploaded || false,
+      status: (global.BOOKING_STATUS && global.BOOKING_STATUS.AWAITING_PAYMENT) || 'awaiting_payment',
+      createdAt: new Date().toISOString(),
+      assignment: assignment,
+      queueNo: assignment.queueId || '',
+      vehicleId: assignment.vehicleId || ''
+    };
+  }
+
+  global.SLBookingBridge = {
+    init: init,
+    onReady: onReady,
+    getBookableStops: getBookableStops,
+    getDestinationOptions: getDestinationOptions,
+    getDestinationContractStatus: getDestinationContractStatus,
+    loadPair: loadPair,
+    loadAvailableTrips: loadAvailableTrips,
+    getAvailableTrips: getAvailableTrips,
+    isLeg2Dest: isLeg2Dest,
+    getTransferInfo: getTransferInfo,
+    getFare: getFare,
+    getCatalogVersion: getCatalogVersion,
+    canCreateProductionBookings: canCreateProductionBookings,
+    getLastFareContractStatus: getLastFareContractStatus,
+    buildBookingSnapshot: buildBookingSnapshot,
+    getTransferBufferAsync: getTransferBufferAsync,
+    get _catalog() { return null; },
+    get _preview() { return _preview; }
+  };
 })(window);

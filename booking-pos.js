@@ -1,17 +1,17 @@
-/**
+﻿/**
  * booking-pos.js
- * POS Layer สำหรับ booking.html ใหม่
- * รับข้อมูลจาก ERP (catalog-engine + schedule-engine ผ่าน booking-bridge)
- * แล้วเขียนลง Firebase — เหมือน repo booking.html จริงทุกจุดสำคัญ
+ * POS Layer เธชเธณเธซเธฃเธฑเธ booking.html เนเธซเธกเน
+ * เธฃเธฑเธเธเนเธญเธกเธนเธฅเธเธฒเธ ERP (catalog-engine + schedule-engine เธเนเธฒเธ booking-bridge)
+ * เนเธฅเนเธงเน€เธเธตเธขเธเธฅเธ Firebase โ€” เน€เธซเธกเธทเธญเธ repo booking.html เธเธฃเธดเธเธ—เธธเธเธเธธเธ”เธชเธณเธเธฑเธ
  *
- * ครอบคลุม:
+ * เธเธฃเธญเธเธเธฅเธธเธก:
  *   [1] sanitizeText / sanitizePhone / isValidThaiPhone
- *   [2] TEST_MODE + BOOKING_OPEN + BOOKING_CUTOFF_MINUTES (อ่านจาก settings)
+ *   [2] TEST_MODE + BOOKING_OPEN + BOOKING_CUTOFF_MINUTES (เธญเนเธฒเธเธเธฒเธ settings)
  *   [3] Anti-spam / _submitLock / dupKey deduplication
- *   [4] computePriceServerSide — อ่านจาก catalog เท่านั้น
+ *   [4] computePriceServerSide โ€” เธญเนเธฒเธเธเธฒเธ catalog เน€เธ—เนเธฒเธเธฑเนเธ
  *   [5] uploadSlipToStorage + compressSlipImage
- *   [6] submitBooking → Firebase /bookings/{code}
- *   [7] sendLineMessage (mock ใน TEST_MODE, trigger Firebase Function ใน production)
+ *   [6] submitBooking โ’ Firebase /bookings/{code}
+ *   [7] sendLineMessage (mock เนเธ TEST_MODE, trigger Firebase Function เนเธ production)
  *   [8] grantTicketAccess + goCheckin + newBooking
  *   [9] LINE in-app browser detection
  *   [10] settings realtime sync (bookingOpen, testMode, cutoffMinutes)
@@ -19,7 +19,7 @@
 (function(global) {
   'use strict';
 
-  /* ── runtime state ── */
+  /* โ”€โ”€ runtime state โ”€โ”€ */
   var _submitLock   = false;
   var _lastSubmitTs = 0;
   var _slipFileObj  = null;
@@ -27,53 +27,53 @@
   var _lastBooking  = null;
   var _authReady    = null;
 
-  /* ── settings (override จาก Firebase /settings) ── */
+  /* โ”€โ”€ settings (override เธเธฒเธ Firebase /settings) โ”€โ”€ */
   global.BOOKING_OPEN            = true;
   global.TEST_MODE               = false;
   global.BOOKING_CUTOFF_MINUTES  = 60;
   global.PAYMENT_MODE            = 'transfer';   // transfer | onsite
-  global.PAYMENT_BANK_NAME       = 'ธนาคารกสิกรไทย (KBank)';
+  global.PAYMENT_BANK_NAME       = 'เธเธเธฒเธเธฒเธฃเธเธชเธดเธเธฃเนเธ—เธข (KBank)';
   global.PAYMENT_ACCOUNT_NO      = 'xxx-x-xxxxx-x';
-  global.PAYMENT_ACCOUNT_NAME    = 'บริษัท เอส.แอล. ทรานซิท จำกัด';
+  global.PAYMENT_ACCOUNT_NAME    = 'เธเธฃเธดเธฉเธฑเธ— เน€เธญเธช.เนเธญเธฅ. เธ—เธฃเธฒเธเธเธดเธ— เธเธณเธเธฑเธ”';
   global.SERVICE_FEE_ENABLED     = false;
   global.SERVICE_FEE_AMOUNT      = 0;
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [SCHEMA v3] BOOKING STATUS ENUM
-     ตรงกับ BRIEFING_FOR_BOOKING_AI.md ข้อ 4 — พร้อมใช้ทันที
-     ไม่พึ่ง erp-core.js — เป็น constant ล้วนๆ
-  ────────────────────────────────────────────────────── */
+     เธ•เธฃเธเธเธฑเธ BRIEFING_FOR_BOOKING_AI.md เธเนเธญ 4 โ€” เธเธฃเนเธญเธกเนเธเนเธ—เธฑเธเธ—เธต
+     เนเธกเนเธเธถเนเธ erp-core.js โ€” เน€เธเนเธ constant เธฅเนเธงเธเน
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   var BOOKING_STATUS = {
-    AWAITING_PAYMENT: 'awaiting_payment',  // แทน pending (เดิม)
-    CONFIRMED:        'confirmed',          // แทน paid (เดิม)
-    CHECKED_IN:       'checked_in',         // ใหม่: GPS เช็คอิน
-    COMPLETED:        'completed',          // ใหม่: เดินทางถึงปลายทาง
+    AWAITING_PAYMENT: 'awaiting_payment',  // เนเธ—เธ pending (เน€เธ”เธดเธก)
+    CONFIRMED:        'confirmed',          // เนเธ—เธ paid (เน€เธ”เธดเธก)
+    CHECKED_IN:       'checked_in',         // เนเธซเธกเน: GPS เน€เธเนเธเธญเธดเธ
+    COMPLETED:        'completed',          // เนเธซเธกเน: เน€เธ”เธดเธเธ—เธฒเธเธ–เธถเธเธเธฅเธฒเธขเธ—เธฒเธ
     CANCELLED:        'cancelled',
-    REFUNDED:         'refunded',           // ใหม่
-    EXPIRED:          'expired',            // ใหม่: จ่ายไม่ทัน
-    NO_SHOW:          'no_show'             // ใหม่
+    REFUNDED:         'refunded',           // เนเธซเธกเน
+    EXPIRED:          'expired',            // เนเธซเธกเน: เธเนเธฒเธขเนเธกเนเธ—เธฑเธ
+    NO_SHOW:          'no_show'             // เนเธซเธกเน
   };
   global.BOOKING_STATUS = BOOKING_STATUS;
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [SCHEMA v3] BOOKING ID GENERATOR
-     ตรงกับ BRIEFING_FOR_BOOKING_AI.md ข้อ 3 — พร้อมใช้ทันที
-     รูปแบบใหม่: BK-YYYYMMDD-6X (สุ่ม 6 ตัวอักษร แทน sequential)
-     ป้องกันการเปิดเผยปริมาณธุรกิจจากเลขรันตามลำดับ
-  ────────────────────────────────────────────────────── */
+     เธ•เธฃเธเธเธฑเธ BRIEFING_FOR_BOOKING_AI.md เธเนเธญ 3 โ€” เธเธฃเนเธญเธกเนเธเนเธ—เธฑเธเธ—เธต
+     เธฃเธนเธเนเธเธเนเธซเธกเน: BK-YYYYMMDD-6X (เธชเธธเนเธก 6 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ เนเธ—เธ sequential)
+     เธเนเธญเธเธเธฑเธเธเธฒเธฃเน€เธเธดเธ”เน€เธเธขเธเธฃเธดเธกเธฒเธ“เธเธธเธฃเธเธดเธเธเธฒเธเน€เธฅเธเธฃเธฑเธเธ•เธฒเธกเธฅเธณเธ”เธฑเธ
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function generateBookingId(prefix) {
     var p = prefix || (global.TEST_MODE ? 'TB' : 'BK');
     var date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     var rand = Math.random().toString(36).toUpperCase().slice(2, 8);
-    /* กันกรณี Math.random ให้ char น้อยกว่า 6 (โอกาสน้อยมากแต่กันไว้) */
+    /* เธเธฑเธเธเธฃเธ“เธต Math.random เนเธซเน char เธเนเธญเธขเธเธงเนเธฒ 6 (เนเธญเธเธฒเธชเธเนเธญเธขเธกเธฒเธเนเธ•เนเธเธฑเธเนเธงเน) */
     while (rand.length < 6) rand += Math.random().toString(36).toUpperCase().slice(2, 3);
     return p + '-' + date + '-' + rand.slice(0, 6);
   }
   global.generateBookingId = generateBookingId;
 
-  /* ──────────────────────────────────────────────────────
-     [1] INPUT SANITIZER  (ตรงกับ repo booking.html)
-  ────────────────────────────────────────────────────── */
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+     [1] INPUT SANITIZER  (เธ•เธฃเธเธเธฑเธ repo booking.html)
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function sanitizeText(str) {
     if (typeof str !== 'string') return '';
     str = str.trim().replace(/[<>"'`]/g, '');
@@ -95,11 +95,11 @@
   global.sanitizePhone  = sanitizePhone;
   global.isValidThaiPhone = isValidThaiPhone;
 
-  /* ──────────────────────────────────────────────────────
-     [2] SETTINGS SYNC — อ่าน /settings realtime
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+     [2] SETTINGS SYNC โ€” เธญเนเธฒเธ /settings realtime
      override BOOKING_OPEN, TEST_MODE, cutoffMinutes,
      payment mode, bank info
-  ────────────────────────────────────────────────────── */
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function _initSettingsSync(db) {
     db.ref('settings').on('value', function(snap) {
       var data = snap.val() || {};
@@ -120,7 +120,7 @@
         global.SERVICE_FEE_AMOUNT   = Number(data.fees.service) || 0;
       }
 
-      /* อัปเดต UI */
+      /* เธญเธฑเธเน€เธ”เธ• UI */
       _applyBookingOpenUI();
       _applyTestModeUI();
       _applyPaymentModeUI();
@@ -130,7 +130,7 @@
         global._applySettings(data);
       }
 
-      console.log('[POS] settings synced — TEST_MODE:', global.TEST_MODE,
+      console.log('[POS] settings synced โ€” TEST_MODE:', global.TEST_MODE,
         '| BOOKING_OPEN:', global.BOOKING_OPEN,
         '| PAYMENT_MODE:', global.PAYMENT_MODE);
     }, function(err) {
@@ -165,7 +165,7 @@
     if (bankAcc)   bankAcc.textContent   = global.PAYMENT_ACCOUNT_NO;
     if (bankOwner) bankOwner.textContent = global.PAYMENT_ACCOUNT_NAME;
 
-    /* onsite = ซ่อน bank + slip section เปิดอยู่โดยปุ่ม */
+    /* onsite = เธเนเธญเธ bank + slip section เน€เธเธดเธ”เธญเธขเธนเนเนเธ”เธขเธเธธเนเธก */
     if (!isTransfer) {
       if (pmBank)      pmBank.style.display      = 'none';
       if (pmPromptpay) pmPromptpay.style.display  = 'none';
@@ -175,30 +175,24 @@
     }
   }
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [3] ANTI-SPAM / PRICE LOCK
-  ────────────────────────────────────────────────────── */
-  /* Security: คำนวณราคาจาก catalog ERP ไม่รับจาก state.tripFare */
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
+  /* Security: เธเธณเธเธงเธ“เธฃเธฒเธเธฒเธเธฒเธ catalog ERP เนเธกเนเธฃเธฑเธเธเธฒเธ state.tripFare */
   function computePriceServerSide(originKey, destKey) {
-    if (!global.SLBookingBridge) return 55; // fallback
-    /* ลอง catalog.fares ผ่าน bridge */
-    var bridge = global.SLBookingBridge;
-    /* ดึงจาก SEGMENT_PRICE ที่ settings sync ไว้ */
-    if (global.SEGMENT_PRICE && global.SEGMENT_PRICE[originKey] &&
-        global.SEGMENT_PRICE[originKey][destKey] !== undefined) {
-      return Number(global.SEGMENT_PRICE[originKey][destKey]) || 55;
-    }
-    /* fallback: bridge fare (จาก catalog.fares) */
-    return bridge.getFare(originKey + '_' + destKey) || 55;
+    var appState = global.state || {};
+    var selected = appState.selectedTrip || {};
+    if (selected.externalPaymentRequired || selected.fareMissing) return 0;
+    return Number(selected.fareAmount) || 0;
   }
 
   function getServiceFeeTotal(pax) {
     return global.SERVICE_FEE_ENABLED ? global.SERVICE_FEE_AMOUNT * pax : 0;
   }
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [4] BOOKING CUTOFF CHECK
-  ────────────────────────────────────────────────────── */
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function canBook(dateStr, timeStr) {
     var now  = new Date();
     var dep  = new Date(dateStr + 'T' + timeStr + ':00');
@@ -206,9 +200,9 @@
     return diff > global.BOOKING_CUTOFF_MINUTES;
   }
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [5] SLIP COMPRESSION + UPLOAD
-  ────────────────────────────────────────────────────── */
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function compressSlipImage(file, callback) {
     var MAX_W = 1200, MAX_H = 1200, QUALITY = 0.7;
     var reader = new FileReader();
@@ -236,13 +230,13 @@
     var file = input.files[0];
     if (!file) return;
     if (_slipFileObj) {
-      alert('แนบหลักฐานได้เพียง 1 ครั้ง หากต้องการเปลี่ยนให้เริ่มรายการใหม่');
+      alert('เนเธเธเธซเธฅเธฑเธเธเธฒเธเนเธ”เนเน€เธเธตเธขเธ 1 เธเธฃเธฑเนเธ เธซเธฒเธเธ•เนเธญเธเธเธฒเธฃเน€เธเธฅเธตเนเธขเธเนเธซเนเน€เธฃเธดเนเธกเธฃเธฒเธขเธเธฒเธฃเนเธซเธกเน');
       input.value = ''; return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert('ไฟล์ใหญ่เกิน 5MB'); input.value = ''; return;
+      alert('เนเธเธฅเนเนเธซเธเนเน€เธเธดเธ 5MB'); input.value = ''; return;
     }
-    /* preview ทันที */
+    /* preview เธ—เธฑเธเธ—เธต */
     var reader = new FileReader();
     reader.onload = function(e) {
       var prevImg  = document.getElementById('previewImg');
@@ -252,13 +246,13 @@
     };
     reader.readAsDataURL(file);
 
-    /* compress แล้วเก็บ */
+    /* compress เนเธฅเนเธงเน€เธเนเธ */
     compressSlipImage(file, function(compressed) {
       _slipFileObj = compressed;
       var prevName = document.getElementById('previewName');
       var origKB   = Math.round(file.size / 1024);
       var compKB   = Math.round(compressed.size / 1024);
-      if (prevName) prevName.textContent = '✅ ' + file.name + ' (' + origKB + 'KB → ' + compKB + 'KB)';
+      if (prevName) prevName.textContent = 'โ… ' + file.name + ' (' + origKB + 'KB โ’ ' + compKB + 'KB)';
       /* lock upload area */
       var area = document.getElementById('uploadArea');
       if (area) area.classList.add('locked');
@@ -283,43 +277,61 @@
     });
   }
 
-  /* expose ── booking.html เรียกจาก onchange="onSlipSelectPOS(this)" */
+  /* expose โ”€โ”€ booking.html เน€เธฃเธตเธขเธเธเธฒเธ onchange="onSlipSelectPOS(this)" */
   global.onSlipSelectPOS = onSlipSelectPOS;
 
-  /* ──────────────────────────────────────────────────────
-     [6] SUBMIT BOOKING → Firebase  (POS write)
-     รับ booking state จาก booking.html (ผ่าน SLBookingBridge)
-  ────────────────────────────────────────────────────── */
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+     [6] SUBMIT BOOKING โ’ Firebase  (POS write)
+     เธฃเธฑเธ booking state เธเธฒเธ booking.html (เธเนเธฒเธ SLBookingBridge)
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function submitBooking() {
-    /* ── Guard ── */
-    if (!global.BOOKING_OPEN) { alert('ขณะนี้ปิดรับสำรองที่นั่งชั่วคราว'); return; }
+    /* โ”€โ”€ Guard โ”€โ”€ */
+    if (!global.BOOKING_OPEN) { alert('เธเธ“เธฐเธเธตเนเธเธดเธ”เธฃเธฑเธเธชเธณเธฃเธญเธเธ—เธตเนเธเธฑเนเธเธเธฑเนเธงเธเธฃเธฒเธง'); return; }
     var now = Date.now();
-    if (_submitLock) { alert('กำลังดำเนินการ กรุณารอสักครู่'); return; }
-    if (now - _lastSubmitTs < 30000 && _lastSubmitTs > 0) { alert('กรุณารอสักครู่ก่อนส่งข้อมูลใหม่'); return; }
+    if (_submitLock) { alert('เธเธณเธฅเธฑเธเธ”เธณเน€เธเธดเธเธเธฒเธฃ เธเธฃเธธเธ“เธฒเธฃเธญเธชเธฑเธเธเธฃเธนเน'); return; }
+    if (now - _lastSubmitTs < 30000 && _lastSubmitTs > 0) { alert('เธเธฃเธธเธ“เธฒเธฃเธญเธชเธฑเธเธเธฃเธนเนเธเนเธญเธเธชเนเธเธเนเธญเธกเธนเธฅเนเธซเธกเน'); return; }
 
     var appState = global.state || {};
-    if (!appState.consentAccepted) { alert('กรุณาอ่านและยอมรับข้อตกลงการใช้บริการก่อน'); return; }
+    if (!global.TEST_MODE && global.SLBookingBridge &&
+        typeof global.SLBookingBridge.canCreateProductionBookings === 'function' &&
+        !global.SLBookingBridge.canCreateProductionBookings()) {
+      alert('Booking1 Preview ยังไม่ readyForApply จึงไม่เปิดสร้าง booking จริง');
+      return;
+    }
+    if (!appState.selectedTrip || !appState.selectedTrip.bookingAllowed) {
+      alert('เที่ยวนี้ยังไม่เปิดจองผ่าน Booking1');
+      return;
+    }
+    if (appState.selectedTrip.externalPaymentRequired) {
+      alert('รายการนี้เป็น external_pay และ SL-Transit ไม่เก็บค่าโดยสาร');
+      return;
+    }
+    if (appState.selectedTrip.fareMissing) {
+      alert('ยังไม่มีข้อมูล fareAmount ใน preview pair สำหรับคู่เส้นทางนี้');
+      return;
+    }
+    if (!appState.consentAccepted) { alert('เธเธฃเธธเธ“เธฒเธญเนเธฒเธเนเธฅเธฐเธขเธญเธกเธฃเธฑเธเธเนเธญเธ•เธเธฅเธเธเธฒเธฃเนเธเนเธเธฃเธดเธเธฒเธฃเธเนเธญเธ'); return; }
 
     /* admin tester: bypass slip requirement */
     var isAdminTester = global.ADMIN_TESTER_ACTIVE === true;
     if (global.PAYMENT_MODE === 'transfer' && !global.TEST_MODE && !isAdminTester && !_slipFileObj) {
-      alert('กรุณาแนบรูปสลิปการโอนเงิน'); return;
+      alert('เธเธฃเธธเธ“เธฒเนเธเธเธฃเธนเธเธชเธฅเธดเธเธเธฒเธฃเนเธญเธเน€เธเธดเธ'); return;
     }
 
-    /* ── Sanitize ── */
+    /* โ”€โ”€ Sanitize โ”€โ”€ */
     var nameEl  = document.getElementById('inp-name');
     var phoneEl = document.getElementById('inp-phone');
     var safeName  = sanitizeText(nameEl  ? nameEl.value  : appState.name  || '');
     var safePhone = sanitizePhone(phoneEl ? phoneEl.value : appState.phone || '');
 
-    if (!safeName  || safeName.length < 2)  { alert('ชื่อ-นามสกุลไม่ถูกต้อง'); return; }
-    if (!isValidThaiPhone(safePhone))        { alert('เบอร์โทรไม่ถูกต้อง (ต้องเป็นเบอร์ไทย 10 หลัก)'); return; }
-    if (!appState.tripTime)                  { alert('กรุณาเลือกเวลาเดินทาง'); return; }
+    if (!safeName  || safeName.length < 2)  { alert('เธเธทเนเธญ-เธเธฒเธกเธชเธเธธเธฅเนเธกเนเธ–เธนเธเธ•เนเธญเธ'); return; }
+    if (!isValidThaiPhone(safePhone))        { alert('เน€เธเธญเธฃเนเนเธ—เธฃเนเธกเนเธ–เธนเธเธ•เนเธญเธ (เธ•เนเธญเธเน€เธเนเธเน€เธเธญเธฃเนเนเธ—เธข 10 เธซเธฅเธฑเธ)'); return; }
+    if (!appState.tripTime)                  { alert('เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเน€เธงเธฅเธฒเน€เธ”เธดเธเธ—เธฒเธ'); return; }
     if (!appState.originKey || !appState.destKey || appState.originKey === appState.destKey) {
-      alert('เส้นทางไม่ถูกต้อง'); return;
+      alert('เน€เธชเนเธเธ—เธฒเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ'); return;
     }
 
-    /* ── Date ── */
+    /* โ”€โ”€ Date โ”€โ”€ */
     var dateVal = typeof global._serviceDateISO === 'function' ? global._serviceDateISO() : _todayISO();
     var assignmentPlan = global.SLTransitBookingAssignmentCenter
       && typeof global.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
@@ -330,43 +342,47 @@
         originName: appState.originName
       })
       : { assignment: null };
-    if (!assignmentPlan.assignment) {
-      alert('ยังไม่พบข้อมูลคิว เที่ยว และรถจากระบบกลาง กรุณาเลือกรอบใหม่หรือลองอีกครั้ง');
-      return;
-    }
-    var assignmentContract = assignmentPlan.assignment;
+    var assignmentContract = assignmentPlan.assignment || (appState.selectedTrip && appState.selectedTrip.assignment) || {
+      assignmentSource: 'none',
+      scheduleOnly: true,
+      liveTrackingAvailable: false
+    };
 
-    /* ── Capacity & Admin Close checks (via SLBookingCapacity) ── */
+    /* โ”€โ”€ Capacity & Admin Close checks (via SLBookingCapacity) โ”€โ”€ */
     var CAP = global.SLBookingCapacity;
     if (CAP) {
       if (CAP.isClosedByAdmin(appState.originKey, appState.destKey, appState.tripTime)) {
-        alert('รอบนี้งดรับสำรองที่นั่งสำหรับเส้นทางนี้'); return;
+        alert('เธฃเธญเธเธเธตเนเธเธ”เธฃเธฑเธเธชเธณเธฃเธญเธเธ—เธตเนเธเธฑเนเธเธชเธณเธซเธฃเธฑเธเน€เธชเนเธเธ—เธฒเธเธเธตเน'); return;
       }
       if (CAP.isTripFull(appState.originKey, appState.destKey, dateVal, appState.tripTime, appState.pax)) {
-        alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น');
+        alert('เธฃเธญเธเธเธตเนเน€เธ•เนเธกเนเธฅเนเธง เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธฃเธญเธเน€เธงเธฅเธฒเธญเธทเนเธ');
         if (typeof global.renderTrips === 'function') global.renderTrips();
         return;
       }
     }
 
     if (!canBook(dateVal, appState.tripTime)) {
-      alert('รอบเวลานี้ปิดรับสำรองที่นั่งแล้ว (เกินเวลาที่กำหนด)'); return;
+      alert('เธฃเธญเธเน€เธงเธฅเธฒเธเธตเนเธเธดเธ”เธฃเธฑเธเธชเธณเธฃเธญเธเธ—เธตเนเธเธฑเนเธเนเธฅเนเธง (เน€เธเธดเธเน€เธงเธฅเธฒเธ—เธตเนเธเธณเธซเธเธ”)'); return;
     }
 
-    /* ── Pricing (server-side only) ── */
+    /* โ”€โ”€ Pricing (server-side only) โ”€โ”€ */
     var serverPrice = computePriceServerSide(appState.originKey, appState.destKey);
+    if (!(serverPrice > 0)) {
+      alert('ยังไม่มีข้อมูล fareAmount จาก ERP Preview สำหรับคู่เส้นทางนี้');
+      return;
+    }
     var svcFee      = getServiceFeeTotal(appState.pax || 1);
     var totalFare   = serverPrice * (appState.pax || 1);
     var grandTotal  = totalFare + svcFee;
 
-    /* ── dupKey ── */
+    /* โ”€โ”€ dupKey โ”€โ”€ */
     var dupKey = appState.originKey + '_' + appState.destKey + '_' + dateVal + '_' + appState.tripTime;
 
-    /* ── UI lock ── */
+    /* โ”€โ”€ UI lock โ”€โ”€ */
     var btn = document.getElementById('btnConfirm');
     _submitLock   = true;
     _lastSubmitTs = now;
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'โณ เธเธณเธฅเธฑเธเธ•เธฃเธงเธเธชเธญเธ...'; }
 
     var db      = global._db;
     var storage = global._storage;
@@ -374,23 +390,23 @@
     var queuePath   = global.TEST_MODE ? 'testQueues/'   : 'queues/';
     var bookingSaved = false;
 
-    /* ── Step 1: dupKey check (กันจองซ้ำ) ── */
+    /* โ”€โ”€ Step 1: dupKey check (เธเธฑเธเธเธญเธเธเนเธณ) โ”€โ”€ */
     db.ref(bookingPath).orderByChild('dupKey').equalTo(dupKey).once('value')
       .then(function(snap) {
         if (snap.exists()) {
-          /* มีการจองนี้อยู่แล้ว */
+          /* เธกเธตเธเธฒเธฃเธเธญเธเธเธตเนเธญเธขเธนเนเนเธฅเนเธง */
           var existing = null;
           snap.forEach(function(child) { if (!existing) existing = child.val(); });
           if (existing && existing.status !== 'cancelled') {
             var msg = global.TEST_MODE
-              ? '[TEST] รหัสการจองนี้มีอยู่แล้ว: ' + (existing.code || '')
-              : 'คุณได้สำรองที่นั่งเที่ยวนี้ไว้แล้ว รหัสจอง: ' + (existing.code || '');
+              ? '[TEST] เธฃเธซเธฑเธชเธเธฒเธฃเธเธญเธเธเธตเนเธกเธตเธญเธขเธนเนเนเธฅเนเธง: ' + (existing.code || '')
+              : 'เธเธธเธ“เนเธ”เนเธชเธณเธฃเธญเธเธ—เธตเนเธเธฑเนเธเน€เธ—เธตเนเธขเธงเธเธตเนเนเธงเนเนเธฅเนเธง เธฃเธซเธฑเธชเธเธญเธ: ' + (existing.code || '');
             alert(msg);
             throw new Error('DUPLICATE');
           }
         }
         /* Step 2: queue counter */
-        if (btn) btn.textContent = '⏳ กำลังจัดคิว...';
+        if (btn) btn.textContent = 'โณ เธเธณเธฅเธฑเธเธเธฑเธ”เธเธดเธง...';
         return db.ref(queuePath + dupKey).transaction(function(cur) { return (cur || 0) + (appState.pax || 1); });
       })
       .then(function(txResult) {
@@ -401,7 +417,7 @@
       })
       .then(function(qResult) {
         /* Step 3: reserve capacity (atomic) */
-        if (btn) btn.textContent = '⏳ กำลังจองที่นั่ง...';
+        if (btn) btn.textContent = 'โณ เธเธณเธฅเธฑเธเธเธญเธเธ—เธตเนเธเธฑเนเธ...';
         var CAP = global.SLBookingCapacity;
         var reservePromise = CAP
           ? CAP.reserveTripCapacity(_db, dateVal, appState.originKey, appState.destKey, appState.tripTime, appState.pax)
@@ -413,7 +429,7 @@
       })
       .then(function(qResult) {
         /* Step 4: upload slip */
-        if (btn) btn.textContent = '⏳ กำลังอัปโหลดสลิป...';
+        if (btn) btn.textContent = 'โณ เธเธณเธฅเธฑเธเธญเธฑเธเนเธซเธฅเธ”เธชเธฅเธดเธ...';
         var code = generateBookingId();
         var uploadPromise = (_slipFileObj && !global.TEST_MODE && global.PAYMENT_MODE === 'transfer')
           ? uploadSlipToStorage(storage, _slipFileObj, code)
@@ -426,11 +442,11 @@
       })
       .then(function(result) {
         /* Step 5: build booking snapshot via bridge */
-        if (btn) btn.textContent = '⏳ กำลังบันทึก...';
+        if (btn) btn.textContent = 'โณ เธเธณเธฅเธฑเธเธเธฑเธเธ—เธถเธ...';
         var ti  = appState.transferInfo || null;
         var CAP = global.SLBookingCapacity;
 
-        /* legSchedule — ตรงกับ repo booking.html */
+        /* legSchedule โ€” เธ•เธฃเธเธเธฑเธ repo booking.html */
         var legSchedule = CAP ? CAP.buildLegSchedule(
           appState.originKey,  appState.destKey,
           appState.originName, appState.destName,
@@ -451,16 +467,22 @@
           serviceDate:   dateVal,
           isLeg2:        appState.isLeg2Dest || false,
           transferInfo:  ti,
-          queueNo:       assignmentContract.queueNo || '',
-          vehicleId:     assignmentContract.plannedVehicleId || '',
+          pairKey:       appState.selectedTrip && appState.selectedTrip.pairKey || '',
+          pairId:        appState.selectedTrip && appState.selectedTrip.pairId || '',
+          canonicalPairKey: appState.selectedTrip && appState.selectedTrip.canonicalPairKey || '',
           fare:          grandTotal,
+          fareAmount:    serverPrice,
+          fareContract:  appState.selectedTrip && appState.selectedTrip.fareContract || null,
+          paymentOwnership: appState.selectedTrip && appState.selectedTrip.paymentOwnership || 'sl_transit',
+          externalPaymentRequired: appState.selectedTrip && appState.selectedTrip.externalPaymentRequired === true,
+          referenceOnly: appState.selectedTrip && appState.selectedTrip.referenceOnly === true,
           payMethod:     global.PAYMENT_MODE,
           slipUploaded:  !!result.slipUrl,
           assignment:    assignmentContract
         });
 
-        /* fields ครบเหมือน repo */
-        booking.route            = (appState.originName || '') + ' → ' + (appState.destName || '');
+        /* fields เธเธฃเธเน€เธซเธกเธทเธญเธ repo */
+        booking.route            = (appState.originName || '') + ' โ’ ' + (appState.destName || '');
         booking.origin           = appState.originName  || appState.originKey;
         booking.destination      = appState.destName    || appState.destKey;
         booking.time             = appState.tripTime;
@@ -474,11 +496,11 @@
         booking.paymentStatus    = result.slipUrl
           ? 'slip_uploaded'
           : (global.PAYMENT_MODE === 'transfer' ? 'mock_payment' : 'pay_on_site');
-        /* booking.status ถูก set แล้วโดย SLBookingBridge.buildBookingSnapshot() ด้วย BOOKING_STATUS.AWAITING_PAYMENT */
+        /* booking.status เธ–เธนเธ set เนเธฅเนเธงเนเธ”เธข SLBookingBridge.buildBookingSnapshot() เธ”เนเธงเธข BOOKING_STATUS.AWAITING_PAYMENT */
         booking.dupKey           = dupKey;
         booking.queueNumber      = result.queueNum;
         booking.bookingSequenceNumber = result.queueNum;
-        booking.legSchedule      = legSchedule;        /* ← ต้องมีสำหรับ check_ticket */
+        booking.legSchedule      = legSchedule;        /* โ เธ•เนเธญเธเธกเธตเธชเธณเธซเธฃเธฑเธ check_ticket */
         booking.leg1Route        = legSchedule.leg1;
         booking.leg1Time         = legSchedule.leg1Time;
         booking.leg2Route        = legSchedule.leg2;
@@ -491,7 +513,7 @@
         booking.ticketQrVersion  = 'SLT1';
         booking.ts               = firebase.database.ServerValue.TIMESTAMP;
 
-        /* ── Firebase write ── */
+        /* โ”€โ”€ Firebase write โ”€โ”€ */
         return db.ref(bookingPath + result.code).set(booking)
           .then(function() {
             bookingSaved = true;
@@ -530,12 +552,12 @@
       .then(function(booking) {
         _submitLock  = false;
         _lastBooking = booking;
-        /* expose ให้ downloadTicketImage ใน booking.html */
+        /* expose เนเธซเน downloadTicketImage เนเธ booking.html */
         global._lastBooking = booking;
 
         _grantTicketAccess(booking.code);
 
-        /* verify slip — non-blocking, update paymentStatus */
+        /* verify slip โ€” non-blocking, update paymentStatus */
         if (booking.slipImageUrl && typeof global.verifySlipPayment === 'function') {
           global.verifySlipPayment(booking.code, booking.slipImageUrl)
             .then(function(result) {
@@ -553,29 +575,29 @@
       })
       .catch(function(err) {
         _submitLock = false;
-        if (btn) { btn.disabled = false; btn.textContent = '✅ ยืนยันการชำระเงิน ›'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'โ… เธขเธทเธเธขเธฑเธเธเธฒเธฃเธเธณเธฃเธฐเน€เธเธดเธ โ€บ'; }
 
-        /* CAPACITY_FULL — release reservation ถ้ามี */
+        /* CAPACITY_FULL โ€” release reservation เธ–เนเธฒเธกเธต */
         if (err && err.message === 'CAPACITY_FULL') {
-          alert('รอบนี้เต็มแล้ว กรุณาเลือกรอบเวลาอื่น');
+          alert('เธฃเธญเธเธเธตเนเน€เธ•เนเธกเนเธฅเนเธง เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธฃเธญเธเน€เธงเธฅเธฒเธญเธทเนเธ');
           if (typeof global.renderTrips === 'function') global.renderTrips();
           return;
         }
         if (err && err.message === 'DUPLICATE')             return;
-        if (err && err.message === 'QUEUE_ERROR')           { alert('เกิดข้อผิดพลาดในการนับคิว กรุณาลองใหม่'); return; }
-        if (err && err.message === 'STORAGE_UPLOAD_FAILED') { alert('อัปโหลดสลิปไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ'); return; }
+        if (err && err.message === 'QUEUE_ERROR')           { alert('เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”เนเธเธเธฒเธฃเธเธฑเธเธเธดเธง เธเธฃเธธเธ“เธฒเธฅเธญเธเนเธซเธกเน'); return; }
+        if (err && err.message === 'STORAGE_UPLOAD_FAILED') { alert('เธญเธฑเธเนเธซเธฅเธ”เธชเธฅเธดเธเนเธกเนเธชเธณเน€เธฃเนเธ เธเธฃเธธเธ“เธฒเธ•เธฃเธงเธเธชเธญเธเธเธฒเธฃเน€เธเธทเนเธญเธกเธ•เนเธญ'); return; }
         console.error('[POS] submitBooking error', err);
-        alert('เกิดข้อผิดพลาด: ' + (err.message || 'กรุณาลองใหม่'));
+        alert('เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ”: ' + (err.message || 'เธเธฃเธธเธ“เธฒเธฅเธญเธเนเธซเธกเน'));
       });
   }
 
   global.submitBooking = submitBooking;
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [7] LINE OA NOTIFICATION
-     production: Firebase Function sendLineOnBooking รอที่ /bookings/{code}
-     test: mock log ลง /test_line_logs
-  ────────────────────────────────────────────────────── */
+     production: Firebase Function sendLineOnBooking เธฃเธญเธ—เธตเน /bookings/{code}
+     test: mock log เธฅเธ /test_line_logs
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function sendLineMessage(payload) {
     if (global.TEST_MODE || (payload && payload.test_mode)) {
       return (global._db).ref('test_line_logs').push({
@@ -589,13 +611,13 @@
         original_payload: payload
       }).then(function() { return { success: true, mock: true }; });
     }
-    /* production: Firebase Function จะ trigger อัตโนมัติจาก /bookings/{code}.set() */
+    /* production: Firebase Function เธเธฐ trigger เธญเธฑเธ•เนเธเธกเธฑเธ•เธดเธเธฒเธ /bookings/{code}.set() */
     return Promise.resolve({ success: true, server_trigger: 'bookings/{code}' });
   }
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [8] TICKET ACCESS + CHECKIN + NEW BOOKING
-  ────────────────────────────────────────────────────── */
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function _grantTicketAccess(code) {
     if (!_authReady || !code) return;
     _authReady.then(function(cred) {
@@ -607,7 +629,7 @@
 
   function goCheckin() {
     var code = _lastBooking && _lastBooking.code || '';
-    if (!code) { alert('ไม่พบรหัสตั๋ว'); return; }
+    if (!code) { alert('เนเธกเนเธเธเธฃเธซเธฑเธชเธ•เธฑเนเธง'); return; }
     try { sessionStorage.setItem('latestBooking', JSON.stringify(_lastBooking)); } catch(e){}
     var phone = sanitizePhone((global.state && global.state.phone) || '');
     window.location.href = 'check_ticket.html?code=' + encodeURIComponent(code)
@@ -616,11 +638,11 @@
   }
 
   function newBooking() {
-    /* รีเซ็ต POS state */
+    /* เธฃเธตเน€เธเนเธ• POS state */
     _slipFileObj = null; _slipUrl = ''; _lastBooking = null;
     _submitLock = false; _lastSubmitTs = 0;
 
-    /* รีเซ็ต slip UI */
+    /* เธฃเธตเน€เธเนเธ• slip UI */
     var slipInput = document.getElementById('slipFile');
     var uploadArea = document.getElementById('uploadArea');
     var prevWrap   = document.getElementById('previewWrap');
@@ -634,7 +656,7 @@
     if (prevName)   prevName.textContent = '';
     if (bar)        bar.style.width = '0%';
 
-    /* delegate reset + navigate ไปหน้า 1 */
+    /* delegate reset + navigate เนเธเธซเธเนเธฒ 1 */
     if (typeof global.resetBookingState === 'function') global.resetBookingState();
     if (typeof global.showPage === 'function') global.showPage(1);
     if (typeof global.renderTrips === 'function') global.renderTrips();
@@ -643,9 +665,9 @@
   global.goCheckin  = goCheckin;
   global.newBooking = newBooking;
 
-  /* ──────────────────────────────────────────────────────
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
      [9] LINE IN-APP BROWSER DETECTION
-  ────────────────────────────────────────────────────── */
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function _detectLineBrowser() {
     var ua = navigator.userAgent || '';
     if (!/Line\//i.test(ua)) return;
@@ -670,9 +692,9 @@
 
   global.tryOpenExternal = tryOpenExternal;
 
-  /* ──────────────────────────────────────────────────────
-     [10] INIT — เรียกจาก booking.html หลัง Firebase init
-  ────────────────────────────────────────────────────── */
+  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+     [10] INIT โ€” เน€เธฃเธตเธขเธเธเธฒเธ booking.html เธซเธฅเธฑเธ Firebase init
+  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function init(db, storage, authPromise) {
     global._db      = db;
     global._storage = storage;
