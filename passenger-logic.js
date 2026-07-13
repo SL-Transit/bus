@@ -409,9 +409,75 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 // read -- excludedPreviewPairs (transferUnknown/transferInfeasible) are never
 // consulted, so those never surface as selectable journeys.
 var PUBLISHED_SCHEDULE = null;
+var PUBLISHED_SCHEDULE_DESTINATIONS = {};
+var PUBLISHED_SCHEDULE_PAIR_ALIASES = {};
+
+function previewEncodingIndex(node, name) {
+  return node && node.firebaseKeyEncoding && node.firebaseKeyEncoding.encodedKeyIndex
+    ? (node.firebaseKeyEncoding.encodedKeyIndex[name] || {})
+    : {};
+}
+
+function isEncodedPreviewKey(value) {
+  return /^k_/.test(String(value || ''));
+}
+
+function displayLabelFromPreviewEntry(key, entry, index) {
+  if (entry && typeof entry === 'object') {
+    return entry.label || entry.displayNameTh || entry.destinationLabel || entry.nameTh || index[key] || key;
+  }
+  return index[key] || key;
+}
+
+function normalizePreviewDestinations(node) {
+  var raw = node && node.destinations ? node.destinations : {};
+  var index = previewEncodingIndex(node, 'destinations');
+  var normalized = {};
+  Object.keys(raw).forEach(function(key) {
+    var entry = raw[key];
+    var label = displayLabelFromPreviewEntry(key, entry, index);
+    if (!label || isEncodedPreviewKey(label)) return;
+    normalized[label] = (entry && typeof entry === 'object') ? Object.assign({}, entry) : {};
+    normalized[label].label = normalized[label].label || label;
+    normalized[label].destinationLabel = normalized[label].destinationLabel || label;
+    normalized[label].firebaseKey = key;
+  });
+  return normalized;
+}
+
+function addPreviewPairAlias(aliases, fromKey, toKey) {
+  if (fromKey && toKey && fromKey !== toKey) aliases[fromKey] = toKey;
+}
+
+function normalizePreviewPairAliases(node) {
+  var aliases = {};
+  var pairIndex = previewEncodingIndex(node, 'pairs');
+  var compatibilityIndex = previewEncodingIndex(node, 'compatibilityKeyIndex');
+  Object.keys(pairIndex).forEach(function(encodedKey) {
+    addPreviewPairAlias(aliases, pairIndex[encodedKey], encodedKey);
+  });
+  Object.keys(compatibilityIndex).forEach(function(encodedKey) {
+    addPreviewPairAlias(aliases, compatibilityIndex[encodedKey], encodedKey);
+  });
+  Object.keys(node && node.compatibilityKeyIndex || {}).forEach(function(key) {
+    var entry = node.compatibilityKeyIndex[key] || {};
+    addPreviewPairAlias(aliases, entry.compatibilityPairKey, key);
+    addPreviewPairAlias(aliases, entry.displayPairKey, key);
+  });
+  Object.keys(node && node.pairs || {}).forEach(function(key) {
+    var pair = node.pairs[key] || {};
+    addPreviewPairAlias(aliases, pair.compatibilityPairKey, key);
+    if (pair.originLabel && pair.destinationLabel) {
+      addPreviewPairAlias(aliases, pair.originLabel + '__' + pair.destinationLabel, key);
+    }
+  });
+  return aliases;
+}
 
 function applyPublishedSchedule(node) {
   PUBLISHED_SCHEDULE = node || null;
+  PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
+  PUBLISHED_SCHEDULE_PAIR_ALIASES = normalizePreviewPairAliases(PUBLISHED_SCHEDULE);
   emit('scheduleUpdated');
 }
 
@@ -420,12 +486,14 @@ function getScheduleOrigins() {
 }
 
 function getScheduleDestinations() {
-  return (PUBLISHED_SCHEDULE && PUBLISHED_SCHEDULE.destinations) ? PUBLISHED_SCHEDULE.destinations : {};
+  return PUBLISHED_SCHEDULE_DESTINATIONS;
 }
 
 function getSchedulePair(originLabel, destLabel) {
   if (!PUBLISHED_SCHEDULE || !PUBLISHED_SCHEDULE.pairs) return null;
-  return PUBLISHED_SCHEDULE.pairs[originLabel + '__' + destLabel] || null;
+  var pairKey = originLabel + '__' + destLabel;
+  var resolvedKey = PUBLISHED_SCHEDULE.pairs[pairKey] ? pairKey : PUBLISHED_SCHEDULE_PAIR_ALIASES[pairKey];
+  return resolvedKey ? (PUBLISHED_SCHEDULE.pairs[resolvedKey] || null) : null;
 }
 
 function isScheduleReady() {
