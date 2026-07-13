@@ -2293,6 +2293,14 @@
         trackingVanMarkerPos = location;
         return;
       }
+      if (window.SLTransitMapDisplayCenter && typeof window.SLTransitMapDisplayCenter.planVehicleMarker === 'function') {
+        var vehiclePlan = window.SLTransitMapDisplayCenter.planVehicleMarker(
+          trackingVanMarkerPos ? { point: trackingVanMarkerPos } : null,
+          Object.assign({ vehicleId: trackingVehicleId || 'booked_vehicle' }, location),
+          { maxStepMeters: 500 }
+        );
+        if (vehiclePlan && vehiclePlan.point) location = vehiclePlan.point;
+      }
       animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, { minMeters:5, maxMeters:5000, minDuration:650, maxDuration:2400, msPerMeter:18 });
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();

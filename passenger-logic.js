@@ -114,6 +114,7 @@
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
+  var busDisplayState = {};
   var stationMarkerOverlays = [];
   var knownRouteLinePoints = [];
   var routeRenderSeq = 0;
@@ -753,9 +754,24 @@ function placeBusMarkerAt(carId, latlng) {
 function updateAllBusesOnMap(buses) {
   if (!mapReady || !mapObj) return;
   allBusPositions = buses || {};
-  Object.keys(buses || {}).forEach(function(id) {
-    updateBusOnMap(buses[id], id);
-  });
+  if (window.SLTransitMapDisplayCenter && typeof window.SLTransitMapDisplayCenter.prepareVehicleLayer === 'function') {
+    var signals = Object.keys(buses || {}).map(function(id) {
+      return Object.assign({ vehicleId: id }, buses[id] || {});
+    });
+    window.SLTransitMapDisplayCenter.prepareVehicleLayer(signals, busDisplayState, { maxStepMeters: 250 }).forEach(function(item) {
+      if (!item || !item.vehicle || !item.point) return;
+      busDisplayState[item.vehicle.vehicleId] = { point: item.point };
+      placeBusMarkerAt(item.vehicle.vehicleId, item.point);
+    });
+    Object.keys(busDisplayState).forEach(function(id) {
+      if (!buses[id]) {
+        delete busDisplayState[id];
+        removeBusFromMap(id);
+      }
+    });
+    return;
+  }
+  Object.keys(buses || {}).forEach(function(id) { updateBusOnMap(buses[id], id); });
 }
 
 function removeBusFromMap(carId) {
@@ -763,6 +779,7 @@ function removeBusFromMap(carId) {
   try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e) {}
   delete busMarkers[carId];
   delete busTagMarkers[carId];
+  delete busDisplayState[carId];
 }
 
 function updateBusOnMap(pos, carId) {
