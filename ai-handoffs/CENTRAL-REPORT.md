@@ -44,6 +44,44 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-13 21:18 +07 (Asia/Bangkok) - Supervisor AI / Current-State Handoff - REVIEW
+
+Scope:
+- `ai-handoffs/CENTRAL-REPORT.md`
+- `ai-handoffs/MAIN-AI-DASHBOARD.md`
+
+Summary:
+- Re-anchored the central handoff to GitHub main `8fad59b476290d1ed13278268f5178361ef20d73`.
+- Recorded the verified Firebase preview rewrite at `preview/publishedSchedule` from source commit `31ace5fa559706668e5ff0814ef8f5a511be78e9`.
+- Read-back status: `mapView.stops=15`; every map stop icon is `🚏`; `visiblePairs=471`; `scheduleOfferTimes=820`; `readyForReview=true`; `readyForApply=false`; blockers 0; warnings 0; top-level `/publishedSchedule` remains `null`.
+- Coordinate spot checks: กม.1 = `13.572126, 101.450481`; กม.7 = `13.529181, 101.497615`; ห้วยโสม = `13.498219, 101.537783`.
+- Current coordination estimates: ERP Data Center approximately 99.9% ready for preview use; Passenger Preview approximately 95%; ERP Logic Center migration approximately 45-50%; whole-system production readiness approximately 70-72%.
+- Updated central logic status for ERP Calculator Center, Map Display Center, ERP Alert Center, Journey Status Center, Vehicle Assignment Center, Booking Assignment Center, Driver Work Center, and `driver-work-producer`.
+- Driver vehicle identity and `driverWorkByServiceDate` read access remain paused. The anonymous Driver App identity cannot yet prove vehicle ownership.
+
+Evidence:
+- Source main inspected: `8fad59b476290d1ed13278268f5178361ef20d73` (local and `origin/main` matched before this documentation update).
+- Preview source/read-back: `31ace5fa559706668e5ff0814ef8f5a511be78e9` and the exact counts/flags supplied in the current verified handoff.
+- Recent central logic commits: `2963fe7`, `9b199c6`, `1cc80de`, `2dadd67`, `8960376`, `f5bac19`, `8497d25`, `4faea2f`, `6fc4851`, `31ace5f`, `5b2629a`.
+- Tests: documentation stale-line scan, scoped diff inspection, and `git diff --check`; no application behavior test required because no application file changed.
+
+Safety:
+- Documentation/status update only.
+- Firebase writes: none.
+- Seed applied: no.
+- Production apply: no.
+- Booking, passenger, ticket, driver, live vehicle, payment, LINE, operational, and private data touched: none.
+- `readyForApply=false` remains the hard production stop.
+- Unrelated local `database.rules.json` changes were not included.
+
+Blockers:
+- ERP Logic Center migration remains incomplete.
+- Driver work runtime read access remains blocked until a backend-owned vehicle/device identity flow exists.
+- Percentages are coordination estimates and do not override readiness gates.
+
+Next action:
+- Continue central logic migration in scoped, tested steps without enabling production writes; keep the paused driver identity/rules work blocked until separately approved.
+
 ## 2026-07-13 19:35 +07 (Asia/Bangkok) - Check Ticket AI / ERP Centers - DONE
 
 Scope:

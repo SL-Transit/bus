@@ -2,17 +2,19 @@
 
 Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
 
-## 2026-07-12 Active Work Orders: Passenger / Booking / Check Ticket
+## 2026-07-13 Current Work Orders: Passenger / Booking / Check Ticket
 
 Plain owner summary: ERP Data Center preview data has been written and read back successfully at `preview/publishedSchedule`. Passenger, Booking, and Check Ticket may now work against the preview data only. Do not write production data, do not seed, and do not enable production booking.
 
 Current approved preview source:
 - Firebase preview path: `preview/publishedSchedule`
-- Source commit: `9599a7b5d7af2916cc0be09f7136518a6c8fcad3`
-- Backup metadata path: `previewBackups/publishedSchedule/20260712T072812Z_9599a7b5d7af2916cc0be09f7136518a6c8fcad3`
-- Top-level `publishedSchedule`: intentionally not written
+- Rewritten and read-back verified source commit: `31ace5fa559706668e5ff0814ef8f5a511be78e9`
+- Top-level `/publishedSchedule`: verified `null`; intentionally not written
 - Preview metadata: `dryRun=true`, `writesEnabled=false`, `readyForApply=false`, `productionReady=false`, `publicationStatus=preview`
-- Verified counts: origins 15, destinations 49, visible pairs 471, schedule time rows 819, feasible transfer reference pairs 264, infeasible transfer audit pairs 58, transfer unknown pairs 0
+- Review gate: `readyForReview=true`, `readyForApply=false`, blockers 0, warnings 0
+- Verified counts: `mapView.stops=15`, `visiblePairs=471`, `scheduleOfferTimes=820`
+- All 15 `mapView.stops` use the source icon `🚏`.
+- Coordinate spot checks: กม.1 = `13.572126, 101.450481`; กม.7 = `13.529181, 101.497615`; ห้วยโสม = `13.498219, 101.537783`.
 - Safety verified: no GPS, ETA, live vehicle, vehicle assignment, driver, booking, ticket, payment, LINE, notification, or operations data in the preview payload
 
 ### Passenger Preview AI: approved next work
@@ -91,19 +93,31 @@ Recommended order:
 Do not skip straight to production `publishedSchedule`, real booking, real ticket, check-in, payment, LINE, GPS, or ETA. Owner approval is required for each production-facing step.
 
 Source of truth:
-- Latest reviewed main before this dashboard update: 2963fe7
+- Latest reviewed main before this dashboard update: `8fad59b476290d1ed13278268f5178361ef20d73`
 - Bridge audit dashboard: ai-handoffs/BRIDGE-AUDIT-DASHBOARD.md
 - Owner-approved network decisions in this dashboard override stale `main`, `bangkok`, `coastal`, vehicle/queue, and `nongkhok: pass_through` assumptions in older coordination notes.
 - Completion Round 2 dry-run snapshot and tests were committed and pushed at `2f4fbca28427cec818cb7aebca2bf0b62826c087`; post-push QA passed for the four ERP snapshot/registry implementation and test files.
 - Data Import dry-run state: readyForReview true, readyForApply false
 - Production apply / Firebase seed: NOT approved
 
-2026-07-13 ERP center groundwork:
+### 2026-07-13 Consolidated Architecture Status
+
+- ERP Data Center: approximately 99.9% ready for preview use.
+- Passenger Preview: approximately 95% complete.
+- ERP Logic Center / central logic migration: approximately 45-50% complete.
+- Whole SL-Transit production readiness: approximately 70-72%.
+- These percentages are coordination estimates, not production approval. `readyForApply=false` remains the hard stop.
+
+2026-07-13 ERP center progress:
 - Commit `2963fe7` added dry-run contracts for `ERP Calculator Center`, `Map Display Center`, and `ERP Alert Center`.
-- `ERP Calculator Center` owns numeric helpers: road-distance-first ETA, fallback distance, duration display, transfer-trip catchability with buffer minutes, and combined transfer fares.
-- `Map Display Center` owns ready vehicle signal normalization and no-warp marker planning for later shared use by Passenger and Check Ticket.
-- `ERP Alert Center` owns notification-recipient planning and once-key generation for booking-created and transfer-arrival-near alerts.
-- Passenger remains display-only. These centers are not wired into live pages yet.
+- `ERP Calculator Center` is wired into Check Ticket for ETA, distance, transfer buffer, catchable-trip, and fare-helper decisions (`9b199c6`).
+- `Map Display Center` is wired into Passenger and Check Ticket for vehicle marker/display planning (`1cc80de`).
+- `ERP Alert Center` is wired into Check Ticket for alert intent and once-only transfer-arrival planning (`2dadd67`).
+- `Vehicle Assignment Center` owns booked-vehicle selection and is wired into Check Ticket (`8960376`).
+- `Journey Status Center` owns journey status decisions and is wired into Check Ticket (`f5bac19`).
+- `Booking Assignment Center` owns the booking assignment contract; Booking surfaces persist the central assignment and no longer use local vehicle fallback selection (`8497d25`, `4faea2f`, `6fc4851`).
+- `Driver Work Center` and `driver-work-producer` own driver/queue work contracts (`31ace5f`, `5b2629a`). Runtime delivery remains blocked by the paused driver vehicle-identity work below.
+- Passenger remains display-only: timetable and all-vehicle map display only, with no local business decisions.
 - Safety: no Firebase writes, no seed, no production apply, no operational/private data access, no LINE sent.
 
 ### 2026-07-13 Paused: Driver Vehicle Identity And Work Read Access
@@ -141,7 +155,7 @@ Shared approved ERP Data Center contract:
 - current destination/network locations: 49
 - source-proven group_001 corridor stops: 15
 - routes: 244
-- trips: 819
+- schedule offers / schedule offer time rows: 820
 - raw legacy route sequence evidence containers: 16 (12 complete queue trips + 4 singleton fragments)
 - owner-approved queue_005 sequence evidence: 2 additional complete trips
 - unique active routeSequenceVersions after normalization: 6
@@ -300,7 +314,7 @@ Shared approved ERP Data Center contract:
 - Proven unique stopTimes before queue_005 correction: 84 from 120 raw rows after 36 corroborating duplicates were removed.
 - Owner-approved queue_005 adds 10 unique stopTimes with no overlap, producing 94 active Phase 1 stopTimes.
 - `km_1` 15:10, `km_7` 15:15, `huaisom`/ห้วยโสม 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
-- Older local Round 2 drafts must not be used. The current reviewed Round 2 artifact is commit `2f4fbca28427cec818cb7aebca2bf0b62826c087`, with `readyForReview=true` for internal dry-run review only; `readyForApply=false` remains enforced, and Firebase seed/production apply is not approved.
+- Older local Round 2 preview descriptions must not be used for current Firebase status. The current `preview/publishedSchedule` read-back source is `31ace5fa559706668e5ff0814ef8f5a511be78e9`, with `readyForReview=true`, blockers 0, warnings 0, and `readyForApply=false`; Firebase seed/production apply is not approved.
 - Fleet Queue Audit established that queue_001-queue_004 rotate veh_001-veh_004 and queue_005 is fixed to veh_005.
 - Owner-approved normalized Round 2 counts: vehicles 5, queues 5, queue schedule versions 5, active queue trips 14, assignment rules 2, unique routeSequenceVersions 6, trip-to-sequence assignments 14, unique stopTimes 94, and retained raw lineage containers 26.
 - The six active sequence versions are: สนามชัยเขต -> ฉะเชิงเทรา, ฉะเชิงเทรา -> คลองหาด, คลองหาด -> ฉะเชิงเทรา, ฉะเชิงเทรา -> สนามชัยเขต, หนองคอก -> ฉะเชิงเทรา, and ฉะเชิงเทรา -> หนองคอก.
