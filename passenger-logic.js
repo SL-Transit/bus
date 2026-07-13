@@ -416,6 +416,11 @@ var PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN = {};
 var PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS = {};
 var PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN = false;
 var PUBLISHED_SCHEDULE_PAIR_ALIASES = {};
+var PUBLISHED_SCHEDULE_PAIR_CACHE = {};
+var PUBLISHED_SCHEDULE_PAIR_LOADS = {};
+var PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS = {};
+var PUBLISHED_SCHEDULE_PAIR_LOADER = null;
+var PUBLISHED_SCHEDULE_LOAD_ERROR = false;
 
 function previewEncodingIndex(node, name) {
   return node && node.firebaseKeyEncoding && node.firebaseKeyEncoding.encodedKeyIndex
@@ -540,11 +545,14 @@ function normalizePreviewDestinationsByOrigin(node, destinations) {
 
 function normalizePreviewDestinationOptionsByOrigin(node) {
   var raw = node && node.destinationOptionsByOrigin ? node.destinationOptionsByOrigin : null;
+  var originIndex = previewEncodingIndex(node, 'destinationOptionsByOrigin');
   var byOrigin = {};
   var pairKeys = {};
   if (!raw || typeof raw !== 'object') return { byOrigin: byOrigin, pairKeys: pairKeys, hasOptions: false };
-  Object.keys(raw).forEach(function(originLabel) {
-    var options = Array.isArray(raw[originLabel]) ? raw[originLabel] : [];
+  Object.keys(raw).forEach(function(originKey) {
+    var originLabel = originIndex[originKey] || originKey;
+    if (!originLabel || isEncodedPreviewKey(originLabel)) return;
+    var options = Array.isArray(raw[originKey]) ? raw[originKey] : [];
     byOrigin[originLabel] = [];
     pairKeys[originLabel] = {};
     options.forEach(function(option) {
@@ -587,8 +595,11 @@ function normalizePreviewPairAliases(node) {
       addPreviewPairAlias(aliases, pair.originLabel + '__' + pair.destinationLabel, key);
     }
   });
-  Object.keys(node && node.destinationOptionsByOrigin || {}).forEach(function(originLabel) {
-    var options = Array.isArray(node.destinationOptionsByOrigin[originLabel]) ? node.destinationOptionsByOrigin[originLabel] : [];
+  var originIndex = previewEncodingIndex(node, 'destinationOptionsByOrigin');
+  Object.keys(node && node.destinationOptionsByOrigin || {}).forEach(function(originKey) {
+    var originLabel = originIndex[originKey] || originKey;
+    if (!originLabel || isEncodedPreviewKey(originLabel)) return;
+    var options = Array.isArray(node.destinationOptionsByOrigin[originKey]) ? node.destinationOptionsByOrigin[originKey] : [];
     options.forEach(function(option) {
       if (!option || !option.pairKey) return;
       addPreviewPairAlias(aliases, option.pairKey, option.pairKey);
@@ -599,8 +610,26 @@ function normalizePreviewPairAliases(node) {
   return aliases;
 }
 
-function applyPublishedSchedule(node) {
+function resetPublishedSchedulePairLoads() {
+  PUBLISHED_SCHEDULE_PAIR_LOADS = {};
+  PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS = {};
+}
+
+function normalizePreviewOrigins(node) {
+  if (node && Array.isArray(node.originOptions) && node.originOptions.length) {
+    return node.originOptions.map(function(option) {
+      if (option && typeof option === 'object') return option.label || option.originLabel || option.displayNameTh || option.nameTh;
+      return option;
+    }).filter(function(label) {
+      return label && !isEncodedPreviewKey(label);
+    });
+  }
+  return (node && Array.isArray(node.origins)) ? node.origins.slice() : [];
+}
+
+function configurePublishedSchedule(node, includePairs) {
   PUBLISHED_SCHEDULE = node || null;
+  PUBLISHED_SCHEDULE_LOAD_ERROR = !!(node && node.loadError);
   PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
   PUBLISHED_SCHEDULE_DESTINATION_LABELS = normalizePreviewDestinationLabels(PUBLISHED_SCHEDULE_DESTINATIONS);
   var destinationOptions = normalizePreviewDestinationOptionsByOrigin(PUBLISHED_SCHEDULE);
@@ -611,14 +640,34 @@ function applyPublishedSchedule(node) {
     ? {}
     : normalizePreviewDestinationsByOrigin(PUBLISHED_SCHEDULE, PUBLISHED_SCHEDULE_DESTINATIONS);
   PUBLISHED_SCHEDULE_PAIR_ALIASES = normalizePreviewPairAliases(PUBLISHED_SCHEDULE);
+  PUBLISHED_SCHEDULE_PAIR_CACHE = includePairs && PUBLISHED_SCHEDULE && PUBLISHED_SCHEDULE.pairs
+    ? Object.assign({}, PUBLISHED_SCHEDULE.pairs)
+    : {};
+  resetPublishedSchedulePairLoads();
   emit('scheduleUpdated');
 }
 
-function getScheduleOrigins() {
-  return (PUBLISHED_SCHEDULE && Array.isArray(PUBLISHED_SCHEDULE.origins)) ? PUBLISHED_SCHEDULE.origins : [];
+function applyPublishedSchedule(node) {
+  configurePublishedSchedule(node, true);
 }
 
-function getScheduleDestinations() {
+function applyPublishedScheduleOptions(node) {
+  configurePublishedSchedule(node, false);
+}
+
+function getScheduleOrigins() {
+  return normalizePreviewOrigins(PUBLISHED_SCHEDULE);
+}
+
+function getScheduleDestinations(originLabel) {
+  if (originLabel && PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) {
+    var destinationMap = {};
+    (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).forEach(function(option) {
+      if (!option || !option.label) return;
+      destinationMap[option.label] = Object.assign({}, option);
+    });
+    return destinationMap;
+  }
   return PUBLISHED_SCHEDULE_DESTINATIONS;
 }
 
@@ -649,22 +698,96 @@ function getScheduleDestinationLabels(originLabel) {
   return PUBLISHED_SCHEDULE_DESTINATION_LABELS.slice();
 }
 
-function getSchedulePair(originLabel, destLabel) {
-  if (!PUBLISHED_SCHEDULE || !PUBLISHED_SCHEDULE.pairs) return null;
+function getSchedulePairKey(originLabel, destLabel) {
   var optionPairKey = originLabel && destLabel && PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS[originLabel]
     ? PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS[originLabel][destLabel]
     : null;
-  if (optionPairKey) {
-    var optionResolvedKey = PUBLISHED_SCHEDULE.pairs[optionPairKey] ? optionPairKey : PUBLISHED_SCHEDULE_PAIR_ALIASES[optionPairKey];
-    return optionResolvedKey ? (PUBLISHED_SCHEDULE.pairs[optionResolvedKey] || null) : null;
+  return optionPairKey || (originLabel + '__' + destLabel);
+}
+
+function resolveSchedulePairStorageKey(pairKey) {
+  return pairKey && (PUBLISHED_SCHEDULE_PAIR_ALIASES[pairKey] || pairKey);
+}
+
+function cacheSchedulePair(storageKey, pair, requestedPairKey) {
+  if (!pair || !storageKey) return null;
+  PUBLISHED_SCHEDULE_PAIR_CACHE[storageKey] = pair;
+  addPreviewPairAlias(PUBLISHED_SCHEDULE_PAIR_ALIASES, requestedPairKey, storageKey);
+  addPreviewPairAlias(PUBLISHED_SCHEDULE_PAIR_ALIASES, pair.compatibilityPairKey, storageKey);
+  if (pair.originLabel && pair.destinationLabel) {
+    addPreviewPairAlias(PUBLISHED_SCHEDULE_PAIR_ALIASES, pair.originLabel + '__' + pair.destinationLabel, storageKey);
   }
-  var pairKey = originLabel + '__' + destLabel;
-  var resolvedKey = PUBLISHED_SCHEDULE.pairs[pairKey] ? pairKey : PUBLISHED_SCHEDULE_PAIR_ALIASES[pairKey];
-  return resolvedKey ? (PUBLISHED_SCHEDULE.pairs[resolvedKey] || null) : null;
+  return pair;
+}
+
+function getSchedulePair(originLabel, destLabel) {
+  if (!PUBLISHED_SCHEDULE) return null;
+  var pairKey = getSchedulePairKey(originLabel, destLabel);
+  var resolvedKey = resolveSchedulePairStorageKey(pairKey);
+  return resolvedKey ? (PUBLISHED_SCHEDULE_PAIR_CACHE[resolvedKey] || null) : null;
+}
+
+function getSchedulePairLoadStatus(originLabel, destLabel) {
+  var pairKey = getSchedulePairKey(originLabel, destLabel);
+  var resolvedKey = resolveSchedulePairStorageKey(pairKey);
+  if (resolvedKey && PUBLISHED_SCHEDULE_PAIR_CACHE[resolvedKey]) return 'loaded';
+  return PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] || PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[resolvedKey] || 'idle';
+}
+
+function setSchedulePairLoader(loader) {
+  PUBLISHED_SCHEDULE_PAIR_LOADER = typeof loader === 'function' ? loader : null;
+}
+
+function loadSchedulePair(originLabel, destLabel) {
+  if (!PUBLISHED_SCHEDULE) return Promise.resolve(null);
+  var pairKey = getSchedulePairKey(originLabel, destLabel);
+  var storageKey = resolveSchedulePairStorageKey(pairKey);
+  if (!storageKey) {
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'missing';
+    return Promise.resolve(null);
+  }
+  if (PUBLISHED_SCHEDULE_PAIR_CACHE[storageKey]) return Promise.resolve(PUBLISHED_SCHEDULE_PAIR_CACHE[storageKey]);
+  if (!PUBLISHED_SCHEDULE_PAIR_LOADER) {
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'missing';
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[storageKey] = 'missing';
+    return Promise.resolve(null);
+  }
+  if (PUBLISHED_SCHEDULE_PAIR_LOADS[storageKey]) return PUBLISHED_SCHEDULE_PAIR_LOADS[storageKey];
+  PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'loading';
+  PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[storageKey] = 'loading';
+  PUBLISHED_SCHEDULE_PAIR_LOADS[storageKey] = Promise.resolve(PUBLISHED_SCHEDULE_PAIR_LOADER(storageKey, {
+    pairKey: pairKey,
+    originLabel: originLabel,
+    destinationLabel: destLabel
+  })).then(function(pair) {
+    delete PUBLISHED_SCHEDULE_PAIR_LOADS[storageKey];
+    if (!pair) {
+      PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'missing';
+      PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[storageKey] = 'missing';
+      emit('schedulePairUpdated');
+      return null;
+    }
+    var cached = cacheSchedulePair(storageKey, pair, pairKey);
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'loaded';
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[storageKey] = 'loaded';
+    emit('schedulePairUpdated');
+    return cached;
+  }).catch(function(err) {
+    delete PUBLISHED_SCHEDULE_PAIR_LOADS[storageKey];
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'error';
+    PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[storageKey] = 'error';
+    emit('schedulePairUpdated');
+    throw err;
+  });
+  return PUBLISHED_SCHEDULE_PAIR_LOADS[storageKey];
 }
 
 function isScheduleReady() {
   return !!PUBLISHED_SCHEDULE;
+}
+
+function hasPublishedScheduleLoadError() {
+  return PUBLISHED_SCHEDULE_LOAD_ERROR === true;
 }
 
 function applyPassengerRouteData(data) {
@@ -1642,8 +1765,13 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
     hasDestinationOptionsByOrigin: hasScheduleDestinationOptionsByOrigin,
     getDestinationLabels: getScheduleDestinationLabels,
     getPair: getSchedulePair,
+    getPairLoadStatus: getSchedulePairLoadStatus,
+    setPairLoader: setSchedulePairLoader,
+    loadPair: loadSchedulePair,
+    hasLoadError: hasPublishedScheduleLoadError,
     isReady: isScheduleReady,
-    applyPublishedSchedule: applyPublishedSchedule
+    applyPublishedSchedule: applyPublishedSchedule,
+    applyPublishedScheduleOptions: applyPublishedScheduleOptions
   };
 
   var vehiclesApi = {

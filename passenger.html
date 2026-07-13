@@ -898,15 +898,20 @@ function splitBalanced(arr) {
 
 // Passenger only renders what ERP's precomputed schedule node says — it does
 // not decide transfers, hubs, disabled times, or which pairs are reference-only
-// itself. Reads preview/publishedSchedule (Schema publishedSchedule.v1.preview).
+// itself. It first reads lightweight preview options, then lazy-loads the
+// selected pair from preview/publishedSchedule/pairs/{pairKey}.
 // See ai-handoffs/passenger-schedule-node-request.md.
 function renderSched() {
   const wrapper = document.getElementById('schedWrapper');
   const S = SLPassengerLogic.schedule;
   const origin = SLPassengerLogic.state.getOrigin(), dest = SLPassengerLogic.state.getDest();
   if (!wrapper) return;
+  if (typeof S.hasLoadError === 'function' && S.hasLoadError()) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div><div class="sched-route-name">ระบบไม่สามารถอ่านข้อมูลเส้นทางได้</div></div><div class="time-grid"></div></div>';
+    return;
+  }
   if (!S.isReady()) {
-    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดตารางเวลา</div><div class="sched-route-name">ระบบกำลังอ่านข้อมูลจากระบบกลาง</div></div><div class="time-grid"></div></div>';
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดข้อมูลเส้นทาง...</div><div class="sched-route-name">ระบบกำลังอ่านข้อมูลจากระบบกลาง</div></div><div class="time-grid"></div></div>';
     return;
   }
   if (!origin) {
@@ -914,15 +919,25 @@ function renderSched() {
     return;
   }
   if (!dest) {
-    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">เลือกปลายทาง</div><div class="sched-route-name">กรุณาเลือกปลายทาง</div></div><div class="time-grid"></div></div>';
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กรุณาเลือกปลายทาง</div><div class="sched-route-name">กรุณาเลือกปลายทาง</div></div><div class="time-grid"></div></div>';
     return;
   }
 
-  // getPair() only ever looks at PUBLISHED_SCHEDULE.pairs -- excludedPreviewPairs
+  // getPair()/loadPair() only ever look at PUBLISHED_SCHEDULE.pairs -- excludedPreviewPairs
   // (transferUnknown / transferInfeasible) are never consulted, so those never
   // render as selectable journeys, by construction.
   const pair = S.getPair(origin, dest);
   if (!pair || !Array.isArray(pair.segments) || !pair.segments.length) {
+    const pairStatus = typeof S.getPairLoadStatus === 'function' ? S.getPairLoadStatus(origin, dest) : 'missing';
+    if (pairStatus === 'error') {
+      wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+      return;
+    }
+    if (pairStatus !== 'missing' && typeof S.loadPair === 'function') {
+      wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดตารางเวลา...</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+      S.loadPair(origin, dest).then(function(){ renderSched(); }).catch(function(){ renderSched(); });
+      return;
+    }
     wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">ไม่พบตารางเวลาสำหรับเส้นทางนี้</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
     return;
   }
@@ -999,7 +1014,7 @@ function buildDropdowns(){
   originSel.innerHTML = '';
 
   const origins = S.getOrigins();
-  const destinations = S.getDestinations(); // { label: { group: null|"ต่อรถ" } }
+  const destinations = S.getDestinations(state.getOrigin() || originSel.value); // { label: { group: null|"ต่อรถ" } }
 
   // ต้นทาง
   if (!origins.length) {
@@ -1107,7 +1122,7 @@ function buildDropdowns(){
   if (originSel.dataset.bound !== '1') {
     originSel.addEventListener('change', function(){
       state.setOrigin(this.value);
-      if(state.getDest()===state.getOrigin()) state.setDest('');
+      if(!(typeof S.hasDestinationOptionsByOrigin === 'function' && S.hasDestinationOptionsByOrigin()) && state.getDest()===state.getOrigin()) state.setDest('');
       buildDestOptions();
       selectedMapFocus = null;
       renderSched();
@@ -1153,12 +1168,57 @@ db.ref('settings').on('value', function(snap) {
 
 // Precomputed, ready-to-render schedule -- ERP Data Center Round 2 preview.
 // Register this before map/catalog/vehicle feeds so dropdowns become usable as
-// soon as preview schedule data arrives; those other feeds remain independent.
-db.ref('preview/publishedSchedule').on('value', function(snap) {
-  SLPassengerLogic.schedule.applyPublishedSchedule(snap.val());
-}, function(err) {
-  console.error('Passenger preview/publishedSchedule load failed:', err && err.message ? err.message : err);
-});
+// soon as lightweight option data arrives; pair details are loaded on demand.
+(function initPublishedSchedulePreview() {
+  const scheduleBaseRef = db.ref('preview/publishedSchedule');
+  const scheduleApi = SLPassengerLogic.schedule;
+
+  if (typeof scheduleApi.setPairLoader === 'function') {
+    scheduleApi.setPairLoader(function(storageKey) {
+      return scheduleBaseRef.child('pairs').child(storageKey).once('value').then(function(snap) {
+        return snap.val();
+      });
+    });
+  }
+
+  Promise.all([
+    scheduleBaseRef.child('schemaVersion').once('value'),
+    scheduleBaseRef.child('generatedAt').once('value'),
+    scheduleBaseRef.child('sourceCommitSha').once('value'),
+    scheduleBaseRef.child('dryRun').once('value'),
+    scheduleBaseRef.child('writesEnabled').once('value'),
+    scheduleBaseRef.child('readyForReview').once('value'),
+    scheduleBaseRef.child('readyForApply').once('value'),
+    scheduleBaseRef.child('publicationStatus').once('value'),
+    scheduleBaseRef.child('productionReady').once('value'),
+    scheduleBaseRef.child('counts').once('value'),
+    scheduleBaseRef.child('originOptions').once('value'),
+    scheduleBaseRef.child('destinationOptionsByOrigin').once('value'),
+    scheduleBaseRef.child('firebaseKeyEncoding').once('value'),
+    scheduleBaseRef.child('validation').once('value')
+  ]).then(function(parts) {
+    const optionNode = {
+      schemaVersion: parts[0].val(),
+      generatedAt: parts[1].val(),
+      sourceCommitSha: parts[2].val(),
+      dryRun: parts[3].val(),
+      writesEnabled: parts[4].val(),
+      readyForReview: parts[5].val(),
+      readyForApply: parts[6].val(),
+      publicationStatus: parts[7].val(),
+      productionReady: parts[8].val(),
+      counts: parts[9].val(),
+      originOptions: parts[10].val() || [],
+      destinationOptionsByOrigin: parts[11].val() || {},
+      firebaseKeyEncoding: parts[12].val() || {},
+      validation: parts[13].val() || {}
+    };
+    scheduleApi.applyPublishedScheduleOptions(optionNode);
+  }).catch(function(err) {
+    console.error('Passenger preview/publishedSchedule option load failed:', err && err.message ? err.message : err);
+    scheduleApi.applyPublishedScheduleOptions({ loadError: true, originOptions: [], destinationOptionsByOrigin: {} });
+  });
+})();
 
 db.ref('routeData').on('value', function(snap) {
   SLPassengerLogic.map.applyLiveStopsData(snap.val());

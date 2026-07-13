@@ -215,6 +215,48 @@ function sampleScheduleWithDestinationOptions() {
   return schedule;
 }
 
+function sampleOptionOnlySchedule() {
+  const schedule = sampleScheduleWithDestinationOptions();
+  delete schedule.pairs;
+  delete schedule.destinations;
+  schedule.originOptions = corridor.map((label, displayOrder) => ({ label, displayOrder }));
+  schedule.destinationOptionsByOrigin = {
+    [TH.chachoengsao]: [
+      {
+        label: TH.pattaya,
+        destinationLabel: TH.pattaya,
+        pairKey: pairKey(TH.chachoengsao, TH.km1),
+        group: TH.transferGroup,
+        displayOrder: 0
+      },
+      {
+        label: TH.chachoengsao,
+        destinationLabel: TH.chachoengsao,
+        pairKey: encodedPair7,
+        displayOrder: 1
+      },
+      {
+        label: TH.km7,
+        destinationLabel: TH.km7,
+        pairKey: encodedPair7,
+        displayOrder: 2
+      }
+    ],
+    [encodedDest1]: [
+      {
+        label: TH.km7,
+        destinationLabel: TH.km7,
+        pairKey: pairKey(TH.km1, TH.km7),
+        displayOrder: 0
+      }
+    ]
+  };
+  schedule.firebaseKeyEncoding.encodedKeyIndex.destinationOptionsByOrigin = {
+    [encodedDest1]: TH.km1
+  };
+  return schedule;
+}
+
 const sandbox = loadPassengerLogic();
 const schedule = sandbox.SLPassengerLogic.schedule;
 let scheduleUpdatedCount = 0;
@@ -263,4 +305,49 @@ assert(schedule.getPair(TH.chachoengsao, TH.chachoengsao) === schedule.getPair(T
 assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.phanom)), [TH.phaijit], 'origin-specific destination options must not be derived from visible pairs');
 assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backed preview schedule is applied');
 
-console.log('passenger preview normalization ok');
+(async function runLazyScheduleTests() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'passenger.html'), 'utf8');
+  assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.on\s*\(/.test(html), 'Passenger must not subscribe to full preview/publishedSchedule on initial load');
+  assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.once\s*\(/.test(html), 'Passenger must not once-read full preview/publishedSchedule on initial load');
+  assert(html.includes(".child('originOptions')"), 'Passenger must read originOptions as lightweight initial data');
+  assert(html.includes(".child('destinationOptionsByOrigin')"), 'Passenger must read destinationOptionsByOrigin as lightweight initial data');
+  assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
+  assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
+
+  const sourcePairs = sampleSchedule().pairs;
+  const loadCalls = [];
+  schedule.applyPublishedScheduleOptions(sampleOptionOnlySchedule());
+  schedule.setPairLoader((storageKey) => {
+    loadCalls.push(storageKey);
+    return Promise.resolve(sourcePairs[storageKey] || null);
+  });
+
+  assert(schedule.hasDestinationOptionsByOrigin() === true, 'option-only schedule must report ERP destination options');
+  assert.deepStrictEqual(Array.from(schedule.getOrigins()), corridor, 'originOptions must be enough to build origins');
+  assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.chachoengsao)), [TH.pattaya, TH.chachoengsao, TH.km7], 'option-only destinations must keep ERP order/content exactly');
+  assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.km1)), [TH.km7], 'encoded destinationOptionsByOrigin keys must resolve to display origin labels');
+  assert(!schedule.getDestinationLabels(TH.chachoengsao).includes(TH.rangsit), 'excludedPreviewPairs must not become destination options');
+  assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya), null, 'option-only initial state must not have full pairs loaded');
+
+  const loadedPair = await schedule.loadPair(TH.chachoengsao, TH.pattaya);
+  assert(loadedPair, 'loadPair must fetch the selected pair');
+  assert.strictEqual(loadCalls[0], encodedPair1, 'loadPair must resolve raw option pairKey to encoded Firebase-safe key');
+  assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya), loadedPair, 'getPair must return cached lazy-loaded pair');
+  assert.strictEqual(loadedPair.segments[0].times[0].displayBadgeTh, TH.estimatedBadge, 'estimated badge must pass through after lazy load');
+
+  await schedule.loadPair(TH.chachoengsao, TH.pattaya);
+  assert.strictEqual(loadCalls.length, 1, 'pair cache must prevent duplicate fetch for same pair');
+
+  const encodedOriginPair = await schedule.loadPair(TH.km1, TH.km7);
+  assert(encodedOriginPair, 'encoded origin destination option must lazy-load');
+  assert.strictEqual(loadCalls[1], encodedPairKm1Km7, 'encoded pair keys must still resolve for lazy load');
+
+  const missingPair = await schedule.loadPair(TH.chachoengsao, TH.rangsit);
+  assert.strictEqual(missingPair, null, 'missing pair must resolve to null');
+  assert.strictEqual(schedule.getPairLoadStatus(TH.chachoengsao, TH.rangsit), 'missing', 'missing lazy pair must be marked missing');
+})().then(() => {
+  console.log('passenger preview normalization ok');
+}).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
