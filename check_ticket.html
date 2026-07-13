@@ -23,6 +23,7 @@
 <script src="map-display-center.js?v=20260713center1"></script>
 <script src="erp-alert-center.js?v=20260713center1"></script>
 <script src="vehicle-assignment-center.js?v=20260713center1"></script>
+<script src="journey-status-center.js?v=20260713center1"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
@@ -2641,6 +2642,14 @@
     }
 
     function serviceArrivalInfo(booking) {
+      var centerInfo = window.SLTransitJourneyStatusCenter && typeof window.SLTransitJourneyStatusCenter.arrivalInfo === 'function'
+        ? window.SLTransitJourneyStatusCenter.arrivalInfo(booking)
+        : null;
+      if (centerInfo) {
+        return centerInfo.type === 'transfer'
+          ? { type: 'transfer', ts: centerInfo.ts, label: 'เธ–เธถเธเธเธธเธ”เธ•เนเธญเธฃเธ–เนเธเธ”เธฃเธดเนเธงเนเธฅเนเธง' }
+          : { type: 'destination', ts: centerInfo.ts, label: 'เธ–เธถเธเธเธฅเธฒเธขเธ—เธฒเธเนเธฅเนเธง' };
+      }
       if (!booking) return null;
       if (booking.arrivedTransferPoint && booking.arrivedTransferPoint.ts) {
         return { type: 'transfer', ts: Number(booking.arrivedTransferPoint.ts), label: 'ถึงจุดต่อรถแปดริ้วแล้ว' };
@@ -2653,6 +2662,9 @@
 
     function isServiceEnded(booking) {
       var info = serviceArrivalInfo(booking);
+      if (window.SLTransitJourneyStatusCenter && typeof window.SLTransitJourneyStatusCenter.serviceEnded === 'function') {
+        return window.SLTransitJourneyStatusCenter.serviceEnded(booking, Date.now(), SERVICE_END_AFTER_MS);
+      }
       if (window.SLTransitTicketPolicy && typeof window.SLTransitTicketPolicy.isServiceEnded === 'function') {
         return window.SLTransitTicketPolicy.isServiceEnded(info && info.ts, Date.now(), SERVICE_END_AFTER_MS);
       }
@@ -2693,8 +2705,18 @@
       var source = journeyEtaSource();
       if (!target || !normalizeTrackingPoint(source)) return;
       var eta = calculateTransferOrDestinationEta();
-      var near = isWithinGeoRadius(source, target, 0.35);
-      if (!near && !(eta !== null && eta <= 1)) return;
+      var centerState = window.SLTransitJourneyStatusCenter && typeof window.SLTransitJourneyStatusCenter.journeyArrivalState === 'function'
+        ? window.SLTransitJourneyStatusCenter.journeyArrivalState({
+          booking: currentBooking,
+          boarded: true,
+          sourcePoint: source,
+          targetPoint: target,
+          targetType: routeInfo.type === 'secondary_connection' ? 'transfer' : 'destination',
+          arrivalRadiusKm: 0.35,
+          etaMinutes: eta
+        })
+        : null;
+      if (!centerState || (centerState.status !== 'arrived_transfer_point' && centerState.status !== 'arrived_destination')) return;
       var now = Date.now();
       var update = routeInfo.type === 'secondary_connection' ? {
         status: 'arrived_transfer_point',
@@ -2880,6 +2902,15 @@
 
     function isVanAtOrPastPickup() {
       if (!normalizeTrackingPoint(vanLocation) || !pickupStopLocation) return false;
+      var centerState = window.SLTransitJourneyStatusCenter && typeof window.SLTransitJourneyStatusCenter.originBoardingState === 'function'
+        ? window.SLTransitJourneyStatusCenter.originBoardingState({
+          boarded: isOriginBoarded(),
+          vehiclePoint: vanLocation,
+          pickupPoint: pickupStopLocation,
+          pickupRadiusKm: 0.35
+        })
+        : null;
+      if (centerState && centerState.atPickup) return true;
       if (trackingCurrentTrip) {
         var state = vehiclePickupProgress(trackingCurrentTrip, vanLocation, pickupStopLocation.name);
         var atPickup = isWithinGeoRadius(vanLocation, pickupStopLocation, 0.35);
