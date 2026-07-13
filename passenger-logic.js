@@ -825,7 +825,7 @@ function applyPublishedScheduleMapView(mapView) {
   });
   PASSENGER_ROUTE_DATA = {
     stops: stops,
-    mapRoutes: Array.isArray(mapView.routes) ? mapView.routes : [],
+    mapRoutes: [],
     source: 'publishedSchedule.mapView'
   };
   applyPassengerRouteData(PASSENGER_ROUTE_DATA);
@@ -972,18 +972,10 @@ function initPassengerMap() {
 }
 
 function currentPassengerRouteData() {
-  var mapRoutes = PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.mapRoutes)
-    ? PASSENGER_ROUTE_DATA.mapRoutes
-    : [];
-  var route = mapRoutes.find(function(candidate) {
-    return candidate && candidate.geometryType === 'road_polyline' && Array.isArray(candidate.polyline) && candidate.polyline.length >= 2;
-  }) || mapRoutes.find(function(candidate) {
-    return candidate && candidate.geometryType === 'stop_to_stop_fallback' && Array.isArray(candidate.polyline) && candidate.polyline.length >= 2;
-  }) || null;
   return {
     stations: curStops().slice(),
-    polyline: route && Array.isArray(route.polyline) ? route.polyline.slice() : [],
-    geometryType: route && route.geometryType || ''
+    polyline: [],
+    geometryType: 'stops_only'
   };
 }
 
@@ -1162,19 +1154,10 @@ function drawRoute(routeData) {
       return Promise.resolve();
     }
   }
-  const coords = stops.map(function(s){ return s.lng + ',' + s.lat; }).join(';');
-  const renderSeq = ++routeRenderSeq;
-  function setRouteLine(coordinates) {
-    if (renderSeq !== routeRenderSeq) return;
-    const pts = coordinates.map(function(c) { return Array.isArray(c) ? { lon:c[0], lat:c[1] } : normalizeMapPoint(c); }).filter(Boolean);
-    knownRouteLinePoints = pts;
-    try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
-    routeLine = new longdo.Polyline(pts, { lineColor: viewDir==='go' ? '#1e40af' : '#dc2626', lineWidth: 5, lineOpacity: 0.82 });
-    mapObj.Overlays.add(routeLine);
-  }
-  return fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson')
-    .then(r=>r.json()).then(data=>{ if (data.routes?.[0]) setRouteLine(data.routes[0].geometry.coordinates); })
-    .catch(()=>{ const pts = stops.map(s=>({ lon:s.lng, lat:s.lat })); setRouteLine(pts); });
+  knownRouteLinePoints = [];
+  try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
+  routeLine = null;
+  return Promise.resolve();
 }
 
 // ===== KALMAN FILTER FOR BUS POSITION =====
@@ -1598,60 +1581,8 @@ function updateBusMotionTarget(carId, gpsPos, pos, gpsTs, shouldFocus) {
   if (shouldFocus && (busFollowMode || !busCentered)) { focusMap(state.display || gpsPos, 14); busCentered = true; }
 }
 
-// ===== SNAP-TO-ROAD (OSRM Match API) =====
-// Cache snap result ต่อ carId เพื่อไม่ call OSRM ซ้ำถ้าตำแหน่งไม่เปลี่ยน
-var snapCache = {}; // { carId: { lat, lon, snappedLat, snappedLon, ts } }
-var snapInFlight = {}; // { carId: true } ป้องกัน call ซ้อน
-
 function snapToRoad(carId, lat, lon, callback) {
-  var now = Date.now();
-  var cache = snapCache[carId];
-
-  // ใช้ cache ถ้าตำแหน่งเดิมเปลี่ยนไปน้อยกว่า 15 เมตร และอายุไม่เกิน 30 วินาที
-  if (cache && (now - cache.ts) < 30000) {
-    var cacheDist = distanceMeters(lat, lon, cache.lat, cache.lon);
-    if (cacheDist < 15) {
-      callback({ lat: cache.snappedLat, lon: cache.snappedLon });
-      return;
-    }
-  }
-
-  // ถ้ามี call อยู่แล้ว ใช้ตำแหน่งดิบไปก่อน (ไม่รอ)
-  if (snapInFlight[carId]) {
-    callback({ lat: lat, lon: lon });
-    return;
-  }
-
-  snapInFlight[carId] = true;
-  var url = 'https://router.project-osrm.org/match/v1/driving/'
-    + lon + ',' + lat
-    + '?radiuses=50&geometries=geojson&annotations=false&overview=false';
-
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      snapInFlight[carId] = false;
-      if (data && data.matchings && data.matchings[0] &&
-          data.matchings[0].legs && data.matchings[0].legs[0] &&
-          data.tracepoints && data.tracepoints[0] &&
-          data.tracepoints[0] !== null) {
-        var snapped = data.tracepoints[0].location; // [lon, lat]
-        var snappedLat = snapped[1], snappedLon = snapped[0];
-        // เก็บ cache
-        snapCache[carId] = { lat: lat, lon: lon, snappedLat: snappedLat, snappedLon: snappedLon, ts: now };
-        // snapToRoad คืนค่าอย่างเดียว; ห้ามขยับ marker จาก callback เก่าเอง
-        // เพื่อกันผล OSRM ที่มาช้ากว่าดึงรถกลับไปตำแหน่งก่อนหน้า
-        callback({ lat: snappedLat, lon: snappedLon });
-      } else {
-        // OSRM snap ไม่ได้ (นอกถนน, timeout) → ใช้ตำแหน่งดิบ
-        callback({ lat: lat, lon: lon });
-      }
-    })
-    .catch(function() {
-      snapInFlight[carId] = false;
-      // OSRM ล่มหรือเน็ตหาย → ใช้ตำแหน่งดิบ ไม่กระทบ UX
-      callback({ lat: lat, lon: lon });
-    });
+  if (typeof callback === 'function') callback({ lat: lat, lon: lon });
 }
 
 function updateAllBusesOnMap(buses) {

@@ -375,6 +375,7 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(html.includes(".child('mapView')"), 'Passenger must read mapView as lightweight initial data');
   assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
+  assert(!logicSource.includes('router.project-osrm.org'), 'Passenger must not fetch route geometry from OSRM');
   assert(html.includes('ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์'), 'Passenger must show live tracking unavailable when no approved new live data exists');
   assert(!/fake\s*(gps|eta|vehicle|assignment)/i.test(html + '\n' + logicSource), 'Passenger must not create fake GPS/ETA/vehicle/assignment data');
 
@@ -395,8 +396,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(Array.isArray(previewRouteData.stations) && previewRouteData.stations.length === 15, 'Passenger must accept map stops from publishedSchedule mapView');
   assert(previewRouteData.stations[0].name === TH.chachoengsao, 'Passenger map stop labels must come from mapView');
   assert(previewRouteData.stations.every((station) => station.name && Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lng))), 'Passenger map adapter must consume all visible map stops');
-  assert(previewRouteData.geometryType === 'road_polyline', 'Passenger must prefer road_polyline over stop-to-stop fallback');
-  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length > previewRouteData.stations.length, 'Passenger road route line must come from mapView road polyline');
+  assert(previewRouteData.geometryType === 'stops_only', 'Passenger map must be stop-position only for now');
+  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length === 0, 'Passenger must not use mapView.routes polyline for now');
   assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya), null, 'option-only initial state must not have full pairs loaded');
 
   const loadedPair = await schedule.loadPair(TH.chachoengsao, TH.pattaya);
