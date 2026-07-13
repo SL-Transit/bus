@@ -91,12 +91,20 @@ Recommended order:
 Do not skip straight to production `publishedSchedule`, real booking, real ticket, check-in, payment, LINE, GPS, or ETA. Owner approval is required for each production-facing step.
 
 Source of truth:
-- Latest reviewed main before this dashboard update: a65d535d5e57ff3311052a45ab087fb838773278
+- Latest reviewed main before this dashboard update: 2963fe7
 - Bridge audit dashboard: ai-handoffs/BRIDGE-AUDIT-DASHBOARD.md
 - Owner-approved network decisions in this dashboard override stale `main`, `bangkok`, `coastal`, vehicle/queue, and `nongkhok: pass_through` assumptions in older coordination notes.
 - Completion Round 2 dry-run snapshot and tests were committed and pushed at `2f4fbca28427cec818cb7aebca2bf0b62826c087`; post-push QA passed for the four ERP snapshot/registry implementation and test files.
 - Data Import dry-run state: readyForReview true, readyForApply false
 - Production apply / Firebase seed: NOT approved
+
+2026-07-13 ERP center groundwork:
+- Commit `2963fe7` added dry-run contracts for `ERP Calculator Center`, `Map Display Center`, and `ERP Alert Center`.
+- `ERP Calculator Center` owns numeric helpers: road-distance-first ETA, fallback distance, duration display, transfer-trip catchability with buffer minutes, and combined transfer fares.
+- `Map Display Center` owns ready vehicle signal normalization and no-warp marker planning for later shared use by Passenger and Check Ticket.
+- `ERP Alert Center` owns notification-recipient planning and once-key generation for booking-created and transfer-arrival-near alerts.
+- Passenger remains display-only. These centers are not wired into live pages yet.
+- Safety: no Firebase writes, no seed, no production apply, no operational/private data access, no LINE sent.
 
 Shared approved ERP Data Center contract:
 - SL-Transit is an interconnected journey-planning and transport-service platform, not a single-main-route website.

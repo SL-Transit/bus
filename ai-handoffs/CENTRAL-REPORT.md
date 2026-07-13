@@ -44,6 +44,48 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-13 19:18 +07 (Asia/Bangkok) - Supervisor AI / ERP Centers - DONE
+
+Scope:
+- `erp-calculator-center.js`
+- `map-display-center.js`
+- `erp-alert-center.js`
+- `tests/erp-calculator-center.test.js`
+- `tests/map-display-center.test.js`
+- `tests/erp-alert-center.test.js`
+- `tests/passenger-preview-normalization.test.js`
+
+Summary:
+- Added first dry-run center contracts for the owner-approved architecture: ERP Calculator Center, Map Display Center, and ERP Alert Center.
+- ERP Calculator Center now owns pure numeric helpers for road-distance-first ETA, fallback distance, duration display, transfer-trip catchability with buffer minutes, and combined transfer fares.
+- Map Display Center now owns ready vehicle signal normalization and no-warp marker planning, so Passenger and Check Ticket can later share the same display behavior instead of each page deciding movement locally.
+- ERP Alert Center now owns notification-recipient planning for booking-created and near-transfer-arrival alerts, including once-key generation to prevent repeated terminal alerts.
+- Passenger regression guard was included so map stop short labels cannot overwrite the ERP origin option contract label.
+- This pass is contract/test groundwork only; no page was wired to the new centers yet.
+
+Evidence:
+- Commit: `2963fe7`
+- Actions: not checked after push.
+- Pages: not checked after push.
+- Tests: `node tests\erp-calculator-center.test.js`; `node tests\map-display-center.test.js`; `node tests\erp-alert-center.test.js`; `node tests\passenger-preview-normalization.test.js`; `node tests\geo-engine.test.js`; `node tests\line-event-engine.test.js`; `git diff --check` passed with line-ending warning only for pre-existing dirty `database.rules.json`.
+
+Safety:
+- Firebase writes: none.
+- Seed applied: no.
+- Production apply: no.
+- Passenger/private data touched: none.
+- Operational/private data touched: none.
+- LINE notifications sent: none.
+- `database.rules.json` remains dirty from unrelated prior work and was not committed.
+
+Blockers:
+- None for dry-run center contracts.
+- New centers are not yet wired into Passenger, Check Ticket, Booking, Driver App, or Firebase backend flow.
+- ERP Data Center still remains preview/review only unless owner separately approves production apply.
+
+Next action:
+- Wire Check Ticket and Passenger to consume backend/center outputs in a later scoped pass: Passenger displays all vehicle positions and timetable only; Check Ticket displays booked vehicle ETA and transfer guidance only.
+
 ## 2026-07-10 00:00 +07 (Asia/Bangkok) - Main Backbone Support AI - REVIEW
 
 Scope:
