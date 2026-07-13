@@ -410,9 +410,6 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 // read -- excludedPreviewPairs (transferUnknown/transferInfeasible) are never
 // consulted, so those never surface as selectable journeys.
 var PUBLISHED_SCHEDULE = null;
-var PUBLISHED_SCHEDULE_DESTINATIONS = {};
-var PUBLISHED_SCHEDULE_DESTINATION_LABELS = [];
-var PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = {};
 var PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN = {};
 var PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS = {};
 var PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN = false;
@@ -439,64 +436,6 @@ function displayLabelFromPreviewEntry(key, entry, index) {
     return entry.label || entry.displayNameTh || entry.destinationLabel || entry.nameTh || index[key] || key;
   }
   return index[key] || key;
-}
-
-function normalizePreviewDestinations(node) {
-  var raw = node && node.destinations ? node.destinations : {};
-  var index = previewEncodingIndex(node, 'destinations');
-  var originOrder = {};
-  (Array.isArray(node && node.origins) ? node.origins : []).forEach(function(label, idx) {
-    originOrder[label] = idx;
-  });
-  var normalized = {};
-  Object.keys(raw).forEach(function(key) {
-    var entry = raw[key];
-    var label = displayLabelFromPreviewEntry(key, entry, index);
-    if (!label || isEncodedPreviewKey(label)) return;
-    normalized[label] = (entry && typeof entry === 'object') ? Object.assign({}, entry) : {};
-    normalized[label].label = normalized[label].label || label;
-    normalized[label].destinationLabel = normalized[label].destinationLabel || label;
-    normalized[label].firebaseKey = key;
-    if (!isFinite(Number(normalized[label].displayOrder)) && originOrder[label] != null) {
-      normalized[label].displayOrder = originOrder[label];
-    }
-  });
-  return normalized;
-}
-
-function destinationGroupLabel(entry) {
-  return entry && (entry.group || entry.groupLabel || entry.groupName || entry.destinationGroup || entry.routeGroup) || null;
-}
-
-function destinationOrderValue(label, entry, fallback) {
-  var candidates = [
-    entry && entry.displayOrder,
-    entry && entry.groupStopCode,
-    entry && entry.order,
-    entry && entry.sortOrder
-  ];
-  for (var i = 0; i < candidates.length; i++) {
-    var value = Number(candidates[i]);
-    if (isFinite(value)) return value;
-  }
-  return fallback;
-}
-
-function normalizePreviewDestinationLabels(destinations) {
-  var labels = Object.keys(destinations || {});
-  labels.sort(function(a, b) {
-    var ga = destinationGroupLabel(destinations[a]);
-    var gb = destinationGroupLabel(destinations[b]);
-    var mainA = ga ? 1 : 0;
-    var mainB = gb ? 1 : 0;
-    if (mainA !== mainB) return mainA - mainB;
-    if (ga !== gb) return String(ga || '').localeCompare(String(gb || ''), 'th');
-    var oa = destinationOrderValue(a, destinations[a], Number.MAX_SAFE_INTEGER);
-    var ob = destinationOrderValue(b, destinations[b], Number.MAX_SAFE_INTEGER);
-    if (oa !== ob) return oa - ob;
-    return String(a || '').localeCompare(String(b || ''), 'th');
-  });
-  return labels;
 }
 
 function decodedPreviewPairKey(node, key, pair) {
@@ -526,25 +465,6 @@ function previewPairLabels(node, key, pair) {
   return { origin: origin, dest: dest };
 }
 
-function normalizePreviewDestinationsByOrigin(node, destinations) {
-  var byOrigin = {};
-  Object.keys(node && node.pairs || {}).forEach(function(key) {
-    var pair = node.pairs[key] || {};
-    var labels = previewPairLabels(node, key, pair);
-    if (!labels || !destinations[labels.dest]) return;
-    if (!byOrigin[labels.origin]) byOrigin[labels.origin] = {};
-    byOrigin[labels.origin][labels.dest] = true;
-  });
-  Object.keys(byOrigin).forEach(function(origin) {
-    var subset = {};
-    Object.keys(byOrigin[origin]).forEach(function(label) {
-      if (label !== origin && destinations[label]) subset[label] = destinations[label];
-    });
-    byOrigin[origin] = normalizePreviewDestinationLabels(subset);
-  });
-  return byOrigin;
-}
-
 function normalizePreviewDestinationOptionsByOrigin(node) {
   var raw = node && node.destinationOptionsByOrigin ? node.destinationOptionsByOrigin : null;
   var originIndex = previewEncodingIndex(node, 'destinationOptionsByOrigin');
@@ -568,7 +488,7 @@ function normalizePreviewDestinationOptionsByOrigin(node) {
       if (normalized.pairKey) pairKeys[originLabel][label] = normalized.pairKey;
     });
   });
-  return { byOrigin: byOrigin, pairKeys: pairKeys, hasOptions: Object.keys(raw).length > 0 };
+  return { byOrigin: byOrigin, pairKeys: pairKeys, hasOptions: Object.keys(byOrigin).length > 0 };
 }
 
 function addPreviewPairAlias(aliases, fromKey, toKey) {
@@ -626,22 +546,17 @@ function normalizePreviewOrigins(node) {
       return label && !isEncodedPreviewKey(label);
     });
   }
-  return (node && Array.isArray(node.origins)) ? node.origins.slice() : [];
+  return [];
 }
 
 function configurePublishedSchedule(node, includePairs) {
   PUBLISHED_SCHEDULE = node || null;
   PUBLISHED_SCHEDULE_LOAD_ERROR = !!(node && node.loadError);
   PUBLISHED_SCHEDULE_MAP_VIEW = PUBLISHED_SCHEDULE && PUBLISHED_SCHEDULE.mapView ? PUBLISHED_SCHEDULE.mapView : null;
-  PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
-  PUBLISHED_SCHEDULE_DESTINATION_LABELS = normalizePreviewDestinationLabels(PUBLISHED_SCHEDULE_DESTINATIONS);
   var destinationOptions = normalizePreviewDestinationOptionsByOrigin(PUBLISHED_SCHEDULE);
   PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN = destinationOptions.byOrigin;
   PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS = destinationOptions.pairKeys;
   PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN = destinationOptions.hasOptions;
-  PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN
-    ? {}
-    : normalizePreviewDestinationsByOrigin(PUBLISHED_SCHEDULE, PUBLISHED_SCHEDULE_DESTINATIONS);
   PUBLISHED_SCHEDULE_PAIR_ALIASES = normalizePreviewPairAliases(PUBLISHED_SCHEDULE);
   PUBLISHED_SCHEDULE_PAIR_CACHE = includePairs && PUBLISHED_SCHEDULE && PUBLISHED_SCHEDULE.pairs
     ? Object.assign({}, PUBLISHED_SCHEDULE.pairs)
@@ -664,25 +579,19 @@ function getScheduleOrigins() {
 }
 
 function getScheduleDestinations(originLabel) {
-  if (originLabel && PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) {
-    var destinationMap = {};
-    (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).forEach(function(option) {
-      if (!option || !option.label) return;
-      destinationMap[option.label] = Object.assign({}, option);
-    });
-    return destinationMap;
-  }
-  return PUBLISHED_SCHEDULE_DESTINATIONS;
+  var destinationMap = {};
+  if (!originLabel || !PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) return destinationMap;
+  (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).forEach(function(option) {
+    if (!option || !option.label) return;
+    destinationMap[option.label] = Object.assign({}, option);
+  });
+  return destinationMap;
 }
 
 function getScheduleDestinationOptions(originLabel) {
-  if (originLabel && PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) {
-    return (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).map(function(option) {
-      return Object.assign({}, option);
-    });
-  }
-  return getScheduleDestinationLabels(originLabel).map(function(label) {
-    return Object.assign({ label: label, destinationLabel: label }, PUBLISHED_SCHEDULE_DESTINATIONS[label] || {});
+  if (!originLabel || !PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) return [];
+  return (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).map(function(option) {
+    return Object.assign({}, option);
   });
 }
 
@@ -691,15 +600,21 @@ function hasScheduleDestinationOptionsByOrigin() {
 }
 
 function getScheduleDestinationLabels(originLabel) {
-  if (originLabel && PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) {
-    return (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).map(function(option) {
-      return option.label;
-    });
+  if (!originLabel || !PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) return [];
+  return (PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN[originLabel] || []).map(function(option) {
+    return option.label;
+  });
+}
+
+function getScheduleDestinationContractStatus(originLabel) {
+  if (!PUBLISHED_SCHEDULE) return 'loading';
+  if (PUBLISHED_SCHEDULE_LOAD_ERROR) return 'load_error';
+  if (!PUBLISHED_SCHEDULE_HAS_DESTINATION_OPTIONS_BY_ORIGIN) return 'missing_destination_options';
+  if (!originLabel) return 'missing_origin';
+  if (!Object.prototype.hasOwnProperty.call(PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN, originLabel)) {
+    return 'missing_origin_options';
   }
-  if (originLabel && PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN[originLabel]) {
-    return PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN[originLabel].slice();
-  }
-  return PUBLISHED_SCHEDULE_DESTINATION_LABELS.slice();
+  return 'ready';
 }
 
 function getSchedulePairKey(originLabel, destLabel) {
@@ -1739,6 +1654,7 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
     getDestinations: getScheduleDestinations,
     getDestinationOptions: getScheduleDestinationOptions,
     hasDestinationOptionsByOrigin: hasScheduleDestinationOptionsByOrigin,
+    getDestinationContractStatus: getScheduleDestinationContractStatus,
     getDestinationLabels: getScheduleDestinationLabels,
     getPair: getSchedulePair,
     getPairLoadStatus: getSchedulePairLoadStatus,

@@ -1014,13 +1014,11 @@ function buildDropdowns(){
   originSel.innerHTML = '';
 
   const origins = S.getOrigins();
-  const destinations = S.getDestinations(state.getOrigin() || originSel.value); // { label: { group: null|"ต่อรถ" } }
 
-  // ต้นทาง
   if (!origins.length) {
     const opt = document.createElement('option');
     opt.value = '';
-    opt.textContent = 'กำลังโหลดต้นทางจากระบบกลาง...';
+    opt.textContent = 'Loading origins from central data...';
     originSel.appendChild(opt);
   }
   origins.forEach(o=>{
@@ -1031,88 +1029,56 @@ function buildDropdowns(){
   });
   if (originSel.value) state.setOrigin(originSel.value);
 
-  // ปลายทาง — จัดกลุ่มตาม .group ที่ ERP กำหนดมา (ไม่ใช่ passenger เดาเอง)
+  function appendDestinationUnavailable(message) {
+    const grp0 = document.createElement('optgroup');
+    grp0.label = 'Data contract unavailable';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = message;
+    grp0.appendChild(opt);
+    destSel.appendChild(grp0);
+    state.setDest('');
+  }
+
   function buildDestOptions(){
     destSel.innerHTML = '';
     const originValue = state.getOrigin() || originSel.value;
-    const destinationOptions = typeof S.getDestinationOptions === 'function'
+    const contractStatus = typeof S.getDestinationContractStatus === 'function'
+      ? S.getDestinationContractStatus(originValue)
+      : 'missing_destination_options';
+    const destinationOptions = contractStatus === 'ready' && typeof S.getDestinationOptions === 'function'
       ? S.getDestinationOptions(originValue)
-      : (typeof S.getDestinationLabels === 'function' ? S.getDestinationLabels(originValue) : Object.keys(destinations)).map(function(label) {
-        return Object.assign({ label: label, destinationLabel: label }, destinations[label] || {});
-      });
-    const destLabels = destinationOptions.map(function(option) { return option.label; });
+      : [];
 
-    if (!destLabels.length) {
-      const grp0 = document.createElement('optgroup');
-      grp0.label = '— เส้นทางหลัก —';
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = S.isReady() && origins.length ? 'ไม่พบปลายทางสำหรับต้นทางนี้' : 'กำลังโหลดปลายทางจากระบบกลาง...';
-      grp0.appendChild(opt);
-      destSel.appendChild(grp0);
-      state.setDest('');
+    if (contractStatus !== 'ready' || !destinationOptions.length) {
+      appendDestinationUnavailable(
+        S.isReady() && origins.length
+          ? 'Destination option contract unavailable'
+          : 'Loading destination options from central data...'
+      );
       return;
     }
 
-    if (typeof S.getDestinationOptions === 'function' && typeof S.hasDestinationOptionsByOrigin === 'function' && S.hasDestinationOptionsByOrigin()) {
-      let currentGroup = null;
-      let currentParent = destSel;
-      destinationOptions.forEach(option=>{
-        const label = option.label || option.destinationLabel;
-        if (!label) return;
-        const group = option.group || null;
-        if (group !== currentGroup) {
-          currentGroup = group;
-          if (group) {
-            currentParent = document.createElement('optgroup');
-            currentParent.label = `โ€” ${group} โ€”`;
-            destSel.appendChild(currentParent);
-          } else {
-            currentParent = destSel;
-          }
+    let currentGroup = null;
+    let currentParent = destSel;
+    destinationOptions.forEach(option=>{
+      const label = option.label || option.destinationLabel;
+      if (!label) return;
+      const group = option.group || null;
+      if (group !== currentGroup) {
+        currentGroup = group;
+        if (group) {
+          currentParent = document.createElement('optgroup');
+          currentParent.label = '[' + group + ']';
+          destSel.appendChild(currentParent);
+        } else {
+          currentParent = destSel;
         }
-        const opt = document.createElement('option');
-        opt.value=label; opt.textContent=label;
-        if(label===state.getDest()) opt.selected=true;
-        currentParent.appendChild(opt);
-      });
-      if (destSel.value) state.setDest(destSel.value);
-      else state.setDest('');
-      return;
-    }
-
-    const groups = {}; // groupLabel -> [destLabel, ...], null-group first
-    destLabels.forEach(d=>{
-      if (d === state.getOrigin()) return;
-      const g = (destinations[d] && destinations[d].group) || null;
-      const key = g || '__main__';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(d);
-    });
-
-    if (groups.__main__) {
-      const grp0 = document.createElement('optgroup');
-      grp0.label = '— เส้นทางหลัก —';
-      groups.__main__.forEach(d=>{
-        const opt = document.createElement('option');
-        opt.value=d; opt.textContent=d;
-        if(d===state.getDest()) opt.selected=true;
-        grp0.appendChild(opt);
-      });
-      destSel.appendChild(grp0);
-    }
-
-    Object.keys(groups).forEach(key=>{
-      if (key === '__main__') return;
-      const grp = document.createElement('optgroup');
-      grp.label = `— ${key} —`;
-      groups[key].forEach(d=>{
-        const opt = document.createElement('option');
-        opt.value=d; opt.textContent=d;
-        if(d===state.getDest()) opt.selected=true;
-        grp.appendChild(opt);
-      });
-      destSel.appendChild(grp);
+      }
+      const opt = document.createElement('option');
+      opt.value=label; opt.textContent=label;
+      if(label===state.getDest()) opt.selected=true;
+      currentParent.appendChild(opt);
     });
     if (destSel.value) state.setDest(destSel.value);
     else state.setDest('');
@@ -1122,7 +1088,6 @@ function buildDropdowns(){
   if (originSel.dataset.bound !== '1') {
     originSel.addEventListener('change', function(){
       state.setOrigin(this.value);
-      if(!(typeof S.hasDestinationOptionsByOrigin === 'function' && S.hasDestinationOptionsByOrigin()) && state.getDest()===state.getOrigin()) state.setDest('');
       buildDestOptions();
       selectedMapFocus = null;
       renderSched();

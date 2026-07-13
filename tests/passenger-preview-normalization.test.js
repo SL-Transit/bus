@@ -148,6 +148,7 @@ function pairKey(origin, dest) {
 
 function sampleSchedule() {
   return {
+    originOptions: corridor.map((label, displayOrder) => ({ label, displayOrder })),
     origins: corridor,
     destinations: {
       [encodedDest1]: { destinationId: 'km_1' },
@@ -382,19 +383,15 @@ const labels = Array.from(Object.keys(destinations));
 const orderedLabels = Array.from(schedule.getDestinationLabels());
 const phanomLabels = Array.from(schedule.getDestinationLabels(TH.phanom));
 const km1Labels = Array.from(schedule.getDestinationLabels(TH.km1));
-const mainLabels = orderedLabels.filter((label) => !(destinations[label] && destinations[label].group));
-const expectedMainLabels = corridor.filter((label) => labels.includes(label));
 
-assert.deepStrictEqual(mainLabels, expectedMainLabels, 'main destination labels must follow corridor order');
-assert(phanomLabels.length > 0, 'phanom must expose visible destinations from pairs');
-assert(km1Labels.length > 0, 'km1 must expose visible destinations from pairs');
-assert(!phanomLabels.includes(TH.phanom), 'selected phanom origin must be excluded from destinations');
-assert(!km1Labels.includes(TH.km1), 'selected km1 origin must be excluded from destinations');
-assert(labels.includes(TH.km1), 'km1 destination label must be restored');
-assert(labels.includes(TH.km7), 'km7 destination label must be restored');
-assert(labels.includes(TH.km10), 'km10 destination label must be restored');
+assert.deepStrictEqual(Array.from(schedule.getOrigins()), corridor, 'originOptions must be the visible origin source');
+assert.deepStrictEqual(labels, [], 'destinations must not be built from legacy destinations without destinationOptionsByOrigin');
+assert.deepStrictEqual(orderedLabels, [], 'destination labels must not be derived from pairs when option contract is absent');
+assert.deepStrictEqual(phanomLabels, [], 'phanom destinations must not be derived from pairs');
+assert.deepStrictEqual(km1Labels, [], 'km1 destinations must not be derived from pairs');
+assert(schedule.hasDestinationOptionsByOrigin() === false, 'missing destinationOptionsByOrigin must be reported explicitly');
+assert.strictEqual(schedule.getDestinationContractStatus(TH.phanom), 'missing_destination_options', 'missing destinationOptionsByOrigin must be a contract-unavailable state');
 assert(!labels.some((label) => label.startsWith('k_')), 'visible destination labels must not expose encoded Firebase keys');
-assert(orderedLabels.indexOf(TH.km1) < orderedLabels.indexOf(TH.km7), 'destination sorting must not follow encoded Firebase key order');
 assert(schedule.getPair(TH.chachoengsao, TH.km1), 'km1 pair lookup must resolve through encoded key');
 assert(schedule.getPair(TH.chachoengsao, TH.km7), 'km7 pair lookup must resolve through encoded key');
 assert(schedule.getPair(TH.chachoengsao, TH.km10), 'km10 pair lookup must resolve through encoded key');
@@ -435,7 +432,10 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes('router.project-osrm.org'), 'Passenger must not fetch route geometry from OSRM');
   assert(html.includes('SLPassengerLogic.map.loadRouteData().then(function(freshRouteData)'), 'Passenger map retry must load fresh route data');
   assert(html.includes('SLPassengerLogic.map.renderStops(freshRouteData)'), 'Passenger map retry must render fresh route data');
-  assert(html.includes('ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์'), 'Passenger must show live tracking unavailable when no approved new live data exists');
+  assert(html.includes('Destination option contract unavailable'), 'Passenger must show an explicit destination contract-unavailable state');
+  assert(!logicSource.includes('normalizePreviewDestinationsByOrigin'), 'Passenger must not derive destinations from pairs');
+  assert(!logicSource.includes('normalizePreviewDestinationLabels'), 'Passenger must not locally sort destination labels');
+  assert(!html.includes('Object.keys(destinations)'), 'Passenger must not build destination options from local destination maps');
   assert(!/fake\s*(gps|eta|vehicle|assignment)/i.test(html + '\n' + logicSource), 'Passenger must not create fake GPS/ETA/vehicle/assignment data');
 
   const mapFirstSandbox = loadPassengerLogic();
@@ -470,6 +470,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert.deepStrictEqual(Array.from(schedule.getOrigins()), corridor, 'originOptions must be enough to build origins');
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.chachoengsao)), [TH.pattaya, TH.chachoengsao, TH.km7], 'option-only destinations must keep ERP order/content exactly');
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.km1)), [TH.km7], 'encoded destinationOptionsByOrigin keys must resolve to display origin labels');
+  assert.strictEqual(schedule.getDestinationContractStatus(TH.rangsit), 'missing_origin_options', 'missing selected origin must be a contract-unavailable state');
+  assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.rangsit)), [], 'missing selected origin must not derive substitute destinations from pairs');
   assert(!schedule.getDestinationLabels(TH.chachoengsao).includes(TH.rangsit), 'excludedPreviewPairs must not become destination options');
   const previewRouteData = await sandbox.SLPassengerLogic.map.loadRouteData();
   assert(Array.isArray(previewRouteData.stations) && previewRouteData.stations.length === 15, 'Passenger must accept map stops from publishedSchedule mapView');
