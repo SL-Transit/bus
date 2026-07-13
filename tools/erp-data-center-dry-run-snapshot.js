@@ -21,7 +21,7 @@ const TARGET_COUNTS = {
   routes: 244,
   routeSequenceVersions: 6,
   tripSequenceAssignments: 14,
-  scheduleOffers: 819,
+  scheduleOffers: 820,
   stopTimes: 94,
   fares: 720,
   fareSegments: 244,
@@ -123,7 +123,7 @@ const GROUP_ALIASES = Object.freeze({
 });
 const LEGACY_CANONICAL_GROUP_IDS = new Set(['main', 'bangkok', 'coastal']);
 const EXPECTED_MAPPING_STATUS_BY_GROUP = Object.freeze({
-  group_001: Object.freeze({ mapped_queue_trip: 352, estimated_schedule: 73, departure_only: 0, external_schedule: 0, needs_review: 0 }),
+  group_001: Object.freeze({ mapped_queue_trip: 353, estimated_schedule: 73, departure_only: 0, external_schedule: 0, needs_review: 0 }),
   group_002: Object.freeze({ mapped_queue_trip: 0, estimated_schedule: 0, departure_only: 47, external_schedule: 0, needs_review: 0 }),
   group_003: Object.freeze({ mapped_queue_trip: 0, estimated_schedule: 0, departure_only: 207, external_schedule: 0, needs_review: 0 }),
   group_004: Object.freeze({ mapped_queue_trip: 0, estimated_schedule: 0, departure_only: 8, external_schedule: 0, needs_review: 0 }),
@@ -182,6 +182,17 @@ const QUEUE_005_STOP_TIMES = Object.freeze({
   'TRIP-ROUTE-MAIN-008_1-0620': ['06:20', '06:35', '07:20', '07:40', '08:20'],
   'TRIP-ROUTE-MAIN-007_1-1720': ['17:20', '18:00', '18:20', '18:50', '19:05']
 });
+const OWNER_APPROVED_SCHEDULE_OFFER_CORRECTIONS = Object.freeze([
+  {
+    tripId: 'TRIP-ROUTE-MAIN-011-1720',
+    routeId: 'ROUTE-MAIN-011',
+    groupId: 'group_001',
+    departTime: '17:20',
+    sourcePath: 'owner_decisions/queue_005/evening',
+    sourceId: 'TRIP-ROUTE-MAIN-007_1-1720:g01p007',
+    sourceNotes: 'owner-approved queue_005 evening pass-through schedule offer for Chachoengsao to Tatakiab'
+  }
+]);
 const STABLE_ID_REGISTRY = stableIdAuthority.buildRegistry();
 
 function requestJson(path) {
@@ -547,7 +558,8 @@ function mappingReviewReason(candidateEvidence) {
 
 function buildScheduleOffers(publishedCatalog, activeRoutes, queueTrips, routeSequenceVersions, stopTimes) {
   const scheduleOffers = {};
-  orderedValues(publishedCatalog.trips).forEach((trip) => {
+  const sourceTrips = orderedValues(publishedCatalog.trips).concat(OWNER_APPROVED_SCHEDULE_OFFER_CORRECTIONS);
+  sourceTrips.forEach((trip) => {
     const legacyPublishedTripId = trip.tripId || trip.id;
     const route = activeRoutes[trip.routeId];
     if (!legacyPublishedTripId || !route) return;
@@ -656,7 +668,11 @@ function buildScheduleOffers(publishedCatalog, activeRoutes, queueTrips, routeSe
       isPhysicalServiceRun: false,
       legacyBookingEnabled: trip.bookingEnabled !== false,
       status: trip.isActive === false ? 'inactive' : 'active',
-      sourceLineage: [buildLineage(`publishedCatalog/trips/${legacyPublishedTripId}`, legacyPublishedTripId, 'published route/departure/OD schedule offer')]
+      sourceLineage: [buildLineage(
+        trip.sourcePath || `publishedCatalog/trips/${legacyPublishedTripId}`,
+        trip.sourceId || legacyPublishedTripId,
+        trip.sourceNotes || 'published route/departure/OD schedule offer'
+      )]
     };
   });
   return scheduleOffers;

@@ -28,6 +28,17 @@ function countTimes(publishedSchedule) {
   }, 0), 0);
 }
 
+function pairByOd(publishedSchedule, originDestinationId, destinationId) {
+  return values(publishedSchedule.pairs).find((pair) => (
+    pair.originDestinationId === originDestinationId &&
+    pair.destinationId === destinationId
+  ));
+}
+
+function pairTimes(pair) {
+  return (pair && pair.segments || []).flatMap((segment) => (segment.times || []).map((entry) => entry.time)).sort();
+}
+
 function firstEstimatedTime(publishedSchedule) {
   for (const pair of values(publishedSchedule.pairs)) {
     for (const segment of pair.segments || []) {
@@ -91,9 +102,9 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
 
   assert(schedule.counts.origins === 15, 'Phase 1 preview must expose 15 origin-selectable group_001 stops');
   assert(schedule.counts.destinations === 49, 'Phase 1 preview must expose 49 destination labels');
-  assert(schedule.counts.scheduleOfferTimes === 819, 'all schedule offers must be represented once');
-  assert(countTimes(schedule) === 819, 'rendered time rows must equal source schedule offers');
-  assert(schedule.mappingStatusSummary.mapped_queue_trip === 352, 'mapped_queue_trip count mismatch');
+  assert(schedule.counts.scheduleOfferTimes === 820, 'all schedule offers must be represented once');
+  assert(countTimes(schedule) === 820, 'rendered time rows must equal source schedule offers');
+  assert(schedule.mappingStatusSummary.mapped_queue_trip === 353, 'mapped_queue_trip count mismatch');
   assert(schedule.mappingStatusSummary.estimated_schedule === 73, 'estimated_schedule count mismatch');
   assert(schedule.mappingStatusSummary.departure_only === 262, 'departure_only count mismatch');
   assert(schedule.mappingStatusSummary.external_schedule === 132, 'external_schedule count mismatch');
@@ -107,6 +118,20 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.counts.excludedFromPreview.transferUnknown === 0, 'excluded transfer unknown count mismatch');
   assert(schedule.counts.excludedFromPreview.transferInfeasible === 58, 'excluded transfer infeasible count mismatch');
   assert(schedule.counts.estimatedReferenceTimes === 360, 'estimated reference time count mismatch');
+
+  const chachoengsaoTatakiab = pairByOd(schedule, 'chachoengsao', 'tatakiab');
+  assert(chachoengsaoTatakiab, 'Chachoengsao to Tatakiab pair missing');
+  assert(JSON.stringify(pairTimes(chachoengsaoTatakiab)) === JSON.stringify(['11:20', '14:00', '17:20']), 'Chachoengsao to Tatakiab times mismatch');
+  const tatakiab1720 = chachoengsaoTatakiab.segments[0].times.find((entry) => entry.time === '17:20');
+  assert(tatakiab1720.scheduleOfferId === 'TRIP-ROUTE-MAIN-011-1720', 'Tatakiab 17:20 schedule offer ID mismatch');
+  assert(tatakiab1720.mappingStatus === 'mapped_queue_trip', 'Tatakiab 17:20 mapping status mismatch');
+  assert(tatakiab1720.timeType === 'scheduled_origin_departure', 'Tatakiab 17:20 timeType mismatch');
+  assert(tatakiab1720.sourceLineage.some((lineage) => lineage.sourcePath === 'owner_decisions/queue_005/evening'), 'Tatakiab 17:20 source lineage missing');
+  assert(!tatakiab1720.gps && !tatakiab1720.eta && !tatakiab1720.vehicleId && !tatakiab1720.assignmentId, 'Tatakiab 17:20 must not claim live operation');
+
+  const chachoengsaoNongkhok = pairByOd(schedule, 'chachoengsao', 'nongkhok');
+  assert(chachoengsaoNongkhok, 'Chachoengsao to Nongkhok pair missing');
+  assert(pairTimes(chachoengsaoNongkhok).indexOf('17:20') !== -1, 'Chachoengsao to Nongkhok must keep 17:20');
 
   assert(TRANSFER_POLICY.sourceWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'transfer policy source workbook must use latest owner workbook');
   assert(schedule.source.ownerWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'latest owner workbook source mismatch');

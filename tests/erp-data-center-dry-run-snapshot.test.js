@@ -66,11 +66,11 @@ const EXPECTED_TRIP_MAPPINGS = {
   Object.keys(TARGET_COUNTS).forEach((key) => {
     assert(result.counts[key] === TARGET_COUNTS[key], `unexpected count ${key}: ${result.counts[key]} !== ${TARGET_COUNTS[key]}`);
   });
-  assert(!erp.trips, '819 published records must not be physical trips');
-  assert(Object.keys(erp.scheduleOffers).length === 819, 'must have 819 schedule offers');
-  assert(JSON.stringify(result.validation.mappingStatusSummary) === JSON.stringify({ mapped_queue_trip: 352, estimated_schedule: 73, departure_only: 262, external_schedule: 132, needs_review: 0 }), 'schedule offer mapping summary mismatch');
+  assert(!erp.trips, '820 schedule offer records must not be physical trips');
+  assert(Object.keys(erp.scheduleOffers).length === 820, 'must have 820 schedule offers');
+  assert(JSON.stringify(result.validation.mappingStatusSummary) === JSON.stringify({ mapped_queue_trip: 353, estimated_schedule: 73, departure_only: 262, external_schedule: 132, needs_review: 0 }), 'schedule offer mapping summary mismatch');
   assert(JSON.stringify(result.validation.mappingStatusByGroup) === JSON.stringify({
-    group_001: { mapped_queue_trip: 352, estimated_schedule: 73, departure_only: 0, external_schedule: 0, needs_review: 0 },
+    group_001: { mapped_queue_trip: 353, estimated_schedule: 73, departure_only: 0, external_schedule: 0, needs_review: 0 },
     group_002: { mapped_queue_trip: 0, estimated_schedule: 0, departure_only: 47, external_schedule: 0, needs_review: 0 },
     group_003: { mapped_queue_trip: 0, estimated_schedule: 0, departure_only: 207, external_schedule: 0, needs_review: 0 },
     group_004: { mapped_queue_trip: 0, estimated_schedule: 0, departure_only: 8, external_schedule: 0, needs_review: 0 },
@@ -172,7 +172,7 @@ const EXPECTED_TRIP_MAPPINGS = {
   assert(values(erp.groupStops).every((stop) => !stop.stopRole && stop.conditionalWaitingPoint !== true), 'group stop must not own global queue-trip role');
   assert(JSON.stringify(result.stopTimeRoleSummary) === JSON.stringify({ scheduled_origin_departure: 14, estimated_pass_through: 66, estimated_arrival: 14, unresolved: 0 }), 'stop-time role counts mismatch');
   const offerTimeSummary = result.validation.scheduleOfferTimeTypeSummary;
-  assert(offerTimeSummary.mapped_queue_trip.scheduled_origin_departure === 65 && offerTimeSummary.mapped_queue_trip.estimated_pass_through === 287, 'mapped offer timeType summary mismatch');
+  assert(offerTimeSummary.mapped_queue_trip.scheduled_origin_departure === 66 && offerTimeSummary.mapped_queue_trip.estimated_pass_through === 287, 'mapped offer timeType summary mismatch');
   assert(offerTimeSummary.estimated_schedule.estimated_pass_through === 73, 'estimated offer timeType summary mismatch');
   assert(offerTimeSummary.departure_only.scheduled_origin_departure === 262, 'departure-only timeType summary mismatch');
   assert(offerTimeSummary.external_schedule.scheduled_origin_departure === 132, 'external timeType summary mismatch');
@@ -194,6 +194,13 @@ const EXPECTED_TRIP_MAPPINGS = {
     assert(trip.scheduleOnly === false && trip.liveTrackingAvailable === false, `queue_005 tracking policy mismatch: ${trip.queueTripId}`);
     assert(trip.serviceDays.length === 1 && trip.serviceDays[0] === 'daily', `queue_005 service days mismatch: ${trip.queueTripId}`);
   });
+  const tatakiab1720Offer = erp.scheduleOffers['TRIP-ROUTE-MAIN-011-1720'];
+  assert(tatakiab1720Offer, 'owner-approved Tatakiab 17:20 schedule offer missing');
+  assert(tatakiab1720Offer.originDestinationId === 'chachoengsao' && tatakiab1720Offer.destinationId === 'tatakiab', 'Tatakiab 17:20 OD mismatch');
+  assert(tatakiab1720Offer.departureTime === '17:20', 'Tatakiab 17:20 departure mismatch');
+  assert(tatakiab1720Offer.mappingStatus === 'mapped_queue_trip' && tatakiab1720Offer.queueTripId === 'qt_000014', 'Tatakiab 17:20 must map to queue_005 evening trip');
+  assert(tatakiab1720Offer.timeType === 'scheduled_origin_departure', 'Tatakiab 17:20 must display as origin scheduled departure');
+  assert(tatakiab1720Offer.sourceLineage.some((lineage) => lineage.sourcePath === 'owner_decisions/queue_005/evening'), 'Tatakiab 17:20 owner lineage missing');
 
   const badOfferType = clone(erp);
   values(badOfferType.scheduleOffers)[0].recordType = 'physical_trip';
