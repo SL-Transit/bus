@@ -1185,6 +1185,7 @@ db.ref('settings').on('value', function(snap) {
     scheduleBaseRef.child('counts').once('value'),
     scheduleBaseRef.child('originOptions').once('value'),
     scheduleBaseRef.child('destinationOptionsByOrigin').once('value'),
+    scheduleBaseRef.child('mapView').once('value'),
     scheduleBaseRef.child('firebaseKeyEncoding').once('value'),
     scheduleBaseRef.child('validation').once('value')
   ]).then(function(parts) {
@@ -1201,8 +1202,9 @@ db.ref('settings').on('value', function(snap) {
       counts: parts[9].val(),
       originOptions: parts[10].val() || [],
       destinationOptionsByOrigin: parts[11].val() || {},
-      firebaseKeyEncoding: parts[12].val() || {},
-      validation: parts[13].val() || {}
+      mapView: parts[12].val() || null,
+      firebaseKeyEncoding: parts[13].val() || {},
+      validation: parts[14].val() || {}
     };
     scheduleApi.applyPublishedScheduleOptions(optionNode);
   }).catch(function(err) {

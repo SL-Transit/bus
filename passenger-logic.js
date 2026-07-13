@@ -422,6 +422,7 @@ var PUBLISHED_SCHEDULE_PAIR_LOADS = {};
 var PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS = {};
 var PUBLISHED_SCHEDULE_PAIR_LOADER = null;
 var PUBLISHED_SCHEDULE_LOAD_ERROR = false;
+var PUBLISHED_SCHEDULE_MAP_VIEW = null;
 
 function previewEncodingIndex(node, name) {
   return node && node.firebaseKeyEncoding && node.firebaseKeyEncoding.encodedKeyIndex
@@ -631,6 +632,7 @@ function normalizePreviewOrigins(node) {
 function configurePublishedSchedule(node, includePairs) {
   PUBLISHED_SCHEDULE = node || null;
   PUBLISHED_SCHEDULE_LOAD_ERROR = !!(node && node.loadError);
+  PUBLISHED_SCHEDULE_MAP_VIEW = PUBLISHED_SCHEDULE && PUBLISHED_SCHEDULE.mapView ? PUBLISHED_SCHEDULE.mapView : null;
   PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
   PUBLISHED_SCHEDULE_DESTINATION_LABELS = normalizePreviewDestinationLabels(PUBLISHED_SCHEDULE_DESTINATIONS);
   var destinationOptions = normalizePreviewDestinationOptionsByOrigin(PUBLISHED_SCHEDULE);
@@ -645,6 +647,7 @@ function configurePublishedSchedule(node, includePairs) {
     ? Object.assign({}, PUBLISHED_SCHEDULE.pairs)
     : {};
   resetPublishedSchedulePairLoads();
+  applyPublishedScheduleMapView(PUBLISHED_SCHEDULE_MAP_VIEW);
   emit('scheduleUpdated');
 }
 
@@ -791,6 +794,43 @@ function hasPublishedScheduleLoadError() {
   return PUBLISHED_SCHEDULE_LOAD_ERROR === true;
 }
 
+function applyPublishedScheduleMapView(mapView) {
+  if (!mapView || !Array.isArray(mapView.stops)) {
+    PASSENGER_ROUTE_DATA = null;
+    STOPS_GO = [];
+    STOPS_BACK = [];
+    return;
+  }
+  var stops = {};
+  mapView.stops.forEach(function(stop, index) {
+    if (!stop || stop.visible === false) return;
+    var lat = Number(stop.lat);
+    var lng = Number(stop.lng);
+    if (!isFinite(lat) || !isFinite(lng)) return;
+    var key = stop.stopKey || stop.groupStopId || ('map_stop_' + index);
+    stops[key] = {
+      stopKey: key,
+      groupStopId: stop.groupStopId,
+      groupStopCode: stop.groupStopCode,
+      nodeId: stop.nodeId,
+      stopNameTh: stop.label || stop.displayNameTh || stop.nameTh || key,
+      name: stop.label || stop.displayNameTh || stop.nameTh || key,
+      lat: lat,
+      lng: lng,
+      icon: stop.icon || '🚏',
+      order: Number.isFinite(Number(stop.displayOrder)) ? Number(stop.displayOrder) : index,
+      previewDisplayMode: stop.previewDisplayMode || 'static_map_reference',
+      referenceOnly: stop.referenceOnly === true
+    };
+  });
+  PASSENGER_ROUTE_DATA = {
+    stops: stops,
+    mapRoutes: Array.isArray(mapView.routes) ? mapView.routes : [],
+    source: 'publishedSchedule.mapView'
+  };
+  applyPassengerRouteData(PASSENGER_ROUTE_DATA);
+}
+
 function applyPassengerRouteData(data) {
   PASSENGER_ROUTE_DATA = data || null;
   var stops = data && data.stops ? data.stops : null;
@@ -932,8 +972,12 @@ function initPassengerMap() {
 }
 
 function currentPassengerRouteData() {
+  var route = PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.mapRoutes) && PASSENGER_ROUTE_DATA.mapRoutes[0]
+    ? PASSENGER_ROUTE_DATA.mapRoutes[0]
+    : null;
   return {
-    stations: curStops().slice()
+    stations: curStops().slice(),
+    polyline: route && Array.isArray(route.polyline) ? route.polyline.slice() : []
   };
 }
 
@@ -1100,6 +1144,17 @@ function drawRoute(routeData) {
     try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
     routeLine = null;
     return Promise.resolve();
+  }
+  if (routeData && Array.isArray(routeData.polyline) && routeData.polyline.length >= 2) {
+    const renderSeq = ++routeRenderSeq;
+    const pts = routeData.polyline.map(function(point) { return normalizeMapPoint(point); }).filter(Boolean);
+    if (pts.length >= 2) {
+      knownRouteLinePoints = pts;
+      try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
+      routeLine = new longdo.Polyline(pts, { lineColor: viewDir==='go' ? '#1e40af' : '#dc2626', lineWidth: 5, lineOpacity: 0.82 });
+      if (renderSeq === routeRenderSeq) mapObj.Overlays.add(routeLine);
+      return Promise.resolve();
+    }
   }
   const coords = stops.map(function(s){ return s.lng + ',' + s.lat; }).join(';');
   const renderSeq = ++routeRenderSeq;

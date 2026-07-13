@@ -123,6 +123,23 @@ TRANSFER_POLICY.sourceWorkbook = OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook;
 const EXTERNAL_SERVICE_DISCLAIMER_KEY = 'external_service_confirm_outside_sl_transit';
 const EXTERNAL_SERVICE_DISCLAIMER_TH = 'บริการหรือค่าโดยสารนี้ต้องชำระหรือยืนยันภายนอกระบบ SL-Transit';
 const FORBIDDEN_OPERATIONAL_FIELDS = ['gps', 'eta', 'vehicleId', 'assignmentId', 'liveVehicleId', 'liveTrackingAvailable', 'driverId'];
+const PREVIEW_MAP_COORDINATES = {
+  chachoengsao: { lat: 13.692477, lng: 101.054105 },
+  phanom: { lat: 13.745082, lng: 101.355993 },
+  sanamchaikhet: { lat: 13.659022, lng: 101.437482 },
+  km_1: { lat: 13.648000, lng: 101.447000 },
+  km_7: { lat: 13.620000, lng: 101.480000 },
+  huaisom: { lat: 13.580000, lng: 101.520000 },
+  tatakiab: { lat: 13.443342, lng: 101.610222 },
+  nongkhok: { lat: 13.381579, lng: 101.708016 },
+  khlongtakien: { lat: 13.420264, lng: 101.765445 },
+  nongruea: { lat: 13.420494, lng: 101.995365 },
+  phaijit: { lat: 13.416310, lng: 102.020767 },
+  thoengkabintr: { lat: 13.439877, lng: 102.083043 },
+  siyaekkhonom: { lat: 13.436666, lng: 102.200895 },
+  wangnamyen: { lat: 13.460000, lng: 102.170000 },
+  klonghat: { lat: 13.453565, lng: 102.299330 }
+};
 
 function values(map) {
   return Object.keys(map || {}).map((key) => map[key]);
@@ -174,6 +191,89 @@ function transferPolicyEvidence() {
     minTransferMinutes: TRANSFER_POLICY.minTransferMinutes,
     idealWaitMinutes: TRANSFER_POLICY.idealWaitMinutes,
     maxRecommendedWaitMinutes: TRANSFER_POLICY.maxRecommendedWaitMinutes
+  };
+}
+
+function previewMapSourceLineage(stopKey, stop) {
+  return [
+    {
+      sourceSystem: 'erp_preview_contract',
+      sourcePath: `data/erpDataCenter/groupStops/${stop.groupStopId}`,
+      sourceId: stop.groupStopId,
+      importedBy: 'published-schedule-v1-dry-run',
+      notes: 'group_001 corridor stop identity and display order'
+    },
+    {
+      sourceSystem: 'repository_static_reference',
+      sourcePath: 'index-logic.js',
+      sourceId: stopKey,
+      importedBy: 'published-schedule-v1-dry-run',
+      notes: 'static stop coordinates for Passenger Preview map only; not GPS, ETA, vehicle, or operational proof'
+    }
+  ].concat(stop.sourceLineage || []);
+}
+
+function buildMapView(erp) {
+  const stopsByGroupStopId = values(erp.stops).reduce((map, stop) => {
+    if (stop.groupStopId) map[stop.groupStopId] = stop;
+    return map;
+  }, {});
+  const corridorStops = values(erp.groupStops)
+    .filter((stop) => stop.serviceGroupId === 'group_001' && stop.status === 'active')
+    .sort((a, b) => Number(a.corridorPosition) - Number(b.corridorPosition));
+  const stops = corridorStops.map((groupStop, index) => {
+    const stop = stopsByGroupStopId[groupStop.groupStopId] || {};
+    const stopKey = stop.stopKey || (groupStop.sourceLineage && groupStop.sourceLineage[0] && groupStop.sourceLineage[0].sourceId) || groupStop.groupStopCode;
+    const coord = PREVIEW_MAP_COORDINATES[stopKey] || {};
+    return {
+      stopKey,
+      nodeId: groupStop.nodeId,
+      groupStopId: groupStop.groupStopId,
+      groupStopCode: groupStop.groupStopCode,
+      label: groupStop.displayNameTh || stop.displayNameTh || stop.nameTh || stopKey,
+      displayOrder: index,
+      lat: coord.lat,
+      lng: coord.lng,
+      icon: index === 0 || index === corridorStops.length - 1 ? '🚍' : '🚏',
+      visible: coord.lat != null && coord.lng != null,
+      previewDisplayMode: 'static_map_reference',
+      referenceOnly: true,
+      sourceLineage: previewMapSourceLineage(stopKey, groupStop)
+    };
+  });
+  const polyline = stops
+    .filter((stop) => Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)))
+    .map((stop) => ({ lat: stop.lat, lng: stop.lng }));
+  return {
+    schemaVersion: 'publishedSchedule.mapView.v1.preview',
+    previewDisplayMode: 'static_map_reference',
+    referenceOnly: true,
+    routeLineSource: 'derived_from_ordered_preview_stops',
+    operationalProof: false,
+    gps: false,
+    eta: false,
+    liveVehicleMarkers: false,
+    stops,
+    routes: [
+      {
+        routeViewId: 'map_route_group_001_corridor_preview',
+        serviceGroupId: 'group_001',
+        direction: 'corridor_display_order',
+        stopKeys: stops.map((stop) => stop.stopKey),
+        polyline,
+        previewDisplayMode: 'static_map_reference',
+        referenceOnly: true,
+        sourceLineage: [
+          {
+            sourceSystem: 'erp_preview_contract',
+            sourcePath: 'publishedSchedule/mapView/stops',
+            sourceId: 'group_001_corridor_display_order',
+            importedBy: 'published-schedule-v1-dry-run',
+            notes: 'preview route line derived from ordered static stops; not road-certified, GPS, ETA, or operational proof'
+          }
+        ]
+      }
+    ]
   };
 }
 
@@ -684,10 +784,33 @@ function validatePublishedSchedule(publishedSchedule) {
   const excludedInfeasibleTransferPairs = publishedSchedule.excludedPreviewPairs && publishedSchedule.excludedPreviewPairs.transferInfeasible || {};
   const originOptions = Array.isArray(publishedSchedule.originOptions) ? publishedSchedule.originOptions : [];
   const destinationOptionsByOrigin = publishedSchedule.destinationOptionsByOrigin || {};
+  const mapView = publishedSchedule.mapView || {};
+  const mapStops = Array.isArray(mapView.stops) ? mapView.stops : [];
+  const mapRoutes = Array.isArray(mapView.routes) ? mapView.routes : [];
   const scheduleOfferIds = [];
   const canonicalKeys = new Set();
   if (!originOptions.length) {
     block('origin-options-missing', 'publishedSchedule/originOptions');
+  }
+  if (mapView.schemaVersion !== 'publishedSchedule.mapView.v1.preview' || mapView.referenceOnly !== true || mapView.operationalProof !== false) {
+    block('map-view-policy-invalid', 'publishedSchedule/mapView');
+  }
+  if (mapStops.length !== (publishedSchedule.counts && publishedSchedule.counts.origins)) {
+    block('map-view-stop-count-mismatch', 'publishedSchedule/mapView/stops', { expected: publishedSchedule.counts && publishedSchedule.counts.origins, actual: mapStops.length });
+  }
+  mapStops.forEach((stop, index) => {
+    if (!stop || !stop.stopKey || !stop.nodeId || !stop.groupStopId || !stop.groupStopCode || !stop.label || stop.displayOrder !== index) {
+      block('map-view-stop-identity-invalid', `publishedSchedule/mapView/stops/${index}`);
+    }
+    if (!Number.isFinite(Number(stop.lat)) || !Number.isFinite(Number(stop.lng)) || !stop.icon) {
+      block('map-view-stop-coordinate-invalid', `publishedSchedule/mapView/stops/${index}`);
+    }
+    if (stop.referenceOnly !== true || stop.previewDisplayMode !== 'static_map_reference' || !Array.isArray(stop.sourceLineage) || !stop.sourceLineage.length) {
+      block('map-view-stop-lineage-invalid', `publishedSchedule/mapView/stops/${index}`);
+    }
+  });
+  if (!mapRoutes.length || !Array.isArray(mapRoutes[0].stopKeys) || mapRoutes[0].stopKeys.length !== mapStops.length || !Array.isArray(mapRoutes[0].polyline) || mapRoutes[0].polyline.length !== mapStops.length) {
+    block('map-view-route-invalid', 'publishedSchedule/mapView/routes/0');
   }
   originOptions.forEach((origin, index) => {
     if (!origin || !origin.originLabel || !origin.originDestinationId || origin.displayOrder !== index) {
@@ -973,6 +1096,7 @@ async function buildPublishedScheduleV1DryRun() {
     segTotal + (segment.times || []).filter((time) => time.isEstimated === true && time.referenceOnly === true).length
   ), 0), 0);
   const destinationOptionsByOrigin = buildDestinationOptionsByOrigin(originOptions, pairs, destinationsById, destinations, destinationOrderById);
+  const mapView = buildMapView(erp);
 
   const publishedSchedule = {
     schemaVersion: 'publishedSchedule.v1.preview',
@@ -987,7 +1111,10 @@ async function buildPublishedScheduleV1DryRun() {
       ownerWorkbook: OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook,
       sourcePaths: [
         'data/erpDataCenter/destinations',
+        'data/erpDataCenter/groupStops',
+        'data/erpDataCenter/networkNodes',
         'data/erpDataCenter/scheduleOffers',
+        'data/erpDataCenter/stops',
         'data/erpDataCenter/transferRules'
       ]
     },
@@ -1021,7 +1148,9 @@ async function buildPublishedScheduleV1DryRun() {
         transferUnknown: Object.keys(excludedTransferPairs).length,
         transferInfeasible: transferInfeasibleAuditPairs
       },
-      estimatedReferenceTimes
+      estimatedReferenceTimes,
+      mapViewStops: mapView.stops.length,
+      mapViewRoutes: mapView.routes.length
     },
     mappingStatusSummary,
     timeTypeSummary,
@@ -1029,6 +1158,7 @@ async function buildPublishedScheduleV1DryRun() {
     originOptions,
     destinations,
     destinationOptionsByOrigin,
+    mapView,
     compatibilityKeyIndex,
     excludedPreviewPairs: {
       transferUnknown: excludedTransferPairs,

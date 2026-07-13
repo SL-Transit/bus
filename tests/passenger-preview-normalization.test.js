@@ -220,6 +220,36 @@ function sampleOptionOnlySchedule() {
   delete schedule.pairs;
   delete schedule.destinations;
   schedule.originOptions = corridor.map((label, displayOrder) => ({ label, displayOrder }));
+  schedule.mapView = {
+    schemaVersion: 'publishedSchedule.mapView.v1.preview',
+    referenceOnly: true,
+    operationalProof: false,
+    liveVehicleMarkers: false,
+    stops: corridor.map((label, displayOrder) => ({
+      stopKey: 'stop_' + displayOrder,
+      nodeId: 'node_' + displayOrder,
+      groupStopId: 'gs_' + displayOrder,
+      groupStopCode: 'g01p' + String(displayOrder + 1).padStart(3, '0'),
+      label,
+      displayOrder,
+      lat: 13.4 + displayOrder / 100,
+      lng: 101.0 + displayOrder / 100,
+      icon: displayOrder === 0 ? '🚍' : '🚏',
+      visible: true,
+      previewDisplayMode: 'static_map_reference',
+      referenceOnly: true,
+      sourceLineage: [{ sourcePath: 'publishedSchedule/mapView/stops/' + displayOrder }]
+    })),
+    routes: [{
+      routeViewId: 'map_route_group_001_corridor_preview',
+      serviceGroupId: 'group_001',
+      direction: 'corridor_display_order',
+      stopKeys: corridor.map((_, displayOrder) => 'stop_' + displayOrder),
+      polyline: corridor.map((_, displayOrder) => ({ lat: 13.4 + displayOrder / 100, lng: 101.0 + displayOrder / 100 })),
+      referenceOnly: true,
+      previewDisplayMode: 'static_map_reference'
+    }]
+  };
   schedule.destinationOptionsByOrigin = {
     [TH.chachoengsao]: [
       {
@@ -318,6 +348,7 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.once\s*\(/.test(html), 'Passenger must not once-read full preview/publishedSchedule on initial load');
   assert(html.includes(".child('originOptions')"), 'Passenger must read originOptions as lightweight initial data');
   assert(html.includes(".child('destinationOptionsByOrigin')"), 'Passenger must read destinationOptionsByOrigin as lightweight initial data');
+  assert(html.includes(".child('mapView')"), 'Passenger must read mapView as lightweight initial data');
   assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
   assert(html.includes('ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์'), 'Passenger must show live tracking unavailable when no approved new live data exists');
@@ -336,6 +367,10 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.chachoengsao)), [TH.pattaya, TH.chachoengsao, TH.km7], 'option-only destinations must keep ERP order/content exactly');
   assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.km1)), [TH.km7], 'encoded destinationOptionsByOrigin keys must resolve to display origin labels');
   assert(!schedule.getDestinationLabels(TH.chachoengsao).includes(TH.rangsit), 'excludedPreviewPairs must not become destination options');
+  const previewRouteData = await sandbox.SLPassengerLogic.map.loadRouteData();
+  assert(Array.isArray(previewRouteData.stations) && previewRouteData.stations.length === 15, 'Passenger must accept map stops from publishedSchedule mapView');
+  assert(previewRouteData.stations[0].name === TH.chachoengsao, 'Passenger map stop labels must come from mapView');
+  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length === 15, 'Passenger static route line must come from mapView polyline');
   assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya), null, 'option-only initial state must not have full pairs loaded');
 
   const loadedPair = await schedule.loadPair(TH.chachoengsao, TH.pattaya);

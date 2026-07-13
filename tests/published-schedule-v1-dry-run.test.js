@@ -122,8 +122,17 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.counts.excludedFromPreview.transferUnknown === 0, 'excluded transfer unknown count mismatch');
   assert(schedule.counts.excludedFromPreview.transferInfeasible === 58, 'excluded transfer infeasible count mismatch');
   assert(schedule.counts.estimatedReferenceTimes === 360, 'estimated reference time count mismatch');
+  assert(schedule.counts.mapViewStops === 15, 'mapView stop count mismatch');
+  assert(schedule.counts.mapViewRoutes === 1, 'mapView route count mismatch');
   assert(Array.isArray(schedule.originOptions) && schedule.originOptions.length === schedule.counts.origins, 'originOptions count mismatch');
   assert(schedule.originOptions.every((origin, index) => origin.displayOrder === index && origin.originLabel && origin.originDestinationId), 'originOptions must be ordered ERP options');
+  assert(schedule.mapView && schedule.mapView.schemaVersion === 'publishedSchedule.mapView.v1.preview', 'mapView schema missing');
+  assert(Array.isArray(schedule.mapView.stops) && schedule.mapView.stops.length === 15, 'mapView must expose 15 corridor stops');
+  assert(schedule.mapView.stops.every((stop, index) => stop.label && stop.displayOrder === index && Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)) && stop.icon), 'mapView stops must have label/displayOrder/lat/lng/icon');
+  assert(schedule.mapView.stops.every((stop) => stop.referenceOnly === true && stop.previewDisplayMode === 'static_map_reference' && Array.isArray(stop.sourceLineage) && stop.sourceLineage.length), 'mapView stops must be reference-only with lineage');
+  assert(Array.isArray(schedule.mapView.routes) && schedule.mapView.routes.length === 1, 'mapView route missing');
+  assert(schedule.mapView.routes[0].polyline.length === 15, 'mapView route polyline must follow ordered stops');
+  assert(schedule.mapView.operationalProof === false && schedule.mapView.liveVehicleMarkers === false, 'mapView must not claim operational proof');
 
   const chachoengsaoTatakiab = pairByOd(schedule, 'chachoengsao', 'tatakiab');
   assert(chachoengsaoTatakiab, 'Chachoengsao to Tatakiab pair missing');
