@@ -905,8 +905,16 @@ function renderSched() {
   const S = SLPassengerLogic.schedule;
   const origin = SLPassengerLogic.state.getOrigin(), dest = SLPassengerLogic.state.getDest();
   if (!wrapper) return;
-  if (!origin || !dest || !S.isReady()) {
+  if (!S.isReady()) {
     wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดตารางเวลา</div><div class="sched-route-name">ระบบกำลังอ่านข้อมูลจากระบบกลาง</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+  if (!origin) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">เลือกต้นทาง</div><div class="sched-route-name">กรุณาเลือกต้นทาง</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+  if (!dest) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">เลือกปลายทาง</div><div class="sched-route-name">กรุณาเลือกปลายทาง</div></div><div class="time-grid"></div></div>';
     return;
   }
 
@@ -992,7 +1000,6 @@ function buildDropdowns(){
 
   const origins = S.getOrigins();
   const destinations = S.getDestinations(); // { label: { group: null|"ต่อรถ" } }
-  const destinationLabels = typeof S.getDestinationLabels === 'function' ? S.getDestinationLabels() : Object.keys(destinations);
 
   // ต้นทาง
   if (!origins.length) {
@@ -1012,16 +1019,18 @@ function buildDropdowns(){
   // ปลายทาง — จัดกลุ่มตาม .group ที่ ERP กำหนดมา (ไม่ใช่ passenger เดาเอง)
   function buildDestOptions(){
     destSel.innerHTML = '';
-    const destLabels = destinationLabels.slice();
+    const originValue = state.getOrigin() || originSel.value;
+    const destLabels = typeof S.getDestinationLabels === 'function' ? S.getDestinationLabels(originValue) : Object.keys(destinations);
 
     if (!destLabels.length) {
       const grp0 = document.createElement('optgroup');
       grp0.label = '— เส้นทางหลัก —';
       const opt = document.createElement('option');
       opt.value = '';
-      opt.textContent = 'กำลังโหลดปลายทางจากระบบกลาง...';
+      opt.textContent = S.isReady() && origins.length ? 'ไม่พบปลายทางสำหรับต้นทางนี้' : 'กำลังโหลดปลายทางจากระบบกลาง...';
       grp0.appendChild(opt);
       destSel.appendChild(grp0);
+      state.setDest('');
       return;
     }
 
@@ -1059,6 +1068,7 @@ function buildDropdowns(){
       destSel.appendChild(grp);
     });
     if (destSel.value) state.setDest(destSel.value);
+    else state.setDest('');
   }
   buildDestOptions();
 

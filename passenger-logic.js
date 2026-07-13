@@ -411,6 +411,7 @@ function requestPassengerCurrentLocation(forceCenter, showBusy) {
 var PUBLISHED_SCHEDULE = null;
 var PUBLISHED_SCHEDULE_DESTINATIONS = {};
 var PUBLISHED_SCHEDULE_DESTINATION_LABELS = [];
+var PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = {};
 var PUBLISHED_SCHEDULE_PAIR_ALIASES = {};
 
 function previewEncodingIndex(node, name) {
@@ -488,6 +489,52 @@ function normalizePreviewDestinationLabels(destinations) {
   return labels;
 }
 
+function decodedPreviewPairKey(node, key, pair) {
+  if (pair && pair.compatibilityPairKey) return pair.compatibilityPairKey;
+  var pairIndex = previewEncodingIndex(node, 'pairs');
+  var compatibilityIndex = previewEncodingIndex(node, 'compatibilityKeyIndex');
+  return pairIndex[key] || compatibilityIndex[key] || key;
+}
+
+function previewPairLabels(node, key, pair) {
+  var origin = pair && pair.originLabel;
+  var dest = pair && pair.destinationLabel;
+  if ((!origin || !dest) && pair && pair.displayPairKey && String(pair.displayPairKey).indexOf('__') > -1) {
+    var displayParts = String(pair.displayPairKey).split('__');
+    origin = origin || displayParts[0];
+    dest = dest || displayParts.slice(1).join('__');
+  }
+  if ((!origin || !dest)) {
+    var pairKey = decodedPreviewPairKey(node, key, pair);
+    if (pairKey && String(pairKey).indexOf('__') > -1) {
+      var parts = String(pairKey).split('__');
+      origin = origin || parts[0];
+      dest = dest || parts.slice(1).join('__');
+    }
+  }
+  if (!origin || !dest || isEncodedPreviewKey(origin) || isEncodedPreviewKey(dest)) return null;
+  return { origin: origin, dest: dest };
+}
+
+function normalizePreviewDestinationsByOrigin(node, destinations) {
+  var byOrigin = {};
+  Object.keys(node && node.pairs || {}).forEach(function(key) {
+    var pair = node.pairs[key] || {};
+    var labels = previewPairLabels(node, key, pair);
+    if (!labels || !destinations[labels.dest]) return;
+    if (!byOrigin[labels.origin]) byOrigin[labels.origin] = {};
+    byOrigin[labels.origin][labels.dest] = true;
+  });
+  Object.keys(byOrigin).forEach(function(origin) {
+    var subset = {};
+    Object.keys(byOrigin[origin]).forEach(function(label) {
+      if (label !== origin && destinations[label]) subset[label] = destinations[label];
+    });
+    byOrigin[origin] = normalizePreviewDestinationLabels(subset);
+  });
+  return byOrigin;
+}
+
 function addPreviewPairAlias(aliases, fromKey, toKey) {
   if (fromKey && toKey && fromKey !== toKey) aliases[fromKey] = toKey;
 }
@@ -521,6 +568,7 @@ function applyPublishedSchedule(node) {
   PUBLISHED_SCHEDULE = node || null;
   PUBLISHED_SCHEDULE_DESTINATIONS = normalizePreviewDestinations(PUBLISHED_SCHEDULE);
   PUBLISHED_SCHEDULE_DESTINATION_LABELS = normalizePreviewDestinationLabels(PUBLISHED_SCHEDULE_DESTINATIONS);
+  PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN = normalizePreviewDestinationsByOrigin(PUBLISHED_SCHEDULE, PUBLISHED_SCHEDULE_DESTINATIONS);
   PUBLISHED_SCHEDULE_PAIR_ALIASES = normalizePreviewPairAliases(PUBLISHED_SCHEDULE);
   emit('scheduleUpdated');
 }
@@ -533,7 +581,10 @@ function getScheduleDestinations() {
   return PUBLISHED_SCHEDULE_DESTINATIONS;
 }
 
-function getScheduleDestinationLabels() {
+function getScheduleDestinationLabels(originLabel) {
+  if (originLabel && PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN[originLabel]) {
+    return PUBLISHED_SCHEDULE_DESTINATIONS_BY_ORIGIN[originLabel].slice();
+  }
   return PUBLISHED_SCHEDULE_DESTINATION_LABELS.slice();
 }
 

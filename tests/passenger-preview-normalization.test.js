@@ -83,6 +83,7 @@ const encodedDest10 = 'k_4LiB4LihLjEw';
 const encodedPair1 = 'k_pair_chachoengsao_km1';
 const encodedPair7 = 'k_pair_chachoengsao_km7';
 const encodedPair10 = 'k_pair_chachoengsao_km10';
+const encodedPairKm1Km7 = 'k_pair_km1_km7';
 
 function pairKey(origin, dest) {
   return origin + '__' + dest;
@@ -130,12 +131,24 @@ function sampleSchedule() {
         displayBadgeTh: TH.transferBadge,
         transferDisclaimerTh: TH.transferDisclaimer,
         segments: [{ times: [{ time: '11:00' }] }]
+      },
+      phanomPhaijit: {
+        compatibilityPairKey: pairKey(TH.phanom, TH.phaijit),
+        originLabel: TH.phanom,
+        destinationLabel: TH.phaijit,
+        segments: [{ times: [{ time: '12:00' }] }]
+      },
+      [encodedPairKm1Km7]: {
+        originLabel: TH.km1,
+        destinationLabel: TH.km7,
+        segments: [{ times: [{ time: '13:00' }] }]
       }
     },
     compatibilityKeyIndex: {
       [encodedPair1]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km1) },
       [encodedPair7]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km7) },
-      [encodedPair10]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km10) }
+      [encodedPair10]: { compatibilityPairKey: pairKey(TH.chachoengsao, TH.km10) },
+      [encodedPairKm1Km7]: { compatibilityPairKey: pairKey(TH.km1, TH.km7) }
     },
     excludedPreviewPairs: {
       transferUnknown: {
@@ -152,12 +165,14 @@ function sampleSchedule() {
         pairs: {
           [encodedPair1]: pairKey(TH.chachoengsao, TH.km1),
           [encodedPair7]: pairKey(TH.chachoengsao, TH.km7),
-          [encodedPair10]: pairKey(TH.chachoengsao, TH.km10)
+          [encodedPair10]: pairKey(TH.chachoengsao, TH.km10),
+          [encodedPairKm1Km7]: pairKey(TH.km1, TH.km7)
         },
         compatibilityKeyIndex: {
           [encodedPair1]: pairKey(TH.chachoengsao, TH.km1),
           [encodedPair7]: pairKey(TH.chachoengsao, TH.km7),
-          [encodedPair10]: pairKey(TH.chachoengsao, TH.km10)
+          [encodedPair10]: pairKey(TH.chachoengsao, TH.km10),
+          [encodedPairKm1Km7]: pairKey(TH.km1, TH.km7)
         }
       }
     }
@@ -176,12 +191,16 @@ schedule.applyPublishedSchedule(sampleSchedule());
 const destinations = schedule.getDestinations();
 const labels = Array.from(Object.keys(destinations));
 const orderedLabels = Array.from(schedule.getDestinationLabels());
+const phanomLabels = Array.from(schedule.getDestinationLabels(TH.phanom));
+const km1Labels = Array.from(schedule.getDestinationLabels(TH.km1));
 const mainLabels = orderedLabels.filter((label) => !(destinations[label] && destinations[label].group));
 const expectedMainLabels = corridor.filter((label) => labels.includes(label));
-const labelsForOriginKm1 = orderedLabels.filter((label) => label !== TH.km1);
 
 assert.deepStrictEqual(mainLabels, expectedMainLabels, 'main destination labels must follow corridor order');
-assert(!labelsForOriginKm1.includes(TH.km1), 'selected origin must be excluded by dropdown filtering');
+assert(phanomLabels.length > 0, 'phanom must expose visible destinations from pairs');
+assert(km1Labels.length > 0, 'km1 must expose visible destinations from pairs');
+assert(!phanomLabels.includes(TH.phanom), 'selected phanom origin must be excluded from destinations');
+assert(!km1Labels.includes(TH.km1), 'selected km1 origin must be excluded from destinations');
 assert(labels.includes(TH.km1), 'km1 destination label must be restored');
 assert(labels.includes(TH.km7), 'km7 destination label must be restored');
 assert(labels.includes(TH.km10), 'km10 destination label must be restored');
@@ -190,6 +209,9 @@ assert(orderedLabels.indexOf(TH.km1) < orderedLabels.indexOf(TH.km7), 'destinati
 assert(schedule.getPair(TH.chachoengsao, TH.km1), 'km1 pair lookup must resolve through encoded key');
 assert(schedule.getPair(TH.chachoengsao, TH.km7), 'km7 pair lookup must resolve through encoded key');
 assert(schedule.getPair(TH.chachoengsao, TH.km10), 'km10 pair lookup must resolve through encoded key');
+assert(schedule.getPair(TH.phanom, TH.phaijit), 'phanom to phaijit pair lookup must work');
+assert(schedule.getPair(TH.km1, TH.km7), 'km1 to km7 pair lookup must work');
+assert(!km1Labels.includes(TH.phaijit), 'invalid old destination must not remain after origin changes');
 assert(!schedule.getPair(TH.chachoengsao, TH.rangsit), 'excludedPreviewPairs must remain hidden');
 assert(schedule.getPair(TH.chachoengsao, TH.km1).segments[0].times[0].displayBadgeTh === TH.estimatedBadge, 'estimated badge must pass through');
 assert(schedule.getPair(TH.chachoengsao, TH.km10).transferDisclaimerTh === TH.transferDisclaimer, 'transfer disclaimer must pass through');
