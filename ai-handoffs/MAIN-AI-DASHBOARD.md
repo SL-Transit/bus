@@ -106,6 +106,32 @@ Source of truth:
 - Passenger remains display-only. These centers are not wired into live pages yet.
 - Safety: no Firebase writes, no seed, no production apply, no operational/private data access, no LINE sent.
 
+### 2026-07-13 Paused: Driver Vehicle Identity And Work Read Access
+
+Owner decision: pause this work and keep it on the central board until vehicle identity is designed and approved.
+
+Completed foundation:
+- Commit `31ace5f` moved Driver App queue work consumption to the central `driver_work_v1` contract at `operations/driverWorkByServiceDate/{serviceDate}/{vehicleId}`.
+- Commit `5b2629a` added the pure daily driver-work producer, stable ERP vehicle identity plus runtime alias, fixed `veh_005 -> queue_005`, explicit daily assignments for rotating vehicles, duplicate/invalid assignment guards, and source-proven stop coordinates.
+- The producer is dry-run only: `writesEnabled=false` and `readyForApply=false`. No Firebase runtime work was written.
+
+Current blocker:
+- Driver App currently uses anonymous Firebase authentication and a locally selected runtime vehicle alias such as `car1`.
+- Firebase therefore cannot prove that the signed-in device is authorized for that vehicle.
+- Adding `auth != null` read access now would let any anonymously authenticated app read other vehicles' work, so it is not approved.
+
+Required before resuming:
+1. Design a central vehicle/device identity enrollment flow owned by the backend.
+2. Bind the authenticated identity to one approved stable ERP vehicle ID and runtime alias.
+3. Prevent the Driver App from granting itself another vehicle identity through local selection alone.
+4. Add and test a least-privilege rule so a driver device reads only its assigned vehicle work; backend/admin writers remain separate.
+
+While paused:
+- Do not add `driverWorkByServiceDate` read rules.
+- Do not write or seed daily driver-work records.
+- Do not loosen anonymous access.
+- Do not alter the unrelated dirty `database.rules.json` work as part of this task.
+
 Shared approved ERP Data Center contract:
 - SL-Transit is an interconnected journey-planning and transport-service platform, not a single-main-route website.
 - Canonical flow: ERP Data Center -> ERP Logic Center -> Page Logic Adapters -> UX/UI.
