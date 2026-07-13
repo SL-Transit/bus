@@ -25,12 +25,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -46,6 +48,8 @@ import java.net.URL;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -68,6 +72,12 @@ public class MainActivity extends Activity {
     static final String KEY_LAST_COORDS = "last_coords";
     static final String KEY_LAST_ERROR = "last_error";
     static final String KEY_VEHICLE_ID = "vehicle_id";
+    static final String KEY_DRIVER_UID = "driver_uid";
+    static final String KEY_DRIVER_EMAIL = "driver_email";
+    static final String KEY_DRIVER_ID = "driver_id";
+    static final String KEY_ERP_VEHICLE_ID = "erp_vehicle_id";
+    static final String KEY_ACCOUNT_STATUS = "driver_account_status";
+    static final String KEY_SESSION_STATUS = "driver_session_status";
     static final String KEY_BATTERY_PROMPTED  = "battery_prompted";
     static final String KEY_LAST_RESTART      = "last_restart";
     static final String KEY_RESTART_COUNT     = "restart_count";
@@ -101,11 +111,8 @@ public class MainActivity extends Activity {
     private static final String DRIVER_WORK_PATH = "operations/driverWorkByServiceDate";
     private static final String DRIVER_WORK_CONTRACT_VERSION = "driver_work_v1";
 
-    private static final String[] VEHICLE_IDS = {
-        "car1", "car2", "car3", "car4", "car5"
-    };
-
     private SharedPreferences prefs;
+    private FirebaseAuth driverAuth;
     private Button mainButton;
     private TextView vehiclePickerText;
     private TextView coordsText;
@@ -217,6 +224,8 @@ public class MainActivity extends Activity {
     private boolean gpsWasOkAtScreenOff = false;
     private com.google.firebase.database.ValueEventListener remoteCommandListener;
     private com.google.firebase.database.DatabaseReference remoteCommandRef;
+    private com.google.firebase.database.ValueEventListener driverIdentityListener;
+    private com.google.firebase.database.DatabaseReference driverIdentityRef;
     // ===== Auto GPS Lost tracking =====
     private boolean gpsWasLost = false;
     private long gpsLostAt = 0;
@@ -225,79 +234,222 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
-        initFirebaseListener();
-        if (prefs.getString(KEY_VEHICLE_ID, null) == null) {
-            // ติดตั้งใหม่ — ยังไม่เลือกรถ ไม่ default เป็น car1
-            autoSelectAvailableVehicle();
+        ensureFirebaseApp();
+        driverAuth = FirebaseAuth.getInstance();
+        if (!hasAuthenticatedDriverIdentity()) {
+            forceStopGpsForIdentityGate();
+            showLoginScreen(null);
+            return;
         }
+        enterDriverWorkMode();
+    }
+
+    private void ensureFirebaseApp() {
+        if (!FirebaseApp.getApps(this).isEmpty()) return;
+        FirebaseOptions options = new FirebaseOptions.Builder()
+                .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
+                .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
+                .setDatabaseUrl(DB_URL)
+                .setProjectId("bus-booking-1d68c")
+                .build();
+        FirebaseApp.initializeApp(this, options);
+    }
+
+    private void enterDriverWorkMode() {
+        ensureFirebaseApp();
+        if (driverAuth == null) driverAuth = FirebaseAuth.getInstance();
         buildUi();
         loadTestModeSetting();
-        // ถ้า Service วิ่งอยู่แล้ว (ปิด app แล้วเปิดใหม่) — ไม่ต้อง start ซ้ำ
-        // การ start ซ้ำทำให้ Firebase goOffline/goOnline กลางอากาศ → connection ค้าง
-        if (prefs.getBoolean(KEY_ENABLED, false)) {
-            refreshUi();
-        } else {
-            requestPermissionsThenStart();
-        }
+        initFirebaseListener();
+        watchDriverIdentityProfile();
         uiHandler.post(uiTick);
         checkForUpdate();
         reportVersionToFirebase();
         refreshTodaySchedule();
         registerScreenReceiver();
         initRemoteCommandListener();
+        if (prefs.getBoolean(KEY_ENABLED, false)) requestPermissionsThenStart();
+        else refreshUi();
     }
 
-    // ===== เลือก car ที่ว่างอัตโนมัติตอนติดตั้งใหม่ =====
-    private void autoSelectAvailableVehicle() {
-        long staleMs = 30 * 60 * 1000; // ถือว่า "ว่าง" ถ้าไม่มีการส่งสัญญาณนานกว่า 30 นาที
-        long now = System.currentTimeMillis();
+    private void forceStopGpsForIdentityGate() {
+        prefs.edit().putBoolean(KEY_ENABLED, false).apply();
         try {
-            FirebaseDatabase.getInstance().getReference("liveVehicles")
+            Intent intent = new Intent(this, GpsService.class);
+            intent.setAction(GpsService.ACTION_STOP);
+            startService(intent);
+        } catch (Exception ignored) {}
+    }
+
+    private boolean hasAuthenticatedDriverIdentity() {
+        FirebaseUser user = driverAuth == null ? null : driverAuth.getCurrentUser();
+        if (user == null) return false;
+        return DriverIdentityCenter.isAuthorizedProfile(
+                user.getUid(),
+                prefs.getString(KEY_DRIVER_UID, null),
+                prefs.getString(KEY_ERP_VEHICLE_ID, null),
+                prefs.getString(KEY_VEHICLE_ID, null),
+                prefs.getString(KEY_ACCOUNT_STATUS, null),
+                prefs.getString(KEY_SESSION_STATUS, null));
+    }
+
+    private String authorizedRuntimeVehicleId() {
+        return hasAuthenticatedDriverIdentity() ? prefs.getString(KEY_VEHICLE_ID, null) : null;
+    }
+
+    private void clearDriverIdentity() {
+        prefs.edit()
+                .putBoolean(KEY_ENABLED, false)
+                .remove(KEY_DRIVER_UID)
+                .remove(KEY_DRIVER_EMAIL)
+                .remove(KEY_DRIVER_ID)
+                .remove(KEY_ERP_VEHICLE_ID)
+                .remove(KEY_VEHICLE_ID)
+                .remove(KEY_ACCOUNT_STATUS)
+                .remove(KEY_SESSION_STATUS)
+                .apply();
+    }
+
+    private void showLoginScreen(String errorMessage) {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setPadding(dp(24), dp(44), dp(24), dp(24));
+        root.setBackgroundColor(COLOR_BG_PAGE);
+
+        TextView title = new TextView(this);
+        title.setText("Driver Login");
+        title.setTextColor(COLOR_NAVY);
+        title.setTextSize(24);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        root.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        EditText accountInput = new EditText(this);
+        accountInput.setHint("Account email");
+        accountInput.setSingleLine(true);
+        accountInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        root.addView(accountInput, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        EditText passwordInput = new EditText(this);
+        passwordInput.setHint("Password");
+        passwordInput.setSingleLine(true);
+        passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        root.addView(passwordInput, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView errorTextView = new TextView(this);
+        errorTextView.setTextColor(COLOR_RED);
+        errorTextView.setText(errorMessage == null ? "" : errorMessage);
+        root.addView(errorTextView, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        Button loginButton = new Button(this);
+        loginButton.setText("Sign in");
+        root.addView(loginButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54)));
+
+        loginButton.setOnClickListener(v -> {
+            String email = accountInput.getText().toString().trim();
+            String password = passwordInput.getText().toString();
+            if (email.isEmpty() || password.isEmpty()) {
+                errorTextView.setText("Please enter the account and password from the central system.");
+                return;
+            }
+            loginButton.setEnabled(false);
+            errorTextView.setText("Checking account...");
+            driverAuth.signInWithEmailAndPassword(email, password)
+                    .addOnSuccessListener(result -> loadDriverIdentityProfile(email, loginButton, errorTextView))
+                    .addOnFailureListener(error -> {
+                        clearDriverIdentity();
+                        loginButton.setEnabled(true);
+                        errorTextView.setText("Sign in failed. Check the account assigned by SL-Transit.");
+                    });
+        });
+        setContentView(root);
+    }
+
+    private void loadDriverIdentityProfile(String email, Button loginButton, TextView errorTextView) {
+        FirebaseUser user = driverAuth == null ? null : driverAuth.getCurrentUser();
+        if (user == null) {
+            loginButton.setEnabled(true);
+            errorTextView.setText("Sign in session was not created.");
+            return;
+        }
+        FirebaseDatabase.getInstance().getReference(DriverIdentityCenter.PROFILE_ROOT)
+                .child(user.getUid())
                 .addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
-                for (String id : VEHICLE_IDS) {
-                    DataSnapshot v = snap.child(id);
-                    boolean online = Boolean.TRUE.equals(v.child("online").getValue(Boolean.class));
-                    Long ts = v.child("sentTs").getValue(Long.class);
-                    boolean recentlyActive = ts != null && (now - ts) < staleMs;
-                    if (!online && !recentlyActive) {
-                        // เจอ car ที่ว่าง — ตั้งค่าและอัพเดท UI
-                        prefs.edit().putString(KEY_VEHICLE_ID, id).apply();
-                        runOnUiThread(() -> {
-                            if (vehiclePickerText != null)
-                                vehiclePickerText.setText(id + "\n▾");
-                            if (versionLabel != null)
-                                versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + id + ")");
-                            refreshTodaySchedule();
-                        });
-                        return;
-                    }
+                String uid = snap.child("uid").getValue(String.class);
+                String driverId = snap.child("driverId").getValue(String.class);
+                String erpVehicleId = snap.child("erpVehicleId").getValue(String.class);
+                String runtimeVehicleId = snap.child("runtimeVehicleId").getValue(String.class);
+                String accountStatus = snap.child("accountStatus").getValue(String.class);
+                String sessionStatus = snap.child("sessionStatus").getValue(String.class);
+                if (!DriverIdentityCenter.isAuthorizedProfile(
+                        user.getUid(), uid, erpVehicleId, runtimeVehicleId, accountStatus, sessionStatus)
+                        || !DriverIdentityCenter.isValidVehicleBinding(erpVehicleId, runtimeVehicleId)) {
+                    clearDriverIdentity();
+                    driverAuth.signOut();
+                    loginButton.setEnabled(true);
+                    errorTextView.setText("This account is not active or has no assigned vehicle.");
+                    return;
                 }
-                // ถ้าทุก car ถูกใช้อยู่ — คง car1 ไว้แต่แสดงเตือน
-                runOnUiThread(() -> {
-                    if (vehiclePickerText != null)
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("⚠️ รถทุกคันถูกใช้งานอยู่")
-                                .setMessage("กรุณาเลือกรหัสรถด้วยตนเอง")
-                                .setPositiveButton("ตกลง", null).show();
-                });
+                prefs.edit()
+                        .putString(KEY_DRIVER_UID, uid)
+                        .putString(KEY_DRIVER_EMAIL, email)
+                        .putString(KEY_DRIVER_ID, driverId == null ? "" : driverId)
+                        .putString(KEY_ERP_VEHICLE_ID, erpVehicleId)
+                        .putString(KEY_VEHICLE_ID, runtimeVehicleId)
+                        .putString(KEY_ACCOUNT_STATUS, accountStatus)
+                        .putString(KEY_SESSION_STATUS, sessionStatus)
+                        .putBoolean(KEY_ENABLED, false)
+                        .apply();
+                enterDriverWorkMode();
             }
-            @Override public void onCancelled(DatabaseError e) {}
+            @Override public void onCancelled(DatabaseError error) {
+                clearDriverIdentity();
+                driverAuth.signOut();
+                loginButton.setEnabled(true);
+                errorTextView.setText("Driver profile is not readable yet. Check identity rules/config.");
+            }
         });
-        } catch (Exception error) {
-            prefs.edit().putString(KEY_LAST_ERROR,
-                    error.getMessage() == null ? "vehicle selection unavailable" : error.getMessage()).apply();
-        }
     }
 
+    private void signOutDriver() {
+        forceStopGpsForIdentityGate();
+        if (driverIdentityRef != null && driverIdentityListener != null) {
+            try { driverIdentityRef.removeEventListener(driverIdentityListener); } catch (Exception ignored) {}
+        }
+        clearDriverIdentity();
+        if (driverAuth != null) driverAuth.signOut();
+        showLoginScreen("Signed out.");
+    }
+
+    private void requireActiveDriverOrReturnToLogin(String message) {
+        forceStopGpsForIdentityGate();
+        if (driverIdentityRef != null && driverIdentityListener != null) {
+            try { driverIdentityRef.removeEventListener(driverIdentityListener); } catch (Exception ignored) {}
+        }
+        clearDriverIdentity();
+        if (driverAuth != null) driverAuth.signOut();
+        showLoginScreen(message);
+    }
 
     private void reportVersionToFirebase() {
         try {
-            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            if (!hasAuthenticatedDriverIdentity()) return;
+            String vehicleId = authorizedRuntimeVehicleId();
+            if (vehicleId == null) return;
             Map<String, Object> data = new HashMap<>();
             data.put("appVersionCode", BuildConfig.VERSION_CODE);
             data.put("appVersionName", BuildConfig.VERSION_NAME);
             data.put("lastOpenAt", System.currentTimeMillis());
+            data.put("driverUid", prefs.getString(KEY_DRIVER_UID, ""));
+            data.put("driverId", prefs.getString(KEY_DRIVER_ID, ""));
+            data.put("erpVehicleId", prefs.getString(KEY_ERP_VEHICLE_ID, ""));
             FirebaseDatabase.getInstance()
                     .getReference("settings/vehicles/" + vehicleId)
                     .updateChildren(data);
@@ -310,7 +462,53 @@ public class MainActivity extends Activity {
         if (remoteCommandRef != null && remoteCommandListener != null) {
             remoteCommandRef.removeEventListener(remoteCommandListener);
         }
+        if (driverIdentityRef != null && driverIdentityListener != null) {
+            driverIdentityRef.removeEventListener(driverIdentityListener);
+        }
         super.onDestroy();
+    }
+
+    private void watchDriverIdentityProfile() {
+        FirebaseUser user = driverAuth == null ? null : driverAuth.getCurrentUser();
+        if (user == null) return;
+        driverIdentityRef = FirebaseDatabase.getInstance().getReference(DriverIdentityCenter.PROFILE_ROOT)
+                .child(user.getUid());
+        driverIdentityListener = new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                String uid = snap.child("uid").getValue(String.class);
+                String driverId = snap.child("driverId").getValue(String.class);
+                String erpVehicleId = snap.child("erpVehicleId").getValue(String.class);
+                String runtimeVehicleId = snap.child("runtimeVehicleId").getValue(String.class);
+                String accountStatus = snap.child("accountStatus").getValue(String.class);
+                String sessionStatus = snap.child("sessionStatus").getValue(String.class);
+                if (!DriverIdentityCenter.isAuthorizedProfile(
+                        user.getUid(), uid, erpVehicleId, runtimeVehicleId, accountStatus, sessionStatus)
+                        || !DriverIdentityCenter.isValidVehicleBinding(erpVehicleId, runtimeVehicleId)) {
+                    requireActiveDriverOrReturnToLogin("Driver account is suspended or no longer assigned.");
+                    return;
+                }
+                String previousRuntimeVehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+                boolean vehicleChanged = previousRuntimeVehicleId != null
+                        && !previousRuntimeVehicleId.equals(runtimeVehicleId);
+                prefs.edit()
+                        .putString(KEY_DRIVER_UID, uid)
+                        .putString(KEY_DRIVER_ID, driverId == null ? "" : driverId)
+                        .putString(KEY_ERP_VEHICLE_ID, erpVehicleId)
+                        .putString(KEY_VEHICLE_ID, runtimeVehicleId)
+                        .putString(KEY_ACCOUNT_STATUS, accountStatus)
+                        .putString(KEY_SESSION_STATUS, sessionStatus)
+                        .apply();
+                if (vehicleChanged) {
+                    stopGpsService();
+                    refreshTodaySchedule();
+                    refreshUi();
+                }
+            }
+            @Override public void onCancelled(DatabaseError error) {
+                requireActiveDriverOrReturnToLogin("Driver identity is not readable.");
+            }
+        };
+        driverIdentityRef.addValueEventListener(driverIdentityListener);
     }
 
     // ===== Screen Off/On Receiver — บันทึกว่า GPS หายตอนหน้าจอดับหรือเปล่า =====
@@ -511,27 +709,7 @@ public class MainActivity extends Activity {
     // ---- เชื่อม Firebase ฟัง online status ของทุกคัน ----
     private void initFirebaseListener() {
         try {
-            if (FirebaseApp.getApps(this).isEmpty()) {
-                FirebaseOptions options = new FirebaseOptions.Builder()
-                        .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
-                        .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
-                        .setDatabaseUrl(DB_URL)
-                        .setProjectId("bus-booking-1d68c")
-                        .build();
-                FirebaseApp.initializeApp(this, options);
-            }
-            liveVehiclesRef = FirebaseDatabase.getInstance().getReference("liveVehicles");
-            liveVehiclesRef.addValueEventListener(new ValueEventListener() {
-                @Override public void onDataChange(DataSnapshot snapshot) {
-                    vehicleOnlineMap.clear();
-                    for (DataSnapshot child : snapshot.getChildren()) {
-                        Object onlineVal = child.child("online").getValue();
-                        boolean online = Boolean.TRUE.equals(onlineVal);
-                        vehicleOnlineMap.put(child.getKey(), online);
-                    }
-                }
-                @Override public void onCancelled(DatabaseError error) {}
-            });
+            ensureFirebaseApp();
         } catch (Exception e) {
             // Firebase init ล้มเหลว ปล่อยให้ใช้งานได้ปกติ
         }
@@ -732,9 +910,11 @@ public class MainActivity extends Activity {
     }
     // ===== ดึงยอดผู้โดยสารวันนี้: จอง / เช็คอินแล้ว / ยังไม่มาเช็คอิน =====
     private void refreshPassengerSummary() {
+        if (!hasAuthenticatedDriverIdentity()) return;
         String bookingPath = bookingsPath();
         if (bookingPath == null) return;
-        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        final String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
         loadBookingsForDate(today, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
@@ -761,12 +941,20 @@ public class MainActivity extends Activity {
 
     // ===== งานประจำวันที่ ERP Logic Center จัดให้รถคันนี้ =====
     private void refreshTodaySchedule() {
-        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before opening driver work.");
+            return;
+        }
+        final String vehicleId = authorizedRuntimeVehicleId();
         if (vehicleId == null) {
             showUnassignedQueue("ยังไม่ได้เลือกรถ");
             return;
         }
         final String serviceDate = serviceDateToday();
+        if (!DriverIdentityCenter.isSelfOnlyWorkPath(serviceDate, vehicleId, vehicleId)) {
+            showUnassignedQueue("Driver identity does not match the requested vehicle.");
+            return;
+        }
         FirebaseDatabase.getInstance().getReference(DRIVER_WORK_PATH)
                 .child(serviceDate).child(vehicleId)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -913,9 +1101,14 @@ public class MainActivity extends Activity {
     }
 
     private void setServiceAvailable(boolean available) {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before changing service status.");
+            return;
+        }
         serviceAvailable = available;
         prefs.edit().putString(KEY_SERVICE_STATUS, available ? "available" : "unavailable").apply();
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         // เขียนขึ้น liveVehicles ด้วย เพื่อให้แผนที่ผู้โดยสารรู้ว่ารถนี้ไม่พร้อมรับ แม้ GPS ยังส่งอยู่
         FirebaseDatabase.getInstance().getReference("liveVehicles/" + vehicleId + "/serviceStatus")
                 .setValue(available ? "available" : "unavailable");
@@ -1083,6 +1276,10 @@ public class MainActivity extends Activity {
 
     // ===== 3.1) สแกน QR + เช็คอินผู้โดยสาร =====
     private void openQrScanner() {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before scanning tickets.");
+            return;
+        }
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, 30);
             return;
@@ -1104,6 +1301,10 @@ public class MainActivity extends Activity {
     }
 
     private void handleScannedTicket(String code) {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before scanning tickets.");
+            return;
+        }
         if (code == null || code.trim().isEmpty()) return;
         code = code.trim();
         // รองรับ QR ที่เป็นลิงก์ เช่น https://sl-transit.com/check_ticket.html?code=BK123456
@@ -1120,7 +1321,8 @@ public class MainActivity extends Activity {
                     .setPositiveButton("ตกลง", null).show();
             return;
         }
-        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        final String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         final String bookingPath = bookingsPath();
         if (bookingPath == null) {
             new AlertDialog.Builder(this).setTitle("กำลังโหลดโหมดระบบ")
@@ -1229,13 +1431,18 @@ public class MainActivity extends Activity {
 
     // ===== 3.2) ข้อมูลผู้โดยสารที่จองของคันนี้วันนี้ =====
     private void showPassengerList() {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before opening passenger work.");
+            return;
+        }
         String bookingPath = bookingsPath();
         if (bookingPath == null) {
             new AlertDialog.Builder(this).setTitle("กำลังโหลดโหมดระบบ")
                     .setMessage("กรุณาลองอีกครั้ง").setPositiveButton("ตกลง", null).show();
             return;
         }
-        final String vehicleId = prefs.getString(KEY_VEHICLE_ID, null);
+        final String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
         loadBookingsForDate(today, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
@@ -1385,7 +1592,8 @@ public class MainActivity extends Activity {
 
     // ===== 3.3) รายงานปัญหา app — พิกัดปัจจุบัน + ข้อมูลการวินิจฉัยทั้งหมด (ย้ายมาจากหน้าหลักเดิม) =====
     private void showDiagnosticReport() {
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String coords = prefs.getString(KEY_LAST_COORDS, "---.-----,  ---.-----");
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
         long sent = prefs.getLong(KEY_LAST_SENT, 0);
@@ -1493,7 +1701,8 @@ public class MainActivity extends Activity {
     }
 
     private void showIncidentConfirmDialog(String incidentType) {
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String coords = prefs.getString(KEY_LAST_COORDS, "ไม่มีพิกัด");
 
         new AlertDialog.Builder(this)
@@ -1547,7 +1756,8 @@ public class MainActivity extends Activity {
     }
 
     private void sendSosSignal() {
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String coords = prefs.getString(KEY_LAST_COORDS, "");
         Map<String, Object> data = new HashMap<>();
         data.put("vehicleId", vehicleId);
@@ -1693,7 +1903,7 @@ public class MainActivity extends Activity {
 
         // versionLabel สร้างไว้ก่อน จะ addView ที่ท้ายสุด (ข้อ 2)
         versionLabel = new TextView(this);
-        versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]) + ")");
+        versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + authorizedRuntimeVehicleId() + ")");
         versionLabel.setTextColor(COLOR_TEXT_MUTED);
         versionLabel.setTextSize(10);
         versionLabel.setGravity(Gravity.CENTER);
@@ -2261,7 +2471,8 @@ public class MainActivity extends Activity {
         sendLp.setMargins(0, dp(16), 0, dp(8));
         sendBtn.setLayoutParams(sendLp);
         sendBtn.setOnClickListener(v -> {
-            String vid = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            String vid = authorizedRuntimeVehicleId();
+            if (vid == null) return;
             logIssueToFirebase("ผู้ใช้กดส่งรายงานปัญหาด้วยตนเอง", -1, -1, true);
             new AlertDialog.Builder(this)
                     .setTitle("ส่งแล้ว ✓")
@@ -2307,7 +2518,8 @@ public class MainActivity extends Activity {
         if (container == null) return;
 
         // ===== ดึงข้อมูลปัจจุบัน =====
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String coords    = prefs.getString(KEY_LAST_COORDS, "—");
         boolean enabled  = prefs.getBoolean(KEY_ENABLED, false);
         long sent = prefs.getLong(KEY_LAST_SENT, 0);
@@ -2600,7 +2812,8 @@ public class MainActivity extends Activity {
 
     private void buildTodayReportContent(LinearLayout root) {
         root.removeAllViews();
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
         String today = new java.text.SimpleDateFormat("dd MMM yyyy", new java.util.Locale("th")).format(new java.util.Date());
 
         // Header
@@ -2882,7 +3095,9 @@ public class MainActivity extends Activity {
 
         LinearLayout profileInfo = new LinearLayout(this);
         profileInfo.setOrientation(LinearLayout.VERTICAL);
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, "—");
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) vehicleId = "not signed in";
+        String erpVehicleId = prefs.getString(KEY_ERP_VEHICLE_ID, "not assigned");
         TextView driverName = new TextView(this);
         driverName.setText("คนขับ — " + vehicleId);
         driverName.setTextColor(Color.WHITE);
@@ -2900,7 +3115,8 @@ public class MainActivity extends Activity {
 
         // ข้อมูลรถ
         root.addView(buildSectionCard("🚌  ข้อมูลรถที่ใช้", new String[][]{
-            {"รหัสรถ",       vehicleId},
+            {"Runtime vehicle",       vehicleId},
+            {"ERP vehicle",           erpVehicleId},
             {"เวอร์ชันแอพ",  BuildConfig.VERSION_NAME + " (code " + BuildConfig.VERSION_CODE + ")"},
             {"คิววันนี้",     prefs.getString(KEY_TODAY_QUEUE, "—")},
         }));
@@ -2921,7 +3137,7 @@ public class MainActivity extends Activity {
 
         // ปุ่ม logout / เปลี่ยนรถ
         TextView changeVehicleBtn = new TextView(this);
-        changeVehicleBtn.setText("🔄  เปลี่ยนรหัสรถ");
+        changeVehicleBtn.setText("Assigned vehicle details");
         changeVehicleBtn.setTextColor(Color.WHITE);
         changeVehicleBtn.setTextSize(14);
         changeVehicleBtn.setTypeface(Typeface.DEFAULT_BOLD);
@@ -2937,6 +3153,29 @@ public class MainActivity extends Activity {
         changeVehicleBtn.setLayoutParams(btnLp);
         changeVehicleBtn.setOnClickListener(v -> showVehicleDialog());
         root.addView(changeVehicleBtn);
+
+        TextView signOutBtn = new TextView(this);
+        signOutBtn.setText("Sign out");
+        signOutBtn.setTextColor(Color.WHITE);
+        signOutBtn.setTextSize(14);
+        signOutBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        signOutBtn.setGravity(Gravity.CENTER);
+        signOutBtn.setPadding(dp(20), dp(14), dp(20), dp(14));
+        GradientDrawable signOutBg = new GradientDrawable();
+        signOutBg.setColor(COLOR_RED);
+        signOutBg.setCornerRadius(dp(12));
+        signOutBtn.setBackground(signOutBg);
+        LinearLayout.LayoutParams signOutLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        signOutLp.setMargins(0, dp(8), 0, dp(8));
+        signOutBtn.setLayoutParams(signOutLp);
+        signOutBtn.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("Sign out")
+                .setMessage("Stop GPS and sign out of this driver account?")
+                .setPositiveButton("Sign out", (d, w) -> signOutDriver())
+                .setNegativeButton("Cancel", null)
+                .show());
+        root.addView(signOutBtn);
         return sv;
     }
 
@@ -3192,51 +3431,14 @@ public class MainActivity extends Activity {
 
     // ---- Dialog เลือกรถ + ล็อคคันที่ online อยู่ ----
     private void showVehicleDialog() {
-        String myCurrentId = prefs.getString(KEY_VEHICLE_ID, null);
-        boolean iAmOnline = prefs.getBoolean(KEY_ENABLED, false);
-
-        // สร้าง label แต่ละตัวเลือก — ขีดค่าถ้าถูกใช้อยู่
-        android.text.SpannableString[] labels = new android.text.SpannableString[VEHICLE_IDS.length];
-        boolean[] isBlocked = new boolean[VEHICLE_IDS.length];
-        for (int i = 0; i < VEHICLE_IDS.length; i++) {
-            String id = VEHICLE_IDS[i];
-            boolean onlineByOther = Boolean.TRUE.equals(vehicleOnlineMap.get(id))
-                    && !(id.equals(myCurrentId) && iAmOnline);
-            isBlocked[i] = onlineByOther;
-            String raw = onlineByOther ? id + "  (ใช้งานอยู่)" : id;
-            android.text.SpannableString ss = new android.text.SpannableString(raw);
-            if (onlineByOther) {
-                ss.setSpan(new android.text.style.StrikethroughSpan(), 0, raw.length(), 0);
-                ss.setSpan(new android.text.style.ForegroundColorSpan(COLOR_TEXT_MUTED), 0, raw.length(), 0);
-            }
-            labels[i] = ss;
-        }
-
-        int currentIdx = -1;
-        for (int i = 0; i < VEHICLE_IDS.length; i++) {
-            if (VEHICLE_IDS[i].equals(myCurrentId)) { currentIdx = i; break; }
-        }
-
+        String runtimeVehicleId = authorizedRuntimeVehicleId();
+        String erpVehicleId = prefs.getString(KEY_ERP_VEHICLE_ID, "");
         new AlertDialog.Builder(this)
-                .setTitle("เลือกรหัสรถ")
-                .setSingleChoiceItems(labels, currentIdx, (dialog, which) -> {
-                    if (isBlocked[which]) {
-                        new AlertDialog.Builder(this)
-                                .setTitle("ไม่สามารถเลือกได้")
-                                .setMessage(VEHICLE_IDS[which] + " กำลังถูกใช้งานอยู่\nกรุณาเลือกรหัสรถอื่น")
-                                .setPositiveButton("ตกลง", null).show();
-                        return;
-                    }
-                    String selectedId = VEHICLE_IDS[which];
-                    prefs.edit().putString(KEY_VEHICLE_ID, selectedId).apply();
-                    vehiclePickerText.setText(selectedId + "\n▾");
-                    if (versionLabel != null)
-                        versionLabel.setText("v" + BuildConfig.VERSION_NAME + " (" + selectedId + ")");
-                    dialog.dismiss();
-                    refreshTodaySchedule();
-                    if (iAmOnline) { stopGpsService(); startGpsService(); }
-                })
-                .setNegativeButton("ยกเลิก", null)
+                .setTitle("Vehicle assigned by central system")
+                .setMessage("ERP vehicle: " + erpVehicleId
+                        + "\nRuntime vehicle: " + runtimeVehicleId
+                        + "\n\nTo change vehicles, update Driver Identity Center or sign out and use another approved account.")
+                .setPositiveButton("OK", null)
                 .show();
     }
 
@@ -3249,6 +3451,10 @@ public class MainActivity extends Activity {
     }
 
     private void requestPermissionsThenStart() {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before starting GPS.");
+            return;
+        }
         if (Build.VERSION.SDK_INT < 23) { startGpsService(); return; }
         java.util.ArrayList<String> permissions = new java.util.ArrayList<>();
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
@@ -3309,11 +3515,19 @@ public class MainActivity extends Activity {
     }
 
     private void toggleService() {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before starting GPS.");
+            return;
+        }
         if (prefs.getBoolean(KEY_ENABLED, false)) stopGpsService();
         else requestPermissionsThenStart();
     }
 
     private void startGpsService() {
+        if (!hasAuthenticatedDriverIdentity()) {
+            requireActiveDriverOrReturnToLogin("Please sign in before starting GPS.");
+            return;
+        }
         prefs.edit().putBoolean(KEY_ENABLED, true).apply();
         try { FirebaseDatabase.getInstance().goOffline(); } catch (Exception ignored) {}
         uiHandler.postDelayed(() -> {
@@ -3488,7 +3702,8 @@ public class MainActivity extends Activity {
             lastDailyStatsWriteAt = now;
             refreshPassengerSummary(); // อัพเดทแถบสรุปผู้โดยสารพร้อมกันทุก 30 วินาที
             try {
-                String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+                String vehicleId = authorizedRuntimeVehicleId();
+                if (vehicleId == null) return;
                 Map<String, Object> data = new HashMap<>();
                 data.put("date", dateKey);
                 data.put("activeSec", activeSec);
@@ -3512,7 +3727,8 @@ public class MainActivity extends Activity {
         if (!force && now - lastIssueLogAt < 5 * 60 * 1000) return; // กันสแปม ส่งซ้ำห่างกันอย่างน้อย 5 นาที (ยกเว้นรายงานที่คนขับกดส่งเอง)
         lastIssueLogAt = now;
         try {
-            String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+            String vehicleId = authorizedRuntimeVehicleId();
+            if (vehicleId == null) return;
             DatabaseReference logRef = FirebaseDatabase.getInstance()
                     .getReference("driverLogs/" + vehicleId).push();
             Map<String, Object> data = new HashMap<>();
@@ -3604,7 +3820,11 @@ public class MainActivity extends Activity {
 
     private void refreshUi() {
         boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
-        String vehicleId = prefs.getString(KEY_VEHICLE_ID, VEHICLE_IDS[0]);
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) {
+            requireActiveDriverOrReturnToLogin("Please sign in before opening the driver app.");
+            return;
+        }
         vehiclePickerText.setText(vehicleId + "\n▾");
 
         if (!hasLocationPermission()) {

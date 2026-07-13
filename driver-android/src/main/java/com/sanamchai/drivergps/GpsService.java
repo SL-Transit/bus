@@ -35,6 +35,7 @@ import android.util.Log;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -119,7 +120,7 @@ public class GpsService extends Service implements SensorEventListener {
     private Location lastModeLocation       = null;
     private Location stationaryAnchor       = null;
     private boolean forceNextLocationSend   = false;
-    private String queueId = "car1";
+    private String queueId = null;
 
     // ===== ระบบคิวรถ — อ่านจาก Firebase settings/queueRotation =====
     // คำนวณว่าวันนี้รถคันนี้อยู่คิวไหน แล้วใช้เวลา wake/start/end คุมการส่งตำแหน่ง
@@ -818,7 +819,15 @@ public class GpsService extends Service implements SensorEventListener {
     }
 
     private void initFirebase() {
-        queueId = prefs.getString(MainActivity.KEY_VEHICLE_ID, "car1");
+        queueId = authorizedRuntimeVehicleId();
+        if (queueId == null) {
+            prefs.edit()
+                    .putBoolean(MainActivity.KEY_ENABLED, false)
+                    .putString(MainActivity.KEY_LAST_ERROR, "driver identity required")
+                    .apply();
+            stopSelf();
+            return;
+        }
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseOptions opts = new FirebaseOptions.Builder()
                     .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
@@ -830,6 +839,14 @@ public class GpsService extends Service implements SensorEventListener {
         }
         loadQueueSchedule(); // โหลดข้อมูลคิวจาก Firebase (async, มี fallback hardcode)
         auth = FirebaseAuth.getInstance();
+        if (!hasAuthenticatedDriverIdentity()) {
+            prefs.edit()
+                    .putBoolean(MainActivity.KEY_ENABLED, false)
+                    .putString(MainActivity.KEY_LAST_ERROR, "driver auth required")
+                    .apply();
+            stopSelf();
+            return;
+        }
         FirebaseDatabase db = FirebaseDatabase.getInstance();
         if (!persistenceConfigured) {
             try { db.setPersistenceEnabled(false); } catch (Exception ignored) {}
@@ -844,6 +861,33 @@ public class GpsService extends Service implements SensorEventListener {
         watchConnectionState();
         watchVehicleSettings();
     }    // แอปคนขับอ่าน manual switch และตารางเวลาเอง ไม่พึ่งหน้า admin เปิดค้างไว้
+
+    private boolean hasAuthenticatedDriverIdentity() {
+        FirebaseUser user = auth == null ? null : auth.getCurrentUser();
+        if (user == null) return false;
+        return DriverIdentityCenter.isAuthorizedProfile(
+                user.getUid(),
+                prefs.getString(MainActivity.KEY_DRIVER_UID, null),
+                prefs.getString(MainActivity.KEY_ERP_VEHICLE_ID, null),
+                prefs.getString(MainActivity.KEY_VEHICLE_ID, null),
+                prefs.getString(MainActivity.KEY_ACCOUNT_STATUS, null),
+                prefs.getString(MainActivity.KEY_SESSION_STATUS, null));
+    }
+
+    private String authorizedRuntimeVehicleId() {
+        String uid = prefs.getString(MainActivity.KEY_DRIVER_UID, null);
+        String erpVehicleId = prefs.getString(MainActivity.KEY_ERP_VEHICLE_ID, null);
+        String runtimeVehicleId = prefs.getString(MainActivity.KEY_VEHICLE_ID, null);
+        String accountStatus = prefs.getString(MainActivity.KEY_ACCOUNT_STATUS, null);
+        String sessionStatus = prefs.getString(MainActivity.KEY_SESSION_STATUS, null);
+        if (DriverIdentityCenter.isAuthorizedProfile(
+                uid, uid, erpVehicleId, runtimeVehicleId, accountStatus, sessionStatus)
+                && DriverIdentityCenter.isValidVehicleBinding(erpVehicleId, runtimeVehicleId)) {
+            return runtimeVehicleId;
+        }
+        return null;
+    }
+
     private void watchVehicleSettings() {
         if (vehicleSettingsRef != null && vehicleSettingsListener != null) {
             try { vehicleSettingsRef.removeEventListener(vehicleSettingsListener); } catch (Exception ignored) {}
@@ -1390,16 +1434,16 @@ public class GpsService extends Service implements SensorEventListener {
     private void writeData(Map<String, Object> data, Location loc, boolean fullLocationWrite) {
         pendingData = new HashMap<>(data); pendingLocation = loc; pendingFullWrite = fullLocationWrite;
         logBatteryMode(fullLocationWrite ? "firebase_location_send" : "firebase_heartbeat_send");
-        if (auth.getCurrentUser() != null) { writeAuthedData(data, loc, fullLocationWrite); return; }
-        auth.signInAnonymously()
-                .addOnSuccessListener(r -> writeAuthedData(data, loc, fullLocationWrite))
-                .addOnFailureListener(e -> {
-                    if ("gps_error".equals(String.valueOf(data.get("status")))) {
-                        updateNotification("Firebase Auth: " + e.getMessage()); return;
-                    }
-                    writeAuthedData(data, loc, fullLocationWrite);
-                    recordError("Firebase Auth: " + e.getMessage());
-                });
+        if (!hasAuthenticatedDriverIdentity()) {
+            prefs.edit()
+                    .putBoolean(MainActivity.KEY_ENABLED, false)
+                    .putString(MainActivity.KEY_LAST_ERROR, "driver auth required")
+                    .apply();
+            updateNotification("Driver sign-in required");
+            stopSelf();
+            return;
+        }
+        writeAuthedData(data, loc, fullLocationWrite);
     }
 
     private void writeAuthedData(Map<String, Object> data, Location loc, boolean fullLocationWrite) {
