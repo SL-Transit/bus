@@ -59,6 +59,33 @@
     state.transferInfo = null;
   }
 
+  function todayISO() {
+    var d = new Date();
+    function pad(n) { return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function minutesFromTime(value) {
+    var match = /^(\d\d?):(\d\d)/.exec(String(value || ''));
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function currentMinutesIfToday() {
+    if (serviceDateISO() !== todayISO()) return null;
+    var now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  }
+
+  function upcomingTripsForSelectedDate(trips) {
+    var cutoff = currentMinutesIfToday();
+    if (cutoff == null) return (trips || []).slice();
+    return (trips || []).filter(function(trip) {
+      var minutes = minutesFromTime(trip.pickupTime);
+      return minutes != null && minutes >= cutoff;
+    });
+  }
+
   function selectedTripAllowed() {
     var selected = appState().selectedTrip;
     return !!(selected && selected.bookingAllowed && !selected.fareMissing && !selected.externalPaymentRequired);
@@ -126,20 +153,21 @@
     var state = appState();
     var container = document.getElementById('tripList');
     if (!container) return;
-    state._lastAvailable = available || [];
+    var displayTrips = upcomingTripsForSelectedDate(available || []);
+    state._lastAvailable = displayTrips;
     resetSelectedTrip();
 
     if (!state.originKey || !state.destKey) {
       container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/244.png" alt="missing" style="width:54px;height:54px;margin:0 auto 10px;"><strong>ยังไม่มีตัวเลือกต้นทาง/ปลายทางจาก ERP Preview</strong><span>ต้องมี originOptions และ destinationOptionsByOrigin ก่อน</span></div>';
       return;
     }
-    if (!available.length) {
+    if (!displayTrips.length) {
       var status = global.SLBookingBridge.getDestinationContractStatus(state.originKey);
       container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/244.png" alt="no trips" style="width:54px;height:54px;margin:0 auto 10px;"><strong>ยังไม่มีเที่ยวสำหรับคู่เส้นทางนี้</strong><span>สถานะสัญญา: ' + esc(status) + '</span></div>';
       return;
     }
 
-    var best = available[0];
+    var best = displayTrips[0];
     state.selectedTrip = best;
     state.tripTime = best.pickupTime;
     state.tripLabel = best.label;
@@ -157,9 +185,9 @@
       + noteHtml(best)
       + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, 0, true) + '</div></div>';
 
-    if (available.length > 1) {
+    if (displayTrips.length > 1) {
       html += '<div class="all-trips-label">เที่ยวอื่น ๆ ในวันนี้</div>';
-      available.slice(1).forEach(function(trip, offset) {
+      displayTrips.slice(1).forEach(function(trip, offset) {
         var index = offset + 1;
         html += '<div class="trip-card trip-card-compact" data-index="' + index + '" data-time="' + esc(trip.pickupTime) + '" data-label="' + esc(trip.label) + '" data-fare="' + (trip.fareAmount || 0) + '" onclick="selectTrip(this)">'
           + '<div class="trip-check">✓</div><div class="trip-compact-row"><div class="trip-compact-left">'
@@ -171,6 +199,16 @@
       });
     }
     container.innerHTML = html;
+  }
+
+  function initializeRouteAndTrips() {
+    if (!global.SLBookingBridge || !global.SLBookingBridge._preview || !global.SLBookingBridge._preview.originOptions.length) {
+      return false;
+    }
+    global._populateStopPicker();
+    if (typeof global._updateDateDisplay === 'function') global._updateDateDisplay();
+    global.renderTrips();
+    return true;
   }
 
   function patch() {
@@ -381,10 +419,15 @@
       }
     };
 
-    global.SLBooking1PreviewAdapter = { patched: true, renderLoadedTrips: renderLoadedTrips };
-    if (global.SLBookingBridge && global.SLBookingBridge._preview && global.SLBookingBridge._preview.originOptions.length) {
-      global._populateStopPicker();
-      global.renderTrips();
+    global.SLBooking1PreviewAdapter = {
+      patched: true,
+      renderLoadedTrips: renderLoadedTrips,
+      initializeRouteAndTrips: initializeRouteAndTrips
+    };
+    if (global.SLBookingBridge && typeof global.SLBookingBridge.onReady === 'function') {
+      global.SLBookingBridge.onReady(initializeRouteAndTrips);
+    } else {
+      initializeRouteAndTrips();
     }
   }
 

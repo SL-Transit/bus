@@ -26,6 +26,9 @@ assert(adapter.includes('s.group || null'), 'Destination picker must render ERP-
 assert(adapter.includes('stopPickerItemsHtml'), 'Destination picker must use grouped picker rendering');
 assert(adapter.includes('esc(group)'), 'Destination group labels must come from ERP option.group');
 assert(adapter.includes('SLBookingBridge.loadAvailableTrips'), 'Trip cards must lazy-load selected pair data');
+assert(adapter.includes('upcomingTripsForSelectedDate'), 'Booking1 adapter must recommend only upcoming trips for today');
+assert(adapter.includes('minutesFromTime(trip.pickupTime)'), 'Booking1 adapter must compare recommendation against trip pickupTime');
+assert(adapter.includes('SLBookingBridge.onReady(initializeRouteAndTrips)'), 'Booking1 adapter must auto-render after preview bridge is ready');
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(adapter.includes('No live vehicle tracking'), 'Booking1 adapter must expose schedule-only/no-live-tracking behavior');
