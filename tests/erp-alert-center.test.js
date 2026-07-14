@@ -34,6 +34,14 @@ assert.strictEqual(nearTransfer.recipientRole, 'transfer_terminal');
 assert.strictEqual(nearTransfer.etaMinutes, 8);
 assert.strictEqual(alerts.shouldSendOnce(nearTransfer, {}), true);
 assert.strictEqual(alerts.shouldSendOnce(nearTransfer, { [nearTransfer.onceKey]: true }), false);
+assert.strictEqual(alerts.shouldSendOnce(nearTransfer, { alertCenterOnceKey: nearTransfer.onceKey }), false);
+assert.strictEqual(alerts.shouldSendOnce(nearTransfer, {
+  alertCenterSentKeys: { [nearTransfer.onceKey]: true }
+}), false);
+assert.strictEqual(alerts.shouldSendOnce(nearTransfer, {
+  linePayload: { alertCenterOnceKey: nearTransfer.onceKey }
+}), false);
+assert.strictEqual(alerts.shouldSendOnce(nearTransfer, { alertCenterOnceKey: 'different-key' }), true);
 
 const farTransfer = alerts.transferArrivalAlert({
   booking: { code: 'TB123456', transferTerminalLineId: 'G-transfer' },

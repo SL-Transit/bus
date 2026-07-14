@@ -14,6 +14,12 @@ const updateBlock = html.slice(updateStart, updateEnd);
 assert(updateBlock.includes('buildCheckTicketAlertPlan'), 'Check Ticket notifications must ask Alert Center wrapper');
 assert(updateBlock.includes('alertCenterOnceKey'), 'Check Ticket notification payload must carry Alert Center once key');
 assert(updateBlock.includes('alertCenterRecipientRole'), 'Check Ticket notification payload must carry Alert Center recipient role');
+assert(updateBlock.includes('shouldSendCheckTicketAlertOnce(alertPlan, existing)'), 'ticket transaction must ask Alert Center before reserving a repeated alert');
+assert(updateBlock.includes("reason: 'alert_already_sent'"), 'duplicate central alert must stop before LINE send');
+assert(
+  updateBlock.indexOf('shouldSendCheckTicketAlertOnce(alertPlan, existing)') < updateBlock.indexOf('return sendLineMessage'),
+  'once-only decision must happen before LINE send'
+);
 
 const plannerStart = html.indexOf('function buildCheckTicketAlertPlan');
 const plannerEnd = html.indexOf('function isEffectiveTestMode', plannerStart);
@@ -21,5 +27,6 @@ assert(plannerStart !== -1 && plannerEnd !== -1, 'alert planner block missing');
 const plannerBlock = html.slice(plannerStart, plannerEnd);
 assert(plannerBlock.includes('SLTransitAlertCenter.transferArrivalAlert'), 'Check Ticket alert planner must call Alert Center transfer alert');
 assert(plannerBlock.includes('CHECKIN_RADIUS_KM'), 'transfer alert radius must come from configured Check Ticket radius');
+assert(plannerBlock.includes('SLTransitAlertCenter.shouldSendOnce'), 'Check Ticket must delegate once-only decisions to Alert Center');
 
 console.log('check-ticket alert center wiring ok');

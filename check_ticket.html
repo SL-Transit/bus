@@ -3667,12 +3667,20 @@
       });
 
       var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
+      var alertAlreadySent = false;
       return ref.transaction(function(existing) {
+        alertAlreadySent = false;
         if (!existing) return;
+        alertAlreadySent = alertPlan ? !shouldSendCheckTicketAlertOnce(alertPlan, existing) : false;
+        if (alertAlreadySent) return;
         if (eventName === 'checkin' && (existing.status === 'checked_in' || existing.status === 'transfer_nearby_notified') && !isAdminTesterBooking(existing)) return;
         return Object.assign({}, existing, payload);
       }).then(function(result) {
         if (!result.committed) {
+          if (alertAlreadySent) {
+            setStatus('lookupStatus', 'good', 'แจ้งเตือนเหตุการณ์นี้ไปแล้ว ระบบจึงไม่ส่งซ้ำ');
+            return { success: true, skipped: true, reason: 'alert_already_sent' };
+          }
           setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
           return Promise.reject(new Error('DUPLICATE_CHECKIN'));
         }
@@ -3698,6 +3706,12 @@
         radiusKm: CHECKIN_RADIUS_KM,
         etaMinutes: metrics && metrics.etaMinutes
       });
+    }
+
+    function shouldSendCheckTicketAlertOnce(alertPlan, sentState) {
+      if (!alertPlan) return true;
+      if (!window.SLTransitAlertCenter || typeof window.SLTransitAlertCenter.shouldSendOnce !== 'function') return false;
+      return window.SLTransitAlertCenter.shouldSendOnce(alertPlan, sentState || {});
     }
 
     function isEffectiveTestMode() {

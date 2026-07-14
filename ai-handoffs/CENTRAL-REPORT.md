@@ -44,6 +44,42 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-14 15:30 +07 (Asia/Bangkok) - Supervisor AI / Check Ticket Alert Center - REVIEW
+
+Scope:
+- `erp-alert-center.js`
+- `check_ticket.html`
+- `tests/erp-alert-center.test.js`
+- `tests/check-ticket-alert-center-wiring.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Extended ERP Alert Center once-only checks to recognize the central once-key already reserved on a ticket record, its sent-key map, or its stored LINE payload.
+- Check Ticket now asks `SLTransitAlertCenter.shouldSendOnce()` inside the existing ticket transaction before reserving and sending a transfer-arrival alert.
+- A repeated once-key stops before `sendLineMessage()` and returns a successful skipped result instead of creating another LINE trigger.
+- The once-only decision fails closed if the Alert Center API is unavailable; Check Ticket does not invent a fallback notification rule.
+
+Evidence:
+- Base main: `37b52f91ec2877a03062f5c538930786e7b72b98`.
+- Commit: owner approved a scoped local commit; see repository history.
+- Actions: not run; nothing pushed.
+- Pages: not run; nothing pushed.
+- Tests: `node --check erp-alert-center.js`; `node tests/erp-alert-center.test.js`; `node tests/check-ticket-alert-center-wiring.test.js`; `node tests/check-ticket-center-wiring.test.js`; scoped `git diff --check`.
+
+Safety:
+- Firebase writes: none during implementation or tests.
+- Seed applied: no.
+- Production apply: no.
+- LINE notifications sent: none.
+- Passenger/private/operational data touched: none.
+- `database.rules.json`, Driver App, and paused vehicle-identity/read-rule work: untouched.
+
+Blockers:
+- None for local review. Commit and push require separate owner approval.
+
+Next action:
+- Push only after separate explicit owner approval, then verify origin/main, Actions, Pages, and live source.
+
 ## 2026-07-13 21:18 +07 (Asia/Bangkok) - Supervisor AI / Current-State Handoff - REVIEW
 
 Scope:

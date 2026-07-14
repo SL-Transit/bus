@@ -58,7 +58,11 @@
   function shouldSendOnce(alert, sentKeys) {
     if (!alert || !alert.onceKey) return false;
     sentKeys = sentKeys || {};
-    return sentKeys[alert.onceKey] !== true;
+    if (sentKeys[alert.onceKey] === true) return false;
+    if (clean(sentKeys.alertCenterOnceKey) === alert.onceKey) return false;
+    if (sentKeys.alertCenterSentKeys && sentKeys.alertCenterSentKeys[alert.onceKey] === true) return false;
+    if (sentKeys.linePayload && clean(sentKeys.linePayload.alertCenterOnceKey) === alert.onceKey) return false;
+    return true;
   }
 
   function addRecipient(recipients, role, lineTo) {
