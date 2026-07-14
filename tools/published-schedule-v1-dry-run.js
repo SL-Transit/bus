@@ -426,7 +426,13 @@ function destinationOptionFromPair(pair, destination, destinations, displayOrder
     previewDisplayMode: pair.previewDisplayMode,
     referenceOnly: pair.referenceOnly === true,
     transferStatus: pair.transferStatus || 'not_required',
-    externalReference: pair.externalReference === true
+    externalReference: pair.externalReference === true,
+    displayBadgeTh: pair.displayBadgeTh || null,
+    fareAmount: pair.fareAmount,
+    currency: pair.currency || 'THB',
+    paymentOwnership: pair.paymentOwnership || null,
+    externalPaymentRequired: pair.externalPaymentRequired === true,
+    fareSegmentId: pair.fareSegmentId || null
   };
 }
 
@@ -461,7 +467,58 @@ function buildDestinationOptionsByOrigin(originOptions, pairs, destinationsById,
   }, {});
 }
 
-function timeEntryFromOffer(offer) {
+function resolveFareContract(erp, offer) {
+  const directFare = erp.fares &&
+    erp.fares[offer.originDestinationId] &&
+    erp.fares[offer.originDestinationId][offer.destinationId] || null;
+  const routeFare = offer.routeId && erp.fareSegments && erp.fareSegments[offer.routeId] || null;
+  const fare = directFare || routeFare || null;
+  if (!fare) return null;
+  const amount = Number(fare.platformFareAmount != null ? fare.platformFareAmount
+    : fare.collectedAmount != null ? fare.collectedAmount
+      : fare.amount != null ? fare.amount
+        : fare.totalFare);
+  return {
+    fareId: fare.fareId || fare.fareSegmentId || null,
+    fareSegmentId: fare.fareSegmentId || fare.routeId || offer.routeId || null,
+    fareAmount: Number.isFinite(amount) ? amount : null,
+    currency: fare.currency || 'THB',
+    pricingMode: fare.pricingMode || null,
+    paymentOwnership: fare.paymentOwnership || 'sl_transit',
+    externalPaymentRequired: fare.paymentOwnership === 'external_pay' || fare.saleStatus === 'external_payment_required',
+    saleStatus: fare.saleStatus || null,
+    serviceGroupId: fare.serviceGroupId || offer.serviceGroupId || null,
+    sourceScope: directFare ? 'erpDataCenter.fares' : 'erpDataCenter.fareSegments',
+    sourceLineage: fare.sourceLineage || []
+  };
+}
+
+function applyFareContract(target, fareContract) {
+  if (!target || !fareContract) return;
+  target.fareId = fareContract.fareId;
+  target.fareSegmentId = fareContract.fareSegmentId;
+  target.fareAmount = fareContract.fareAmount;
+  target.currency = fareContract.currency;
+  target.pricingMode = fareContract.pricingMode;
+  target.paymentOwnership = fareContract.paymentOwnership;
+  target.externalPaymentRequired = fareContract.externalPaymentRequired === true;
+  target.saleStatus = fareContract.saleStatus;
+  target.fareSourceScope = fareContract.sourceScope;
+}
+
+function applyExternalPaymentPolicy(target) {
+  if (!target) return;
+  target.referenceOnly = true;
+  target.externalReference = true;
+  target.externalPaymentRequired = true;
+  target.passengerDisplayMode = 'external_reference';
+  target.disclaimerKey = EXTERNAL_SERVICE_DISCLAIMER_KEY;
+  target.disclaimerTh = EXTERNAL_SERVICE_DISCLAIMER_TH;
+  target.externalConfirmationRequired = true;
+  target.slTransitFareCollection = false;
+}
+
+function timeEntryFromOffer(offer, fareContract) {
   const isExternal = offer.mappingStatus === 'external_schedule';
   const isEstimated = offer.isEstimated === true || offer.referenceOnly === true;
   const entry = {
@@ -480,6 +537,7 @@ function timeEntryFromOffer(offer) {
     passengerDisplayMode: isExternal ? 'external_reference' : (isEstimated ? 'reference' : 'scheduled'),
     sourceLineage: offer.sourceLineage || []
   };
+  applyFareContract(entry, fareContract);
   if (isExternal) {
     entry.disclaimerKey = EXTERNAL_SERVICE_DISCLAIMER_KEY;
     entry.disclaimerTh = EXTERNAL_SERVICE_DISCLAIMER_TH;
@@ -492,10 +550,15 @@ function timeEntryFromOffer(offer) {
     entry.disclaimerKey = offer.disclaimerKey || ESTIMATED_DISCLAIMER_KEY;
     entry.disclaimerTh = offer.disclaimerTh || ESTIMATED_DISCLAIMER_TH;
   }
+  if (fareContract && fareContract.externalPaymentRequired === true) {
+    applyExternalPaymentPolicy(entry);
+  }
   return entry;
 }
 
-function addTimeToPair(pair, offer, originLabel, destinationLabel) {
+function addTimeToPair(pair, offer, originLabel, destinationLabel, erp) {
+  const fareContract = resolveFareContract(erp, offer);
+  applyFareContract(pair, fareContract);
   if (!pair.segments.length) {
     pair.segments.push({
       label: 'ตารางเวลา',
@@ -504,7 +567,20 @@ function addTimeToPair(pair, offer, originLabel, destinationLabel) {
       times: []
     });
   }
-  pair.segments[0].times.push(timeEntryFromOffer(offer));
+  applyFareContract(pair.segments[0], fareContract);
+  if (fareContract && fareContract.externalPaymentRequired === true) {
+    pair.referenceOnly = true;
+    pair.previewDisplayMode = 'external_reference';
+    pair.routeChoiceStatus = 'external_reference';
+    pair.externalReference = true;
+    pair.externalPaymentRequired = true;
+    pair.externalDisclaimerKey = EXTERNAL_SERVICE_DISCLAIMER_KEY;
+    pair.externalDisclaimerTh = EXTERNAL_SERVICE_DISCLAIMER_TH;
+    pair.slTransitFareCollection = false;
+    pair.bookingEligible = false;
+    applyExternalPaymentPolicy(pair.segments[0]);
+  }
+  pair.segments[0].times.push(timeEntryFromOffer(offer, fareContract));
 }
 
 function buildTransferReferencePair(rule, originLabel, destinationLabel, viaLabel) {
@@ -1116,7 +1192,7 @@ async function buildPublishedScheduleV1DryRun() {
       };
     }
     pairs[pairKey].sourceLineage = pairs[pairKey].sourceLineage.concat(offer.sourceLineage || []);
-    addTimeToPair(pairs[pairKey], offer, originLabel, destinationLabel);
+    addTimeToPair(pairs[pairKey], offer, originLabel, destinationLabel, erp);
   });
 
   values(erp.transferRules).forEach((rule) => {
@@ -1181,7 +1257,9 @@ async function buildPublishedScheduleV1DryRun() {
         'data/erpDataCenter/networkNodes',
         'data/erpDataCenter/scheduleOffers',
         'data/erpDataCenter/stops',
-        'data/erpDataCenter/transferRules'
+        'data/erpDataCenter/transferRules',
+        'data/erpDataCenter/fares',
+        'data/erpDataCenter/fareSegments'
       ]
     },
     displayPolicy: {

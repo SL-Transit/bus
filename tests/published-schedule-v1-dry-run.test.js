@@ -160,13 +160,21 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   const chachoengsaoNongkhok = pairByOd(schedule, 'chachoengsao', 'nongkhok');
   assert(chachoengsaoNongkhok, 'Chachoengsao to Nongkhok pair missing');
   assert(pairTimes(chachoengsaoNongkhok).indexOf('17:20') !== -1, 'Chachoengsao to Nongkhok must keep 17:20');
+  assert(Number(chachoengsaoNongkhok.fareAmount) > 0, 'visible SL-Transit pairs must expose ERP fareAmount');
+  assert(chachoengsaoNongkhok.paymentOwnership === 'sl_transit', 'Nongkhok fare must expose ERP paymentOwnership');
+  assert(chachoengsaoNongkhok.segments[0].fareAmount === chachoengsaoNongkhok.fareAmount, 'segment fareAmount must mirror resolved ERP fare');
+  assert(chachoengsaoNongkhok.segments[0].times.every((entry) => entry.fareAmount === chachoengsaoNongkhok.fareAmount), 'time entries must carry resolved ERP fareAmount');
   const nongkhokOption = destinationOptionById(schedule, chachoengsaoOriginLabel, 'nongkhok');
   assert(nongkhokOption && nongkhokOption.pairKey === chachoengsaoNongkhok.compatibilityPairKey, 'Nongkhok option pairKey mismatch');
+  assert(nongkhokOption.fareAmount === chachoengsaoNongkhok.fareAmount, 'destination option must carry ERP fareAmount for lightweight display');
+  assert(nongkhokOption.paymentOwnership === 'sl_transit', 'destination option must carry ERP paymentOwnership');
   assert(values(schedule.destinations).some((destination) => destination.group === 'สถานีรถไฟ'), 'train destinations must use owner-approved group label');
   assert(values(schedule.destinations).every((destination) => destination.group !== 'กลุ่มรถไฟ'), 'train destinations must not use invented train group label');
 
   assert(TRANSFER_POLICY.sourceWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'transfer policy source workbook must use latest owner workbook');
   assert(schedule.source.ownerWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'latest owner workbook source mismatch');
+  assert(schedule.source.sourcePaths.indexOf('data/erpDataCenter/fares') !== -1, 'publishedSchedule must declare ERP fares as source data');
+  assert(schedule.source.sourcePaths.indexOf('data/erpDataCenter/fareSegments') !== -1, 'publishedSchedule must declare ERP fareSegments as source data');
   assert(schedule.displayPolicy.transferReferencePolicy.workbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'transfer policy evidence must cite latest workbook');
   assert(schedule.ownerWorkbookInterpretation.sourceWorkbook === OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook, 'owner workbook interpretation source mismatch');
   assert(schedule.ownerWorkbookInterpretation.stopSequence.stopCountPolicy === 'route_sequence_version_dynamic', 'stop count must be versioned/dynamic');
@@ -255,6 +263,9 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(external.passengerDisplayMode === 'external_reference', 'external_schedule must use external reference display mode');
   assert(external.disclaimerKey === EXTERNAL_SERVICE_DISCLAIMER_KEY, 'external_schedule must expose external disclaimer');
   assert(external.slTransitFareCollection === false, 'external_schedule must not imply SL-Transit fare collection');
+  assert(external.paymentOwnership === 'external_pay', 'external_schedule must carry ERP external_pay ownership');
+  assert(external.externalPaymentRequired === true, 'external_schedule must carry ERP external payment flag');
+  assert(external.fareAmount === 0, 'external_schedule must not expose a collectible SL-Transit fare');
 
   values(schedule.pairs).forEach((pair) => {
     (pair.segments || []).forEach((segment) => {
