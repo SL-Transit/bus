@@ -87,14 +87,16 @@
   }
 
   function decision(status, bookingEligible, reasonCode, extras) {
+    var extra = extras || {};
     return Object.assign({
       status: status,
       bookingEligible: bookingEligible === true,
+      selectionAllowed: extra.selectionAllowed === true || bookingEligible === true,
       reasonCode: reasonCode,
       displayReasonTh: DEFAULT_REASON_TH[reasonCode] || DEFAULT_REASON_TH.missing_contract,
       seatsAvailable: null,
       source: 'erp_logic_center'
-    }, extras || {});
+    }, extra);
   }
 
   function decideBookingAvailability(input) {
@@ -133,7 +135,7 @@
     if (departureMs !== null && (departureMs - now) / 60000 <= cutoffMinutes) return decision('unavailable', false, 'cutoff_closed', { seatsAvailable: seatsAvailable });
     if (limit > 0 && bookedSeats + requestedSeats > limit) return decision('unavailable', false, 'capacity_full', { seatsAvailable: seatsAvailable });
     if (preview.readyForApply !== true || preview.productionReady !== true || preview.writesEnabled !== true) {
-      return decision('unavailable', false, 'preview_not_apply_ready', { seatsAvailable: seatsAvailable });
+      return decision('unavailable', false, 'preview_not_apply_ready', { seatsAvailable: seatsAvailable, selectionAllowed: true });
     }
     return decision('available', true, 'available', { seatsAvailable: seatsAvailable });
   }

@@ -27,6 +27,7 @@ const previewNotApply = center.decideBookingAvailability(Object.assign({}, base,
 }));
 assert.equal(previewNotApply.status, 'unavailable');
 assert.equal(previewNotApply.bookingEligible, false);
+assert.equal(previewNotApply.selectionAllowed, true);
 assert.equal(previewNotApply.reasonCode, 'preview_not_apply_ready');
 
 const transferReference = center.decideBookingAvailability(Object.assign({}, base, {
@@ -34,6 +35,7 @@ const transferReference = center.decideBookingAvailability(Object.assign({}, bas
 }));
 assert.equal(transferReference.status, 'reference_only');
 assert.equal(transferReference.bookingEligible, false);
+assert.equal(transferReference.selectionAllowed, false);
 assert.equal(transferReference.reasonCode, 'reference_only');
 
 const external = center.decideBookingAvailability(Object.assign({}, base, {

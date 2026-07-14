@@ -98,7 +98,7 @@
 
   function selectButton(trip, index, recommended) {
     var cls = recommended ? 'btn-select-recommend' : 'btn-select-compact';
-    if (!trip.bookingAllowed) {
+    if (!trip.selectionAllowed) {
       return '<button class="select-trip-btn ' + cls + '" disabled>ยังไม่เปิดจอง</button>';
     }
     return '<button class="select-trip-btn ' + cls + '" onclick="goToPassenger(event,\'' +
@@ -286,7 +286,7 @@
       if (e) e.stopPropagation();
       var state = appState();
       var trip = (state._lastAvailable || [])[Number(tripIndex)];
-      if (!trip || !trip.bookingAllowed) {
+      if (!trip || !trip.selectionAllowed) {
         alert('เที่ยวนี้ยังไม่เปิดจองผ่าน Booking1');
         return;
       }

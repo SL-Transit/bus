@@ -258,6 +258,7 @@
           referenceOnly: isReference,
           externalReference: isExternal,
           bookingEligible: availabilityDecision.bookingEligible === true,
+          selectionAllowed: availabilityDecision.selectionAllowed === true && fareMissing === false,
           bookingAllowed: availabilityDecision.bookingEligible === true && fareMissing === false,
           availabilityDecision: availabilityDecision,
           disabledReason: fareMissing ? 'missing_fare' : availabilityDecision.reasonCode,

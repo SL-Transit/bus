@@ -26,6 +26,7 @@ assert(bridge.includes('SLTransitBookingAvailabilityCenter'), 'Booking1 bridge m
 assert(bridge.includes('SLTransitFareDecisionCenter'), 'Booking1 bridge must ask Fare Decision Center for fares');
 assert(bridge.includes('SLTransitCalculatorCenter.recommendedBookingTrips'), 'Booking1 bridge must ask ERP Calculator Center for recommended trip ordering');
 assert(calculator.includes('function recommendedBookingTrips'), 'ERP Calculator Center must own Booking1 trip recommendation logic');
+assert(bridge.includes('selectionAllowed: availabilityDecision.selectionAllowed === true'), 'Booking1 bridge must expose selectionAllowed separately from bookingAllowed');
 assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calculate fare locally');
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
 
@@ -38,6 +39,8 @@ assert(adapter.includes('esc(group)'), 'Destination group labels must come from 
 assert(adapter.includes('SLBookingBridge.loadAvailableTrips'), 'Trip cards must lazy-load selected pair data');
 assert(!adapter.includes('recommendedBookingTrips'), 'Booking1 adapter must not own recommendation logic');
 assert(!adapter.includes('minutesFromTime'), 'Booking1 adapter must not compare trip times locally');
+assert(adapter.includes('!trip.selectionAllowed'), 'Booking1 adapter must use selectionAllowed for the trip select button');
+assert(adapter.includes('selected.bookingAllowed'), 'Booking1 adapter must still use bookingAllowed before payment/ticket creation');
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(adapter.includes('No live vehicle tracking'), 'Booking1 adapter must expose schedule-only/no-live-tracking behavior');
