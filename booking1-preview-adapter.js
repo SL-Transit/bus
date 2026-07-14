@@ -174,6 +174,11 @@
   }
 
   function patch() {
+    var onsiteNote = document.getElementById('onsite-payment-note');
+    if (onsiteNote) {
+      onsiteNote.textContent = 'สำรองที่นั่งเรียบร้อยแล้ว ชำระเงินเมื่อเดินทางหรือบนรถโดยสาร';
+    }
+
     global._populateStopPicker = function() {
       var state = appState();
       var origins = global.SLBookingBridge.getBookableStops();
