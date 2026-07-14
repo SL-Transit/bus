@@ -88,15 +88,22 @@
     var now = input.now instanceof Date ? input.now : new Date();
     var today = isoDateFromDate(now);
     var cutoff = serviceDate === today ? now.getHours() * 60 + now.getMinutes() : null;
-    var filtered = cutoff == null ? trips : trips.filter(function(trip) {
+    var firstUpcomingIndex = -1;
+    trips.forEach(function(trip, index) {
       var depart = minutesOfDay(trip && (trip.pickupTime || trip.time || trip.departureTime || trip.roundTime));
-      return depart !== null && depart >= cutoff;
+      if (firstUpcomingIndex === -1 && (cutoff == null || (depart !== null && depart >= cutoff))) {
+        firstUpcomingIndex = index;
+      }
     });
-    return filtered.map(function(trip, index) {
+    return trips.map(function(trip, index) {
       var copy = Object.assign({}, trip);
+      var depart = minutesOfDay(copy.pickupTime || copy.time || copy.departureTime || copy.roundTime);
+      var isPast = cutoff != null && depart !== null && depart < cutoff;
       copy.recommendationRank = index;
-      copy.recommended = index === 0;
+      copy.recommended = index === firstUpcomingIndex;
       copy.recommendationSource = 'erp_logic_center';
+      copy.timeDisplayState = isPast ? 'past' : 'available_for_display';
+      copy.displayMuted = copy.displayMuted === true || isPast || copy.selectionAllowed !== true;
       return copy;
     });
   }

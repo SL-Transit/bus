@@ -139,7 +139,29 @@
       return;
     }
 
-    var best = available[0];
+    function cardClass(trip, base) {
+      return base + (trip.displayMuted || !trip.selectionAllowed ? ' trip-card-muted' : '');
+    }
+    function routeText() {
+      return esc(state.originName || 'ต้นทาง') + ' → ' + esc(state.destName || 'ปลายทาง');
+    }
+    function compactCard(trip, index) {
+      return '<div class="' + cardClass(trip, 'trip-card trip-card-compact') + '" data-index="' + index + '" data-time="' + esc(trip.pickupTime) + '" data-label="' + esc(trip.label) + '" data-fare="' + (trip.fareAmount || 0) + '" onclick="selectTrip(this)">'
+        + '<div class="trip-check">✓</div><div class="trip-compact-row"><div class="trip-compact-left">'
+        + '<span class="trip-time-compact">' + esc(trip.label) + '</span>' + tripBadges(trip)
+        + '<div class="trip-compact-route">' + routeText() + '</div>'
+        + noteHtml(trip) + '</div><div class="trip-compact-right">'
+        + '<span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false)
+        + '</div></div></div>';
+    }
+
+    var recommendedIndex = available.findIndex(function(trip) { return trip && trip.recommended === true; });
+    var best = recommendedIndex >= 0 ? available[recommendedIndex] : null;
+    if (!best) {
+      container.innerHTML = '<div class="all-trips-label">เที่ยวทั้งหมดในวันนี้</div>' + available.map(compactCard).join('');
+      return;
+    }
+
     state.selectedTrip = best;
     state.tripTime = best.pickupTime;
     state.tripLabel = best.label;
@@ -148,26 +170,19 @@
     state.isLeg2Dest = best.isLeg2 || false;
     state.transferInfo = best.transferInfo || null;
 
-    var html = '<div class="trip-card trip-card-recommended selected" data-index="0" data-time="' + esc(best.pickupTime) + '" data-label="' + esc(best.label) + '" data-fare="' + (best.fareAmount || 0) + '" onclick="selectTrip(this)">'
+    var html = '<div class="' + cardClass(best, 'trip-card trip-card-recommended selected') + '" data-index="' + recommendedIndex + '" data-time="' + esc(best.pickupTime) + '" data-label="' + esc(best.label) + '" data-fare="' + (best.fareAmount || 0) + '" onclick="selectTrip(this)">'
       + '<div class="trip-card-head"><div class="trip-check">✓</div><div class="trip-time-wrap">'
       + '<span class="trip-time">' + esc(best.label) + '</span><span class="trip-time-badge badge-recommend">เที่ยวแนะนำ</span>'
       + tripBadges(best) + '</div></div>'
-      + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + esc(state.originName || 'ต้นทาง') + ' → ' + esc(state.destName || 'ปลายทาง') + '</span></div>'
+      + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText() + '</span></div>'
       + '<div class="trip-meta"><div class="trip-meta-item"><img class="icon-img" src="assets/241.png" alt="route" style="width:13px;height:13px;"> ERP Preview pair: ' + esc(best.pairKey || '-') + '</div><div class="trip-meta-item">No live vehicle tracking</div></div>'
       + noteHtml(best)
-      + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, 0, true) + '</div></div>';
+      + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
 
     if (available.length > 1) {
       html += '<div class="all-trips-label">เที่ยวอื่น ๆ ในวันนี้</div>';
-      available.slice(1).forEach(function(trip, offset) {
-        var index = offset + 1;
-        html += '<div class="trip-card trip-card-compact" data-index="' + index + '" data-time="' + esc(trip.pickupTime) + '" data-label="' + esc(trip.label) + '" data-fare="' + (trip.fareAmount || 0) + '" onclick="selectTrip(this)">'
-          + '<div class="trip-check">✓</div><div class="trip-compact-row"><div class="trip-compact-left">'
-          + '<span class="trip-time-compact">' + esc(trip.label) + '</span>' + tripBadges(trip)
-          + '<div class="trip-compact-route">' + esc(state.originName || 'ต้นทาง') + ' → ' + esc(state.destName || 'ปลายทาง') + '</div>'
-          + noteHtml(trip) + '</div><div class="trip-compact-right">'
-          + '<span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false)
-          + '</div></div></div>';
+      available.forEach(function(trip, index) {
+        if (index !== recommendedIndex) html += compactCard(trip, index);
       });
     }
     container.innerHTML = html;
@@ -184,11 +199,6 @@
   }
 
   function patch() {
-    var onsiteNote = document.getElementById('onsite-payment-note');
-    if (onsiteNote) {
-      onsiteNote.textContent = 'สำรองที่นั่งเรียบร้อยแล้ว ชำระเงินเมื่อเดินทางหรือบนรถโดยสาร';
-    }
-
     global._populateStopPicker = function() {
       var state = appState();
       var origins = global.SLBookingBridge.getBookableStops();

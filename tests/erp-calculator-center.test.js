@@ -38,10 +38,14 @@ const recommendedToday = calculator.recommendedBookingTrips({
   now: new Date('2026-07-14T14:57:00+07:00'),
   trips: [{ pickupTime: '09:40' }, { pickupTime: '15:00' }, { pickupTime: '17:20' }]
 });
-assert.strictEqual(recommendedToday[0].pickupTime, '15:00');
-assert.strictEqual(recommendedToday[0].recommended, true);
+assert.strictEqual(recommendedToday[0].pickupTime, '09:40');
+assert.strictEqual(recommendedToday[0].recommended, false);
+assert.strictEqual(recommendedToday[0].timeDisplayState, 'past');
+assert.strictEqual(recommendedToday[0].displayMuted, true);
+assert.strictEqual(recommendedToday[1].pickupTime, '15:00');
+assert.strictEqual(recommendedToday[1].recommended, true);
 assert.strictEqual(recommendedToday[0].recommendationSource, 'erp_logic_center');
-assert.strictEqual(recommendedToday.length, 2);
+assert.strictEqual(recommendedToday.length, 3);
 
 const recommendedFuture = calculator.recommendedBookingTrips({
   serviceDate: '2026-07-15',

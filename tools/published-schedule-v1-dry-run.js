@@ -686,6 +686,7 @@ function buildTransferAudit(rule, erp) {
       candidates.push({
         feasible,
         waitMinutes,
+        leg1DepartureTime: arrivalLeg.offer.departureTime,
         arrivalTimeAtTransfer: arrivalLeg.destinationStopTime && (arrivalLeg.destinationStopTime.arrivalTime || arrivalLeg.destinationStopTime.departureTime) || arrivalLeg.offer.departureTime,
         nextDepartureTime: departureLeg.offer.departureTime,
         transferStopKey: rule.viaStopKey,
@@ -763,6 +764,29 @@ function applyFeasibleTransferPolicy(pair, audit) {
     feasibleCandidateCount: audit.feasibleCandidateCount,
     boardingPoint: audit.boardingPoint
   };
+  if (audit.bestCandidate && audit.bestCandidate.leg1DepartureTime) {
+    pair.connectionOptions = [{
+      time: audit.bestCandidate.leg1DepartureTime,
+      departTime: audit.bestCandidate.leg1DepartureTime,
+      label: `${audit.bestCandidate.leg1DepartureTime} น.`,
+      referenceOnly: true,
+      routeChoiceStatus: 'reference_only',
+      passengerDisplayMode: 'transfer_reference',
+      displayBadgeTh: TRANSFER_REFERENCE_BADGE_TH,
+      disclaimerKey: TRANSFER_REFERENCE_DISCLAIMER_KEY,
+      disclaimerTh: TRANSFER_REFERENCE_DISCLAIMER_TH,
+      transferStopKey: audit.bestCandidate.transferStopKey,
+      transferArrivalTime: audit.bestCandidate.arrivalTimeAtTransfer,
+      nextDepartureTime: audit.bestCandidate.nextDepartureTime,
+      waitMinutes: audit.bestCandidate.waitMinutes,
+      leg1ScheduleOfferId: audit.bestCandidate.leg1ScheduleOfferId,
+      leg2ScheduleOfferId: audit.bestCandidate.leg2ScheduleOfferId,
+      sourceLineage: []
+        .concat(audit.bestCandidate.sourceEvidence && audit.bestCandidate.sourceEvidence.transferRule || [])
+        .concat(audit.bestCandidate.sourceEvidence && audit.bestCandidate.sourceEvidence.leg1ScheduleOffer || [])
+        .concat(audit.bestCandidate.sourceEvidence && audit.bestCandidate.sourceEvidence.leg2ScheduleOffer || [])
+    }];
+  }
   pair.segments.forEach((segment) => {
     segment.note = TRANSFER_REFERENCE_DISCLAIMER_TH;
     segment.unavailable = false;

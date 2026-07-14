@@ -168,6 +168,14 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(nongkhokOption && nongkhokOption.pairKey === chachoengsaoNongkhok.compatibilityPairKey, 'Nongkhok option pairKey mismatch');
   assert(nongkhokOption.fareAmount === chachoengsaoNongkhok.fareAmount, 'destination option must carry ERP fareAmount for lightweight display');
   assert(nongkhokOption.paymentOwnership === 'sl_transit', 'destination option must carry ERP paymentOwnership');
+  const nongkhokPattaya = pairByOd(schedule, 'nongkhok', 'pattaya');
+  assert(nongkhokPattaya, 'Nongkhok to Pattaya transfer pair missing');
+  assert(nongkhokPattaya.transferStatus === 'feasible_reference', 'Nongkhok to Pattaya must expose ERP transfer reference');
+  assert(Array.isArray(nongkhokPattaya.connectionOptions) && nongkhokPattaya.connectionOptions.length > 0, 'Nongkhok to Pattaya must expose ERP connectionOptions');
+  assert(nongkhokPattaya.connectionOptions[0].time, 'connectionOptions must expose display departure time');
+  const nongkhokOriginLabel = schedule.originOptions.find((origin) => origin.originDestinationId === 'nongkhok').originLabel;
+  const pattayaOption = destinationOptionById(schedule, nongkhokOriginLabel, 'pattaya');
+  assert(pattayaOption && pattayaOption.pairKey === nongkhokPattaya.compatibilityPairKey, 'Nongkhok to Pattaya destination option pairKey mismatch');
   assert(values(schedule.destinations).some((destination) => destination.group === 'สถานีรถไฟ'), 'train destinations must use owner-approved group label');
   assert(values(schedule.destinations).every((destination) => destination.group !== 'กลุ่มรถไฟ'), 'train destinations must not use invented train group label');
 

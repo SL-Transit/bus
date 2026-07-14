@@ -212,81 +212,99 @@
     return time ? time + ' น.' : (timeEntry.label || timeEntry.displayTimeTh || 'เวลาอ้างอิง');
   }
 
+  function _tripFromTimeEntry(pair, option, segment, timeEntry, segmentIndex, timeIndex, serviceDate) {
+    var fareContract = FareDecisionCenter && typeof FareDecisionCenter.decideFare === 'function'
+      ? FareDecisionCenter.decideFare({
+        pair: pair,
+        segment: segment || {},
+        timeEntry: timeEntry || {},
+        option: option || {},
+        serviceFeeAmount: global.SERVICE_FEE_ENABLED === true ? Number(global.SERVICE_FEE_AMOUNT) || 0 : 0
+      })
+      : { status: 'NEEDS_CONTRACT_FIELD', fareAmount: null, missingField: 'SLTransitFareDecisionCenter.decideFare' };
+    var availabilityDecision = AvailabilityCenter && typeof AvailabilityCenter.decideBookingAvailability === 'function'
+      ? AvailabilityCenter.decideBookingAvailability({
+        pair: pair,
+        segment: segment || {},
+        timeEntry: timeEntry || {},
+        option: option || {},
+        preview: _preview,
+        serviceDate: serviceDate || ''
+      })
+      : { status: 'unavailable', bookingEligible: false, reasonCode: 'missing_contract', displayReasonTh: 'Booking Availability Center unavailable' };
+    var isReference = availabilityDecision.status === 'reference_only';
+    var isExternal = availabilityDecision.status === 'external_reference';
+    var fareMissing = fareContract.status === 'NEEDS_CONTRACT_FIELD';
+    var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
+    return {
+      pickupTime: time,
+      label: _timeLabel(timeEntry),
+      queueNo: '',
+      vehicleId: '',
+      routeStops: [],
+      scheduleOnly: true,
+      fare: fareContract.fareAmount || 0,
+      fareAmount: fareContract.fareAmount,
+      fareContract: fareContract,
+      fareMissing: fareMissing,
+      missingFareField: fareContract.missingField || '',
+      paymentOwnership: fareContract.paymentOwnership || (isExternal ? 'external_pay' : 'sl_transit'),
+      externalPaymentRequired: isExternal,
+      isLeg2: pair.transfer && pair.transfer.required === true,
+      transferInfo: pair.transfer || null,
+      referenceOnly: isReference,
+      externalReference: isExternal,
+      bookingEligible: availabilityDecision.bookingEligible === true,
+      selectionAllowed: availabilityDecision.selectionAllowed === true && fareMissing === false,
+      bookingAllowed: availabilityDecision.bookingEligible === true && fareMissing === false,
+      availabilityDecision: availabilityDecision,
+      disabledReason: fareMissing ? 'missing_fare' : availabilityDecision.reasonCode,
+      displayDisabledReasonTh: availabilityDecision.displayReasonTh || '',
+      displayBadgeTh: timeEntry.displayBadgeTh || segment.displayBadgeTh || pair.displayBadgeTh || '',
+      passengerDisplayMode: timeEntry.passengerDisplayMode || segment.passengerDisplayMode || pair.previewDisplayMode || '',
+      disclaimers: _disclaimers(pair, segment, timeEntry),
+      pairKey: option && option.pairKey || pair.compatibilityPairKey || pair.pairId || '',
+      pairId: pair.pairId || pair.canonicalPairKey || '',
+      canonicalPairKey: pair.canonicalPairKey || '',
+      storageKey: option && option.storageKey || '',
+      sourcePair: pair,
+      sourceSegment: segment,
+      sourceTime: timeEntry,
+      segmentIndex: segmentIndex,
+      timeIndex: timeIndex,
+      serviceDate: serviceDate || '',
+      assignment: {
+        assignmentId: undefined,
+        queueId: undefined,
+        vehicleId: undefined,
+        assignmentSource: 'none',
+        scheduleOnly: true,
+        liveTrackingAvailable: false
+      }
+    };
+  }
+
   function _pairToTrips(pair, option, serviceDate) {
     var trips = [];
     (pair.segments || []).forEach(function(segment, segmentIndex) {
       (segment.times || []).forEach(function(timeEntry, timeIndex) {
-        var fareContract = FareDecisionCenter && typeof FareDecisionCenter.decideFare === 'function'
-          ? FareDecisionCenter.decideFare({
-            pair: pair,
-            segment: segment || {},
-            timeEntry: timeEntry || {},
-            option: option || {},
-            serviceFeeAmount: global.SERVICE_FEE_ENABLED === true ? Number(global.SERVICE_FEE_AMOUNT) || 0 : 0
-          })
-          : { status: 'NEEDS_CONTRACT_FIELD', fareAmount: null, missingField: 'SLTransitFareDecisionCenter.decideFare' };
-        var availabilityDecision = AvailabilityCenter && typeof AvailabilityCenter.decideBookingAvailability === 'function'
-          ? AvailabilityCenter.decideBookingAvailability({
-            pair: pair,
-            segment: segment || {},
-            timeEntry: timeEntry || {},
-            option: option || {},
-            preview: _preview,
-            serviceDate: serviceDate || ''
-          })
-          : { status: 'unavailable', bookingEligible: false, reasonCode: 'missing_contract', displayReasonTh: 'Booking Availability Center unavailable' };
-        var isReference = availabilityDecision.status === 'reference_only';
-        var isExternal = availabilityDecision.status === 'external_reference';
-        var fareMissing = fareContract.status === 'NEEDS_CONTRACT_FIELD';
-        var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
-        trips.push({
-          pickupTime: time,
-          label: _timeLabel(timeEntry),
-          queueNo: '',
-          vehicleId: '',
-          routeStops: [],
-          scheduleOnly: true,
-          fare: fareContract.fareAmount || 0,
-          fareAmount: fareContract.fareAmount,
-          fareContract: fareContract,
-          fareMissing: fareMissing,
-          missingFareField: fareContract.missingField || '',
-          paymentOwnership: fareContract.paymentOwnership || (isExternal ? 'external_pay' : 'sl_transit'),
-          externalPaymentRequired: isExternal,
-          isLeg2: pair.transfer && pair.transfer.required === true,
-          transferInfo: pair.transfer || null,
-          referenceOnly: isReference,
-          externalReference: isExternal,
-          bookingEligible: availabilityDecision.bookingEligible === true,
-          selectionAllowed: availabilityDecision.selectionAllowed === true && fareMissing === false,
-          bookingAllowed: availabilityDecision.bookingEligible === true && fareMissing === false,
-          availabilityDecision: availabilityDecision,
-          disabledReason: fareMissing ? 'missing_fare' : availabilityDecision.reasonCode,
-          displayDisabledReasonTh: availabilityDecision.displayReasonTh || '',
-          displayBadgeTh: timeEntry.displayBadgeTh || segment.displayBadgeTh || pair.displayBadgeTh || '',
-          passengerDisplayMode: timeEntry.passengerDisplayMode || segment.passengerDisplayMode || pair.previewDisplayMode || '',
-          disclaimers: _disclaimers(pair, segment, timeEntry),
-          pairKey: option && option.pairKey || pair.compatibilityPairKey || pair.pairId || '',
-          pairId: pair.pairId || pair.canonicalPairKey || '',
-          canonicalPairKey: pair.canonicalPairKey || '',
-          storageKey: option && option.storageKey || '',
-          sourcePair: pair,
-          sourceSegment: segment,
-          sourceTime: timeEntry,
-          segmentIndex: segmentIndex,
-          timeIndex: timeIndex,
-          serviceDate: serviceDate || '',
-          assignment: {
-            assignmentId: undefined,
-            queueId: undefined,
-            vehicleId: undefined,
-            assignmentSource: 'none',
-            scheduleOnly: true,
-            liveTrackingAvailable: false
-          }
-        });
+        trips.push(_tripFromTimeEntry(pair, option, segment, timeEntry, segmentIndex, timeIndex, serviceDate));
       });
     });
+    if (!trips.length && Array.isArray(pair.connectionOptions)) {
+      pair.connectionOptions.forEach(function(connection, index) {
+        trips.push(_tripFromTimeEntry(pair, option, {
+          label: 'connection_option',
+          fromLabel: pair.originLabel,
+          toLabel: pair.destinationLabel,
+          referenceOnly: true,
+          routeChoiceStatus: pair.routeChoiceStatus,
+          passengerDisplayMode: pair.previewDisplayMode,
+          displayBadgeTh: pair.displayBadgeTh,
+          disclaimerTh: pair.transferDisclaimerTh
+        }, connection, 0, index, serviceDate));
+      });
+    }
     _lastFareContractStatus = trips.some(function(trip) { return trip.fareMissing; })
       ? { status: 'missing_fare', missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
       : { status: 'ready' };

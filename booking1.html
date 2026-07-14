@@ -31,11 +31,11 @@
 <script src="booking-assignment-center.js?v=20260713b"></script>
 <script src="booking-availability-center.js?v=20260714d"></script>
 <script src="fare-decision-center.js?v=20260714c"></script>
-<script src="erp-calculator-center.js?v=20260714c"></script>
-<script src="booking-bridge.js?v=20260714d"></script>
+<script src="erp-calculator-center.js?v=20260714e"></script>
+<script src="booking-bridge.js?v=20260714e"></script>
 <script src="booking-capacity.js"></script>
 <script src="booking-pos.js"></script>
-<script src="booking1-preview-adapter.js?v=20260714d" defer></script>
+<script src="booking1-preview-adapter.js?v=20260714e" defer></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -186,7 +186,7 @@ body {
 .logo-name { color: white; font-size: 15px; font-weight: 800; letter-spacing: .5px; line-height: 1; }
 .logo-name span { color: var(--orange); }
 .logo-tagline { color: rgba(255,255,255,.55); font-size: 10px; margin-top: 2px; }
-.hamburger { background: none; border: none; cursor: pointer; padding: 4px; display: flex; flex-direction: column; gap: 5px; }
+.hamburger { width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.10);border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px; }
 .hamburger span { display: block; width: 22px; height: 2px; background: white; border-radius: 2px; }
 
 /* ===== HERO ===== */
@@ -265,11 +265,13 @@ body {
   cursor: pointer; transition: all .15s; position: relative;
 }
 .service-item.active { border-color: var(--teal); background: var(--teal-bg); }
-.soon-badge {
-  position: absolute; top: -6px; right: -2px;
-  background: var(--orange); color: white;
-  font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 8px; white-space: nowrap;
+.service-item.disabled {
+  opacity: .42;
+  filter: grayscale(.2);
+  cursor: not-allowed;
+  background: #f8fafc;
 }
+.service-item.disabled.active { border-color: var(--gray-border); background: #f8fafc; }
 .service-icon-box {
   width: 32px; height: 32px;
   margin: 0 auto 6px;
@@ -700,7 +702,7 @@ body {
   border-radius: 8px; padding: 2px 7px; white-space: nowrap;
 }
 .badge-teal   { background: #d1fae5; color: #065f46; }
-.badge-orange { background: #fff7ed; color: #c2410c; }
+.badge-orange { background: #eef2f7; color: #475569; }
 .badge-red    { background: #fee2e2; color: #991b1b; }
 
 .seats-ok   { font-size: 11px; font-weight: 600; color: var(--teal); }
@@ -738,7 +740,7 @@ body {
   padding: 2px 8px; white-space: nowrap;
 }
 .badge-recommend { background: #d1fae5; color: #065f46; }
-.badge-schedule   { background: #fff3e0; color: #c2410c; }
+.badge-schedule   { background: #eef2f7; color: #475569; }
 
 .trip-route-row {
   display: flex; align-items: center; gap: 5px;
@@ -748,33 +750,41 @@ body {
 
 /* ── กล่องข้อมูลต่อรถ (inline ในการ์ดแนะนำ) ── */
 .transfer-inline-box {
-  background: #fffbeb;
-  border: 1.5px solid #fde68a;
+  background: #f8fafc;
+  border: 1.5px solid #dbe3ef;
   border-radius: 10px;
   padding: 10px 12px;
   margin: 0 0 10px;
 }
 .transfer-inline-box.transfer-inline-warn {
-  background: #fef3c7; border-color: #fbbf24;
+  background: #f8fafc; border-color: #cbd5e1;
   display: flex; align-items: center; gap: 6px; padding: 8px 12px;
 }
 .ti-inline-head {
   display: flex; align-items: center; gap: 6px; margin-bottom: 7px;
 }
-.ti-inline-title {
-  font-size: 12px; font-weight: 700; color: #92400e;
-}
+.ti-inline-title { font-size: 12px; font-weight: 700; color: #475569; }
 .ti-inline-row {
   display: flex; justify-content: space-between; align-items: center;
   font-size: 12px; padding: 3px 0; border-bottom: 1px solid #fde8a0;
 }
 .ti-inline-row:last-of-type { border-bottom: none; }
-.ti-inline-label { color: #a16207; }
-.ti-inline-val   { font-weight: 700; color: #78350f; }
+.ti-inline-label { color: #64748b; }
+.ti-inline-val   { font-weight: 700; color: #334155; }
 .ti-inline-note  {
-  font-size: 10px; color: #92400e; margin-top: 6px;
+  font-size: 10px; color: #64748b; margin-top: 6px;
   text-align: right; font-style: italic;
 }
+.trip-card-muted {
+  opacity: .58;
+  background: #f8fafc !important;
+  border-color: #dbe3ef !important;
+}
+.trip-card-muted .trip-time,
+.trip-card-muted .trip-time-compact,
+.trip-card-muted .trip-route-text,
+.trip-card-muted .trip-price,
+.trip-card-muted .trip-price-compact { color: #64748b !important; }
 
 /* ── ปุ่ม เลือกเที่ยวนี้ (recommended) ── */
 .btn-select-recommend {
@@ -840,6 +850,44 @@ body {
   color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
 }
 
+.drawer-backdrop {
+  position: fixed; inset: 0; background: rgba(15,23,42,.46);
+  z-index: 7990; display: none;
+}
+.drawer-backdrop.open { display: block; }
+.drawer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 8001;
+  background: #fff; border-radius: 18px 18px 0 0; max-height: 76vh;
+  transform: translateY(105%); transition: transform .28s ease;
+  box-shadow: 0 -12px 30px rgba(15,23,42,.22);
+}
+.drawer.open { transform: translateY(0); }
+.main-menu-drawer {
+  top: 0; right: 0; left: auto; bottom: 0; width: min(360px, 88vw);
+  max-height: none; border-radius: 0; transform: translateX(105%);
+}
+.main-menu-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 12px; border-bottom: 1px solid var(--gray-border);
+}
+.drawer-title { font-size: 17px; font-weight: 800; color: var(--navy); }
+.drawer-sub { font-size: 12px; color: var(--gray-text); margin-top: 2px; }
+.drawer-close {
+  width: 34px; height: 34px; border: 0; border-radius: 10px;
+  background: #f1f5f9; color: var(--navy); font-size: 20px; cursor: pointer;
+}
+.drawer-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px 0 18px; }
+.main-menu-section { padding: 12px 18px 6px; border-top: 1px solid var(--gray-border); }
+.main-menu-section:first-child { border-top: 0; }
+.main-menu-title { font-size: 13px; font-weight: 800; color: var(--teal); margin: 0 0 8px; }
+.main-menu-link {
+  display: block; padding: 10px 0; color: var(--navy); text-decoration: none;
+  font-size: 14px; font-weight: 700; line-height: 1.35; border-bottom: 1px solid rgba(226,232,240,.72);
+}
+.main-menu-link:last-child { border-bottom: 0; }
+.main-menu-link small { display: block; color: var(--gray-text); font-size: 12px; font-weight: 500; margin-top: 2px; }
+
 /* ===== STOP PICKER POPUP ===== */
 .stop-picker-overlay {
   position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 8000;
@@ -869,7 +917,7 @@ body {
 .ti-header {
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
 }
-.ti-title { font-size: 14px; font-weight: 700; color: #92400e; }
+.ti-title { font-size: 14px; font-weight: 700; color: #475569; }
 .ti-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 5px 0; border-bottom: 1px solid #fde8cc; font-size: 13px;
@@ -930,17 +978,46 @@ body {
   </div>
 </div>
 
-<!-- ONSITE PAYMENT NOTE -->
-<div id="onsite-payment-note" style="display:none;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#166534;line-height:1.7;">
-  สำรองที่นั่งเรียบร้อยแล้ว ชำระเงินเมื่อเดินทางหรือบนรถโดยสาร
-</div>
-
 <!-- SETTINGS UPDATE OVERLAY -->
 <div id="_updateOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:9996;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:24px 20px;text-align:center;max-width:300px;">
     <div style="font-size:36px;margin-bottom:8px;">⚙️</div>
     <div style="font-size:15px;font-weight:700;color:var(--navy);">กำลังอัปเดตระบบ</div>
     <div style="font-size:13px;color:var(--gray-text);margin-top:6px;">กรุณารอสักครู่...</div>
+  </div>
+</div>
+
+<div class="drawer-backdrop" id="main-menu-backdrop" onclick="closeMainMenuDrawer()"></div>
+<div class="drawer main-menu-drawer" id="main-menu-drawer" role="dialog" aria-modal="true" aria-label="เมนูหลัก">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">เมนูหลัก</div>
+      <div class="drawer-sub">S.L. Transit</div>
+    </div>
+    <button class="drawer-close" onclick="closeMainMenuDrawer()" aria-label="ปิดเมนู">×</button>
+  </div>
+  <div class="drawer-body">
+    <section class="main-menu-section">
+      <h3 class="main-menu-title">การเดินทาง</h3>
+      <a class="main-menu-link" href="index.html">หน้าหลัก</a>
+      <a class="main-menu-link" href="booking1.html">เลือกเที่ยวและจองตั๋ว</a>
+      <a class="main-menu-link" href="check_ticket.html">ตรวจสอบตั๋ว / เช็กตั๋วของฉัน</a>
+      <a class="main-menu-link" href="passenger.html">ติดตามรถ</a>
+      <a class="main-menu-link" href="check_ticket.html?action=cancel">ยกเลิกตั๋ว</a>
+    </section>
+    <section class="main-menu-section">
+      <h3 class="main-menu-title">ข้อมูลบริการ</h3>
+      <a class="main-menu-link" href="info.html#services">เส้นทางที่ให้บริการ</a>
+      <a class="main-menu-link" href="info.html#services">จุดขึ้นรถ / จุดจอด</a>
+      <a class="main-menu-link" href="info.html#help">วิธีใช้งาน</a>
+      <a class="main-menu-link" href="info.html#contact">ติดต่อ / แจ้งปัญหา</a>
+    </section>
+    <section class="main-menu-section">
+      <h3 class="main-menu-title">เงื่อนไขและนโยบาย</h3>
+      <a class="main-menu-link" href="info.html#policy">เงื่อนไขการเดินทาง</a>
+      <a class="main-menu-link" href="info.html#privacy">นโยบายความเป็นส่วนตัว</a>
+      <a class="main-menu-link" href="admin.html">เจ้าหน้าที่<small>เข้าสู่ระบบสำหรับผู้ดูแลก่อนใช้งาน</small></a>
+    </section>
   </div>
 </div>
 
@@ -957,7 +1034,7 @@ body {
           <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
         </div>
       </div>
-      <button class="hamburger"><img class="icon-img" src="assets/202.png" alt="menu" style="width:22px;height:22px;"></button>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
     </div>
   </header>
 
@@ -1019,20 +1096,17 @@ body {
             <div class="service-name">เดินทาง</div>
             <div class="service-sub">จองตั๋วผู้โดยสาร</div>
           </div>
-          <div class="service-item" onclick="selectService(this)">
-            <span class="soon-badge">เร็วๆนี้</span>
+          <div class="service-item disabled" aria-disabled="true">
             <img class="icon-img" src="assets/210.png" alt="ส่งของ" style="width:36px;height:36px;">
             <div class="service-name">ส่งของ</div>
             <div class="service-sub">ฝากส่งพัสดุ</div>
           </div>
-          <div class="service-item" onclick="selectService(this)">
-            <span class="soon-badge">เร็วๆนี้</span>
+          <div class="service-item disabled" aria-disabled="true">
             <img class="icon-img" src="assets/211.png" alt="รับของ" style="width:36px;height:36px;">
             <div class="service-name">รับของ</div>
             <div class="service-sub">รับของที่ปลายทาง</div>
           </div>
-          <div class="service-item" onclick="selectService(this)">
-            <span class="soon-badge">เร็วๆนี้</span>
+          <div class="service-item disabled" aria-disabled="true">
             <img class="icon-img" src="assets/212.png" alt="ฝากหิ้ว" style="width:36px;height:36px;">
             <div class="service-name">ฝากหิ้วของ</div>
             <div class="service-sub">หิ้วของตามเส้นทาง</div>
@@ -1173,7 +1247,7 @@ body {
           <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
         </div>
       </div>
-      <button class="hamburger"><img class="icon-img" src="assets/202.png" alt="menu" style="width:22px;height:22px;"></button>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
     </div>
   </header>
 
@@ -1211,7 +1285,7 @@ body {
     <div class="page-container">
 
       <!-- ADMIN TESTER STRIP -->
-      <div id="adminTesterStrip" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#92400e;font-weight:600;">
+      <div id="adminTesterStrip" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#475569;font-weight:600;">
         🔧 ADMIN CHECK — เจ้าหน้าที่กำลังตรวจสอบระบบผ่านขั้นตอนผู้ใช้งานจริง
       </div>
 
@@ -1316,7 +1390,7 @@ body {
           <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
         </div>
       </div>
-      <button class="hamburger"><img class="icon-img" src="assets/202.png" alt="menu" style="width:22px;height:22px;"></button>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
     </div>
   </header>
 
@@ -1575,7 +1649,7 @@ body {
           <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
         </div>
       </div>
-      <button class="hamburger"><img class="icon-img" src="assets/202.png" alt="menu" style="width:22px;height:22px;"></button>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
     </div>
   </header>
 
@@ -1635,7 +1709,7 @@ body {
 
           <!-- queue badge -->
           <div id="ticketQueuePrize" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px;text-align:center;margin-bottom:12px;">
-            <div style="font-size:12px;color:#92400e;font-weight:700;">ลำดับคิว</div>
+            <div style="font-size:12px;color:#475569;font-weight:700;">ลำดับคิว</div>
             <div style="font-size:32px;font-weight:800;color:#0B1D3A;font-family:monospace;margin-top:4px;" id="ticketQueuePrizeNum">-</div>
           </div>
 
@@ -1698,7 +1772,7 @@ body {
               <div style="font-size:20px;font-weight:800;color:var(--navy);font-family:monospace;" id="ticketMainTime">-</div>
             </div>
             <div id="ticketLeg2TimeWrap" style="display:none;background:#fff7ed;border-radius:10px;padding:10px;text-align:center;">
-              <div style="font-size:11px;color:#92400e;margin-bottom:4px;">เวลาต่อรถ</div>
+              <div style="font-size:11px;color:#475569;margin-bottom:4px;">เวลาต่อรถ</div>
               <div style="font-size:20px;font-weight:800;color:#78350f;font-family:monospace;" id="ticketLeg2Time">-</div>
             </div>
           </div>
@@ -2084,7 +2158,7 @@ function renderTrips() {
       ) : hasTransfer && !ti.hasMatch ? (
         '<div class="transfer-inline-box transfer-inline-warn">'
         + '<img class="icon-img" src="assets/214.png" alt="warning" style="width:14px;height:14px;">'
-        + '<span style="font-size:12px;color:#92400e;"> ยังไม่มีเที่ยวต่อในตารางเวลา — ตรวจสอบอีกครั้ง</span>'
+        + '<span style="font-size:12px;color:#475569;"> ยังไม่มีเที่ยวต่อในตารางเวลา — ตรวจสอบอีกครั้ง</span>'
         + '</div>'
       ) : '')
 
@@ -2233,8 +2307,23 @@ function showPage(n) {
 }
 
 function selectService(el) {
+  if (el && el.classList && el.classList.contains('disabled')) return;
   document.querySelectorAll('.service-item').forEach(function(i){ i.classList.remove('active'); });
   el.classList.add('active');
+}
+
+function openMainMenuDrawer() {
+  var drawer = document.getElementById('main-menu-drawer');
+  var backdrop = document.getElementById('main-menu-backdrop');
+  if (drawer) drawer.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+}
+
+function closeMainMenuDrawer() {
+  var drawer = document.getElementById('main-menu-drawer');
+  var backdrop = document.getElementById('main-menu-backdrop');
+  if (drawer) drawer.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
 }
 
 function selectTrip(el) {
@@ -2930,7 +3019,7 @@ function downloadTicketImage() {
     ctx.strokeStyle = '#fed7aa'; ctx.lineWidth = 2;
     drawRoundRect(ctx, 160, y - 36, 580, 102, 22); ctx.stroke();
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#c2410c'; ctx.font = '700 22px Sarabun, sans-serif';
+    ctx.fillStyle = '#475569'; ctx.font = '700 22px Sarabun, sans-serif';
     ctx.fillText('ลำดับคิว', 450, y);
     ctx.fillStyle = '#0B1D3A'; ctx.font = '700 44px monospace';
     ctx.fillText('คิวที่ ' + booking.queueNumber, 450, y + 46);

@@ -37,6 +37,7 @@ assert(adapter.includes('s.group || null'), 'Destination picker must render ERP-
 assert(adapter.includes('stopPickerItemsHtml'), 'Destination picker must use grouped picker rendering');
 assert(adapter.includes('esc(group)'), 'Destination group labels must come from ERP option.group');
 assert(adapter.includes('SLBookingBridge.loadAvailableTrips'), 'Trip cards must lazy-load selected pair data');
+assert(bridge.includes('Array.isArray(pair.connectionOptions)'), 'Booking1 bridge must read ERP connectionOptions for transfer-reference timetable rows');
 assert(!adapter.includes('recommendedBookingTrips'), 'Booking1 adapter must not own recommendation logic');
 assert(!adapter.includes('minutesFromTime'), 'Booking1 adapter must not compare trip times locally');
 assert(adapter.includes('!trip.selectionAllowed'), 'Booking1 adapter must use selectionAllowed for the trip select button');
