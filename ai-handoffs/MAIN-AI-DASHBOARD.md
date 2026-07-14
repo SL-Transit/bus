@@ -148,9 +148,14 @@ While paused:
 
 Shared approved ERP Data Center contract:
 - SL-Transit is an interconnected journey-planning and transport-service platform, not a single-main-route website.
-- Canonical flow: ERP Data Center -> ERP Logic Center -> Page Logic Adapters -> UX/UI.
-- ERP Data Center owns static/versioned network, timetable, fleet/queue, fare, capability, and lineage data.
-- ERP Logic Center owns multi-leg path finding, trip/transfer feasibility, fare decisions, assignments, and ETA.
+- Canonical flow: ERP Data Center -> ERP Logic Center + ERP Calculator Center + ERP Alert / Notification Center + Map Display Center -> Page Logic Adapters -> UX/UI.
+- ERP Data Center owns source/master/display data: stops, routes, timetable, fares, queues, vehicles, map stop lat/lng, icons, and `publishedSchedule`.
+- ERP Logic Center owns rule decisions only: booking eligibility, transfer feasibility decisions, check-in eligibility, journey status, assignment decisions, and whether a notification is required.
+- ERP Logic Center decides policy and uses ERP Calculator Center for numeric ETA/fare/distance/wait-time calculations.
+- ERP Logic Center and ERP Calculator Center are separate ERP centers and must not be merged.
+- ERP Calculator Center owns numeric calculation only: distance, ETA math, fare amount, service fee, total, wait time, transfer buffer minutes, and duration display values.
+- ERP Alert / Notification Center owns alert/notification intent only: it receives Logic Center decisions/results, creates `NotificationIntent`, prevents duplicate alerts, and prepares LINE/admin/driver/passenger notification payloads. It must not calculate fare, ETA, or transfer rules.
+- Map Display Center owns map/display state only: stop markers, vehicle markers, no-warp marker planning, and display-ready map objects. It must not decide route, booking, fare, or ETA policy.
 - Consumer pages must not recreate business rules.
 - current destination/network locations: 49
 - source-proven group_001 corridor stops: 15
@@ -193,7 +198,7 @@ Shared approved ERP Data Center contract:
 - A vehicle follows its assigned queueTrip, passes intermediate stops, stops for pickup/drop-off demand, and continues immediately. Intermediate stops are not waiting points unless the specific queueTrip explicitly defines that stop as a scheduled departure or waiting point.
 - When a passenger boards, the system should help answer the normal real-world question: "about how many minutes until my destination or transfer stop?"
 - At a destination or transfer node, the platform should eventually help the passenger see the next queue/route, departure time, fare, and boarding point instead of requiring the passenger to ask every terminal manually.
-- ERP Data Center stores the real-world network, queue schedules, route sequences, stop roles, and reference timetable data. ERP Logic Center turns that into journey planning, ETA, transfer guidance, fare visibility, and notification decisions. UI pages display the result and must not invent business rules locally.
+- ERP Data Center stores the real-world network, queue schedules, route sequences, stop roles, and reference timetable data. ERP Logic Center decides journey policy, transfer guidance, fare visibility policy, and notification requirement; ERP Calculator Center supplies numeric ETA, fare, distance, wait-time, and duration calculations. UI pages display the result and must not invent business rules locally.
 
 ### Neutral Service Groups
 
@@ -206,7 +211,7 @@ Shared approved ERP Data Center contract:
 | `group_005` | `group_005` |
 
 - Legacy names are migration aliases only and must not drive business rules.
-- Admin-editable display order must not determine journey order. ERP Logic Center calculates group/route order per journey.
+- Admin-editable display order must not determine journey order. ERP Logic Center decides journey ordering policy per journey and uses ERP Calculator Center when numeric ordering inputs are required.
 
 ### Network Entity Boundary
 
@@ -264,7 +269,8 @@ Shared approved ERP Data Center contract:
 
 ### Journey Planning And Passenger ETA
 
-- ERP Logic Center calculates multi-leg paths, trip selection, transfer feasibility, fare totals, assignment/tracking availability, and ETA.
+- ERP Logic Center decides multi-leg path policy, trip selection policy, transfer feasibility, assignment/tracking availability, and booking/notification policy.
+- ERP Logic Center decides policy and uses ERP Calculator Center for numeric ETA/fare/distance/wait-time calculations, including fare totals and transfer buffer minutes.
 - Platform service fee is one configurable amount per booking, not an assumed per-leg allocation.
 - Transfer feasibility uses `feasible`, `infeasible`, or `unknown` until owner-approved timing thresholds exist.
 - Passenger Phase 1 continues to read static timetable/stop/route data from ERP Data Center and real positions from `operations/liveVehicles/{vehicleId}`.
@@ -274,8 +280,8 @@ Shared approved ERP Data Center contract:
 - ETA has two approved passenger contexts:
   - pre-boarding ETA: estimate when the assigned vehicle will reach the passenger pickup stop.
   - in-vehicle ETA: after boarding, estimate when the same vehicle will reach the passenger drop-off stop or transfer node.
-- Both ETA contexts must be calculated by ERP Logic Center from real live vehicle position, route sequence, queueTrip, stop/node positions, and booking/trip context. Static schedule estimates must not override real ETA when live evidence exists.
-- LINE or other notifications may use ETA outputs only through ERP Notification Service after separate owner approval. UI pages must not send notifications directly.
+- Both ETA contexts must be policy-approved by ERP Logic Center and numerically calculated by ERP Calculator Center from real live vehicle position, route sequence, queueTrip, stop/node positions, and booking/trip context. Static schedule estimates must not override real ETA when live evidence exists.
+- LINE or other notifications may use ETA outputs only through ERP Alert / Notification Center after separate owner approval. UI pages must not send notifications directly.
 
 ### Timetable Time Semantics
 
@@ -290,7 +296,7 @@ Shared approved ERP Data Center contract:
   - `pickup_on_demand`: vehicle may stop for passenger pickup/drop-off demand.
   - `no_waiting_stop`: vehicle should not wait after pickup/drop-off is complete.
   - `conditional_waiting_point`: a stop where a specific owner-approved queueTrip may wait until its scheduled departure time.
-  - live ETA: a separate ERP Logic Center result calculated only from real operational position/trip evidence.
+  - live ETA: an ERP Logic Center policy result with ERP Calculator Center numeric calculation, using only real operational position/trip evidence.
 - For the 14 active queueTrips and 94 stopTimes, expect 14 origin departures and treat the remaining intermediate/destination times as estimates; Data Import must verify the exact role counts rather than assume every stopTime is equally authoritative.
 - The 73 group_001 offers previously classified as `needs_review/missing_stop_time` are owner-created estimated timetable offers, not missing data. Reclassify them under estimated timetable semantics using the actual queue-origin boundary.
 - An estimated offer may be used for journey planning/reference, but must not claim an exact pickup time, queueTrip, vehicle, assignment, GPS, live tracking, or ETA unless separately evidence-mapped.

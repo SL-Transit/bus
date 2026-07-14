@@ -80,6 +80,41 @@ Blockers:
 Next action:
 - Push only after separate explicit owner approval, then verify origin/main, Actions, Pages, and live source.
 
+## 2026-07-14 16:35 +07 (Asia/Bangkok) - Data Import / ERP Architecture Handoff - REVIEW
+
+Scope:
+- `ai-handoffs/MAIN-AI-DASHBOARD.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Recorded the owner-approved 5 ERP Centers as separate architecture boundaries: ERP Data Center, ERP Logic Center, ERP Calculator Center, ERP Alert / Notification Center, and Map Display Center.
+- Clarified that ERP Data Center owns source/master/display data, including stops, routes, timetable, fares, queues, vehicles, map stop lat/lng, icons, and `publishedSchedule`.
+- Clarified that ERP Logic Center owns rule decisions only: booking eligibility, transfer feasibility, check-in eligibility, journey status, assignment decisions, and whether notification is required.
+- Replaced stale wording that implied ERP Logic Center owns numeric ETA/fare totals with: ERP Logic Center decides policy and uses ERP Calculator Center for numeric ETA/fare/distance/wait-time calculations.
+- Clarified that ERP Calculator Center owns numeric calculation only, ERP Alert / Notification Center owns notification intent only, and Map Display Center owns display-ready map state only.
+- Preserved `readyForApply=false` as the hard production stop.
+
+Evidence:
+- Commit: none yet; documentation update is local only.
+- Actions: not run; not pushed.
+- Pages: not run; not pushed.
+- Tests: documentation stale-line scan and scoped `git diff --check`.
+
+Safety:
+- Documentation-only update.
+- Firebase writes: none.
+- Seed applied: no.
+- Production apply: no.
+- App behavior changed: no.
+- Booking, passenger, ticket, driver, live vehicle, payment, LINE, operational, and private data touched: none.
+- Unrelated local `database.rules.json` and `outputs/` changes were not included.
+
+Blockers:
+- None for this documentation update.
+
+Next action:
+- Commit/push this docs-only handoff update only after explicit approval, excluding unrelated `database.rules.json` and generated JSON/output files.
+
 ## 2026-07-13 21:18 +07 (Asia/Bangkok) - Supervisor AI / Current-State Handoff - REVIEW
 
 Scope:
