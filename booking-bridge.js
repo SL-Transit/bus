@@ -10,6 +10,12 @@
   'use strict';
 
   var PREVIEW_BASE_PATH = 'preview/publishedSchedule';
+  var AvailabilityCenter = global.SLTransitBookingAvailabilityCenter;
+  var FareDecisionCenter = global.SLTransitFareDecisionCenter;
+  if ((!AvailabilityCenter || !FareDecisionCenter) && typeof require === 'function') {
+    try { AvailabilityCenter = AvailabilityCenter || require('./booking-availability-center.js'); } catch (err) {}
+    try { FareDecisionCenter = FareDecisionCenter || require('./fare-decision-center.js'); } catch (err2) {}
+  }
   var _db = null;
   var _ready = false;
   var _readyCallbacks = [];
@@ -34,11 +40,6 @@
 
   function _asArray(value) {
     return Array.isArray(value) ? value : [];
-  }
-
-  function _num(value) {
-    var n = Number(value);
-    return isFinite(n) ? n : null;
   }
 
   function _optionLabel(option) {
@@ -197,34 +198,6 @@
     })[0] || null;
   }
 
-  function _extractFare(pair, segment, timeEntry, option) {
-    var sources = [timeEntry, segment, pair, option];
-    var fields = ['fareAmount', 'fare', 'amount', 'price'];
-    for (var i = 0; i < sources.length; i++) {
-      var source = sources[i] || {};
-      for (var f = 0; f < fields.length; f++) {
-        var n = _num(source[fields[f]]);
-        if (n != null) {
-          return {
-            amount: n,
-            sourceField: fields[f],
-            sourceScope: i === 0 ? 'time' : i === 1 ? 'segment' : i === 2 ? 'pair' : 'destinationOption',
-            paymentOwnership: source.paymentOwnership || pair.paymentOwnership || option.paymentOwnership || 'sl_transit',
-            externalPaymentRequired: source.externalPaymentRequired === true || pair.externalPaymentRequired === true || option.externalPaymentRequired === true
-          };
-        }
-      }
-    }
-    return {
-      amount: null,
-      sourceField: null,
-      sourceScope: null,
-      paymentOwnership: pair.paymentOwnership || option.paymentOwnership || '',
-      externalPaymentRequired: pair.externalPaymentRequired === true || option.externalPaymentRequired === true,
-      missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount'
-    };
-  }
-
   function _disclaimers(pair, segment, timeEntry) {
     var list = [];
     [pair && pair.transferDisclaimerTh, pair && pair.externalDisclaimerTh, pair && pair.disclaimerTh,
@@ -232,20 +205,6 @@
       if (text && list.indexOf(text) === -1) list.push(text);
     });
     return list;
-  }
-
-  function _pairIsExternal(pair, segment, timeEntry, fareContract) {
-    return pair.paymentOwnership === 'external_pay' ||
-      segment.paymentOwnership === 'external_pay' ||
-      timeEntry.paymentOwnership === 'external_pay' ||
-      pair.slTransitFareCollection === false ||
-      segment.slTransitFareCollection === false ||
-      timeEntry.slTransitFareCollection === false ||
-      pair.externalReference === true ||
-      segment.externalReference === true ||
-      timeEntry.externalReference === true ||
-      fareContract.externalPaymentRequired === true ||
-      fareContract.paymentOwnership === 'external_pay';
   }
 
   function _timeLabel(timeEntry) {
@@ -257,11 +216,28 @@
     var trips = [];
     (pair.segments || []).forEach(function(segment, segmentIndex) {
       (segment.times || []).forEach(function(timeEntry, timeIndex) {
-        var fareContract = _extractFare(pair, segment, timeEntry, option);
-        var isReference = pair.referenceOnly === true || segment.referenceOnly === true || timeEntry.referenceOnly === true;
-        var isExternal = _pairIsExternal(pair, segment || {}, timeEntry || {}, fareContract);
-        var fareMissing = fareContract.amount == null && !isExternal;
-        var bookingEligible = pair.bookingEligible === true && !isReference && !isExternal && !fareMissing && _preview.readyForApply === true;
+        var fareContract = FareDecisionCenter && typeof FareDecisionCenter.decideFare === 'function'
+          ? FareDecisionCenter.decideFare({
+            pair: pair,
+            segment: segment || {},
+            timeEntry: timeEntry || {},
+            option: option || {},
+            serviceFeeAmount: global.SERVICE_FEE_ENABLED === true ? Number(global.SERVICE_FEE_AMOUNT) || 0 : 0
+          })
+          : { status: 'NEEDS_CONTRACT_FIELD', fareAmount: null, missingField: 'SLTransitFareDecisionCenter.decideFare' };
+        var availabilityDecision = AvailabilityCenter && typeof AvailabilityCenter.decideBookingAvailability === 'function'
+          ? AvailabilityCenter.decideBookingAvailability({
+            pair: pair,
+            segment: segment || {},
+            timeEntry: timeEntry || {},
+            option: option || {},
+            preview: _preview,
+            serviceDate: serviceDate || ''
+          })
+          : { status: 'unavailable', bookingEligible: false, reasonCode: 'missing_contract', displayReasonTh: 'Booking Availability Center unavailable' };
+        var isReference = availabilityDecision.status === 'reference_only';
+        var isExternal = availabilityDecision.status === 'external_reference';
+        var fareMissing = fareContract.status === 'NEEDS_CONTRACT_FIELD';
         var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
         trips.push({
           pickupTime: time,
@@ -270,8 +246,8 @@
           vehicleId: '',
           routeStops: [],
           scheduleOnly: true,
-          fare: fareContract.amount || 0,
-          fareAmount: fareContract.amount,
+          fare: fareContract.fareAmount || 0,
+          fareAmount: fareContract.fareAmount,
           fareContract: fareContract,
           fareMissing: fareMissing,
           missingFareField: fareContract.missingField || '',
@@ -281,9 +257,11 @@
           transferInfo: pair.transfer || null,
           referenceOnly: isReference,
           externalReference: isExternal,
-          bookingEligible: pair.bookingEligible === true,
-          bookingAllowed: bookingEligible,
-          disabledReason: isExternal ? 'external_pay' : isReference ? 'reference_only' : fareMissing ? 'missing_fare' : (_preview.readyForApply ? '' : 'preview_not_apply_ready'),
+          bookingEligible: availabilityDecision.bookingEligible === true,
+          bookingAllowed: availabilityDecision.bookingEligible === true && fareMissing === false,
+          availabilityDecision: availabilityDecision,
+          disabledReason: fareMissing ? 'missing_fare' : availabilityDecision.reasonCode,
+          displayDisabledReasonTh: availabilityDecision.displayReasonTh || '',
           displayBadgeTh: timeEntry.displayBadgeTh || segment.displayBadgeTh || pair.displayBadgeTh || '',
           passengerDisplayMode: timeEntry.passengerDisplayMode || segment.passengerDisplayMode || pair.previewDisplayMode || '',
           disclaimers: _disclaimers(pair, segment, timeEntry),
@@ -311,12 +289,6 @@
     _lastFareContractStatus = trips.some(function(trip) { return trip.fareMissing; })
       ? { status: 'missing_fare', missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
       : { status: 'ready' };
-    if (global.SLTransitCalculatorCenter && typeof global.SLTransitCalculatorCenter.recommendedBookingTrips === 'function') {
-      return global.SLTransitCalculatorCenter.recommendedBookingTrips({
-        trips: trips,
-        serviceDate: serviceDate || ''
-      });
-    }
     return trips;
   }
 
