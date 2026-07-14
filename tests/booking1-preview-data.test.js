@@ -6,6 +6,7 @@ const booking1 = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'u
 const adapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-adapter.js'), 'utf8');
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
 const pos = fs.readFileSync(path.join(__dirname, '..', 'booking-pos.js'), 'utf8');
+const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 
 assert(bridge.includes("var PREVIEW_BASE_PATH = 'preview/publishedSchedule'"), 'Booking1 bridge must use preview/publishedSchedule');
 assert(bridge.includes(".child('originOptions').once('value')"), 'Booking1 must read originOptions as lightweight initial data');
@@ -20,8 +21,11 @@ assert(!bridge.includes('TRANSFER_BUFFER'), 'Booking1 bridge must not use static
 assert(!bridge.includes('|| 55'), 'Booking1 bridge must not hardcode 55-baht fare fallback');
 assert(booking1.includes('booking-availability-center.js'), 'Booking1 must load Booking Availability Center');
 assert(booking1.includes('fare-decision-center.js'), 'Booking1 must load Fare Decision Center');
+assert(booking1.includes('erp-calculator-center.js'), 'Booking1 must load ERP Calculator Center for trip recommendation ordering');
 assert(bridge.includes('SLTransitBookingAvailabilityCenter'), 'Booking1 bridge must ask Booking Availability Center for eligibility');
 assert(bridge.includes('SLTransitFareDecisionCenter'), 'Booking1 bridge must ask Fare Decision Center for fares');
+assert(bridge.includes('SLTransitCalculatorCenter.recommendedBookingTrips'), 'Booking1 bridge must ask ERP Calculator Center for recommended trip ordering');
+assert(calculator.includes('function recommendedBookingTrips'), 'ERP Calculator Center must own Booking1 trip recommendation logic');
 assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calculate fare locally');
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
 
@@ -32,6 +36,8 @@ assert(adapter.includes('s.group || null'), 'Destination picker must render ERP-
 assert(adapter.includes('stopPickerItemsHtml'), 'Destination picker must use grouped picker rendering');
 assert(adapter.includes('esc(group)'), 'Destination group labels must come from ERP option.group');
 assert(adapter.includes('SLBookingBridge.loadAvailableTrips'), 'Trip cards must lazy-load selected pair data');
+assert(!adapter.includes('recommendedBookingTrips'), 'Booking1 adapter must not own recommendation logic');
+assert(!adapter.includes('minutesFromTime'), 'Booking1 adapter must not compare trip times locally');
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(adapter.includes('No live vehicle tracking'), 'Booking1 adapter must expose schedule-only/no-live-tracking behavior');
