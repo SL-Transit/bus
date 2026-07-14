@@ -33,6 +33,23 @@ const catchable = calculator.findCatchableTrip({
 assert.strictEqual(catchable.time, '10:30');
 assert.strictEqual(catchable.waitMinutes, 20);
 
+const recommendedToday = calculator.recommendedBookingTrips({
+  serviceDate: '2026-07-14',
+  now: new Date('2026-07-14T14:57:00+07:00'),
+  trips: [{ pickupTime: '09:40' }, { pickupTime: '15:00' }, { pickupTime: '17:20' }]
+});
+assert.strictEqual(recommendedToday[0].pickupTime, '15:00');
+assert.strictEqual(recommendedToday[0].recommended, true);
+assert.strictEqual(recommendedToday[0].recommendationSource, 'erp_logic_center');
+assert.strictEqual(recommendedToday.length, 2);
+
+const recommendedFuture = calculator.recommendedBookingTrips({
+  serviceDate: '2026-07-15',
+  now: new Date('2026-07-14T14:57:00+07:00'),
+  trips: [{ pickupTime: '09:40' }, { pickupTime: '15:00' }]
+});
+assert.strictEqual(recommendedFuture[0].pickupTime, '09:40');
+
 assert.strictEqual(calculator.combineFare([{ price: 40 }, { fare: 35 }]), 75);
 
 console.log('erp-calculator-center ok');

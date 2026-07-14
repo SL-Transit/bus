@@ -311,6 +311,12 @@
     _lastFareContractStatus = trips.some(function(trip) { return trip.fareMissing; })
       ? { status: 'missing_fare', missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
       : { status: 'ready' };
+    if (global.SLTransitCalculatorCenter && typeof global.SLTransitCalculatorCenter.recommendedBookingTrips === 'function') {
+      return global.SLTransitCalculatorCenter.recommendedBookingTrips({
+        trips: trips,
+        serviceDate: serviceDate || ''
+      });
+    }
     return trips;
   }
 

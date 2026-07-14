@@ -75,6 +75,32 @@
     return null;
   }
 
+  function isoDateFromDate(date) {
+    var d = date instanceof Date ? date : new Date();
+    function pad(value) { return String(value).padStart(2, '0'); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function recommendedBookingTrips(input) {
+    input = input || {};
+    var trips = Array.isArray(input.trips) ? input.trips.slice() : [];
+    var serviceDate = String(input.serviceDate || '');
+    var now = input.now instanceof Date ? input.now : new Date();
+    var today = isoDateFromDate(now);
+    var cutoff = serviceDate === today ? now.getHours() * 60 + now.getMinutes() : null;
+    var filtered = cutoff == null ? trips : trips.filter(function(trip) {
+      var depart = minutesOfDay(trip && (trip.pickupTime || trip.time || trip.departureTime || trip.roundTime));
+      return depart !== null && depart >= cutoff;
+    });
+    return filtered.map(function(trip, index) {
+      var copy = Object.assign({}, trip);
+      copy.recommendationRank = index;
+      copy.recommended = index === 0;
+      copy.recommendationSource = 'erp_logic_center';
+      return copy;
+    });
+  }
+
   function minutesOfDay(timeText) {
     var match = String(timeText || '').match(/^(\d{1,2}):(\d{2})$/);
     if (!match) return null;
@@ -96,6 +122,7 @@
     estimateEta: estimateEta,
     formatDuration: formatDuration,
     findCatchableTrip: findCatchableTrip,
+    recommendedBookingTrips: recommendedBookingTrips,
     minutesOfDay: minutesOfDay,
     combineFare: combineFare
   };
