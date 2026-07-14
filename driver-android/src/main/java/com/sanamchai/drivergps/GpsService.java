@@ -60,7 +60,8 @@ public class GpsService extends Service implements SensorEventListener {
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
-    private static final String DB_URL              = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
+    private static final String DB_URL              = BuildConfig.SL_TRANSIT_FIREBASE_DATABASE_URL;
+    private static final String FIREBASE_PROJECT_ID = BuildConfig.SL_TRANSIT_FIREBASE_PROJECT_ID;
     private static final String MODE_MOVING         = "moving";
     private static final String MODE_SLOW           = "slow";
     private static final String MODE_STOPPED        = "stopped";
@@ -828,12 +829,20 @@ public class GpsService extends Service implements SensorEventListener {
             stopSelf();
             return;
         }
+        if (!hasFirebaseConfig()) {
+            prefs.edit()
+                    .putBoolean(MainActivity.KEY_ENABLED, false)
+                    .putString(MainActivity.KEY_LAST_ERROR, "driver firebase config required")
+                    .apply();
+            stopSelf();
+            return;
+        }
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseOptions opts = new FirebaseOptions.Builder()
-                    .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
-                    .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
+                    .setApiKey(BuildConfig.SL_TRANSIT_FIREBASE_API_KEY)
+                    .setApplicationId(BuildConfig.SL_TRANSIT_FIREBASE_APP_ID)
                     .setDatabaseUrl(DB_URL)
-                    .setProjectId("bus-booking-1d68c")
+                    .setProjectId(FIREBASE_PROJECT_ID)
                     .build();
             FirebaseApp.initializeApp(this, opts);
         }
@@ -861,6 +870,19 @@ public class GpsService extends Service implements SensorEventListener {
         watchConnectionState();
         watchVehicleSettings();
     }    // แอปคนขับอ่าน manual switch และตารางเวลาเอง ไม่พึ่งหน้า admin เปิดค้างไว้
+
+    private boolean hasFirebaseConfig() {
+        return isRealFirebaseValue(BuildConfig.SL_TRANSIT_FIREBASE_API_KEY)
+                && isRealFirebaseValue(BuildConfig.SL_TRANSIT_FIREBASE_APP_ID)
+                && isRealFirebaseValue(FIREBASE_PROJECT_ID)
+                && isRealFirebaseValue(DB_URL);
+    }
+
+    private boolean isRealFirebaseValue(String value) {
+        return value != null
+                && !value.trim().isEmpty()
+                && !value.contains("TODO_FROM_FIREBASE_CONSOLE");
+    }
 
     private boolean hasAuthenticatedDriverIdentity() {
         FirebaseUser user = auth == null ? null : auth.getCurrentUser();

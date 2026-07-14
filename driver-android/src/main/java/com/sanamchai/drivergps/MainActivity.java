@@ -90,7 +90,8 @@ public class MainActivity extends Activity {
     static final String KEY_TODAY_QUEUE       = "today_queue_label";
     static final String KEY_FIREBASE_STATUS   = "firebase_status";
 
-    private static final String DB_URL = "https://bus-booking-1d68c-default-rtdb.firebaseio.com";
+    private static final String DB_URL = BuildConfig.SL_TRANSIT_FIREBASE_DATABASE_URL;
+    private static final String FIREBASE_PROJECT_ID = BuildConfig.SL_TRANSIT_FIREBASE_PROJECT_ID;
     private static final String ST_TRANSIT_PHONE = "0XXXXXXXXX"; // TODO: ใส่เบอร์สำนักงาน ST Transit จริง
 
     // ===== S.L.Transit Theme =====
@@ -234,7 +235,11 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
-        ensureFirebaseApp();
+        if (!ensureFirebaseApp()) {
+            forceStopGpsForIdentityGate();
+            showLoginScreen("Driver App Firebase config is not finalized.");
+            return;
+        }
         driverAuth = FirebaseAuth.getInstance();
         if (!hasAuthenticatedDriverIdentity()) {
             forceStopGpsForIdentityGate();
@@ -244,19 +249,38 @@ public class MainActivity extends Activity {
         enterDriverWorkMode();
     }
 
-    private void ensureFirebaseApp() {
-        if (!FirebaseApp.getApps(this).isEmpty()) return;
+    private boolean ensureFirebaseApp() {
+        if (!FirebaseApp.getApps(this).isEmpty()) return true;
+        if (!hasFirebaseConfig()) return false;
         FirebaseOptions options = new FirebaseOptions.Builder()
-                .setApiKey("AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw")
-                .setApplicationId("1:481251007816:web:d8554178d954e7de16e77d")
+                .setApiKey(BuildConfig.SL_TRANSIT_FIREBASE_API_KEY)
+                .setApplicationId(BuildConfig.SL_TRANSIT_FIREBASE_APP_ID)
                 .setDatabaseUrl(DB_URL)
-                .setProjectId("bus-booking-1d68c")
+                .setProjectId(FIREBASE_PROJECT_ID)
                 .build();
         FirebaseApp.initializeApp(this, options);
+        return true;
+    }
+
+    private boolean hasFirebaseConfig() {
+        return isRealFirebaseValue(BuildConfig.SL_TRANSIT_FIREBASE_API_KEY)
+                && isRealFirebaseValue(BuildConfig.SL_TRANSIT_FIREBASE_APP_ID)
+                && isRealFirebaseValue(FIREBASE_PROJECT_ID)
+                && isRealFirebaseValue(DB_URL);
+    }
+
+    private boolean isRealFirebaseValue(String value) {
+        return value != null
+                && !value.trim().isEmpty()
+                && !value.contains("TODO_FROM_FIREBASE_CONSOLE");
     }
 
     private void enterDriverWorkMode() {
-        ensureFirebaseApp();
+        if (!ensureFirebaseApp()) {
+            forceStopGpsForIdentityGate();
+            showLoginScreen("Driver App Firebase config is not finalized.");
+            return;
+        }
         if (driverAuth == null) driverAuth = FirebaseAuth.getInstance();
         buildUi();
         loadTestModeSetting();
