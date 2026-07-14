@@ -14,8 +14,16 @@ const passengerUpdateStart = passengerLogic.indexOf('function updateAllBusesOnMa
 const passengerUpdateEnd = passengerLogic.indexOf('function removeBusFromMap', passengerUpdateStart);
 assert(passengerUpdateStart !== -1 && passengerUpdateEnd !== -1, 'Passenger vehicle update block missing');
 const passengerUpdateBlock = passengerLogic.slice(passengerUpdateStart, passengerUpdateEnd);
-assert(passengerUpdateBlock.includes('SLTransitMapDisplayCenter.prepareVehicleLayer'), 'Passenger vehicle layer must ask Map Display Center');
+assert(passengerUpdateBlock.includes('center.prepareVehicleLayer'), 'Passenger vehicle layer must ask Map Display Center');
 assert(passengerUpdateBlock.includes('placeBusMarkerAt'), 'Passenger must remain display-only and place the prepared markers');
+assert(passengerLogic.includes('center.planViewport'), 'Passenger viewport changes must ask Map Display Center');
+assert(passengerLogic.includes('center.planFollowInteraction'), 'Passenger manual-follow changes must ask Map Display Center');
+assert(passengerLogic.includes('initialViewportPlan = getMapDisplayCenter().planViewport'), 'Passenger initial viewport must come from Map Display Center');
+assert(!passengerLogic.includes('zoom: 10, location:'), 'Passenger must not keep a local initial zoom and center decision');
+assert(!passengerHtml.includes('focusPoint(stop, 14)'), 'Passenger UI must not choose stop zoom locally');
+assert(!passengerHtml.includes('focusPoint(pos, 14)'), 'Passenger UI must not choose vehicle zoom locally');
+assert(passengerHtml.includes('map-display-center.js?v=20260714center2'), 'Passenger must load the current Map Display Center version');
+assert(passengerHtml.includes('passenger-logic.js?v=20260714map2'), 'Passenger must load the current map adapter version');
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
 assert(passengerLogic.includes('adapter.watchLiveVehicles(applyLiveVehicleSnapshot)'), 'Passenger must watch the central operations/liveVehicles contract');

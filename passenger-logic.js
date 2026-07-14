@@ -143,6 +143,14 @@
   var programmaticMapMoveUntil = 0;
   var STOPS_GO = [];
   var STOPS_BACK = [];
+  var mapDisplayCenter = global.SLTransitMapDisplayCenter || null;
+  if (!mapDisplayCenter && typeof require === 'function') {
+    try { mapDisplayCenter = require('./map-display-center.js'); } catch (err) { mapDisplayCenter = null; }
+  }
+
+  function getMapDisplayCenter() {
+    return global.SLTransitMapDisplayCenter || mapDisplayCenter;
+  }
 
   // Schedule/fare data — starts empty; populated only from Firebase (no hardcode)
   var PASSENGER_ROUTE_DATA = null;
@@ -150,28 +158,63 @@
 function curStops(){return viewDir==='go'?STOPS_GO:STOPS_BACK;}
 
 function normalizeMapPoint(point) {
-  if (!point) return null;
-  var lat = Number(point.lat ?? point.latitude);
-  var lon = Number(point.lon ?? point.lng ?? point.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null;
-  return { lon: lon, lat: lat };
+  var center = getMapDisplayCenter();
+  var normalized = center && typeof center.normalizePoint === 'function'
+    ? center.normalizePoint(point)
+    : null;
+  return normalized ? { lon: normalized.lng, lat: normalized.lat } : null;
 }
 
-function focusMap(point, zoomLevel, animate, lockInteraction) {
-  if (!mapObj || !point) return;
+function applyViewportPlan(plan) {
+  if (!mapObj || !plan || plan.apply !== true || !plan.center) return;
+  var point = normalizeMapPoint(plan.center);
+  if (!point) return;
   try {
-    var shouldAnimate = animate === true;
-    if (lockInteraction) programmaticMapMoveUntil = Date.now() + 900;
-    mapObj.location(point, shouldAnimate);
-    if (zoomLevel) setTimeout(function(){ mapObj.zoom(zoomLevel, shouldAnimate); }, 80);
+    programmaticMapMoveUntil = Date.now() + Number(plan.lockInteractionMs || 0);
+    mapObj.location(point, plan.animate === true);
+    if (plan.zoom) setTimeout(function(){ mapObj.zoom(plan.zoom, plan.animate === true); }, 80);
   } catch(e) { console.warn('Longdo focus failed:', e); }
 }
 
+function currentMapDisplayPoints() {
+  return curStops().concat(Object.keys(allBusPositions || {}).map(function(id) {
+    return allBusPositions[id];
+  }));
+}
+
+function currentViewportPlan(animate) {
+  var center = getMapDisplayCenter();
+  if (!center || typeof center.planViewport !== 'function') return null;
+  return center.planViewport({
+    followEnabled: followUser,
+    focusPoint: getStopByName(selOrigin),
+    points: currentMapDisplayPoints(),
+    animate: animate === true
+  });
+}
+
+function applyCurrentViewportPlan(animate) {
+  applyViewportPlan(currentViewportPlan(animate));
+}
+
+function focusMap(point, animate) {
+  var center = getMapDisplayCenter();
+  if (!center || typeof center.planViewport !== 'function') return;
+  applyViewportPlan(center.planViewport({ focusPoint: point, animate: animate === true }));
+}
+
 function pauseFollowForManualMapUse(reason) {
-  if (Date.now() < programmaticMapMoveUntil) return;
-  if (!followUser) return;
-  followUser = false;
-  console.log('followUser paused by map interaction', reason || '');
+  var center = getMapDisplayCenter();
+  if (!center || typeof center.planFollowInteraction !== 'function') return;
+  var plan = center.planFollowInteraction({
+    followEnabled: followUser,
+    programmaticMoveUntil: programmaticMapMoveUntil,
+    now: Date.now(),
+    reason: reason
+  });
+  followUser = plan.followEnabled === true;
+  if (!plan.changed) return;
+  console.log('followUser paused by map interaction', plan.reason || '');
   emit('followChanged', followUser);
 }
 
@@ -181,7 +224,7 @@ function getStopByName(name) {
 
 function focusSelectedOrigin() {
   var stop = getStopByName(selOrigin);
-  if (stop) focusMap(normalizeMapPoint(stop), 14);
+  if (stop) focusMap(stop, true);
 }
 
 // ===== SCHEDULE — display-only =====
@@ -557,9 +600,11 @@ function applyPassengerRouteData(data) {
   STOPS_GO.splice.apply(STOPS_GO, [0, STOPS_GO.length].concat(nextStops));
   STOPS_BACK.splice.apply(STOPS_BACK, [0, STOPS_BACK.length].concat(nextStops));
   if (mapReady) {
-    renderCurrentPassengerStops().catch(function(err) {
-      console.warn('Passenger routeData render failed:', err && err.message ? err.message : err);
-    });
+    renderCurrentPassengerStops()
+      .then(function() { applyCurrentViewportPlan(true); })
+      .catch(function(err) {
+        console.warn('Passenger routeData render failed:', err && err.message ? err.message : err);
+      });
   }
 }
 function forceFocusSelectedOriginAfterMapReady() {
@@ -573,7 +618,7 @@ function forceFocusSelectedOriginAfterMapReady() {
 
   setTimeout(function () {
     try {
-      focusMap(point, 14);
+      focusMap(point, true);
     } catch (e) {
       console.warn('Force focus selected origin failed:', e);
     }
@@ -588,7 +633,16 @@ function initMap() {
   if (mapInitPromise) return mapInitPromise;
   try {
     stationMarkerOverlays = [];
-    mapObj = new longdo.Map({ placeholder: document.getElementById('map'), zoom: 10, location: { lon:101.245, lat:13.710 } });
+    var initialViewportPlan = getMapDisplayCenter().planViewport({
+      points: currentMapDisplayPoints(),
+      animate: false
+    });
+    var initialLocation = normalizeMapPoint(initialViewportPlan.center);
+    mapObj = new longdo.Map({
+      placeholder: document.getElementById('map'),
+      zoom: initialViewportPlan.zoom,
+      location: initialLocation
+    });
     mapReady = false;
     mapInitPromise = new Promise(function(resolve) {
       var resolved = false;
@@ -607,9 +661,11 @@ function initMap() {
         console.log('Longdo map loaded');
         refreshMapSizeSafely();
         bindManualMapInteractionPause();
-        renderCurrentPassengerStops().catch(function(err) {
-          console.warn('Passenger mapView render failed:', err && err.message ? err.message : err);
-        });
+        renderCurrentPassengerStops()
+          .then(function() { applyCurrentViewportPlan(false); })
+          .catch(function(err) {
+            console.warn('Passenger mapView render failed:', err && err.message ? err.message : err);
+          });
         if (Object.keys(allBusPositions).length) updateAllBusesOnMap(allBusPositions);
         resolve(mapObj);
       }
@@ -774,24 +830,23 @@ function placeBusMarkerAt(carId, latlng) {
 function updateAllBusesOnMap(buses) {
   allBusPositions = buses || {};
   if (!mapReady || !mapObj) return;
-  if (window.SLTransitMapDisplayCenter && typeof window.SLTransitMapDisplayCenter.prepareVehicleLayer === 'function') {
-    var signals = Object.keys(buses || {}).map(function(id) {
-      return Object.assign({ vehicleId: id }, buses[id] || {});
-    });
-    window.SLTransitMapDisplayCenter.prepareVehicleLayer(signals, busDisplayState, { maxStepMeters: 250 }).forEach(function(item) {
-      if (!item || !item.vehicle || !item.point) return;
-      busDisplayState[item.vehicle.vehicleId] = { point: item.point };
-      placeBusMarkerAt(item.vehicle.vehicleId, item.point);
-    });
-    Object.keys(busDisplayState).forEach(function(id) {
-      if (!buses[id]) {
-        delete busDisplayState[id];
-        removeBusFromMap(id);
-      }
-    });
-    return;
-  }
-  Object.keys(buses || {}).forEach(function(id) { updateBusOnMap(buses[id], id); });
+  var center = getMapDisplayCenter();
+  if (!center || typeof center.prepareVehicleLayer !== 'function') return;
+  var signals = Object.keys(buses || {}).map(function(id) {
+    return Object.assign({ vehicleId: id }, buses[id] || {});
+  });
+  center.prepareVehicleLayer(signals, busDisplayState, { maxStepMeters: 250 }).forEach(function(item) {
+    if (!item || !item.vehicle || !item.point) return;
+    busDisplayState[item.vehicle.vehicleId] = { point: item.point };
+    placeBusMarkerAt(item.vehicle.vehicleId, item.point);
+  });
+  Object.keys(busDisplayState).forEach(function(id) {
+    if (!buses[id]) {
+      delete busDisplayState[id];
+      removeBusFromMap(id);
+    }
+  });
+  applyCurrentViewportPlan(true);
 }
 
 function removeBusFromMap(carId) {
@@ -802,23 +857,10 @@ function removeBusFromMap(carId) {
   delete busDisplayState[carId];
 }
 
-function updateBusOnMap(pos, carId) {
-  if (!mapReady || !mapObj) return;
-  pos = pos || {};
-  carId = carId || pos.carId || pos.vehicleId || 'car1';
-  var point = normalizeMapPoint(pos);
-  if (!point) {
-    removeBusFromMap(carId);
-    return;
-  }
-  placeBusMarkerAt(carId, point);
-}
-
-
   function setFollowUser(nextValue) {
     followUser = nextValue === true;
     emit('followChanged', followUser);
-    if (followUser) focusSelectedOrigin();
+    if (followUser) applyCurrentViewportPlan(true);
   }
 
 

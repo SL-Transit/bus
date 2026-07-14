@@ -1,6 +1,55 @@
 const assert = require('assert');
 const mapDisplay = require('../map-display-center.js');
 
+assert.deepStrictEqual(
+  mapDisplay.normalizePoint({ latitude: '13.7', longitude: '101.1' }),
+  { lat: 13.7, lng: 101.1 }
+);
+
+const defaultViewport = mapDisplay.planViewport({});
+assert.strictEqual(defaultViewport.mode, 'default');
+assert.strictEqual(defaultViewport.zoom, 10);
+
+const focusedViewport = mapDisplay.planViewport({
+  focusPoint: { lat: 13.692383, lng: 101.054183 },
+  animate: true
+});
+assert.strictEqual(focusedViewport.mode, 'focus');
+assert.strictEqual(focusedViewport.zoom, 14);
+assert.strictEqual(focusedViewport.animate, true);
+
+const overviewViewport = mapDisplay.planViewport({
+  points: [
+    { lat: 13.5, lng: 101.0 },
+    { lat: 13.7, lng: 101.4 }
+  ]
+});
+assert.strictEqual(overviewViewport.mode, 'overview');
+assert.deepStrictEqual(overviewViewport.center, { lat: 13.6, lng: 101.2 });
+assert.deepStrictEqual(overviewViewport.bounds, { minLat: 13.5, maxLat: 13.7, minLng: 101.0, maxLng: 101.4 });
+assert.strictEqual(overviewViewport.zoom, 9);
+
+const preservedViewport = mapDisplay.planViewport({ followEnabled: false, points: [{ lat: 13.7, lng: 101.1 }] });
+assert.strictEqual(preservedViewport.mode, 'preserve');
+assert.strictEqual(preservedViewport.apply, false);
+
+const protectedFollow = mapDisplay.planFollowInteraction({
+  followEnabled: true,
+  now: 1000,
+  programmaticMoveUntil: 1500,
+  reason: 'zoom'
+});
+assert.strictEqual(protectedFollow.followEnabled, true);
+assert.strictEqual(protectedFollow.changed, false);
+
+const manualFollow = mapDisplay.planFollowInteraction({
+  followEnabled: true,
+  now: 2000,
+  programmaticMoveUntil: 1500,
+  reason: 'drag'
+});
+assert.deepStrictEqual(manualFollow, { followEnabled: false, changed: true, reason: 'drag' });
+
 const first = mapDisplay.planVehicleMarker(null, {
   vehicleId: 'veh_001',
   lat: 13.692383,

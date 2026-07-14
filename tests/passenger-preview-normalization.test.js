@@ -49,6 +49,7 @@ const corridor = [
 ];
 
 function loadPassengerLogic() {
+  const mapDisplaySource = fs.readFileSync(path.join(__dirname, '..', 'map-display-center.js'), 'utf8');
   const source = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
   const sandbox = {
     console,
@@ -74,6 +75,7 @@ function loadPassengerLogic() {
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
+  vm.runInNewContext(mapDisplaySource, sandbox, { filename: 'map-display-center.js' });
   vm.runInNewContext(source, sandbox, { filename: 'passenger-logic.js' });
   return sandbox;
 }
@@ -84,7 +86,9 @@ function installMapStub(sandbox) {
     polylines: [],
     removed: [],
     resizeCount: 0,
-    repaintCount: 0
+    repaintCount: 0,
+    locations: [],
+    zooms: []
   };
   const mapObj = {
     Ui: ['DPad', 'Zoombar', 'Toolbar', 'LayerSelector', 'Fullscreen', 'Scale', 'Crosshair', 'Geolocation']
@@ -111,6 +115,12 @@ function installMapStub(sandbox) {
     },
     repaint: function() {
       state.repaintCount += 1;
+    },
+    location: function(point, animate) {
+      state.locations.push({ point, animate });
+    },
+    zoom: function(value, animate) {
+      state.zooms.push({ value, animate });
     }
   };
   sandbox.document = {
@@ -473,10 +483,12 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   await mapFirstSandbox.SLPassengerLogic.map.init();
   await waitForAsyncMapWork();
   assert.strictEqual(mapFirstState.markers.length, 0, 'map init before mapView must not render empty/stale markers');
+  assert(mapFirstState.locations.length >= 1, 'map init must apply the Map Display Center default viewport');
   mapFirstSandbox.SLPassengerLogic.schedule.applyPublishedScheduleOptions(sampleOptionOnlySchedule());
   await waitForAsyncMapWork();
   assert.strictEqual(mapFirstState.markers.length, 30, 'mapView arriving after map init must render 15 marker+label overlays');
   assert.strictEqual(mapFirstState.polylines.length, 0, 'mapView arriving after map init must not render route polyline');
+  assert(mapFirstState.locations.length >= 2, 'late mapView data must apply the Map Display Center overview viewport');
 
   const dataFirstSandbox = loadPassengerLogic();
   const dataFirstState = installMapStub(dataFirstSandbox);
@@ -487,6 +499,7 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   await waitForAsyncMapWork();
   assert.strictEqual(dataFirstState.markers.length, 30, 'map init after mapView must render 15 marker+label overlays');
   assert.strictEqual(dataFirstState.polylines.length, 0, 'map init after mapView must not render route polyline');
+  assert(dataFirstState.locations.length >= 1, 'map init after mapView must apply the Map Display Center overview viewport');
 
   const sourcePairs = sampleSchedule().pairs;
   const loadCalls = [];
