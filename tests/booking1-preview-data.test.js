@@ -5,7 +5,6 @@ const path = require('path');
 const booking1 = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'utf8');
 const adapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-adapter.js'), 'utf8');
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
-const pos = fs.readFileSync(path.join(__dirname, '..', 'booking-pos.js'), 'utf8');
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 
 assert(bridge.includes("var PREVIEW_BASE_PATH = 'publishedSchedule'"), 'Booking1 bridge must use publishedSchedule');
@@ -22,6 +21,19 @@ assert(!bridge.includes('|| 55'), 'Booking1 bridge must not hardcode 55-baht far
 assert(booking1.includes('booking-availability-center.js'), 'Booking1 must load Booking Availability Center');
 assert(booking1.includes('fare-decision-center.js'), 'Booking1 must load Fare Decision Center');
 assert(booking1.includes('erp-calculator-center.js'), 'Booking1 must load ERP Calculator Center for trip recommendation ordering');
+assert(!booking1.includes('booking-pos.js'), 'Booking1 must not load booking POS/runtime writes');
+assert(!booking1.includes('booking-capacity.js'), 'Booking1 must not load booking capacity runtime reads');
+assert(!booking1.includes('catalog-engine.js'), 'Booking1 must not load legacy catalog engine');
+assert(!booking1.includes('schedule-engine.js'), 'Booking1 must not load legacy schedule engine');
+assert(!booking1.includes('firebase-auth-compat.js'), 'Booking1 must not initialize Firebase Auth');
+assert(!booking1.includes('firebase-storage-compat.js'), 'Booking1 must not initialize Firebase Storage');
+assert(!booking1.includes("ref('announcements')"), 'Booking1 must not read direct announcements outside ERP contract');
+assert(!booking1.includes("ref('settings')"), 'Booking1 must not read direct settings outside ERP contract');
+assert(!booking1.includes("ref('bookings')"), 'Booking1 must not read direct bookings');
+assert(!booking1.includes('signInAnonymously'), 'Booking1 must not sign in anonymously');
+assert(!booking1.includes('SLBookingCapacity'), 'Booking1 must not reference booking capacity runtime');
+assert(!booking1.includes('SLBookingPOS'), 'Booking1 must not reference booking POS runtime');
+assert(!booking1.includes('POS'), 'Booking1 must not keep POS layer references');
 assert(bridge.includes('SLTransitBookingAvailabilityCenter'), 'Booking1 bridge must ask Booking Availability Center for eligibility');
 assert(bridge.includes('SLTransitFareDecisionCenter'), 'Booking1 bridge must ask Fare Decision Center for fares');
 assert(bridge.includes('SLTransitCalculatorCenter.recommendedBookingTrips'), 'Booking1 bridge must ask ERP Calculator Center for recommended trip ordering');
@@ -55,9 +67,6 @@ assert(!adapter.includes('= 55'), 'Booking1 adapter must not fabricate 55-baht f
 assert(!adapter.includes("= '09:00'"), 'Booking1 adapter must not fabricate default 09:00 trips');
 assert(!bridge.includes('.sort(function'), 'Booking1 bridge must preserve ERP option order instead of sorting locally');
 
-assert(pos.includes('!global.SLBookingBridge.canCreateProductionBookings()'), 'POS must block production writes until preview is apply-ready');
-assert(pos.includes('return Number(selected.fareAmount) || 0'), 'POS pricing must use selected ERP fareAmount');
-assert(!pos.includes('SEGMENT_PRICE'), 'POS must not price Booking1 from legacy SEGMENT_PRICE');
-assert(!pos.includes('bridge.getFare(originKey'), 'POS must not price Booking1 from legacy bridge fare');
+assert(booking1.includes('Booking1 ตอนนี้อ่าน ERP เท่านั้น'), 'Booking1 submit guard must keep real booking creation disabled');
 
 console.log('booking1 preview data contract ok');

@@ -7,9 +7,7 @@
 
 <!-- Firebase SDK (compat v9) — เหมือน index.html ของ project -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      [SCHEMA v3 PENDING] ERP Core Layer — ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 6
@@ -17,7 +15,7 @@
      สถานะล่าสุดที่ตรวจสอบ (2026-07-03): ยังไม่มีทั้งสองไฟล์ (HTTP 404)
 
      เมื่อพร้อมแล้ว ให้ลบ comment 2 บรรทัดด้านล่างออก
-     ต้องอยู่ตำแหน่งนี้เท่านั้น — หลัง Firebase SDK, ก่อน catalog-engine.js
+     ต้องอยู่ตำแหน่งนี้เท่านั้น — หลัง Firebase SDK
      ══════════════════════════════════════════════════════════ -->
 <!-- <script src="erp-data-adapter.js"></script> -->
 <!-- <script src="erp-core.js"></script> -->
@@ -25,16 +23,12 @@
 <!-- QR Code library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-<!-- S.L.Transit Engine + POS Layer -->
-<script src="catalog-engine.js"></script>
-<script src="schedule-engine.js"></script>
+<!-- S.L.Transit ERP booking adapter layer -->
 <script src="booking-assignment-center.js?v=20260713b"></script>
 <script src="booking-availability-center.js?v=20260715a"></script>
 <script src="fare-decision-center.js?v=20260714c"></script>
 <script src="erp-calculator-center.js?v=20260715a"></script>
 <script src="booking-bridge.js?v=20260714e"></script>
-<script src="booking-capacity.js"></script>
-<script src="booking-pos.js"></script>
 <script src="booking1-preview-adapter.js?v=20260715c" defer></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1669,7 +1663,7 @@ body {
           แนบหลักฐานการโอนเงิน
         </div>
         <div class="upload-area" id="uploadArea" onclick="document.getElementById('slipFile').click()">
-          <input type="file" id="slipFile" accept="image/*" style="display:none;" onchange="onSlipSelectPOS(this)">
+          <input type="file" id="slipFile" accept="image/*" style="display:none;" onchange="onSlipSelectBooking1(this)">
           <div class="upload-icon-wrap">
             <img class="icon-img" src="assets/233.png" alt="กล้อง" style="width:36px;height:36px;margin:0 auto 8px;">
           </div>
@@ -1986,7 +1980,7 @@ body {
 <script>
 var global = window;
 /* ============================================================
-   FIREBASE INIT + BRIDGE + POS
+   FIREBASE INIT + ERP BRIDGE
    ============================================================ */
 
 /* ── [SCHEMA v3 PENDING] Firebase Config ──
@@ -2022,10 +2016,6 @@ var FIREBASE_CONFIG = {
 
 var _fbApp   = firebase.initializeApp(FIREBASE_CONFIG);
 var _db      = firebase.database();
-var _storage = firebase.storage();
-var _authReady = firebase.auth().signInAnonymously().catch(function(err) {
-  console.warn('[Firebase] Anonymous auth failed', err); return null;
-});
 
 var BOOKING_ANN = { items: [], cur: 0, timer: null, dur: 5000, paused: false };
 var BOOKING_ANN_TYPE_COLOR = {
@@ -2117,34 +2107,8 @@ function annStep(dir) {
   annGoto(BOOKING_ANN.cur + dir);
 }
 
-function loadBookingAnnouncements() {
-  var now = Date.now();
-  _db.ref('announcements').once('value').then(function(snap) {
-    var val = snap.val() || {};
-    var list = Object.keys(val).map(function(k) {
-      var a = val[k] || {};
-      return {
-        id: k,
-        title: a.title || '',
-        body: a.body || '',
-        type: a.type || 'info',
-        active: a.active !== false,
-        ts: a.ts || 0,
-        imageB64: a.imageB64 || null,
-        expiresAt: a.expiresAt || null
-      };
-    }).filter(function(a) {
-      return a.active && a.title && !(a.expiresAt && a.expiresAt < now);
-    }).sort(function(a, b) { return b.ts - a.ts; });
-    if (list.length) initBookingAnnouncements(list);
-  }).catch(function(err) {
-    console.warn('[Booking1] announcements unavailable', err);
-  });
-}
-
 window.annStep = annStep;
 window.annGoto = annGoto;
-loadBookingAnnouncements();
 
 /* ── [SCHEMA v3 PENDING] SLTransit.core.init() ──
    ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 6: engine ต้อง init ผ่าน SLTransit.core
@@ -2164,31 +2128,10 @@ var _erpCoreReady = (window.SLTransit && window.SLTransit.core && typeof window.
     })
   : Promise.resolve(false); /* erp-core.js ยังไม่ได้โหลด → ข้ามไปเลย ไม่รอ */
 
-if (!(window.SLTransit && window.SLTransit.core)) {
-  console.log('[SLTransit.core] ยังไม่พบใน window — ใช้ catalog-engine/schedule-engine ตรงแบบเดิม (ปกติในสถานะปัจจุบัน)');
-}
-
-/* schedule-engine realtime watch */
-if (window.SLTransitSchedule && typeof SLTransitSchedule.watchFirebaseData === 'function') {
-  SLTransitSchedule.watchFirebaseData(_db);
-}
-
-/* POS Layer init (settings sync, LINE detection, slip upload) */
-SLBookingPOS.init(_db, _storage, _authReady);
-
-/* Bridge init (catalog load → populate UI + capacity tables) */
+/* Bridge init (publishedSchedule -> populate UI) */
 SLBookingBridge.init(_db).then(function() {
-  /* apply capacity tables จาก catalog เดียวกัน */
-  var cat = SLBookingBridge._catalog || null;
-  if (cat && global.SLBookingCapacity) {
-    SLBookingCapacity.applyCapacityCatalog(cat);
-  }
   _populateStopPicker();
   _updateDateDisplay();
-  /* start realtime seat watch สำหรับวันนี้ */
-  if (global.SLBookingCapacity) {
-    SLBookingCapacity.watchBookingAvailability(_db, _serviceDateISO());
-  }
   renderTrips();
 });
 
@@ -2225,7 +2168,7 @@ function _serviceDateISO() {
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 }
 
-/* ---------- GET AVAILABLE TRIPS ← delegate to SLBookingBridge → schedule-engine ---------- */
+/* ---------- GET AVAILABLE TRIPS: delegate to ERP bridge ---------- */
 /* ห้ามคำนวณรอบรถเองในไฟล์นี้เด็ดขาด */
 function getAvailableTrips() {
   return SLBookingBridge.getAvailableTrips(
@@ -2301,7 +2244,7 @@ function _updateDateDisplay() {
   if (el) el.textContent = txt;
 }
 
-/* ---------- RENDER TRIPS (data จาก schedule-engine via bridge — ห้ามคำนวณเอง) ---------- */
+/* ---------- RENDER TRIPS (data from ERP bridge, no local business decisions) ---------- */
 function renderTrips() {
   var available = getAvailableTrips();   // [{pickupTime, label, fare, isLeg2, transferInfo, ...}]
   var container = document.getElementById('tripList');
@@ -2323,29 +2266,17 @@ function renderTrips() {
   var best = available[0];
   state.tripTime       = best.pickupTime;
   state.tripLabel      = best.label;
-  state.tripFare       = best.fare || 55;
+  state.tripFare       = Number(best.fareAmount || best.fare) || 0;
   state.tripAssignment = best.assignment || null;
   state.isLeg2Dest     = best.isLeg2 || false;
   state.transferInfo   = best.transferInfo || null;
 
-  /* ── capacity helpers ── */
-  var CAP     = global.SLBookingCapacity;
-  var dateStr = _serviceDateISO();
-
   function _tripBadge(trip) {
-    if (!CAP) return '';
-    var b   = CAP.getStatusBadge(state.originKey, state.destKey, dateStr, trip.pickupTime);
-    var cls = { 'badge-open':'badge-teal', 'badge-soon':'badge-orange', 'badge-closed':'badge-red' }[b.cls] || 'badge-red';
-    return '<span class="trip-status-badge ' + cls + '">' + b.text + '</span>';
+    return '';
   }
 
   function _seatsText(trip) {
-    if (!CAP) return '';
-    var left = CAP.getSeatsLeft(state.originKey, state.destKey, dateStr, trip.pickupTime);
-    if (left === null)   return '';
-    if (left <= 0)       return '<span class="seats-full">เต็มแล้ว</span>';
-    if (left <= 3)       return '<span class="seats-low">เหลือ ' + left + ' ที่นั่ง</span>';
-    return '<span class="seats-ok">ว่าง ' + left + ' ที่นั่ง</span>';
+    return '';
   }
 
   var html = '';
@@ -2493,7 +2424,7 @@ function renderQr(targetId, text, size) {
 
 /* ---------- DEV NAVIGATION ---------- */
 function devGoTo(n) {
-  if (!state.tripLabel) { state.tripTime = '09:00'; state.tripLabel = '09:00 น.'; }
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
   if (!state.name)  state.name  = 'สมชาย ใจดี [ทดสอบ]';
   if (!state.phone) state.phone = '0812345678';
   if (!state.bookingCode) state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
@@ -2571,7 +2502,7 @@ function selectTrip(el) {
   el.classList.add('selected');
   state.tripTime  = el.dataset.time;
   state.tripLabel = el.dataset.label;
-  state.tripFare  = Number(el.dataset.fare) || 55;
+  state.tripFare  = Number(el.dataset.fare) || 0;
   /* หา trip object ที่ตรงกับเวลาที่เลือก เพื่อเอา transferInfo */
   var matched = (state._lastAvailable || []).filter(function(t){ return t.pickupTime === state.tripTime; })[0];
   if (matched) {
@@ -2583,11 +2514,7 @@ function selectTrip(el) {
 
 /* [ทดสอบ] ข้ามไปหน้า 2 โดยใช้ค่า demo */
 function demoGoToPassenger() {
-  if (!state.tripLabel) {
-    state.tripTime  = '09:00';
-    state.tripLabel = '09:00 น.';
-    state.tripFare  = 55;
-  }
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
   document.getElementById('p2-trip-time').textContent = state.tripLabel;
   showPage(2);
 }
@@ -2597,7 +2524,7 @@ function goToPassenger(e, time, label, fare) {
   e.stopPropagation();
   state.tripTime  = time;
   state.tripLabel = label;
-  state.tripFare  = fare || 55;
+  state.tripFare  = Number(fare) || 0;
   /* updateSummary จะ populate p2-route, p2-date, p2-trip-time, p2-origin-name */
   updateSummary();
   showPage(2);
@@ -2615,7 +2542,7 @@ function goToPayment() {
   }
   state.name  = sanitizeText(nameVal);
   state.phone = sanitizePhone(phoneVal);
-  if (!state.tripLabel) { state.tripTime = '09:00'; state.tripLabel = '09:00 น.'; state.tripFare = 55; }
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
 
   var tot = getBookingTotal(state.pax);
   state._totalFare = tot.total;
@@ -2658,9 +2585,9 @@ function goToTicket() {
     alert('กรุณาอ่านและยอมรับข้อตกลงการใช้บริการก่อน');
     return;
   }
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
   if (!state.name) state.name = '-';
   if (!state.phone) state.phone = '-';
-  if (!state.tripLabel) state.tripLabel = '09:00 น.';
   state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
 
   /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
@@ -2752,8 +2679,24 @@ function selectPayMethod(method) {
   }
 }
 
-/* ---------- SLIP UPLOAD ---------- */
-/* onSlipSelect → ย้ายไป booking-pos.js แล้ว (onSlipSelectPOS) */
+function onSlipSelectBooking1(input) {
+  var file = input && input.files && input.files[0];
+  state.slipFile = file || null;
+  var wrap = document.getElementById('previewWrap');
+  var img = document.getElementById('previewImg');
+  var name = document.getElementById('previewName');
+  if (!file) {
+    if (wrap) wrap.style.display = 'none';
+    if (img) img.removeAttribute('src');
+    if (name) name.textContent = '';
+    return;
+  }
+  if (name) name.textContent = file.name || '';
+  if (wrap) wrap.style.display = 'block';
+  if (img && window.URL && URL.createObjectURL) {
+    img.src = URL.createObjectURL(file);
+  }
+}
 
 /* ---------- CONSENT POPUP ---------- */
 function openConsentPopup(e) {
@@ -2805,7 +2748,6 @@ function goToPage1() { showPage(1); renderTrips(); }
 
 /* ──────────────────────────────────────────────────────
    resetBookingState()
-   เรียกจาก booking-pos.js ตอน newBooking()
 ────────────────────────────────────────────────────── */
 function resetBookingState() {
   state.tripTime       = '';
@@ -2871,8 +2813,7 @@ function updateSteps(n) {
 ────────────────────────────────────────────────────── */
 function getBookingTotal(pax) {
   var n         = pax || state.pax || 1;
-  var CAP       = global.SLBookingCapacity;
-  var base      = CAP ? (CAP.getSegmentPrice(state.originKey, state.destKey) || state.tripFare || 55) : (state.tripFare || 55);
+  var base      = Number(state.tripFare) || 0;
   var svcFee    = (global.SERVICE_FEE_ENABLED && global.SERVICE_FEE_AMOUNT) ? global.SERVICE_FEE_AMOUNT * n : 0;
   return { basePrice: base, svcFee: svcFee, total: base * n + svcFee };
 }
@@ -2910,7 +2851,7 @@ function closeTicketSavePopup() {
 }
 
 /* ──────────────────────────────────────────────────────
-   _applySettings — live reload UI เมื่อ Firebase settings เปลี่ยน
+   _applySettings - applies ERP-provided page settings only
 ────────────────────────────────────────────────────── */
 function _applySettings(data) {
   if (!data) return;
@@ -2939,6 +2880,7 @@ function _hideUpdateOverlay() { var e = document.getElementById('_updateOverlay'
 ────────────────────────────────────────────────────── */
 function showTicketPage(booking) {
   if (!booking) return;
+  window.__booking1TicketSnapshot = booking;
   /* update state */
   state.bookingCode  = booking.code  || state.bookingCode;
   state.name         = booking.name  || state.name;
@@ -2971,7 +2913,7 @@ function showTicketPage(booking) {
   if (ls.leg2Time) { set('ticketLeg2Time', ls.leg2Time + ' น.'); if (tl2W) tl2W.style.display = 'block'; }
   else if (tl2W) { tl2W.style.display = 'none'; }
   /* platform notice */
-  var platform = booking.platform || (global.SLBookingCapacity ? global.SLBookingCapacity.getPlatformLabel(state.destKey||'') : '');
+  var platform = booking.platform || '';
   var p6n = document.getElementById('platform6Notice');
   var p6l = document.getElementById('platformNumberLabel');
   if (platform && p6n) { if (p6l) p6l.textContent = platform; p6n.style.display = 'block'; }
@@ -3011,10 +2953,6 @@ function onDateChange(val) {
   if (!val) return;
   state.selectedDate = new Date(val + 'T00:00:00');
   _updateDateDisplay();
-  /* re-watch availability สำหรับวันใหม่ */
-  if (global.SLBookingCapacity) {
-    SLBookingCapacity.watchBookingAvailability(_db, val);
-  }
   renderTrips();
 }
 
@@ -3076,7 +3014,6 @@ function validatePhoneInline(input) {
 function _setAdminTester(on) {
   var strip = document.getElementById('adminTesterStrip');
   if (strip) strip.style.display = on ? 'block' : 'none';
-  /* TEST_MODE สำหรับ booking-pos.js */
   if (typeof global !== 'undefined') global.ADMIN_TESTER_ACTIVE = on;
   /* localStorage ตรงกับ repo */
   try {
@@ -3099,7 +3036,6 @@ function updateSummary() {
   var fromName = state.originName || state.originKey || '-';
   var toName   = state.destName   || state.destKey   || '-';
   var ti       = state.transferInfo;
-  var CAP      = global.SLBookingCapacity;
 
   /* route label */
   var p2route = document.getElementById('p2-route');
@@ -3125,13 +3061,12 @@ function updateSummary() {
   /* leg2 summary card */
   var leg2Card   = document.getElementById('leg2SummaryCard');
   var leg2Detail = document.getElementById('leg2SummaryDetail');
-  if (state.isLeg2Dest && ti && ti.hasMatch && CAP) {
-    var legs = CAP.buildLegRoutes(fromName, toName, true);
+  if (state.isLeg2Dest && ti && ti.hasMatch) {
     if (leg2Card)   leg2Card.style.display = 'block';
     if (leg2Detail) leg2Detail.innerHTML =
-      'เส้นทางแรก: <strong>' + legs.leg1 + '</strong><br>'
+      'เส้นทางแรก: <strong>' + fromName + ' - ' + (ti.transferPoint || ti.point || 'ฉะเชิงเทรา (แปดริ้ว)') + '</strong><br>'
       + 'ออกจาก ' + fromName + ': <strong>' + (state.tripTime||'-') + ' น.</strong><br>'
-      + 'เส้นทางที่สอง: <strong>' + legs.leg2 + '</strong><br>'
+      + 'เส้นทางที่สอง: <strong>' + (ti.transferPoint || ti.point || 'ฉะเชิงเทรา (แปดริ้ว)') + ' - ' + (ti.destLabel||toName) + '</strong><br>'
       + 'ออกจากแปดริ้ว: <strong>' + ti.leg2Time + ' น.</strong><br>'
       + 'ปลายทาง: <strong>' + (ti.destLabel||toName) + '</strong>';
   } else {
@@ -3140,27 +3075,11 @@ function updateSummary() {
 }
 
 /* ──────────────────────────────────────────────────────
-   VERIFY SLIP (Firebase Function)
-   ตรงกับ repo verifySlipPayment()
+   SUBMIT GUARD
+   Booking1 now reads ERP only and does not create real bookings here.
 ────────────────────────────────────────────────────── */
-var VERIFY_SLIP_URL = 'https://us-central1-sl-transit-9464e.cloudfunctions.net/verifySlip';
-
-function verifySlipPayment(bookingId, imageUrl) {
-  return fetch(VERIFY_SLIP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bookingId: bookingId, imageUrl: imageUrl })
-  }).then(function(res) {
-    return res.json().catch(function() { return {}; }).then(function(body) {
-      if (!res.ok) {
-        if (body && body.paymentStatus) return body;
-        var err = new Error(body.message || 'ตรวจสอบสลิปไม่ได้');
-        err.verifyBody = body;
-        throw err;
-      }
-      return body;
-    });
-  });
+function submitBooking() {
+  alert('Booking1 ตอนนี้อ่าน ERP เท่านั้น ยังไม่เปิดสร้าง booking จริง');
 }
 
 /* ──────────────────────────────────────────────────────
@@ -3200,8 +3119,7 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
 }
 
 function downloadTicketImage() {
-  var booking = window._lastBooking || null;
-  /* fallback: อ่านจาก POS layer */
+  var booking = window.__booking1TicketSnapshot || null;
   if (!booking) {
     alert('ยังไม่มีข้อมูลตั๋ว กรุณาทำการจองให้เสร็จก่อน'); return;
   }
@@ -3211,8 +3129,7 @@ function downloadTicketImage() {
   canvas.height = 1700;
   var ctx = canvas.getContext('2d');
   var legSchedule  = booking.legSchedule  || {};
-  var CAP          = global.SLBookingCapacity;
-  var platform     = booking.platform || (CAP ? CAP.getPlatformLabel(state.destKey||'') : '');
+  var platform     = booking.platform || '';
 
   /* background */
   ctx.fillStyle = '#f0f4ff';
@@ -3346,7 +3263,6 @@ function downloadTicketImage() {
 }
 
 window.downloadTicketImage  = downloadTicketImage;
-window.verifySlipPayment    = verifySlipPayment;
 
 /* ---------- INIT ---------- */
 /* ตั้งค่าวันที่ default = วันนี้ */
@@ -3359,15 +3275,6 @@ window.verifySlipPayment    = verifySlipPayment;
   }
   _updateDateDisplay();
 })();
-
-/* expose _lastBooking จาก booking-pos.js ให้ downloadTicketImage อ่านได้ */
-Object.defineProperty(window, '_lastBooking', {
-  get: function() {
-    /* booking-pos.js เก็บใน _lastBooking (private) — expose ผ่าน getter */
-    return window.__posLastBooking || null;
-  },
-  set: function(v) { window.__posLastBooking = v; }
-});
 
 renderTrips();
 </script>
