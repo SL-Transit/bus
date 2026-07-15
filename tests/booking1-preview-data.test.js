@@ -34,6 +34,7 @@ function pageAncestors(html) {
 assert(bridge.includes("var PREVIEW_BASE_PATH = 'publishedSchedule'"), 'Booking1 bridge must use publishedSchedule');
 assert(bridge.includes(".child('originOptions').once('value')"), 'Booking1 must read originOptions as lightweight initial data');
 assert(bridge.includes(".child('destinationOptionsByOrigin').once('value')"), 'Booking1 must read destinationOptionsByOrigin as lightweight initial data');
+assert(bridge.includes(".child('paymentContact').once('value')"), 'Booking1 must read payment contact from publishedSchedule paymentContact');
 assert(bridge.includes(".child('pairs').child(storageKey).once('value')"), 'Booking1 must lazy-load only the selected pair');
 assert(!/db\.ref\(['"]publishedSchedule['"]\)\.once\s*\(/.test(bridge + booking1), 'Booking1 must not once-read full publishedSchedule');
 assert(!/db\.ref\(['"]publishedSchedule['"]\)\.on\s*\(/.test(bridge + booking1), 'Booking1 must not subscribe to full publishedSchedule');
@@ -75,6 +76,11 @@ assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
+assert(bridge.includes('getPaymentContact: getPaymentContact'), 'Booking1 bridge must expose ERP payment contact');
+assert(booking1.includes('SLBookingBridge.getPaymentContact'), 'Booking1 must consume payment contact through the bridge');
+assert(booking1.includes('232-8-93015-6'), 'Booking1 must show the owner-provided account number fallback until ERP publishes paymentContact');
+assert(booking1.includes('082-9860032'), 'Booking1 must show the owner-provided phone fallback until ERP publishes paymentContact');
+assert(!booking1.includes('xxx-x-xxxxx-x'), 'Booking1 must not show the placeholder account number');
 assert(!booking1.includes('trip-check'), 'Booking1 trip cards must not render the old green selected check icon');
 assert(!booking1.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 trip buttons must not use legacy capacity continuation');
 assert(booking1.includes('href="info.html#policy"'), 'Booking1 booking terms link must point to info policy section');

@@ -30,6 +30,7 @@
     publicationStatus: '',
     originOptions: [],
     destinationOptionsByOrigin: {},
+    paymentContact: null,
     firebaseKeyEncoding: {},
     validation: null
   };
@@ -140,6 +141,7 @@
       baseRef.child('productionReady').once('value'),
       baseRef.child('originOptions').once('value'),
       baseRef.child('destinationOptionsByOrigin').once('value'),
+      baseRef.child('paymentContact').once('value'),
       baseRef.child('firebaseKeyEncoding').once('value'),
       baseRef.child('validation').once('value')
     ]).then(function(parts) {
@@ -155,8 +157,9 @@
         productionReady: parts[8].val() === true,
         originOptions: _normalizeOrigins(parts[9].val() || []),
         destinationOptionsByOrigin: {},
-        firebaseKeyEncoding: parts[11].val() || {},
-        validation: parts[12].val() || null
+        paymentContact: parts[11].val() || null,
+        firebaseKeyEncoding: parts[12].val() || {},
+        validation: parts[13].val() || null
       };
       _preview.destinationOptionsByOrigin = _normalizeDestinationOptions(parts[10].val() || {});
       _markReady();
@@ -190,6 +193,10 @@
     }
     if (!_preview.destinationOptionsByOrigin[originLabel]) return 'missing_origin_options';
     return 'ready';
+  }
+
+  function getPaymentContact() {
+    return _preview.paymentContact || null;
   }
 
   function _selectedDestinationOption(originLabel, destLabel) {
@@ -434,6 +441,7 @@
     getBookableStops: getBookableStops,
     getDestinationOptions: getDestinationOptions,
     getDestinationContractStatus: getDestinationContractStatus,
+    getPaymentContact: getPaymentContact,
     loadPair: loadPair,
     loadAvailableTrips: loadAvailableTrips,
     getAvailableTrips: getAvailableTrips,

@@ -1638,11 +1638,15 @@ body {
               </div>
               <div class="bank-info-row">
                 <span class="bi-label">เลขบัญชี</span>
-                <span class="bi-val bi-acc" id="paymentAccountNo">xxx-x-xxxxx-x</span>
+                <span class="bi-val bi-acc" id="paymentAccountNo">232-8-93015-6</span>
               </div>
               <div class="bank-info-row">
                 <span class="bi-label">ชื่อบัญชี</span>
                 <span class="bi-val" id="paymentAccountName">บริษัท เอส.แอล. ทรานซิท จำกัด</span>
+              </div>
+              <div class="bank-info-row">
+                <span class="bi-label">เบอร์โทรศัพท์</span>
+                <span class="bi-val" id="paymentPhone">082-9860032</span>
               </div>
               <div class="bank-info-row">
                 <span class="bi-label">จำนวน</span>
@@ -2030,6 +2034,13 @@ var FIREBASE_CONFIG = {
 
 var _fbApp   = firebase.initializeApp(FIREBASE_CONFIG);
 var _db      = firebase.database();
+var BOOKING1_PAYMENT_FALLBACK = {
+  bankName: 'กสิกรไทย (KBank)',
+  accountNo: '232-8-93015-6',
+  accountName: 'บริษัท เอส.แอล. ทรานซิท จำกัด',
+  phone: '082-9860032',
+  description: 'กรุณาโอนเงินไปยังบัญชีด้านล่าง จากนั้นถ่ายภาพหลักฐานการโอนเงินและแนบในช่องที่กำหนด'
+};
 
 var BOOKING_ANN = { items: [], cur: 0, timer: null, dur: 5000, paused: false };
 var BOOKING_ANN_TYPE_COLOR = {
@@ -2144,6 +2155,7 @@ var _erpCoreReady = (window.SLTransit && window.SLTransit.core && typeof window.
 
 /* Bridge init (publishedSchedule -> populate UI) */
 SLBookingBridge.init(_db).then(function() {
+  _applySettings({ payment: SLBookingBridge.getPaymentContact && SLBookingBridge.getPaymentContact() });
   _populateStopPicker();
   _updateDateDisplay();
   renderTrips();
@@ -2868,11 +2880,13 @@ function closeTicketSavePopup() {
    _applySettings - applies ERP-provided page settings only
 ────────────────────────────────────────────────────── */
 function _applySettings(data) {
-  if (!data) return;
+  data = data || {};
+  data.payment = Object.assign({}, BOOKING1_PAYMENT_FALLBACK, data.payment || {});
   var set = function(id, v) { var e = document.getElementById(id); if (e && v != null) e.textContent = v; };
   set('paymentBankName',    data.payment && data.payment.bankName);
   set('paymentAccountNo',   data.payment && data.payment.accountNo);
   set('paymentAccountName', data.payment && data.payment.accountName);
+  set('paymentPhone',       data.payment && data.payment.phone);
   set('paymentDescription', data.payment && data.payment.description);
   /* service fee row */
   var feeRow = document.getElementById('serviceFeeRow');
