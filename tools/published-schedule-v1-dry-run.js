@@ -124,46 +124,38 @@ TRANSFER_POLICY.sourceWorkbook = OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook;
 const EXTERNAL_SERVICE_DISCLAIMER_KEY = 'external_service_confirm_outside_sl_transit';
 const EXTERNAL_SERVICE_DISCLAIMER_TH = 'บริการหรือค่าโดยสารนี้ต้องชำระหรือยืนยันภายนอกระบบ SL-Transit';
 const FORBIDDEN_OPERATIONAL_FIELDS = ['gps', 'eta', 'vehicleId', 'assignmentId', 'liveVehicleId', 'liveTrackingAvailable', 'driverId'];
-const PREVIEW_MAP_COORDINATES = {
-  chachoengsao: { lat: 13.692477, lng: 101.054105 },
-  phanom: { lat: 13.745082, lng: 101.355993 },
-  sanamchaikhet: { lat: 13.659022, lng: 101.437482 },
-  km_1: { lat: 13.572126, lng: 101.450481 },
-  km_7: { lat: 13.529181, lng: 101.497615 },
-  huaisom: { lat: 13.498219, lng: 101.537783 },
-  tatakiab: { lat: 13.443342, lng: 101.610222 },
-  nongkhok: { lat: 13.381579, lng: 101.708016 },
-  khlongtakien: { lat: 13.420264, lng: 101.765445 },
-  nongruea: { lat: 13.420494, lng: 101.995365 },
-  phaijit: { lat: 13.416310, lng: 102.020767 },
-  thoengkabintr: { lat: 13.439877, lng: 102.083043 },
-  siyaekkhonom: { lat: 13.436666, lng: 102.200895 },
-  wangnamyen: { lat: 13.460000, lng: 102.170000 },
-  klonghat: { lat: 13.453565, lng: 102.299330 }
+const OWNER_WORKBOOK_STOPS = {
+  klonghat: { lat: 13.453565, lng: 102.299330, icon: '\u{1F68F}', workbookStopKey: 'klonghat', row: 2, workbookOrder: 1 },
+  wangnamyen: { lat: 13.518022, lng: 102.173944, icon: '\u{1F68F}', workbookStopKey: 'wangnamyen', row: 3, workbookOrder: 2 },
+  siyaekkhonom: { lat: 13.436666, lng: 102.200895, icon: '\u{1F68F}', workbookStopKey: 'siyaekkhonom', row: 4, workbookOrder: 3 },
+  thoengkabintr: { lat: 13.439877, lng: 102.083043, icon: '\u{1F68F}', workbookStopKey: 'thoengkabintr', row: 5, workbookOrder: 4 },
+  phaijit: { lat: 13.416310, lng: 102.020767, icon: '\u{1F68F}', workbookStopKey: 'phaijit', row: 6, workbookOrder: 5 },
+  nongruea: { lat: 13.420494, lng: 101.995365, icon: '\u{1F68F}', workbookStopKey: 'nongruea', row: 7, workbookOrder: 6 },
+  khlongtakien: { lat: 13.420264, lng: 101.765445, icon: '\u{1F68F}', workbookStopKey: 'khlongtakien', row: 8, workbookOrder: 7 },
+  nongkhok: { lat: 13.381579, lng: 101.708016, icon: '\u{1F68F}', workbookStopKey: 'nongkhok', row: 9, workbookOrder: 8 },
+  tatakiab: { lat: 13.443342, lng: 101.610222, icon: '\u{1F68F}', workbookStopKey: 'tatakiab', row: 10, workbookOrder: 9 },
+  huaisom: { lat: 13.498219, lng: 101.537783, icon: '\u{1F68F}', workbookStopKey: 'huaisom', row: 11, workbookOrder: 10 },
+  km_7: { lat: 13.529181, lng: 101.497615, icon: '\u{1F68F}', workbookStopKey: 'km_7', row: 12, workbookOrder: 11 },
+  km_1: { lat: 13.572126, lng: 101.450481, icon: '\u{1F68F}', workbookStopKey: 'km_1', row: 13, workbookOrder: 12 },
+  sanamchaikhet: { lat: 13.659022, lng: 101.437482, icon: '\u{1F68F}', workbookStopKey: 'sanamchai', row: 14, workbookOrder: 13 },
+  phanom: { lat: 13.745082, lng: 101.355993, icon: '\u{1F68F}', workbookStopKey: 'phanom', row: 15, workbookOrder: 14 },
+  chachoengsao: { lat: 13.692477, lng: 101.054105, icon: '\u{1F68F}', workbookStopKey: 'chachoengsao', row: 16, workbookOrder: 15 }
 };
-const OWNER_WORKBOOK_STOP_ICONS = {
-  klonghat: { icon: '\u{1F68F}', workbookStopKey: 'klonghat', row: 2 },
-  wangnamyen: { icon: '\u{1F68F}', workbookStopKey: 'wangnamyen', row: 3 },
-  siyaekkhonom: { icon: '\u{1F68F}', workbookStopKey: 'siyaekkhonom', row: 4 },
-  thoengkabintr: { icon: '\u{1F68F}', workbookStopKey: 'thoengkabintr', row: 5 },
-  phaijit: { icon: '\u{1F68F}', workbookStopKey: 'phaijit', row: 6 },
-  nongruea: { icon: '\u{1F68F}', workbookStopKey: 'nongruea', row: 7 },
-  khlongtakien: { icon: '\u{1F68F}', workbookStopKey: 'khlongtakien', row: 8 },
-  nongkhok: { icon: '\u{1F68F}', workbookStopKey: 'nongkhok', row: 9 },
-  tatakiab: { icon: '\u{1F68F}', workbookStopKey: 'tatakiab', row: 10 },
-  huaisom: { icon: '\u{1F68F}', workbookStopKey: 'huaisom', row: 11 },
-  km_7: { icon: '\u{1F68F}', workbookStopKey: 'km_7', row: 12 },
-  km_1: { icon: '\u{1F68F}', workbookStopKey: 'km_1', row: 13 },
-  sanamchaikhet: { icon: '\u{1F68F}', workbookStopKey: 'sanamchai', row: 14 },
-  phanom: { icon: '\u{1F68F}', workbookStopKey: 'phanom', row: 15 },
-  chachoengsao: { icon: '\u{1F68F}', workbookStopKey: 'chachoengsao', row: 16 }
-};
+const PREVIEW_MAP_COORDINATES = Object.keys(OWNER_WORKBOOK_STOPS).reduce((map, stopKey) => {
+  map[stopKey] = { lat: OWNER_WORKBOOK_STOPS[stopKey].lat, lng: OWNER_WORKBOOK_STOPS[stopKey].lng };
+  return map;
+}, {});
+const OWNER_WORKBOOK_STOP_ICONS = Object.keys(OWNER_WORKBOOK_STOPS).reduce((map, stopKey) => {
+  const source = OWNER_WORKBOOK_STOPS[stopKey];
+  map[stopKey] = { icon: source.icon, workbookStopKey: source.workbookStopKey, row: source.row };
+  return map;
+}, {});
 const ROAD_POLYLINE_SOURCE = {
   sourceSystem: 'osrm_public_route_snapshot',
   sourcePath: 'tools/published-schedule-map-road-polyline.json',
-  sourceId: 'group_001_corridor_osrm_20260713',
+  sourceId: 'group_001_corridor_osrm_20260715_owner_workbook_stops',
   importedBy: 'published-schedule-v1-dry-run',
-  notes: 'road-following preview geometry imported once by Data Import; reference-only map shape, not GPS, ETA, vehicle, or operational proof'
+  notes: 'road-following preview geometry generated from owner workbook Sheet 01 stop lat/lng; reference-only map shape, not GPS, ETA, vehicle, or operational proof'
 };
 
 function values(map) {
@@ -220,6 +212,7 @@ function transferPolicyEvidence() {
 }
 
 function previewMapSourceLineage(stopKey, stop) {
+  const workbookStop = OWNER_WORKBOOK_STOPS[stopKey];
   const iconSource = OWNER_WORKBOOK_STOP_ICONS[stopKey];
   return [
     {
@@ -230,11 +223,11 @@ function previewMapSourceLineage(stopKey, stop) {
       notes: 'group_001 corridor stop identity and display order'
     },
     {
-      sourceSystem: 'repository_static_reference',
-      sourcePath: 'index-logic.js',
-      sourceId: stopKey,
+      sourceSystem: 'owner_workbook',
+      sourcePath: `${OWNER_WORKBOOK_INTERPRETATION.sheets.stops}!D${workbookStop ? workbookStop.row : '?'}:E${workbookStop ? workbookStop.row : '?'}`,
+      sourceId: workbookStop ? workbookStop.workbookStopKey : stopKey,
       importedBy: 'published-schedule-v1-dry-run',
-      notes: 'static stop coordinates for Passenger Preview map only; not GPS, ETA, vehicle, or operational proof'
+      notes: 'Passenger Preview stop latitude/longitude from owner workbook columns ละติจูด/ลองจิจูด; not GPS, ETA, vehicle, or operational proof'
     },
     {
       sourceSystem: 'owner_workbook',
@@ -943,12 +936,21 @@ function validatePublishedSchedule(publishedSchedule) {
     block('map-view-stop-count-mismatch', 'publishedSchedule/mapView/stops', { expected: publishedSchedule.counts && publishedSchedule.counts.origins, actual: mapStops.length });
   }
   mapStops.forEach((stop, index) => {
+    const expectedWorkbookStop = stop && OWNER_WORKBOOK_STOPS[stop.stopKey];
     const expectedIconSource = stop && OWNER_WORKBOOK_STOP_ICONS[stop.stopKey];
     if (!stop || !stop.stopKey || !stop.nodeId || !stop.groupStopId || !stop.groupStopCode || !stop.label || stop.displayOrder !== index) {
       block('map-view-stop-identity-invalid', `publishedSchedule/mapView/stops/${index}`);
     }
     if (!Number.isFinite(Number(stop.lat)) || !Number.isFinite(Number(stop.lng)) || !stop.icon) {
       block('map-view-stop-coordinate-invalid', `publishedSchedule/mapView/stops/${index}`);
+    }
+    if (!expectedWorkbookStop) {
+      block('map-view-stop-workbook-source-missing', `publishedSchedule/mapView/stops/${index}`, { stopKey: stop && stop.stopKey });
+    } else if (Math.abs(Number(stop.lat) - expectedWorkbookStop.lat) > 0.000001 || Math.abs(Number(stop.lng) - expectedWorkbookStop.lng) > 0.000001) {
+      block('map-view-stop-coordinate-mismatch', `publishedSchedule/mapView/stops/${index}`, {
+        expected: { lat: expectedWorkbookStop.lat, lng: expectedWorkbookStop.lng },
+        actual: { lat: stop.lat, lng: stop.lng }
+      });
     }
     if (!expectedIconSource || stop.icon !== expectedIconSource.icon) {
       block('map-view-stop-icon-mismatch', `publishedSchedule/mapView/stops/${index}/icon`, { expected: expectedIconSource && expectedIconSource.icon, actual: stop.icon });
@@ -958,6 +960,15 @@ function validatePublishedSchedule(publishedSchedule) {
     }
     if (!Array.isArray(stop.sourceLineage) || !stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && /!F\d+$/.test(lineage.sourcePath || ''))) {
       block('map-view-stop-icon-lineage-missing', `publishedSchedule/mapView/stops/${index}/sourceLineage`);
+    }
+    if (!Array.isArray(stop.sourceLineage) || !stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && /!D\d+:E\d+$/.test(lineage.sourcePath || ''))) {
+      block('map-view-stop-coordinate-lineage-missing', `publishedSchedule/mapView/stops/${index}/sourceLineage`);
+    }
+  });
+  const visibleMapStopKeys = new Set(mapStops.map((stop) => stop && stop.stopKey).filter(Boolean));
+  Object.keys(OWNER_WORKBOOK_STOPS).forEach((stopKey) => {
+    if (!visibleMapStopKeys.has(stopKey)) {
+      block('map-view-workbook-stop-missing', 'publishedSchedule/mapView/stops', { stopKey });
     }
   });
   const primaryMapRoute = mapRoutes[0] || {};
@@ -1376,6 +1387,7 @@ module.exports = {
   TRANSFER_REFERENCE_DISCLAIMER_TH,
   TRANSFER_POLICY,
   OWNER_WORKBOOK_INTERPRETATION,
+  OWNER_WORKBOOK_STOPS,
   EXTERNAL_SERVICE_DISCLAIMER_KEY,
   EXTERNAL_SERVICE_DISCLAIMER_TH,
   buildPublishedScheduleV1DryRun,

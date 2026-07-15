@@ -10,6 +10,7 @@ const {
   TRANSFER_REFERENCE_DISCLAIMER_TH,
   TRANSFER_POLICY,
   OWNER_WORKBOOK_INTERPRETATION,
+  OWNER_WORKBOOK_STOPS,
   buildPublishedScheduleV1DryRun,
   validatePublishedSchedule
 } = require('../tools/published-schedule-v1-dry-run.js');
@@ -129,7 +130,20 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.mapView && schedule.mapView.schemaVersion === 'publishedSchedule.mapView.v1.preview', 'mapView schema missing');
   assert(Array.isArray(schedule.mapView.stops) && schedule.mapView.stops.length === 15, 'mapView must expose 15 corridor stops');
   assert(schedule.mapView.stops.every((stop, index) => stop.label && stop.displayOrder === index && Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)) && stop.icon), 'mapView stops must have label/displayOrder/lat/lng/icon');
+  assert.deepStrictEqual(
+    new Set(schedule.mapView.stops.map((stop) => stop.stopKey)),
+    new Set(Object.keys(OWNER_WORKBOOK_STOPS)),
+    'mapView must expose every owner workbook stop exactly once'
+  );
+  schedule.mapView.stops.forEach((stop) => {
+    const expected = OWNER_WORKBOOK_STOPS[stop.stopKey];
+    assert(expected, `owner workbook source missing for ${stop.stopKey}`);
+    assert(Math.abs(Number(stop.lat) - expected.lat) < 0.000001, `mapView latitude must match workbook for ${stop.stopKey}`);
+    assert(Math.abs(Number(stop.lng) - expected.lng) < 0.000001, `mapView longitude must match workbook for ${stop.stopKey}`);
+  });
   assert(schedule.mapView.stops.every((stop) => stop.icon === '🚏'), 'mapView stop icons must come from owner workbook Sheet 01 column ไอคอน');
+  assert(schedule.mapView.stops.some((stop) => stop.stopKey === 'wangnamyen' && Math.abs(Number(stop.lat) - 13.518022) < 0.000001 && Math.abs(Number(stop.lng) - 102.173944) < 0.000001), 'Wang Nam Yen coordinate must match latest owner workbook');
+  assert(schedule.mapView.stops.every((stop) => stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && /^01_ข้อมูลป้ายกลาง!D\d+:E\d+$/.test(lineage.sourcePath || ''))), 'mapView stop coordinate workbook lineage missing');
   assert(schedule.mapView.stops.every((stop) => stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && /^01_ข้อมูลป้ายกลาง!F\d+$/.test(lineage.sourcePath || ''))), 'mapView stop icon workbook lineage missing');
   assert(schedule.mapView.stops.every((stop) => stop.referenceOnly === true && stop.previewDisplayMode === 'static_map_reference' && Array.isArray(stop.sourceLineage) && stop.sourceLineage.length), 'mapView stops must be reference-only with lineage');
   assert(Array.isArray(schedule.mapView.routes) && schedule.mapView.routes.length === 1, 'mapView route missing');
