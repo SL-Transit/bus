@@ -35,7 +35,7 @@ const transferReference = center.decideBookingAvailability(Object.assign({}, bas
 }));
 assert.equal(transferReference.status, 'reference_only');
 assert.equal(transferReference.bookingEligible, false);
-assert.equal(transferReference.selectionAllowed, false);
+assert.equal(transferReference.selectionAllowed, true);
 assert.equal(transferReference.reasonCode, 'reference_only');
 
 const external = center.decideBookingAvailability(Object.assign({}, base, {

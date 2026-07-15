@@ -103,7 +103,7 @@
       copy.recommended = index === firstUpcomingIndex;
       copy.recommendationSource = 'erp_logic_center';
       copy.timeDisplayState = isPast ? 'past' : 'available_for_display';
-      copy.displayMuted = copy.displayMuted === true || isPast || copy.selectionAllowed !== true;
+      copy.displayMuted = copy.displayMuted === true || isPast;
       return copy;
     });
   }

@@ -140,7 +140,7 @@
     }
 
     function cardClass(trip, base) {
-      return base + (trip.displayMuted || !trip.selectionAllowed ? ' trip-card-muted' : '');
+      return base + (trip.displayMuted ? ' trip-card-muted' : '');
     }
     function routeText() {
       return esc(state.originName || 'ต้นทาง') + ' → ' + esc(state.destName || 'ปลายทาง');

@@ -122,7 +122,7 @@
 
     if (!time || !pair || !option) return decision('unavailable', false, 'missing_contract');
     if (isExternalReference(pair, segment, timeEntry, option)) return decision('external_reference', false, 'external_reference', { seatsAvailable: seatsAvailable });
-    if (isReferenceOnly(pair, segment, timeEntry, option)) return decision('reference_only', false, 'reference_only', { seatsAvailable: seatsAvailable });
+    if (isReferenceOnly(pair, segment, timeEntry, option)) return decision('reference_only', false, 'reference_only', { seatsAvailable: seatsAvailable, selectionAllowed: true });
     if (isWangNamYen(destinationId) || isWangNamYen(originId) || isWangNamYen(pair.destinationLabel) || isWangNamYen(pair.originLabel)) {
       return decision('unavailable', false, 'wang_nam_yen_disabled', { seatsAvailable: seatsAvailable });
     }
