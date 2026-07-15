@@ -41,7 +41,8 @@ assert(bridge.includes('Array.isArray(pair.connectionOptions)'), 'Booking1 bridg
 assert(!adapter.includes('recommendedBookingTrips'), 'Booking1 adapter must not own recommendation logic');
 assert(!adapter.includes('minutesFromTime'), 'Booking1 adapter must not compare trip times locally');
 assert(adapter.includes('!trip.selectionAllowed'), 'Booking1 adapter must use selectionAllowed for the trip select button');
-assert(adapter.includes('selected.bookingAllowed'), 'Booking1 adapter must still use bookingAllowed before payment/ticket creation');
+assert(adapter.includes('selected.selectionAllowed'), 'Booking1 adapter must let selected ERP trips continue to passenger/payment pages');
+assert(!adapter.includes('selected.bookingAllowed'), 'Booking1 adapter page navigation must not be blocked by production bookingAllowed');
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(adapter.includes('No live vehicle tracking'), 'Booking1 adapter must expose schedule-only/no-live-tracking behavior');

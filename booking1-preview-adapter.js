@@ -59,9 +59,9 @@
     state.transferInfo = null;
   }
 
-  function selectedTripAllowed() {
+  function selectedTripCanContinue() {
     var selected = appState().selectedTrip;
-    return !!(selected && selected.bookingAllowed && !selected.fareMissing && !selected.externalPaymentRequired);
+    return !!(selected && selected.selectionAllowed && !selected.fareMissing && !selected.externalPaymentRequired);
   }
 
   function fareText(trip) {
@@ -75,9 +75,6 @@
     if (trip.externalPaymentRequired) notes.push('SL-Transit ไม่เก็บค่าโดยสารรายการนี้ ต้องชำระกับผู้ให้บริการภายนอก');
     if (trip.referenceOnly) notes.push('ข้อมูลอ้างอิง ยังไม่เปิดจองผ่าน Booking1');
     if (trip.fareMissing) notes.push('TODO contract: ' + trip.missingFareField);
-    if (!trip.bookingAllowed && trip.disabledReason === 'preview_not_apply_ready') {
-      notes.push('Preview ยังไม่ readyForApply จึงยังไม่เปิดสร้าง booking จริง');
-    }
     return notes;
   }
 
@@ -331,7 +328,7 @@
       if (!phoneVal || !global.isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return; }
       var terms = document.getElementById('terms-check');
       if (terms && !terms.checked) { alert('กรุณายอมรับเงื่อนไขการจองก่อน'); return; }
-      if (!selectedTripAllowed()) { alert('เที่ยวนี้ยังไม่เปิดสร้าง booking จริง หรือยังไม่มี fareAmount'); return; }
+      if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้ หรือยังไม่มี fareAmount จาก ERP Data Center'); return; }
       state.name = global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
       state.phone = global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
       var total = global.getBookingTotal(state.pax);
@@ -356,7 +353,7 @@
     global.goToTicket = function() {
       var state = appState();
       if (!state.consentAccepted) { alert('กรุณายอมรับเงื่อนไขก่อน'); return; }
-      if (!selectedTripAllowed()) { alert('เที่ยวนี้ยังไม่เปิดสร้าง booking จริง'); return; }
+      if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้'); return; }
       var assignmentContract = (state.selectedTrip && state.selectedTrip.assignment) || {
         assignmentSource: 'none',
         scheduleOnly: true,
