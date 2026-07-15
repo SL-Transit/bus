@@ -52,8 +52,13 @@ assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
 assert(!booking1.includes('trip-check'), 'Booking1 trip cards must not render the old green selected check icon');
 assert(!booking1.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 trip buttons must not use legacy capacity continuation');
+assert(booking1.includes('href="info.html#policy"'), 'Booking1 booking terms link must point to info policy section');
+assert(booking1.includes('href="info.html#privacy"'), 'Booking1 service policy link must point to info privacy section');
+assert(!booking1.includes('href="#" onclick="openConsentPopup(event)">เงื่อนไขการจอง'), 'Booking1 terms link must not be a dead # link');
 assert(adapter.includes('SLBookingBridge.getBookableStops()'), 'Origin picker must use bridge originOptions');
 assert(adapter.includes('SLBookingBridge.getDestinationOptions(state.originKey)'), 'Destination picker must use origin-scoped destinationOptionsByOrigin');
+assert(!adapter.includes('/preview/publishedSchedule'), 'Booking1 UI text must not point users to preview publishedSchedule');
+assert(!adapter.includes('ERP Preview'), 'Booking1 UI text must not call active schedule data ERP Preview');
 assert(adapter.includes('s.group || null'), 'Destination picker must render ERP-provided destination option groups');
 assert(adapter.includes('stopPickerItemsHtml'), 'Destination picker must use grouped picker rendering');
 assert(adapter.includes('esc(group)'), 'Destination group labels must come from ERP option.group');

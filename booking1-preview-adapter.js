@@ -1,7 +1,7 @@
 /**
  * Booking1 preview adapter.
  * Overrides legacy inline Booking1 page functions so the page consumes
- * /preview/publishedSchedule through SLBookingBridge as a UI-only adapter.
+ * /publishedSchedule through SLBookingBridge as a UI-only adapter.
  */
 (function(global) {
   'use strict';
@@ -127,7 +127,7 @@
     resetSelectedTrip();
 
     if (!state.originKey || !state.destKey) {
-      container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/244.png" alt="missing" style="width:54px;height:54px;margin:0 auto 10px;"><strong>ยังไม่มีตัวเลือกต้นทาง/ปลายทางจาก ERP Preview</strong><span>ต้องมี originOptions และ destinationOptionsByOrigin ก่อน</span></div>';
+      container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/244.png" alt="missing" style="width:54px;height:54px;margin:0 auto 10px;"><strong>ยังไม่มีตัวเลือกต้นทาง/ปลายทางจากข้อมูลกลาง</strong><span>ต้องมี originOptions และ destinationOptionsByOrigin ก่อน</span></div>';
       return;
     }
     if (!available.length) {
@@ -172,7 +172,7 @@
       + '<span class="trip-time">' + esc(best.label) + '</span><span class="trip-time-badge badge-recommend">เที่ยวแนะนำ</span>'
       + tripBadges(best) + '</div></div>'
       + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText() + '</span></div>'
-      + '<div class="trip-meta"><div class="trip-meta-item"><img class="icon-img" src="assets/241.png" alt="route" style="width:13px;height:13px;"> ERP Preview pair: ' + esc(best.pairKey || '-') + '</div><div class="trip-meta-item">No live vehicle tracking</div></div>'
+      + '<div class="trip-meta"><div class="trip-meta-item"><img class="icon-img" src="assets/241.png" alt="route" style="width:13px;height:13px;"> ERP Data Center pair: ' + esc(best.pairKey || '-') + '</div><div class="trip-meta-item">No live vehicle tracking</div></div>'
       + noteHtml(best)
       + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
 
@@ -260,13 +260,13 @@
       if (!container || !global.SLBookingBridge) return;
       var requestId = Date.now() + ':' + state.originKey + ':' + state.destKey;
       state._tripRenderRequestId = requestId;
-      container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/244.png" alt="loading" style="width:54px;height:54px;margin:0 auto 10px;"><strong>กำลังโหลดเที่ยวจาก ERP Preview</strong><span>อ่านเฉพาะคู่เส้นทางที่เลือก</span></div>';
+      container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/244.png" alt="loading" style="width:54px;height:54px;margin:0 auto 10px;"><strong>กำลังโหลดเที่ยวจากข้อมูลกลาง</strong><span>อ่านเฉพาะคู่เส้นทางที่เลือก</span></div>';
       global.SLBookingBridge.loadAvailableTrips(state.originKey, state.destKey, serviceDateISO()).then(function(available) {
         if (state._tripRenderRequestId !== requestId) return;
         renderLoadedTrips(available || []);
       }).catch(function(err) {
         console.error('[Booking1PreviewAdapter] load trips failed', err);
-        container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบ /preview/publishedSchedule/pairs/{pairKey}</span></div>';
+        container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบ /publishedSchedule/pairs/{pairKey}</span></div>';
       });
     };
 
@@ -286,7 +286,7 @@
     };
 
     global.demoGoToPassenger = function() {
-      alert('ยังไม่มีเที่ยวจาก ERP Preview ให้เลือก');
+      alert('ยังไม่มีเที่ยวจากข้อมูลกลางให้เลือก');
     };
 
     global.goToPassenger = function(e, time, label, tripIndex) {

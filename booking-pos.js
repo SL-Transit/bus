@@ -368,7 +368,7 @@
     /* โ”€โ”€ Pricing (server-side only) โ”€โ”€ */
     var serverPrice = computePriceServerSide(appState.originKey, appState.destKey);
     if (!(serverPrice > 0)) {
-      alert('ยังไม่มีข้อมูล fareAmount จาก ERP Preview สำหรับคู่เส้นทางนี้');
+      alert('ยังไม่มีข้อมูล fareAmount จากข้อมูลกลางสำหรับคู่เส้นทางนี้');
       return;
     }
     var svcFee      = getServiceFeeTotal(appState.pax || 1);
