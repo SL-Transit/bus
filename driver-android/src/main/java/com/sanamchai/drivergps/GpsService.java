@@ -90,7 +90,7 @@ public class GpsService extends Service implements SensorEventListener {
     private FusedLocationProviderClient fusedClient;
     private LocationCallback fusedCallback;
     private FirebaseAuth auth;
-    private DatabaseReference busRef, liveVehicleRef, connectedRef, vehicleSettingsRef;
+    private DatabaseReference liveVehicleRef, connectedRef, vehicleSettingsRef;
     private com.google.firebase.database.ValueEventListener vehicleSettingsListener;
     private volatile boolean manualRemoteEnabled = true;
     private volatile boolean scheduleRemoteEnabled = true;
@@ -123,8 +123,8 @@ public class GpsService extends Service implements SensorEventListener {
     private boolean forceNextLocationSend   = false;
     private String queueId = null;
 
-    // ===== ระบบคิวรถ — อ่านจาก Firebase settings/queueRotation =====
-    // คำนวณว่าวันนี้รถคันนี้อยู่คิวไหน แล้วใช้เวลา wake/start/end คุมการส่งตำแหน่ง
+    // ===== ระบบคิวรถ — runtime GPS ไม่อ่าน legacy schedule เอง =====
+    // Driver Work Center เป็นเจ้าของคิว/งานประจำวัน ส่วน GPS service ใช้ fallback เฉพาะการคุมแบตเตอรี่เท่านั้น
     private String queueBaseDate = "2026-06-14"; // fallback ถ้า Firebase อ่านไม่ได้
     private final java.util.Map<String, Integer> queueBaseMap = new java.util.HashMap<String, Integer>() {{
         put("car1", 1); put("car2", 2); put("car3", 3); put("car4", 4); // fallback
@@ -658,75 +658,14 @@ public class GpsService extends Service implements SensorEventListener {
         }
     }
 
-    // ===== คำนวณคิวรถวันนี้จาก Firebase settings/queueRotation =====
+    // ===== คำนวณคิว fallback เฉพาะภายในเครื่อง =====
     private void loadQueueSchedule() {
-        try {
-            FirebaseDatabase.getInstance()
-                    .getReference("settings/queueRotation")
-                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
-                @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
-                    try {
-                        // อ่าน baseDate
-                        String bd = snap.child("baseDate").getValue(String.class);
-                        if (bd != null && bd.matches("\\d{4}-\\d{2}-\\d{2}")) queueBaseDate = bd;
-                        // อ่าน carQueueOnBaseDate
-                        com.google.firebase.database.DataSnapshot cq = snap.child("carQueueOnBaseDate");
-                        for (String car : new String[]{"car1","car2","car3","car4"}) {
-                            Long v = cq.child(car).getValue(Long.class);
-                            if (v != null && v >= 1 && v <= 4) queueBaseMap.put(car, v.intValue());
-                        }
-                    } catch (Exception ignored) {}
-                    computeTodayQueue();
-                    loadRouteDataScheduleForToday();
-                }
-                @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
-                    computeTodayQueue(); // ใช้ fallback hardcode
-                    scheduleLoaded = true;
-                }
-            });
-        } catch (Exception e) {
-            computeTodayQueue();
-            scheduleLoaded = true;
-        }
+        computeTodayQueue();
+        scheduleLoaded = true;
     }
 
     private void loadRouteDataScheduleForToday() {
-        if (todayQueueNo < 1 || todayQueueNo > 4) {
-            scheduleLoaded = true;
-            return;
-        }
-        try {
-            FirebaseDatabase.getInstance()
-                    .getReference("routeData/queues/" + todayQueueNo + "/trips")
-                    .addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
-                @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
-                    try {
-                        java.util.List<String> times = new java.util.ArrayList<>();
-                        for (com.google.firebase.database.DataSnapshot tripSnap : snap.getChildren()) {
-                            for (com.google.firebase.database.DataSnapshot stopSnap : tripSnap.child("stops").getChildren()) {
-                                String time = stopSnap.child("time").getValue(String.class);
-                                if (time != null && time.matches("\\d{2}:\\d{2}")) times.add(time);
-                            }
-                        }
-                        if (!times.isEmpty()) {
-                            java.util.Collections.sort(times);
-                            String start = times.get(0);
-                            String end = times.get(times.size() - 1);
-                            firebaseQueueSchedule.put(todayQueueNo, new String[]{minusMinutes(start, 60), start, end});
-                            Log.d(TAG, "Loaded routeData schedule for queue " + todayQueueNo + ": " + start + "-" + end);
-                        }
-                    } catch (Exception e) {
-                        Log.w(TAG, "routeData schedule parse failed: " + e.getMessage());
-                    }
-                    scheduleLoaded = true;
-                }
-                @Override public void onCancelled(com.google.firebase.database.DatabaseError e) {
-                    scheduleLoaded = true;
-                }
-            });
-        } catch (Exception e) {
-            scheduleLoaded = true;
-        }
+        scheduleLoaded = true;
     }
 
     private String minusMinutes(String time, int minutes) {
@@ -846,7 +785,7 @@ public class GpsService extends Service implements SensorEventListener {
                     .build();
             FirebaseApp.initializeApp(this, opts);
         }
-        loadQueueSchedule(); // โหลดข้อมูลคิวจาก Firebase (async, มี fallback hardcode)
+        loadQueueSchedule(); // ใช้ fallback ภายในเครื่องเท่านั้น; งานจริงอ่านจาก Driver Work Center
         auth = FirebaseAuth.getInstance();
         if (!hasAuthenticatedDriverIdentity()) {
             prefs.edit()
@@ -863,8 +802,7 @@ public class GpsService extends Service implements SensorEventListener {
             // เปิดแล้วทำให้ reconnect ช้าเมื่อเปิด app ใหม่ เพราะ reuse connection เก่า
             persistenceConfigured = true;
         }
-        busRef         = db.getReference("bus/"          + queueId);
-        liveVehicleRef = db.getReference("liveVehicles/" + queueId);
+        liveVehicleRef = db.getReference("operations/liveVehicles/" + queueId);
         connectedRef   = db.getReference(".info/connected");
         // ไม่ใช้ keepSynced — ป้องกัน Firebase sync queue เก่าก่อนส่งข้อมูลใหม่
         watchConnectionState();
@@ -1437,7 +1375,6 @@ public class GpsService extends Service implements SensorEventListener {
                 onlineNow.put("online", true);
                 onlineNow.put("appUpdatedAt", now);
                 onlineNow.put("ts", now);
-                busRef.updateChildren(onlineNow);
                 liveVehicleRef.updateChildren(onlineNow);
                 setupDisconnectHandlers();
                 if (pendingData != null) writeData(pendingData, pendingLocation, pendingFullWrite);
@@ -1488,17 +1425,17 @@ public class GpsService extends Service implements SensorEventListener {
                     queueId, loc.getLatitude(), loc.getLongitude()));
             logBatteryMode("firebase_send_success");
         };
-        if (fullLocationWrite) busRef.setValue(data, completion);
-        else busRef.updateChildren(data, completion);
         if (fullLocationWrite) liveVehicleRef.setValue(data, (err, ref) -> {
             if (err != null)
                 prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
-                        "liveVehicles: " + err.getMessage()).apply();
+                        "operations/liveVehicles: " + err.getMessage()).apply();
+            else completion.onComplete(null, ref);
         });
         else liveVehicleRef.updateChildren(data, (err, ref) -> {
             if (err != null)
                 prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
-                        "liveVehicles: " + err.getMessage()).apply();
+                        "operations/liveVehicles: " + err.getMessage()).apply();
+            else completion.onComplete(null, ref);
         });
     }
 
@@ -1516,7 +1453,6 @@ public class GpsService extends Service implements SensorEventListener {
         Map<String, Object> d = new HashMap<>();
         d.put("online", false); d.put("status", "offline");
         d.put("appUpdatedAt", now); d.put("ts", now); d.put("sentTs", now);
-        busRef.onDisconnect().updateChildren(d);
         try { liveVehicleRef.onDisconnect().updateChildren(d); } catch (Exception ignored) {}
     }
 

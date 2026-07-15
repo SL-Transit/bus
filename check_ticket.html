@@ -818,10 +818,8 @@
     var trackingJourneyEta = null;
     var passengerAutoFocused = false;
     var trackingUserInteracted = false;
-    var trackingBusRef = null;
     var trackingLiveVehiclesRef = null;
     var trackingAssignmentsRef = null;
-    var trackingBusFeed = {};
     var trackingLiveVehicleFeed = {};
     var trackingDailyAssignments = {};
     var trackingVehicleId = '';
@@ -857,11 +855,8 @@
       if (settings.checkin && settings.checkin.distanceMode) {
         DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
       }
-      if (TICKET_CATALOG_ROUTES_APPLIED) return;
-      ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settings.routes);
-        var adminTimeChanged = applyAdminScheduleToCurrentBooking();
-        if (!adminTimeChanged && currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
-        updateActionAvailability();
+      if (currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
+      updateActionAvailability();
     });
 
     function applyTicketRouteData(routeData) {
@@ -895,6 +890,53 @@
       updateTrackingRouteLine();
     }
 
+    function applyTicketPublishedScheduleMapView(mapView) {
+      mapView = mapView || {};
+      var stops = Array.isArray(mapView.stops) ? mapView.stops : [];
+      var centralStops = stops.map(function(stop, index) {
+        stop = stop || {};
+        var lat = Number(stop.lat);
+        var lng = Number(stop.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        var name = String(stop.label || stop.stopNameTh || stop.name || stop.stopKey || '').trim();
+        if (!name) return null;
+        return {
+          key: stop.stopKey || stop.groupStopCode || stop.nodeId || ('publishedScheduleStop' + index),
+          name: name,
+          lat: lat,
+          lng: lng,
+          icon: stop.icon || '',
+          stopType: 'main',
+          order: ticketStopSortValue(name, Number(stop.displayOrder || stop.order) || (index + 1))
+        };
+      }).filter(Boolean);
+      if (!centralStops.length) return;
+      MAIN_ROUTE_STOPS_FROM_CATALOG = centralStops
+        .slice()
+        .sort(function(a, b) {
+          return ticketStopSortValue(a.name, a.order) - ticketStopSortValue(b.name, b.order)
+            || String(a.name).localeCompare(String(b.name));
+        })
+        .map(function(stop) { return stop.name; });
+      var fallbackStops = STOP_LOCATIONS.slice();
+      STOP_LOCATIONS = centralStops.concat(fallbackStops.filter(function(oldStop) {
+        return !centralStops.some(function(centralStop) { return isSameStop(centralStop.name, oldStop.name); });
+      })).sort(function(a, b) {
+        return ticketStopSortValue(a && a.name, a && a.order || 999999) - ticketStopSortValue(b && b.name, b && b.order || 999999)
+          || String(a && a.name || '').localeCompare(String(b && b.name || ''));
+      });
+      TICKET_CATALOG_ROUTE_DATA_APPLIED = true;
+      if (!currentBooking) return;
+      pickupStopLocation = resolvePickupStopLocation(currentBooking);
+      destinationLocation = resolveDestinationLocation(currentBooking);
+      transferPointLocation = findStopLocation('แปดริ้ว');
+      relevantRouteStops = resolveRelevantRouteStops(currentBooking);
+      renderPickupMarker();
+      renderTransferMarker();
+      renderRouteStopMarkers();
+      updateTrackingRouteLine();
+    }
+
     function buildMainRouteStopsFromRouteData(routeData, centralStops) {
       return centralStops
         .filter(function(stop) { return stop.stopType !== 'conditional'; })
@@ -905,11 +947,10 @@
         .map(function(stop) { return stop.name; });
     }
 
-    db.ref('routeData').on('value', function(snap) {
-      if (TICKET_CATALOG_ROUTE_DATA_APPLIED) return;
-      applyTicketRouteData(snap.val() || {});
+    db.ref('publishedSchedule/mapView').on('value', function(snap) {
+      applyTicketPublishedScheduleMapView(snap.val() || {});
     }, function(error) {
-      console.error('Ticket routeData load failed:', error && error.message ? error.message : error);
+      console.error('Ticket publishedSchedule mapView load failed:', error && error.message ? error.message : error);
     });
 
     function applyTicketCatalog(catalog, source) {
@@ -977,12 +1018,6 @@
       }
       return TICKET_CATALOG_LOADS[version];
     }
-
-    db.ref('publishedCatalog').on('value', function(snap) {
-      applyTicketCatalog(snap.val(), 'publishedCatalog');
-    }, function(error) {
-      console.error('Ticket catalog load failed:', error && error.message ? error.message : error);
-    });
 
     function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }
     function isAdminTesterBooking(booking) {
@@ -1607,13 +1642,10 @@
     }
 
     function stopTrackingSubscription() {
-      if (trackingBusRef) trackingBusRef.off();
       if (trackingLiveVehiclesRef) trackingLiveVehiclesRef.off();
       if (trackingAssignmentsRef) trackingAssignmentsRef.off();
-      trackingBusRef = null;
       trackingLiveVehiclesRef = null;
       trackingAssignmentsRef = null;
-      trackingBusFeed = {};
       trackingLiveVehicleFeed = {};
       trackingDailyAssignments = {};
       trackingVehicleId = '';
@@ -1630,22 +1662,17 @@
 
     function subscribeVanLocationForTicket() {
       stopTrackingSubscription();
-      trackingBusRef = db.ref('bus');
-      trackingBusRef.on('value', function(snap) {
-        trackingBusFeed = snap.val() || {};
-        refreshTrackingVehicleFromFeeds();
-      });
-      trackingLiveVehiclesRef = db.ref('liveVehicles');
+      trackingLiveVehiclesRef = db.ref('operations/liveVehicles');
       trackingLiveVehiclesRef.on('value', function(snap) {
         trackingLiveVehicleFeed = snap.val() || {};
         refreshTrackingVehicleFromFeeds();
       });
-      trackingAssignmentsRef = db.ref('dailyAssignments/' + getServiceDateForBooking(currentBooking));
+      trackingAssignmentsRef = db.ref('operations/vehicleAssignmentsByServiceDate/' + getServiceDateForBooking(currentBooking));
       trackingAssignmentsRef.on('value', function(snap) {
         trackingDailyAssignments = snap.val() || {};
         refreshTrackingVehicleFromFeeds();
       }, function(err) {
-        console.warn('dailyAssignments unavailable; using default queue fallback.', err);
+        console.warn('operations vehicle assignments unavailable; using assignment contract only.', err);
         trackingDailyAssignments = {};
         refreshTrackingVehicleFromFeeds();
       });
@@ -1653,19 +1680,11 @@
 
     function mergeTrackingVehicleFeeds() {
       var allIds = {};
-      Object.keys(trackingBusFeed || {}).forEach(function(id) { allIds[id] = true; });
       Object.keys(trackingLiveVehicleFeed || {}).forEach(function(id) { allIds[id] = true; });
       var merged = {};
       Object.keys(allIds).forEach(function(id) {
-        var a = (trackingBusFeed || {})[id] || null;
-        var b = (trackingLiveVehicleFeed || {})[id] || null;
-        if (!a && !b) return;
-        if (!a) { merged[id] = b; return; }
-        if (!b) { merged[id] = a; return; }
-        // เลือก source ที่ gpsTs ใหม่กว่า ป้องกันข้อมูลเก่าทับข้อมูลใหม่
-        var gpsA = Number(a.gpsTs || a.gpsts || a.ts || 0);
-        var gpsB = Number(b.gpsTs || b.gpsts || b.ts || 0);
-        merged[id] = gpsB > gpsA ? b : a;
+        var vehicle = (trackingLiveVehicleFeed || {})[id] || null;
+        if (vehicle) merged[id] = vehicle;
       });
       return merged;
     }
@@ -1939,7 +1958,7 @@
     }
 
     function liveQueueNoForVehicle(vehicleId) {
-      var vehicle = (trackingLiveVehicleFeed && trackingLiveVehicleFeed[vehicleId]) || (trackingBusFeed && trackingBusFeed[vehicleId]) || null;
+      var vehicle = (trackingLiveVehicleFeed && trackingLiveVehicleFeed[vehicleId]) || null;
       var queueNo = Number(vehicle && (vehicle.todayQueueNo || vehicle.queueNo || vehicle.queueNumber || vehicle.queue || vehicle.queueIndex || 0));
       return queueNo || null;
     }
@@ -1957,7 +1976,6 @@
         });
       }
       scan(trackingLiveVehicleFeed);
-      scan(trackingBusFeed);
       return ids;
     }
 

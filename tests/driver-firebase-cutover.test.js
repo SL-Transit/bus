@@ -40,5 +40,10 @@ assert(gps.includes('BuildConfig.SL_TRANSIT_FIREBASE_DATABASE_URL'), 'GpsService
 assert(gps.includes('BuildConfig.SL_TRANSIT_FIREBASE_API_KEY'), 'GpsService must read Firebase API key from BuildConfig');
 assert(gps.includes('BuildConfig.SL_TRANSIT_FIREBASE_APP_ID'), 'GpsService must read Firebase app id from BuildConfig');
 assert(gps.includes('driver firebase config required'), 'GpsService must stop instead of sending GPS when config is missing');
+assert(gps.includes('operations/liveVehicles/'), 'GpsService must write runtime GPS through operations/liveVehicles');
+assert(!gps.includes('getReference("bus/'), 'GpsService must not write legacy bus path');
+assert(!gps.includes('getReference("liveVehicles/'), 'GpsService must not write legacy top-level liveVehicles path');
+assert(!gps.includes('settings/queueRotation'), 'GpsService must not read legacy queue rotation settings');
+assert(!gps.includes('routeData/queues/'), 'GpsService must not read legacy routeData queue trips');
 
 console.log('driver firebase cutover checks passed');

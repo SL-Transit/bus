@@ -7,6 +7,13 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'u
 assert(html.includes('erp-calculator-center.js'), 'Check Ticket must load ERP Calculator Center');
 assert(html.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
 assert(html.includes('erp-alert-center.js'), 'Check Ticket must load ERP Alert Center');
+assert(html.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read stop/map data from publishedSchedule mapView');
+assert(html.includes("db.ref('operations/liveVehicles')"), 'Check Ticket must read live vehicle data from operations/liveVehicles');
+assert(!html.includes("db.ref('routeData')"), 'Check Ticket must not read legacy routeData');
+assert(!html.includes("db.ref('publishedCatalog')"), 'Check Ticket must not read legacy publishedCatalog');
+assert(!html.includes("db.ref('bus')"), 'Check Ticket must not read legacy bus live feed');
+assert(!html.includes("db.ref('liveVehicles')"), 'Check Ticket must not read legacy top-level liveVehicles feed');
+assert(!html.includes('settings.routes'), 'Check Ticket must not use legacy settings.routes as schedule authority');
 
 function blockBetween(start, end) {
   const startIndex = html.indexOf(start);
