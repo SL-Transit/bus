@@ -272,6 +272,12 @@ body {
   background: #f8fafc;
 }
 .service-item.disabled.active { border-color: var(--gray-border); background: #f8fafc; }
+.soon-badge {
+  position: absolute; top: -6px; right: -2px;
+  background: #eef2f7; color: #64748b;
+  border: 1px solid #dbe3ef;
+  font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 8px; white-space: nowrap;
+}
 .service-icon-box {
   width: 32px; height: 32px;
   margin: 0 auto 6px;
@@ -1097,16 +1103,19 @@ body {
             <div class="service-sub">จองตั๋วผู้โดยสาร</div>
           </div>
           <div class="service-item disabled" aria-disabled="true">
+            <span class="soon-badge">เร็วๆนี้</span>
             <img class="icon-img" src="assets/210.png" alt="ส่งของ" style="width:36px;height:36px;">
             <div class="service-name">ส่งของ</div>
             <div class="service-sub">ฝากส่งพัสดุ</div>
           </div>
           <div class="service-item disabled" aria-disabled="true">
+            <span class="soon-badge">เร็วๆนี้</span>
             <img class="icon-img" src="assets/211.png" alt="รับของ" style="width:36px;height:36px;">
             <div class="service-name">รับของ</div>
             <div class="service-sub">รับของที่ปลายทาง</div>
           </div>
           <div class="service-item disabled" aria-disabled="true">
+            <span class="soon-badge">เร็วๆนี้</span>
             <img class="icon-img" src="assets/212.png" alt="ฝากหิ้ว" style="width:36px;height:36px;">
             <div class="service-name">ฝากหิ้วของ</div>
             <div class="service-sub">หิ้วของตามเส้นทาง</div>
