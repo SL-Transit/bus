@@ -35,7 +35,7 @@
 <script src="booking-bridge.js?v=20260714e"></script>
 <script src="booking-capacity.js"></script>
 <script src="booking-pos.js"></script>
-<script src="booking1-preview-adapter.js?v=20260715b" defer></script>
+<script src="booking1-preview-adapter.js?v=20260715c" defer></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -531,13 +531,6 @@ body {
   cursor: pointer; transition: all .15s; position: relative;
 }
 .trip-card.selected { border-color: var(--teal); background: #f0fbfa; }
-.trip-check {
-  position: absolute; top: 12px; right: 12px;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--teal); color: white;
-  display: none; align-items: center; justify-content: center; font-size: 12px;
-}
-.trip-card.selected .trip-check { display: flex; }
 .trip-time { font-size: 20px; font-weight: 800; color: var(--navy); margin-bottom: 2px; }
 .trip-time-badge {
   display: inline-block; background: var(--teal-bg); color: var(--teal);
@@ -1991,6 +1984,7 @@ body {
      JAVASCRIPT
      ============================================================ -->
 <script>
+var global = window;
 /* ============================================================
    FIREBASE INIT + BRIDGE + POS
    ============================================================ */
@@ -2369,7 +2363,6 @@ function renderTrips() {
 
     /* row หัว: เวลา + badge */
     + '<div class="trip-card-head">'
-    + '<div class="trip-check">✓</div>'
     + '<div class="trip-time-wrap">'
     + '<span class="trip-time">' + best.label + '</span>'
     + '<span class="trip-time-badge badge-recommend">⭐ เที่ยวแนะนำ</span>'
@@ -2425,7 +2418,7 @@ function renderTrips() {
     + '<div class="trip-bottom">'
     + '<div class="trip-price">' + (best.fare ? best.fare + ' บาท' : '-') + '</div>'
     + '<button class="select-trip-btn btn-select-recommend" '
-    + 'onclick="SLBookingCapacity.requestRouteContinue(event,\'' + best.pickupTime + '\',\'' + best.label + '\',' + (best.fare||0) + ')">'
+    + 'onclick="goToPassenger(event,\'' + best.pickupTime + '\',\'' + best.label + '\',' + (best.fare||0) + ')">'
     + 'เลือกเที่ยวนี้ ›</button>'
     + '</div>'
     + '</div>';
@@ -2444,7 +2437,6 @@ function renderTrips() {
         + 'data-time="' + trip.pickupTime + '" data-label="' + trip.label + '" '
         + 'data-fare="' + (trip.fare||0) + '" '
         + 'onclick="selectTrip(this)">'
-        + '<div class="trip-check">✓</div>'
 
         /* เวลา + badge */
         + '<div class="trip-compact-row">'
@@ -2460,7 +2452,7 @@ function renderTrips() {
         + '<div class="trip-compact-right">'
         + '<span class="trip-price-compact">' + (trip.fare ? trip.fare + ' บาท' : '') + '</span>'
         + '<button class="select-trip-btn btn-select-compact" '
-        + 'onclick="SLBookingCapacity.requestRouteContinue(event,\'' + trip.pickupTime + '\',\'' + trip.label + '\',' + (trip.fare||0) + ')">'
+        + 'onclick="goToPassenger(event,\'' + trip.pickupTime + '\',\'' + trip.label + '\',' + (trip.fare||0) + ')">'
         + 'เลือก ›</button>'
         + '</div>'
         + '</div>'

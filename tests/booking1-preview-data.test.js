@@ -31,6 +31,9 @@ assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calc
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
 
 assert(booking1.includes('booking1-preview-adapter.js'), 'Booking1 must load the preview adapter');
+assert(booking1.includes('var global = window;'), 'Booking1 inline scripts must use a browser-safe global alias');
+assert(!booking1.includes('trip-check'), 'Booking1 trip cards must not render the old green selected check icon');
+assert(!booking1.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 trip buttons must not use legacy capacity continuation');
 assert(adapter.includes('SLBookingBridge.getBookableStops()'), 'Origin picker must use bridge originOptions');
 assert(adapter.includes('SLBookingBridge.getDestinationOptions(state.originKey)'), 'Destination picker must use origin-scoped destinationOptionsByOrigin');
 assert(adapter.includes('s.group || null'), 'Destination picker must render ERP-provided destination option groups');
@@ -41,6 +44,7 @@ assert(bridge.includes('Array.isArray(pair.connectionOptions)'), 'Booking1 bridg
 assert(!adapter.includes('recommendedBookingTrips'), 'Booking1 adapter must not own recommendation logic');
 assert(!adapter.includes('minutesFromTime'), 'Booking1 adapter must not compare trip times locally');
 assert(adapter.includes('!trip.selectionAllowed'), 'Booking1 adapter must use selectionAllowed for the trip select button');
+assert(!adapter.includes('trip-check'), 'Booking1 adapter trip cards must not render the old green selected check icon');
 assert(adapter.includes('selected.selectionAllowed'), 'Booking1 adapter must let selected ERP trips continue to passenger/payment pages');
 assert(!adapter.includes('selected.bookingAllowed'), 'Booking1 adapter page navigation must not be blocked by production bookingAllowed');
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');

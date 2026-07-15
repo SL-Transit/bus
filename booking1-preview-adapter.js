@@ -144,7 +144,7 @@
     }
     function compactCard(trip, index) {
       return '<div class="' + cardClass(trip, 'trip-card trip-card-compact') + '" data-index="' + index + '" data-time="' + esc(trip.pickupTime) + '" data-label="' + esc(trip.label) + '" data-fare="' + (trip.fareAmount || 0) + '" onclick="selectTrip(this)">'
-        + '<div class="trip-check">✓</div><div class="trip-compact-row"><div class="trip-compact-left">'
+        + '<div class="trip-compact-row"><div class="trip-compact-left">'
         + '<span class="trip-time-compact">' + esc(trip.label) + '</span>' + tripBadges(trip)
         + '<div class="trip-compact-route">' + routeText() + '</div>'
         + noteHtml(trip) + '</div><div class="trip-compact-right">'
@@ -168,7 +168,7 @@
     state.transferInfo = best.transferInfo || null;
 
     var html = '<div class="' + cardClass(best, 'trip-card trip-card-recommended selected') + '" data-index="' + recommendedIndex + '" data-time="' + esc(best.pickupTime) + '" data-label="' + esc(best.label) + '" data-fare="' + (best.fareAmount || 0) + '" onclick="selectTrip(this)">'
-      + '<div class="trip-card-head"><div class="trip-check">✓</div><div class="trip-time-wrap">'
+      + '<div class="trip-card-head"><div class="trip-time-wrap">'
       + '<span class="trip-time">' + esc(best.label) + '</span><span class="trip-time-badge badge-recommend">เที่ยวแนะนำ</span>'
       + tripBadges(best) + '</div></div>'
       + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText() + '</span></div>'
