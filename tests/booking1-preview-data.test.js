@@ -48,6 +48,8 @@ assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone 
 assert(booking1.includes('function isValidThaiPhone'), 'Booking1 must define Thai phone validator for passenger form');
 assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must expose phone sanitizer to the preview adapter');
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
+assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
+assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
 assert(!booking1.includes('trip-check'), 'Booking1 trip cards must not render the old green selected check icon');
 assert(!booking1.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 trip buttons must not use legacy capacity continuation');
 assert(adapter.includes('SLBookingBridge.getBookableStops()'), 'Origin picker must use bridge originOptions');
