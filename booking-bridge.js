@@ -1,15 +1,15 @@
 /**
  * booking-bridge.js
- * Booking1 page adapter for /preview/publishedSchedule.
+ * Booking1 page adapter for /publishedSchedule.
  *
- * This file intentionally consumes the ERP preview contract. It does not read
+ * This file intentionally consumes the ERP published schedule contract. It does not read
  * routeData, publishedCatalog, settings/routes, or local static fare tables as
  * booking authority.
  */
 (function(global) {
   'use strict';
 
-  var PREVIEW_BASE_PATH = 'preview/publishedSchedule';
+  var PREVIEW_BASE_PATH = 'publishedSchedule';
   var AvailabilityCenter = global.SLTransitBookingAvailabilityCenter;
   var FareDecisionCenter = global.SLTransitFareDecisionCenter;
   if ((!AvailabilityCenter || !FareDecisionCenter) && typeof require === 'function') {
@@ -162,7 +162,7 @@
       _markReady();
       return _preview;
     }).catch(function(err) {
-      console.error('[BookingBridge] preview publishedSchedule load failed:', err);
+      console.error('[BookingBridge] publishedSchedule load failed:', err);
       _preview.originOptions = [];
       _preview.destinationOptionsByOrigin = {};
       _markReady();
@@ -306,7 +306,7 @@
       });
     }
     _lastFareContractStatus = trips.some(function(trip) { return trip.fareMissing; })
-      ? { status: 'missing_fare', missingField: 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
+        ? { status: 'missing_fare', missingField: 'publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
       : { status: 'ready' };
     if (global.SLTransitCalculatorCenter && typeof global.SLTransitCalculatorCenter.recommendedBookingTrips === 'function') {
       return global.SLTransitCalculatorCenter.recommendedBookingTrips({

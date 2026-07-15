@@ -49,6 +49,6 @@ const missing = center.decideFare({
 assert.equal(missing.status, 'NEEDS_CONTRACT_FIELD');
 assert.equal(missing.fareAmount, null);
 assert.equal(missing.totalAmount, null);
-assert.equal(missing.missingField, 'preview/publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount');
+assert.equal(missing.missingField, 'publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount');
 
 console.log('fare-decision-center ok');

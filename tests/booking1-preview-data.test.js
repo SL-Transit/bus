@@ -8,12 +8,12 @@ const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 
 const pos = fs.readFileSync(path.join(__dirname, '..', 'booking-pos.js'), 'utf8');
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 
-assert(bridge.includes("var PREVIEW_BASE_PATH = 'preview/publishedSchedule'"), 'Booking1 bridge must use preview/publishedSchedule');
+assert(bridge.includes("var PREVIEW_BASE_PATH = 'publishedSchedule'"), 'Booking1 bridge must use publishedSchedule');
 assert(bridge.includes(".child('originOptions').once('value')"), 'Booking1 must read originOptions as lightweight initial data');
 assert(bridge.includes(".child('destinationOptionsByOrigin').once('value')"), 'Booking1 must read destinationOptionsByOrigin as lightweight initial data');
 assert(bridge.includes(".child('pairs').child(storageKey).once('value')"), 'Booking1 must lazy-load only the selected pair');
-assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.once\s*\(/.test(bridge + booking1), 'Booking1 must not once-read full preview/publishedSchedule');
-assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.on\s*\(/.test(bridge + booking1), 'Booking1 must not subscribe to full preview/publishedSchedule');
+assert(!/db\.ref\(['"]publishedSchedule['"]\)\.once\s*\(/.test(bridge + booking1), 'Booking1 must not once-read full publishedSchedule');
+assert(!/db\.ref\(['"]publishedSchedule['"]\)\.on\s*\(/.test(bridge + booking1), 'Booking1 must not subscribe to full publishedSchedule');
 assert(!bridge.includes("db.ref('routeData')"), 'Booking1 bridge must not read legacy routeData');
 assert(!bridge.includes('SLTransitCatalog.loadPublished'), 'Booking1 bridge must not load legacy publishedCatalog');
 assert(!bridge.includes('LEG2_DEST'), 'Booking1 bridge must not use static leg2 destination/fare table');

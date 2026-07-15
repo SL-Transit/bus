@@ -16,8 +16,8 @@
  *
  * Covers:
  *   [1] Firebase bootstrap (currently old project, see rollback note above)
- *   [2] Firebase paths: passenger schedule preview reads use the
- *       preview/publishedSchedule contract; legacy route/catalog/vehicle
+ *   [2] Firebase paths: passenger schedule reads use the
+ *       publishedSchedule contract; legacy route/catalog/vehicle
  *       fallbacks are not used for Passenger Preview.
  *   [3] Map engine (Longdo Maps v3 — window.longdo, loaded via script tag in
  *       passenger.html) — Kalman filter, dead-reckoning prediction, marker/
@@ -233,8 +233,8 @@ function focusSelectedOrigin() {
 // shows what it gets back. All of that (isLeg2Dest / normalizeRouteAlias /
 // cleanRouteLabel / getLeg1TimesToTransferHub / disabled-time computation /
 // the legacy data/settings.routes parser) has been removed. Passenger now
-// reads one precomputed, ready-to-render node instead: preview/publishedSchedule
-// (schemaVersion publishedSchedule.v1.preview, ERP Data Center Round 2 preview
+// reads one precomputed, ready-to-render node instead: publishedSchedule
+// (schemaVersion publishedSchedule.v1, ERP Data Center active schedule
 // output -- dryRun/writesEnabled=false, readyForApply=false at the source).
 // Pair lookup key is "<originLabel>__<destLabel>", matching the generator's
 // compatibilityPairKey(). Only pairs in PUBLISHED_SCHEDULE.pairs are ever
@@ -865,7 +865,7 @@ function removeBusFromMap(carId) {
 
 
   // Passenger Preview no longer derives stop/order/map data from catalog
-  // adapters. Approved display data comes from the publishedSchedule preview
+  // adapters. Approved display data comes from the publishedSchedule
   // contract; live runtime views stay unavailable until a new path is approved.
   function applyUnifiedCatalog(catalog) {
     return catalog;

@@ -223,9 +223,10 @@ async function main() {
 
   const vehicleResolver = extractFunction(checkTicketSource, 'resolveVehicleForBooking');
   assert.equal(vehicleResolver.includes('orderedKeys'), false, 'check_ticket still scans unassigned vehicles');
-  assert.equal(vehicleResolver.includes("status: 'missing_assignment'"), true, 'check_ticket missing explicit no-assignment short circuit');
-  assert.equal(passengerSource.includes('function resolvePassengerTripAssignment'), true, 'passenger is not using the shared resolver');
-  assert.equal(extractFunction(passengerSource, 'choosePrimaryBus').includes('Number(pos.ts || 0) >'), false, 'passenger still guesses the newest vehicle');
+  assert.equal(vehicleResolver.includes("status: 'missing_assignment_contract'"), true, 'check_ticket missing explicit no-assignment short circuit');
+  assert.equal(passengerSource.includes("db.ref('publishedSchedule')"), true, 'passenger is not reading active publishedSchedule');
+  assert.equal(passengerSource.includes("db.ref('routeData')"), false, 'passenger still reads legacy routeData');
+  assert.equal(passengerSource.includes("db.ref('liveVehicles')"), false, 'passenger still reads legacy liveVehicles');
   assert.equal(extractFunction(checkTicketSource, 'resolveSharedScheduleAssignmentForBooking').includes('persistedVehicleId'), true, 'check_ticket does not prefer persisted assignment');
   assert.equal(driverSource.includes('bookingBelongsToVehicle(child, vehicleId)'), true, 'driver list is not filtered by planned vehicle');
   assert.equal(driverSource.includes('bookingBelongsToVehicle(snap, vehicleId)'), true, 'driver QR check-in does not validate planned vehicle');

@@ -434,8 +434,9 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes("operations/liveVehicles"), 'Passenger logic must not read operations/liveVehicles directly');
   assert(!logicSource.includes("db.ref('routeData')"), 'Passenger logic must not fallback-read legacy routeData');
   assert(!logicSource.includes('legacyRouteData'), 'Passenger logic must not derive route/map data from legacy catalog adapters');
-  assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.on\s*\(/.test(html), 'Passenger must not subscribe to full preview/publishedSchedule on initial load');
-  assert(!/db\.ref\(['"]preview\/publishedSchedule['"]\)\.once\s*\(/.test(html), 'Passenger must not once-read full preview/publishedSchedule on initial load');
+  assert(html.includes("db.ref('publishedSchedule')"), 'Passenger must read active publishedSchedule');
+  assert(!/db\.ref\(['"]publishedSchedule['"]\)\.on\s*\(/.test(html), 'Passenger must not subscribe to full publishedSchedule on initial load');
+  assert(!/db\.ref\(['"]publishedSchedule['"]\)\.once\s*\(/.test(html), 'Passenger must not once-read full publishedSchedule on initial load');
   assert(html.includes(".child('originOptions')"), 'Passenger must read originOptions as lightweight initial data');
   assert(html.includes(".child('destinationOptionsByOrigin')"), 'Passenger must read destinationOptionsByOrigin as lightweight initial data');
   assert(html.includes(".child('mapView')"), 'Passenger must read mapView as lightweight initial data');

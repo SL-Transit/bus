@@ -2995,6 +2995,31 @@ function resolveBookingTripAssignment(origin, dest, time, requiresTransfer, serv
       return { queueNo: shared.queueNo || '', plannedVehicleId: shared.plannedVehicleId || '', tripIndex: shared.tripIndex || '', departTime: shared.departTime || time, pickupTime: shared.pickupTime || time, pickupStopKey: shared.pickupStopKey || '', pickupStopName: shared.pickupStopName || '', routeDirection: shared.routeDirection || '', routeStops: shared.routeStops || [], routeStopNames: shared.routeStopNames || [], serviceType: shared.serviceType || 'normal', scheduleOnly: shared.scheduleOnly === true, noLiveTracking: shared.noLiveTracking === true, assignmentSource: shared.assignmentSource || '' };
     }
   }
+  if (publishedTimes.indexOf(time) !== -1 || (requiresTransfer && transferOriginTimes.indexOf(time) !== -1)) {
+    var fallbackOriginStopKey = normalizeBookingStopKey(originNameForSchedule);
+    var fallbackDestinationName = requiresTransfer ? ((LEG2_DEST[TRANSFER_POINT_KEY] && LEG2_DEST[TRANSFER_POINT_KEY].label) || TRANSFER_POINT_KEY) : destinationNameForSchedule;
+    var fallbackDestinationStopKey = normalizeBookingStopKey(fallbackDestinationName);
+    var fallbackOriginIndex = mainStopIndexForBooking(fallbackOriginStopKey);
+    var fallbackDestinationIndex = mainStopIndexForBooking(fallbackDestinationStopKey);
+    return {
+      queueNo: '',
+      plannedVehicleId: '',
+      tripIndex: '',
+      departTime: time,
+      pickupTime: time,
+      pickupStopKey: fallbackOriginStopKey,
+      pickupStopName: originNameForSchedule,
+      routeDirection: fallbackOriginIndex >= 0 && fallbackDestinationIndex >= 0 && fallbackOriginIndex !== fallbackDestinationIndex
+        ? (fallbackOriginIndex < fallbackDestinationIndex ? 'to_chachoengsao' : 'from_chachoengsao')
+        : '',
+      routeStops: [fallbackOriginStopKey, fallbackDestinationStopKey].filter(Boolean),
+      routeStopNames: [originNameForSchedule, fallbackDestinationName].filter(Boolean),
+      serviceType: 'schedule-only',
+      scheduleOnly: true,
+      noLiveTracking: true,
+      assignmentSource: 'booking_admin_published_schedule_fallback'
+    };
+  }
   return {};
 }
 

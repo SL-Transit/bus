@@ -853,8 +853,8 @@ function splitBalanced(arr) {
 
 // Passenger only renders what ERP's precomputed schedule node says — it does
 // not decide transfers, hubs, disabled times, or which pairs are reference-only
-// itself. It first reads lightweight preview options, then lazy-loads the
-// selected pair from preview/publishedSchedule/pairs/{pairKey}.
+// itself. It first reads lightweight published schedule options, then lazy-loads
+// the selected pair from publishedSchedule/pairs/{pairKey}.
 // See ai-handoffs/passenger-schedule-node-request.md.
 function renderSched() {
   const wrapper = document.getElementById('schedWrapper');
@@ -1077,11 +1077,11 @@ db.ref('settings').on('value', function(snap) {
   console.error('Passenger settings load failed:', err && err.message ? err.message : err);
 });
 
-// Precomputed, ready-to-render schedule -- ERP Data Center Round 2 preview.
+// Precomputed, ready-to-render schedule -- ERP Data Center active schedule.
 // Register this before map/catalog/vehicle feeds so dropdowns become usable as
 // soon as lightweight option data arrives; pair details are loaded on demand.
-(function initPublishedSchedulePreview() {
-  const scheduleBaseRef = db.ref('preview/publishedSchedule');
+(function initPublishedSchedule() {
+  const scheduleBaseRef = db.ref('publishedSchedule');
   const scheduleApi = SLPassengerLogic.schedule;
 
   if (typeof scheduleApi.setPairLoader === 'function') {
@@ -1128,7 +1128,7 @@ db.ref('settings').on('value', function(snap) {
     };
     scheduleApi.applyPublishedScheduleOptions(optionNode);
   }).catch(function(err) {
-    console.error('Passenger preview/publishedSchedule option load failed:', err && err.message ? err.message : err);
+    console.error('Passenger publishedSchedule option load failed:', err && err.message ? err.message : err);
     scheduleApi.applyPublishedScheduleOptions({ loadError: true, originOptions: [], destinationOptionsByOrigin: {} });
   });
 })();

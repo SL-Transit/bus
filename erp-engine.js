@@ -29,6 +29,46 @@
     return String(value || '').replace(/\s+/g, '').replace(/[().]/g, '').toLowerCase();
   }
 
+  var CANONICAL_MAIN_STOP_ORDER = [
+    ['ฉะเชิงเทรา', 'ฉะเชิงเทราแปดริ้ว', 'แปดริ้ว'],
+    ['พนมสารคาม'],
+    ['ท่ารถสนามชัยเขต', 'สนามชัยเขต'],
+    ['กม1'],
+    ['กม7'],
+    ['ห้วยโสม'],
+    ['ท่าตะเกียบ'],
+    ['หนองคอก'],
+    ['คลองตะเคียน'],
+    ['หนองเรือ'],
+    ['ไพรจิต', 'ไพจิตร'],
+    ['ทุ่งกบินทร์'],
+    ['สี่แยกโคนม'],
+    ['วังน้ำเย็น'],
+    ['คลองหาด']
+  ].map(function(aliases, index) {
+    return {
+      order: index + 1,
+      aliases: aliases.map(cleanStopLabel)
+    };
+  });
+
+  function canonicalMainStopOrderValue(clean, fallbackValue) {
+    for (var i = 0; i < CANONICAL_MAIN_STOP_ORDER.length; i++) {
+      var item = CANONICAL_MAIN_STOP_ORDER[i];
+      for (var j = 0; j < item.aliases.length; j++) {
+        var alias = item.aliases[j];
+        if (/^กม\d+$/.test(alias) || /^กม\d+$/.test(clean)) {
+          if (clean === alias) return item.order;
+          continue;
+        }
+        if (clean === alias || (alias.length >= 3 && (clean.indexOf(alias) !== -1 || alias.indexOf(clean) !== -1))) {
+          return item.order;
+        }
+      }
+    }
+    return fallbackValue;
+  }
+
   function stopCache() {
     return global.SLTransit && global.SLTransit._stopsCache || {};
   }
@@ -58,7 +98,7 @@
       }
       return false;
     });
-    return found;
+    return found === fallbackValue ? canonicalMainStopOrderValue(clean, fallbackValue) : found;
   }
 
   function canonicalStopOrder() {
