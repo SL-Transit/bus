@@ -154,6 +154,24 @@ const CORRIDOR = Object.freeze([
   { code: 'g01p015', stopKey: 'klonghat', displayNameTh: 'คลองหาด', aliases: ['khlonghat'] }
 ]);
 const CORRIDOR_BY_STOP_KEY = new Map(CORRIDOR.map((entry) => [entry.stopKey, entry]));
+const OWNER_WORKBOOK_STOP_SHEET = '01_ข้อมูลป้ายกลาง';
+const OWNER_WORKBOOK_STOPS = Object.freeze({
+  klonghat: Object.freeze({ lat: 13.453565, lng: 102.299330, icon: '\u{1F68F}', workbookStopKey: 'klonghat', row: 2, workbookOrder: 1 }),
+  wangnamyen: Object.freeze({ lat: 13.518022, lng: 102.173944, icon: '\u{1F68F}', workbookStopKey: 'wangnamyen', row: 3, workbookOrder: 2 }),
+  siyaekkhonom: Object.freeze({ lat: 13.436666, lng: 102.200895, icon: '\u{1F68F}', workbookStopKey: 'siyaekkhonom', row: 4, workbookOrder: 3 }),
+  thoengkabintr: Object.freeze({ lat: 13.439877, lng: 102.083043, icon: '\u{1F68F}', workbookStopKey: 'thoengkabintr', row: 5, workbookOrder: 4 }),
+  phaijit: Object.freeze({ lat: 13.416310, lng: 102.020767, icon: '\u{1F68F}', workbookStopKey: 'phaijit', row: 6, workbookOrder: 5 }),
+  nongruea: Object.freeze({ lat: 13.420494, lng: 101.995365, icon: '\u{1F68F}', workbookStopKey: 'nongruea', row: 7, workbookOrder: 6 }),
+  khlongtakien: Object.freeze({ lat: 13.420264, lng: 101.765445, icon: '\u{1F68F}', workbookStopKey: 'khlongtakien', row: 8, workbookOrder: 7 }),
+  nongkhok: Object.freeze({ lat: 13.381579, lng: 101.708016, icon: '\u{1F68F}', workbookStopKey: 'nongkhok', row: 9, workbookOrder: 8 }),
+  tatakiab: Object.freeze({ lat: 13.443342, lng: 101.610222, icon: '\u{1F68F}', workbookStopKey: 'tatakiab', row: 10, workbookOrder: 9 }),
+  huaisom: Object.freeze({ lat: 13.498219, lng: 101.537783, icon: '\u{1F68F}', workbookStopKey: 'huaisom', row: 11, workbookOrder: 10 }),
+  km_7: Object.freeze({ lat: 13.529181, lng: 101.497615, icon: '\u{1F68F}', workbookStopKey: 'km_7', row: 12, workbookOrder: 11 }),
+  km_1: Object.freeze({ lat: 13.572126, lng: 101.450481, icon: '\u{1F68F}', workbookStopKey: 'km_1', row: 13, workbookOrder: 12 }),
+  sanamchaikhet: Object.freeze({ lat: 13.659022, lng: 101.437482, icon: '\u{1F68F}', workbookStopKey: 'sanamchai', row: 14, workbookOrder: 13 }),
+  phanom: Object.freeze({ lat: 13.745082, lng: 101.355993, icon: '\u{1F68F}', workbookStopKey: 'phanom', row: 15, workbookOrder: 14 }),
+  chachoengsao: Object.freeze({ lat: 13.692477, lng: 101.054105, icon: '\u{1F68F}', workbookStopKey: 'chachoengsao', row: 16, workbookOrder: 15 })
+});
 const ROUTE_SEQUENCE_DEFINITIONS = Object.freeze({
   rsv_000001: ['g01p003', 'g01p002', 'g01p001'],
   rsv_000002: CORRIDOR.map((entry) => entry.code),
@@ -301,6 +319,16 @@ function buildLineage(sourcePath, sourceId, notes) {
   };
 }
 
+function buildOwnerWorkbookStopLineage(workbookStop, fieldRange, notes) {
+  return {
+    sourceSystem: 'owner_workbook',
+    sourcePath: `${OWNER_WORKBOOK_STOP_SHEET}!${fieldRange}${workbookStop.row}`,
+    sourceId: workbookStop.workbookStopKey,
+    importedBy: 'erp-data-center-dry-run-snapshot',
+    notes
+  };
+}
+
 function classifyDestination(key) {
   if (PRIMARY_STOP_KEYS.has(key)) return 'primary_stop';
   if (key === 'nongkhok') return 'pass_through';
@@ -390,6 +418,10 @@ function buildNetworkModel(destinations, stops) {
       displayNameTh: corridorEntry.displayNameTh,
       lat: stops[destinationId].lat,
       lng: stops[destinationId].lng,
+      icon: stops[destinationId].icon,
+      workbookStopKey: stops[destinationId].workbookStopKey,
+      workbookRow: stops[destinationId].workbookRow,
+      workbookOrder: stops[destinationId].workbookOrder,
       aliases: corridorEntry.aliases.slice(),
       corridorPosition: Number(corridorEntry.code.slice(-3)),
       capabilities: {
@@ -417,8 +449,22 @@ function buildStops(routeData) {
   orderedValues(routeData.stops).forEach((stop, index) => {
     const stopKey = normalizeStopKey(stop.stopKey || stop.key || stop.id);
     const displayNameTh = cleanLabel(stop.stopNameTh || stop.nameTh || stop.name || stopKey);
-    const lat = Number(stop.lat);
-    const lng = Number(stop.lng);
+    const workbookStop = OWNER_WORKBOOK_STOPS[stopKey];
+    const lat = workbookStop ? Number(workbookStop.lat) : Number(stop.lat);
+    const lng = workbookStop ? Number(workbookStop.lng) : Number(stop.lng);
+    const sourceLineage = [buildLineage(`routeData/stops/${stop.stopKey || stop.key || index}`, stopKey, 'source-proven exact stop')];
+    if (workbookStop) {
+      sourceLineage.push(buildOwnerWorkbookStopLineage(
+        workbookStop,
+        `D${workbookStop.row}:E`,
+        'ERP Data Center stop latitude/longitude from owner workbook columns ละติจูด/ลองจิจูด'
+      ));
+      sourceLineage.push(buildOwnerWorkbookStopLineage(
+        workbookStop,
+        'F',
+        'ERP Data Center stop icon from owner workbook column ไอคอน'
+      ));
+    }
     stops[stopKey] = {
       stopKey,
       nameTh: displayNameTh,
@@ -426,9 +472,13 @@ function buildStops(routeData) {
       order: Number(stop.order || index + 1),
       lat: Number.isFinite(lat) ? lat : null,
       lng: Number.isFinite(lng) ? lng : null,
+      icon: workbookStop ? workbookStop.icon : String(stop.icon || '').trim() || undefined,
+      workbookStopKey: workbookStop ? workbookStop.workbookStopKey : undefined,
+      workbookRow: workbookStop ? workbookStop.row : undefined,
+      workbookOrder: workbookStop ? workbookStop.workbookOrder : undefined,
       classification: classifyDestination(stopKey),
       status: 'active',
-      sourceLineage: [buildLineage(`routeData/stops/${stop.stopKey || stop.key || index}`, stopKey, 'source-proven exact stop')]
+      sourceLineage
     };
   });
   return stops;
@@ -1440,6 +1490,43 @@ function validateReferences(erp) {
     if (!Number.isFinite(groupStop.lat) || !Number.isFinite(groupStop.lng)) block('group-stop-coordinates-missing', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`);
     if (groupStop.stopRole || groupStop.waitingPolicy || groupStop.conditionalWaitingPoint === true) block('global-group-stop-operational-role-forbidden', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`);
   });
+  Object.keys(OWNER_WORKBOOK_STOPS).forEach((stopKey) => {
+    const expected = OWNER_WORKBOOK_STOPS[stopKey];
+    const stop = stops[stopKey];
+    const corridorEntry = CORRIDOR_BY_STOP_KEY.get(stopKey);
+    const groupStop = corridorEntry && groupStopByCode[corridorEntry.code];
+    const coordinateLineageRegex = new RegExp(`^${OWNER_WORKBOOK_STOP_SHEET}!D${expected.row}:E${expected.row}$`);
+    const iconLineageRegex = new RegExp(`^${OWNER_WORKBOOK_STOP_SHEET}!F${expected.row}$`);
+    if (!stop) {
+      block('erp-data-center-workbook-stop-missing', 'data/erpDataCenter/stops', { stopKey });
+      return;
+    }
+    if (Math.abs(Number(stop.lat) - expected.lat) > 0.000001 || Math.abs(Number(stop.lng) - expected.lng) > 0.000001) {
+      block('erp-data-center-stop-coordinate-mismatch', `data/erpDataCenter/stops/${stopKey}`, {
+        expected: { lat: expected.lat, lng: expected.lng },
+        actual: { lat: stop.lat, lng: stop.lng }
+      });
+    }
+    if (stop.icon !== expected.icon) {
+      block('erp-data-center-stop-icon-mismatch', `data/erpDataCenter/stops/${stopKey}/icon`, { expected: expected.icon, actual: stop.icon });
+    }
+    if (!Array.isArray(stop.sourceLineage) || !stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && coordinateLineageRegex.test(lineage.sourcePath || ''))) {
+      block('erp-data-center-stop-coordinate-lineage-missing', `data/erpDataCenter/stops/${stopKey}/sourceLineage`);
+    }
+    if (!Array.isArray(stop.sourceLineage) || !stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && iconLineageRegex.test(lineage.sourcePath || ''))) {
+      block('erp-data-center-stop-icon-lineage-missing', `data/erpDataCenter/stops/${stopKey}/sourceLineage`);
+    }
+    if (!groupStop) {
+      block('erp-data-center-workbook-group-stop-missing', 'data/erpDataCenter/groupStops', { stopKey, groupStopCode: corridorEntry && corridorEntry.code });
+      return;
+    }
+    if (Math.abs(Number(groupStop.lat) - expected.lat) > 0.000001 || Math.abs(Number(groupStop.lng) - expected.lng) > 0.000001 || groupStop.icon !== expected.icon) {
+      block('erp-data-center-group-stop-workbook-mismatch', `data/erpDataCenter/groupStops/${groupStop.groupStopId}`, {
+        expected: { lat: expected.lat, lng: expected.lng, icon: expected.icon },
+        actual: { lat: groupStop.lat, lng: groupStop.lng, icon: groupStop.icon }
+      });
+    }
+  });
   Object.values(networkNodes).forEach((node) => {
     if (node.stopRole || node.waitingPolicy || node.conditionalWaitingPoint === true) block('global-network-node-operational-role-forbidden', `data/erpDataCenter/networkNodes/${node.nodeId}`);
   });
@@ -1931,6 +2018,7 @@ if (require.main === module) {
 module.exports = {
   STARTING_SHA,
   TARGET_COUNTS,
+  OWNER_WORKBOOK_STOPS,
   buildDryRunSnapshot,
   buildStableIdRegistry,
   resolveStableIdFromRegistry,

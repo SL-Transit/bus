@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const { buildDryRunSnapshot } = require('./erp-data-center-dry-run-snapshot.js');
+const { buildDryRunSnapshot, OWNER_WORKBOOK_STOPS } = require('./erp-data-center-dry-run-snapshot.js');
 const ROAD_POLYLINE_POINTS = require('./published-schedule-map-road-polyline.json');
 
 const ESTIMATED_BADGE_TH = 'เวลาโดยประมาณ';
@@ -124,23 +124,6 @@ TRANSFER_POLICY.sourceWorkbook = OWNER_WORKBOOK_INTERPRETATION.sourceWorkbook;
 const EXTERNAL_SERVICE_DISCLAIMER_KEY = 'external_service_confirm_outside_sl_transit';
 const EXTERNAL_SERVICE_DISCLAIMER_TH = 'บริการหรือค่าโดยสารนี้ต้องชำระหรือยืนยันภายนอกระบบ SL-Transit';
 const FORBIDDEN_OPERATIONAL_FIELDS = ['gps', 'eta', 'vehicleId', 'assignmentId', 'liveVehicleId', 'liveTrackingAvailable', 'driverId'];
-const OWNER_WORKBOOK_STOPS = {
-  klonghat: { lat: 13.453565, lng: 102.299330, icon: '\u{1F68F}', workbookStopKey: 'klonghat', row: 2, workbookOrder: 1 },
-  wangnamyen: { lat: 13.518022, lng: 102.173944, icon: '\u{1F68F}', workbookStopKey: 'wangnamyen', row: 3, workbookOrder: 2 },
-  siyaekkhonom: { lat: 13.436666, lng: 102.200895, icon: '\u{1F68F}', workbookStopKey: 'siyaekkhonom', row: 4, workbookOrder: 3 },
-  thoengkabintr: { lat: 13.439877, lng: 102.083043, icon: '\u{1F68F}', workbookStopKey: 'thoengkabintr', row: 5, workbookOrder: 4 },
-  phaijit: { lat: 13.416310, lng: 102.020767, icon: '\u{1F68F}', workbookStopKey: 'phaijit', row: 6, workbookOrder: 5 },
-  nongruea: { lat: 13.420494, lng: 101.995365, icon: '\u{1F68F}', workbookStopKey: 'nongruea', row: 7, workbookOrder: 6 },
-  khlongtakien: { lat: 13.420264, lng: 101.765445, icon: '\u{1F68F}', workbookStopKey: 'khlongtakien', row: 8, workbookOrder: 7 },
-  nongkhok: { lat: 13.381579, lng: 101.708016, icon: '\u{1F68F}', workbookStopKey: 'nongkhok', row: 9, workbookOrder: 8 },
-  tatakiab: { lat: 13.443342, lng: 101.610222, icon: '\u{1F68F}', workbookStopKey: 'tatakiab', row: 10, workbookOrder: 9 },
-  huaisom: { lat: 13.498219, lng: 101.537783, icon: '\u{1F68F}', workbookStopKey: 'huaisom', row: 11, workbookOrder: 10 },
-  km_7: { lat: 13.529181, lng: 101.497615, icon: '\u{1F68F}', workbookStopKey: 'km_7', row: 12, workbookOrder: 11 },
-  km_1: { lat: 13.572126, lng: 101.450481, icon: '\u{1F68F}', workbookStopKey: 'km_1', row: 13, workbookOrder: 12 },
-  sanamchaikhet: { lat: 13.659022, lng: 101.437482, icon: '\u{1F68F}', workbookStopKey: 'sanamchai', row: 14, workbookOrder: 13 },
-  phanom: { lat: 13.745082, lng: 101.355993, icon: '\u{1F68F}', workbookStopKey: 'phanom', row: 15, workbookOrder: 14 },
-  chachoengsao: { lat: 13.692477, lng: 101.054105, icon: '\u{1F68F}', workbookStopKey: 'chachoengsao', row: 16, workbookOrder: 15 }
-};
 const PREVIEW_MAP_COORDINATES = Object.keys(OWNER_WORKBOOK_STOPS).reduce((map, stopKey) => {
   map[stopKey] = { lat: OWNER_WORKBOOK_STOPS[stopKey].lat, lng: OWNER_WORKBOOK_STOPS[stopKey].lng };
   return map;
@@ -212,32 +195,17 @@ function transferPolicyEvidence() {
 }
 
 function previewMapSourceLineage(stopKey, stop) {
-  const workbookStop = OWNER_WORKBOOK_STOPS[stopKey];
-  const iconSource = OWNER_WORKBOOK_STOP_ICONS[stopKey];
   return [
     {
       sourceSystem: 'erp_preview_contract',
       sourcePath: `data/erpDataCenter/groupStops/${stop.groupStopId}`,
       sourceId: stop.groupStopId,
       importedBy: 'published-schedule-v1-dry-run',
-      notes: 'group_001 corridor stop identity and display order'
-    },
-    {
-      sourceSystem: 'owner_workbook',
-      sourcePath: `${OWNER_WORKBOOK_INTERPRETATION.sheets.stops}!D${workbookStop ? workbookStop.row : '?'}:E${workbookStop ? workbookStop.row : '?'}`,
-      sourceId: workbookStop ? workbookStop.workbookStopKey : stopKey,
-      importedBy: 'published-schedule-v1-dry-run',
-      notes: 'Passenger Preview stop latitude/longitude from owner workbook columns ละติจูด/ลองจิจูด; not GPS, ETA, vehicle, or operational proof'
-    },
-    {
-      sourceSystem: 'owner_workbook',
-      sourcePath: `${OWNER_WORKBOOK_INTERPRETATION.sheets.stops}!F${iconSource ? iconSource.row : '?'}`,
-      sourceId: iconSource ? iconSource.workbookStopKey : stopKey,
-      importedBy: 'published-schedule-v1-dry-run',
-      notes: 'Passenger Preview stop icon from owner workbook column ไอคอน'
+      notes: 'ERP Map stop identity, coordinates, icon, and display order come from ERP Data Center'
     }
   ].concat(stop.sourceLineage || []);
 }
+
 
 function buildMapView(erp) {
   const stopsByGroupStopId = values(erp.stops).reduce((map, stop) => {
@@ -249,9 +217,9 @@ function buildMapView(erp) {
     .sort((a, b) => Number(a.corridorPosition) - Number(b.corridorPosition));
   const stops = corridorStops.map((groupStop, index) => {
     const stop = stopsByGroupStopId[groupStop.groupStopId] || {};
-    const stopKey = stop.stopKey || (groupStop.sourceLineage && groupStop.sourceLineage[0] && groupStop.sourceLineage[0].sourceId) || groupStop.groupStopCode;
-    const coord = PREVIEW_MAP_COORDINATES[stopKey] || {};
-    const iconSource = OWNER_WORKBOOK_STOP_ICONS[stopKey] || {};
+    const stopKey = stop.stopKey || groupStop.workbookStopKey || (groupStop.sourceLineage && groupStop.sourceLineage[0] && groupStop.sourceLineage[0].sourceId) || groupStop.groupStopCode;
+    const lat = Number(groupStop.lat);
+    const lng = Number(groupStop.lng);
     return {
       stopKey,
       nodeId: groupStop.nodeId,
@@ -259,10 +227,10 @@ function buildMapView(erp) {
       groupStopCode: groupStop.groupStopCode,
       label: groupStop.displayNameTh || stop.displayNameTh || stop.nameTh || stopKey,
       displayOrder: index,
-      lat: coord.lat,
-      lng: coord.lng,
-      icon: iconSource.icon,
-      visible: coord.lat != null && coord.lng != null,
+      lat,
+      lng,
+      icon: groupStop.icon || stop.icon,
+      visible: Number.isFinite(lat) && Number.isFinite(lng),
       previewDisplayMode: 'static_map_reference',
       referenceOnly: true,
       sourceLineage: previewMapSourceLineage(stopKey, groupStop)

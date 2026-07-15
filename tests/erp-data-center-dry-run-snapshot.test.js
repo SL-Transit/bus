@@ -3,6 +3,7 @@
 const {
   STARTING_SHA,
   TARGET_COUNTS,
+  OWNER_WORKBOOK_STOPS,
   buildDryRunSnapshot,
   validateReferences
 } = require('../tools/erp-data-center-dry-run-snapshot.js');
@@ -68,6 +69,21 @@ const EXPECTED_TRIP_MAPPINGS = {
   });
   assert(!erp.trips, '820 schedule offer records must not be physical trips');
   assert(Object.keys(erp.scheduleOffers).length === 820, 'must have 820 schedule offers');
+  Object.keys(OWNER_WORKBOOK_STOPS).forEach((stopKey) => {
+    const expected = OWNER_WORKBOOK_STOPS[stopKey];
+    const stop = erp.stops[stopKey];
+    assert(stop, `ERP Data Center missing owner workbook stop ${stopKey}`);
+    assert(Math.abs(Number(stop.lat) - expected.lat) < 0.000001, `ERP stop latitude must match Excel for ${stopKey}`);
+    assert(Math.abs(Number(stop.lng) - expected.lng) < 0.000001, `ERP stop longitude must match Excel for ${stopKey}`);
+    assert(stop.icon === expected.icon, `ERP stop icon must match Excel for ${stopKey}`);
+    assert(stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && lineage.sourcePath === `01_ข้อมูลป้ายกลาง!D${expected.row}:E${expected.row}`), `ERP stop coordinate workbook lineage missing for ${stopKey}`);
+    assert(stop.sourceLineage.some((lineage) => lineage.sourceSystem === 'owner_workbook' && lineage.sourcePath === `01_ข้อมูลป้ายกลาง!F${expected.row}`), `ERP stop icon workbook lineage missing for ${stopKey}`);
+    const groupStop = values(erp.groupStops).find((candidate) => candidate.workbookStopKey === expected.workbookStopKey || candidate.groupStopCode === `g01p${String(16 - expected.workbookOrder).padStart(3, '0')}`);
+    assert(groupStop, `ERP groupStop missing owner workbook stop ${stopKey}`);
+    assert(Math.abs(Number(groupStop.lat) - expected.lat) < 0.000001, `ERP groupStop latitude must match Excel for ${stopKey}`);
+    assert(Math.abs(Number(groupStop.lng) - expected.lng) < 0.000001, `ERP groupStop longitude must match Excel for ${stopKey}`);
+    assert(groupStop.icon === expected.icon, `ERP groupStop icon must match Excel for ${stopKey}`);
+  });
   assert(JSON.stringify(result.validation.mappingStatusSummary) === JSON.stringify({ mapped_queue_trip: 353, estimated_schedule: 73, departure_only: 262, external_schedule: 132, needs_review: 0 }), 'schedule offer mapping summary mismatch');
   assert(JSON.stringify(result.validation.mappingStatusByGroup) === JSON.stringify({
     group_001: { mapped_queue_trip: 353, estimated_schedule: 73, departure_only: 0, external_schedule: 0, needs_review: 0 },
