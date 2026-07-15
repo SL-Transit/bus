@@ -18,11 +18,11 @@ android {
         versionCode 36
         versionName "1.35"
         buildConfigField "String", "SL_TRANSIT_FIREBASE_API_KEY",
-                firebaseString("SL_TRANSIT_FIREBASE_API_KEY", "TODO_FROM_FIREBASE_CONSOLE")
+                firebaseString("SL_TRANSIT_FIREBASE_API_KEY", "AIzaSyCkIm74ysuQ9Y2tFP9VkrGNvGg0a_LqeGg")
         buildConfigField "String", "SL_TRANSIT_FIREBASE_APP_ID",
-                firebaseString("SL_TRANSIT_FIREBASE_APP_ID", "TODO_FROM_FIREBASE_CONSOLE")
+                firebaseString("SL_TRANSIT_FIREBASE_APP_ID", "1:480076551107:android:f5929194925bc19fbfe376")
         buildConfigField "String", "SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID",
-                firebaseString("SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID", "TODO_FROM_FIREBASE_CONSOLE")
+                firebaseString("SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID", "480076551107")
         buildConfigField "String", "SL_TRANSIT_FIREBASE_PROJECT_ID",
                 firebaseString("SL_TRANSIT_FIREBASE_PROJECT_ID", "sl-transit-9464e")
         buildConfigField "String", "SL_TRANSIT_FIREBASE_DATABASE_URL",

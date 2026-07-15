@@ -232,7 +232,7 @@ async function sendLineForBooking(ref, code, booking) {
 
 exports.sendLineOnBooking = onValueCreated({
   ref: "/bookings/{code}",
-  instance: "bus-booking-1d68c-default-rtdb",
+  instance: "sl-transit-9464e-default-rtdb",
   region: "us-central1",
   secrets: [lineToken, bookingLineTo, checkinLineTo],
   timeoutSeconds: 60,
@@ -246,7 +246,7 @@ exports.sendLineOnBooking = onValueCreated({
 
 exports.sendLineOnPaymentVerified = onValueUpdated({
   ref: "/bookings/{code}",
-  instance: "bus-booking-1d68c-default-rtdb",
+  instance: "sl-transit-9464e-default-rtdb",
   region: "us-central1",
   secrets: [lineToken, bookingLineTo, checkinLineTo],
   timeoutSeconds: 60,

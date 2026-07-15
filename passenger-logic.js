@@ -5,9 +5,7 @@
  * passenger.html contains UX/UI only. All data access, Firebase paths,
  * and the map engine live here.
  *
- * *** TEMPORARY COMPATIBILITY ROLLBACK IN EFFECT *** — see FIREBASE_CONFIG
- * below and ai-handoffs/CENTRAL-REPORT.md. Currently pointed at the old
- * Firebase project (bus-booking-1d68c), same as booking.html/check_ticket.html.
+ * Firebase project: sl-transit-9464e, same active project used by booking/check ticket.
  *
  * Governing principle (owner directive): passenger.html is a display-only
  * counter. It has no business logic or hard-coded rules of its own — it
@@ -15,7 +13,7 @@
  * independently classify, restrict, or compute schedule/transfer decisions.
  *
  * Covers:
- *   [1] Firebase bootstrap (currently old project, see rollback note above)
+ *   [1] Firebase bootstrap (active project: sl-transit-9464e)
  *   [2] Firebase paths: passenger schedule reads use the
  *       publishedSchedule contract; legacy route/catalog/vehicle
  *       fallbacks are not used for Passenger Preview.
@@ -39,13 +37,13 @@
   'use strict';
 
   var FIREBASE_CONFIG = {
-    apiKey: "AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw",
-    authDomain: "bus-booking-1d68c.firebaseapp.com",
-    databaseURL: "https://bus-booking-1d68c-default-rtdb.firebaseio.com",
-    projectId: "bus-booking-1d68c",
-    storageBucket: "bus-booking-1d68c.firebasestorage.app",
-    messagingSenderId: "481251007816",
-    appId: "1:481251007816:web:d8554178d954e7de16e77d"
+    apiKey: "AIzaSyCkIm74ysuQ9Y2tFP9VkrGNvGg0a_LqeGg",
+    authDomain: "sl-transit-9464e.firebaseapp.com",
+    databaseURL: "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "sl-transit-9464e",
+    storageBucket: "sl-transit-9464e.firebasestorage.app",
+    messagingSenderId: "480076551107",
+    appId: "1:480076551107:android:f5929194925bc19fbfe376"
   };
 
   var _app = null;

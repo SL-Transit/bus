@@ -53,6 +53,10 @@
         ".write": "auth != null"
       }
     },
+    "publishedSchedule": {
+      ".read": true,
+      ".write": "auth != null"
+    },
     "admin": {
       ".read": "auth != null",
       ".write": "auth != null"
