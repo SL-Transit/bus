@@ -80,7 +80,6 @@
 
   function tripBadges(trip) {
     var badges = '';
-    if (trip.scheduleOnly) badges += '<span class="trip-time-badge badge-schedule">schedule only</span>';
     if (trip.displayBadgeTh) badges += '<span class="trip-time-badge badge-schedule">' + esc(trip.displayBadgeTh) + '</span>';
     if (trip.referenceOnly) badges += '<span class="trip-time-badge badge-schedule">reference</span>';
     if (trip.externalPaymentRequired) badges += '<span class="trip-time-badge badge-schedule">external pay</span>';
@@ -204,7 +203,6 @@
       + tripBadges(best) + '</div></div>'
       + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText(best) + '</span></div>'
       + transferDetailHtml(best)
-      + '<div class="trip-meta"><div class="trip-meta-item"><img class="icon-img" src="assets/241.png" alt="route" style="width:13px;height:13px;"> ERP Data Center pair: ' + esc(best.pairKey || '-') + '</div><div class="trip-meta-item">No live vehicle tracking</div></div>'
       + noteHtml(best)
       + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
 

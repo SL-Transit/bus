@@ -110,7 +110,10 @@ assert(adapter.includes('selected.selectionAllowed'), 'Booking1 adapter must let
 assert(!adapter.includes('selected.bookingAllowed'), 'Booking1 adapter page navigation must not be blocked by production bookingAllowed');
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
-assert(adapter.includes('No live vehicle tracking'), 'Booking1 adapter must expose schedule-only/no-live-tracking behavior');
+assert(bridge.includes('liveTrackingAvailable: false'), 'Booking1 bridge must keep schedule-only/no-live-tracking state internally');
+assert(!adapter.includes('No live vehicle tracking'), 'Booking1 adapter must not show no-live-tracking technical text to passengers');
+assert(!adapter.includes('schedule only'), 'Booking1 adapter must not show schedule-only technical text to passengers');
+assert(!adapter.includes('ERP Data Center pair:'), 'Booking1 adapter must not show ERP pair technical text to passengers');
 assert(!adapter.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 adapter trip selection must not use legacy capacity continuation');
 assert(!adapter.includes('= 55'), 'Booking1 adapter must not fabricate 55-baht fare');
 assert(!adapter.includes("= '09:00'"), 'Booking1 adapter must not fabricate default 09:00 trips');

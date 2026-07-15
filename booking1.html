@@ -2345,7 +2345,6 @@ function renderTrips() {
     + '<div class="trip-time-wrap">'
     + '<span class="trip-time">' + best.label + '</span>'
     + '<span class="trip-time-badge badge-recommend">⭐ เที่ยวแนะนำ</span>'
-    + (best.scheduleOnly ? '<span class="trip-time-badge badge-schedule">ตารางเวลา</span>' : '')
     + '</div>'
     + '</div>'
 
@@ -2421,7 +2420,6 @@ function renderTrips() {
         + '<div class="trip-compact-row">'
         + '<div class="trip-compact-left">'
         + '<span class="trip-time-compact">' + trip.label + '</span>'
-        + (trip.scheduleOnly ? '<span class="trip-time-badge badge-schedule" style="font-size:9px;padding:1px 5px;">ตารางเวลา</span>' : '')
         + '<div class="trip-compact-route">'
         + (state.originName||'ต้นทาง') + ' → '
         + (tHasTransfer ? 'แปดริ้ว' : (state.destName||'ปลายทาง'))
