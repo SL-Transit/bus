@@ -40,6 +40,9 @@ jobs:
           KEYSTORE_PATH: keystore.jks
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SL_TRANSIT_FIREBASE_API_KEY: ${{ secrets.SL_TRANSIT_FIREBASE_API_KEY }}
+          SL_TRANSIT_FIREBASE_APP_ID: ${{ secrets.SL_TRANSIT_FIREBASE_APP_ID }}
+          SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID }}
         run: gradle :driver-android:assembleRelease
 
       - name: Upload APK
