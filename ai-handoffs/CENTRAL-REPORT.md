@@ -44,6 +44,45 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-15 22:16 +07 (Asia/Bangkok) - Supervisor AI / Check Ticket Preview Contract - REVIEW
+
+Scope:
+- `tools/erp-logic-center-dry-run.js`
+- `tests/erp-logic-center-check-ticket-preview.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Added pure `check_ticket_preview_v1` contract production in ERP Logic Center without wiring any page or runtime path.
+- Requires approved preview safety flags, a Booking Preview snapshot, selected trip, matching `publishedSchedule` pair/time, fare contract, and explicit assignment contract.
+- Produces ready-to-render ticket, journey, fare, assignment, check-in, transfer, ETA-source, journey-status, and notification-intent fields without inferring route groups from labels or selecting a vehicle locally.
+- Missing dependencies, mismatched pair/time, incomplete live assignment, incomplete fare, or unsafe preview flags return explicit blockers and `readyForDisplay=false`.
+- Every operational action remains false; the contract has no target path and cannot create/update/cancel/check in a ticket or deliver a notification.
+
+Evidence:
+- Implementation started from main `03b4fcbd886464413bf84d2bb22dfd31efaeb667`, then was fast-forwarded and re-tested against latest inspected main `a4f4112da0342e260689695954dfc5715f948692`.
+- Commit: none; local review only, awaiting owner approval.
+- Actions: not run; nothing pushed.
+- Pages: not run; nothing pushed.
+- Tests: syntax checks; `erp-logic-center-check-ticket-preview.test.js`; existing ERP Logic Center ticket, transfer, and booking-availability tests; scoped `git diff --check`.
+
+Safety:
+- Firebase writes: none.
+- Seed applied: no.
+- Production apply: no.
+- Page/runtime behavior changed: no.
+- Real passenger, booking, ticket, GPS, vehicle, payment, notification, LINE, operational, and private data touched: none.
+- Test inputs are synthetic contract objects only.
+- `check_ticket.html`, Booking pages, Driver App, `database.rules.json`, and paused driver identity/read-rule work: untouched.
+
+Blockers:
+- Runtime Check Ticket Preview remains blocked until an approved handoff supplies the Booking snapshot, selected trip, and matching preview pair to this contract.
+- Latest inspected main `a4f4112da0342e260689695954dfc5715f948692` has Booking reading top-level `/publishedSchedule`, while `MAIN-AI-DASHBOARD.md` still approves only `preview/publishedSchedule` and records top-level `/publishedSchedule` as intentionally unwritten. Therefore current Booking output is not yet an approved runtime handoff for this contract.
+- The existing operational `check_ticket.html` is not wired by this pure-contract pass.
+
+Next action:
+- Owner reviews the local pure contract, then explicitly approves a scoped commit if accepted. Page wiring requires a separate approval and must remain preview-only/no-write.
+
 ## 2026-07-14 15:30 +07 (Asia/Bangkok) - Supervisor AI / Check Ticket Alert Center - REVIEW
 
 Scope:

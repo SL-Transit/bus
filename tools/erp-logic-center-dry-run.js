@@ -221,6 +221,260 @@ function classifyEtaSource(input) {
   };
 }
 
+function cleanText(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function timeValue(entry) {
+  entry = entry || {};
+  return cleanText(entry.time || entry.departTime || entry.departureTime).slice(0, 5);
+}
+
+function addUnique(list, value) {
+  value = cleanText(value);
+  if (value && !list.includes(value)) list.push(value);
+}
+
+function findSelectedScheduleEntry(pair, pickupTime, selectedTrip) {
+  const selectedSourceTime = selectedTrip && selectedTrip.sourceTime || null;
+  if (selectedSourceTime && timeValue(selectedSourceTime) === pickupTime) {
+    return {
+      segment: selectedTrip.sourceSegment || null,
+      timeEntry: selectedSourceTime,
+      segmentIndex: selectedTrip.segmentIndex == null ? null : selectedTrip.segmentIndex,
+      timeIndex: selectedTrip.timeIndex == null ? null : selectedTrip.timeIndex
+    };
+  }
+  const segments = Array.isArray(pair && pair.segments) ? pair.segments : [];
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+    const times = Array.isArray(segments[segmentIndex] && segments[segmentIndex].times)
+      ? segments[segmentIndex].times
+      : [];
+    for (let timeIndex = 0; timeIndex < times.length; timeIndex += 1) {
+      if (timeValue(times[timeIndex]) === pickupTime) {
+        return { segment: segments[segmentIndex], timeEntry: times[timeIndex], segmentIndex, timeIndex };
+      }
+    }
+  }
+  const connections = Array.isArray(pair && pair.connectionOptions) ? pair.connectionOptions : [];
+  for (let timeIndex = 0; timeIndex < connections.length; timeIndex += 1) {
+    if (timeValue(connections[timeIndex]) === pickupTime) {
+      return { segment: null, timeEntry: connections[timeIndex], segmentIndex: null, timeIndex };
+    }
+  }
+  return null;
+}
+
+function buildCheckTicketPreviewContract(input) {
+  input = input || {};
+  const booking = input.bookingSnapshot || null;
+  const preview = input.previewMeta || {};
+  const selectedTrip = input.selectedTrip || null;
+  const pair = input.schedulePair || selectedTrip && selectedTrip.sourcePair || null;
+  const blockers = [];
+  const warnings = [];
+  const block = (code) => addUnique(blockers, code);
+
+  if (preview.dryRun !== true) block('preview_not_dry_run');
+  if (preview.writesEnabled !== false) block('preview_writes_not_disabled');
+  if (preview.readyForApply !== false) block('preview_apply_gate_not_closed');
+  if (preview.productionReady !== false) block('preview_production_gate_not_closed');
+  if (cleanText(preview.publicationStatus) !== 'preview') block('preview_publication_status_invalid');
+  if (!booking) block('missing_booking_snapshot');
+  if (!pair) block('missing_published_schedule_pair');
+  if (!selectedTrip) block('missing_selected_trip');
+
+  const bookingCode = cleanText(booking && (booking.bookingCode || booking.code));
+  const serviceDate = cleanText(booking && booking.serviceDate);
+  const pickupTime = cleanText(booking && booking.pickupTime).slice(0, 5);
+  const originStopKey = cleanText(booking && booking.originStopKey);
+  const destStopKey = cleanText(booking && booking.destStopKey);
+  const pairKey = cleanText(booking && booking.pairKey);
+  if (!bookingCode) block('missing_booking_code');
+  if (!serviceDate) block('missing_service_date');
+  if (!pickupTime || parseTimeToMinutes(pickupTime) === null) block('missing_pickup_time');
+  if (!originStopKey || !destStopKey) block('missing_stop_keys');
+  if (!pairKey) block('missing_pair_key');
+
+  const pairKeys = pair ? [pair.compatibilityPairKey, pair.pairKey, pair.pairId, pair.canonicalPairKey]
+    .map(cleanText)
+    .filter(Boolean) : [];
+  const bookingPairKeys = booking ? [booking.pairKey, booking.pairId, booking.canonicalPairKey]
+    .map(cleanText)
+    .filter(Boolean) : [];
+  if (pairKeys.length && bookingPairKeys.length && !bookingPairKeys.some((key) => pairKeys.includes(key))) {
+    block('booking_pair_mismatch');
+  }
+
+  const originLabel = cleanText(pair && pair.originLabel);
+  const destinationLabel = cleanText(pair && pair.destinationLabel);
+  if (!originLabel || !destinationLabel) block('missing_route_labels');
+  const selectedSchedule = pair && pickupTime
+    ? findSelectedScheduleEntry(pair, pickupTime, selectedTrip)
+    : null;
+  if (!selectedSchedule) block('selected_time_missing_from_pair');
+
+  const assignment = booking && booking.assignment || null;
+  if (!assignment || typeof assignment !== 'object') {
+    block('missing_assignment_contract');
+  } else {
+    if (!cleanText(assignment.assignmentSource)) block('missing_assignment_source');
+    if (assignment.scheduleOnly !== true) {
+      if (!cleanText(assignment.assignmentId)) block('missing_assignment_id');
+      if (!cleanText(assignment.queueId)) block('missing_assignment_queue_id');
+      if (!cleanText(assignment.vehicleId)) block('missing_assignment_vehicle_id');
+    }
+  }
+
+  const paymentOwnership = cleanText(booking && booking.paymentOwnership) || 'sl_transit';
+  const externalPaymentRequired = booking && booking.externalPaymentRequired === true;
+  const fareRaw = booking && (booking.fareAmount !== undefined ? booking.fareAmount : booking.fare);
+  const fareAmount = fareRaw !== '' && fareRaw !== null && fareRaw !== undefined && Number.isFinite(Number(fareRaw))
+    ? Number(fareRaw)
+    : null;
+  const fareContract = booking && booking.fareContract || null;
+  if (paymentOwnership !== 'external_pay' && fareAmount === null) block('missing_fare_amount');
+  if (paymentOwnership !== 'external_pay' && !fareContract) block('missing_fare_contract');
+  if (fareContract && fareContract.status === 'NEEDS_CONTRACT_FIELD') block('fare_contract_incomplete');
+
+  const transferRequired = pair && pair.transfer && pair.transfer.required === true;
+  const routeType = transferRequired ? 'secondary_connection' : 'main_route';
+  const checkinContext = input.checkinContext || {};
+  const checkinEligibility = decideCheckinEligibility({
+    policy: checkinContext.policy,
+    now: checkinContext.now,
+    distanceKm: checkinContext.distanceKm,
+    radiusKm: checkinContext.radiusKm,
+    adminBypass: checkinContext.adminBypass,
+    routeType,
+    enteredRadiusAt: checkinContext.enteredRadiusAt,
+    status: booking && booking.status,
+    serviceEnded: checkinContext.serviceEnded,
+    submitLock: checkinContext.submitLock
+  });
+  const transferContext = input.transferContext || {};
+  const transferFeasibility = transferRequired
+    ? decideTransferFeasibility(transferContext)
+    : {
+        status: 'not_required',
+        feasible: true,
+        reason: 'direct_journey',
+        waitMinutes: null,
+        minTransferMinutes: null,
+        idealWaitMinutes: null,
+        maxWaitMinutes: null,
+        idealDeltaMinutes: null
+      };
+  const etaContext = input.etaContext || {};
+  const scheduleEstimate = etaContext.scheduleEstimate || (pickupTime
+    ? { referenceOnly: true, time: pickupTime }
+    : null);
+  const etaSource = classifyEtaSource({
+    policy: etaContext.policy,
+    now: etaContext.now,
+    liveVehicle: etaContext.liveVehicle,
+    scheduleEstimate,
+    scheduleOnly: assignment && assignment.scheduleOnly === true,
+    noLiveTracking: assignment && assignment.liveTrackingAvailable === false
+  });
+
+  const segment = selectedSchedule && selectedSchedule.segment || selectedTrip && selectedTrip.sourceSegment || {};
+  const timeEntry = selectedSchedule && selectedSchedule.timeEntry || selectedTrip && selectedTrip.sourceTime || {};
+  const disclaimers = [];
+  [pair && pair.transferDisclaimerTh, pair && pair.externalDisclaimerTh, pair && pair.disclaimerTh,
+    segment && segment.disclaimerTh, timeEntry && timeEntry.disclaimerTh]
+    .forEach((text) => addUnique(disclaimers, text));
+  const displayBadgeTh = cleanText(timeEntry && timeEntry.displayBadgeTh) ||
+    cleanText(segment && segment.displayBadgeTh) ||
+    cleanText(pair && pair.displayBadgeTh);
+  const fareText = paymentOwnership === 'external_pay' || externalPaymentRequired
+    ? 'ชำระภายนอกระบบ'
+    : fareAmount === null ? '' : `${fareAmount} บาท`;
+  const readyForReview = blockers.length === 0;
+
+  return {
+    contractVersion: 'check_ticket_preview_v1',
+    mode: 'preview',
+    source: {
+      publishedSchedulePath: 'preview/publishedSchedule',
+      schemaVersion: cleanText(preview.schemaVersion || booking && booking.publishedSchedule && booking.publishedSchedule.schemaVersion),
+      sourceCommitSha: cleanText(preview.sourceCommitSha || booking && booking.publishedSchedule && booking.publishedSchedule.sourceCommitSha),
+      pairKey,
+      pairId: cleanText(booking && booking.pairId),
+      canonicalPairKey: cleanText(booking && booking.canonicalPairKey)
+    },
+    safety: {
+      dryRun: true,
+      writesEnabled: false,
+      readyForApply: false,
+      productionReady: false,
+      operationalActionsAllowed: false,
+      notificationDeliveryAllowed: false,
+      targetPath: null
+    },
+    ticket: {
+      bookingCode,
+      status: cleanText(booking && booking.status),
+      passengerName: cleanText(booking && booking.name),
+      passengerPhone: cleanText(booking && booking.phone),
+      seats: finiteNumber(booking && (booking.pax == null ? booking.seats : booking.pax), 0)
+    },
+    journey: {
+      originStopKey,
+      destinationStopKey: destStopKey,
+      originLabel,
+      destinationLabel,
+      routeText: originLabel && destinationLabel ? `${originLabel} → ${destinationLabel}` : '',
+      serviceDate,
+      pickupTime,
+      pickupTimeText: pickupTime ? `${pickupTime} น.` : '',
+      transferRequired,
+      transfer: pair && pair.transfer || null,
+      selectedSegmentIndex: selectedSchedule && selectedSchedule.segmentIndex,
+      selectedTimeIndex: selectedSchedule && selectedSchedule.timeIndex,
+      displayBadgeTh,
+      disclaimers
+    },
+    fare: {
+      amount: fareAmount,
+      displayText: fareText,
+      paymentOwnership,
+      externalPaymentRequired,
+      contract: fareContract
+    },
+    assignment: assignment ? {
+      assignmentId: cleanText(assignment.assignmentId),
+      queueId: cleanText(assignment.queueId),
+      vehicleId: cleanText(assignment.vehicleId),
+      assignmentSource: cleanText(assignment.assignmentSource),
+      scheduleOnly: assignment.scheduleOnly === true,
+      liveTrackingAvailable: assignment.liveTrackingAvailable === true
+    } : null,
+    decisions: {
+      checkinEligibility,
+      transferFeasibility,
+      etaSource,
+      journeyStatus: input.journeyStatus || { status: 'unavailable', reason: 'not_provided' },
+      notificationIntent: input.notificationIntent || null
+    },
+    actions: {
+      createTicket: false,
+      updateTicket: false,
+      checkIn: false,
+      cancelTicket: false,
+      changeTrip: false,
+      sendNotification: false
+    },
+    validation: {
+      readyForReview,
+      readyForDisplay: readyForReview,
+      readyForApply: false,
+      blockers,
+      warnings
+    }
+  };
+}
+
 function countBy(items, field) {
   return items.reduce((acc, item) => {
     const key = String(item[field]);
@@ -296,6 +550,7 @@ module.exports = {
   decideTransferFeasibility,
   decideBookingAvailability,
   classifyEtaSource,
+  buildCheckTicketPreviewContract,
   buildErpLogicCenterDryRun
 };
 
