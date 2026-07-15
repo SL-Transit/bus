@@ -488,7 +488,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   mapFirstSandbox.SLPassengerLogic.schedule.applyPublishedScheduleOptions(sampleOptionOnlySchedule());
   await waitForAsyncMapWork();
   assert.strictEqual(mapFirstState.markers.length, 30, 'mapView arriving after map init must render 15 marker+label overlays');
-  assert.strictEqual(mapFirstState.polylines.length, 0, 'mapView arriving after map init must not render route polyline');
+  assert.strictEqual(mapFirstState.polylines.length, 1, 'mapView arriving after map init must render the ERP Map road polyline');
+  assert(mapFirstState.polylines[0].points.length > corridor.length, 'ERP Map route must be road geometry, not stop-to-stop fallback');
   assert(mapFirstState.locations.length >= 2, 'late mapView data must apply the Map Display Center overview viewport');
 
   const dataFirstSandbox = loadPassengerLogic();
@@ -499,7 +500,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   await dataFirstSandbox.SLPassengerLogic.map.init();
   await waitForAsyncMapWork();
   assert.strictEqual(dataFirstState.markers.length, 30, 'map init after mapView must render 15 marker+label overlays');
-  assert.strictEqual(dataFirstState.polylines.length, 0, 'map init after mapView must not render route polyline');
+  assert.strictEqual(dataFirstState.polylines.length, 1, 'map init after mapView must render the ERP Map road polyline');
+  assert(dataFirstState.polylines[0].points.length > corridor.length, 'Passenger must not downgrade ERP road geometry to stop-to-stop fallback');
   assert(dataFirstState.locations.length >= 1, 'map init after mapView must apply the Map Display Center overview viewport');
 
   const sourcePairs = sampleSchedule().pairs;
@@ -528,8 +530,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
     'Passenger map stops must preserve backend-provided order exactly'
   );
   assert(previewRouteData.stations.every((station) => station.name && Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lng))), 'Passenger map adapter must consume all visible map stops');
-  assert(previewRouteData.geometryType === 'stops_only', 'Passenger map must be stop-position only for now');
-  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length === 0, 'Passenger must not use mapView.routes polyline for now');
+  assert(previewRouteData.geometryType === 'road_polyline', 'Passenger map must use ERP Map road geometry');
+  assert(Array.isArray(previewRouteData.polyline) && previewRouteData.polyline.length > corridor.length, 'Passenger must consume mapView.routes road polyline from ERP Map');
   assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya), null, 'option-only initial state must not have full pairs loaded');
 
   const loadedPair = await schedule.loadPair(TH.chachoengsao, TH.pattaya);

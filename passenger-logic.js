@@ -163,6 +163,33 @@ function normalizeMapPoint(point) {
   return normalized ? { lon: normalized.lng, lat: normalized.lat } : null;
 }
 
+function normalizeMapPolylinePoint(point) {
+  var normalized = normalizeMapPoint(point);
+  return normalized && isFinite(Number(normalized.lon)) && isFinite(Number(normalized.lat))
+    ? normalized
+    : null;
+}
+
+function normalizePublishedScheduleMapRoutes(routes) {
+  if (!Array.isArray(routes)) return [];
+  return routes.map(function(route, index) {
+    route = route || {};
+    var polyline = Array.isArray(route.polyline)
+      ? route.polyline.map(normalizeMapPolylinePoint).filter(Boolean)
+      : [];
+    return {
+      routeViewId: route.routeViewId || ('map_route_' + index),
+      geometryType: route.geometryType || '',
+      referenceOnly: route.referenceOnly === true,
+      operationalProof: route.operationalProof === true,
+      previewDisplayMode: route.previewDisplayMode || 'static_map_reference',
+      polyline: polyline
+    };
+  }).filter(function(route) {
+    return route.geometryType === 'road_polyline' && route.polyline.length >= 2;
+  });
+}
+
 function applyViewportPlan(plan) {
   if (!mapObj || !plan || plan.apply !== true || !plan.center) return;
   var point = normalizeMapPoint(plan.center);
@@ -569,7 +596,7 @@ function applyPublishedScheduleMapView(mapView) {
   });
   PASSENGER_ROUTE_DATA = {
     stations: stations,
-    mapRoutes: [],
+    mapRoutes: normalizePublishedScheduleMapRoutes(mapView.routes),
     source: 'publishedSchedule.mapView'
   };
   applyPassengerRouteData(PASSENGER_ROUTE_DATA);
@@ -713,10 +740,17 @@ function initPassengerMap() {
 }
 
 function currentPassengerRouteData() {
+  var mapRoutes = PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.mapRoutes)
+    ? PASSENGER_ROUTE_DATA.mapRoutes
+    : [];
+  var roadRoute = mapRoutes.find(function(route) {
+    return route && route.geometryType === 'road_polyline' && Array.isArray(route.polyline) && route.polyline.length >= 2;
+  });
   return {
     stations: curStops().slice(),
-    polyline: [],
-    geometryType: 'stops_only'
+    polyline: roadRoute ? roadRoute.polyline.slice() : [],
+    geometryType: roadRoute ? 'road_polyline' : 'missing_erp_map_route',
+    routeViewId: roadRoute ? roadRoute.routeViewId : null
   };
 }
 
@@ -788,16 +822,28 @@ function ensureStationMarkersVisible(routeData, attempt) {
 
 function drawRoute(routeData) {
   if (!mapReady) return Promise.resolve();
-  const stops = routeData && Array.isArray(routeData.stations) ? routeData.stations : (viewDir==='go' ? STOPS_GO : STOPS_BACK);
-  if (!Array.isArray(stops) || stops.length < 2) {
+  var roadPolyline = routeData && routeData.geometryType === 'road_polyline' && Array.isArray(routeData.polyline)
+    ? routeData.polyline.map(normalizeMapPolylinePoint).filter(Boolean)
+    : [];
+  if (roadPolyline.length < 2) {
     knownRouteLinePoints = [];
     try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
     routeLine = null;
     return Promise.resolve();
   }
-  knownRouteLinePoints = [];
+  knownRouteLinePoints = roadPolyline.slice();
   try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
-  routeLine = null;
+  try {
+    routeLine = new longdo.Polyline(roadPolyline, {
+      lineWidth: 5,
+      lineColor: 'rgba(0, 117, 194, 0.88)',
+      pointer: false
+    });
+    mapObj.Overlays.add(routeLine);
+  } catch(e) {
+    console.warn('ERP Map road polyline render failed:', e && e.message ? e.message : e);
+    routeLine = null;
+  }
   return Promise.resolve();
 }
 

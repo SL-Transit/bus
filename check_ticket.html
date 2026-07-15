@@ -778,6 +778,7 @@
     var TICKET_CATALOG_LOADS = {};
     var TICKET_CATALOG_ROUTES_APPLIED = false;
     var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
+    var TICKET_ERP_MAP_ROUTES = [];
     var MAIN_ROUTE_STOPS_FROM_CATALOG = [];
     function ticketStopSortValue(label, fallback) {
       if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
@@ -892,6 +893,7 @@
 
     function applyTicketPublishedScheduleMapView(mapView) {
       mapView = mapView || {};
+      TICKET_ERP_MAP_ROUTES = normalizeTicketErpMapRoutes(mapView.routes);
       var stops = Array.isArray(mapView.stops) ? mapView.stops : [];
       var centralStops = stops.map(function(stop, index) {
         stop = stop || {};
@@ -935,6 +937,32 @@
       renderTransferMarker();
       renderRouteStopMarkers();
       updateTrackingRouteLine();
+    }
+
+    function normalizeTicketErpMapCoord(point) {
+      point = point || {};
+      var lat = Number(point.lat !== undefined ? point.lat : point.latitude);
+      var lng = Number(point.lng !== undefined ? point.lng : (point.lon !== undefined ? point.lon : point.longitude));
+      return isFinite(lat) && isFinite(lng) && !(lat === 0 && lng === 0) ? [lng, lat] : null;
+    }
+
+    function normalizeTicketErpMapRoutes(routes) {
+      if (!Array.isArray(routes)) return [];
+      return routes.map(function(route, index) {
+        route = route || {};
+        var polyline = Array.isArray(route.polyline)
+          ? route.polyline.map(normalizeTicketErpMapCoord).filter(isValidMapCoord)
+          : [];
+        return {
+          routeViewId: route.routeViewId || ('ticket_erp_map_route_' + index),
+          geometryType: route.geometryType || '',
+          referenceOnly: route.referenceOnly === true,
+          operationalProof: route.operationalProof === true,
+          polyline: polyline
+        };
+      }).filter(function(route) {
+        return route.geometryType === 'road_polyline' && route.polyline.length >= 2;
+      });
     }
 
     function buildMainRouteStopsFromRouteData(routeData, centralStops) {
@@ -2384,24 +2412,95 @@
       return coords.filter(isValidMapCoord);
     }
 
+    function primaryTicketErpRoadPolyline() {
+      var route = (TICKET_ERP_MAP_ROUTES || []).find(function(item) {
+        return item && item.geometryType === 'road_polyline' && Array.isArray(item.polyline) && item.polyline.length >= 2;
+      });
+      return route ? route.polyline.filter(isValidMapCoord) : [];
+    }
+
+    function nearestTicketErpRouteIndex(point, routeCoords) {
+      point = normalizeTrackingPoint(point);
+      if (!point || !Array.isArray(routeCoords) || !routeCoords.length) return -1;
+      var bestIndex = -1;
+      var bestDistance = Infinity;
+      routeCoords.forEach(function(coord, index) {
+        if (!isValidMapCoord(coord)) return;
+        var km = distanceKm(point.lat, point.lng, Number(coord[1]), Number(coord[0]));
+        if (km < bestDistance) {
+          bestDistance = km;
+          bestIndex = index;
+        }
+      });
+      return bestIndex;
+    }
+
+    function appendTrackingCoordUnique(coords, coord) {
+      if (!isValidMapCoord(coord)) return;
+      if (!coords.some(function(existing) {
+        return Math.abs(Number(existing[0]) - Number(coord[0])) < 0.00001 &&
+          Math.abs(Number(existing[1]) - Number(coord[1])) < 0.00001;
+      })) coords.push([Number(coord[0]), Number(coord[1])]);
+    }
+
+    function sliceTicketErpMapRouteBetween(startPoint, endPoint) {
+      var routeCoords = primaryTicketErpRoadPolyline();
+      startPoint = normalizeTrackingPoint(startPoint);
+      endPoint = normalizeTrackingPoint(endPoint);
+      if (!startPoint || !endPoint || routeCoords.length < 2) return [];
+      var startIndex = nearestTicketErpRouteIndex(startPoint, routeCoords);
+      var endIndex = nearestTicketErpRouteIndex(endPoint, routeCoords);
+      if (startIndex < 0 || endIndex < 0) return [];
+      var segment = startIndex <= endIndex
+        ? routeCoords.slice(startIndex, endIndex + 1)
+        : routeCoords.slice(endIndex, startIndex + 1).reverse();
+      var coords = [];
+      appendTrackingCoordUnique(coords, [startPoint.lng, startPoint.lat]);
+      segment.forEach(function(coord) { appendTrackingCoordUnique(coords, coord); });
+      appendTrackingCoordUnique(coords, [endPoint.lng, endPoint.lat]);
+      return coords;
+    }
+
+    function buildTrackingErpMapRouteCoords(position) {
+      var waypoints = [];
+      var vehiclePoint = normalizeTrackingPoint(position);
+      if (vehiclePoint) waypoints.push(vehiclePoint);
+      if (!isOriginBoarded()) {
+        var pickup = normalizeTrackingPoint(pickupStopLocation);
+        if (pickup) waypoints.push(pickup);
+      }
+      remainingRelevantRouteStops(position).forEach(function(stop) {
+        var point = normalizeTrackingPoint(stop);
+        if (point) waypoints.push(point);
+      });
+      var destination = normalizeTrackingPoint(destinationLocation);
+      if (destination) waypoints.push(destination);
+      waypoints = waypoints.filter(function(point, index) {
+        return !waypoints.slice(0, index).some(function(previous) {
+          return trackingPointMeters(previous, point) < 5;
+        });
+      });
+      if (waypoints.length < 2) return [];
+      var coords = [];
+      for (var i = 1; i < waypoints.length; i++) {
+        sliceTicketErpMapRouteBetween(waypoints[i - 1], waypoints[i]).forEach(function(coord) {
+          appendTrackingCoordUnique(coords, coord);
+        });
+      }
+      return coords.filter(isValidMapCoord);
+    }
+
     function updateTrackingRouteLine() {
       if (!trackingMapReady || !trackingRouteSourceReady || !trackingMap) return;
       var vehiclePoint = normalizeTrackingPoint(trackingVanMarkerPos) || normalizeTrackingPoint(vanLocation);
-      var coords = buildTrackingRouteCoords(vehiclePoint);
+      var coords = buildTrackingErpMapRouteCoords(vehiclePoint);
       if (coords.length >= 2) { updateTrackingRoadRoute(coords); return; }
       trackingFullRouteGeometry = []; trackingRouteGeometry = [];
       trackingMap.getSource('trackingRouteLine').setData({ type:'FeatureCollection', features:[] });
     }
     function updateTrackingRoadRoute(coords) {
-      var seq = ++trackingRouteRequestSeq;
-      requestMapboxRouteGeometry(coords).then(function(routeData) {
-        if (seq !== trackingRouteRequestSeq) return;
-        var routeCoords = routeData && routeData.coordinates;
-        setTrackingRouteGeometry(routeCoords && routeCoords.length >= 2 ? routeCoords : coords);
-      }).catch(function() {
-        if (seq !== trackingRouteRequestSeq) return;
-        if (!trackingFullRouteGeometry.length) setTrackingRouteGeometry([]);
-      });
+      coords = (coords || []).filter(isValidMapCoord);
+      setTrackingRouteGeometry(coords.length >= 2 ? coords : []);
     }
 
     function requestMapboxRouteGeometry(coords) {

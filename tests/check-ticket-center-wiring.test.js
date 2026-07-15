@@ -9,6 +9,9 @@ assert(html.includes('map-display-center.js'), 'Check Ticket must load Map Displ
 assert(html.includes('erp-alert-center.js'), 'Check Ticket must load ERP Alert Center');
 assert(html.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read stop/map data from publishedSchedule mapView');
 assert(html.includes("db.ref('operations/liveVehicles')"), 'Check Ticket must read live vehicle data from operations/liveVehicles');
+assert(html.includes('normalizeTicketErpMapRoutes'), 'Check Ticket must normalize ERP Map route geometry');
+assert(html.includes('buildTrackingErpMapRouteCoords'), 'Check Ticket must build tracking route lines from ERP Map');
+assert(html.includes('sliceTicketErpMapRouteBetween'), 'Check Ticket must slice ERP Map road geometry between vehicle/origin/destination');
 assert(!html.includes("db.ref('routeData')"), 'Check Ticket must not read legacy routeData');
 assert(!html.includes("db.ref('publishedCatalog')"), 'Check Ticket must not read legacy publishedCatalog');
 assert(!html.includes("db.ref('bus')"), 'Check Ticket must not read legacy bus live feed');
@@ -37,5 +40,9 @@ assert(transferTripBlock.includes('SLTransitCalculatorCenter.findCatchableTrip')
 const distanceStateBlock = blockBetween('function renderDistanceState', 'function estimateSpeedKmh');
 assert(distanceStateBlock.includes('SLTransitCalculatorCenter.estimateEta'), 'distance ETA must ask Calculator Center');
 assert(!distanceStateBlock.includes('SLTransitGeo.estimateEtaFromDistanceKm'), 'distance ETA must not call Geo ETA directly');
+
+const trackingRouteBlock = blockBetween('function updateTrackingRouteLine', 'function requestMapboxRouteGeometry');
+assert(trackingRouteBlock.includes('buildTrackingErpMapRouteCoords'), 'tracking route line must use ERP Map road geometry');
+assert(!trackingRouteBlock.includes('requestMapboxRouteGeometry(coords)'), 'tracking route line rendering must not request Mapbox Directions');
 
 console.log('check-ticket center wiring ok');
