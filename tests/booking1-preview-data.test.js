@@ -44,6 +44,10 @@ assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not d
 
 assert(booking1.includes('booking1-preview-adapter.js'), 'Booking1 must load the preview adapter');
 assert(booking1.includes('var global = window;'), 'Booking1 inline scripts must use a browser-safe global alias');
+assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone sanitizer for passenger form');
+assert(booking1.includes('function isValidThaiPhone'), 'Booking1 must define Thai phone validator for passenger form');
+assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must expose phone sanitizer to the preview adapter');
+assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
 assert(!booking1.includes('trip-check'), 'Booking1 trip cards must not render the old green selected check icon');
 assert(!booking1.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 trip buttons must not use legacy capacity continuation');
 assert(adapter.includes('SLBookingBridge.getBookableStops()'), 'Origin picker must use bridge originOptions');

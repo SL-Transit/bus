@@ -2997,6 +2997,22 @@ function _isToday(d) {
 ────────────────────────────────────────────────────── */
 var ADMIN_TESTER_PHONE = '0929383999';
 
+function sanitizeText(value) {
+  return String(value == null ? '' : value).replace(/[<>]/g, '').trim();
+}
+
+function sanitizePhone(value) {
+  return String(value == null ? '' : value).replace(/\D/g, '').slice(0, 10);
+}
+
+function isValidThaiPhone(value) {
+  return /^(06|08|09)\d{8}$/.test(sanitizePhone(value));
+}
+
+global.sanitizeText = sanitizeText;
+global.sanitizePhone = sanitizePhone;
+global.isValidThaiPhone = isValidThaiPhone;
+
 function validatePhoneInline(input) {
   /* sanitize: ตัดอักขระที่ไม่ใช่ตัวเลขออก */
   if (input) input.value = sanitizePhone(input.value);
