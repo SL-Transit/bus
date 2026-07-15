@@ -95,8 +95,15 @@ assert(adapter.includes('stopPickerItemsHtml'), 'Destination picker must use gro
 assert(adapter.includes('esc(group)'), 'Destination group labels must come from ERP option.group');
 assert(adapter.includes('SLBookingBridge.loadAvailableTrips'), 'Trip cards must lazy-load selected pair data');
 assert(bridge.includes('Array.isArray(pair.connectionOptions)'), 'Booking1 bridge must read ERP connectionOptions for transfer-reference timetable rows');
+assert(bridge.includes('function _transferInfo'), 'Booking1 bridge must normalize ERP transfer display metadata');
+assert(bridge.includes('firstLeg.toLabel'), 'Booking1 bridge must use ERP pair segment labels for transfer points');
+assert(bridge.includes('timeEntry.nextDepartureTime'), 'Booking1 bridge must pass ERP connection next departure time to Booking1');
 assert(!adapter.includes('recommendedBookingTrips'), 'Booking1 adapter must not own recommendation logic');
 assert(!adapter.includes('minutesFromTime'), 'Booking1 adapter must not compare trip times locally');
+assert(adapter.includes('function transferPointText'), 'Booking1 adapter must render ERP-provided transfer point text');
+assert(adapter.includes('function transferDetailHtml'), 'Booking1 adapter must render ERP-provided transfer details');
+assert(adapter.includes('routeText(trip)'), 'Booking1 compact cards must render route text per ERP trip');
+assert(adapter.includes('routeText(best)'), 'Booking1 recommended card must render route text per ERP trip');
 assert(adapter.includes('!trip.selectionAllowed'), 'Booking1 adapter must use selectionAllowed for the trip select button');
 assert(!adapter.includes('trip-check'), 'Booking1 adapter trip cards must not render the old green selected check icon');
 assert(adapter.includes('selected.selectionAllowed'), 'Booking1 adapter must let selected ERP trips continue to passenger/payment pages');
@@ -108,6 +115,8 @@ assert(!adapter.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 ad
 assert(!adapter.includes('= 55'), 'Booking1 adapter must not fabricate 55-baht fare');
 assert(!adapter.includes("= '09:00'"), 'Booking1 adapter must not fabricate default 09:00 trips');
 assert(!bridge.includes('.sort(function'), 'Booking1 bridge must preserve ERP option order instead of sorting locally');
+assert(booking1.includes('background: #fff7ed; color: #d97706;'), 'Booking1 soon badges must keep orange styling');
+assert(booking1.includes('.trip-transfer-detail'), 'Booking1 must include trip transfer detail styling');
 
 assert(booking1.includes('Booking1 ตอนนี้อ่าน ERP เท่านั้น'), 'Booking1 submit guard must keep real booking creation disabled');
 

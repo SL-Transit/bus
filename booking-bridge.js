@@ -219,6 +219,26 @@
     return time ? time + ' น.' : (timeEntry.label || timeEntry.displayTimeTh || 'เวลาอ้างอิง');
   }
 
+  function _transferInfo(pair, segment, timeEntry) {
+    if (!pair || !pair.transfer || pair.transfer.required !== true) return null;
+    var segments = Array.isArray(pair.segments) ? pair.segments : [];
+    var firstLeg = segments[0] || {};
+    var secondLeg = segments[1] || {};
+    var timing = pair.transferTiming && pair.transferTiming.bestConnection || {};
+    var info = Object.assign({}, pair.transfer || {});
+    info.required = true;
+    info.viaLabel = info.viaLabel || info.transferNodeLabel || info.transferStopLabel ||
+      timeEntry.transferStopLabel || segment.transferStopLabel || firstLeg.toLabel || secondLeg.fromLabel || '';
+    info.transferStopKey = info.transferStopKey || timeEntry.transferStopKey || timing.transferStopKey || info.viaStopKey || '';
+    info.transferArrivalTime = timeEntry.transferArrivalTime || timing.arrivalTimeAtTransfer || info.transferArrivalTime || '';
+    info.nextDepartureTime = timeEntry.nextDepartureTime || timing.nextDepartureTime || info.nextDepartureTime || '';
+    info.waitMinutes = timeEntry.waitMinutes != null ? timeEntry.waitMinutes : (timing.waitMinutes != null ? timing.waitMinutes : info.waitMinutes);
+    info.leg2Time = info.nextDepartureTime || info.leg2Time || '';
+    info.destLabel = info.destLabel || pair.destinationLabel || secondLeg.toLabel || '';
+    info.hasMatch = !!(info.viaLabel || info.nextDepartureTime || info.transferArrivalTime);
+    return info;
+  }
+
   function _tripFromTimeEntry(pair, option, segment, timeEntry, segmentIndex, timeIndex, serviceDate) {
     var fareContract = FareDecisionCenter && typeof FareDecisionCenter.decideFare === 'function'
       ? FareDecisionCenter.decideFare({
@@ -258,7 +278,7 @@
       paymentOwnership: fareContract.paymentOwnership || (isExternal ? 'external_pay' : 'sl_transit'),
       externalPaymentRequired: isExternal,
       isLeg2: pair.transfer && pair.transfer.required === true,
-      transferInfo: pair.transfer || null,
+      transferInfo: _transferInfo(pair, segment || {}, timeEntry || {}),
       referenceOnly: isReference,
       externalReference: isExternal,
       bookingEligible: availabilityDecision.bookingEligible === true,

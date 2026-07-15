@@ -93,6 +93,39 @@
     return notes.length ? '<div class="ti-inline-note">' + notes.map(esc).join('<br>') + '</div>' : '';
   }
 
+  function transferPointText(trip) {
+    var ti = trip && trip.transferInfo || {};
+    return ti.viaLabel || ti.transferNodeLabel || ti.transferStopLabel || ti.point ||
+      ti.transferPoint || ti.connectionPointLabel || ti.stopLabel || '';
+  }
+
+  function finalDestinationText(trip) {
+    var ti = trip && trip.transferInfo || {};
+    return ti.destLabel || appState().destName || '';
+  }
+
+  function routeText(trip) {
+    var state = appState();
+    var origin = state.originName || '\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07';
+    var destination = finalDestinationText(trip) || state.destName || '\u0e1b\u0e25\u0e32\u0e22\u0e17\u0e32\u0e07';
+    var transfer = transferPointText(trip);
+    if (trip && trip.isLeg2 && transfer) {
+      return esc(origin) + ' &rarr; ' + esc(transfer) + ' &rarr; ' + esc(destination);
+    }
+    return esc(origin) + ' &rarr; ' + esc(state.destName || destination);
+  }
+
+  function transferDetailHtml(trip) {
+    if (!trip || !trip.isLeg2) return '';
+    var ti = trip.transferInfo || {};
+    var transfer = transferPointText(trip);
+    var rows = [];
+    if (transfer) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/241.png" alt="transfer"><span>\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e17\u0e35\u0e48 ' + esc(transfer) + '</span></div>');
+    if (ti.nextDepartureTime || ti.leg2Time) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/242.png" alt="next trip"><span>\u0e23\u0e16\u0e15\u0e48\u0e2d ' + esc(ti.nextDepartureTime || ti.leg2Time) + ' \u0e19.</span></div>');
+    if (ti.waitMinutes != null) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/243.png" alt="wait"><span>\u0e23\u0e2d\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13 ' + esc(ti.waitMinutes) + ' \u0e19\u0e32\u0e17\u0e35</span></div>');
+    return rows.length ? '<div class="trip-transfer-detail">' + rows.join('') + '</div>' : '';
+  }
+
   function selectButton(trip, index, recommended) {
     var cls = recommended ? 'btn-select-recommend' : 'btn-select-compact';
     if (!trip.selectionAllowed) {
@@ -139,14 +172,12 @@
     function cardClass(trip, base) {
       return base + (trip.displayMuted ? ' trip-card-muted' : '');
     }
-    function routeText() {
-      return esc(state.originName || 'ต้นทาง') + ' → ' + esc(state.destName || 'ปลายทาง');
-    }
     function compactCard(trip, index) {
       return '<div class="' + cardClass(trip, 'trip-card trip-card-compact') + '" data-index="' + index + '" data-time="' + esc(trip.pickupTime) + '" data-label="' + esc(trip.label) + '" data-fare="' + (trip.fareAmount || 0) + '" onclick="selectTrip(this)">'
         + '<div class="trip-compact-row"><div class="trip-compact-left">'
         + '<span class="trip-time-compact">' + esc(trip.label) + '</span>' + tripBadges(trip)
-        + '<div class="trip-compact-route">' + routeText() + '</div>'
+        + '<div class="trip-compact-route">' + routeText(trip) + '</div>'
+        + transferDetailHtml(trip)
         + noteHtml(trip) + '</div><div class="trip-compact-right">'
         + '<span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false)
         + '</div></div></div>';
@@ -171,7 +202,8 @@
       + '<div class="trip-card-head"><div class="trip-time-wrap">'
       + '<span class="trip-time">' + esc(best.label) + '</span><span class="trip-time-badge badge-recommend">เที่ยวแนะนำ</span>'
       + tripBadges(best) + '</div></div>'
-      + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText() + '</span></div>'
+      + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText(best) + '</span></div>'
+      + transferDetailHtml(best)
       + '<div class="trip-meta"><div class="trip-meta-item"><img class="icon-img" src="assets/241.png" alt="route" style="width:13px;height:13px;"> ERP Data Center pair: ' + esc(best.pairKey || '-') + '</div><div class="trip-meta-item">No live vehicle tracking</div></div>'
       + noteHtml(best)
       + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
