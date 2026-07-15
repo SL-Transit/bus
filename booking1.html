@@ -47,8 +47,10 @@
 :root {
   --navy:       #0d1b3e;
   --navy-dark:  #081229;
+  --navy2:      #0f2647;
   --teal:       #1a9b8c;
   --teal-light: #22b5a4;
+  --teal-lt:    #5eead4;
   --teal-bg:    #e8f7f6;
   --orange:     #f5a623;
   --white:      #ffffff;
@@ -215,6 +217,111 @@ body {
 .hero-title { font-size: 28px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 6px; text-shadow: 0 2px 8px rgba(0,0,0,.3); }
 .hero-sub { font-size: 13px; color: rgba(255,255,255,.7); line-height: 1.4; }
 .bus-svg { position: absolute; right: 0; bottom: 0; width: 200px; opacity: .85; }
+
+.booking-ann-hero {
+  position: relative;
+  height: 220px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--navy);
+  width: 100%;
+  max-width: none;
+}
+.booking-ann-hero::before { display: none; }
+.ann-slides {
+  display: flex;
+  height: 100%;
+  transition: transform .5s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+}
+.ann-slide {
+  min-width: 100%;
+  height: 100%;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+.ann-slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.ann-slide.active .ann-slide-bg { transform: none; }
+.ann-slide-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(11,29,58,.30) 0%, rgba(11,29,58,.75) 70%, rgba(11,29,58,.92) 100%);
+}
+.ann-slide-text {
+  position: relative; z-index: 1;
+  padding: 0 20px 20px;
+  width: 100%;
+  display: none;
+}
+.ann-slide-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--teal-lt); margin-bottom: 6px;
+}
+.ann-slide-tag-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex-shrink: 0; }
+.ann-slide-title {
+  font-size: clamp(18px,5vw,26px); font-weight: 800;
+  color: #fff; line-height: 1.2; margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.ann-slide-body {
+  font-size: 13px; color: rgba(255,255,255,.72);
+  line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.ann-dots {
+  position: absolute; bottom: 12px; right: 16px;
+  display: flex; gap: 5px; z-index: 5;
+}
+.ann-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,.35);
+  transition: all .3s; cursor: pointer;
+}
+.ann-dot.active { background: #fff; width: 18px; border-radius: 3px; }
+.ann-progress {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 3px; background: rgba(255,255,255,.15); z-index: 5;
+}
+.ann-progress-fill {
+  height: 100%; background: var(--teal);
+  border-radius: 0 2px 2px 0; width: 0%;
+  transition: width linear;
+}
+.ann-tap-l,.ann-tap-r { position: absolute; top: 0; bottom: 0; width: 35%; z-index: 4; cursor: pointer; }
+.ann-tap-l { left: 0; }
+.ann-tap-r { right: 0; }
+.ann-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,#082040 100%);
+  display: flex; align-items: flex-end;
+  position: relative; overflow: hidden;
+}
+.ann-placeholder::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 85% 30%,rgba(0,184,169,.20),transparent 50%),
+    radial-gradient(ellipse at 10% 80%,rgba(255,138,0,.12),transparent 40%);
+}
+.ann-placeholder-bus {
+  position: absolute; right: -10px; top: 50%; transform: translateY(-50%);
+  width: 160px; opacity: .15; pointer-events: none;
+  filter: drop-shadow(0 0 24px rgba(0,184,169,.6));
+}
+.ann-placeholder-text { position: relative; z-index: 1; padding: 0 20px 20px; }
+.ann-placeholder-h1 {
+  font-size: clamp(22px,6vw,34px); font-weight: 800;
+  color: #fff; line-height: 1.15; margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+.ann-placeholder-h1 em { font-style: normal; color: var(--teal-lt); }
+.ann-placeholder-sub { font-size: 13px; color: rgba(255,255,255,.60); }
 
 /* ===== STEP BAR ===== */
 .step-bar {
@@ -939,6 +1046,7 @@ body {
 /* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
   .hero-title { font-size: 22px; }
+  .booking-ann-hero { height: 220px; }
   .service-name { font-size: 10px; }
   /* แถวบน: ถ้าจอแคบมาก ลด swap btn เล็กลง */
   .swap-btn { width: 26px; margin: 0 2px; }
@@ -946,13 +1054,18 @@ body {
 }
 @media (min-width: 481px) and (max-width: 600px) {
   .hero-title { font-size: 24px; }
+  .booking-ann-hero { height: 240px; }
   .service-name { font-size: 10px; }
 }
 @media (min-width: 601px) {
   .hero-content { max-width: 50%; }
+  .booking-ann-hero { height: 270px; }
+  .ann-slide-text,.ann-placeholder-text { padding: 28px 22px 50px; }
 }
 @media (min-width: 900px) {
   .hero-title { font-size: 32px; }
+  .booking-ann-hero { height: 300px; }
+  .ann-placeholder-bus { right: 14px; width: 190px; opacity: .16; }
   .content { padding: 20px 24px 80px; }
   .step-label { font-size: 11px; }
 }
@@ -1044,29 +1157,36 @@ body {
     </div>
   </header>
 
-  <div class="hero">
-    <div class="page-container" style="position:relative;z-index:2;">
-      <div class="hero-content">
+  <section class="hero booking-ann-hero" id="hero-section">
+    <div class="ann-placeholder" id="ann-placeholder">
+      <div class="ann-placeholder-text">
         <div class="hero-badge">✦ จองตั๋วออนไลน์</div>
-        <h1 class="hero-title">เลือกเที่ยว<br>และจองตั๋ว</h1>
-        <p class="hero-sub">ระบบช่วยเลือกเส้นทางและจุดต่อรถที่เหมาะสมให้คุณ</p>
+        <div class="ann-placeholder-h1">เลือกเที่ยว<br>และจองตั๋ว</div>
+        <div class="ann-placeholder-sub">ระบบช่วยเลือกเส้นทางและจุดต่อรถที่เหมาะสมให้คุณ</div>
       </div>
+      <svg class="ann-placeholder-bus" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="130" cy="100" rx="90" ry="14" fill="rgba(26,155,140,0.15)"/>
+        <line x1="60" y1="98" x2="200" y2="98" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-dasharray="8,6"/>
+        <rect x="30" y="38" width="150" height="58" rx="8" fill="#1a5cb8" opacity="0.95"/>
+        <rect x="155" y="44" width="20" height="32" rx="4" fill="rgba(150,210,255,0.35)"/>
+        <rect x="45" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="70" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="95" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="120" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="30" y="66" width="150" height="6" fill="rgba(26,155,140,0.6)"/>
+        <rect x="48" y="70" width="22" height="24" rx="3" fill="rgba(0,0,0,0.25)"/>
+        <circle cx="65" cy="98" r="10" fill="#1a2340"/><circle cx="65" cy="98" r="6" fill="#2d3a5e"/><circle cx="65" cy="98" r="2.5" fill="rgba(255,255,255,0.4)"/>
+        <circle cx="148" cy="98" r="10" fill="#1a2340"/><circle cx="148" cy="98" r="6" fill="#2d3a5e"/><circle cx="148" cy="98" r="2.5" fill="rgba(255,255,255,0.4)"/>
+      </svg>
     </div>
-    <svg class="bus-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="130" cy="100" rx="90" ry="14" fill="rgba(26,155,140,0.15)"/>
-      <line x1="60" y1="98" x2="200" y2="98" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-dasharray="8,6"/>
-      <rect x="30" y="38" width="150" height="58" rx="8" fill="#1a5cb8" opacity="0.95"/>
-      <rect x="155" y="44" width="20" height="32" rx="4" fill="rgba(150,210,255,0.35)"/>
-      <rect x="45" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
-      <rect x="70" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
-      <rect x="95" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
-      <rect x="120" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
-      <rect x="30" y="66" width="150" height="6" fill="rgba(26,155,140,0.6)"/>
-      <rect x="48" y="70" width="22" height="24" rx="3" fill="rgba(0,0,0,0.25)"/>
-      <circle cx="65" cy="98" r="10" fill="#1a2340"/><circle cx="65" cy="98" r="6" fill="#2d3a5e"/><circle cx="65" cy="98" r="2.5" fill="rgba(255,255,255,0.4)"/>
-      <circle cx="148" cy="98" r="10" fill="#1a2340"/><circle cx="148" cy="98" r="6" fill="#2d3a5e"/><circle cx="148" cy="98" r="2.5" fill="rgba(255,255,255,0.4)"/>
-    </svg>
-  </div>
+    <div class="ann-slides" id="ann-slides" style="display:none"></div>
+    <div class="ann-dots" id="ann-dots" style="display:none"></div>
+    <div class="ann-progress" id="ann-progress" style="display:none">
+      <div class="ann-progress-fill" id="ann-progress-fill"></div>
+    </div>
+    <div class="ann-tap-l" id="ann-tap-l" onclick="annStep(-1)"></div>
+    <div class="ann-tap-r" id="ann-tap-r" onclick="annStep(1)"></div>
+  </section>
 
   <!-- STEP BAR -->
   <div class="step-bar">
@@ -1912,6 +2032,125 @@ var _storage = firebase.storage();
 var _authReady = firebase.auth().signInAnonymously().catch(function(err) {
   console.warn('[Firebase] Anonymous auth failed', err); return null;
 });
+
+var BOOKING_ANN = { items: [], cur: 0, timer: null, dur: 5000, paused: false };
+var BOOKING_ANN_TYPE_COLOR = {
+  info: 'rgba(11,29,58,0.75)',
+  warn: 'rgba(120,70,0,0.80)',
+  danger: 'rgba(120,10,10,0.82)'
+};
+var BOOKING_ANN_TYPE_TAG = {
+  info: 'ประกาศ',
+  warn: 'แจ้งเตือน',
+  danger: 'ด่วน'
+};
+
+function annEscHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function initBookingAnnouncements(items) {
+  if (!items || !items.length) return;
+  BOOKING_ANN.items = items;
+  BOOKING_ANN.cur = 0;
+  var slidesEl = document.getElementById('ann-slides');
+  var dotsEl = document.getElementById('ann-dots');
+  var progressEl = document.getElementById('ann-progress');
+  var placeholder = document.getElementById('ann-placeholder');
+  if (!slidesEl || !dotsEl || !progressEl) return;
+
+  slidesEl.innerHTML = items.map(function(a, i) {
+    var type = (a.type === 'warn' || a.type === 'danger') ? a.type : 'info';
+    var color = BOOKING_ANN_TYPE_COLOR[type] || BOOKING_ANN_TYPE_COLOR.info;
+    var tag = BOOKING_ANN_TYPE_TAG[type] || BOOKING_ANN_TYPE_TAG.info;
+    var bgStyle = a.imageB64
+      ? 'background-image:url(' + a.imageB64 + ')'
+      : 'background:linear-gradient(135deg,#0B1D3A,#0f2647)';
+    return '<div class="ann-slide' + (i === 0 ? ' active' : '') + '" id="ann-s-' + i + '">' +
+      '<div class="ann-slide-bg" id="ann-bg-' + i + '" style="' + bgStyle + '"></div>' +
+      '<div class="ann-slide-overlay" style="background:linear-gradient(to bottom,rgba(11,29,58,0.20) 0%,' + color + ' 65%,rgba(11,29,58,0.95) 100%)"></div>' +
+      '<div class="ann-slide-text">' +
+        '<div class="ann-slide-tag"><span class="ann-slide-tag-dot"></span>' + annEscHtml(tag) + '</div>' +
+        '<div class="ann-slide-title">' + annEscHtml(a.title || '') + '</div>' +
+        (a.body ? '<div class="ann-slide-body">' + annEscHtml(a.body) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  dotsEl.innerHTML = items.map(function(_, i) {
+    return '<div class="ann-dot' + (i === 0 ? ' active' : '') + '" onclick="annGoto(' + i + ')"></div>';
+  }).join('');
+  if (placeholder) placeholder.style.display = 'none';
+  slidesEl.style.display = 'flex';
+  dotsEl.style.display = 'flex';
+  progressEl.style.display = 'block';
+  annGoto(0);
+}
+
+function annGoto(idx) {
+  var items = BOOKING_ANN.items;
+  if (!items.length) return;
+  idx = ((idx % items.length) + items.length) % items.length;
+  BOOKING_ANN.cur = idx;
+  var slidesEl = document.getElementById('ann-slides');
+  if (slidesEl) slidesEl.style.transform = 'translateX(-' + idx * 100 + '%)';
+  items.forEach(function(_, i) {
+    var el = document.getElementById('ann-s-' + i);
+    if (el) el.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.ann-dot').forEach(function(d, i) {
+    d.classList.toggle('active', i === idx);
+  });
+  var fill = document.getElementById('ann-progress-fill');
+  if (fill) {
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    void fill.offsetWidth;
+    fill.style.transition = 'width ' + BOOKING_ANN.dur + 'ms linear';
+    fill.style.width = '100%';
+  }
+  clearTimeout(BOOKING_ANN.timer);
+  if (!BOOKING_ANN.paused) {
+    BOOKING_ANN.timer = setTimeout(function() { annStep(1); }, BOOKING_ANN.dur);
+  }
+}
+
+function annStep(dir) {
+  annGoto(BOOKING_ANN.cur + dir);
+}
+
+function loadBookingAnnouncements() {
+  var now = Date.now();
+  _db.ref('announcements').once('value').then(function(snap) {
+    var val = snap.val() || {};
+    var list = Object.keys(val).map(function(k) {
+      var a = val[k] || {};
+      return {
+        id: k,
+        title: a.title || '',
+        body: a.body || '',
+        type: a.type || 'info',
+        active: a.active !== false,
+        ts: a.ts || 0,
+        imageB64: a.imageB64 || null,
+        expiresAt: a.expiresAt || null
+      };
+    }).filter(function(a) {
+      return a.active && a.title && !(a.expiresAt && a.expiresAt < now);
+    }).sort(function(a, b) { return b.ts - a.ts; });
+    if (list.length) initBookingAnnouncements(list);
+  }).catch(function(err) {
+    console.warn('[Booking1] announcements unavailable', err);
+  });
+}
+
+window.annStep = annStep;
+window.annGoto = annGoto;
+loadBookingAnnouncements();
 
 /* ── [SCHEMA v3 PENDING] SLTransit.core.init() ──
    ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 6: engine ต้อง init ผ่าน SLTransit.core
