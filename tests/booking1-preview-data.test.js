@@ -7,6 +7,30 @@ const adapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-ada
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 
+function pageAncestors(html) {
+  const re = /<\/?div\b[^>]*>/gi;
+  const stack = [];
+  const pages = {};
+  let match;
+  while ((match = re.exec(html))) {
+    const tag = match[0];
+    if (/^<\/div/i.test(tag)) {
+      stack.pop();
+      continue;
+    }
+    const idMatch = tag.match(/\bid=["']([^"']+)/i);
+    const classMatch = tag.match(/\bclass=["']([^"']+)/i);
+    const item = {
+      id: idMatch ? idMatch[1] : '',
+      cls: classMatch ? classMatch[1] : '',
+      ancestors: stack.map((entry) => entry.id || entry.cls || 'div').filter(Boolean)
+    };
+    stack.push(item);
+    if (/^page[1-4]$/.test(item.id)) pages[item.id] = item.ancestors;
+  }
+  return pages;
+}
+
 assert(bridge.includes("var PREVIEW_BASE_PATH = 'publishedSchedule'"), 'Booking1 bridge must use publishedSchedule');
 assert(bridge.includes(".child('originOptions').once('value')"), 'Booking1 must read originOptions as lightweight initial data');
 assert(bridge.includes(".child('destinationOptionsByOrigin').once('value')"), 'Booking1 must read destinationOptionsByOrigin as lightweight initial data');
@@ -44,6 +68,7 @@ assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not d
 
 assert(booking1.includes('booking1-preview-adapter.js'), 'Booking1 must load the preview adapter');
 assert(booking1.includes('var global = window;'), 'Booking1 inline scripts must use a browser-safe global alias');
+assert.deepStrictEqual(pageAncestors(booking1), { page1: [], page2: [], page3: [], page4: [] }, 'Booking1 pages must be sibling roots so page navigation cannot hide active pages inside inactive parents');
 assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone sanitizer for passenger form');
 assert(booking1.includes('function isValidThaiPhone'), 'Booking1 must define Thai phone validator for passenger form');
 assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must expose phone sanitizer to the preview adapter');
