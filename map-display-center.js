@@ -111,31 +111,128 @@
     };
   }
 
+  function distanceMeters(a, b) {
+    if (!a || !b) return NaN;
+    if (geo && geo.distanceMeters) return geo.distanceMeters(a.lat, a.lng, b.lat, b.lng);
+    var R = 6371000;
+    var dLat = (b.lat - a.lat) * Math.PI / 180;
+    var dLng = (b.lng - a.lng) * Math.PI / 180;
+    var x = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+
+  function bearingBetween(from, to) {
+    if (!from || !to) return NaN;
+    var lat1 = from.lat * Math.PI / 180;
+    var lat2 = to.lat * Math.PI / 180;
+    var dLng = (to.lng - from.lng) * Math.PI / 180;
+    var y = Math.sin(dLng) * Math.cos(lat2);
+    var x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function projectPoint(point, headingDeg, meters) {
+    var R = 6371000;
+    var brng = headingDeg * Math.PI / 180;
+    var lat1 = point.lat * Math.PI / 180;
+    var lng1 = point.lng * Math.PI / 180;
+    var d = meters / R;
+    var lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+    var lng2 = lng1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+    return { lat: lat2 * 180 / Math.PI, lng: lng2 * 180 / Math.PI };
+  }
+
+  function vehicleTimestamp(signal) {
+    var raw = signal && (signal.gpsTs || signal.gpsts || signal.locationUpdatedAt || signal.updatedAt || signal.timestamp || signal.ts);
+    var ts = num(raw, NaN);
+    return isFinite(ts) && ts > 0 ? ts : Date.now();
+  }
+
+  function smoothDisplayPoint(display, target, dtSec) {
+    var meters = distanceMeters(display, target);
+    if (!isFinite(meters) || meters < 1.5) return target;
+    var alpha = Math.min(0.32, Math.max(0.10, num(dtSec, 0.12) * 2.4));
+    if (meters > 180) alpha = 0.18;
+    return {
+      lat: display.lat + (target.lat - display.lat) * alpha,
+      lng: display.lng + (target.lng - display.lng) * alpha
+    };
+  }
+
   function planVehicleMarker(previous, signal, options) {
     options = options || {};
     var next = normalizeVehicleSignal(signal);
     if (!next) return { status: 'invalid_signal', point: previous && previous.point ? previous.point : null, vehicle: null };
+    var nextPoint = { lat: next.lat, lng: next.lng };
+    var gpsTs = vehicleTimestamp(signal);
     if (!previous || !previous.point) {
-      return { status: 'place', point: { lat: next.lat, lng: next.lng }, vehicle: next, animation: null };
+      return {
+        status: 'place',
+        point: nextPoint,
+        vehicle: next,
+        animation: null,
+        displayState: { point: nextPoint, display: nextPoint, anchor: nextPoint, lastGpsTs: gpsTs, speedMs: 0, heading: next.heading }
+      };
     }
     var maxStepMeters = num(options.maxStepMeters, 250);
-    var meters = geo && geo.distanceMeters
-      ? geo.distanceMeters(previous.point.lat, previous.point.lng, next.lat, next.lng)
-      : NaN;
-    if (!isFinite(meters) || meters <= maxStepMeters) {
-      return { status: 'move', point: { lat: next.lat, lng: next.lng }, vehicle: next, distanceMeters: meters, animation: { mode: 'smooth' } };
+    var anchor = normalizePoint(previous.anchor) || normalizePoint(previous.point);
+    var display = normalizePoint(previous.display) || normalizePoint(previous.point) || anchor;
+    var lastGpsTs = num(previous.lastGpsTs, 0);
+    if (lastGpsTs && gpsTs < lastGpsTs) {
+      return {
+        status: 'stale_signal',
+        point: display,
+        vehicle: next,
+        animation: { mode: 'stale_ignored', durationMs: 0 },
+        displayState: previous
+      };
     }
-    var ratio = Math.max(0, Math.min(1, maxStepMeters / meters));
+    var rawMeters = distanceMeters(anchor, nextPoint);
+    var dtSec = lastGpsTs && gpsTs > lastGpsTs ? Math.max((gpsTs - lastGpsTs) / 1000, 0.001) : 0.12;
+    var impliedSpeedMs = isFinite(rawMeters) && dtSec > 0 ? rawMeters / dtSec : 0;
+    var maxReasonableSpeedMs = num(options.maxReasonableSpeedMs, 45);
+    if (impliedSpeedMs > maxReasonableSpeedMs) {
+      return {
+        status: 'impossible_jump_ignored',
+        point: display,
+        vehicle: next,
+        distanceMeters: rawMeters,
+        animation: { mode: 'jump_ignored', durationMs: 0 },
+        displayState: previous
+      };
+    }
+
+    var limitedAnchor = nextPoint;
+    if (isFinite(rawMeters) && rawMeters > maxStepMeters) {
+      var ratio = Math.max(0, Math.min(1, maxStepMeters / rawMeters));
+      limitedAnchor = {
+        lat: anchor.lat + (nextPoint.lat - anchor.lat) * ratio,
+        lng: anchor.lng + (nextPoint.lng - anchor.lng) * ratio
+      };
+    }
+    var packetSpeedKmh = num(next.speedKmh, 0);
+    var speedMs = packetSpeedKmh > 0.5 ? packetSpeedKmh / 3.6 : impliedSpeedMs;
+    speedMs = Math.max(0, Math.min(speedMs, 27.8));
+    var heading = isFinite(num(next.heading, NaN)) ? next.heading : bearingBetween(anchor, limitedAnchor);
+    var ageMs = Math.max(0, Date.now() - gpsTs);
+    var target = limitedAnchor;
+    if (speedMs > 0.4 && isFinite(heading) && ageMs <= num(options.maxPredictMs, 10000)) {
+      var predictMeters = Math.min(speedMs * (ageMs / 1000), num(options.maxPredictMeters, 300));
+      target = projectPoint(limitedAnchor, heading, predictMeters);
+    }
+    var nextDisplay = smoothDisplayPoint(display, target, dtSec);
+    var durationMs = Math.max(0, Math.min(900, Math.max(150, dtSec * 1000)));
+    var mode = isFinite(rawMeters) && rawMeters > maxStepMeters ? 'no_warp_smooth_limited' : 'smooth';
     return {
-      status: 'smooth_limited',
-      point: {
-        lat: previous.point.lat + (next.lat - previous.point.lat) * ratio,
-        lng: previous.point.lng + (next.lng - previous.point.lng) * ratio
-      },
-      targetPoint: { lat: next.lat, lng: next.lng },
+      status: mode,
+      point: nextDisplay,
+      targetPoint: target,
       vehicle: next,
-      distanceMeters: meters,
-      animation: { mode: 'no_warp', maxStepMeters: maxStepMeters }
+      distanceMeters: rawMeters,
+      animation: { mode: mode, durationMs: durationMs, maxStepMeters: maxStepMeters },
+      displayState: { point: nextDisplay, display: nextDisplay, anchor: limitedAnchor, lastGpsTs: gpsTs, speedMs: speedMs, heading: heading }
     };
   }
 

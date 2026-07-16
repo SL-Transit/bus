@@ -130,7 +130,7 @@
   var selDest   = '';
   var allBusPositions = {};
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
-  var BUS_MARKER_MOVE_MS = 900;
+  var BUS_MARKER_MOVE_MS = 450;
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
   var userLocationMarker = null;
@@ -886,14 +886,28 @@ function drawRoute(routeData) {
   return Promise.resolve();
 }
 
-function placeBusMarkerAt(carId, latlng) {
+function moveLongdoMarker(marker, point, durationMs) {
+  if (!marker || !point) return false;
+  try {
+    if (typeof marker.move === 'function') {
+      marker.move(point, Math.max(0, Number(durationMs || 0)));
+      return true;
+    }
+    if (typeof marker.location === 'function') {
+      marker.location(point);
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function placeBusMarkerAt(carId, latlng, options) {
   if (!mapReady || !mapObj || !latlng) return;
   var point = normalizeMapPoint(latlng);
   if (!point) return;
   if (busMarkers[carId] && busTagMarkers[carId]) {
-    try { busMarkers[carId].move(point, BUS_MARKER_MOVE_MS); } catch(e) {}
-    try { busTagMarkers[carId].move(point, BUS_MARKER_MOVE_MS); } catch(e2) {}
-    return;
+    var duration = options && options.durationMs != null ? options.durationMs : BUS_MARKER_MOVE_MS;
+    if (moveLongdoMarker(busMarkers[carId], point, duration) && moveLongdoMarker(busTagMarkers[carId], point, duration)) return;
   }
 
   var safeCarId = String(carId).replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
@@ -913,7 +927,6 @@ function placeBusMarkerAt(carId, latlng) {
   });
   mapObj.Overlays.add(busTagMarkers[carId]);
 }
-
 function updateAllBusesOnMap(buses) {
   allBusPositions = buses || {};
   if (!mapReady || !mapObj) return;
@@ -924,8 +937,10 @@ function updateAllBusesOnMap(buses) {
   });
   center.prepareVehicleLayer(signals, busDisplayState, { maxStepMeters: 250 }).forEach(function(item) {
     if (!item || !item.vehicle || !item.point) return;
-    busDisplayState[item.vehicle.vehicleId] = { point: item.point };
-    placeBusMarkerAt(item.vehicle.vehicleId, item.point);
+    busDisplayState[item.vehicle.vehicleId] = item.displayState || { point: item.point };
+    placeBusMarkerAt(item.vehicle.vehicleId, item.point, {
+      durationMs: item.animation && item.animation.durationMs
+    });
   });
   Object.keys(busDisplayState).forEach(function(id) {
     if (!buses[id]) {

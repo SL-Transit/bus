@@ -5,6 +5,7 @@ const path = require('path');
 const passengerHtml = fs.readFileSync(path.join(__dirname, '..', 'passenger.html'), 'utf8');
 const passengerLogic = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
 const erpDataAdapter = fs.readFileSync(path.join(__dirname, '..', 'erp-data-adapter.js'), 'utf8');
+const mapDisplayCenter = fs.readFileSync(path.join(__dirname, '..', 'map-display-center.js'), 'utf8');
 const checkTicketHtml = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'utf8');
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
@@ -22,16 +23,18 @@ assert(passengerLogic.includes('initialViewportPlan = getMapDisplayCenter().plan
 assert(!passengerLogic.includes('zoom: 10, location:'), 'Passenger must not keep a local initial zoom and center decision');
 assert(!passengerHtml.includes('focusPoint(stop, 14)'), 'Passenger UI must not choose stop zoom locally');
 assert(!passengerHtml.includes('focusPoint(pos, 14)'), 'Passenger UI must not choose vehicle zoom locally');
-assert(passengerHtml.includes('map-display-center.js?v=20260714center2'), 'Passenger must load the current Map Display Center version');
-assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live4'), 'Passenger must load the current ERP adapter version');
-assert(passengerHtml.includes('passenger-logic.js?v=20260716live4'), 'Passenger must load the current map adapter version');
+assert(passengerHtml.includes('map-display-center.js?v=20260716center3'), 'Passenger must load the current Map Display Center version');
+assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live5'), 'Passenger must load the current ERP adapter version');
+assert(passengerHtml.includes('passenger-logic.js?v=20260716live5'), 'Passenger must load the current map adapter version');
 assert(passengerHtml.includes("db.ref('data/settings')"), 'Passenger settings must read the public data/settings path');
 assert(!passengerHtml.includes("db.ref('settings')"), 'Passenger must not read the blocked top-level settings path');
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
 assert(passengerLogic.includes('var point = normalizeMapPoint(latlng)'), 'Passenger bus markers must use Longdo lon/lat geometry');
 assert(passengerLogic.includes('BUS_MARKER_MOVE_MS'), 'Passenger bus markers must use smooth Longdo movement');
-assert(passengerLogic.includes('busMarkers[carId].move(point, BUS_MARKER_MOVE_MS)'), 'Passenger bus marker updates must move instead of warp');
+assert(mapDisplayCenter.includes('displayState'), 'Map Display Center must own vehicle motion display state');
+assert(mapDisplayCenter.includes('impossible_jump_ignored'), 'Map Display Center must guard impossible GPS jumps');
+assert(mapDisplayCenter.includes('stale_signal'), 'Map Display Center must ignore stale GPS packets');
 assert(passengerLogic.includes('adapter.watchLiveVehicles(applyLiveVehicleSnapshot)'), 'Passenger must watch the central operations/liveVehicles contract');
 assert(erpDataAdapter.includes("schemaPath('operationsLiveVehicles', 'operations/liveVehicles')"), 'ERP adapter live vehicle watcher must target operations/liveVehicles');
 assert(erpDataAdapter.includes("'data/catalog'"), 'ERP adapter must bridge to the current production catalog path');
