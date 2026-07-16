@@ -68,6 +68,21 @@
     return 'BK' + String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 90) + 10);
   }
 
+  function withoutUndefined(value) {
+    if (Array.isArray(value)) {
+      return value.map(withoutUndefined).filter(function(item) { return item !== undefined; });
+    }
+    if (value && typeof value === 'object') {
+      var out = {};
+      Object.keys(value).forEach(function(key) {
+        var cleaned = withoutUndefined(value[key]);
+        if (cleaned !== undefined) out[key] = cleaned;
+      });
+      return out;
+    }
+    return value === undefined ? undefined : value;
+  }
+
   function fareText(trip) {
     if (trip.externalPaymentRequired) return 'ชำระภายนอก';
     if (trip.fareMissing) return 'รอข้อมูลราคา';
@@ -505,7 +520,7 @@
         slipUploaded: !!state.slipFile,
         assignment: assignmentContract
       });
-      var booking = legacyBookingPayload(state, bookingSnap);
+      var booking = withoutUndefined(legacyBookingPayload(state, bookingSnap));
       var btn = document.getElementById('btnConfirm');
       state._bookingSubmitInFlight = true;
       if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึกการจอง...'; }
