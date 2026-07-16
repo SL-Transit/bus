@@ -17,11 +17,15 @@ const identity = fs.readFileSync('driver-android/src/main/java/com/sanamchai/dri
 });
 
 assert(main.includes('signInWithEmailAndPassword'), 'Driver app must use Firebase Authentication email/password login');
+assert(main.includes('resolveDriverAuthEmail(account)'), 'Driver app must accept central driver IDs before Firebase Auth login');
+assert(main.includes('DRIVER_AUTH_EMAIL_DOMAIN'), 'Driver app must use a deterministic Auth email domain for driver IDs');
 assert(main.includes('DriverIdentityCenter.PROFILE_ROOT'), 'Driver app must load the central identity profile after Auth login');
 assert(main.includes('KEY_ERP_VEHICLE_ID'), 'Driver app must keep ERP vehicle id separate from runtime vehicle id');
 assert(main.includes('KEY_VEHICLE_ID'), 'Driver app must still expose the runtime vehicle id for legacy GPS paths');
 assert(main.includes('signOutDriver()'), 'Driver app must provide a sign-out path');
 assert(main.includes('showLoginScreen'), 'Driver app must have a login-only screen before work opens');
+assert(main.includes('FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT'), 'Login form must be vertically centered on screen');
+assert(main.includes('rootLp.gravity = Gravity.CENTER'), 'Login form must stay centered instead of sticking to the top');
 
 assert(!main.includes('autoSelectAvailableVehicle'), 'Driver app must not auto-select a vehicle from liveVehicles');
 assert(!main.includes('VEHICLE_IDS'), 'Driver app must not offer a hard-coded car1-car5 picker');

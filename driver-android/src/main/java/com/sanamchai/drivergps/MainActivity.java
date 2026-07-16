@@ -111,6 +111,7 @@ public class MainActivity extends Activity {
     private static final String OSRM_BASE = "https://router.project-osrm.org/route/v1/driving/";
     private static final String DRIVER_WORK_PATH = "operations/driverWorkByServiceDate";
     private static final String DRIVER_WORK_CONTRACT_VERSION = "driver_work_v1";
+    private static final String DRIVER_AUTH_EMAIL_DOMAIN = "driver.sl-transit.local";
 
     private SharedPreferences prefs;
     private FirebaseAuth driverAuth;
@@ -237,7 +238,7 @@ public class MainActivity extends Activity {
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
         if (!ensureFirebaseApp()) {
             forceStopGpsForIdentityGate();
-            showLoginScreen("Driver App Firebase config is not finalized.");
+            showLoginScreen("ยังไม่ได้ตั้งค่า Firebase ของแอปคนขับให้ครบ");
             return;
         }
         driverAuth = FirebaseAuth.getInstance();
@@ -278,7 +279,7 @@ public class MainActivity extends Activity {
     private void enterDriverWorkMode() {
         if (!ensureFirebaseApp()) {
             forceStopGpsForIdentityGate();
-            showLoginScreen("Driver App Firebase config is not finalized.");
+            showLoginScreen("ยังไม่ได้ตั้งค่า Firebase ของแอปคนขับให้ครบ");
             return;
         }
         if (driverAuth == null) driverAuth = FirebaseAuth.getInstance();
@@ -335,71 +336,103 @@ public class MainActivity extends Activity {
     }
 
     private void showLoginScreen(String errorMessage) {
+        FrameLayout screen = new FrameLayout(this);
+        screen.setBackgroundColor(COLOR_BG_PAGE);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(24), dp(44), dp(24), dp(24));
-        root.setBackgroundColor(COLOR_BG_PAGE);
+        root.setPadding(dp(28), dp(24), dp(28), dp(24));
 
         TextView title = new TextView(this);
-        title.setText("Driver Login");
+        title.setText("เข้าสู่ระบบคนขับ");
         title.setTextColor(COLOR_NAVY);
-        title.setTextSize(24);
+        title.setTextSize(26);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setGravity(Gravity.CENTER);
-        root.addView(title, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        titleLp.setMargins(0, 0, 0, dp(20));
+        root.addView(title, titleLp);
 
         EditText accountInput = new EditText(this);
-        accountInput.setHint("Account email");
+        accountInput.setHint("รหัสคนขับหรืออีเมล");
         accountInput.setSingleLine(true);
-        accountInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        root.addView(accountInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        accountInput.setTextColor(COLOR_NAVY);
+        accountInput.setHintTextColor(COLOR_TEXT_MUTED);
+        accountInput.setTextSize(18);
+        accountInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
+        LinearLayout.LayoutParams accountLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+        accountLp.setMargins(0, 0, 0, dp(10));
+        root.addView(accountInput, accountLp);
 
         EditText passwordInput = new EditText(this);
-        passwordInput.setHint("Password");
+        passwordInput.setHint("รหัสผ่าน");
         passwordInput.setSingleLine(true);
+        passwordInput.setTextColor(COLOR_NAVY);
+        passwordInput.setHintTextColor(COLOR_TEXT_MUTED);
+        passwordInput.setTextSize(18);
         passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        root.addView(passwordInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams passwordLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+        passwordLp.setMargins(0, 0, 0, dp(12));
+        root.addView(passwordInput, passwordLp);
 
         TextView errorTextView = new TextView(this);
         errorTextView.setTextColor(COLOR_RED);
+        errorTextView.setTextSize(15);
+        errorTextView.setGravity(Gravity.CENTER);
         errorTextView.setText(errorMessage == null ? "" : errorMessage);
-        root.addView(errorTextView, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams errorLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        errorLp.setMargins(0, 0, 0, dp(14));
+        root.addView(errorTextView, errorLp);
 
         Button loginButton = new Button(this);
-        loginButton.setText("Sign in");
+        loginButton.setText("เข้าสู่ระบบ");
+        loginButton.setTextSize(18);
+        loginButton.setTextColor(Color.WHITE);
+        loginButton.setBackgroundColor(COLOR_NAVY);
         root.addView(loginButton, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(54)));
 
         loginButton.setOnClickListener(v -> {
-            String email = accountInput.getText().toString().trim();
+            String account = accountInput.getText().toString().trim();
             String password = passwordInput.getText().toString();
-            if (email.isEmpty() || password.isEmpty()) {
-                errorTextView.setText("Please enter the account and password from the central system.");
+            if (account.isEmpty() || password.isEmpty()) {
+                errorTextView.setText("กรุณากรอกรหัสคนขับและรหัสผ่านจากระบบกลาง");
                 return;
             }
+            String authEmail = resolveDriverAuthEmail(account);
             loginButton.setEnabled(false);
-            errorTextView.setText("Checking account...");
-            driverAuth.signInWithEmailAndPassword(email, password)
-                    .addOnSuccessListener(result -> loadDriverIdentityProfile(email, loginButton, errorTextView))
+            errorTextView.setText("กำลังตรวจสอบบัญชี...");
+            driverAuth.signInWithEmailAndPassword(authEmail, password)
+                    .addOnSuccessListener(result -> loadDriverIdentityProfile(account, loginButton, errorTextView))
                     .addOnFailureListener(error -> {
                         clearDriverIdentity();
                         loginButton.setEnabled(true);
-                        errorTextView.setText("Sign in failed. Check the account assigned by SL-Transit.");
+                        errorTextView.setText("เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจรหัสคนขับและรหัสผ่าน");
                     });
         });
-        setContentView(root);
+        FrameLayout.LayoutParams rootLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+        rootLp.gravity = Gravity.CENTER;
+        screen.addView(root, rootLp);
+        setContentView(screen);
+    }
+
+    private String resolveDriverAuthEmail(String account) {
+        String value = account == null ? "" : account.trim();
+        if (value.contains("@")) return value;
+        return value + "@" + DRIVER_AUTH_EMAIL_DOMAIN;
     }
 
     private void loadDriverIdentityProfile(String email, Button loginButton, TextView errorTextView) {
         FirebaseUser user = driverAuth == null ? null : driverAuth.getCurrentUser();
         if (user == null) {
             loginButton.setEnabled(true);
-            errorTextView.setText("Sign in session was not created.");
+            errorTextView.setText("ยังสร้างรอบการเข้าสู่ระบบไม่ได้");
             return;
         }
         FirebaseDatabase.getInstance().getReference(DriverIdentityCenter.PROFILE_ROOT)
@@ -418,7 +451,7 @@ public class MainActivity extends Activity {
                     clearDriverIdentity();
                     driverAuth.signOut();
                     loginButton.setEnabled(true);
-                    errorTextView.setText("This account is not active or has no assigned vehicle.");
+                    errorTextView.setText("บัญชีนี้ยังไม่เปิดใช้งาน หรือยังไม่ได้ผูกกับรถ");
                     return;
                 }
                 prefs.edit()
@@ -437,7 +470,7 @@ public class MainActivity extends Activity {
                 clearDriverIdentity();
                 driverAuth.signOut();
                 loginButton.setEnabled(true);
-                errorTextView.setText("Driver profile is not readable yet. Check identity rules/config.");
+                errorTextView.setText("ยังอ่านข้อมูลคนขับไม่ได้ กรุณาตรวจสิทธิ์และข้อมูลบัญชี");
             }
         });
     }
@@ -449,7 +482,7 @@ public class MainActivity extends Activity {
         }
         clearDriverIdentity();
         if (driverAuth != null) driverAuth.signOut();
-        showLoginScreen("Signed out.");
+        showLoginScreen("ออกจากระบบแล้ว");
     }
 
     private void requireActiveDriverOrReturnToLogin(String message) {
