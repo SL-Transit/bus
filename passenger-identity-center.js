@@ -117,6 +117,26 @@
     });
   }
 
+  function completeLineLogin() {
+    if (!hasLineConfig()) {
+      var configErr = new Error('LINE LIFF ID is not configured');
+      configErr.code = 'LINE_LOGIN_NOT_CONFIGURED';
+      return Promise.reject(configErr);
+    }
+    if (!global.liff) {
+      var sdkErr = new Error('LINE LIFF SDK is not loaded');
+      sdkErr.code = 'LINE_LIFF_SDK_NOT_LOADED';
+      return Promise.reject(sdkErr);
+    }
+    var consent = buildConsent('booking1.html');
+    return global.liff.init({ liffId: liffId() }).then(function() {
+      if (!global.liff.isLoggedIn()) return null;
+      return global.liff.getProfile().then(function(profile) {
+        return setCurrentIdentity(identityFromLineProfile(profile, consent));
+      });
+    });
+  }
+
   global.SLTransitPassengerIdentityCenter = {
     consentVersion: CONSENT_VERSION,
     hasLineConfig: hasLineConfig,
@@ -129,7 +149,8 @@
     getCurrentIdentity: getCurrentIdentity,
     clearCurrentIdentity: clearCurrentIdentity,
     isLineIdentity: isLineIdentity,
-    loginWithLine: loginWithLine
+    loginWithLine: loginWithLine,
+    completeLineLogin: completeLineLogin
   };
 
   if (typeof module !== 'undefined' && module.exports) {

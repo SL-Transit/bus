@@ -167,6 +167,11 @@ assert(adapter.includes("throw new Error('booking_total_not_ready')"), 'Booking1
 assert(adapter.includes("sourceMode: 'erp_data_center'"), 'Booking1 real booking payload must record ERP Data Center source mode');
 assert(adapter.includes('SLTransitPassengerIdentityCenter'), 'Booking1 adapter must use Passenger Identity Center for optional LINE login');
 assert(adapter.includes('global.loginBookingLineIdentity'), 'Booking1 adapter must expose optional LINE login handler');
+assert(adapter.includes('LINE_LOGIN_PENDING_KEY'), 'Booking1 adapter must persist selected booking state before LINE redirects');
+assert(adapter.includes('savePendingLineBookingState(state)'), 'Booking1 LINE login must save selected trip before redirecting to LINE');
+assert(adapter.includes('resumePendingLineLogin()'), 'Booking1 adapter must resume LINE login after trip data reloads');
+assert(adapter.includes('completeLineLogin'), 'Booking1 adapter must complete LINE login without forcing another redirect');
+assert(adapter.includes('showPaymentPageAfterLineIdentity'), 'Booking1 LINE login and redirect resume must share the payment continuation flow');
 assert(adapter.includes('guestPassengerIdentity(state.name, state.phone)'), 'Guest bookings must keep manual passenger identity');
 assert(adapter.includes('lineNotificationPreference()'), 'LINE bookings must opt in to LINE ticket/trip notifications');
 assert(adapter.includes('passengerIdentity: currentPassengerIdentity(state)'), 'Booking1 snapshot must include passenger identity');
@@ -176,6 +181,7 @@ assert(bridge.includes('passengerIdentity: params.passengerIdentity || null'), '
 assert(bridge.includes('notificationPreference: params.notificationPreference || null'), 'Booking bridge must preserve notification preference in snapshots');
 assert(bridge.includes('consent: params.consent || null'), 'Booking bridge must preserve consent evidence in snapshots');
 assert(identityCenter.includes('LINE_LOGIN_NOT_CONFIGURED'), 'Passenger Identity Center must fail closed until a LIFF ID is configured');
+assert(identityCenter.includes('completeLineLogin'), 'Passenger Identity Center must support completing a LIFF redirect without starting a new login');
 assert(identityCenter.includes("provider: 'guest'"), 'Passenger Identity Center must support non-login guest identity');
 assert(identityCenter.includes("provider: 'line'"), 'Passenger Identity Center must support LINE passenger identity');
 assert(!identityCenter.includes('getAccessToken'), 'Passenger Identity Center must not store LINE access tokens in bookings');

@@ -6,6 +6,8 @@
 (function(global) {
   'use strict';
 
+  var LINE_LOGIN_PENDING_KEY = 'slTransitBooking1LineLoginPending';
+
   function ready(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
     else fn();
@@ -216,6 +218,120 @@
 
   function currentConsent(state) {
     return state.consent || null;
+  }
+
+  function pendingStorage() {
+    try { return global.sessionStorage || null; } catch (err) { return null; }
+  }
+
+  function readPendingLineBookingState() {
+    var storage = pendingStorage();
+    if (!storage) return null;
+    try {
+      var raw = storage.getItem(LINE_LOGIN_PENDING_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      storage.removeItem(LINE_LOGIN_PENDING_KEY);
+      return null;
+    }
+  }
+
+  function clearPendingLineBookingState() {
+    var storage = pendingStorage();
+    if (storage) storage.removeItem(LINE_LOGIN_PENDING_KEY);
+  }
+
+  function savePendingLineBookingState(state) {
+    var storage = pendingStorage();
+    if (!storage) return;
+    storage.setItem(LINE_LOGIN_PENDING_KEY, JSON.stringify({
+      createdAt: Date.now(),
+      originKey: state.originKey || '',
+      originName: state.originName || '',
+      destKey: state.destKey || '',
+      destName: state.destName || '',
+      pax: state.pax || 1,
+      selectedDate: serviceDateISO(),
+      tripTime: state.tripTime || '',
+      tripLabel: state.tripLabel || '',
+      tripFare: state.tripFare || 0,
+      selectedTrip: state.selectedTrip || null,
+      isLeg2Dest: state.isLeg2Dest === true,
+      transferInfo: state.transferInfo || null
+    }));
+  }
+
+  function applyPendingLineBookingState(pending) {
+    if (!pending) return;
+    var state = appState();
+    if (pending.originKey) state.originKey = pending.originKey;
+    if (pending.originName) state.originName = pending.originName;
+    if (pending.destKey) state.destKey = pending.destKey;
+    if (pending.destName) state.destName = pending.destName;
+    state.pax = pending.pax || state.pax || 1;
+    if (pending.selectedDate) state.selectedDate = new Date(pending.selectedDate + 'T00:00:00');
+    if (pending.selectedTrip) state.selectedTrip = pending.selectedTrip;
+    state.tripTime = pending.tripTime || (state.selectedTrip && state.selectedTrip.pickupTime) || state.tripTime || '';
+    state.tripLabel = pending.tripLabel || (state.selectedTrip && state.selectedTrip.label) || state.tripLabel || '';
+    state.tripFare = pending.tripFare || (state.selectedTrip && state.selectedTrip.fareAmount) || state.tripFare || 0;
+    state.tripAssignment = state.selectedTrip && state.selectedTrip.assignment || null;
+    state.isLeg2Dest = pending.isLeg2Dest === true || (state.selectedTrip && state.selectedTrip.isLeg2 === true);
+    state.transferInfo = pending.transferInfo || (state.selectedTrip && state.selectedTrip.transferInfo) || null;
+    setText('field-origin', state.originName);
+    setText('field-dest', state.destName);
+    setText('seatCount', state.pax);
+    setText('pax-count', state.pax + ' เธเธ');
+    setText('search-pax-count', state.pax + ' เธเธ โ–พ');
+  }
+
+  function showPaymentPageAfterLineIdentity(identity) {
+    var state = appState();
+    state.passengerIdentity = identity;
+    state.notificationPreference = lineNotificationPreference();
+    state.consent = buildLineConsent();
+    state.name = identity.displayName || 'LINE passenger';
+    state.phone = '';
+    state.consentAccepted = true;
+    var nameEl = document.getElementById('inp-name');
+    var phoneEl = document.getElementById('inp-phone');
+    var phoneError = document.getElementById('phoneError');
+    if (nameEl) nameEl.value = state.name;
+    if (phoneEl) phoneEl.value = '';
+    if (phoneError) phoneError.style.display = 'none';
+    renderLineIdentity(identity);
+    enforceSeparatePaymentStep();
+    if (!preparePassengerAndPayment(true)) return false;
+    if (typeof global.showPage === 'function') global.showPage(3);
+    if (typeof global.updateSteps === 'function') global.updateSteps(3);
+    if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
+    return true;
+  }
+
+  function resumePendingLineLogin() {
+    var state = appState();
+    if (state._lineLoginResumeAttempted) return;
+    var pending = readPendingLineBookingState();
+    if (!pending) return;
+    if (Date.now() - Number(pending.createdAt || 0) > 10 * 60 * 1000) {
+      clearPendingLineBookingState();
+      return;
+    }
+    var center = identityCenter();
+    if (!center || typeof center.completeLineLogin !== 'function') return;
+    state._lineLoginResumeAttempted = true;
+    applyPendingLineBookingState(pending);
+    setLineIdentityStatus('กำลังกลับเข้าสู่รายการจองเดิม...', true);
+    center.completeLineLogin().then(function(identity) {
+      if (!identity) {
+        setLineIdentityStatus('ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้', false);
+        return;
+      }
+      applyPendingLineBookingState(pending);
+      if (showPaymentPageAfterLineIdentity(identity)) clearPendingLineBookingState();
+    }).catch(function(err) {
+      setLineIdentityStatus('เข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองใหม่ หรือกรอกข้อมูลเองได้', false);
+      console.error('[Booking1PreviewAdapter] LINE login resume failed', err);
+    });
   }
 
   function setLineIdentityStatus(message, busy) {
@@ -576,6 +692,7 @@
       global.SLBookingBridge.loadAvailableTrips(state.originKey, state.destKey, serviceDateISO()).then(function(available) {
         if (state._tripRenderRequestId !== requestId) return;
         renderLoadedTrips(available || []);
+        resumePendingLineLogin();
       }).catch(function(err) {
         console.error('[Booking1PreviewAdapter] load trips failed', err);
         container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบ /publishedSchedule/pairs/{pairKey}</span></div>';
@@ -665,26 +782,10 @@
         return;
       }
       setLineIdentityStatus('กำลังเข้าสู่ระบบ LINE...', true);
+      savePendingLineBookingState(state);
       center.loginWithLine().then(function(identity) {
         if (!identity) return;
-        state.passengerIdentity = identity;
-        state.notificationPreference = lineNotificationPreference();
-        state.consent = buildLineConsent();
-        state.name = identity.displayName || 'LINE passenger';
-        state.phone = '';
-        state.consentAccepted = true;
-        var nameEl = document.getElementById('inp-name');
-        var phoneEl = document.getElementById('inp-phone');
-        var phoneError = document.getElementById('phoneError');
-        if (nameEl) nameEl.value = state.name;
-        if (phoneEl) phoneEl.value = '';
-        if (phoneError) phoneError.style.display = 'none';
-        renderLineIdentity(identity);
-        enforceSeparatePaymentStep();
-        if (!preparePassengerAndPayment(true)) return;
-        if (typeof global.showPage === 'function') global.showPage(3);
-        if (typeof global.updateSteps === 'function') global.updateSteps(3);
-        if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
+        if (showPaymentPageAfterLineIdentity(identity)) clearPendingLineBookingState();
       }).catch(function(err) {
         var code = err && err.code || '';
         if (code === 'LINE_LOGIN_NOT_CONFIGURED') {
