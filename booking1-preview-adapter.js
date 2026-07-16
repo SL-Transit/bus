@@ -263,6 +263,34 @@
     return true;
   }
 
+  function enforceSeparatePaymentStep() {
+    var page2 = document.getElementById('page2');
+    var page3Container = document.querySelector('#page3 .content .page-container');
+    if (!page2 || !page3Container) return;
+
+    var legacyMount = document.getElementById('page2PaymentMount');
+    if (legacyMount) {
+      while (legacyMount.firstElementChild) {
+        page3Container.appendChild(legacyMount.firstElementChild);
+      }
+      if (legacyMount.parentElement) legacyMount.parentElement.removeChild(legacyMount);
+    }
+
+    ['pm-onsite','pm-bank','pm-promptpay','btnConfirm','consentStatusBar','consentTriggerBtn','confirmNote','slipUploadCard'].forEach(function(id) {
+      var node = document.getElementById(id);
+      if (node && page2.contains(node)) page3Container.appendChild(node);
+    });
+
+    var formSection = document.querySelector('#page2 .form-section');
+    if (formSection && !formSection.querySelector('button[onclick="goToPayment()"]')) {
+      var next = document.createElement('button');
+      next.className = 'btn-main';
+      next.setAttribute('onclick', 'goToPayment()');
+      next.textContent = 'ถัดไป ›';
+      formSection.appendChild(next);
+    }
+  }
+
   function selectButton(trip, index, recommended) {
     var cls = recommended ? 'btn-select-recommend' : 'btn-select-compact';
     if (!trip.selectionAllowed) {
@@ -364,6 +392,7 @@
   }
 
   function patch() {
+    enforceSeparatePaymentStep();
     global._populateStopPicker = function() {
       var state = appState();
       var origins = global.SLBookingBridge.getBookableStops();
@@ -458,6 +487,7 @@
     };
 
     global.goToPassenger = function(e, time, label, tripIndex) {
+      enforceSeparatePaymentStep();
       if (e) e.stopPropagation();
       var state = appState();
       var trip = (state._lastAvailable || [])[Number(tripIndex)];
@@ -500,6 +530,7 @@
     };
 
     global.goToPayment = function() {
+      enforceSeparatePaymentStep();
       if (!preparePassengerAndPayment(false)) return;
       if (typeof global.showPage === 'function') global.showPage(3);
       if (typeof global.updateSteps === 'function') global.updateSteps(3);
@@ -507,6 +538,7 @@
     };
 
     global.goToTicket = function() {
+      enforceSeparatePaymentStep();
       var state = appState();
       if (state._bookingSubmitInFlight) { alert('กำลังบันทึกการจอง กรุณารอสักครู่'); return; }
       if (!preparePassengerAndPayment(false)) return;

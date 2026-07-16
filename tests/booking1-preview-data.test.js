@@ -78,6 +78,7 @@ assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calc
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
 
 assert(booking1.includes('booking1-preview-adapter.js'), 'Booking1 must load the preview adapter');
+assert(booking1.includes('booking1-preview-adapter.js?v=20260716a'), 'Booking1 must bust cached preview adapter versions after payment-step layout fixes');
 assert(booking1.includes('var global = window;'), 'Booking1 inline scripts must use a browser-safe global alias');
 assert.deepStrictEqual(pageAncestors(booking1), { page1: [], page2: [], page3: [], page4: [] }, 'Booking1 pages must be sibling roots so page navigation cannot hide active pages inside inactive parents');
 assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone sanitizer for passenger form');
@@ -94,6 +95,8 @@ assert(!adapter.includes('terms-check'), 'Booking1 adapter must not require the 
 assert(!booking1.includes('page2PaymentMount'), 'Booking1 must keep passenger and payment pages separated');
 assert(!booking1.includes('mergePaymentIntoPassengerPage'), 'Booking1 must not move payment DOM into the passenger page');
 assert(adapter.includes('global.showPage(3)'), 'Booking1 adapter must keep the separate payment page after passenger details');
+assert(adapter.includes('function enforceSeparatePaymentStep'), 'Booking1 adapter must repair cached merged payment markup back into the payment page');
+assert(adapter.includes("document.getElementById('page2PaymentMount')"), 'Booking1 adapter must recognize the old merged payment mount from cached markup');
 assert(bridge.includes('getPaymentContact: getPaymentContact'), 'Booking1 bridge must expose ERP payment contact');
 assert(booking1.includes('SLBookingBridge.getPaymentContact'), 'Booking1 must consume payment contact through the bridge');
 assert(booking1.includes('232-8-93015-6'), 'Booking1 must show the owner-provided account number fallback until ERP publishes paymentContact');
