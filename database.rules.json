@@ -94,6 +94,14 @@
             ".write": false
           }
         }
+      },
+      "driverTicketsByServiceDate": {
+        "$serviceDate": {
+          "$vehicleId": {
+            ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId",
+            ".write": false
+          }
+        }
       }
     },
     "publishedSchedule": {

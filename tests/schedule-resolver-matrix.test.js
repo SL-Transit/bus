@@ -230,10 +230,11 @@ async function main() {
   assert.equal(passengerSource.includes("db.ref('routeData')"), false, 'passenger still reads legacy routeData');
   assert.equal(passengerSource.includes("db.ref('liveVehicles')"), false, 'passenger still reads legacy liveVehicles');
   assert.equal(extractFunction(checkTicketSource, 'resolveSharedScheduleAssignmentForBooking').includes('persistedVehicleId'), true, 'check_ticket does not prefer persisted assignment');
-  assert.equal(driverSource.includes('bookingBelongsToVehicle(child, vehicleId)'), true, 'driver list is not filtered by planned vehicle');
+  assert.equal(driverSource.includes('operations/driverTicketsByServiceDate'), true, 'driver list is not reading the central self-only ticket feed');
+  assert.equal(driverSource.includes('bookingBelongsToVehicle(child, vehicleId)'), false, 'driver list still filters all bookings on the device');
   assert.equal(driverSource.includes('bookingBelongsToVehicle(snap, vehicleId)'), true, 'driver QR check-in does not validate planned vehicle');
   assert.equal(driverSource.includes('testMode ? "testBookings" : "bookings"'), true, 'driver app does not follow test mode booking path');
-  assert.equal(driverSource.includes('if (Boolean.TRUE.equals(testMode))'), true, 'driver app still requires an index for test bookings');
+  assert.equal(driverSource.includes('loadBookingsForDate'), false, 'driver app still scans daily bookings');
   assert.equal(counts['invalid/missing'], 0);
 
   console.log(JSON.stringify({

@@ -76,6 +76,7 @@ public class MainActivity extends Activity {
     static final String KEY_DRIVER_EMAIL = "driver_email";
     static final String KEY_DRIVER_ID = "driver_id";
     static final String KEY_ERP_VEHICLE_ID = "erp_vehicle_id";
+    static final String KEY_DRIVER_QUEUE_NO = "driver_queue_no";
     static final String KEY_ACCOUNT_STATUS = "driver_account_status";
     static final String KEY_SESSION_STATUS = "driver_session_status";
     static final String KEY_BATTERY_PROMPTED  = "battery_prompted";
@@ -110,6 +111,7 @@ public class MainActivity extends Activity {
     // ===== OSRM road-routing สำหรับ ETA ตามเส้นทางจริง (ข้อ 6.2) =====
     private static final String OSRM_BASE = "https://router.project-osrm.org/route/v1/driving/";
     private static final String DRIVER_WORK_PATH = "operations/driverWorkByServiceDate";
+    private static final String DRIVER_TICKETS_PATH = "operations/driverTicketsByServiceDate";
     private static final String DRIVER_WORK_CONTRACT_VERSION = "driver_work_v1";
     private static final String DRIVER_AUTH_EMAIL_DOMAIN = "driver.sl-transit.local";
 
@@ -330,6 +332,7 @@ public class MainActivity extends Activity {
                 .remove(KEY_DRIVER_ID)
                 .remove(KEY_ERP_VEHICLE_ID)
                 .remove(KEY_VEHICLE_ID)
+                .remove(KEY_DRIVER_QUEUE_NO)
                 .remove(KEY_ACCOUNT_STATUS)
                 .remove(KEY_SESSION_STATUS)
                 .apply();
@@ -957,23 +960,18 @@ public class MainActivity extends Activity {
         }
         return booking.child("plannedVehicleId").getValue(String.class);
     }
-    private void loadBookingsForDate(String date, ValueEventListener listener) {
-        DatabaseReference ref = FirebaseDatabase.getInstance().getReference(bookingsPath());
-        if (Boolean.TRUE.equals(testMode)) {
-            ref.addListenerForSingleValueEvent(listener);
-        } else {
-            ref.orderByChild("date").equalTo(date).addListenerForSingleValueEvent(listener);
-        }
+    private void loadDriverTicketsForDate(String date, String vehicleId, ValueEventListener listener) {
+        FirebaseDatabase.getInstance().getReference(DRIVER_TICKETS_PATH)
+                .child(date).child(vehicleId)
+                .addListenerForSingleValueEvent(listener);
     }
     // ===== ดึงยอดผู้โดยสารวันนี้: จอง / เช็คอินแล้ว / ยังไม่มาเช็คอิน =====
     private void refreshPassengerSummary() {
         if (!hasAuthenticatedDriverIdentity()) return;
-        String bookingPath = bookingsPath();
-        if (bookingPath == null) return;
         final String vehicleId = authorizedRuntimeVehicleId();
         if (vehicleId == null) return;
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        loadBookingsForDate(today, new ValueEventListener() {
+        loadDriverTicketsForDate(today, vehicleId, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 int booked = 0;
                 int checkedIn = 0;
@@ -982,7 +980,6 @@ public class MainActivity extends Activity {
                     if (!today.equals(bookingDate)) continue;
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
-                    if (!bookingBelongsToVehicle(child, vehicleId)) continue;
                     booked++;
                     String checkinStatus = String.valueOf(child.child("originCheckin").child("status").getValue());
                     if ("boarded".equals(checkinStatus)) checkedIn++;
@@ -1036,6 +1033,7 @@ public class MainActivity extends Activity {
             stopCoordsCache.clear();
             stopNameCache.clear();
             stopsCacheLoaded = false;
+            prefs.edit().remove(KEY_DRIVER_QUEUE_NO).apply();
             if (queueValueText != null) queueValueText.setText("ยังไม่มีคิว");
             if (routeValueText != null) routeValueText.setText(message);
             if (nextRoundValueText != null) nextRoundValueText.setText("—");
@@ -1073,6 +1071,7 @@ public class MainActivity extends Activity {
             return;
         }
 
+        prefs.edit().putInt(KEY_DRIVER_QUEUE_NO, queueNo.intValue()).apply();
         stopCoordsCache.clear();
         stopNameCache.clear();
         Trip current = readDriverWorkTrip(snap.child("currentTrip"));
@@ -1166,8 +1165,8 @@ public class MainActivity extends Activity {
         prefs.edit().putString(KEY_SERVICE_STATUS, available ? "available" : "unavailable").apply();
         String vehicleId = authorizedRuntimeVehicleId();
         if (vehicleId == null) return;
-        // เขียนขึ้น liveVehicles ด้วย เพื่อให้แผนที่ผู้โดยสารรู้ว่ารถนี้ไม่พร้อมรับ แม้ GPS ยังส่งอยู่
-        FirebaseDatabase.getInstance().getReference("liveVehicles/" + vehicleId + "/serviceStatus")
+        // เขียนขึ้น runtime live vehicle เพื่อให้แผนที่ผู้โดยสารรู้ว่ารถนี้ไม่พร้อมรับ แม้ GPS ยังส่งอยู่
+        FirebaseDatabase.getInstance().getReference("operations/liveVehicles/" + vehicleId + "/serviceStatus")
                 .setValue(available ? "available" : "unavailable");
         updateServiceStatusPill();
     }
@@ -1492,16 +1491,10 @@ public class MainActivity extends Activity {
             requireActiveDriverOrReturnToLogin("Please sign in before opening passenger work.");
             return;
         }
-        String bookingPath = bookingsPath();
-        if (bookingPath == null) {
-            new AlertDialog.Builder(this).setTitle("กำลังโหลดโหมดระบบ")
-                    .setMessage("กรุณาลองอีกครั้ง").setPositiveButton("ตกลง", null).show();
-            return;
-        }
         final String vehicleId = authorizedRuntimeVehicleId();
         if (vehicleId == null) return;
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-        loadBookingsForDate(today, new ValueEventListener() {
+        loadDriverTicketsForDate(today, vehicleId, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 StringBuilder sb = new StringBuilder();
                 int count = 0;
@@ -1510,7 +1503,6 @@ public class MainActivity extends Activity {
                     if (!today.equals(bookingDate)) continue;
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
-                    if (!bookingBelongsToVehicle(child, vehicleId)) continue;
                     String name  = String.valueOf(child.child("name").getValue());
                     String phone = String.valueOf(child.child("phone").getValue());
                     String seats = String.valueOf(child.child("seats").getValue());

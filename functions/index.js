@@ -1,9 +1,11 @@
 const admin = require("firebase-admin");
-const { onValueCreated, onValueUpdated } = require("firebase-functions/v2/database");
+const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret, defineString } = require("firebase-functions/params");
 
 admin.initializeApp();
+
+const driverTicketCenter = require("./driver-ticket-center.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const slip2GoSecret = defineSecret("SLIP2GO_SECRET_KEY");
@@ -286,4 +288,20 @@ exports.sendLineOnPaymentVerified = onValueUpdated({
   if (before.paymentStatus === "payment_verified") return;
   if (after.paymentStatus !== "payment_verified") return;
   await sendLineForBooking(event.data.after.ref, code, after);
+});
+
+exports.syncDriverTicketOnBookingWrite = onValueWritten({
+  ref: "/bookings/{code}",
+  instance: "sl-transit-9464e-default-rtdb",
+  region: "us-central1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (event) => {
+  const code = event.params.code || "";
+  const before = event.data.before.exists() ? (event.data.before.val() || {}) : null;
+  const after = event.data.after.exists() ? (event.data.after.val() || {}) : null;
+  const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, before, after);
+  if (!Object.keys(updates).length) return;
+  await admin.database().ref().update(updates);
 });

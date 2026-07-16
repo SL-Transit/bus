@@ -124,21 +124,8 @@ public class GpsService extends Service implements SensorEventListener {
     private String queueId = null;
 
     // ===== ระบบคิวรถ — runtime GPS ไม่อ่าน legacy schedule เอง =====
-    // Driver Work Center เป็นเจ้าของคิว/งานประจำวัน ส่วน GPS service ใช้ fallback เฉพาะการคุมแบตเตอรี่เท่านั้น
-    private String queueBaseDate = "2026-06-14"; // fallback ถ้า Firebase อ่านไม่ได้
-    private final java.util.Map<String, Integer> queueBaseMap = new java.util.HashMap<String, Integer>() {{
-        put("car1", 1); put("car2", 2); put("car3", 3); put("car4", 4); // fallback
-    }};
-    // เวลาแต่ละคิว (fallback ถ้า Firebase อ่านไม่ได้) format "HH:mm"
-    private final String[][] QUEUE_SCHEDULE = {
-        // { wakeTime, startTime, endTime }
-        { "08:00", "09:00", "14:35" }, // คิว 1
-        { "07:00", "08:00", "16:20" }, // คิว 2
-        { "05:20", "06:20", "17:03" }, // คิว 3
-        { "10:30", "11:30", "17:20" }, // คิว 4
-    };
-    private final java.util.Map<Integer, String[]> firebaseQueueSchedule = new java.util.HashMap<>();
-    private int todayQueueNo = -1; // -1 = ยังไม่ได้คำนวณ
+    // Driver Work Center เป็นเจ้าของคิว/งานประจำวัน ส่วน GPS service ไม่คำนวณคิวเอง
+    private int centralQueueNo = -1;
     private boolean scheduleLoaded = false;
 
 
@@ -658,9 +645,9 @@ public class GpsService extends Service implements SensorEventListener {
         }
     }
 
-    // ===== คำนวณคิว fallback เฉพาะภายในเครื่อง =====
+    // ===== รับคิวจาก Driver Work Center เท่านั้น =====
     private void loadQueueSchedule() {
-        computeTodayQueue();
+        centralQueueNo = prefs.getInt(MainActivity.KEY_DRIVER_QUEUE_NO, -1);
         scheduleLoaded = true;
     }
 
@@ -679,83 +666,20 @@ public class GpsService extends Service implements SensorEventListener {
         }
     }
 
-    private void computeTodayQueue() {
-        try {
-            Integer baseQ = queueBaseMap.get(queueId);
-            if (baseQ == null) { todayQueueNo = -1; return; }
-            // คำนวณจำนวนวันที่ผ่านมาจาก baseDate
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-            java.util.Date base = sdf.parse(queueBaseDate);
-            java.util.Date today = sdf.parse(sdf.format(new java.util.Date()));
-            if (base == null || today == null) { todayQueueNo = baseQ; return; }
-            long diffMs = today.getTime() - base.getTime();
-            int diffDays = (int)(diffMs / 86400000L);
-            todayQueueNo = ((baseQ - 1 + diffDays) % 4 + 4) % 4 + 1;
-        } catch (Exception e) {
-            Integer baseQ = queueBaseMap.get(queueId);
-            todayQueueNo = baseQ == null ? -1 : baseQ;
-        }
-    }
-
-    // คืนเวลา wake/start/end ของคิววันนี้ (index 0=wake, 1=start, 2=end)
-    private String getScheduleTime(int index) {
-        int q = todayQueueNo;
-        if (q < 1 || q > 4) return null;
-        String[] firebaseSchedule = firebaseQueueSchedule.get(q);
-        if (firebaseSchedule != null && index >= 0 && index < firebaseSchedule.length && firebaseSchedule[index] != null) {
-            return firebaseSchedule[index];
-        }
-        return QUEUE_SCHEDULE[q - 1][index];
-    }
-
-    // เช็คว่าตอนนี้อยู่ในช่วงที่ควรส่งตำแหน่งไหม (wakeTime <= now <= endTime)
     public boolean isWithinSchedule() {
-        if (todayQueueNo < 1) return true; // ยังไม่โหลด schedule → ให้ผ่านไปก่อน
-        try {
-            String wake = getScheduleTime(0);
-            String end  = getScheduleTime(2);
-            if (wake == null || end == null) return true;
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
-            java.util.Date now  = sdf.parse(sdf.format(new java.util.Date()));
-            java.util.Date wakeT = sdf.parse(wake);
-            java.util.Date endT  = sdf.parse(end);
-            if (now == null || wakeT == null || endT == null) return true;
-            return !now.before(wakeT) && !now.after(endT);
-        } catch (Exception e) {
-            return true;
-        }
+        return true;
     }
 
-    // คืน priority ที่เหมาะสมตามช่วงเวลา
-    // นอกเวลา → BALANCED (ประหยัดแบต), warm-up/ทำการ → HIGH (GPS chip ทำงานตลอด)
     private int getSchedulePriority() {
-        if (!isWithinSchedule()) {
-            return Priority.PRIORITY_BALANCED_POWER_ACCURACY; // นอกเวลา — ใช้ network ประหยัดแบต
-        }
-        return Priority.PRIORITY_HIGH_ACCURACY; // warm-up หรือทำการ — GPS chip เต็มที่
+        return Priority.PRIORITY_HIGH_ACCURACY;
     }
 
-    // ช่วงทำการจริง (startTime → endTime) — GPS แม่นยำสูง ส่งพิกัด GPS จริง
     public boolean isInWorkingHours() {
-        if (todayQueueNo < 1) return true;
-        try {
-            String start = getScheduleTime(1); // index 1 = startTime
-            String end   = getScheduleTime(2); // index 2 = endTime
-            if (start == null || end == null) return true;
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
-            java.util.Date now    = sdf.parse(sdf.format(new java.util.Date()));
-            java.util.Date startT = sdf.parse(start);
-            java.util.Date endT   = sdf.parse(end);
-            if (now == null || startT == null || endT == null) return true;
-            return !now.before(startT) && !now.after(endT);
-        } catch (Exception e) {
-            return true;
-        }
+        return true;
     }
 
-    // ช่วง warm-up (wakeTime → startTime) — GPS เตรียมพร้อมล่วงหน้า 1 ชั่วโมง
     public boolean isInWarmUp() {
-        return isWithinSchedule() && !isInWorkingHours();
+        return false;
     }
 
     private void initFirebase() {
@@ -984,7 +908,7 @@ public class GpsService extends Service implements SensorEventListener {
                         ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                         : PendingIntent.FLAG_UPDATE_CURRENT);
 
-        String queueLabel = todayQueueNo > 0 ? " คิว" + todayQueueNo : "";
+        String queueLabel = centralQueueNo > 0 ? " คิว" + centralQueueNo : "";
         Notification n = buildNotification("กำลังหาสัญญาณ GPS... [" + queueId + queueLabel + "]", pi);
         if (Build.VERSION.SDK_INT >= 29) {
             try { startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION); }
@@ -1493,10 +1417,10 @@ public class GpsService extends Service implements SensorEventListener {
         }
         data.put("direction",    "go");
         data.put("queueId",      queueId);
-        if (todayQueueNo > 0) {
-            data.put("queue",        todayQueueNo);
-            data.put("queueNo",      todayQueueNo);
-            data.put("todayQueueNo", todayQueueNo);
+        if (centralQueueNo > 0) {
+            data.put("queue",        centralQueueNo);
+            data.put("queueNo",      centralQueueNo);
+            data.put("todayQueueNo", centralQueueNo);
         } else {
             data.put("queue",        null);
             data.put("queueNo",      null);

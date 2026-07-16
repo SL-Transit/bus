@@ -13,6 +13,7 @@ assert(driver.includes('applyDriverWorkContract(snap, serviceDate, vehicleId)'),
 assert(driver.includes('snap.child("erpVehicleId")'), 'Driver app must require the stable ERP vehicle identity');
 assert(driver.includes('readDriverWorkTrip(snap.child("currentTrip"))'), 'Driver app must use the centrally selected current trip');
 assert(driver.includes('readDriverWorkTrip(snap.child("nextTrip"))'), 'Driver app must use the centrally selected next trip');
+assert(driver.includes('putInt(KEY_DRIVER_QUEUE_NO, queueNo.intValue())'), 'Driver app must store the central queue number for GPS runtime data');
 
 assert(!driver.includes('settings/queueRotation'), 'Driver app must not read rotation settings and calculate its own queue');
 assert(!driver.includes('settings/currentCatalogVersion'), 'Driver app must not assemble work from a catalog version');
