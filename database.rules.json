@@ -7,11 +7,38 @@
       },
       "fleet": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null",
+        "vehicles": {
+          ".read": true
+        }
       },
       "finance": {
         ".read": "auth != null",
         ".write": false
+      },
+      "erpDataCenter": {
+        "catalog": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "fleet": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "vehicles": {
+            ".read": true
+          },
+          "queues": {
+            ".read": true
+          }
+        },
+        "settings": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "finance": {
+          ".read": "auth != null",
+          ".write": false
+        }
       },
       "driverIdentityCenter": {
         "accounts": {

@@ -121,8 +121,27 @@
     });
   }
 
+  function readFirst(paths) {
+    var list = Array.isArray(paths) ? paths.filter(Boolean) : [paths].filter(Boolean);
+    var lastError = null;
+    function next(index) {
+      if (index >= list.length) {
+        if (lastError) return Promise.reject(lastError);
+        return Promise.resolve(null);
+      }
+      return read(list[index]).then(function(value) {
+        if (value != null) return value;
+        return next(index + 1);
+      }).catch(function(err) {
+        lastError = err;
+        return next(index + 1);
+      });
+    }
+    return next(0);
+  }
+
   function refreshCatalog() {
-    return read(schemaPath('catalog', 'data/erpDataCenter/catalog')).then(function(catalog) {
+    return readFirst([schemaPath('catalog', 'data/erpDataCenter/catalog'), 'data/catalog']).then(function(catalog) {
       _catalog = Object.assign({
         stops: {},
         groups: {},
@@ -141,14 +160,20 @@
   }
 
   function refreshFleet() {
-    return read(schemaPath('fleet', 'data/erpDataCenter/fleet')).then(function(fleet) {
+    return readFirst([schemaPath('fleet', 'data/erpDataCenter/fleet'), 'data/fleet']).catch(function() {
+      return readFirst([schemaPath('fleetVehicles', 'data/erpDataCenter/fleet/vehicles'), 'data/fleet/vehicles']).then(function(vehicles) {
+        return { vehicles: valueOrEmpty(vehicles) };
+      });
+    }).then(function(fleet) {
       _fleet = Object.assign({ vehicles: {}, queues: {}, assignmentRules: {}, drivers: {}, queueOwners: {}, vehicleLoginIndex: {} }, valueOrEmpty(fleet));
       return _fleet;
     });
   }
 
   function refreshMasterData() {
-    return read(schemaPath('erpDataCenter', 'data/erpDataCenter')).then(function(root) {
+    return readFirst([schemaPath('erpDataCenter', 'data/erpDataCenter')]).catch(function() {
+      return Promise.resolve({});
+    }).then(function(root) {
       root = valueOrEmpty(root);
       _master = Object.assign({
         destinations: {},
@@ -170,12 +195,16 @@
         settlementRecipients: {},
         meta: { versions: {}, audit: {} }
       }, root);
+      if (!Object.keys(valueOrEmpty(_master.stops)).length) _master.stops = valueOrEmpty(_catalog.stops);
+      if (!Object.keys(valueOrEmpty(_master.routes)).length) _master.routes = valueOrEmpty(_catalog.routes);
+      if (!Object.keys(valueOrEmpty(_master.trips)).length) _master.trips = valueOrEmpty(_catalog.trips);
+      if (!Object.keys(valueOrEmpty(_master.fares)).length) _master.fares = valueOrEmpty(_catalog.fares);
       return _master;
     });
   }
 
   function refreshSettings() {
-    return read(schemaPath('settings', 'data/erpDataCenter/settings')).then(function(settings) {
+    return readFirst([schemaPath('settings', 'data/erpDataCenter/settings'), 'data/settings']).then(function(settings) {
       _settings = valueOrEmpty(settings);
       return _settings;
     });

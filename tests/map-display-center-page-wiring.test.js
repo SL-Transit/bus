@@ -23,12 +23,18 @@ assert(!passengerLogic.includes('zoom: 10, location:'), 'Passenger must not keep
 assert(!passengerHtml.includes('focusPoint(stop, 14)'), 'Passenger UI must not choose stop zoom locally');
 assert(!passengerHtml.includes('focusPoint(pos, 14)'), 'Passenger UI must not choose vehicle zoom locally');
 assert(passengerHtml.includes('map-display-center.js?v=20260714center2'), 'Passenger must load the current Map Display Center version');
-assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live1'), 'Passenger must load the current ERP adapter version');
-assert(passengerHtml.includes('passenger-logic.js?v=20260716live1'), 'Passenger must load the current map adapter version');
+assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live3'), 'Passenger must load the current ERP adapter version');
+assert(passengerHtml.includes('passenger-logic.js?v=20260716live3'), 'Passenger must load the current map adapter version');
+assert(passengerHtml.includes("db.ref('data/settings')"), 'Passenger settings must read the public data/settings path');
+assert(!passengerHtml.includes("db.ref('settings')"), 'Passenger must not read the blocked top-level settings path');
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
+assert(passengerLogic.includes('var point = normalizeMapPoint(latlng)'), 'Passenger bus markers must use Longdo lon/lat geometry');
 assert(passengerLogic.includes('adapter.watchLiveVehicles(applyLiveVehicleSnapshot)'), 'Passenger must watch the central operations/liveVehicles contract');
 assert(erpDataAdapter.includes("schemaPath('operationsLiveVehicles', 'operations/liveVehicles')"), 'ERP adapter live vehicle watcher must target operations/liveVehicles');
+assert(erpDataAdapter.includes("'data/catalog'"), 'ERP adapter must bridge to the current production catalog path');
+assert(erpDataAdapter.includes("'data/settings'"), 'ERP adapter must bridge to the current production settings path');
+assert(erpDataAdapter.includes("'data/fleet/vehicles'"), 'ERP adapter must bridge to public vehicle data without opening private fleet data');
 assert(!passengerLogic.includes("db.ref('liveVehicles')"), 'Passenger must not read the legacy top-level liveVehicles path');
 assert(!passengerLogic.includes("db.ref('bus')"), 'Passenger must not read the legacy top-level bus path');
 

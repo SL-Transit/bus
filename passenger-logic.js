@@ -833,22 +833,21 @@ function drawRoute(routeData) {
 
 function placeBusMarkerAt(carId, latlng) {
   if (!mapReady || !mapObj || !latlng) return;
-  var existingBus = busMarkers[carId];
-  var existingTag = busTagMarkers[carId];
-  if (existingBus && existingTag && moveLongdoMarker(existingBus, latlng) && moveLongdoMarker(existingTag, latlng)) return;
+  var point = normalizeMapPoint(latlng);
+  if (!point) return;
 
   var safeCarId = String(carId).replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
   var busImgHtml = '<img src="' + BUS_ICON_SRC + '" alt="">';
   var label = String(carId);
   try { if (busMarkers[carId]) mapObj.Overlays.remove(busMarkers[carId]); } catch(e){}
   try { if (busTagMarkers[carId]) mapObj.Overlays.remove(busTagMarkers[carId]); } catch(e){}
-  busMarkers[carId] = new longdo.Marker(latlng, {
+  busMarkers[carId] = new longdo.Marker(point, {
     title: 'Vehicle ' + label,
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
     icon: { html: '<div class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + '</div>', offset: { x: 20, y: 20 } }
   });
   mapObj.Overlays.add(busMarkers[carId]);
-  busTagMarkers[carId] = new longdo.Marker(latlng, {
+  busTagMarkers[carId] = new longdo.Marker(point, {
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
     icon: { html: '<div class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + label + '</div>', offset: { x: 10, y: -20 } }
   });

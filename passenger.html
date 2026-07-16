@@ -19,9 +19,9 @@
 <script src="map-display-center.js?v=20260714center2"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
-<script src="erp-data-adapter.js?v=20260716live1"></script>
+<script src="erp-data-adapter.js?v=20260716live3"></script>
 <script src="erp-core.js?v=20260704a"></script>
-<script src="passenger-logic.js?v=20260716live1"></script>
+<script src="passenger-logic.js?v=20260716live3"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 :root {
@@ -1068,7 +1068,7 @@ buildDropdowns();
 applyAdminTesterMode();
 
 // ---- Firebase wiring: subscribe here, hand data to passenger-logic.js to process ----
-db.ref('settings').on('value', function(snap) {
+db.ref('data/settings').on('value', function(snap) {
   const settings = snap.val() || {};
   TEST_MODE = settings.testMode === true;
   applyTestModeUI();
