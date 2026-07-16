@@ -134,7 +134,6 @@
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
-  var userLocationMarker = null;
   var busDisplayState = {};
   var stationMarkerOverlays = [];
   var knownRouteLinePoints = [];
@@ -204,25 +203,30 @@ function focusMap(point, animate) {
   applyViewportPlan(center.planViewport({ focusPoint: point, animate: animate === true }));
 }
 
-function showUserLocation(point) {
-  if (!mapObj || !mapReady || !global.longdo) return;
-  var normalized = normalizeMapPoint(point);
-  if (!normalized) return;
+function requestUserLocation() {
+  if (!mapObj || !mapReady || !global.longdo) return false;
   try {
-    if (userLocationMarker) mapObj.Overlays.remove(userLocationMarker);
-  } catch(e) {}
-  try {
-    userLocationMarker = new longdo.Marker(normalized, {
-      weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-      icon: {
-        html: '<div style="width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.25),0 2px 8px rgba(0,0,0,.25);"></div>',
-        offset: { x: 12, y: 12 }
-      }
-    });
-    mapObj.Overlays.add(userLocationMarker);
+    if (mapObj.Ui && mapObj.Ui.Geolocation && typeof mapObj.Ui.Geolocation.updateCurrentLocation === 'function') {
+      mapObj.Ui.Geolocation.updateCurrentLocation(true);
+      return true;
+    }
   } catch(e) {
-    console.warn('Passenger user location marker failed:', e && e.message ? e.message : e);
+    console.warn('Longdo geolocation UI failed:', e && e.message ? e.message : e);
   }
+  try {
+    if (longdo.LocationMode && longdo.LocationMode.Geolocation) {
+      mapObj.location(
+        longdo.LocationMode.Geolocation,
+        longdo.GeolocationMode && longdo.GeolocationMode.ZoomToMarker
+          ? longdo.GeolocationMode.ZoomToMarker
+          : true
+      );
+      return true;
+    }
+  } catch(e2) {
+    console.warn('Longdo geolocation mode failed:', e2 && e2.message ? e2.message : e2);
+  }
+  return false;
 }
 
 function pauseFollowForManualMapUse(reason) {
@@ -932,7 +936,7 @@ function removeBusFromMap(carId) {
     refreshSize: refreshMapSizeSafely,
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,
-    showUserLocation: showUserLocation,
+    requestUserLocation: requestUserLocation,
     focusOrigin: focusSelectedOrigin,
 
     forceFocusOrigin: forceFocusSelectedOriginAfterMapReady,
