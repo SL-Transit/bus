@@ -85,6 +85,10 @@ assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone 
 assert(booking1.includes('function isValidThaiPhone'), 'Booking1 must define Thai phone validator for passenger form');
 assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must expose phone sanitizer to the preview adapter');
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
+assert(booking1.includes('id="search-pax-count"'), 'Booking1 search passenger field must expose a live passenger count');
+assert(booking1.includes('onclick="event.stopPropagation(); changeSeat(-1)"'), 'Booking1 search passenger field must allow decreasing passenger count');
+assert(booking1.includes('onclick="event.stopPropagation(); changeSeat(1)"'), 'Booking1 search passenger field must allow increasing passenger count');
+assert(booking1.includes("searchPaxEl.textContent = state.pax + ' คน'"), 'Booking1 passenger count changes must sync the search passenger field');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
 assert(booking1.includes('goToTicket();'), 'Booking1 confirm button must delegate submit to the ERP preview adapter booking flow');
