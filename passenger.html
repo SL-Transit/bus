@@ -720,7 +720,7 @@ function bindFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn || btn.dataset.bound === '1') return;
   btn.addEventListener('click', function() {
-    requestUserMapFocus();
+    focusCurrentUserPosition();
   });
   bindLocationConsentButtons();
   SLPassengerLogic.on('followChanged', updateFollowUserButton);
@@ -735,20 +735,12 @@ function setLocationConsentVisible(visible, message) {
   if (overlay) overlay.style.display = visible ? 'flex' : 'none';
 }
 
-function requestUserMapFocus() {
-  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
-    setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
-    return;
-  }
-  setLocationConsentVisible(true, USER_LOCATION_CONSENT_TEXT);
-}
-
 function focusCurrentUserPosition() {
   if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
     setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
     return;
   }
-  setLocationConsentVisible(false);
+  setLocationConsentVisible(true, USER_LOCATION_CONSENT_TEXT);
   navigator.geolocation.getCurrentPosition(function(position) {
     var coords = position && position.coords ? position.coords : null;
     var lat = coords ? Number(coords.latitude) : NaN;
@@ -757,8 +749,12 @@ function focusCurrentUserPosition() {
       setLocationConsentVisible(true, USER_LOCATION_INVALID_TEXT);
       return;
     }
+    setLocationConsentVisible(false);
     selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
     SLPassengerLogic.map.setFollowUser(true);
+    if (typeof SLPassengerLogic.map.showUserLocation === 'function') {
+      SLPassengerLogic.map.showUserLocation({ lat: lat, lng: lng });
+    }
     SLPassengerLogic.map.focusPoint({ lat: lat, lng: lng }, true);
     updateBottomSheetSummary();
   }, function() {
