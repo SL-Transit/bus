@@ -754,13 +754,11 @@ function setLocationConsentVisible(visible, message) {
 }
 
 function focusCurrentUserPosition() {
-  var requested = SLPassengerLogic.map.requestUserLocation();
   if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
     setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
     return;
   }
-  if (!requested) setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
-  else setLocationConsentVisible(true, USER_LOCATION_LOADING_TEXT);
+  setLocationConsentVisible(true, USER_LOCATION_LOADING_TEXT);
   navigator.geolocation.getCurrentPosition(function(position) {
     var coords = position && position.coords ? position.coords : null;
     var lat = coords ? Number(coords.latitude) : NaN;

@@ -457,6 +457,12 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!html.includes('nowMin()') && !html.includes('toMin(entry.time)'), 'Passenger schedule display must not compare current time to timetable entries');
   assert(!html.includes('SLPassengerLogic.map.focusRoute()'), 'Passenger page must not request destination-inclusive route focus');
   assert(!logicSource.includes('focusRoute:'), 'Passenger logic must not expose destination-inclusive route focus');
+  assert(!logicSource.includes('updateCurrentLocation'), 'Passenger must not use Longdo native geolocation marker');
+  assert(!logicSource.includes('LocationMode.Geolocation'), 'Passenger must not use Longdo native geolocation mode');
+  assert(!logicSource.includes('requestUserLocation'), 'Passenger location button must use one browser location request and one Passenger marker');
+  assert(logicSource.includes('if (userLocationMarker) mapObj.Overlays.remove(userLocationMarker)'), 'Passenger user location marker must replace the previous marker');
+  assert(html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger location button must request a browser one-shot user location');
+  assert(!html.includes('watchPosition'), 'Passenger must not continuously track user location');
   assert(!logicSource.includes('.sort('), 'Passenger logic must not sort stops or destination options locally');
   [
     'getVehicleTs',

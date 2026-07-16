@@ -229,33 +229,6 @@ function focusMap(point, animate) {
   applyViewportPlan(center.planViewport({ focusPoint: point, animate: animate === true }));
 }
 
-function requestUserLocation() {
-  if (!mapObj || !mapReady || !global.longdo) return false;
-  var requested = false;
-  try {
-    if (mapObj.Ui && mapObj.Ui.Geolocation && typeof mapObj.Ui.Geolocation.updateCurrentLocation === 'function') {
-      mapObj.Ui.Geolocation.updateCurrentLocation(true);
-      requested = true;
-    }
-  } catch(e) {
-    console.warn('Longdo geolocation UI failed:', e && e.message ? e.message : e);
-  }
-  try {
-    if (longdo.LocationMode && longdo.LocationMode.Geolocation) {
-      mapObj.location(
-        longdo.LocationMode.Geolocation,
-        longdo.GeolocationMode && longdo.GeolocationMode.ZoomToMarker
-          ? longdo.GeolocationMode.ZoomToMarker
-          : true
-      );
-      requested = true;
-    }
-  } catch(e2) {
-    console.warn('Longdo geolocation mode failed:', e2 && e2.message ? e2.message : e2);
-  }
-  return requested;
-}
-
 function showUserLocation(point) {
   if (!mapObj || !mapReady || !global.longdo) return false;
   var normalized = normalizeMapPoint(point);
@@ -988,7 +961,6 @@ function removeBusFromMap(carId) {
     refreshSize: refreshMapSizeSafely,
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,
-    requestUserLocation: requestUserLocation,
     showUserLocation: showUserLocation,
     focusOrigin: focusSelectedOrigin,
 
