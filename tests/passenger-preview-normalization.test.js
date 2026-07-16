@@ -475,11 +475,13 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes('requestUserLocation'), 'Passenger location button must use one browser location request and one Passenger marker');
   assert(logicSource.includes('userLocationMarker.move(normalized)'), 'Passenger user location marker must move the existing marker');
   assert(logicSource.includes('focusUserLocation: focusUserLocation'), 'Passenger map API must expose a single user-location focus command');
-  assert(html.includes('SLPassengerLogic.map.focusUserLocation(point)'), 'Passenger page must focus the browser-provided user point');
-  assert(html.includes('var point = { lat: lat, lon: lng }'), 'Passenger user location point must use Longdo lon/lat shape');
+  assert(html.includes('user-location-center.js'), 'Passenger must load the shared user-location center');
+  assert(html.includes('SLTransitUserLocation.focusCurrentUser'), 'Passenger location button must request user location through the shared center');
+  assert(html.includes('SLPassengerLogic.map.focusUserLocation(point)'), 'Passenger page adapter must focus the shared browser-provided user point');
+  assert(html.includes('point = { lat: point.lat, lon: point.lon }'), 'Passenger page adapter must pass Longdo lon/lat shape');
   assert(logicSource.includes('mapObj.location(userLocationPoint, false)'), 'Passenger user location focus must jump directly like the legacy page');
   assert(!logicSource.includes('focusZoom: 15'), 'Passenger user location focus must not use animated viewport planner');
-  assert(html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger location button must request a browser one-shot user location');
+  assert(!html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger page must not call browser geolocation directly');
   assert(html.includes('requestPassengerUserLocation({ showErrors: false, setBusy: false, timeout: 8000 })'), 'Passenger initial load must request one silent user-location focus before origin fallback');
   assert(html.includes('if (!initialUserLocation) SLPassengerLogic.map.focusOrigin()'), 'Passenger initial load must fallback to origin only when user location is unavailable');
   assert(!html.includes('setLocationConsentVisible(true, USER_LOCATION_LOADING_TEXT)'), 'Passenger must not show its custom consent modal while browser geolocation is pending');

@@ -407,23 +407,23 @@ setTimeout(function(){
 },3000);
 
 function tryGPS(){
-  if(!navigator.geolocation){
+  if(!window.SLTransitUserLocation||typeof window.SLTransitUserLocation.requestCurrentPosition!=='function'){
     tryIPGeo();
     return;
   }
-  navigator.geolocation.getCurrentPosition(
-    function(pos){
-      if(_gpsSettled) return;
-      _gpsSettled=true;
-      onPositionResolved(pos.coords.latitude,pos.coords.longitude,'gps');
-    },
-    function(err){
-      if(_gpsSettled) return;
-      _gpsSettled=true;
+  window.SLTransitUserLocation.requestCurrentPosition({
+    timeout:6000,
+    enableHighAccuracy:false,
+    maximumAge:30000
+  }).then(function(result){
+    if(_gpsSettled) return;
+    _gpsSettled=true;
+    if(result&&result.ok&&result.point){
+      onPositionResolved(result.point.lat,result.point.lng,'gps');
+    } else {
       tryIPGeo();
-    },
-    {timeout:6000,enableHighAccuracy:false,maximumAge:30000}
-  );
+    }
+  });
 }
 
 /* ── IP Geolocation fallback ── */
@@ -468,42 +468,38 @@ function showLocationNotice(message){
 
 /* ── ปุ่ม "ใช้ตำแหน่งของฉัน" — ขอ GPS ใหม่อีกครั้ง ── */
 window.locateUser=function(){
-  if(!navigator.geolocation){
-    showLocationNotice('เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง');
+  if(!window.SLTransitUserLocation||typeof window.SLTransitUserLocation.requestCurrentPosition!=='function'){
+    showLocationNotice('\u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e19\u0e35\u0e49\u0e44\u0e21\u0e48\u0e23\u0e2d\u0e07\u0e23\u0e31\u0e1a\u0e01\u0e32\u0e23\u0e23\u0e30\u0e1a\u0e38\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07');
     return;
   }
   var btn=document.getElementById('locate-btn');
   btn.classList.add('loading');
-  btn.innerHTML=SVG_LOCATE+' กำลังระบุ...';
+  btn.innerHTML=SVG_LOCATE+' \u0e01\u0e33\u0e25\u0e31\u0e07\u0e23\u0e30\u0e1a\u0e38...';
   _gpsSettled=false;
-  navigator.geolocation.getCurrentPosition(
-    function(pos){
+  window.SLTransitUserLocation.requestCurrentPosition({
+    timeout:10000,
+    enableHighAccuracy:true,
+    maximumAge:0
+  }).then(function(result){
+    if(!(result&&result.ok&&result.point)){
       btn.classList.remove('loading');
-      btn.innerHTML=SVG_LOCATE+' ตำแหน่งของฉัน ✓';
-      btn.style.borderColor='var(--teal)';
-      _gpsSettled=true;
-      var lat=pos.coords.latitude, lng=pos.coords.longitude;
-      /* pan smooth ไปหาผู้ใช้ทันที ก่อน findNearest */
-      placeUserMarker({lat:lat,lng:lng});
-      focusMap({lat:lat,lng:lng}, 14, true, true);
-      onPositionResolved(lat,lng,'gps');
-    },
-    function(err){
-      btn.classList.remove('loading');
-      btn.innerHTML=SVG_LOCATE+' ใช้ตำแหน่งของฉัน';
+      btn.innerHTML=SVG_LOCATE+' \u0e43\u0e0a\u0e49\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e09\u0e31\u0e19';
       btn.style.borderColor='';
-      var msg=(err&&err.code===1)
-        ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง กรุณาอนุญาต GPS ในเบราว์เซอร์'
-        : 'ไม่สามารถระบุตำแหน่งได้ กรุณาลองอีกครั้ง';
-      showLocationNotice(msg);
-    },
-    {timeout:10000,enableHighAccuracy:true,maximumAge:0}
-  );
+      showLocationNotice('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e23\u0e30\u0e1a\u0e38\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e44\u0e14\u0e49 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e25\u0e2d\u0e07\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07');
+      return;
+    }
+    btn.classList.remove('loading');
+    btn.innerHTML=SVG_LOCATE+' \u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e09\u0e31\u0e19 \u2713';
+    btn.style.borderColor='var(--teal)';
+    _gpsSettled=true;
+    var lat=result.point.lat, lng=result.point.lng;
+    placeUserMarker({lat:lat,lng:lng});
+    focusMap({lat:lat,lng:lng}, 14, true, true);
+    onPositionResolved(lat,lng,'gps');
+  });
 };
 
-/* ══════════════════════════════════════════
-   FIREBASE — โหลดป้ายและ routes
-══════════════════════════════════════════ */
+/* FIREBASE - load stops and routes */
 if(typeof firebase!=="undefined"){
 firebase.initializeApp({
   apiKey:"AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw",

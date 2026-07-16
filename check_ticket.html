@@ -21,6 +21,7 @@
 <script src="geo-engine.js?v=20260626geo2"></script>
 <script src="erp-calculator-center.js?v=20260713center1"></script>
 <script src="map-display-center.js?v=20260713center1"></script>
+<script src="user-location-center.js?v=20260716a"></script>
 <script src="erp-alert-center.js?v=20260713center1"></script>
 <script src="vehicle-assignment-center.js?v=20260713center1"></script>
 <script src="journey-status-center.js?v=20260713center1"></script>
@@ -2480,17 +2481,23 @@
         focusPassengerLocation(lastPosition, true);
         return;
       }
-      if (!navigator.geolocation) {
-        setStatus('lookupStatus', 'bad', 'อุปกรณ์นี้ไม่รองรับ GPS');
+      if (!window.SLTransitUserLocation || typeof window.SLTransitUserLocation.requestCurrentPosition !== 'function') {
+        setStatus('lookupStatus', 'bad', 'GPS is unavailable on this device');
         return;
       }
-      navigator.geolocation.getCurrentPosition(function(pos) {
-        var next = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now() };
+      window.SLTransitUserLocation.requestCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000
+      }).then(function(result) {
+        if (!result || !result.ok || !result.point) {
+          setStatus('lookupStatus', 'bad', (result && result.error && result.error.message) || 'Unable to read GPS location');
+          return;
+        }
+        var next = { lat: result.point.lat, lng: result.point.lng, ts: Date.now() };
         lastPosition = next;
         focusPassengerLocation(next, true);
-      }, function(err) {
-        setStatus('lookupStatus', 'bad', err.message || 'ไม่สามารถอ่านตำแหน่ง GPS ได้');
-      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+      });
     }
 
     function setTrackingSheetCollapsed(collapsed) {

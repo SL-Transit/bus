@@ -17,6 +17,7 @@
 <script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
 <script src="map-display-center.js?v=20260716center4"></script>
+<script src="user-location-center.js?v=20260716a"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <script src="erp-data-adapter.js?v=20260716live5"></script>
@@ -769,42 +770,40 @@ function focusCurrentUserPosition() {
 
 function requestPassengerUserLocation(options) {
   options = options || {};
-  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
+  if (!window.SLTransitUserLocation || typeof window.SLTransitUserLocation.focusCurrentUser !== 'function') {
     if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
     return Promise.resolve(false);
   }
   setLocationConsentVisible(false);
-  if (options.setBusy) setUserLocationBusy(true);
-  return new Promise(function(resolve) {
-    navigator.geolocation.getCurrentPosition(function(position) {
-      if (options.setBusy) setUserLocationBusy(false);
-      var coords = position && position.coords ? position.coords : null;
-      var lat = coords ? Number(coords.latitude) : NaN;
-      var lng = coords ? Number(coords.longitude) : NaN;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_INVALID_TEXT);
-        resolve(false);
-        return;
-      }
-      var point = { lat: lat, lon: lng };
+  return window.SLTransitUserLocation.focusCurrentUser({
+    enableHighAccuracy: true,
+    timeout: options.timeout || 12000,
+    maximumAge: 30000,
+    setBusy: options.setBusy ? setUserLocationBusy : null,
+    mapAdapter: {
+      focusUserLocation: function(point) {
+        point = { lat: point.lat, lon: point.lon };
       if (typeof SLPassengerLogic.map.focusUserLocation === 'function') {
         SLPassengerLogic.map.focusUserLocation(point);
       } else {
         SLPassengerLogic.map.focusPoint(point, true);
       }
+      }
+    },
+    onSuccess: function() {
       setLocationConsentVisible(false);
       selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
       updateBottomSheetSummary();
-      resolve(true);
-    }, function() {
-      if (options.setBusy) setUserLocationBusy(false);
-      if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_DENIED_TEXT);
-      resolve(false);
-    }, {
-      enableHighAccuracy: true,
-      timeout: options.timeout || 12000,
-      maximumAge: 30000
-    });
+    },
+    onError: function(result) {
+      if (!options.showErrors) return;
+      var message = result && result.reason === 'invalid_position'
+        ? USER_LOCATION_INVALID_TEXT
+        : (result && result.reason === 'unsupported' ? USER_LOCATION_UNSUPPORTED_TEXT : USER_LOCATION_DENIED_TEXT);
+      setLocationConsentVisible(true, message);
+    }
+  }).then(function(result) {
+    return !!(result && result.ok);
   });
 }
 
