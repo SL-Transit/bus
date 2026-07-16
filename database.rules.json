@@ -13,6 +13,14 @@
         ".read": "auth != null",
         ".write": false
       },
+      "driverIdentityCenter": {
+        "accounts": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": false
+          }
+        }
+      },
       "settings": {
         ".read": true,
         ".write": "auth != null"
