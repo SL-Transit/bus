@@ -36,6 +36,7 @@ assert(bridge.includes("var PREVIEW_BASE_PATH = 'publishedSchedule'"), 'Booking1
 assert(bridge.includes(".child('originOptions').once('value')"), 'Booking1 must read originOptions as lightweight initial data');
 assert(bridge.includes(".child('destinationOptionsByOrigin').once('value')"), 'Booking1 must read destinationOptionsByOrigin as lightweight initial data');
 assert(bridge.includes(".child('paymentContact').once('value')"), 'Booking1 must read payment contact from publishedSchedule paymentContact');
+assert(bridge.includes(".child('bookingPolicy').once('value')"), 'Booking1 must read seat/service-fee policy from ERP Data Center');
 assert(bridge.includes(".child('pairs').child(storageKey).once('value')"), 'Booking1 must lazy-load only the selected pair');
 assert(!/db\.ref\(['"]publishedSchedule['"]\)\.once\s*\(/.test(bridge + booking1), 'Booking1 must not once-read full publishedSchedule');
 assert(!/db\.ref\(['"]publishedSchedule['"]\)\.on\s*\(/.test(bridge + booking1), 'Booking1 must not subscribe to full publishedSchedule');
@@ -64,6 +65,13 @@ assert(bridge.includes('SLTransitBookingAvailabilityCenter'), 'Booking1 bridge m
 assert(bridge.includes('SLTransitFareDecisionCenter'), 'Booking1 bridge must ask Fare Decision Center for fares');
 assert(bridge.includes('SLTransitCalculatorCenter.recommendedBookingTrips'), 'Booking1 bridge must ask ERP Calculator Center for recommended trip ordering');
 assert(calculator.includes('function recommendedBookingTrips'), 'ERP Calculator Center must own Booking1 trip recommendation logic');
+assert(calculator.includes('function calculateBookingTotal'), 'ERP Calculator Center must own Booking1 total calculation');
+assert(adapter.includes('calculator.calculateBookingTotal'), 'Booking1 adapter must delegate totals to ERP Calculator Center');
+assert(!adapter.includes('base * n') && !adapter.includes('SERVICE_FEE_AMOUNT * n'), 'Booking1 adapter must not calculate fare or service fee locally');
+assert(bridge.includes('getBookingSeatLimit'), 'Booking1 must obtain the seat limit through the ERP Data Center bridge');
+assert(!booking1.includes('Math.min(10'), 'Booking1 must not hardcode a ten-seat maximum');
+assert(!booking1.includes('แปดริ้ว'), 'Booking1 must not hardcode the transfer point label');
+assert(bridge.includes("info.source = 'erp_data_center'"), 'Booking1 transfer display data must be marked as ERP Data Center output');
 assert(bridge.includes('selectionAllowed: availabilityDecision.selectionAllowed === true'), 'Booking1 bridge must expose selectionAllowed separately from bookingAllowed');
 assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calculate fare locally');
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
@@ -120,6 +128,9 @@ assert(rules.includes("newData.child('publishedSchedule').child('readyForApply')
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
 assert(adapter.includes('function withoutUndefined'), 'Booking1 adapter must remove undefined fields before Firebase writes');
 assert(adapter.includes('withoutUndefined(legacyBookingPayload'), 'Booking1 real booking payload must be sanitized before Firebase set');
+assert(!adapter.includes('* (snapshot.pax || 1)'), 'Booking1 real booking payload must not multiply fare locally');
+assert(!adapter.includes('snapshot.fareAmount || 0'), 'Booking1 real booking payload must not fall back to local fareAmount arithmetic');
+assert(adapter.includes("throw new Error('booking_total_not_ready')"), 'Booking1 real booking payload must fail closed when Calculator Center total is not ready');
 assert(adapter.includes("sourceMode: 'erp_data_center'"), 'Booking1 real booking payload must record ERP Data Center source mode');
 assert(adapter.includes('var transfer = transferPoint(state);'), 'Booking1 legacy payload must define transfer point before writing it');
 assert(!adapter.includes('No live vehicle tracking'), 'Booking1 adapter must not show no-live-tracking technical text to passengers');

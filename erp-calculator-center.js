@@ -124,6 +124,36 @@
     }, 0);
   }
 
+  function calculateBookingTotal(input) {
+    input = input || {};
+    if (input.fareAmount == null) return { status: 'missing_fare', totalAmount: null };
+    if (input.serviceFeeAmount == null) return { status: 'missing_service_fee', totalAmount: null };
+    var fareAmount = num(input.fareAmount, NaN);
+    var serviceFeeAmount = num(input.serviceFeeAmount, NaN);
+    var passengerCount = num(input.passengerCount, NaN);
+    var maxPassengers = input.maxPassengers == null ? null : num(input.maxPassengers, NaN);
+    if (!isFinite(fareAmount) || fareAmount < 0) return { status: 'missing_fare', totalAmount: null };
+    if (!isFinite(serviceFeeAmount) || serviceFeeAmount < 0) return { status: 'missing_service_fee', totalAmount: null };
+    if (!isFinite(passengerCount) || passengerCount < 1 || Math.floor(passengerCount) !== passengerCount) {
+      return { status: 'invalid_passenger_count', totalAmount: null };
+    }
+    if (maxPassengers !== null && (!isFinite(maxPassengers) || maxPassengers < 1 || passengerCount > maxPassengers)) {
+      return { status: 'passenger_limit_exceeded', totalAmount: null, maxPassengers: isFinite(maxPassengers) ? maxPassengers : null };
+    }
+    var fareSubtotal = fareAmount * passengerCount;
+    var serviceFeeTotal = serviceFeeAmount * passengerCount;
+    return {
+      status: 'ready',
+      passengerCount: passengerCount,
+      maxPassengers: maxPassengers,
+      fareAmount: fareAmount,
+      fareSubtotal: fareSubtotal,
+      serviceFeeAmount: serviceFeeAmount,
+      serviceFeeTotal: serviceFeeTotal,
+      totalAmount: fareSubtotal + serviceFeeTotal
+    };
+  }
+
   global.SLTransitCalculatorCenter = {
     normalizeRoadDistance: normalizeRoadDistance,
     estimateEta: estimateEta,
@@ -131,7 +161,8 @@
     findCatchableTrip: findCatchableTrip,
     recommendedBookingTrips: recommendedBookingTrips,
     minutesOfDay: minutesOfDay,
-    combineFare: combineFare
+    combineFare: combineFare,
+    calculateBookingTotal: calculateBookingTotal
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SLTransitCalculatorCenter;

@@ -369,21 +369,6 @@ function normalizePreviewPairAliases(node) {
   Object.keys(node && node.pairs || {}).forEach(function(key) {
     var pair = node.pairs[key] || {};
     addPreviewPairAlias(aliases, pair.compatibilityPairKey, key);
-    if (pair.originLabel && pair.destinationLabel) {
-      addPreviewPairAlias(aliases, pair.originLabel + '__' + pair.destinationLabel, key);
-    }
-  });
-  var originIndex = previewEncodingIndex(node, 'destinationOptionsByOrigin');
-  Object.keys(node && node.destinationOptionsByOrigin || {}).forEach(function(originKey) {
-    var originLabel = originIndex[originKey] || originKey;
-    if (!originLabel || isEncodedPreviewKey(originLabel)) return;
-    var options = Array.isArray(node.destinationOptionsByOrigin[originKey]) ? node.destinationOptionsByOrigin[originKey] : [];
-    options.forEach(function(option) {
-      if (!option || !option.pairKey) return;
-      addPreviewPairAlias(aliases, option.pairKey, option.pairKey);
-      if (option.label) addPreviewPairAlias(aliases, originLabel + '__' + option.label, option.pairKey);
-      if (option.destinationLabel) addPreviewPairAlias(aliases, originLabel + '__' + option.destinationLabel, option.pairKey);
-    });
   });
   return aliases;
 }
@@ -477,7 +462,7 @@ function getSchedulePairKey(originLabel, destLabel) {
   var optionPairKey = originLabel && destLabel && PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS[originLabel]
     ? PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS[originLabel][destLabel]
     : null;
-  return optionPairKey || (originLabel + '__' + destLabel);
+  return optionPairKey || null;
 }
 
 function resolveSchedulePairStorageKey(pairKey) {
@@ -489,9 +474,6 @@ function cacheSchedulePair(storageKey, pair, requestedPairKey) {
   PUBLISHED_SCHEDULE_PAIR_CACHE[storageKey] = pair;
   addPreviewPairAlias(PUBLISHED_SCHEDULE_PAIR_ALIASES, requestedPairKey, storageKey);
   addPreviewPairAlias(PUBLISHED_SCHEDULE_PAIR_ALIASES, pair.compatibilityPairKey, storageKey);
-  if (pair.originLabel && pair.destinationLabel) {
-    addPreviewPairAlias(PUBLISHED_SCHEDULE_PAIR_ALIASES, pair.originLabel + '__' + pair.destinationLabel, storageKey);
-  }
   return pair;
 }
 
@@ -504,6 +486,7 @@ function getSchedulePair(originLabel, destLabel) {
 
 function getSchedulePairLoadStatus(originLabel, destLabel) {
   var pairKey = getSchedulePairKey(originLabel, destLabel);
+  if (!pairKey) return 'missing';
   var resolvedKey = resolveSchedulePairStorageKey(pairKey);
   if (resolvedKey && PUBLISHED_SCHEDULE_PAIR_CACHE[resolvedKey]) return 'loaded';
   return PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] || PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[resolvedKey] || 'idle';
@@ -516,6 +499,7 @@ function setSchedulePairLoader(loader) {
 function loadSchedulePair(originLabel, destLabel) {
   if (!PUBLISHED_SCHEDULE) return Promise.resolve(null);
   var pairKey = getSchedulePairKey(originLabel, destLabel);
+  if (!pairKey) return Promise.resolve(null);
   var storageKey = resolveSchedulePairStorageKey(pairKey);
   if (!storageKey) {
     PUBLISHED_SCHEDULE_PAIR_LOAD_STATUS[pairKey] = 'missing';

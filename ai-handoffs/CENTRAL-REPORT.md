@@ -44,6 +44,48 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-16 08:18 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Real Booking ERP Totals - REVIEW
+
+Scope:
+- `booking1-preview-adapter.js`
+- `booking1.html`
+- `booking-bridge.js`
+- `erp-calculator-center.js`
+- `passenger.html`
+- `passenger-logic.js`
+- `check_ticket.html`
+- scoped regression tests
+
+Summary:
+- Rebased the approved Passenger, Booking1, and Check Ticket ERP-center cleanup onto latest inspected `origin/main` `57fd2b2`.
+- Kept owner-approved Booking1 real legacy `bookings/{code}` creation from latest main.
+- Removed the Booking1 real-write payload fallback that locally multiplied fare by passenger count.
+- Booking1 now fails closed before real booking write unless ERP Calculator Center returns a ready booking total.
+- Real booking payload writes `price`, `fare`, `serviceFee`, and `catalogFare` from the Calculator Center result only.
+- Existing scoped cleanup remains: Passenger exact ERP pair key only, Booking1 totals/seat limit/transfer display from ERP centers, and Check Ticket timetable/queue/transfer/coordinates from ERP Data Center.
+
+Evidence:
+- Commit: local only; see repository history/final Supervisor report for hash.
+- Actions: not run; nothing pushed.
+- Pages: not run; nothing pushed.
+- Tests: all `tests/*.test.js` passed; inline script syntax checks passed for `booking1.html`, `check_ticket.html`, and `passenger.html`; `git diff --check` passed with Windows line-ending warnings only.
+
+Safety:
+- Firebase writes: none performed by this AI.
+- Real booking creation: code path preserved only because owner explicitly approved option 2 for Booking1.
+- Seed applied: no.
+- Production apply: no.
+- Firebase rules changed: no.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+- Passenger/private/runtime operational data touched: none.
+
+Blockers:
+- GitHub `main` moved while work was pending; branch was rebased onto `57fd2b2` before final edits.
+- Dashboard still contains older preview-only wording, now superseded for this specific owner-approved Booking1 real booking path.
+
+Next action:
+- Push only after explicit owner approval, then verify `origin/main`, Actions, Pages, and live source where relevant.
+
 ## 2026-07-15 22:16 +07 (Asia/Bangkok) - Supervisor AI / Check Ticket Preview Contract - REVIEW
 
 Scope:

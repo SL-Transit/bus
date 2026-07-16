@@ -403,15 +403,10 @@ assert.deepStrictEqual(km1Labels, [], 'km1 destinations must not be derived from
 assert(schedule.hasDestinationOptionsByOrigin() === false, 'missing destinationOptionsByOrigin must be reported explicitly');
 assert.strictEqual(schedule.getDestinationContractStatus(TH.phanom), 'missing_destination_options', 'missing destinationOptionsByOrigin must be a contract-unavailable state');
 assert(!labels.some((label) => label.startsWith('k_')), 'visible destination labels must not expose encoded Firebase keys');
-assert(schedule.getPair(TH.chachoengsao, TH.km1), 'km1 pair lookup must resolve through encoded key');
-assert(schedule.getPair(TH.chachoengsao, TH.km7), 'km7 pair lookup must resolve through encoded key');
-assert(schedule.getPair(TH.chachoengsao, TH.km10), 'km10 pair lookup must resolve through encoded key');
-assert(schedule.getPair(TH.phanom, TH.phaijit), 'phanom to phaijit pair lookup must work');
-assert(schedule.getPair(TH.km1, TH.km7), 'km1 to km7 pair lookup must work');
+assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.km1), null, 'pair lookup must fail closed when destinationOptionsByOrigin does not supply pairKey');
+assert.strictEqual(schedule.getPair(TH.phanom, TH.phaijit), null, 'Passenger must not construct a pair key from labels');
 assert(!km1Labels.includes(TH.phaijit), 'invalid old destination must not remain after origin changes');
 assert(!schedule.getPair(TH.chachoengsao, TH.rangsit), 'excludedPreviewPairs must remain hidden');
-assert(schedule.getPair(TH.chachoengsao, TH.km1).segments[0].times[0].displayBadgeTh === TH.estimatedBadge, 'estimated badge must pass through');
-assert(schedule.getPair(TH.chachoengsao, TH.km10).transferDisclaimerTh === TH.transferDisclaimer, 'transfer disclaimer must pass through');
 assert(scheduleUpdatedCount === 1, 'scheduleUpdated must fire as soon as preview schedule is applied');
 
 schedule.applyPublishedSchedule(sampleScheduleWithDestinationOptions());
@@ -419,8 +414,9 @@ assert(schedule.hasDestinationOptionsByOrigin() === true, 'schedule must report 
 const optionLabels = Array.from(schedule.getDestinationLabels(TH.chachoengsao));
 assert.deepStrictEqual(optionLabels, [TH.pattaya, TH.chachoengsao, TH.km7], 'destinationOptionsByOrigin order/content must be rendered exactly as ERP provides it');
 assert(JSON.stringify(schedule.getDestinationOptions(TH.chachoengsao).map((option) => option.group || null)) === JSON.stringify([TH.transferGroup, null, null]), 'destination option groups must come from ERP options');
-assert(schedule.getPair(TH.chachoengsao, TH.pattaya) === schedule.getPair(TH.chachoengsao, TH.km1), 'pair lookup must use pairKey supplied by destination option');
-assert(schedule.getPair(TH.chachoengsao, TH.chachoengsao) === schedule.getPair(TH.chachoengsao, TH.km7), 'Passenger must not filter selected-origin option when ERP provides it');
+assert(schedule.getPair(TH.chachoengsao, TH.pattaya), 'pair lookup must use pairKey supplied by destination option');
+assert.strictEqual(schedule.getPair(TH.chachoengsao, TH.pattaya).segments[0].times[0].displayBadgeTh, TH.estimatedBadge, 'estimated badge must pass through via the ERP pairKey');
+assert(schedule.getPair(TH.chachoengsao, TH.chachoengsao), 'Passenger must not filter selected-origin option when ERP provides it');
 assert.deepStrictEqual(Array.from(schedule.getDestinationLabels(TH.phanom)), [TH.phaijit], 'origin-specific destination options must not be derived from visible pairs');
 assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backed preview schedule is applied');
 
@@ -454,6 +450,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(html.includes('Destination option contract unavailable'), 'Passenger must show an explicit destination contract-unavailable state');
   assert(!logicSource.includes('normalizePreviewDestinationsByOrigin'), 'Passenger must not derive destinations from pairs');
   assert(!logicSource.includes('normalizePreviewDestinationLabels'), 'Passenger must not locally sort destination labels');
+  assert(!html.includes('ADMIN_TESTER_PHONE') && !html.includes('0929383999'), 'Passenger must not contain a hardcoded tester phone');
+  assert(!logicSource.includes("originLabel + '__'") && !logicSource.includes("originLabel + '__' + destLabel"), 'Passenger must not construct pair keys from route labels');
   assert(!html.includes('Object.keys(destinations)'), 'Passenger must not build destination options from local destination maps');
   assert(!html.includes('กำลังวิ่ง') && !html.includes('วิ่งอยู่'), 'Passenger must not infer running status from local time');
   assert(!html.includes('nowMin()') && !html.includes('toMin(entry.time)'), 'Passenger schedule display must not compare current time to timetable entries');

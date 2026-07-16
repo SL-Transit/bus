@@ -611,7 +611,7 @@ body { background:#edf6f8; }
 </div>
 
 <div class="test-mode-strip" id="testModeStrip">โหมดทดสอบเปิดอยู่ - ระบบจะไม่ส่งข้อความ LINE จริง</div>
-<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: ผู้ใช้ ID admin เบอร์ 0929383999 กำลังตรวจสอบระบบในสถานะผู้โดยสารจริง</div>
+<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: กำลังตรวจสอบระบบในสถานะผู้โดยสารจริง</div>
 
 <div class="map-page">
 <div class="main">
@@ -689,7 +689,6 @@ _erpReady.then(function() {
   console.error('SLPassengerLogic.init failed:', err && err.message ? err.message : err);
 });
 let TEST_MODE = false;
-const ADMIN_TESTER_PHONE = '0929383999';
 function applyAdminTesterMode(){
   let on = new URLSearchParams(location.search).get('admin') === '1';
   try { on = on || localStorage.getItem('adminTesterMode') === '1'; } catch(e) {}

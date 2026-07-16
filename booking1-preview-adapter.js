@@ -173,7 +173,8 @@
 
   function legacyBookingPayload(state, snapshot) {
     var selected = state.selectedTrip || {};
-    var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : { basePrice: state.tripFare || 0, svcFee: 0, total: state._totalFare || 0 };
+    var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : null;
+    if (!total || total.status !== 'ready') throw new Error('booking_total_not_ready');
     var legSchedule = buildLegSchedule(state);
     var assignment = snapshot.assignment || {};
     var transfer = transferPoint(state);
@@ -194,9 +195,9 @@
       pickupTime: snapshot.pickupTime,
       seats: snapshot.pax,
       pax: snapshot.pax,
-      price: total.total || snapshot.fare || 0,
-      fare: (total.basePrice || snapshot.fareAmount || 0) * (snapshot.pax || 1),
-      serviceFee: total.svcFee || 0,
+      price: total.totalAmount,
+      fare: total.fareSubtotal,
+      serviceFee: total.serviceFeeTotal,
       paymentMode: snapshot.payMethod || '',
       paymentStatus: snapshot.slipUploaded ? 'slip_uploaded' : 'awaiting_payment',
       slipUploaded: snapshot.slipUploaded === true,
@@ -206,7 +207,7 @@
       tripId: selected.tripId || '',
       catalogRouteId: selected.routeId || '',
       catalogTripId: selected.tripId || '',
-      catalogFare: snapshot.fareAmount || '',
+      catalogFare: total.fareAmount,
       leg1Route: legSchedule.leg1,
       leg1Time: legSchedule.leg1Time,
       leg2Route: legSchedule.leg2,
@@ -447,9 +448,22 @@
       var selected = state.selectedTrip || {};
       var n = pax || state.pax || 1;
       var fareMissing = selected.fareMissing === true || selected.externalPaymentRequired === true;
-      var base = fareMissing ? 0 : (Number(selected.fareAmount) || Number(state.tripFare) || 0);
-      var svcFee = (global.SERVICE_FEE_ENABLED && global.SERVICE_FEE_AMOUNT) ? global.SERVICE_FEE_AMOUNT * n : 0;
-      return { basePrice: base, svcFee: svcFee, total: base * n + svcFee, fareMissing: fareMissing };
+      var calculator = global.SLTransitCalculatorCenter;
+      if (fareMissing || !calculator || typeof calculator.calculateBookingTotal !== 'function') {
+        return { status: 'missing_calculator_contract', total: null, fareMissing: fareMissing };
+      }
+      var result = calculator.calculateBookingTotal({
+        fareAmount: selected.fareAmount,
+        serviceFeeAmount: selected.fareContract && selected.fareContract.serviceFeeAmount,
+        passengerCount: n,
+        maxPassengers: global.SLBookingBridge.getBookingSeatLimit(selected)
+      });
+      return Object.assign({}, result, {
+        basePrice: result.fareAmount,
+        svcFee: result.serviceFeeTotal,
+        total: result.totalAmount,
+        fareMissing: result.status === 'missing_fare'
+      });
     };
 
     global.goToPayment = function() {
@@ -466,7 +480,7 @@
       state.name = global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
       state.phone = global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
       var total = global.getBookingTotal(state.pax);
-      if (total.fareMissing) { alert('ยังไม่มีข้อมูล fareAmount ใน preview pair สำหรับคู่เส้นทางนี้'); return; }
+      if (total.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
       state._totalFare = total.total;
       setText('sumRoute', (state.originName || '-') + ' - ' + (state.destName || '-'));
       setText('sumDate', typeof global._dateThaiShort === 'function' ? global._dateThaiShort() : serviceDateISO());
@@ -474,7 +488,7 @@
       setText('sumSeat', (state.pax || 1) + ' ที่นั่ง');
       setText('p3-name', state.name);
       setText('p3-phone', state.phone);
-      setText('p3-ticket-price', (total.basePrice * (state.pax || 1)) + ' บาท');
+      setText('p3-ticket-price', total.fareSubtotal + ' บาท');
       setText('sumServiceFee', total.svcFee + ' บาท');
       setText('sumTotal', total.total + ' บาท');
       setText('sumTotal2', total.total + ' บาท');
@@ -491,6 +505,9 @@
       if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้'); return; }
       if (!global.currentPayMethod) { alert('กรุณาเลือกวิธีชำระเงิน'); return; }
       var db = global._db || (global.firebase && global.firebase.database && global.firebase.database());
+      var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : null;
+      if (!total || total.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
+      state._totalFare = total.total;
       if (!db) { alert('ยังเชื่อมต่อฐานข้อมูลไม่ได้ กรุณาลองใหม่'); return; }
       var assignmentContract = (state.selectedTrip && state.selectedTrip.assignment) || {
         assignmentSource: 'none',
@@ -510,8 +527,8 @@
         pairKey: state.selectedTrip.pairKey || '',
         pairId: state.selectedTrip.pairId || '',
         canonicalPairKey: state.selectedTrip.canonicalPairKey || '',
-        fare: state._totalFare || ((state.tripFare || 0) * (state.pax || 1)),
-        fareAmount: state.tripFare || 0,
+        fare: total.totalAmount,
+        fareAmount: total.fareAmount,
         fareContract: state.selectedTrip.fareContract || null,
         paymentOwnership: state.selectedTrip.paymentOwnership || 'sl_transit',
         externalPaymentRequired: state.selectedTrip.externalPaymentRequired === true,

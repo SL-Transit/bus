@@ -31,6 +31,7 @@
     originOptions: [],
     destinationOptionsByOrigin: {},
     paymentContact: null,
+    bookingPolicy: {},
     firebaseKeyEncoding: {},
     validation: null
   };
@@ -143,7 +144,8 @@
       baseRef.child('destinationOptionsByOrigin').once('value'),
       baseRef.child('paymentContact').once('value'),
       baseRef.child('firebaseKeyEncoding').once('value'),
-      baseRef.child('validation').once('value')
+      baseRef.child('validation').once('value'),
+      baseRef.child('bookingPolicy').once('value')
     ]).then(function(parts) {
       _preview = {
         schemaVersion: parts[0].val() || '',
@@ -159,7 +161,8 @@
         destinationOptionsByOrigin: {},
         paymentContact: parts[11].val() || null,
         firebaseKeyEncoding: parts[12].val() || {},
-        validation: parts[13].val() || null
+        validation: parts[13].val() || null,
+        bookingPolicy: parts[14].val() || {}
       };
       _preview.destinationOptionsByOrigin = _normalizeDestinationOptions(parts[10].val() || {});
       _markReady();
@@ -168,6 +171,7 @@
       console.error('[BookingBridge] publishedSchedule load failed:', err);
       _preview.originOptions = [];
       _preview.destinationOptionsByOrigin = {};
+      _preview.bookingPolicy = {};
       _markReady();
       return _preview;
     });
@@ -219,8 +223,17 @@
     return time ? time + ' น.' : (timeEntry.label || timeEntry.displayTimeTh || 'เวลาอ้างอิง');
   }
 
+  function _serviceFeeAmount() {
+    var policy = _preview.bookingPolicy || {};
+    if (policy.serviceFeeEnabled === false) return 0;
+    var amount = Number(policy.serviceFeeAmount);
+    return isFinite(amount) && amount >= 0 ? amount : 0;
+  }
+
   function _transferInfo(pair, segment, timeEntry) {
     if (!pair || !pair.transfer || pair.transfer.required !== true) return null;
+    segment = segment || {};
+    timeEntry = timeEntry || {};
     var segments = Array.isArray(pair.segments) ? pair.segments : [];
     var firstLeg = segments[0] || {};
     var secondLeg = segments[1] || {};
@@ -236,7 +249,21 @@
     info.leg2Time = info.nextDepartureTime || info.leg2Time || '';
     info.destLabel = info.destLabel || pair.destinationLabel || secondLeg.toLabel || '';
     info.hasMatch = !!(info.viaLabel || info.nextDepartureTime || info.transferArrivalTime);
+    info.point = info.point || info.viaLabel || '';
+    info.transferPoint = info.transferPoint || info.viaLabel || '';
+    info.leg2 = info.leg2 || (info.viaLabel && info.destLabel ? info.viaLabel + ' - ' + info.destLabel : '');
+    info.time = info.time || info.transferArrivalTime || '';
+    info.source = 'erp_data_center';
     return info;
+  }
+
+  function getBookingSeatLimit(trip) {
+    var policyLimit = Number(_preview.bookingPolicy && _preview.bookingPolicy.maxSeatsPerBooking);
+    var available = Number(trip && trip.availabilityDecision && trip.availabilityDecision.seatsAvailable);
+    var limits = [];
+    if (isFinite(policyLimit) && policyLimit > 0) limits.push(Math.floor(policyLimit));
+    if (isFinite(available) && available > 0) limits.push(Math.floor(available));
+    return limits.length ? Math.min.apply(Math, limits) : null;
   }
 
   function _tripFromTimeEntry(pair, option, segment, timeEntry, segmentIndex, timeIndex, serviceDate) {
@@ -246,7 +273,7 @@
         segment: segment || {},
         timeEntry: timeEntry || {},
         option: option || {},
-        serviceFeeAmount: global.SERVICE_FEE_ENABLED === true ? Number(global.SERVICE_FEE_AMOUNT) || 0 : 0
+        serviceFeeAmount: _serviceFeeAmount()
       })
       : { status: 'NEEDS_CONTRACT_FIELD', fareAmount: null, missingField: 'SLTransitFareDecisionCenter.decideFare' };
     var availabilityDecision = AvailabilityCenter && typeof AvailabilityCenter.decideBookingAvailability === 'function'
@@ -406,7 +433,7 @@
 
   function getTransferInfo() {
     var pair = _lastLoadedPair;
-    return pair && pair.transfer || null;
+    return _transferInfo(pair);
   }
 
   function getTransferBufferAsync() {
@@ -471,6 +498,7 @@
     getCatalogVersion: getCatalogVersion,
     canCreateProductionBookings: canCreateProductionBookings,
     getLastFareContractStatus: getLastFareContractStatus,
+    getBookingSeatLimit: getBookingSeatLimit,
     buildBookingSnapshot: buildBookingSnapshot,
     getTransferBufferAsync: getTransferBufferAsync,
     get _catalog() { return null; },

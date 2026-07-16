@@ -57,4 +57,17 @@ assert.strictEqual(recommendedFuture[0].displayMuted, false);
 
 assert.strictEqual(calculator.combineFare([{ price: 40 }, { fare: 35 }]), 75);
 
+const bookingTotal = calculator.calculateBookingTotal({
+  fareAmount: 40,
+  serviceFeeAmount: 5,
+  passengerCount: 3,
+  maxPassengers: 4
+});
+assert.strictEqual(bookingTotal.status, 'ready');
+assert.strictEqual(bookingTotal.fareSubtotal, 120);
+assert.strictEqual(bookingTotal.serviceFeeTotal, 15);
+assert.strictEqual(bookingTotal.totalAmount, 135);
+assert.strictEqual(calculator.calculateBookingTotal({ fareAmount: 40, serviceFeeAmount: 0, passengerCount: 5, maxPassengers: 4 }).status, 'passenger_limit_exceeded');
+assert.strictEqual(calculator.calculateBookingTotal({ fareAmount: null, serviceFeeAmount: 0, passengerCount: 1 }).status, 'missing_fare');
+
 console.log('erp-calculator-center ok');

@@ -8,6 +8,8 @@ assert(html.includes('erp-calculator-center.js'), 'Check Ticket must load ERP Ca
 assert(html.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
 assert(html.includes('erp-alert-center.js'), 'Check Ticket must load ERP Alert Center');
 assert(html.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read stop/map data from publishedSchedule mapView');
+assert(html.includes("db.ref('publishedSchedule').child('pairs').child(storageKey).once('value')"), 'Check Ticket must lazy-read its exact timetable pair from ERP Data Center');
+assert(html.includes("db.ref('publishedSchedule/firebaseKeyEncoding').once('value')"), 'Check Ticket must resolve only ERP-provided pair keys');
 assert(html.includes("db.ref('operations/liveVehicles')"), 'Check Ticket must read live vehicle data from operations/liveVehicles');
 assert(html.includes('normalizeTicketErpMapRoutes'), 'Check Ticket must normalize ERP Map route geometry');
 assert(html.includes('buildTrackingErpMapRouteCoords'), 'Check Ticket must build tracking route lines from ERP Map');
@@ -17,6 +19,14 @@ assert(!html.includes("db.ref('publishedCatalog')"), 'Check Ticket must not read
 assert(!html.includes("db.ref('bus')"), 'Check Ticket must not read legacy bus live feed');
 assert(!html.includes("db.ref('liveVehicles')"), 'Check Ticket must not read legacy top-level liveVehicles feed');
 assert(!html.includes('settings.routes'), 'Check Ticket must not use legacy settings.routes as schedule authority');
+assert(!html.includes('queueTemplates'), 'Check Ticket must not contain local queue timetable templates');
+assert(!html.includes('LEG2_TIMES_') && !html.includes('ORIGIN_TIMES'), 'Check Ticket must not contain local timetable arrays');
+assert(!html.includes('TRANSFER_BUFFER_MINUTES'), 'Check Ticket must not infer transfer timing from local buffers');
+assert(!html.includes('inferQueueNoFromBookingTrip'), 'Check Ticket must not infer a queue from route/time');
+assert(!html.includes('resolveTripAssignment({'), 'Check Ticket must not create a queue assignment locally');
+assert(!html.includes('13.692383') && !html.includes('13.692477') && !html.includes('101.054105'), 'Check Ticket must not contain hardcoded transfer coordinates');
+assert(html.includes('findStopLocationByKey(transfer.viaStopKey)'), 'Check Ticket transfer coordinates must use the ERP Data Center stop key');
+assert(!html.includes('แปดริ้ว'), 'Check Ticket must not hardcode the transfer point label');
 
 function blockBetween(start, end) {
   const startIndex = html.indexOf(start);

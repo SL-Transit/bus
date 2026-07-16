@@ -545,12 +545,12 @@
       <p class="lead">ระบบใช้ GPS แบบ watchPosition และอัปเดตเฉพาะเมื่อเคลื่อนที่มากกว่า 10 เมตร</p>
 
       <div class="metric-grid">
-        <div class="metric"><div class="label">ระยะห่างจากแปดริ้ว</div><div id="distanceText" class="num">--</div><div class="unit">กิโลเมตร</div></div>
+        <div class="metric"><div class="label">ระยะห่างจากจุดต่อรถ</div><div id="distanceText" class="num">--</div><div class="unit">กิโลเมตร</div></div>
         <div class="metric"><div class="label">ความเร็วปัจจุบัน</div><div id="speedText" class="num">--</div><div class="unit">กม./ชม.</div></div>
         <div class="metric"><div class="label">เวลาถึงโดยประมาณ</div><div id="etaText" class="num">--</div><div class="unit" id="etaUnit">นาที</div></div>
       </div>
 
-      <div id="scheduleStatus" class="status info">กดเริ่มใช้ GPS เพื่อคำนวณการต่อรถที่แปดริ้ว</div>
+      <div id="scheduleStatus" class="status info">กดเริ่มใช้ GPS เพื่อคำนวณการต่อรถ</div>
       <div id="checkinWindow" class="status warn hidden"></div>
 
       <div class="actions">
@@ -635,104 +635,11 @@
       window.SLTransitSchedule.watchFirebaseData(db);
     }
     // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
-    var TERMINAL = { lat: 13.692383, lng: 101.054183 };
-    // ตาราง Leg 2 ดึงชุดเดียวกับ booking.html / passenger.html
-    var LEG2_TIMES_COMMON = ['05:40','07:00','07:40','08:20','09:00','10:00','10:40','11:20','12:00','12:40','13:20','14:00','14:40','15:20','16:00','17:00'];
-    var LEG2_TIMES_MINBURI = ['04:00','05:00','06:00','07:00','07:40','08:20','09:00','09:40','10:20','11:20','12:20','13:00','14:00','15:20','16:20'];
-    var LEG2_TIMES_EKKAMAI = ['06:30','08:30','10:30','15:30','17:30'];
-    var LEG2_TIMES_MOCHIT = ['06:00','08:00','11:00','13:00','15:00','17:00','18:00'];
-    var MAIN_ROUTE_STOPS = [
-      'คลองหาด',
-      'สี่แยกโคนม',
-      'ทุ่งกบินทร์',
-      'ไพจิตร',
-      'หนองเรือ',
-      'คลองตะเคียน',
-      'หนองคอก',
-      'ท่าตะเกียบ',
-      'ท่ารถสนามชัยเขต',
-      'สนามชัยเขต',
-      'พนมสารคาม',
-      'แปดริ้ว',
-      'ฉะเชิงเทรา',
-      'ขนส่งฉะเชิงเทรา'
-    ];
-    var SECONDARY_DEST_KEYWORDS = [
-      'พัทยา',
-      'ระยอง',
-      'มีนบุรี',
-      'เอกมัย',
-      'หมอชิต',
-      'BTS',
-      'บางนา',
-      'พระโขนง',
-      'อ่อนนุช',
-      'จตุจักร',
-      'ลาดพร้าว',
-      'บางแสน',
-      'หนองมน',
-      'ศรีราชา',
-      'แหลมฉบัง',
-      'สัตหีบ',
-      'บ้านฉาง'
-    ];
+    var TERMINAL = { lat: null, lng: null };
     var ROTATING_VEHICLE_IDS = ['car1', 'car2', 'car3', 'car4'];
     var ACTIVE_VEHICLE_MAX_AGE_MS = 3 * 60 * 1000;
     var CURRENT_TRIP_MIN_CONFIDENCE = 0.45;
     var BOOKING_TRIP_MATCH_TOLERANCE_MINUTES = 45;
-    var queueTemplates = {
-      1: {
-        endAt: 'คลองหาด',
-        trips: [
-          { tripIndex: 1, departTime: '09:00', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
-          { tripIndex: 2, departTime: '11:20', from: 'แปดริ้ว', to: 'คลองหาด', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต', 'ท่าตะเกียบ', 'หนองคอก', 'คลองตะเคียน', 'หนองเรือ', 'ไพจิตร', 'ทุ่งกบินทร์', 'สี่แยกโคนม', 'คลองหาด'] }
-        ]
-      },
-      2: {
-        endAt: 'สนามชัยเขต',
-        trips: [
-          { tripIndex: 1, departTime: '08:00', from: 'คลองหาด', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['คลองหาด', 'สี่แยกโคนม', 'ทุ่งกบินทร์', 'ไพจิตร', 'หนองเรือ', 'คลองตะเคียน', 'หนองคอก', 'ท่าตะเกียบ', 'สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
-          { tripIndex: 2, departTime: '12:20', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] },
-          { tripIndex: 3, departTime: '13:40', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
-          { tripIndex: 4, departTime: '15:20', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] }
-        ]
-      },
-      3: {
-        endAt: 'คลองหาด',
-        trips: [
-          { tripIndex: 1, departTime: '06:20', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
-          { tripIndex: 2, departTime: '09:40', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] },
-          { tripIndex: 3, departTime: '12:10', from: 'สนามชัยเขต', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
-          { tripIndex: 4, departTime: '14:00', from: 'แปดริ้ว', to: 'คลองหาด', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต', 'ท่าตะเกียบ', 'หนองคอก', 'คลองตะเคียน', 'หนองเรือ', 'ไพจิตร', 'ทุ่งกบินทร์', 'สี่แยกโคนม', 'คลองหาด'] }
-        ]
-      },
-      4: {
-        endAt: 'สนามชัยเขต',
-        trips: [
-          { tripIndex: 1, departTime: '11:30', from: 'คลองหาด', to: 'แปดริ้ว', direction: 'to_chachoengsao', routeStops: ['คลองหาด', 'สี่แยกโคนม', 'ทุ่งกบินทร์', 'ไพจิตร', 'หนองเรือ', 'คลองตะเคียน', 'หนองคอก', 'ท่าตะเกียบ', 'สนามชัยเขต', 'ท่ารถสนามชัยเขต', 'พนมสารคาม', 'แปดริ้ว'] },
-          { tripIndex: 2, departTime: '16:20', from: 'แปดริ้ว', to: 'สนามชัยเขต', direction: 'from_chachoengsao', routeStops: ['แปดริ้ว', 'พนมสารคาม', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'] }
-        ]
-      }
-    };
-    var LEG2_DEST_SCHEDULES = [
-      { keywords: ['พัทยา','แยกอัยการ','สัตหีบ','ระยอง','กม.10','ตลาดหนองมน','หนองมน','บางแสน','อ่าวอุดม','ศรีราชา','ม.เกษตร','บ้านฉาง','แหลมฉบัง'], times: LEG2_TIMES_COMMON, group: 'พัทยา-ระยอง-ชายทะเล' },
-      { keywords: ['ตลาดมีนบุรี','มีนบุรี','มันบุรี'], times: LEG2_TIMES_MINBURI, group: 'มีนบุรี' },
-      { keywords: ['เอกมัย','โฮมโปร','บางนา','BTS บางจาก','บางจาก','BTS พระโขนง','พระโขนง','BTS อ่อนนุช','อ่อนนุช'], times: LEG2_TIMES_EKKAMAI, group: 'เอกมัย-BTS' },
-      { keywords: ['หมอชิต','BTS จตุจักร','จตุจักร','แยกลาดพร้าว','ลาดพร้าว'], times: LEG2_TIMES_MOCHIT, group: 'หมอชิต-จตุจักร' }
-    ];
-    var ORIGIN_TIMES = ['06:20','08:00','09:00','09:30','10:40','11:30','12:10','13:00','13:40','14:00'];
-    var TRANSFER_BUFFER_MINUTES = [
-      { keywords: ['พนม'], minutes: 50 },
-      { keywords: ['สนามชัย', 'ท่ารถสนามชัยเขต', 'สนามชัยเขต'], minutes: 70 },
-      { keywords: ['ท่าตะเกียบ'], minutes: 115 },
-      { keywords: ['หนองคอก'], minutes: 135 },
-      { keywords: ['คลองตะเคียน'], minutes: 150 },
-      { keywords: ['หนองเรือ'], minutes: 165 },
-      { keywords: ['ไพจิตร'], minutes: 170 },
-      { keywords: ['ทุ่งกบินทร์'], minutes: 185 },
-      { keywords: ['สี่แยกโคนม'], minutes: 190 },
-      { keywords: ['คลองหาด'], minutes: 200 }
-    ];
     var MAX_SEATS = 3;
     var CHECKIN_RADIUS_KM = 2.5;
     var CHECKIN_ETA_MINUTES = 5;
@@ -751,21 +658,7 @@
     var ROAD_DISTANCE_CACHE = {};
     var LAST_TICKET_STORAGE_KEY = 'checkTicket.lastTicket.v2';
     var roadDistanceRequestSeq = 0;
-    var STOP_LOCATIONS = [
-      { name:'คลองหาด', lat:13.453565, lng:102.299330 },
-      { name:'สี่แยกโคนม', lat:13.436666, lng:102.200895 },
-      { name:'ทุ่งกบินทร์', lat:13.439877, lng:102.083043 },
-      { name:'ไพจิตร', lat:13.416310, lng:102.020767 },
-      { name:'หนองเรือ', lat:13.420494, lng:101.995365 },
-      { name:'คลองตะเคียน', lat:13.420264, lng:101.765445 },
-      { name:'หนองคอก', lat:13.381579, lng:101.708016 },
-      { name:'ท่าตะเกียบ', lat:13.443342, lng:101.610222 },
-      { name:'ท่ารถสนามชัยเขต', lat:13.659022, lng:101.437482 },
-      { name:'พนมสารคาม', lat:13.745082, lng:101.355993 },
-      { name:'ขนส่งฉะเชิงเทรา', lat:13.692477, lng:101.054105 },
-      { name:'แปดริ้ว', lat:13.692477, lng:101.054105 },
-      { name:'ฉะเชิงเทรา', lat:13.692477, lng:101.054105 }
-    ];
+    var STOP_LOCATIONS = [];
     var ADMIN_DEST_SCHEDULES = [];
       var ADMIN_TRIP_BY_ID = {};
       var ADMIN_TRIP_BY_LEGACY_KEY = {};
@@ -773,6 +666,7 @@
 
     var currentBooking = null;
     var currentCode = null;
+    var TICKET_DATA_CENTER = { pair: null, pairKey: '', firebaseKeyEncoding: {} };
     var TICKET_CATALOG_VERSION_APPLIED = '';
     var TICKET_CATALOG_RAW = null;
     var TICKET_CATALOG_LOADS = {};
@@ -843,6 +737,69 @@
       notifications: 'mockLogs/checkTicketNotifications/'
     };
 
+    function ticketPairKeyFromBooking(booking) {
+      return String(booking && (booking.pairKey || booking.canonicalPairKey || booking.pairId || (booking.publishedSchedule && booking.publishedSchedule.pairKey)) || '');
+    }
+
+    function resolveTicketPairStorageKey(pairKey) {
+      if (!pairKey) return '';
+      var encoded = TICKET_DATA_CENTER.firebaseKeyEncoding && TICKET_DATA_CENTER.firebaseKeyEncoding.encodedKeyIndex || {};
+      var indexes = [encoded.pairs || {}, encoded.compatibilityKeyIndex || {}];
+      for (var i = 0; i < indexes.length; i++) {
+        if (Object.prototype.hasOwnProperty.call(indexes[i], pairKey)) return pairKey;
+        var keys = Object.keys(indexes[i]);
+        for (var j = 0; j < keys.length; j++) if (indexes[i][keys[j]] === pairKey) return keys[j];
+      }
+      return pairKey;
+    }
+
+    function ticketTransferPointLabel(pair) {
+      pair = pair || TICKET_DATA_CENTER.pair || {};
+      var transfer = pair.transfer || {};
+      var segments = Array.isArray(pair.segments) ? pair.segments : [];
+      return String(transfer.transferNodeLabel || transfer.point || transfer.label || (segments[0] && segments[0].toLabel) || (segments[1] && segments[1].fromLabel) || '');
+    }
+
+    function updateTicketTransferPointLocation() {
+      var pair = TICKET_DATA_CENTER.pair || {};
+      var transfer = pair.transfer || {};
+      transferPointLocation = findStopLocationByKey(transfer.viaStopKey) || findStopLocation(ticketTransferPointLabel(pair));
+      if (transferPointLocation) {
+        TERMINAL.lat = transferPointLocation.lat;
+        TERMINAL.lng = transferPointLocation.lng;
+      } else {
+        TERMINAL.lat = null;
+        TERMINAL.lng = null;
+      }
+    }
+
+    function ensureTicketDataCenterForBooking(booking) {
+      var pairKey = ticketPairKeyFromBooking(booking);
+      if (!pairKey) {
+        TICKET_DATA_CENTER.pair = null;
+        TICKET_DATA_CENTER.pairKey = '';
+        updateTicketTransferPointLocation();
+        return Promise.resolve(null);
+      }
+      return db.ref('publishedSchedule/firebaseKeyEncoding').once('value').then(function(encodingSnap) {
+        TICKET_DATA_CENTER.firebaseKeyEncoding = encodingSnap.val() || {};
+        var storageKey = resolveTicketPairStorageKey(pairKey);
+        return db.ref('publishedSchedule').child('pairs').child(storageKey).once('value');
+      }).then(function(pairSnap) {
+        TICKET_DATA_CENTER.pair = pairSnap.val() || null;
+        TICKET_DATA_CENTER.pairKey = pairKey;
+        updateTicketTransferPointLocation();
+        if (currentBooking === booking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
+        return TICKET_DATA_CENTER.pair;
+      }).catch(function(error) {
+        TICKET_DATA_CENTER.pair = null;
+        TICKET_DATA_CENTER.pairKey = pairKey;
+        updateTicketTransferPointLocation();
+        console.error('Ticket publishedSchedule pair load failed:', error && error.message ? error.message : error);
+        return null;
+      });
+    }
+
     db.ref('settings').on('value', function(snap) {
       var settings = snap.val() || {};
       TEST_MODE = settings.testMode === true;
@@ -873,17 +830,14 @@
       }).filter(Boolean);
       if (!centralStops.length) return;
       MAIN_ROUTE_STOPS_FROM_CATALOG = buildMainRouteStopsFromRouteData(routeData, centralStops);
-      var fallbackStops = STOP_LOCATIONS.slice();
-      STOP_LOCATIONS = centralStops.concat(fallbackStops.filter(function(oldStop) {
-        return !centralStops.some(function(centralStop) { return isSameStop(centralStop.name, oldStop.name); });
-      })).sort(function(a, b) {
+      STOP_LOCATIONS = centralStops.slice().sort(function(a, b) {
         return ticketStopSortValue(a && a.name, a && a.order || 999999) - ticketStopSortValue(b && b.name, b && b.order || 999999)
           || String(a && a.name || '').localeCompare(String(b && b.name || ''));
       });
       if (!currentBooking) return;
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
       destinationLocation = resolveDestinationLocation(currentBooking);
-      transferPointLocation = findStopLocation('แปดริ้ว');
+      updateTicketTransferPointLocation();
       relevantRouteStops = resolveRelevantRouteStops(currentBooking);
       renderPickupMarker();
       renderTransferMarker();
@@ -920,10 +874,7 @@
             || String(a.name).localeCompare(String(b.name));
         })
         .map(function(stop) { return stop.name; });
-      var fallbackStops = STOP_LOCATIONS.slice();
-      STOP_LOCATIONS = centralStops.concat(fallbackStops.filter(function(oldStop) {
-        return !centralStops.some(function(centralStop) { return isSameStop(centralStop.name, oldStop.name); });
-      })).sort(function(a, b) {
+      STOP_LOCATIONS = centralStops.slice().sort(function(a, b) {
         return ticketStopSortValue(a && a.name, a && a.order || 999999) - ticketStopSortValue(b && b.name, b && b.order || 999999)
           || String(a && a.name || '').localeCompare(String(b && b.name || ''));
       });
@@ -931,7 +882,7 @@
       if (!currentBooking) return;
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
       destinationLocation = resolveDestinationLocation(currentBooking);
-      transferPointLocation = findStopLocation('แปดริ้ว');
+      updateTicketTransferPointLocation();
       relevantRouteStops = resolveRelevantRouteStops(currentBooking);
       renderPickupMarker();
       renderTransferMarker();
@@ -987,27 +938,6 @@
       var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
         ? window.SLTransitERP.catalogView(catalog)
         : null;
-      var settingsRoutes = view && view.settingsRoutes
-        ? view.settingsRoutes
-        : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacySettingsRoutes === 'function'
-          ? window.SLTransitCatalog.legacySettingsRoutes(catalog)
-          : {};
-      var legacyRouteData = view && view.routeData
-        ? view.routeData
-        : window.SLTransitCatalog && typeof window.SLTransitCatalog.legacyRouteData === 'function'
-          ? window.SLTransitCatalog.legacyRouteData(catalog)
-          : {};
-      if (settingsRoutes && Object.keys(settingsRoutes).length) {
-        ADMIN_DEST_SCHEDULES = buildAdminDestinationSchedules(settingsRoutes);
-        TICKET_CATALOG_ROUTES_APPLIED = true;
-        var adminTimeChanged = applyAdminScheduleToCurrentBooking();
-        if (!adminTimeChanged && currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
-        updateActionAvailability();
-      }
-      if (legacyRouteData && (legacyRouteData.stops || legacyRouteData.queues)) {
-        applyTicketRouteData(legacyRouteData);
-        TICKET_CATALOG_ROUTE_DATA_APPLIED = true;
-      }
       TICKET_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
       console.log('[TICKET ERP] applied ' + (source || 'catalog'), TICKET_CATALOG_VERSION_APPLIED);
     }
@@ -1133,6 +1063,7 @@
         }
         currentCode = found.code;
         currentBooking = normalizeBooking(found.booking, found.code);
+        ensureTicketDataCenterForBooking(currentBooking);
         if (isBookingPastTravelDate(currentBooking)) {
           showPastTravelDateMessage(currentBooking);
           return;
@@ -1307,6 +1238,7 @@
       ref.on('value', function(snap) {
         if (snap.exists() && currentCode === code) {
           currentBooking = normalizeBooking(snap.val(), code);
+          ensureTicketDataCenterForBooking(currentBooking);
           if (isCancelledBooking(currentBooking)) {
             clearRememberedTicket();
             showCancelledDonePopup();
@@ -1369,25 +1301,28 @@
     }
 
     function splitLegs(route) {
-      var clean = String(route || '').replace(/\s+/g, ' ').trim();
-      var parts = clean.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
-      var routeInfo = connectionRouteInfo(clean);
-      if (routeInfo.type !== 'secondary_connection') {
-        return { leg1: clean || '-', leg2: '' };
+      var pair = TICKET_DATA_CENTER.pair || {};
+      var segments = Array.isArray(pair.segments) ? pair.segments : [];
+      function label(segment) {
+        return segment && segment.fromLabel && segment.toLabel ? segment.fromLabel + ' → ' + segment.toLabel : '';
       }
-      var origin = parts[0] || '';
-      var destination = routeInfo.destination || (parts.length ? parts[parts.length - 1] : '');
-      if (isSameStop(origin, 'แปดริ้ว')) {
-        return { leg1: clean || '-', leg2: '' };
-      }
-      return { leg1: origin + ' → แปดริ้ว', leg2: 'แปดริ้ว → ' + destination };
+      return { leg1: label(segments[0]) || '-', leg2: label(segments[1]) };
     }
 
     function getLegSchedule(booking, overrideTime) {
       var legs = splitLegs(booking.route || '');
-      var erpContext = getTicketErpContext(booking);
-      var leg1Time = overrideTime || booking.time || booking.pickupTime || (erpContext && erpContext.departTime) || '';
-      var leg2Time = legs.leg2 ? inferConnectionTime(booking, leg1Time, legs) : '';
+      var pair = TICKET_DATA_CENTER.pair || {};
+      var connections = Array.isArray(pair.connectionOptions) ? pair.connectionOptions : [];
+      var requested = overrideTime || booking.time || booking.pickupTime || '';
+      var connection = connections.filter(function(item) {
+        return String(item && (item.time || item.departureTime || item.leg1DepartureTime || '')) === String(requested);
+      })[0] || connections[0] || {};
+      var firstSegment = Array.isArray(pair.segments) ? (pair.segments[0] || {}) : {};
+      var firstTime = Array.isArray(firstSegment.times) ? (firstSegment.times.filter(function(item) {
+        return String(item && (item.time || item.departureTime || '')) === String(requested);
+      })[0] || firstSegment.times[0] || {}) : {};
+      var leg1Time = connection.time || connection.departureTime || connection.leg1DepartureTime || firstTime.time || firstTime.departureTime || '';
+      var leg2Time = legs.leg2 ? (connection.nextDepartureTime || connection.leg2Time || '') : '';
       return {
         leg1: legs.leg1,
         leg2: legs.leg2,
@@ -1397,19 +1332,7 @@
     }
 
     function inferConnectionTime(booking, leg1Time, legs) {
-      if (booking.adjustedLeg2Time) return booking.adjustedLeg2Time;
-      var source = getRouteOrigin(booking, legs);
-      var buffer = getTransferBufferMinutes(source);
-      if (buffer !== null && leg1Time) {
-        return nextDestinationTimeAfter(addMinutesToTime(leg1Time, buffer), booking, legs) || '';
-      }
-      if (booking.leg2Time) return booking.leg2Time;
-      if (booking.transferTime) return booking.transferTime;
-      if (booking.connectionTime) return booking.connectionTime;
-      if (booking.destinationTime) return booking.destinationTime;
-      if (booking.secondaryTime) return booking.secondaryTime;
-      if (booking.nextTripTime) return booking.nextTripTime;
-      return nextDestinationTimeAfter(leg1Time || booking.time || '00:00', booking, legs) || '';
+      return getLegSchedule(booking, leg1Time).leg2Time || '';
     }
 
     function formatTimeText(time) {
@@ -1427,13 +1350,6 @@
     }
 
     function getTransferBufferMinutes(origin) {
-      var clean = String(origin || '').replace(/\s+/g, '');
-      for (var i = 0; i < TRANSFER_BUFFER_MINUTES.length; i++) {
-        var item = TRANSFER_BUFFER_MINUTES[i];
-        for (var j = 0; j < item.keywords.length; j++) {
-          if (clean.indexOf(item.keywords[j].replace(/\s+/g, '')) !== -1) return item.minutes;
-        }
-      }
       return null;
     }
 
@@ -1450,27 +1366,14 @@
     }
 
     function getLeg2TimesForBooking(booking, legs) {
-      var origin = '';
-      var destination = '';
-      if (legs && legs.leg2) {
-        var parts = String(legs.leg2).split('→').map(function(x) { return x.trim(); }).filter(Boolean);
-        origin = parts.length > 1 ? parts[0] : '';
-        destination = parts.length ? parts[parts.length - 1] : '';
-      }
-      if (!destination) destination = connectionRouteInfo(booking.route).destination;
-      if (!origin) origin = booking.transferPoint || booking.transferStopName || booking.transferHub || '';
-      var erpTimes = getTicketErpDestinationTimes(origin, destination);
-      if (erpTimes && erpTimes.length) return erpTimes;
-      return [];
+      var pair = TICKET_DATA_CENTER.pair || {};
+      return (Array.isArray(pair.connectionOptions) ? pair.connectionOptions : []).map(function(connection) {
+        return connection && (connection.nextDepartureTime || connection.leg2Time || '');
+      }).filter(Boolean);
     }
 
     function getTicketErpDestinationTimes(origin, destination) {
-      if (!TICKET_CATALOG_RAW || !window.SLTransitERP || typeof window.SLTransitERP.routeTimesByDestination !== 'function') return null;
-      var dest = String(destination || '').trim();
-      if (!dest) return null;
-      var times = null;
-      if (origin) times = window.SLTransitERP.routeTimesByDestination(TICKET_CATALOG_RAW, dest, origin);
-      return times && times.length ? times : null;
+      return getLeg2TimesForBooking(currentBooking || {}, null);
     }
 
     function nextDestinationTimeAfter(time, booking, legs) {
@@ -1500,17 +1403,12 @@
     }
 
     function connectionRouteInfo(route) {
-      var clean = String(route || '').replace(/\s+/g, ' ').trim();
-      var parts = clean.split('→').map(function(x) { return x.trim(); }).filter(Boolean);
-      var origin = parts.length ? parts[0] : '';
-      var destination = parts.length ? parts[parts.length - 1] : '';
-      var destinationIsSecondary = hasSecondaryDestinationKeyword(destination);
-      var viaPaetRiuToSecondary = parts.length >= 3 && isSameStop(parts[1], 'แปดริ้ว') && destinationIsSecondary;
-      var isMainRoute = origin && destination && isMainRouteStop(origin) && isMainRouteStop(destination);
-      var isSecondary = !isMainRoute && (destinationIsSecondary || viaPaetRiuToSecondary);
+      var pair = TICKET_DATA_CENTER.pair || {};
+      var isSecondary = !!(pair.transfer && pair.transfer.required === true);
       return {
         type: isSecondary ? 'secondary_connection' : 'main_route',
-        destination: destination || '-',
+        destination: pair.destinationLabel || '-',
+        transferPoint: ticketTransferPointLabel(pair),
         label: isSecondary ? 'เส้นทางรอง / ต่อรถกลุ่มอื่น' : 'เส้นทางหลัก'
       };
     }
@@ -1522,13 +1420,11 @@
     function isSameStop(value, stop) {
       var clean = normalizeRouteStop(value);
       var target = normalizeRouteStop(stop);
-      return clean === target || (target === normalizeRouteStop('แปดริ้ว') && clean === normalizeRouteStop('ฉะเชิงเทราแปดริ้ว'));
+      return clean === target;
     }
 
     function getMainRouteStops() {
-      return MAIN_ROUTE_STOPS_FROM_CATALOG && MAIN_ROUTE_STOPS_FROM_CATALOG.length >= 2
-        ? MAIN_ROUTE_STOPS_FROM_CATALOG
-        : MAIN_ROUTE_STOPS;
+      return MAIN_ROUTE_STOPS_FROM_CATALOG || [];
     }
 
     function isMainRouteStop(value) {
@@ -1536,10 +1432,7 @@
     }
 
     function hasSecondaryDestinationKeyword(value) {
-      var clean = normalizeRouteStop(value);
-      return SECONDARY_DEST_KEYWORDS.some(function(keyword) {
-        return clean.indexOf(normalizeRouteStop(keyword)) !== -1;
-      });
+      return !!(TICKET_DATA_CENTER.pair && TICKET_DATA_CENTER.pair.transfer && TICKET_DATA_CENTER.pair.transfer.required === true);
     }
 
     function statusLabel(status) {
@@ -1548,7 +1441,7 @@
         changed: 'เปลี่ยนเวลาแล้ว',
         cancelled: 'ยกเลิกแล้ว',
         checked_in: 'เช็คอินแล้ว',
-        transfer_nearby_notified: 'แจ้งใกล้ถึงแปดริ้วแล้ว',
+        transfer_nearby_notified: 'แจ้งใกล้ถึงจุดต่อรถแล้ว',
         arrived_transfer_point: 'ถึงจุดต่อรถแล้ว',
         arrived_destination: 'ถึงปลายทางแล้ว',
         pending_admin_approval: 'รอแอดมินอนุมัติ',
@@ -1582,9 +1475,9 @@
       setTrackingSheetCollapsed(false);
       passengerAutoFocused = false;
       trackingUserInteracted = false;
+      updateTicketTransferPointLocation();
       initTrackingMap();
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
-      transferPointLocation = { name: 'จุดต่อรถแปดริ้ว', lat: TERMINAL.lat, lng: TERMINAL.lng };
       destinationLocation = resolveDestinationLocation(currentBooking);
       originAutoCheckinDone = currentBooking.originCheckin && currentBooking.originCheckin.status === 'boarded';
       originArrivalDismissed = originAutoCheckinDone;
@@ -1633,11 +1526,16 @@
         setTrackingMapFallback('กำลังโหลดแผนที่ กรุณารอสักครู่');
         return;
       }
+      var mapCenter = transferPointLocation || STOP_LOCATIONS[0];
+      if (!mapCenter) {
+        setTrackingMapFallback('ERP Data Center ยังไม่ส่งพิกัดสำหรับตั๋วนี้');
+        return;
+      }
       mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
       trackingMap = new mapboxgl.Map({
         container: 'trackingMap',
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [TERMINAL.lng, TERMINAL.lat],
+        center: [mapCenter.lng, mapCenter.lat],
         zoom: 10.5,
         attributionControl: false
       });
@@ -1825,7 +1723,7 @@
       var bookingDir = routeInfo.type === 'secondary_connection' ? 'to_chachoengsao' : bookingDirectionForStops(origin, destination);
       var vehicleDir = normalizeVehicleDirection(vehicle && vehicle.direction);
       if (!(options && options.preferredVehicle) && bookingDir && vehicleDir && bookingDir !== vehicleDir) return null;
-      var target = routeInfo.type === 'secondary_connection' ? 'แปดริ้ว' : destination;
+      var target = routeInfo.type === 'secondary_connection' ? ticketTransferPointLabel() : destination;
       var startIdx = mainRouteStopIndex(origin);
       var endIdx = mainRouteStopIndex(target);
       if (startIdx < 0 || endIdx < 0 || startIdx === endIdx) return null;
@@ -1856,34 +1754,20 @@
 
     function getBookingQueueNo(booking) {
       if (isScheduleOnlyAssignment(booking)) return 0;
-      var persisted = Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
-      if (persisted) return persisted;
       var shared = resolveSharedScheduleAssignmentForBooking(booking);
-      if (shared && shared.queueNo) return Number(shared.queueNo);
-      var inferred = inferQueueNoFromBookingTrip(booking);
-      if (inferred) return inferred;
-      return Number(booking && (booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex)) || 0;
+      if (shared && (shared.queueNo || shared.queueId)) return Number(shared.queueNo || shared.queueId) || 0;
+      return 0;
     }
 
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking) return null;
       if (booking.assignment && booking.assignment.contractVersion === 'booking_assignment_v1') return booking.assignment;
+      if (booking.assignment && (booking.assignment.queueNo || booking.assignment.queueId || booking.assignment.plannedVehicleId || booking.assignment.vehicleId)) return booking.assignment;
       if (isScheduleOnlyAssignment(booking)) return booking;
       var persistedQueueNo = Number(booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex || 0);
-      var persistedVehicleId = String(booking.plannedVehicleId || '');
+      var persistedVehicleId = String(booking.plannedVehicleId || booking.vehicleId || '');
       if (persistedQueueNo && persistedVehicleId) return booking;
-      if (!window.SLTransitSchedule || typeof window.SLTransitSchedule.resolveTripAssignment !== 'function') return null;
-      var routeInfo = connectionRouteInfo(booking.route);
-      var origin = getRouteOrigin(booking, getLegSchedule(booking));
-      var destination = routeInfo.destination || booking.destination || booking.to || '';
-      return window.SLTransitSchedule.resolveTripAssignment({
-        serviceDate: getServiceDateForBooking(booking),
-        origin: origin,
-        destination: destination,
-        departTime: booking.departTime || booking.time || booking.leg1Time || '',
-        requiresTransfer: routeInfo.type === 'secondary_connection',
-        transferPoint: 'แปดริ้ว'
-      });
+      return null;
     }
 
     function getTrackingPickupStopName(booking) {
@@ -1900,30 +1784,12 @@
       return routeInfo.destination || (booking && (booking.destination || booking.to)) || '';
     }
 
-    function inferQueueNoFromBookingTrip(booking) {
-      return 0;
-    }
-
     function getPreferredVehicleIdsForBooking(booking) {
       var ids = [];
       var assignment = resolveSharedScheduleAssignmentForBooking(booking) || null;
       if (isScheduleOnlyAssignment(assignment)) return ids;
-      if (assignment && assignment.plannedVehicleId) ids.push(String(assignment.plannedVehicleId));
-      var queueNo = getBookingQueueNo(booking);
-      if (queueNo) {
-        Object.keys(trackingDailyAssignments || {}).forEach(function(id) {
-          var assigned = trackingDailyAssignments[id] || {};
-          var assignedQueue = Number(assigned.queueNo || assigned.queue || assigned.queueIndex || 0);
-          if (assignedQueue === queueNo) ids.push(String(id));
-        });
-      }
-      if (queueNo && queueNo >= 1 && queueNo <= 4) {
-        getVehicleIdsForLiveQueue(queueNo).forEach(function(id) { ids.push(id); });
-      }
-      if (booking && booking.plannedVehicleId) ids.push(String(booking.plannedVehicleId));
-      ['vehicleId', 'queueId', 'carId', 'busId', 'assignedVehicleId', 'driverVehicleId'].forEach(function(key) {
-        if (booking && booking[key]) ids.push(String(booking[key]));
-      });
+      if (assignment && (assignment.plannedVehicleId || assignment.vehicleId)) ids.push(String(assignment.plannedVehicleId || assignment.vehicleId));
+      if (!ids.length && booking && (booking.plannedVehicleId || booking.vehicleId)) ids.push(String(booking.plannedVehicleId || booking.vehicleId));
       return ids.filter(function(id, index) {
         return isRotatingVehicle(id) && ids.indexOf(id) === index;
       });
@@ -1932,7 +1798,7 @@
     function routeDirectionForOrigin(origin) {
       var clean = String(origin || '').replace(/\s+/g, '');
       if (!clean) return '';
-      if (clean.indexOf('ฉะเชิงเทรา') !== -1 || clean.indexOf('แปดริ้ว') !== -1) return 'back';
+      if (ticketTransferPointLabel() && isSameStop(origin, ticketTransferPointLabel())) return 'back';
       return 'go';
     }
 
@@ -2066,7 +1932,7 @@
       var originIdx = tripStopIndex(trip, origin);
       if (originIdx < 0) return false;
       if (routeInfo.type === 'secondary_connection') {
-        return trip.direction === 'to_chachoengsao' && tripStopIndex(trip, 'แปดริ้ว') > originIdx;
+        return trip.direction === 'to_chachoengsao' && tripStopIndex(trip, ticketTransferPointLabel()) > originIdx;
       }
       var destIdx = tripStopIndex(trip, destination);
       if (destIdx < 0 || destIdx <= originIdx) return false;
@@ -2790,7 +2656,7 @@
       }
       if (!booking) return null;
       if (booking.arrivedTransferPoint && booking.arrivedTransferPoint.ts) {
-        return { type: 'transfer', ts: Number(booking.arrivedTransferPoint.ts), label: 'ถึงจุดต่อรถแปดริ้วแล้ว' };
+        return { type: 'transfer', ts: Number(booking.arrivedTransferPoint.ts), label: 'ถึงจุดต่อรถแล้ว' };
       }
       if (booking.arrivedDestination && booking.arrivedDestination.ts) {
         return { type: 'destination', ts: Number(booking.arrivedDestination.ts), label: 'ถึงปลายทางแล้ว' };
@@ -2928,7 +2794,7 @@
       var routeInfo = connectionRouteInfo(currentBooking.route);
       var originName = pickupStopLocation ? pickupStopLocation.name : getRouteOrigin(currentBooking, legs);
       var finalDestination = routeInfo.destination || currentBooking.destination || currentBooking.to || '-';
-      var journeyTargetName = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถแปดริ้ว' : 'ปลายทาง ' + finalDestination;
+      var journeyTargetName = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ ' + (ticketTransferPointLabel() || '-') : 'ปลายทาง ' + finalDestination;
       document.getElementById('trackingCode').textContent = currentBooking.code || '-';
       document.getElementById('trackingName').textContent = displayPassengerName(currentBooking.name);
       document.getElementById('trackingPhone').textContent = currentBooking.phone || '-';
@@ -2960,7 +2826,7 @@
         document.getElementById('trackingPickupEta').textContent = arrivalInfo.label;
         document.getElementById('trackingPickupRoute').textContent = 'ยังดูข้อมูลตั๋วและข้อมูลต่อรถได้';
       } else if (boarded) {
-        document.getElementById('trackingPickupEta').textContent = routeInfo.type === 'secondary_connection' ? 'กำลังเดินทางไปจุดต่อรถแปดริ้ว' : 'กำลังเดินทางไปปลายทาง';
+        document.getElementById('trackingPickupEta').textContent = routeInfo.type === 'secondary_connection' ? 'กำลังเดินทางไปจุดต่อรถ ' + (ticketTransferPointLabel() || '-') : 'กำลังเดินทางไปปลายทาง';
         document.getElementById('trackingPickupRoute').textContent = journeyTargetName;
       } else if (isVanAtOrPastPickup()) {
         document.getElementById('trackingPickupEta').textContent = 'รถถึงป้ายต้นทางแล้ว';
@@ -2991,7 +2857,7 @@
         document.getElementById('trackingPickupRoute').textContent = 'ป้าย' + originName + ' · คาดว่าจะถึงเวลา ' + pickupEtaInfo.arrivalTimeText;
       }
       if (arrivalInfo) {
-        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
+        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: ' + (ticketTransferPointLabel() || '-') : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : '';
         document.getElementById('trackingNextStep').textContent = routeInfo.type === 'secondary_connection' ? 'ต่อรถไป' + finalDestination + ' ได้ตามรอบหน้างาน' : 'เดินทางถึงปลายทางแล้ว';
         document.getElementById('trackingPlatform').textContent = 'ระบบจะจบการแสดงผลหลังผ่านไป 6 ชั่วโมง';
@@ -3003,10 +2869,10 @@
         var scheduleOnlyPeek = expectedVehicleForPeek && expectedVehicleForPeek.scheduleOnly;
         var waitingForExpectedVehicle = expectedVehicleForPeek && expectedVehicleForPeek.plannedVehicleId && !expectedVehicleForPeek.hasFreshPosition;
         var staleExpectedVehicle = waitingForExpectedVehicle && expectedVehicleForPeek.isStalePosition;
-        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: แปดริ้ว' : 'ปลายทาง: ' + finalDestination;
+        document.getElementById('trackingDestinationEta').textContent = routeInfo.type === 'secondary_connection' ? 'จุดต่อรถ: ' + (ticketTransferPointLabel() || '-') : 'ปลายทาง: ' + finalDestination;
         document.getElementById('trackingDestinationName').textContent = routeInfo.type === 'secondary_connection' ? 'ปลายทาง: ' + finalDestination : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง';
         document.getElementById('trackingNextStep').textContent = scheduleOnlyPeek ? 'รอบนี้เป็นตารางเวลาเท่านั้น' : (vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว' : 'ยังไม่พบตำแหน่งรถคันนี้') : 'รอรถที่ป้ายต้นทาง'));
-        document.getElementById('trackingPlatform').textContent = scheduleOnlyPeek ? 'ไม่มีการติดตาม GPS สดสำหรับคิวนี้' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ระบบจะอัปเดตเมื่อรถคันนี้ส่งตำแหน่งใหม่' : 'ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง') : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปแปดริ้วและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง'));
+        document.getElementById('trackingPlatform').textContent = scheduleOnlyPeek ? 'ไม่มีการติดตาม GPS สดสำหรับคิวนี้' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ระบบจะอัปเดตเมื่อรถคันนี้ส่งตำแหน่งใหม่' : 'ระบบจะอัปเดตเมื่อรถคันนี้เริ่มส่งตำแหน่ง') : (routeInfo.type === 'secondary_connection' ? 'หลังขึ้นรถจะแสดงเวลาไปจุดต่อรถและรอบต่อรถ' : 'หลังขึ้นรถจะแสดง ETA ถึงปลายทาง'));
         updateTrackingSheetPeek(scheduleOnlyPeek ? 'รอบนี้เป็นตารางเวลาเท่านั้น' : (vanAtPickupNow ? 'รถถึงป้ายต้นทางแล้ว' : (waitingForExpectedVehicle ? (staleExpectedVehicle ? 'ตำแหน่งรถคันนี้ขาดการอัปเดตชั่วคราว' : 'ยังไม่พบตำแหน่งรถคันนี้') : 'รอรถที่ป้ายต้นทาง')), scheduleOnlyPeek ? 'ไม่มีการติดตาม GPS สดสำหรับคิวนี้' : (waitingForExpectedVehicle ? ('คิว ' + (expectedVehicleForPeek.queueNo || '-') + ' · ' + expectedVehicleForPeek.plannedVehicleId) : (originName + ' → ' + finalDestination)));
       } else {
         document.getElementById('trackingDestinationEta').textContent = destEta === null ? 'ยังไม่พร้อมคำนวณ ETA' :
@@ -3105,7 +2971,7 @@
       if (!vanLocation) return 'กำลังรอตำแหน่งรถจากคนขับ';
       if (age !== null && age > 2 * 60 * 1000) return 'ตำแหน่งรถอาจไม่เป็นปัจจุบัน · อัปเดตล่าสุด ' + formatAgo(age);
       if (routeInfo.type === 'secondary_connection') {
-        return 'เมื่อถึงแปดริ้ว ให้ต่อรถไป' + routeInfo.destination;
+        return 'เมื่อถึง ' + (ticketTransferPointLabel() || 'จุดต่อรถ') + ' ให้ต่อรถไป' + routeInfo.destination;
       }
       return 'อัปเดตตำแหน่งล่าสุด ' + formatAgo(age || 0);
     }
@@ -3232,12 +3098,14 @@
     function getCheckinDistanceKm(position) {
       var roadKm = currentBooking && currentBooking.routeProgress && Number(currentBooking.routeProgress.remainingRoadKm);
       if (DISTANCE_MODE === 'road' && !isNaN(roadKm) && roadKm >= 0) return roadKm;
+      if (TERMINAL.lat == null || TERMINAL.lng == null || !Number.isFinite(Number(TERMINAL.lat)) || !Number.isFinite(Number(TERMINAL.lng))) return null;
       var straightKm = distanceKm(position.lat, position.lng, TERMINAL.lat, TERMINAL.lng);
       return DISTANCE_MODE === 'road' ? straightKm * ROAD_DISTANCE_FACTOR : straightKm;
     }
 
     function refreshRoadDistance(position) {
       if (DISTANCE_MODE !== 'road') return;
+      if (TERMINAL.lat == null || TERMINAL.lng == null || !Number.isFinite(Number(TERMINAL.lat)) || !Number.isFinite(Number(TERMINAL.lng))) return;
       var seq = ++roadDistanceRequestSeq;
       requestOsrmRoadDistanceKm(position)
         .then(function(road) {
@@ -3293,7 +3161,7 @@
 
     function compareSchedule() {
       if (currentEtaMinutes === null) {
-        setStatus('scheduleStatus', 'warn', 'รถจอดอยู่ ระบบยังไม่คำนวณเวลาถึงแปดริ้ว');
+        setStatus('scheduleStatus', 'warn', 'รถจอดอยู่ ระบบยังไม่คำนวณเวลาถึงจุดต่อรถ');
         updateFlexiblePanel();
         return;
       }
@@ -3391,11 +3259,11 @@
       btn.disabled = !canCheck;
       if (routeInfo.type !== 'secondary_connection' && !adminBypass) {
         btn.textContent = 'ไม่ต้องเช็คอินจุดต่อรถ';
-      } else if (currentBooking && (currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) btn.textContent = 'แจ้งใกล้ถึงแปดริ้วแล้ว';
+      } else if (currentBooking && (currentBooking.status === 'checked_in' || currentBooking.status === 'transfer_nearby_notified') && !adminBypass) btn.textContent = 'แจ้งใกล้ถึงจุดต่อรถแล้ว';
       else if (checkinSubmitLock) btn.textContent = 'กำลังเช็คอิน...';
       else if (adminBypass) btn.textContent = 'แอดมินทดสอบเช็คอิน';
-      else if (!nearTransferPoint) btn.textContent = 'ใช้ได้เมื่อใกล้ถึงแปดริ้ว';
-      else btn.textContent = 'แจ้งใกล้ถึงแปดริ้ว';
+      else if (!nearTransferPoint) btn.textContent = 'ใช้ได้เมื่อใกล้ถึงจุดต่อรถ';
+      else btn.textContent = 'แจ้งใกล้ถึงจุดต่อรถ';
       renderCheckinButtonState();
       updateFlexiblePanel();
     }
@@ -3479,13 +3347,13 @@
           checkedInAt: checkedInAt,
           adminBypass: adminBypass
         },
-        officialStatus: adminBypass ? 'ADMIN CHECK: เช็คอินทดสอบโดยไม่ต้องรอเข้ารัศมี' : 'ผู้โดยสารใกล้ถึงแปดริ้ว ระยะ ' + checkinDistanceKm.toFixed(2) + ' กม.'
+        officialStatus: adminBypass ? 'ADMIN CHECK: เช็คอินทดสอบโดยไม่ต้องรอเข้ารัศมี' : 'ผู้โดยสารใกล้ถึงจุดต่อรถ ระยะ ' + checkinDistanceKm.toFixed(2) + ' กม.'
       };
       if (transferAdjustment) {
         Object.assign(payload, transferAdjustment);
         payload.officialStatus += ' / รอบที่คาดว่าจะทัน: ' + transferAdjustment.adjustedLeg2Time + ' น.';
       }
-      updateBookingAndNotify(payload, 'checkin', 'แจ้งใกล้ถึงแปดริ้วสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
+      updateBookingAndNotify(payload, 'checkin', 'แจ้งใกล้ถึงจุดต่อรถสำเร็จ ส่งข้อมูลเข้า LINE กลุ่มแล้ว')
         .then(function(){ checkinSubmitLock = false; updateActionAvailability(); })
         .catch(function(){ checkinSubmitLock = false; updateActionAvailability(); });
     }
@@ -3942,7 +3810,7 @@
         }
         var etaText = data.etaMinutes === null || data.etaMinutes === undefined ? '-' : 'อีกประมาณ ' + Math.max(0, Math.round(Number(data.etaMinutes || 0))) + ' นาที';
         return [
-          'ผู้โดยสารใกล้ถึงแปดริ้ว ' + etaText,
+          'ผู้โดยสารใกล้ถึงจุดต่อรถ ' + etaText,
           '',
           'รหัสตั๋ว: ' + (currentBooking.code || '-'),
           'ชื่อ: ' + (currentBooking.name || '-'),
@@ -4002,7 +3870,7 @@
 
       if (data.eventName === 'checkin') {
         message += '\nเวลาเช็คอิน: ' + formatDateTime(data.eventAt) +
-          '\nระยะจากแปดริ้ว: ' + formatNumber(data.distanceKm, 2) + ' กม.' +
+          '\nระยะจากจุดต่อรถ: ' + formatNumber(data.distanceKm, 2) + ' กม.' +
           '\nความเร็ว: ' + formatNumber(data.speedKmh, 1) + ' กม./ชม.' +
           '\nETA: ' + (data.etaMinutes === null || data.etaMinutes === undefined ? '-' : data.etaMinutes + ' นาที');
         if (data.adjustedLeg2Time) {

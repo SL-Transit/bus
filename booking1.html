@@ -1291,7 +1291,7 @@ body {
             <div class="sf-icon destination"><img class="icon-img" src="assets/205.png" alt="destination" style="width:20px;height:20px;"></div>
             <div class="sf-inner">
               <span class="sf-label">ปลายทาง</span>
-              <span class="sf-val" id="field-dest">แปดริ้ว</span>
+              <span class="sf-val" id="field-dest">-</span>
             </div>
           </div>
         </div>
@@ -1445,7 +1445,7 @@ body {
         <div class="info-row">
           <div class="icon-circle"><img class="icon-img" src="assets/219.png" alt="เส้นทาง" style="width:20px;height:20px;"></div>
           <div class="info-label">เส้นทาง:</div>
-          <div class="info-val" id="p2-route">สนามชัยเขต - แปดริ้ว</div>
+          <div class="info-val" id="p2-route">-</div>
         </div>
         <div class="info-row">
           <div class="icon-circle"><img class="icon-img" src="assets/220.png" alt="เวลา" style="width:20px;height:20px;"></div>
@@ -2192,7 +2192,7 @@ var state = {
   originKey:        'sanamchai',
   originName:       'ท่ารถสนามชัยเขต',
   destKey:          'chachoengsao',
-  destName:         'ฉะเชิงเทรา (แปดริ้ว)',
+  destName:         '',
   name:             '',
   phone:            '',
   pax:              1,
@@ -2334,6 +2334,7 @@ function renderTrips() {
   ══════════════════════════════════════════ */
   var ti = best.transferInfo;
   var hasTransfer = best.isLeg2 && ti;
+  var transferPoint = hasTransfer ? (ti.point || ti.transferPoint || '-') : '';
 
   html += '<div class="trip-card trip-card-recommended selected" '
     + 'data-time="' + best.pickupTime + '" data-label="' + best.label + '" '
@@ -2353,7 +2354,7 @@ function renderTrips() {
     + '<img class="icon-img" src="assets/221.png" alt="ป้าย" style="width:13px;height:13px;">'
     + '<span class="trip-route-text">'
     + (state.originName||'ต้นทาง') + ' → '
-    + (hasTransfer ? 'ฉะเชิงเทรา (แปดริ้ว)' : (state.destName||'ปลายทาง'))
+    + (hasTransfer ? transferPoint : (state.destName||'ปลายทาง'))
     + '</span>'
     + '</div>'
 
@@ -2362,10 +2363,10 @@ function renderTrips() {
         '<div class="transfer-inline-box">'
         + '<div class="ti-inline-head">'
         + '<img class="icon-img" src="assets/245.png" alt="ต่อรถ" style="width:14px;height:14px;">'
-        + '<span class="ti-inline-title">ต่อรถที่แปดริ้ว</span>'
+        + '<span class="ti-inline-title">ต่อรถที่ ' + transferPoint + '</span>'
         + '</div>'
         + '<div class="ti-inline-row">'
-        + '<span class="ti-inline-label">ออกจากแปดริ้ว</span>'
+        + '<span class="ti-inline-label">ออกจาก ' + transferPoint + '</span>'
         + '<span class="ti-inline-val">' + ti.leg2Time + ' น.</span>'
         + '</div>'
         + '<div class="ti-inline-row">'
@@ -2385,7 +2386,7 @@ function renderTrips() {
     + '<div class="trip-meta">'
     + '<div class="trip-meta-item">'
     + '<img class="icon-img" src="assets/241.png" alt="รถ" style="width:13px;height:13px;">'
-    + (hasTransfer ? ' ต่อรถที่แปดริ้ว' : (' ตรงถึง ' + (state.destName||'ปลายทาง')))
+    + (hasTransfer ? ' ต่อรถที่ ' + transferPoint : (' ตรงถึง ' + (state.destName||'ปลายทาง')))
     + '</div>'
     + (best.queueNo ? '<div class="trip-meta-item"><img class="icon-img" src="assets/242.png" alt="คิว" style="width:13px;height:13px;"> คิวที่ ' + best.queueNo + '</div>' : '')
     + '<div class="trip-meta-item">' + _seatsText(best) + '</div>'
@@ -2410,6 +2411,7 @@ function renderTrips() {
     available.slice(1).forEach(function(trip) {
       var tTi = trip.transferInfo;
       var tHasTransfer = trip.isLeg2 && tTi;
+      var tTransferPoint = tHasTransfer ? (tTi.point || tTi.transferPoint || '-') : '';
 
       html += '<div class="trip-card trip-card-compact" '
         + 'data-time="' + trip.pickupTime + '" data-label="' + trip.label + '" '
@@ -2422,7 +2424,7 @@ function renderTrips() {
         + '<span class="trip-time-compact">' + trip.label + '</span>'
         + '<div class="trip-compact-route">'
         + (state.originName||'ต้นทาง') + ' → '
-        + (tHasTransfer ? 'แปดริ้ว' : (state.destName||'ปลายทาง'))
+        + (tHasTransfer ? tTransferPoint : (state.destName||'ปลายทาง'))
         + (tHasTransfer && tTi && tTi.hasMatch ? (' → ' + (tTi.destLabel||state.destName) + ' (' + tTi.leg2Time + ' น.)') : '')
         + '</div>'
         + '</div>'
@@ -2481,6 +2483,7 @@ function devGoTo(n) {
   }
   if (n >= 3) {
     var tot = getBookingTotal(state.pax);
+    if (tot.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
     var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
     set('sumRoute',        (state.originName||'ต้นทาง') + ' - ' + (state.destName||'ปลายทาง'));
     set('sumDate',         _dateThaiShort ? _dateThaiShort() : _serviceDateISO());
@@ -2488,7 +2491,7 @@ function devGoTo(n) {
     set('sumSeat',         state.pax + ' ที่นั่ง');
     set('p3-name',         state.name);
     set('p3-phone',        state.phone);
-    set('p3-ticket-price', (tot.basePrice * state.pax) + ' บาท');
+    set('p3-ticket-price', tot.fareSubtotal + ' บาท');
     set('sumServiceFee',   tot.svcFee + ' บาท');
     set('sumTotal',        tot.total + ' บาท');
     set('sumTotal2',       tot.total + ' บาท');
@@ -2591,6 +2594,7 @@ function goToPayment() {
   if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
 
   var tot = getBookingTotal(state.pax);
+  if (tot.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
   state._totalFare = tot.total;
 
   /* ── populate sum IDs (ตรงกับ repo) ── */
@@ -2601,7 +2605,7 @@ function goToPayment() {
   set('sumSeat',        state.pax + ' ที่นั่ง');
   set('p3-name',        state.name);
   set('p3-phone',       state.phone);
-  set('p3-ticket-price', (tot.basePrice * state.pax) + ' บาท');
+  set('p3-ticket-price', tot.fareSubtotal + ' บาท');
   set('sumServiceFee',  tot.svcFee + ' บาท');
   set('sumTotal',       tot.total + ' บาท');
   set('sumTotal2',      tot.total + ' บาท');
@@ -2609,7 +2613,7 @@ function goToPayment() {
 
   /* service fee row */
   var sfRow = document.getElementById('serviceFeeRow');
-  if (sfRow) sfRow.style.display = (global.SERVICE_FEE_ENABLED && global.SERVICE_FEE_AMOUNT) ? 'flex' : 'none';
+  if (sfRow) sfRow.style.display = tot.serviceFeeTotal > 0 ? 'flex' : 'none';
 
   showPage(3);
   updateSteps(3);
@@ -2664,7 +2668,7 @@ function goToTicket() {
     transferInfo:  state.transferInfo || null,
     queueNo:       assignmentContract.queueNo || '',
     vehicleId:     assignmentContract.plannedVehicleId || '',
-    fare:          state._totalFare || (state.tripFare * state.pax),
+    fare:          state._totalFare,
     payMethod:     currentPayMethod || '',
     slipUploaded:  !!state.slipFile,
     assignment:    assignmentContract
@@ -2683,7 +2687,7 @@ function goToTicket() {
   var transferBox = document.getElementById('ticket-transfer-box');
   if (isLeg2 && state.transferInfo) {
     var ti = state.transferInfo;
-    document.getElementById('t-transfer-point').textContent = ti.point || 'ฉะเชิงเทรา (แปดริ้ว)';
+    document.getElementById('t-transfer-point').textContent = ti.point || ti.transferPoint || '-';
     document.getElementById('t-transfer-time').textContent  = (ti.time  || '-') + (ti.time ? ' น.' : '');
     document.getElementById('t-transfer-leg2').textContent  = ti.leg2  || '-';
     transferBox.style.display = 'block';
@@ -2858,26 +2862,44 @@ function updateSteps(n) {
    getBookingTotal(pax) — ราคา + service fee
 ────────────────────────────────────────────────────── */
 function getBookingTotal(pax) {
-  var n         = pax || state.pax || 1;
-  var base      = Number(state.tripFare) || 0;
-  var svcFee    = (global.SERVICE_FEE_ENABLED && global.SERVICE_FEE_AMOUNT) ? global.SERVICE_FEE_AMOUNT * n : 0;
-  return { basePrice: base, svcFee: svcFee, total: base * n + svcFee };
+  var selected = state.selectedTrip || {};
+  if (!global.SLTransitCalculatorCenter || typeof global.SLTransitCalculatorCenter.calculateBookingTotal !== 'function') {
+    return { status: 'missing_calculator_contract', total: null };
+  }
+  var result = global.SLTransitCalculatorCenter.calculateBookingTotal({
+    fareAmount: selected.fareAmount,
+    serviceFeeAmount: selected.fareContract && selected.fareContract.serviceFeeAmount,
+    passengerCount: pax || state.pax || 1,
+    maxPassengers: global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected)
+  });
+  return Object.assign({}, result, {
+    basePrice: result.fareAmount,
+    svcFee: result.serviceFeeTotal,
+    total: result.totalAmount
+  });
 }
 
 /* ──────────────────────────────────────────────────────
    changeSeat(delta) — +/- ผู้โดยสาร + live update price
 ────────────────────────────────────────────────────── */
 function changeSeat(delta) {
-  state.pax = Math.max(1, Math.min(10, (state.pax||1) + delta));
+  var selected = state.selectedTrip || {};
+  var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  if (delta > 0 && !(Number(limit) > 0)) {
+    alert('ERP Data Center ยังไม่ส่งจำนวนที่นั่งสูงสุดสำหรับเที่ยวนี้');
+    return;
+  }
+  state.pax = Math.max(1, delta > 0 ? Math.min(Number(limit), (state.pax||1) + delta) : (state.pax||1) + delta);
   var paxEl = document.getElementById('pax-count');
   if (paxEl) paxEl.innerHTML = '<span id="seatCount">' + state.pax + '</span> คน';
   var scEl = document.getElementById('seatCount');
   if (scEl) scEl.textContent = state.pax;
   var tot = getBookingTotal(state.pax);
+  if (tot.status !== 'ready') return;
   state._totalFare = tot.total;
   var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
   set('sumSeat',         state.pax + ' ที่นั่ง');
-  set('p3-ticket-price', (tot.basePrice * state.pax) + ' บาท');
+  set('p3-ticket-price', tot.fareSubtotal + ' บาท');
   set('sumServiceFee',   tot.svcFee + ' บาท');
   set('sumTotal',        tot.total + ' บาท');
   set('sumTotal2',       tot.total + ' บาท');
@@ -2951,7 +2973,7 @@ function showTicketPage(booking) {
   set('t-date',        booking.date || _serviceDateISO());
   set('t-pax',         (booking.seats||1) + ' คน');
   /* ticket lines leg1/leg2 */
-  set('ticketLeg1',    ls.leg1 || booking.leg1Route || (state.originName + ' - ' + (state.isLeg2Dest ? 'แปดริ้ว' : state.destName)));
+  set('ticketLeg1',    ls.leg1 || booking.leg1Route || (state.originName + ' - ' + (state.isLeg2Dest && state.transferInfo ? (state.transferInfo.point || state.transferInfo.transferPoint || '-') : state.destName)));
   var leg2Wrap = document.getElementById('ticketLeg2Wrap');
   if (ls.leg2) { set('ticketLeg2', ls.leg2); if (leg2Wrap) leg2Wrap.style.display = 'flex'; }
   else if (leg2Wrap) { leg2Wrap.style.display = 'none'; }
@@ -3130,10 +3152,10 @@ function updateSummary() {
   if (state.isLeg2Dest && ti && ti.hasMatch) {
     if (leg2Card)   leg2Card.style.display = 'block';
     if (leg2Detail) leg2Detail.innerHTML =
-      'เส้นทางแรก: <strong>' + fromName + ' - ' + (ti.transferPoint || ti.point || 'ฉะเชิงเทรา (แปดริ้ว)') + '</strong><br>'
+      'เส้นทางแรก: <strong>' + fromName + ' - ' + (ti.transferPoint || ti.point || '-') + '</strong><br>'
       + 'ออกจาก ' + fromName + ': <strong>' + (state.tripTime||'-') + ' น.</strong><br>'
-      + 'เส้นทางที่สอง: <strong>' + (ti.transferPoint || ti.point || 'ฉะเชิงเทรา (แปดริ้ว)') + ' - ' + (ti.destLabel||toName) + '</strong><br>'
-      + 'ออกจากแปดริ้ว: <strong>' + ti.leg2Time + ' น.</strong><br>'
+      + 'เส้นทางที่สอง: <strong>' + (ti.transferPoint || ti.point || '-') + ' - ' + (ti.destLabel||toName) + '</strong><br>'
+      + 'ออกจาก ' + (ti.transferPoint || ti.point || '-') + ': <strong>' + ti.leg2Time + ' น.</strong><br>'
       + 'ปลายทาง: <strong>' + (ti.destLabel||toName) + '</strong>';
   } else {
     if (leg2Card) leg2Card.style.display = 'none';
@@ -3255,7 +3277,7 @@ function downloadTicketImage() {
     ['วันเดินทาง',  booking.date    || '-'],
     ['จำนวนที่นั่ง', (booking.seats || 1) + ' ที่นั่ง'],
     ['ยอดชำระ',     '฿' + Number(booking.price || 0).toLocaleString() + ' บาท'],
-    ['เส้นทางแรก',  legSchedule.leg1 || (booking.origin + ' → แปดริ้ว')]
+    ['เส้นทางแรก',  legSchedule.leg1 || (booking.origin + ' → ' + ((booking.transferInfo && (booking.transferInfo.point || booking.transferInfo.transferPoint)) || '-'))]
   ];
   if (legSchedule.leg2) rows.push(['เส้นทางที่สอง', legSchedule.leg2]);
   if (platform)         rows.push(['ชานชาลา', platform]);
