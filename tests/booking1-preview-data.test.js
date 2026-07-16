@@ -6,6 +6,7 @@ const booking1 = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'u
 const adapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-adapter.js'), 'utf8');
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
+const rules = fs.readFileSync(path.join(__dirname, '..', 'database.rules.json'), 'utf8');
 
 function pageAncestors(html) {
   const re = /<\/?div\b[^>]*>/gi;
@@ -113,6 +114,9 @@ assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/re
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(bridge.includes('liveTrackingAvailable: false'), 'Booking1 bridge must keep schedule-only/no-live-tracking state internally');
 assert(adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Booking1 adapter must create real legacy bookings/{code} records');
+assert(rules.includes("newData.child('source').val() === 'booking1.html'"), 'Firebase rules must allow validated Booking1 public legacy booking creates');
+assert(rules.includes("newData.child('sourceMode').val() === 'erp_data_center'"), 'Booking1 booking writes must stay ERP Data Center scoped in Firebase rules');
+assert(rules.includes("newData.child('publishedSchedule').child('readyForApply').val() === false"), 'Booking1 public booking rule must preserve preview publishedSchedule marker validation');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
 assert(adapter.includes('function withoutUndefined'), 'Booking1 adapter must remove undefined fields before Firebase writes');
 assert(adapter.includes('withoutUndefined(legacyBookingPayload'), 'Booking1 real booking payload must be sanitized before Firebase set');
