@@ -130,6 +130,7 @@
   var selDest   = '';
   var allBusPositions = {};
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
+  var BUS_MARKER_MOVE_MS = 900;
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
   var userLocationMarker = null;
@@ -859,6 +860,11 @@ function placeBusMarkerAt(carId, latlng) {
   if (!mapReady || !mapObj || !latlng) return;
   var point = normalizeMapPoint(latlng);
   if (!point) return;
+  if (busMarkers[carId] && busTagMarkers[carId]) {
+    try { busMarkers[carId].move(point, BUS_MARKER_MOVE_MS); } catch(e) {}
+    try { busTagMarkers[carId].move(point, BUS_MARKER_MOVE_MS); } catch(e2) {}
+    return;
+  }
 
   var safeCarId = String(carId).replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
   var busImgHtml = '<img src="' + BUS_ICON_SRC + '" alt="">';
