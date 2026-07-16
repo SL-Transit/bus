@@ -476,6 +476,9 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(logicSource.includes('userLocationMarker.move(normalized)'), 'Passenger user location marker must move the existing marker');
   assert(logicSource.includes('focusUserLocation: focusUserLocation'), 'Passenger map API must expose a single user-location focus command');
   assert(html.includes('SLPassengerLogic.map.focusUserLocation(point)'), 'Passenger page must focus the browser-provided user point');
+  assert(html.includes('var point = { lat: lat, lon: lng }'), 'Passenger user location point must use Longdo lon/lat shape');
+  assert(logicSource.includes('mapObj.location(userLocationPoint, false)'), 'Passenger user location focus must jump directly like the legacy page');
+  assert(!logicSource.includes('focusZoom: 15'), 'Passenger user location focus must not use animated viewport planner');
   assert(html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger location button must request a browser one-shot user location');
   assert(html.includes('requestPassengerUserLocation({ showErrors: false, setBusy: false, timeout: 8000 })'), 'Passenger initial load must request one silent user-location focus before origin fallback');
   assert(html.includes('if (!initialUserLocation) SLPassengerLogic.map.focusOrigin()'), 'Passenger initial load must fallback to origin only when user location is unavailable');

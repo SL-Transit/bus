@@ -290,19 +290,15 @@ function showUserLocationMarker(point) {
 function focusUserLocation(point) {
   var normalized = normalizeMapPoint(point);
   if (!normalized) return false;
-  userLocationPoint = { lat: normalized.lat, lng: normalized.lon };
+  userLocationPoint = { lat: normalized.lat, lon: normalized.lon };
   userLocationFocusActive = true;
   showUserLocationMarker(userLocationPoint);
-  var center = getMapDisplayCenter();
-  if (center && typeof center.planViewport === 'function') {
-    applyViewportPlan(center.planViewport({
-      focusPoint: userLocationPoint,
-      focusZoom: 15,
-      animate: true,
-      lockInteractionMs: 1200
-    }));
-  } else {
-    focusMap(userLocationPoint, true);
+  try {
+    programmaticMapMoveUntil = Date.now() + 1200;
+    mapObj.location(userLocationPoint, false);
+    setTimeout(function(){ try { mapObj.zoom(15, false); } catch(e) {} }, 80);
+  } catch(e2) {
+    focusMap(userLocationPoint, false);
   }
   return true;
 }

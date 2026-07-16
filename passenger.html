@@ -786,7 +786,7 @@ function requestPassengerUserLocation(options) {
         resolve(false);
         return;
       }
-      var point = { lat: lat, lng: lng };
+      var point = { lat: lat, lon: lng };
       if (typeof SLPassengerLogic.map.focusUserLocation === 'function') {
         SLPassengerLogic.map.focusUserLocation(point);
       } else {
