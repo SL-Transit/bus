@@ -50,6 +50,7 @@
   var _db = null;
   var _readyPromise = null;
   var _stopLiveVehicles = null;
+  var _lastVehiclePoints = {};
 
   function init() {
     if (_readyPromise) return _readyPromise;
@@ -73,6 +74,33 @@
   function getApp() { return _app; }
   function getDb() { return _db; }
 
+  function vehicleHasPoint(vehicle) {
+    if (!vehicle || typeof vehicle !== 'object') return false;
+    var hasLat = vehicle.lat != null || vehicle.latitude != null;
+    var hasLng = vehicle.lng != null || vehicle.lon != null || vehicle.longitude != null;
+    return hasLat && hasLng;
+  }
+
+  function retainLastVehiclePoints(rawVehicles) {
+    var merged = {};
+    Object.keys(rawVehicles || {}).forEach(function(id) {
+      var current = rawVehicles[id] || {};
+      if (vehicleHasPoint(current)) {
+        _lastVehiclePoints[id] = Object.assign({}, current);
+        merged[id] = current;
+        return;
+      }
+      merged[id] = _lastVehiclePoints[id]
+        ? Object.assign({}, _lastVehiclePoints[id], current)
+        : current;
+      if (vehicleHasPoint(merged[id])) _lastVehiclePoints[id] = Object.assign({}, merged[id]);
+    });
+    Object.keys(_lastVehiclePoints).forEach(function(id) {
+      if (!rawVehicles || !Object.prototype.hasOwnProperty.call(rawVehicles, id)) delete _lastVehiclePoints[id];
+    });
+    return merged;
+  }
+
 /* ────────────────────────────────────────────────────────────
      SETTINGS — data/settings
   ──────────────────────────────────────────────────────────── */
@@ -88,7 +116,7 @@
 
   function applyLiveVehicleSnapshot(snapshot) {
     var raw = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : snapshot;
-    var vehicles = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    var vehicles = retainLastVehiclePoints(raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {});
     updateAllBusesOnMap(vehicles);
     emit('vehiclesChanged', allBusPositions);
     return allBusPositions;

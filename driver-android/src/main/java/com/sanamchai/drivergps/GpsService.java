@@ -1425,7 +1425,10 @@ public class GpsService extends Service implements SensorEventListener {
                     queueId, loc.getLatitude(), loc.getLongitude()));
             logBatteryMode("firebase_send_success");
         };
-        if (fullLocationWrite) liveVehicleRef.setValue(data, (err, ref) -> {
+        boolean canReplaceLiveVehicle = fullLocationWrite
+                && data.containsKey("lat")
+                && data.containsKey("lng");
+        if (canReplaceLiveVehicle) liveVehicleRef.setValue(data, (err, ref) -> {
             if (err != null)
                 prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
                         "operations/liveVehicles: " + err.getMessage()).apply();
