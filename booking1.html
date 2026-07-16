@@ -518,33 +518,8 @@ body {
   line-height: 1.25;
 }
 
-.search-pax-control {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.search-pax-btn {
-  width: 28px;
-  height: 28px;
-  border: 1.5px solid var(--gray-border);
-  border-radius: 8px;
-  background: white;
-  color: var(--teal);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  font-family: inherit;
-}
-.search-pax-btn:hover {
-  border-color: var(--teal);
-  background: var(--teal-bg);
-}
 .search-pax-value {
   min-width: 46px;
-  text-align: center;
 }
 
 /* ── ปุ่มค้นหา (เต็มความกว้าง) ── */
@@ -1336,15 +1311,11 @@ body {
             <input type="date" id="travelDate" style="position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;" onchange="onDateChange(this.value)">
           </div>
 
-          <div class="search-field">
+          <div class="search-field" onclick="cycleSearchPax()">
             <div class="sf-icon passengers"><img class="icon-img" src="assets/207.png" alt="passengers" style="width:20px;height:20px;"></div>
             <div class="sf-inner">
               <span class="sf-label">ผู้โดยสาร</span>
-              <span class="sf-val search-pax-value" id="search-pax-count">1 คน</span>
-            </div>
-            <div class="search-pax-control" aria-label="เลือกจำนวนผู้โดยสาร">
-              <button type="button" class="search-pax-btn" aria-label="ลดจำนวนผู้โดยสาร" onclick="event.stopPropagation(); changeSeat(-1)">−</button>
-              <button type="button" class="search-pax-btn" aria-label="เพิ่มจำนวนผู้โดยสาร" onclick="event.stopPropagation(); changeSeat(1)">+</button>
+              <span class="sf-val search-pax-value" id="search-pax-count">1 คน ▾</span>
             </div>
           </div>
         </div>
@@ -2858,7 +2829,7 @@ function resetBookingState() {
   if (phoneEl) phoneEl.value = '';
   if (noteEl)  noteEl.value  = '';
   if (paxEl)   paxEl.textContent = '1 คน';
-  if (searchPaxEl) searchPaxEl.textContent = '1 คน';
+  if (searchPaxEl) searchPaxEl.textContent = '1 คน ▾';
 
   /* รีเซ็ต consent bar */
   var cBar = document.getElementById('consentStatusBar');
@@ -2930,7 +2901,7 @@ function changeSeat(delta) {
   var paxEl = document.getElementById('pax-count');
   if (paxEl) paxEl.innerHTML = '<span id="seatCount">' + state.pax + '</span> คน';
   var searchPaxEl = document.getElementById('search-pax-count');
-  if (searchPaxEl) searchPaxEl.textContent = state.pax + ' คน';
+  if (searchPaxEl) searchPaxEl.textContent = state.pax + ' คน ▾';
   var scEl = document.getElementById('seatCount');
   if (scEl) scEl.textContent = state.pax;
   var tot = getBookingTotal(state.pax);
@@ -2943,6 +2914,20 @@ function changeSeat(delta) {
   set('sumTotal',        tot.total + ' บาท');
   set('sumTotal2',       tot.total + ' บาท');
   set('bank-amount',     tot.total + ' บาท');
+}
+
+function cycleSearchPax() {
+  var selected = state.selectedTrip || {};
+  var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  var effectiveLimit = Number(limit) > 0
+    ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
+    : PUBLIC_BOOKING_PAX_LIMIT;
+  if ((state.pax || 1) >= effectiveLimit) {
+    state.pax = 1;
+    changeSeat(0);
+    return;
+  }
+  changeSeat(1);
 }
 
 /* ──────────────────────────────────────────────────────
@@ -3052,6 +3037,7 @@ window.showPage           = showPage;
 window.updateSteps        = updateSteps;
 window.getBookingTotal    = getBookingTotal;
 window.changeSeat         = changeSeat;
+window.cycleSearchPax     = cycleSearchPax;
 window.selectPayMethod    = selectPayMethod;
 window._applySettings     = _applySettings;
 window.showTicketSavePopup   = showTicketSavePopup;

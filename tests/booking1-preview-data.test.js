@@ -86,9 +86,11 @@ assert(booking1.includes('function isValidThaiPhone'), 'Booking1 must define Tha
 assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must expose phone sanitizer to the preview adapter');
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
 assert(booking1.includes('id="search-pax-count"'), 'Booking1 search passenger field must expose a live passenger count');
-assert(booking1.includes('onclick="event.stopPropagation(); changeSeat(-1)"'), 'Booking1 search passenger field must allow decreasing passenger count');
-assert(booking1.includes('onclick="event.stopPropagation(); changeSeat(1)"'), 'Booking1 search passenger field must allow increasing passenger count');
-assert(booking1.includes("searchPaxEl.textContent = state.pax + ' คน'"), 'Booking1 passenger count changes must sync the search passenger field');
+assert(booking1.includes('onclick="cycleSearchPax()"'), 'Booking1 search passenger field must cycle passenger count by tapping the field');
+assert(booking1.includes('function cycleSearchPax'), 'Booking1 must implement tap-to-cycle passenger count selection');
+assert(booking1.includes('window.cycleSearchPax     = cycleSearchPax'), 'Booking1 must expose passenger count cycling for inline handlers');
+assert(!booking1.includes('search-pax-btn'), 'Booking1 search passenger field must not render plus/minus buttons');
+assert(booking1.includes("searchPaxEl.textContent = state.pax + ' คน ▾'"), 'Booking1 passenger count changes must sync the search passenger field');
 assert(booking1.includes('var PUBLIC_BOOKING_PAX_LIMIT = 10'), 'Booking1 must mirror the public Firebase pax safety limit in the UI');
 assert(adapter.includes('global.PUBLIC_BOOKING_PAX_LIMIT'), 'Booking1 adapter totals must apply the public pax safety limit');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
