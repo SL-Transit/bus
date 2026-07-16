@@ -122,6 +122,10 @@ assert(!booking1.includes('trip-check'), 'Booking1 trip cards must not render th
 assert(!booking1.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 trip buttons must not use legacy capacity continuation');
 assert(booking1.includes('href="info.html#policy"'), 'Booking1 booking terms link must point to info policy section');
 assert(booking1.includes('href="info.html#privacy"'), 'Booking1 service policy link must point to info privacy section');
+assert(booking1.includes('href="info.html#services"'), 'Booking1 operator/footer link must point to info services section');
+assert(booking1.includes('href="info.html#contact"'), 'Booking1 contact/footer link must point to info contact section');
+assert(booking1.includes('href="info.html#help"'), 'Booking1 FAQ/help footer link must point to info help section');
+assert(!booking1.includes('href="#"'), 'Booking1 must not leave dead # policy/footer links');
 assert(!booking1.includes('href="#" onclick="openConsentPopup(event)">เงื่อนไขการจอง'), 'Booking1 terms link must not be a dead # link');
 assert(adapter.includes('SLBookingBridge.getBookableStops()'), 'Origin picker must use bridge originOptions');
 assert(adapter.includes('SLBookingBridge.getDestinationOptions(state.originKey)'), 'Destination picker must use origin-scoped destinationOptionsByOrigin');
