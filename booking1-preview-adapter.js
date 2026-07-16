@@ -171,6 +171,106 @@
     };
   }
 
+  function identityCenter() {
+    return global.SLTransitPassengerIdentityCenter || null;
+  }
+
+  function isLinePassenger(state) {
+    var center = identityCenter();
+    return !!(center && center.isLineIdentity(state.passengerIdentity));
+  }
+
+  function guestPassengerIdentity(name, phone) {
+    var center = identityCenter();
+    if (center && typeof center.guestIdentity === 'function') return center.guestIdentity(name, phone);
+    return { provider: 'guest', status: 'manual', displayName: name || '', phone: phone || '' };
+  }
+
+  function guestNotificationPreference() {
+    var center = identityCenter();
+    if (center && typeof center.guestNotificationPreference === 'function') return center.guestNotificationPreference();
+    return { lineTicket: false, lineTripUpdates: false };
+  }
+
+  function lineNotificationPreference() {
+    var center = identityCenter();
+    if (center && typeof center.lineNotificationPreference === 'function') return center.lineNotificationPreference();
+    return { lineTicket: true, lineTripUpdates: true };
+  }
+
+  function buildLineConsent() {
+    var center = identityCenter();
+    if (center && typeof center.buildConsent === 'function') return center.buildConsent('booking1.html');
+    return null;
+  }
+
+  function currentPassengerIdentity(state) {
+    if (isLinePassenger(state)) return state.passengerIdentity;
+    return guestPassengerIdentity(state.name || '', state.phone || '');
+  }
+
+  function currentNotificationPreference(state) {
+    if (isLinePassenger(state)) return state.notificationPreference || lineNotificationPreference();
+    return state.notificationPreference || guestNotificationPreference();
+  }
+
+  function currentConsent(state) {
+    return state.consent || null;
+  }
+
+  function setLineIdentityStatus(message, busy) {
+    var status = document.getElementById('lineIdentityStatus');
+    var btn = document.getElementById('lineLoginBtn');
+    if (status) status.textContent = message || '';
+    if (btn) btn.disabled = busy === true;
+  }
+
+  function renderLineIdentity(identity) {
+    var profile = document.getElementById('lineIdentityProfile');
+    var avatar = document.getElementById('lineIdentityAvatar');
+    var name = document.getElementById('lineIdentityName');
+    if (!profile) return;
+    if (identity && identity.provider === 'line' && identity.lineUserId) {
+      profile.style.display = 'flex';
+      if (avatar) {
+        avatar.src = identity.pictureUrl || '';
+        avatar.style.display = identity.pictureUrl ? 'block' : 'none';
+      }
+      if (name) name.textContent = identity.displayName || 'LINE passenger';
+      setLineIdentityStatus('ใช้ข้อมูลจาก LINE แล้ว ระบบจะส่งตั๋วและแจ้งเตือนรายการนี้ผ่าน LINE', false);
+    } else {
+      profile.style.display = 'none';
+      setLineIdentityStatus('ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้', false);
+    }
+  }
+
+  function fillPaymentSummary(state, total) {
+    setText('sumRoute', (state.originName || '-') + ' - ' + (state.destName || '-'));
+    setText('sumDate', typeof global._dateThaiShort === 'function' ? global._dateThaiShort() : serviceDateISO());
+    setText('sumTime', state.tripLabel);
+    setText('sumSeat', (state.pax || 1) + ' เธ—เธตเนเธเธฑเนเธ');
+    setText('p3-name', state.name);
+    setText('p3-phone', state.phone || '-');
+    setText('p3-ticket-price', (total.basePrice * (state.pax || 1)) + ' เธเธฒเธ—');
+    setText('sumServiceFee', total.svcFee + ' เธเธฒเธ—');
+    setText('sumTotal', total.total + ' เธเธฒเธ—');
+    setText('sumTotal2', total.total + ' เธเธฒเธ—');
+    setText('bank-amount', total.total + ' เธเธฒเธ—');
+  }
+
+  function continueToPayment(state) {
+    if (!selectedTripCanContinue()) { alert('เน€เธ—เธตเนเธขเธงเธเธตเนเธขเธฑเธเนเธเธ•เนเธญเนเธกเนเนเธ”เน เธซเธฃเธทเธญเธขเธฑเธเนเธกเนเธกเธต fareAmount เธเธฒเธ ERP Data Center'); return; }
+    var total = global.getBookingTotal(state.pax);
+    if (total.fareMissing) { alert('เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธกเธนเธฅ fareAmount เนเธ preview pair เธชเธณเธซเธฃเธฑเธเธเธนเนเน€เธชเนเธเธ—เธฒเธเธเธตเน'); return; }
+    state._totalFare = total.total;
+    state.passengerIdentity = currentPassengerIdentity(state);
+    state.notificationPreference = currentNotificationPreference(state);
+    fillPaymentSummary(state, total);
+    if (typeof global.showPage === 'function') global.showPage(3);
+    if (typeof global.updateSteps === 'function') global.updateSteps(3);
+    if (typeof global.selectPayMethod === 'function') global.selectPayMethod(null);
+  }
+
   function legacyBookingPayload(state, snapshot) {
     var selected = state.selectedTrip || {};
     var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : null;
@@ -223,7 +323,9 @@
       noLiveTracking: assignment.liveTrackingAvailable !== true,
       assignmentSource: assignment.assignmentSource || 'none',
       ticketQrVersion: 'SLT1',
-      passengerIdentity: { status: 'pending', verifiedAt: null, verifiedBy: '', vehicleId: '' },
+      passengerIdentity: snapshot.passengerIdentity || currentPassengerIdentity(state),
+      notificationPreference: snapshot.notificationPreference || currentNotificationPreference(state),
+      consent: snapshot.consent || currentConsent(state),
       originCheckin: { status: 'pending', identityVerified: false },
       status: snapshot.status || 'awaiting_payment',
       ts: global.firebase && global.firebase.database ? global.firebase.database.ServerValue.TIMESTAMP : Date.now()
@@ -236,14 +338,27 @@
     var phoneEl = document.getElementById('inp-phone');
     var nameVal = nameEl ? nameEl.value.trim() : '';
     var phoneVal = phoneEl ? phoneEl.value.trim() : '';
-    if (!allowEmptyPassenger) {
+    var linePassenger = isLinePassenger(state);
+    if (linePassenger) {
+      state.name = state.passengerIdentity.displayName || (nameVal && global.sanitizeText ? global.sanitizeText(nameVal) : nameVal) || 'LINE passenger';
+      state.phone = phoneVal && global.sanitizePhone ? global.sanitizePhone(phoneVal) : '';
+      state.notificationPreference = lineNotificationPreference();
+      state.consent = state.consent || buildLineConsent();
+      state.consentAccepted = true;
+    } else if (!allowEmptyPassenger) {
       if (!nameVal) { alert('กรุณากรอกชื่อ-นามสกุล'); return false; }
       if (!phoneVal || !global.isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return false; }
       state.name = global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
       state.phone = global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
+      state.passengerIdentity = guestPassengerIdentity(state.name, state.phone);
+      state.notificationPreference = guestNotificationPreference();
+      state.consent = null;
     } else {
       state.name = nameVal && global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
       state.phone = phoneVal && global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
+      state.passengerIdentity = guestPassengerIdentity(state.name, state.phone);
+      state.notificationPreference = guestNotificationPreference();
+      state.consent = null;
     }
     if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้ หรือยังไม่มี fareAmount จาก ERP Data Center'); return false; }
     var total = global.getBookingTotal(state.pax);
@@ -540,6 +655,49 @@
       if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
     };
 
+    global.loginBookingLineIdentity = function(event) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      var state = appState();
+      var center = identityCenter();
+      if (!center || typeof center.loginWithLine !== 'function') {
+        setLineIdentityStatus('ยังไม่พร้อมใช้งาน LINE Login', false);
+        alert('ยังไม่พร้อมใช้งาน LINE Login');
+        return;
+      }
+      setLineIdentityStatus('กำลังเข้าสู่ระบบ LINE...', true);
+      center.loginWithLine().then(function(identity) {
+        if (!identity) return;
+        state.passengerIdentity = identity;
+        state.notificationPreference = lineNotificationPreference();
+        state.consent = buildLineConsent();
+        state.name = identity.displayName || 'LINE passenger';
+        state.phone = '';
+        state.consentAccepted = true;
+        var nameEl = document.getElementById('inp-name');
+        var phoneEl = document.getElementById('inp-phone');
+        var phoneError = document.getElementById('phoneError');
+        if (nameEl) nameEl.value = state.name;
+        if (phoneEl) phoneEl.value = '';
+        if (phoneError) phoneError.style.display = 'none';
+        renderLineIdentity(identity);
+        enforceSeparatePaymentStep();
+        if (!preparePassengerAndPayment(true)) return;
+        if (typeof global.showPage === 'function') global.showPage(3);
+        if (typeof global.updateSteps === 'function') global.updateSteps(3);
+        if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
+      }).catch(function(err) {
+        var code = err && err.code || '';
+        if (code === 'LINE_LOGIN_NOT_CONFIGURED') {
+          setLineIdentityStatus('ยังไม่ได้ตั้งค่า LINE LIFF ID สำหรับ Booking1', false);
+          alert('ยังไม่ได้ตั้งค่า LINE LIFF ID สำหรับ Booking1');
+          return;
+        }
+        setLineIdentityStatus('เข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองใหม่ หรือกรอกข้อมูลเองได้', false);
+        alert('เข้าสู่ระบบ LINE ไม่สำเร็จ กรุณาลองใหม่');
+        console.error('[Booking1PreviewAdapter] LINE login failed', err);
+      });
+    };
+
     global.goToTicket = function() {
       enforceSeparatePaymentStep();
       var state = appState();
@@ -579,6 +737,9 @@
         referenceOnly: state.selectedTrip.referenceOnly === true,
         payMethod: global.currentPayMethod || '',
         slipUploaded: global.currentPayMethod === 'onsite' ? false : !!state.slipFile,
+        passengerIdentity: currentPassengerIdentity(state),
+        notificationPreference: currentNotificationPreference(state),
+        consent: currentConsent(state),
         assignment: assignmentContract
       });
       var booking = withoutUndefined(legacyBookingPayload(state, bookingSnap));

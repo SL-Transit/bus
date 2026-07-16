@@ -8,6 +8,7 @@ const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 const rules = fs.readFileSync(path.join(__dirname, '..', 'database.rules.json'), 'utf8');
 const databaseRules = JSON.parse(rules).rules;
+const identityCenter = fs.readFileSync(path.join(__dirname, '..', 'passenger-identity-center.js'), 'utf8');
 
 function pageAncestors(html) {
   const re = /<\/?div\b[^>]*>/gi;
@@ -49,6 +50,12 @@ assert(!bridge.includes('|| 55'), 'Booking1 bridge must not hardcode 55-baht far
 assert(booking1.includes('booking-availability-center.js'), 'Booking1 must load Booking Availability Center');
 assert(booking1.includes('fare-decision-center.js'), 'Booking1 must load Fare Decision Center');
 assert(booking1.includes('erp-calculator-center.js'), 'Booking1 must load ERP Calculator Center for trip recommendation ordering');
+assert(booking1.includes('https://static.line-scdn.net/liff/edge/2/sdk.js'), 'Booking1 must load the official LINE LIFF SDK for optional passenger login');
+assert(booking1.includes('window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID ||'), 'Booking1 must expose a single LIFF ID config slot');
+assert(booking1.includes('2010733143-xQFRzCsR'), 'Booking1 must configure the owner-provided LIFF ID');
+assert(booking1.includes('passenger-identity-center.js'), 'Booking1 must load Passenger Identity Center before creating bookings');
+assert(booking1.includes('lineLoginBtn'), 'Booking1 passenger form must expose optional LINE login');
+assert(booking1.includes('loginBookingLineIdentity(event)'), 'Booking1 LINE login button must delegate to the preview adapter');
 assert(!booking1.includes('booking-pos.js'), 'Booking1 must not load booking POS/runtime writes');
 assert(!booking1.includes('booking-capacity.js'), 'Booking1 must not load booking capacity runtime reads');
 assert(!booking1.includes('catalog-engine.js'), 'Booking1 must not load legacy catalog engine');
@@ -158,6 +165,20 @@ assert(!adapter.includes('* (snapshot.pax || 1)'), 'Booking1 real booking payloa
 assert(!adapter.includes('snapshot.fareAmount || 0'), 'Booking1 real booking payload must not fall back to local fareAmount arithmetic');
 assert(adapter.includes("throw new Error('booking_total_not_ready')"), 'Booking1 real booking payload must fail closed when Calculator Center total is not ready');
 assert(adapter.includes("sourceMode: 'erp_data_center'"), 'Booking1 real booking payload must record ERP Data Center source mode');
+assert(adapter.includes('SLTransitPassengerIdentityCenter'), 'Booking1 adapter must use Passenger Identity Center for optional LINE login');
+assert(adapter.includes('global.loginBookingLineIdentity'), 'Booking1 adapter must expose optional LINE login handler');
+assert(adapter.includes('guestPassengerIdentity(state.name, state.phone)'), 'Guest bookings must keep manual passenger identity');
+assert(adapter.includes('lineNotificationPreference()'), 'LINE bookings must opt in to LINE ticket/trip notifications');
+assert(adapter.includes('passengerIdentity: currentPassengerIdentity(state)'), 'Booking1 snapshot must include passenger identity');
+assert(adapter.includes('notificationPreference: currentNotificationPreference(state)'), 'Booking1 snapshot must include notification preference');
+assert(adapter.includes('consent: currentConsent(state)'), 'Booking1 snapshot must include consent evidence');
+assert(bridge.includes('passengerIdentity: params.passengerIdentity || null'), 'Booking bridge must preserve passenger identity in snapshots');
+assert(bridge.includes('notificationPreference: params.notificationPreference || null'), 'Booking bridge must preserve notification preference in snapshots');
+assert(bridge.includes('consent: params.consent || null'), 'Booking bridge must preserve consent evidence in snapshots');
+assert(identityCenter.includes('LINE_LOGIN_NOT_CONFIGURED'), 'Passenger Identity Center must fail closed until a LIFF ID is configured');
+assert(identityCenter.includes("provider: 'guest'"), 'Passenger Identity Center must support non-login guest identity');
+assert(identityCenter.includes("provider: 'line'"), 'Passenger Identity Center must support LINE passenger identity');
+assert(!identityCenter.includes('getAccessToken'), 'Passenger Identity Center must not store LINE access tokens in bookings');
 assert(adapter.includes('var transfer = transferPoint(state);'), 'Booking1 legacy payload must define transfer point before writing it');
 assert(!adapter.includes('No live vehicle tracking'), 'Booking1 adapter must not show no-live-tracking technical text to passengers');
 assert(!adapter.includes('schedule only'), 'Booking1 adapter must not show schedule-only technical text to passengers');

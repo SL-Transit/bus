@@ -6,8 +6,6 @@ const { defineSecret, defineString } = require("firebase-functions/params");
 admin.initializeApp();
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
-const bookingLineTo = defineSecret("LINE_TO_ID");
-const checkinLineTo = defineSecret("LINE_CHECKIN_TO_ID");
 const slip2GoSecret = defineSecret("SLIP2GO_SECRET_KEY");
 const slip2GoApiBase = defineString("SLIP2GO_API_BASE");
 
@@ -182,7 +180,27 @@ async function markLinePendingPayment(ref) {
   await ref.update({
     lineMessagingStatus: "pending_payment_verification",
     lineMessagingAt: admin.database.ServerValue.TIMESTAMP,
-    lineMessagingTarget: "booking"
+    lineMessagingTarget: "passenger"
+  });
+}
+
+function passengerLineUserId(booking) {
+  const identity = booking && booking.passengerIdentity || {};
+  if (identity.provider !== "line") return "";
+  return String(identity.lineUserId || "").trim();
+}
+
+function canNotifyPassengerLine(booking, eventName) {
+  const preference = booking && booking.notificationPreference || {};
+  if (eventName === "checkin") return preference.lineTripUpdates === true;
+  return preference.lineTicket === true;
+}
+
+async function markLineSkippedNoPassengerTarget(ref, target) {
+  await ref.update({
+    lineMessagingStatus: "skipped_no_passenger_line_target",
+    lineMessagingAt: admin.database.ServerValue.TIMESTAMP,
+    lineMessagingTarget: target || "passenger"
   });
 }
 
@@ -200,7 +218,12 @@ async function sendLineForBooking(ref, code, booking) {
     return;
   }
 
-  const to = checkin ? checkinLineTo.value() : bookingLineTo.value();
+  const eventName = checkin ? "checkin" : "booking";
+  const to = passengerLineUserId(booking);
+  if (!to || !canNotifyPassengerLine(booking, eventName)) {
+    await markLineSkippedNoPassengerTarget(ref, eventName);
+    return;
+  }
   const message = checkin ? buildCheckinMessage(booking) : buildBookingMessage(booking);
 
   try {
@@ -209,12 +232,14 @@ async function sendLineForBooking(ref, code, booking) {
       ref.update({
         lineMessagingStatus: "sent",
         lineMessagingAt: admin.database.ServerValue.TIMESTAMP,
-        lineMessagingTarget: checkin ? "checkin" : "booking"
+        lineMessagingTarget: eventName,
+        lineMessagingRecipient: "passenger_line"
       }),
       admin.database().ref(`line_sent/${code}`).set({
         code,
         event: checkin ? "checkin" : "booking_created",
-        target: checkin ? "checkin" : "booking",
+        target: eventName,
+        recipient: "passenger_line",
         sentAt: admin.database.ServerValue.TIMESTAMP,
         status: "sent"
       })
@@ -234,7 +259,7 @@ exports.sendLineOnBooking = onValueCreated({
   ref: "/bookings/{code}",
   instance: "sl-transit-9464e-default-rtdb",
   region: "us-central1",
-  secrets: [lineToken, bookingLineTo, checkinLineTo],
+  secrets: [lineToken],
   timeoutSeconds: 60,
   memory: "256MiB",
   maxInstances: 20
@@ -248,7 +273,7 @@ exports.sendLineOnPaymentVerified = onValueUpdated({
   ref: "/bookings/{code}",
   instance: "sl-transit-9464e-default-rtdb",
   region: "us-central1",
-  secrets: [lineToken, bookingLineTo, checkinLineTo],
+  secrets: [lineToken],
   timeoutSeconds: 60,
   memory: "256MiB",
   maxInstances: 20

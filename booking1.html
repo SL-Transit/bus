@@ -22,12 +22,17 @@
 
 <!-- QR Code library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID || '2010733143-xQFRzCsR';
+</script>
 
 <!-- S.L.Transit ERP booking adapter layer -->
 <script src="booking-assignment-center.js?v=20260713b"></script>
 <script src="booking-availability-center.js?v=20260715a"></script>
 <script src="fare-decision-center.js?v=20260714c"></script>
 <script src="erp-calculator-center.js?v=20260715a"></script>
+<script src="passenger-identity-center.js?v=20260716a"></script>
 <script src="booking-bridge.js?v=20260714e"></script>
 <script src="booking1-preview-adapter.js?v=20260716a" defer></script>
 
@@ -656,6 +661,24 @@ body {
 .checkbox-row input[type=checkbox] { width: 20px; height: 20px; border-radius: 5px; accent-color: var(--teal); flex-shrink: 0; margin-top: 1px; }
 .checkbox-label { font-size: 13px; color: var(--body-text); }
 .checkbox-label a { color: var(--teal); text-decoration: none; }
+.line-login-card {
+  border: 1.5px solid #d1fae5; border-radius: 12px;
+  background: #f0fdf4; padding: 12px; margin-bottom: 14px;
+}
+.line-login-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.line-login-copy { min-width: 0; }
+.line-login-title { font-size: 13px; font-weight: 800; color: #14532d; }
+.line-login-desc { font-size: 12px; color: #166534; line-height: 1.55; margin-top: 3px; }
+.line-login-btn {
+  border: none; border-radius: 10px; background: #06c755; color: white;
+  font-family: inherit; font-weight: 800; font-size: 13px; padding: 10px 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.line-login-btn:disabled { opacity: .6; cursor: wait; }
+.line-profile-row { display: none; align-items: center; gap: 8px; margin-top: 10px; }
+.line-profile-row img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: white; }
+.line-profile-name { font-size: 13px; font-weight: 800; color: #14532d; }
+.line-identity-status { font-size: 12px; color: #166534; margin-top: 8px; }
 .btn-main {
   width: 100%; background: linear-gradient(135deg, var(--navy), #1a2d6e);
   color: white; border: none; border-radius: 12px;
@@ -1478,6 +1501,21 @@ body {
           กรอกข้อมูลผู้โดยสาร
         </div>
 
+        <div class="line-login-card" id="lineIdentityCard">
+          <div class="line-login-top">
+            <div class="line-login-copy">
+              <div class="line-login-title">เข้าสู่ระบบด้วย LINE (ไม่บังคับ)</div>
+              <div class="line-login-desc">ใช้ชื่อจาก LINE และรับตั๋ว/แจ้งเตือนการเดินทางของรายการจองนี้ผ่าน LINE</div>
+            </div>
+            <button class="line-login-btn" id="lineLoginBtn" onclick="loginBookingLineIdentity(event)">LINE Login</button>
+          </div>
+          <div class="line-profile-row" id="lineIdentityProfile">
+            <img id="lineIdentityAvatar" alt="">
+            <div class="line-profile-name" id="lineIdentityName"></div>
+          </div>
+          <div class="line-identity-status" id="lineIdentityStatus">ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้</div>
+        </div>
+
         <div class="form-group">
           <label class="form-label">ชื่อ - นามสกุล</label>
           <input class="form-input" type="text" id="inp-name" placeholder="กรอกชื่อ-นามสกุล" autocomplete="name">
@@ -2202,7 +2240,10 @@ var state = {
   consentAccepted:  false,
   slipFile:         null,
   isLeg2Dest:       false,
-  transferInfo:     null
+  transferInfo:     null,
+  passengerIdentity: null,
+  notificationPreference: null,
+  consent:          null
 };
 
 /* ---------- HELPERS (time) ---------- */
@@ -2816,6 +2857,9 @@ function resetBookingState() {
   state.slipFile       = null;
   state.isLeg2Dest     = false;
   state.transferInfo   = null;
+  state.passengerIdentity = null;
+  state.notificationPreference = null;
+  state.consent        = null;
   state._lastAvailable = [];
   state._totalFare     = 0;
 
@@ -2828,6 +2872,12 @@ function resetBookingState() {
   if (nameEl)  nameEl.value  = '';
   if (phoneEl) phoneEl.value = '';
   if (noteEl)  noteEl.value  = '';
+  if (chkEl)   chkEl.checked = false;
+  if (window.SLTransitPassengerIdentityCenter) window.SLTransitPassengerIdentityCenter.clearCurrentIdentity();
+  var lineProfile = document.getElementById('lineIdentityProfile');
+  var lineStatus = document.getElementById('lineIdentityStatus');
+  if (lineProfile) lineProfile.style.display = 'none';
+  if (lineStatus) lineStatus.textContent = 'ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้';
   if (paxEl)   paxEl.textContent = '1 คน';
   if (searchPaxEl) searchPaxEl.textContent = '1 คน ▾';
 
