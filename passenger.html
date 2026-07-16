@@ -700,6 +700,11 @@ function applyAdminTesterMode(){
 // Stops, routes/fares, vehicle positions, map/GPS engine state, and all
 // Firebase reads now live in passenger-logic.js. See SLPassengerLogic.*.
 let selectedMapFocus = null;
+const USER_LOCATION_UNSUPPORTED_TEXT = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e08\u0e32\u0e01\u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e19\u0e35\u0e49\u0e44\u0e14\u0e49';
+const USER_LOCATION_CONSENT_TEXT = '\u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e43\u0e2b\u0e49\u0e43\u0e0a\u0e49\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e40\u0e25\u0e37\u0e48\u0e2d\u0e19\u0e41\u0e1c\u0e19\u0e17\u0e35\u0e48\u0e44\u0e1b\u0e22\u0e31\u0e07\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13 \u0e23\u0e30\u0e1a\u0e1a\u0e08\u0e30\u0e44\u0e21\u0e48\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e19\u0e35\u0e49';
+const USER_LOCATION_INVALID_TEXT = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19\u0e44\u0e14\u0e49 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48';
+const USER_LOCATION_DENIED_TEXT = '\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e1a\u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e43\u0e2b\u0e49\u0e43\u0e0a\u0e49\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07 \u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e44\u0e14\u0e49';
+const USER_LOCATION_FOCUS_LABEL = '\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e09\u0e31\u0e19';
 // ===== HELPERS =====
 
 function updateFollowUserButton() {
@@ -714,11 +719,69 @@ function bindFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn || btn.dataset.bound === '1') return;
   btn.addEventListener('click', function() {
-    SLPassengerLogic.map.setFollowUser(true);
+    requestUserMapFocus();
   });
+  bindLocationConsentButtons();
   SLPassengerLogic.on('followChanged', updateFollowUserButton);
   btn.dataset.bound = '1';
   updateFollowUserButton();
+}
+
+function setLocationConsentVisible(visible, message) {
+  var overlay = document.getElementById('locationConsentOverlay');
+  var text = document.getElementById('locationConsentText');
+  if (text && message) text.textContent = message;
+  if (overlay) overlay.style.display = visible ? 'flex' : 'none';
+}
+
+function requestUserMapFocus() {
+  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
+    setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
+    return;
+  }
+  setLocationConsentVisible(true, USER_LOCATION_CONSENT_TEXT);
+}
+
+function focusCurrentUserPosition() {
+  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
+    setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
+    return;
+  }
+  setLocationConsentVisible(false);
+  navigator.geolocation.getCurrentPosition(function(position) {
+    var coords = position && position.coords ? position.coords : null;
+    var lat = coords ? Number(coords.latitude) : NaN;
+    var lng = coords ? Number(coords.longitude) : NaN;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setLocationConsentVisible(true, USER_LOCATION_INVALID_TEXT);
+      return;
+    }
+    selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
+    SLPassengerLogic.map.setFollowUser(true);
+    SLPassengerLogic.map.focusPoint({ lat: lat, lng: lng }, true);
+    updateBottomSheetSummary();
+  }, function() {
+    setLocationConsentVisible(true, USER_LOCATION_DENIED_TEXT);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 30000
+  });
+}
+
+function bindLocationConsentButtons() {
+  var allow = document.getElementById('locationConsentAllow');
+  var deny = document.getElementById('locationConsentDeny');
+  if (allow && allow.dataset.bound !== '1') {
+    allow.addEventListener('click', focusCurrentUserPosition);
+    allow.dataset.bound = '1';
+  }
+  if (deny && deny.dataset.bound !== '1') {
+    deny.addEventListener('click', function() {
+      setLocationConsentVisible(false);
+    });
+    deny.dataset.bound = '1';
+  }
 }
 
 function setBottomSheetState(expanded) {
