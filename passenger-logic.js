@@ -230,10 +230,11 @@ function focusMap(point, animate) {
 
 function requestUserLocation() {
   if (!mapObj || !mapReady || !global.longdo) return false;
+  var requested = false;
   try {
     if (mapObj.Ui && mapObj.Ui.Geolocation && typeof mapObj.Ui.Geolocation.updateCurrentLocation === 'function') {
       mapObj.Ui.Geolocation.updateCurrentLocation(true);
-      return true;
+      requested = true;
     }
   } catch(e) {
     console.warn('Longdo geolocation UI failed:', e && e.message ? e.message : e);
@@ -246,12 +247,12 @@ function requestUserLocation() {
           ? longdo.GeolocationMode.ZoomToMarker
           : true
       );
-      return true;
+      requested = true;
     }
   } catch(e2) {
     console.warn('Longdo geolocation mode failed:', e2 && e2.message ? e2.message : e2);
   }
-  return false;
+  return requested;
 }
 
 function pauseFollowForManualMapUse(reason) {
