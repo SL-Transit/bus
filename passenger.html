@@ -454,6 +454,14 @@ body { background:#edf6f8; }
 }
 .follow-user-btn::before { content:"◎"; font-size:23px; line-height:1; }
 .follow-user-btn.is-off { background:#ffffff; color:#64748b; }
+.map-user-location-marker {
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:#0ea5e9;
+  border:3px solid #ffffff;
+  box-shadow:0 0 0 5px rgba(14,165,233,.24),0 4px 12px rgba(15,23,42,.28);
+}
 .location-consent-overlay {
   position:fixed; inset:0; z-index:200;
   background:rgba(15,23,42,.45);
@@ -705,6 +713,9 @@ function applyAdminTesterMode(){
 let selectedMapFocus = null;
 const USER_LOCATION_UNSUPPORTED_TEXT = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e08\u0e32\u0e01\u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e19\u0e35\u0e49\u0e44\u0e14\u0e49';
 const USER_LOCATION_FOCUS_LABEL = '\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e09\u0e31\u0e19';
+const USER_LOCATION_LOADING_TEXT = '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e04\u0e49\u0e19\u0e2b\u0e32\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13...';
+const USER_LOCATION_INVALID_TEXT = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19\u0e44\u0e14\u0e49 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48';
+const USER_LOCATION_DENIED_TEXT = '\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e1a\u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e43\u0e2b\u0e49\u0e43\u0e0a\u0e49\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07 \u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e44\u0e14\u0e49';
 // ===== HELPERS =====
 
 function updateFollowUserButton() {
@@ -744,13 +755,35 @@ function setLocationConsentVisible(visible, message) {
 
 function focusCurrentUserPosition() {
   var requested = SLPassengerLogic.map.requestUserLocation();
-  if (!requested) {
+  if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
     setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
     return;
   }
-  setLocationConsentVisible(false);
-  selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
-  updateBottomSheetSummary();
+  if (!requested) setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
+  else setLocationConsentVisible(true, USER_LOCATION_LOADING_TEXT);
+  navigator.geolocation.getCurrentPosition(function(position) {
+    var coords = position && position.coords ? position.coords : null;
+    var lat = coords ? Number(coords.latitude) : NaN;
+    var lng = coords ? Number(coords.longitude) : NaN;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setLocationConsentVisible(true, USER_LOCATION_INVALID_TEXT);
+      return;
+    }
+    var point = { lat: lat, lng: lng };
+    if (typeof SLPassengerLogic.map.showUserLocation === 'function') {
+      SLPassengerLogic.map.showUserLocation(point);
+    }
+    SLPassengerLogic.map.focusPoint(point, true);
+    setLocationConsentVisible(false);
+    selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
+    updateBottomSheetSummary();
+  }, function() {
+    setLocationConsentVisible(true, USER_LOCATION_DENIED_TEXT);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 12000,
+    maximumAge: 30000
+  });
 }
 
 function bindLocationConsentButtons() {

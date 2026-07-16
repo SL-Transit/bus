@@ -132,6 +132,7 @@
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
+  var userLocationMarker = null;
   var busDisplayState = {};
   var stationMarkerOverlays = [];
   var knownRouteLinePoints = [];
@@ -253,6 +254,29 @@ function requestUserLocation() {
     console.warn('Longdo geolocation mode failed:', e2 && e2.message ? e2.message : e2);
   }
   return requested;
+}
+
+function showUserLocation(point) {
+  if (!mapObj || !mapReady || !global.longdo) return false;
+  var normalized = normalizeMapPoint(point);
+  if (!normalized) return false;
+  try {
+    if (userLocationMarker) mapObj.Overlays.remove(userLocationMarker);
+  } catch(e) {}
+  try {
+    userLocationMarker = new longdo.Marker(normalized, {
+      weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
+      icon: {
+        html: '<div class="map-user-location-marker"></div>',
+        offset: { x: 14, y: 14 }
+      }
+    });
+    mapObj.Overlays.add(userLocationMarker);
+    return true;
+  } catch(e2) {
+    console.warn('Passenger user location marker failed:', e2 && e2.message ? e2.message : e2);
+    return false;
+  }
 }
 
 function pauseFollowForManualMapUse(reason) {
@@ -965,6 +989,7 @@ function removeBusFromMap(carId) {
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,
     requestUserLocation: requestUserLocation,
+    showUserLocation: showUserLocation,
     focusOrigin: focusSelectedOrigin,
 
     forceFocusOrigin: forceFocusSelectedOriginAfterMapReady,
