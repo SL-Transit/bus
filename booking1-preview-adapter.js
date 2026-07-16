@@ -474,9 +474,6 @@
       state.transferInfo = trip.transferInfo || null;
       if (typeof global.updateSummary === 'function') global.updateSummary();
       if (typeof global.showPage === 'function') global.showPage(2);
-      if (typeof global.mergePaymentIntoPassengerPage === 'function') global.mergePaymentIntoPassengerPage();
-      preparePassengerAndPayment(true);
-      if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
     };
 
     global.getBookingTotal = function(pax) {
@@ -504,8 +501,8 @@
 
     global.goToPayment = function() {
       if (!preparePassengerAndPayment(false)) return;
-      if (typeof global.showPage === 'function') global.showPage(2);
-      if (typeof global.updateSteps === 'function') global.updateSteps(2);
+      if (typeof global.showPage === 'function') global.showPage(3);
+      if (typeof global.updateSteps === 'function') global.updateSteps(3);
       if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
     };
 

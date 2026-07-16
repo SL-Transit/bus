@@ -86,13 +86,14 @@ assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
-assert(booking1.includes('window.mergePaymentIntoPassengerPage = mergePaymentIntoPassengerPage'), 'Booking1 must expose the combined passenger/payment page merge hook');
 assert(booking1.includes('goToTicket();'), 'Booking1 confirm button must delegate submit to the ERP preview adapter booking flow');
-assert(booking1.includes('id="page2PaymentMount"'), 'Booking1 must render payment controls inside the passenger data page');
 assert(booking1.includes('id="pm-onsite"'), 'Booking1 must offer pay-on-site booking');
 assert(booking1.includes("selectPayMethod('onsite')"), 'Booking1 must default to pay-on-site when no transfer method is selected');
 assert(!booking1.includes('id="terms-check"'), 'Booking1 must not keep a duplicate terms checkbox on the passenger page');
 assert(!adapter.includes('terms-check'), 'Booking1 adapter must not require the removed duplicate terms checkbox');
+assert(!booking1.includes('page2PaymentMount'), 'Booking1 must keep passenger and payment pages separated');
+assert(!booking1.includes('mergePaymentIntoPassengerPage'), 'Booking1 must not move payment DOM into the passenger page');
+assert(adapter.includes('global.showPage(3)'), 'Booking1 adapter must keep the separate payment page after passenger details');
 assert(bridge.includes('getPaymentContact: getPaymentContact'), 'Booking1 bridge must expose ERP payment contact');
 assert(booking1.includes('SLBookingBridge.getPaymentContact'), 'Booking1 must consume payment contact through the bridge');
 assert(booking1.includes('232-8-93015-6'), 'Booking1 must show the owner-provided account number fallback until ERP publishes paymentContact');

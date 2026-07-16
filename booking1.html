@@ -1507,7 +1507,7 @@ body {
           <label class="form-label">หมายเหตุ (ถ้ามี)</label>
           <input class="form-input" type="text" id="inp-note" placeholder="ไม่ระบุ">
         </div>
-        <div id="page2PaymentMount"></div>
+        <button class="btn-main" onclick="goToPayment()">ถัดไป ›</button>
       </div>
     </div><!-- /page-container -->
   </div><!-- /content -->
@@ -2580,8 +2580,6 @@ function goToPassenger(e, time, label, fare) {
   /* updateSummary จะ populate p2-route, p2-date, p2-trip-time, p2-origin-name */
   updateSummary();
   showPage(2);
-  if (typeof mergePaymentIntoPassengerPage === 'function') mergePaymentIntoPassengerPage();
-  selectPayMethod('onsite');
 }
 
 /* กรอกข้อมูลผู้โดยสาร → หน้า 3 ชำระเงิน */
@@ -2617,8 +2615,8 @@ function goToPayment() {
   var sfRow = document.getElementById('serviceFeeRow');
   if (sfRow) sfRow.style.display = tot.serviceFeeTotal > 0 ? 'flex' : 'none';
 
-  showPage(2);
-  updateSteps(2);
+  showPage(3);
+  updateSteps(3);
   selectPayMethod('onsite');
 }
 
@@ -3008,24 +3006,6 @@ function showTicketPage(booking) {
   setTimeout(showTicketSavePopup, 700);
 }
 
-function mergePaymentIntoPassengerPage() {
-  var mount = document.getElementById('page2PaymentMount');
-  var page3Content = document.querySelector('#page3 .content .page-container');
-  if (!mount || !page3Content || mount.dataset.merged === '1') return;
-  while (page3Content.firstElementChild) {
-    mount.appendChild(page3Content.firstElementChild);
-  }
-  mount.dataset.merged = '1';
-
-  var overlay = document.getElementById('consentOverlay');
-  if (overlay && overlay.parentElement !== document.body) {
-    document.body.appendChild(overlay);
-  }
-  if (typeof selectPayMethod === 'function') selectPayMethod('onsite');
-}
-
-document.addEventListener('DOMContentLoaded', mergePaymentIntoPassengerPage);
-
 /* ──────────────────────────────────────────────────────
    window expose
 ────────────────────────────────────────────────────── */
@@ -3037,7 +3017,6 @@ window.updateSteps        = updateSteps;
 window.getBookingTotal    = getBookingTotal;
 window.changeSeat         = changeSeat;
 window.selectPayMethod    = selectPayMethod;
-window.mergePaymentIntoPassengerPage = mergePaymentIntoPassengerPage;
 window._applySettings     = _applySettings;
 window.showTicketSavePopup   = showTicketSavePopup;
 window.closeTicketSavePopup  = closeTicketSavePopup;
