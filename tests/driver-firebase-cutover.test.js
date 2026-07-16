@@ -45,5 +45,8 @@ assert(!gps.includes('getReference("bus/'), 'GpsService must not write legacy bu
 assert(!gps.includes('getReference("liveVehicles/'), 'GpsService must not write legacy top-level liveVehicles path');
 assert(!gps.includes('settings/queueRotation'), 'GpsService must not read legacy queue rotation settings');
 assert(!gps.includes('routeData/queues/'), 'GpsService must not read legacy routeData queue trips');
+assert(gps.includes('MOVING_INTERVAL_MS  = 5000'), 'Driver moving GPS interval must stay at 5 seconds');
+assert(gps.includes('SLOW_INTERVAL_MS    = 4000'), 'Driver slow/starting GPS interval must follow the old 4 second cadence');
+assert(gps.includes('MAX_ACCURATE_METERS = 40f'), 'Driver GPS accuracy filter must follow the old stricter 40m threshold');
 
 console.log('driver firebase cutover checks passed');

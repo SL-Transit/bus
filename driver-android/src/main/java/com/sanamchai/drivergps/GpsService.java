@@ -65,8 +65,8 @@ public class GpsService extends Service implements SensorEventListener {
     private static final String MODE_MOVING         = "moving";
     private static final String MODE_SLOW           = "slow";
     private static final String MODE_STOPPED        = "stopped";
-    private static final long   MOVING_INTERVAL_MS  = 5000;   // ✅ แก้ไข: 4000→2000ms ส่งถี่ขึ้นตอนวิ่ง
-    private static final long   SLOW_INTERVAL_MS    = 6000;   // ✅ แก้ไข: 10000→4000ms ตอนช้า/ออกตัว
+    private static final long   MOVING_INTERVAL_MS  = 5000;
+    private static final long   SLOW_INTERVAL_MS    = 4000;
     private static final long   SLOW_LOW_BATTERY_MS = 8000;   // ✅ แก้ไข: 15000→8000ms
     private static final long   STOPPED_INTERVAL_MS = 25000;
     private static final long   STOPPED_LOW_BATT_MS = 30000;
@@ -75,7 +75,7 @@ public class GpsService extends Service implements SensorEventListener {
     private static final float  SLOW_SPEED_KMH      = 1f;
     private static final float  STOP_RADIUS_METERS  = 10f;  // ลดจาก 20 → 10 เพื่อให้ detect การขยับเร็วขึ้น
     private static final int    LOW_BATTERY_PERCENT = 20;
-    private static final float  MAX_ACCURATE_METERS = 80f;
+    private static final float  MAX_ACCURATE_METERS = 40f;
     private static boolean persistenceConfigured    = false;
 
     // ===== Hybrid GPS Architecture =====
