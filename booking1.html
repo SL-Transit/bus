@@ -1311,7 +1311,7 @@ body {
             <input type="date" id="travelDate" style="position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;" onchange="onDateChange(this.value)">
           </div>
 
-          <div class="search-field" onclick="cycleSearchPax()">
+          <div class="search-field" onclick="openPaxPicker()">
             <div class="sf-icon passengers"><img class="icon-img" src="assets/207.png" alt="passengers" style="width:20px;height:20px;"></div>
             <div class="sf-inner">
               <span class="sf-label">ผู้โดยสาร</span>
@@ -2916,18 +2916,34 @@ function changeSeat(delta) {
   set('bank-amount',     tot.total + ' บาท');
 }
 
-function cycleSearchPax() {
+function openPaxPicker() {
   var selected = state.selectedTrip || {};
   var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
   var effectiveLimit = Number(limit) > 0
     ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
     : PUBLIC_BOOKING_PAX_LIMIT;
-  if ((state.pax || 1) >= effectiveLimit) {
-    state.pax = 1;
-    changeSeat(0);
-    return;
+  var max = Math.max(1, Math.floor(effectiveLimit));
+  var overlay = document.createElement('div');
+  overlay.id = 'paxPickerOverlay';
+  overlay.className = 'stop-picker-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closePaxPicker(); };
+  var html = '<div class="stop-picker-box"><div class="stop-picker-title">เลือกจำนวนผู้โดยสาร</div>';
+  for (var i = 1; i <= max; i++) {
+    html += '<div class="stop-picker-item" onclick="selectPaxCount(' + i + ')">' + i + ' คน</div>';
   }
-  changeSeat(1);
+  overlay.innerHTML = html + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function closePaxPicker() {
+  var el = document.getElementById('paxPickerOverlay');
+  if (el) el.parentNode.removeChild(el);
+}
+
+function selectPaxCount(count) {
+  state.pax = Math.max(1, Math.min(PUBLIC_BOOKING_PAX_LIMIT, Number(count) || 1));
+  changeSeat(0);
+  closePaxPicker();
 }
 
 /* ──────────────────────────────────────────────────────
@@ -3037,7 +3053,9 @@ window.showPage           = showPage;
 window.updateSteps        = updateSteps;
 window.getBookingTotal    = getBookingTotal;
 window.changeSeat         = changeSeat;
-window.cycleSearchPax     = cycleSearchPax;
+window.openPaxPicker      = openPaxPicker;
+window.closePaxPicker     = closePaxPicker;
+window.selectPaxCount     = selectPaxCount;
 window.selectPayMethod    = selectPayMethod;
 window._applySettings     = _applySettings;
 window.showTicketSavePopup   = showTicketSavePopup;
