@@ -199,7 +199,7 @@
       fare: total.fareSubtotal,
       serviceFee: total.serviceFeeTotal,
       paymentMode: snapshot.payMethod || '',
-      paymentStatus: snapshot.slipUploaded ? 'slip_uploaded' : 'awaiting_payment',
+      paymentStatus: snapshot.payMethod === 'onsite' ? 'pay_on_site' : (snapshot.slipUploaded ? 'slip_uploaded' : 'awaiting_payment'),
       slipUploaded: snapshot.slipUploaded === true,
       testMode: false,
       mockPayment: false,
@@ -228,6 +228,39 @@
       status: snapshot.status || 'awaiting_payment',
       ts: global.firebase && global.firebase.database ? global.firebase.database.ServerValue.TIMESTAMP : Date.now()
     });
+  }
+
+  function preparePassengerAndPayment(allowEmptyPassenger) {
+    var state = appState();
+    var nameEl = document.getElementById('inp-name');
+    var phoneEl = document.getElementById('inp-phone');
+    var nameVal = nameEl ? nameEl.value.trim() : '';
+    var phoneVal = phoneEl ? phoneEl.value.trim() : '';
+    if (!allowEmptyPassenger) {
+      if (!nameVal) { alert('กรุณากรอกชื่อ-นามสกุล'); return false; }
+      if (!phoneVal || !global.isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return false; }
+      state.name = global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
+      state.phone = global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
+    } else {
+      state.name = nameVal && global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
+      state.phone = phoneVal && global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
+    }
+    if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้ หรือยังไม่มี fareAmount จาก ERP Data Center'); return false; }
+    var total = global.getBookingTotal(state.pax);
+    if (total.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return false; }
+    state._totalFare = total.total;
+    setText('sumRoute', (state.originName || '-') + ' - ' + (state.destName || '-'));
+    setText('sumDate', typeof global._dateThaiShort === 'function' ? global._dateThaiShort() : serviceDateISO());
+    setText('sumTime', state.tripLabel);
+    setText('sumSeat', (state.pax || 1) + ' ที่นั่ง');
+    setText('p3-name', state.name || '-');
+    setText('p3-phone', state.phone || '-');
+    setText('p3-ticket-price', total.fareSubtotal + ' บาท');
+    setText('sumServiceFee', total.svcFee + ' บาท');
+    setText('sumTotal', total.total + ' บาท');
+    setText('sumTotal2', total.total + ' บาท');
+    setText('bank-amount', total.total + ' บาท');
+    return true;
   }
 
   function selectButton(trip, index, recommended) {
@@ -441,6 +474,9 @@
       state.transferInfo = trip.transferInfo || null;
       if (typeof global.updateSummary === 'function') global.updateSummary();
       if (typeof global.showPage === 'function') global.showPage(2);
+      if (typeof global.mergePaymentIntoPassengerPage === 'function') global.mergePaymentIntoPassengerPage();
+      preparePassengerAndPayment(true);
+      if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
     };
 
     global.getBookingTotal = function(pax) {
@@ -467,43 +503,19 @@
     };
 
     global.goToPayment = function() {
-      var state = appState();
-      var nameEl = document.getElementById('inp-name');
-      var phoneEl = document.getElementById('inp-phone');
-      var nameVal = nameEl ? nameEl.value.trim() : '';
-      var phoneVal = phoneEl ? phoneEl.value.trim() : '';
-      if (!nameVal) { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
-      if (!phoneVal || !global.isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return; }
-      var terms = document.getElementById('terms-check');
-      if (terms && !terms.checked) { alert('กรุณายอมรับเงื่อนไขการจองก่อน'); return; }
-      if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้ หรือยังไม่มี fareAmount จาก ERP Data Center'); return; }
-      state.name = global.sanitizeText ? global.sanitizeText(nameVal) : nameVal;
-      state.phone = global.sanitizePhone ? global.sanitizePhone(phoneVal) : phoneVal;
-      var total = global.getBookingTotal(state.pax);
-      if (total.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
-      state._totalFare = total.total;
-      setText('sumRoute', (state.originName || '-') + ' - ' + (state.destName || '-'));
-      setText('sumDate', typeof global._dateThaiShort === 'function' ? global._dateThaiShort() : serviceDateISO());
-      setText('sumTime', state.tripLabel);
-      setText('sumSeat', (state.pax || 1) + ' ที่นั่ง');
-      setText('p3-name', state.name);
-      setText('p3-phone', state.phone);
-      setText('p3-ticket-price', total.fareSubtotal + ' บาท');
-      setText('sumServiceFee', total.svcFee + ' บาท');
-      setText('sumTotal', total.total + ' บาท');
-      setText('sumTotal2', total.total + ' บาท');
-      setText('bank-amount', total.total + ' บาท');
-      if (typeof global.showPage === 'function') global.showPage(3);
-      if (typeof global.updateSteps === 'function') global.updateSteps(3);
-      if (typeof global.selectPayMethod === 'function') global.selectPayMethod(null);
+      if (!preparePassengerAndPayment(false)) return;
+      if (typeof global.showPage === 'function') global.showPage(2);
+      if (typeof global.updateSteps === 'function') global.updateSteps(2);
+      if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
     };
 
     global.goToTicket = function() {
       var state = appState();
       if (state._bookingSubmitInFlight) { alert('กำลังบันทึกการจอง กรุณารอสักครู่'); return; }
+      if (!preparePassengerAndPayment(false)) return;
       if (!state.consentAccepted) { alert('กรุณายอมรับเงื่อนไขก่อน'); return; }
       if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้'); return; }
-      if (!global.currentPayMethod) { alert('กรุณาเลือกวิธีชำระเงิน'); return; }
+      if (!global.currentPayMethod && typeof global.selectPayMethod === 'function') global.selectPayMethod('onsite');
       var db = global._db || (global.firebase && global.firebase.database && global.firebase.database());
       var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : null;
       if (!total || total.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
@@ -534,7 +546,7 @@
         externalPaymentRequired: state.selectedTrip.externalPaymentRequired === true,
         referenceOnly: state.selectedTrip.referenceOnly === true,
         payMethod: global.currentPayMethod || '',
-        slipUploaded: !!state.slipFile,
+        slipUploaded: global.currentPayMethod === 'onsite' ? false : !!state.slipFile,
         assignment: assignmentContract
       });
       var booking = withoutUndefined(legacyBookingPayload(state, bookingSnap));

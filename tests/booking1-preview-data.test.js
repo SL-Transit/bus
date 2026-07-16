@@ -86,7 +86,13 @@ assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
+assert(booking1.includes('window.mergePaymentIntoPassengerPage = mergePaymentIntoPassengerPage'), 'Booking1 must expose the combined passenger/payment page merge hook');
 assert(booking1.includes('goToTicket();'), 'Booking1 confirm button must delegate submit to the ERP preview adapter booking flow');
+assert(booking1.includes('id="page2PaymentMount"'), 'Booking1 must render payment controls inside the passenger data page');
+assert(booking1.includes('id="pm-onsite"'), 'Booking1 must offer pay-on-site booking');
+assert(booking1.includes("selectPayMethod('onsite')"), 'Booking1 must default to pay-on-site when no transfer method is selected');
+assert(!booking1.includes('id="terms-check"'), 'Booking1 must not keep a duplicate terms checkbox on the passenger page');
+assert(!adapter.includes('terms-check'), 'Booking1 adapter must not require the removed duplicate terms checkbox');
 assert(bridge.includes('getPaymentContact: getPaymentContact'), 'Booking1 bridge must expose ERP payment contact');
 assert(booking1.includes('SLBookingBridge.getPaymentContact'), 'Booking1 must consume payment contact through the bridge');
 assert(booking1.includes('232-8-93015-6'), 'Booking1 must show the owner-provided account number fallback until ERP publishes paymentContact');
@@ -128,9 +134,11 @@ assert(rules.includes("newData.child('sourceMode').val() === 'erp_data_center'")
 assert(rules.includes("newData.child('publishedSchedule').child('readyForApply').val() === false"), 'Booking1 public booking rule must preserve preview publishedSchedule marker validation');
 assert(rules.includes("newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true"), 'Booking1 public booking rule must allow uploaded-slip payment status');
 assert(rules.includes("newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false"), 'Booking1 public booking rule must keep non-slip bookings awaiting payment');
+assert(rules.includes("newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite'"), 'Booking1 public booking rule must allow validated pay-on-site bookings');
 assert(databaseRules.bookings['$bookingId']['.write'].includes("source').val() === 'booking1.html'"), 'Booking1 public create rule must be on legacy top-level bookings/{code}');
 assert.strictEqual(databaseRules.operations.bookings['$bookingId']['.write'], 'auth != null', 'operations/bookings must remain auth-only');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
+assert(adapter.includes("snapshot.payMethod === 'onsite' ? 'pay_on_site'"), 'Booking1 adapter must map onsite bookings to pay_on_site payment status');
 assert(adapter.includes('function withoutUndefined'), 'Booking1 adapter must remove undefined fields before Firebase writes');
 assert(adapter.includes('withoutUndefined(legacyBookingPayload'), 'Booking1 real booking payload must be sanitized before Firebase set');
 assert(!adapter.includes('* (snapshot.pax || 1)'), 'Booking1 real booking payload must not multiply fare locally');

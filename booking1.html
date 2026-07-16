@@ -1507,13 +1507,7 @@ body {
           <label class="form-label">หมายเหตุ (ถ้ามี)</label>
           <input class="form-input" type="text" id="inp-note" placeholder="ไม่ระบุ">
         </div>
-        <div class="checkbox-row">
-          <input type="checkbox" id="terms-check">
-          <label class="checkbox-label" for="terms-check">
-            ยอมรับ<a href="info.html#policy" target="_blank" rel="noopener">เงื่อนไขการจอง</a>และ<a href="info.html#privacy" target="_blank" rel="noopener">นโยบายบริการ</a>
-          </label>
-        </div>
-        <button class="btn-main" onclick="goToPayment()">ถัดไป ›</button>
+        <div id="page2PaymentMount"></div>
       </div>
     </div><!-- /page-container -->
   </div><!-- /content -->
@@ -1629,6 +1623,15 @@ body {
         <div class="summary-section-title">
           <img class="icon-img" src="assets/228.png" alt="ชำระเงิน" style="width:20px;height:20px;">
           วิธีชำระเงิน
+        </div>
+
+        <div class="pay-method-card" id="pm-onsite" onclick="selectPayMethod('onsite')">
+          <div class="pm-radio" id="pm-radio-onsite"></div>
+          <div class="pm-icon bank-icon"><img class="icon-img" src="assets/228.png" alt="จองหน้างาน" style="width:28px;height:28px;"></div>
+          <div class="pm-text">
+            <div class="pm-name">จองหน้างาน / ชำระที่ท่ารถหรือบนรถ</div>
+            <div class="pm-sub">ไม่ต้องแนบสลิป ยืนยันที่นั่งไว้ก่อนแล้วชำระเงินกับเจ้าหน้าที่</div>
+          </div>
         </div>
 
         <div class="pay-method-card" id="pm-bank" onclick="selectPayMethod('bank')">
@@ -2497,7 +2500,7 @@ function devGoTo(n) {
     set('sumTotal2',       tot.total + ' บาท');
     set('bank-amount',     tot.total + ' บาท');
     state._totalFare = tot.total;
-    selectPayMethod(null);
+    selectPayMethod('onsite');
   }
   if (n >= 4) {
     document.getElementById('t-name').textContent         = state.name;
@@ -2512,7 +2515,7 @@ function devGoTo(n) {
   showPage(n);
 
   if (n === 3) {
-    selectPayMethod(null);
+    selectPayMethod('onsite');
   }
   if (n === 4) {
     setTimeout(function() { renderQr('ticketQrCode', getTicketQrText(state.bookingCode), 160); }, 120);
@@ -2577,6 +2580,8 @@ function goToPassenger(e, time, label, fare) {
   /* updateSummary จะ populate p2-route, p2-date, p2-trip-time, p2-origin-name */
   updateSummary();
   showPage(2);
+  if (typeof mergePaymentIntoPassengerPage === 'function') mergePaymentIntoPassengerPage();
+  selectPayMethod('onsite');
 }
 
 /* กรอกข้อมูลผู้โดยสาร → หน้า 3 ชำระเงิน */
@@ -2586,9 +2591,6 @@ function goToPayment() {
   if (!nameVal)  { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
   if (!phoneVal) { alert('กรุณากรอกเบอร์โทรศัพท์'); return; }
   if (!isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก ขึ้นต้น 06/08/09)'); return; }
-  if (!document.getElementById('terms-check').checked) {
-    alert('กรุณายอมรับเงื่อนไขการจองก่อน'); return;
-  }
   state.name  = sanitizeText(nameVal);
   state.phone = sanitizePhone(phoneVal);
   if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
@@ -2615,9 +2617,9 @@ function goToPayment() {
   var sfRow = document.getElementById('serviceFeeRow');
   if (sfRow) sfRow.style.display = tot.serviceFeeTotal > 0 ? 'flex' : 'none';
 
-  showPage(3);
-  updateSteps(3);
-  selectPayMethod(null);
+  showPage(2);
+  updateSteps(2);
+  selectPayMethod('onsite');
 }
 
 /* วันที่ภาษาไทยแบบสั้น (เช่น จ. 29 มิ.ย. 2568) */
@@ -2630,14 +2632,21 @@ function _dateThaiShort() {
 
 /* ยืนยันชำระเงิน → หน้า 4 ตั๋ว */
 function goToTicket() {
+  var nameEl = document.getElementById('inp-name');
+  var phoneEl = document.getElementById('inp-phone');
+  var nameVal = nameEl ? nameEl.value.trim() : state.name;
+  var phoneVal = phoneEl ? phoneEl.value.trim() : state.phone;
+  if (!nameVal) { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
+  if (!phoneVal || !isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return; }
+  state.name = sanitizeText(nameVal);
+  state.phone = sanitizePhone(phoneVal);
   // validate consent
   if (!state.consentAccepted) {
     alert('กรุณาอ่านและยอมรับข้อตกลงการใช้บริการก่อน');
     return;
   }
   if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
-  if (!state.name) state.name = '-';
-  if (!state.phone) state.phone = '-';
+  if (!currentPayMethod) selectPayMethod('onsite');
   state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
 
   /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
@@ -2670,7 +2679,7 @@ function goToTicket() {
     vehicleId:     assignmentContract.plannedVehicleId || '',
     fare:          state._totalFare,
     payMethod:     currentPayMethod || '',
-    slipUploaded:  !!state.slipFile,
+    slipUploaded:  currentPayMethod === 'onsite' ? false : !!state.slipFile,
     assignment:    assignmentContract
   });
   /* bookingSnap.catalogVersion ← ถูก embed โดย bridge อัตโนมัติ */
@@ -2705,7 +2714,8 @@ function goToTicket() {
 var currentPayMethod = null;
 function selectPayMethod(method) {
   currentPayMethod = method;
-  ['bank','promptpay'].forEach(function(m) {
+  window.currentPayMethod = method;
+  ['onsite','bank','promptpay'].forEach(function(m) {
     var card   = document.getElementById('pm-' + m);
     var detail = document.getElementById('pay-detail-' + m);
     if (card) card.classList.toggle('selected', m === method);
@@ -2713,7 +2723,7 @@ function selectPayMethod(method) {
   });
   /* ใช้ repo ID: slipUploadCard แทน slip-upload-section */
   var slipCard = document.getElementById('slipUploadCard');
-  if (slipCard) slipCard.style.display = method ? 'block' : 'none';
+  if (slipCard) slipCard.style.display = (method === 'bank' || method === 'promptpay') ? 'block' : 'none';
   /* render QR ถ้าเลือก PromptPay */
   if (method === 'promptpay') {
     setTimeout(function() {
@@ -2725,7 +2735,7 @@ function selectPayMethod(method) {
   if (note) {
     note.textContent = (method === 'bank' || method === 'promptpay')
       ? 'เมื่อยืนยันแล้ว หลักฐานการโอนเงินและข้อมูลการเดินทางจะถูกส่งให้เจ้าหน้าที่ทันที'
-      : 'กรุณายืนยันการสำรองที่นั่ง ชำระเงินได้บนรถหรือที่ท่ารถ';
+      : 'จองหน้างานสำเร็จแล้วชำระเงินกับเจ้าหน้าที่ที่ท่ารถหรือบนรถ';
   }
 }
 
@@ -2789,9 +2799,6 @@ function acceptConsent() {
   var btn = document.getElementById('consentTriggerBtn');
   btn.textContent = '✅ อ่านและยอมรับข้อตกลงแล้ว';
   btn.classList.add('accepted');
-  // tick checkbox อัตโนมัติ
-  var chk = document.getElementById('terms-check');
-  if (chk) chk.checked = true;
 }
 
 function goToPage1() { showPage(1); renderTrips(); }
@@ -2820,12 +2827,10 @@ function resetBookingState() {
   var nameEl  = document.getElementById('inp-name');
   var phoneEl = document.getElementById('inp-phone');
   var noteEl  = document.getElementById('inp-note');
-  var chkEl   = document.getElementById('terms-check');
   var paxEl   = document.getElementById('pax-count');
   if (nameEl)  nameEl.value  = '';
   if (phoneEl) phoneEl.value = '';
   if (noteEl)  noteEl.value  = '';
-  if (chkEl)   chkEl.checked = false;
   if (paxEl)   paxEl.textContent = '1 คน';
 
   /* รีเซ็ต consent bar */
@@ -2835,7 +2840,7 @@ function resetBookingState() {
   if (cBtn) { cBtn.textContent = 'อ่านและยอมรับข้อตกลงการใช้บริการ'; cBtn.classList.remove('accepted'); }
 
   /* รีเซ็ต payment */
-  if (typeof selectPayMethod === 'function') selectPayMethod(null);
+  if (typeof selectPayMethod === 'function') selectPayMethod('onsite');
   var confirmBtn = document.getElementById('btnConfirm');
   if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'ยืนยันการชำระเงิน ›'; }
 
@@ -3003,6 +3008,24 @@ function showTicketPage(booking) {
   setTimeout(showTicketSavePopup, 700);
 }
 
+function mergePaymentIntoPassengerPage() {
+  var mount = document.getElementById('page2PaymentMount');
+  var page3Content = document.querySelector('#page3 .content .page-container');
+  if (!mount || !page3Content || mount.dataset.merged === '1') return;
+  while (page3Content.firstElementChild) {
+    mount.appendChild(page3Content.firstElementChild);
+  }
+  mount.dataset.merged = '1';
+
+  var overlay = document.getElementById('consentOverlay');
+  if (overlay && overlay.parentElement !== document.body) {
+    document.body.appendChild(overlay);
+  }
+  if (typeof selectPayMethod === 'function') selectPayMethod('onsite');
+}
+
+document.addEventListener('DOMContentLoaded', mergePaymentIntoPassengerPage);
+
 /* ──────────────────────────────────────────────────────
    window expose
 ────────────────────────────────────────────────────── */
@@ -3014,6 +3037,7 @@ window.updateSteps        = updateSteps;
 window.getBookingTotal    = getBookingTotal;
 window.changeSeat         = changeSeat;
 window.selectPayMethod    = selectPayMethod;
+window.mergePaymentIntoPassengerPage = mergePaymentIntoPassengerPage;
 window._applySettings     = _applySettings;
 window.showTicketSavePopup   = showTicketSavePopup;
 window.closeTicketSavePopup  = closeTicketSavePopup;
