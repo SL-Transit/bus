@@ -961,9 +961,10 @@
     }
 
     function loadCatalogForBooking(booking) {
+      if (booking && (booking.sourceMode === 'erp_data_center' || booking.publishedSchedule)) return Promise.resolve(false);
       var version = String(booking && booking.catalogVersion || '').trim();
       if (!version || version === TICKET_CATALOG_VERSION_APPLIED) return Promise.resolve(false);
-      if (!/^[A-Za-z0-9._-]+$/.test(version)) return Promise.resolve(false);
+      if (!/^[A-Za-z0-9_-]+$/.test(version)) return Promise.resolve(false);
       if (!TICKET_CATALOG_LOADS[version]) {
         TICKET_CATALOG_LOADS[version] = db.ref('catalogs/' + version).once('value').then(function(snap) {
           if (!snap.exists()) return false;

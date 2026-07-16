@@ -30,6 +30,8 @@ assert(!html.includes('แปดริ้ว'), 'Check Ticket must not hardcode 
 
 assert(html.includes('/^(BK\\d{10}|TB\\d{6})$/.test(value)'), 'Check Ticket must accept Booking1 BK plus 10 digit legacy booking codes');
 assert(html.includes('placeholder="0812345678 หรือ BK1234567890"'), 'Check Ticket code placeholder must match Booking1 code length');
+assert(html.includes("booking.sourceMode === 'erp_data_center' || booking.publishedSchedule"), 'Check Ticket must not load legacy catalogs for ERP Data Center bookings');
+assert(html.includes('/^[A-Za-z0-9_-]+$/.test(version)'), 'Check Ticket catalogVersion paths must exclude Firebase-invalid dots');
 
 function blockBetween(start, end) {
   const startIndex = html.indexOf(start);
