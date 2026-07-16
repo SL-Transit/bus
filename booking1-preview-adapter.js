@@ -512,6 +512,9 @@
       var n = pax || state.pax || 1;
       var fareMissing = selected.fareMissing === true || selected.externalPaymentRequired === true;
       var calculator = global.SLTransitCalculatorCenter;
+      var limit = global.SLBookingBridge.getBookingSeatLimit(selected);
+      var publicLimit = Number(global.PUBLIC_BOOKING_PAX_LIMIT || 10);
+      var effectiveLimit = Number(limit) > 0 ? Math.min(Number(limit), publicLimit) : publicLimit;
       if (fareMissing || !calculator || typeof calculator.calculateBookingTotal !== 'function') {
         return { status: 'missing_calculator_contract', total: null, fareMissing: fareMissing };
       }
@@ -519,7 +522,7 @@
         fareAmount: selected.fareAmount,
         serviceFeeAmount: selected.fareContract && selected.fareContract.serviceFeeAmount,
         passengerCount: n,
-        maxPassengers: global.SLBookingBridge.getBookingSeatLimit(selected)
+        maxPassengers: effectiveLimit
       });
       return Object.assign({}, result, {
         basePrice: result.fareAmount,

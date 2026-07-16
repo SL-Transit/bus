@@ -2895,6 +2895,10 @@ function updateSteps(n) {
 ────────────────────────────────────────────────────── */
 function getBookingTotal(pax) {
   var selected = state.selectedTrip || {};
+  var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  var effectiveLimit = Number(limit) > 0
+    ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
+    : PUBLIC_BOOKING_PAX_LIMIT;
   if (!global.SLTransitCalculatorCenter || typeof global.SLTransitCalculatorCenter.calculateBookingTotal !== 'function') {
     return { status: 'missing_calculator_contract', total: null };
   }
@@ -2902,7 +2906,7 @@ function getBookingTotal(pax) {
     fareAmount: selected.fareAmount,
     serviceFeeAmount: selected.fareContract && selected.fareContract.serviceFeeAmount,
     passengerCount: pax || state.pax || 1,
-    maxPassengers: global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected)
+    maxPassengers: effectiveLimit
   });
   return Object.assign({}, result, {
     basePrice: result.fareAmount,
@@ -2917,8 +2921,11 @@ function getBookingTotal(pax) {
 function changeSeat(delta) {
   var selected = state.selectedTrip || {};
   var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  var effectiveLimit = Number(limit) > 0
+    ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
+    : PUBLIC_BOOKING_PAX_LIMIT;
   var nextPax = (state.pax || 1) + delta;
-  if (delta > 0 && Number(limit) > 0) nextPax = Math.min(Number(limit), nextPax);
+  if (delta > 0) nextPax = Math.min(effectiveLimit, nextPax);
   state.pax = Math.max(1, nextPax);
   var paxEl = document.getElementById('pax-count');
   if (paxEl) paxEl.innerHTML = '<span id="seatCount">' + state.pax + '</span> คน';
@@ -3087,6 +3094,8 @@ function _isToday(d) {
    ตรงกับ repo validatePhone() + updateAdminTesterNotice()
 ────────────────────────────────────────────────────── */
 var ADMIN_TESTER_PHONE = '0929383999';
+var PUBLIC_BOOKING_PAX_LIMIT = 10;
+global.PUBLIC_BOOKING_PAX_LIMIT = PUBLIC_BOOKING_PAX_LIMIT;
 
 function sanitizeText(value) {
   return String(value == null ? '' : value).replace(/[<>]/g, '').trim();

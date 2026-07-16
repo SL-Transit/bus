@@ -89,6 +89,8 @@ assert(booking1.includes('id="search-pax-count"'), 'Booking1 search passenger fi
 assert(booking1.includes('onclick="event.stopPropagation(); changeSeat(-1)"'), 'Booking1 search passenger field must allow decreasing passenger count');
 assert(booking1.includes('onclick="event.stopPropagation(); changeSeat(1)"'), 'Booking1 search passenger field must allow increasing passenger count');
 assert(booking1.includes("searchPaxEl.textContent = state.pax + ' คน'"), 'Booking1 passenger count changes must sync the search passenger field');
+assert(booking1.includes('var PUBLIC_BOOKING_PAX_LIMIT = 10'), 'Booking1 must mirror the public Firebase pax safety limit in the UI');
+assert(adapter.includes('global.PUBLIC_BOOKING_PAX_LIMIT'), 'Booking1 adapter totals must apply the public pax safety limit');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
 assert(booking1.includes('goToTicket();'), 'Booking1 confirm button must delegate submit to the ERP preview adapter booking flow');
