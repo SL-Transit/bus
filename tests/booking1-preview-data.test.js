@@ -126,6 +126,8 @@ assert(adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Boo
 assert(rules.includes("newData.child('source').val() === 'booking1.html'"), 'Firebase rules must allow validated Booking1 public legacy booking creates');
 assert(rules.includes("newData.child('sourceMode').val() === 'erp_data_center'"), 'Booking1 booking writes must stay ERP Data Center scoped in Firebase rules');
 assert(rules.includes("newData.child('publishedSchedule').child('readyForApply').val() === false"), 'Booking1 public booking rule must preserve preview publishedSchedule marker validation');
+assert(rules.includes("newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true"), 'Booking1 public booking rule must allow uploaded-slip payment status');
+assert(rules.includes("newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false"), 'Booking1 public booking rule must keep non-slip bookings awaiting payment');
 assert(databaseRules.bookings['$bookingId']['.write'].includes("source').val() === 'booking1.html'"), 'Booking1 public create rule must be on legacy top-level bookings/{code}');
 assert.strictEqual(databaseRules.operations.bookings['$bookingId']['.write'], 'auth != null', 'operations/bookings must remain auth-only');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
