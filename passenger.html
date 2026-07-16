@@ -768,10 +768,11 @@ function focusCurrentUserPosition() {
       return;
     }
     var point = { lat: lat, lng: lng };
-    if (typeof SLPassengerLogic.map.showUserLocation === 'function') {
-      SLPassengerLogic.map.showUserLocation(point);
+    if (typeof SLPassengerLogic.map.focusUserLocation === 'function') {
+      SLPassengerLogic.map.focusUserLocation(point);
+    } else {
+      SLPassengerLogic.map.focusPoint(point, true);
     }
-    SLPassengerLogic.map.focusPoint(point, true);
     setLocationConsentVisible(false);
     selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
     updateBottomSheetSummary();

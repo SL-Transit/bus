@@ -461,6 +461,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes('LocationMode.Geolocation'), 'Passenger must not use Longdo native geolocation mode');
   assert(!logicSource.includes('requestUserLocation'), 'Passenger location button must use one browser location request and one Passenger marker');
   assert(logicSource.includes('if (userLocationMarker) mapObj.Overlays.remove(userLocationMarker)'), 'Passenger user location marker must replace the previous marker');
+  assert(logicSource.includes('focusUserLocation: focusUserLocation'), 'Passenger map API must expose a single user-location focus command');
+  assert(html.includes('SLPassengerLogic.map.focusUserLocation(point)'), 'Passenger page must focus the browser-provided user point');
   assert(html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger location button must request a browser one-shot user location');
   assert(!html.includes('watchPosition'), 'Passenger must not continuously track user location');
   assert(!logicSource.includes('.sort('), 'Passenger logic must not sort stops or destination options locally');
@@ -495,6 +497,18 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert.strictEqual(mapFirstState.polylines.length, 1, 'mapView arriving after map init must render the ERP Map road polyline');
   assert(mapFirstState.polylines[0].points.length > corridor.length, 'ERP Map route must be road geometry, not stop-to-stop fallback');
   assert(mapFirstState.locations.length >= 2, 'late mapView data must apply the Map Display Center overview viewport');
+  const beforeUserMarkers = mapFirstState.markers.length;
+  const firstUserPoint = { lat: 13.6123, lng: 101.3123 };
+  const secondUserPoint = { lat: 13.6234, lng: 101.3234 };
+  mapFirstSandbox.SLPassengerLogic.map.focusUserLocation(firstUserPoint);
+  mapFirstSandbox.SLPassengerLogic.map.focusUserLocation(secondUserPoint);
+  const userMarkers = mapFirstState.markers
+    .slice(beforeUserMarkers)
+    .filter((marker) => marker.options && marker.options.icon && marker.options.icon.html.indexOf('map-user-location-marker') !== -1);
+  assert.strictEqual(userMarkers.length, 2, 'two user-location requests should add replacement marker overlays');
+  assert(mapFirstState.removed.includes(userMarkers[0]), 'second user-location request must remove the previous marker overlay');
+  assert.strictEqual(mapFirstState.locations[mapFirstState.locations.length - 1].point.lat, secondUserPoint.lat, 'user-location focus must move map to latest browser latitude');
+  assert.strictEqual(mapFirstState.locations[mapFirstState.locations.length - 1].point.lon, secondUserPoint.lng, 'user-location focus must move map to latest browser longitude');
 
   const dataFirstSandbox = loadPassengerLogic();
   const dataFirstState = installMapStub(dataFirstSandbox);

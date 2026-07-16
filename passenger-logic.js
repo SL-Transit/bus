@@ -134,6 +134,8 @@
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
   var userLocationMarker = null;
+  var userLocationPoint = null;
+  var userLocationFocusActive = false;
   var busDisplayState = {};
   var stationMarkerOverlays = [];
   var knownRouteLinePoints = [];
@@ -214,7 +216,7 @@ function currentViewportPlan(animate) {
   if (!center || typeof center.planViewport !== 'function') return null;
   return center.planViewport({
     followEnabled: followUser,
-    focusPoint: getStopByName(selOrigin),
+    focusPoint: userLocationFocusActive ? userLocationPoint : getStopByName(selOrigin),
     points: currentMapDisplayPoints(),
     animate: animate === true
   });
@@ -230,7 +232,7 @@ function focusMap(point, animate) {
   applyViewportPlan(center.planViewport({ focusPoint: point, animate: animate === true }));
 }
 
-function showUserLocation(point) {
+function showUserLocationMarker(point) {
   if (!mapObj || !mapReady || !global.longdo) return false;
   var normalized = normalizeMapPoint(point);
   if (!normalized) return false;
@@ -253,6 +255,16 @@ function showUserLocation(point) {
   }
 }
 
+function focusUserLocation(point) {
+  var normalized = normalizeMapPoint(point);
+  if (!normalized) return false;
+  userLocationPoint = { lat: normalized.lat, lng: normalized.lon };
+  userLocationFocusActive = true;
+  showUserLocationMarker(userLocationPoint);
+  focusMap(userLocationPoint, true);
+  return true;
+}
+
 function pauseFollowForManualMapUse(reason) {
   var center = getMapDisplayCenter();
   if (!center || typeof center.planFollowInteraction !== 'function') return;
@@ -273,6 +285,7 @@ function getStopByName(name) {
 }
 
 function focusSelectedOrigin() {
+  if (userLocationFocusActive && userLocationPoint) return;
   var stop = getStopByName(selOrigin);
   if (stop) focusMap(stop, true);
 }
@@ -691,12 +704,15 @@ function initMap() {
         try { mapObj.Ui.Fullscreen.visible(false); } catch(e){}
         try { mapObj.Ui.Scale.visible(false); } catch(e){}
         try { mapObj.Ui.Crosshair.visible(false); } catch(e){}
-        try { mapObj.Ui.Geolocation.visible(true); } catch(e){}
+        try { mapObj.Ui.Geolocation.visible(false); } catch(e){}
         console.log('Longdo map loaded');
         refreshMapSizeSafely();
         bindManualMapInteractionPause();
         renderCurrentPassengerStops()
-          .then(function() { applyCurrentViewportPlan(false); })
+          .then(function() {
+            if (userLocationFocusActive && userLocationPoint) showUserLocationMarker(userLocationPoint);
+            applyCurrentViewportPlan(false);
+          })
           .catch(function(err) {
             console.warn('Passenger mapView render failed:', err && err.message ? err.message : err);
           });
@@ -967,7 +983,7 @@ function removeBusFromMap(carId) {
     refreshSize: refreshMapSizeSafely,
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,
-    showUserLocation: showUserLocation,
+    focusUserLocation: focusUserLocation,
     focusOrigin: focusSelectedOrigin,
 
     forceFocusOrigin: forceFocusSelectedOriginAfterMapReady,
