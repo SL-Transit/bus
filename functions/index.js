@@ -81,14 +81,6 @@ function isTransferSlipBooking(booking) {
   return booking && booking.slipVerifyProvider === "slip2go";
 }
 
-async function markLinePendingPayment(ref) {
-  await ref.update({
-    lineMessagingStatus: "pending_payment_verification",
-    lineMessagingAt: admin.database.ServerValue.TIMESTAMP,
-    lineMessagingTarget: "passenger"
-  });
-}
-
 function passengerLineUserId(booking) {
   const identity = booking && booking.passengerIdentity || {};
   if (identity.provider !== "line") return "";
@@ -118,11 +110,6 @@ async function sendLineForBooking(ref, code, booking) {
   if (booking.lineMessagingStatus === "sent") return;
 
   const checkin = isCheckinEvent(booking);
-  if (!checkin && isTransferSlipBooking(booking) && booking.paymentStatus !== "payment_verified") {
-    await markLinePendingPayment(ref);
-    return;
-  }
-
   const eventName = checkin ? "checkin" : "booking";
   const to = passengerLineUserId(booking);
   if (!to || !canNotifyPassengerLine(booking, eventName)) {
