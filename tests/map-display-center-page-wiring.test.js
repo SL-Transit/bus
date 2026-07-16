@@ -23,7 +23,8 @@ assert(!passengerLogic.includes('zoom: 10, location:'), 'Passenger must not keep
 assert(!passengerHtml.includes('focusPoint(stop, 14)'), 'Passenger UI must not choose stop zoom locally');
 assert(!passengerHtml.includes('focusPoint(pos, 14)'), 'Passenger UI must not choose vehicle zoom locally');
 assert(passengerHtml.includes('map-display-center.js?v=20260714center2'), 'Passenger must load the current Map Display Center version');
-assert(passengerHtml.includes('passenger-logic.js?v=20260714map2'), 'Passenger must load the current map adapter version');
+assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live1'), 'Passenger must load the current ERP adapter version');
+assert(passengerHtml.includes('passenger-logic.js?v=20260716live1'), 'Passenger must load the current map adapter version');
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
 assert(passengerLogic.includes('adapter.watchLiveVehicles(applyLiveVehicleSnapshot)'), 'Passenger must watch the central operations/liveVehicles contract');
@@ -65,14 +66,14 @@ global.SLPassengerLogic.init().then(function() {
   liveVehicleCallback({
     val: function() {
       return {
-        veh_001: { lat: 13.692383, lng: 101.054183 },
+        car1: { lat: 13.692383, lng: 101.054183 },
         veh_002: { lat: 13.7, lng: 101.1 }
       };
     }
   });
   assert.deepStrictEqual(
     Object.keys(global.SLPassengerLogic.vehicles.getAll()),
-    ['veh_001', 'veh_002'],
+    ['car1', 'veh_002'],
     'Passenger must retain every central vehicle signal even before the map is ready'
   );
   console.log('map-display-center page wiring ok');
