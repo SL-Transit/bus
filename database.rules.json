@@ -59,6 +59,14 @@
       "sosAlerts": {
         ".read": "auth != null",
         ".write": "auth != null"
+      },
+      "driverWorkByServiceDate": {
+        "$serviceDate": {
+          "$vehicleId": {
+            ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId",
+            ".write": false
+          }
+        }
       }
     },
     "publishedSchedule": {
