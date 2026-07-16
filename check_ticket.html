@@ -469,7 +469,7 @@
       <div class="search-grid">
         <div class="field">
           <label for="lookupValue">เบอร์โทรหรือรหัสตั๋ว</label>
-          <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK123456" autocomplete="off">
+          <input id="lookupValue" class="code" type="text" placeholder="0812345678 หรือ BK1234567890" autocomplete="off">
         </div>
         <button id="btnLookup" type="button" onclick="lookupTicket()">ค้นหาตั๋ว</button>
       </div>
@@ -1042,8 +1042,8 @@
       setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
       var task = authReady.then(function() {
-        if (/^(BK|TB)\d{6}$/.test(value)) {
-          if (TEST_MODE && /^BK\d{6}$/.test(value)) {
+        if (/^(BK\d{10}|TB\d{6})$/.test(value)) {
+          if (TEST_MODE && /^BK\d{10}$/.test(value)) {
             throw new Error('TEST_MODE_PRODUCTION_CODE');
           }
           return db.ref(bookingPathForCode(value) + value).once('value').then(function(snap) {
