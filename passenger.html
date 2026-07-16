@@ -764,37 +764,47 @@ function setLocationConsentVisible(visible, message) {
 function focusCurrentUserPosition() {
   var btn = document.getElementById('followUserBtn');
   if (btn && btn.disabled) return;
+  requestPassengerUserLocation({ showErrors: true, setBusy: true });
+}
+
+function requestPassengerUserLocation(options) {
+  options = options || {};
   if (!navigator.geolocation || typeof navigator.geolocation.getCurrentPosition !== 'function') {
-    setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
-    return;
+    if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
+    return Promise.resolve(false);
   }
   setLocationConsentVisible(false);
-  setUserLocationBusy(true);
-  navigator.geolocation.getCurrentPosition(function(position) {
-    setUserLocationBusy(false);
-    var coords = position && position.coords ? position.coords : null;
-    var lat = coords ? Number(coords.latitude) : NaN;
-    var lng = coords ? Number(coords.longitude) : NaN;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setLocationConsentVisible(true, USER_LOCATION_INVALID_TEXT);
-      return;
-    }
-    var point = { lat: lat, lng: lng };
-    if (typeof SLPassengerLogic.map.focusUserLocation === 'function') {
-      SLPassengerLogic.map.focusUserLocation(point);
-    } else {
-      SLPassengerLogic.map.focusPoint(point, true);
-    }
-    setLocationConsentVisible(false);
-    selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
-    updateBottomSheetSummary();
-  }, function() {
-    setUserLocationBusy(false);
-    setLocationConsentVisible(true, USER_LOCATION_DENIED_TEXT);
-  }, {
-    enableHighAccuracy: true,
-    timeout: 12000,
-    maximumAge: 30000
+  if (options.setBusy) setUserLocationBusy(true);
+  return new Promise(function(resolve) {
+    navigator.geolocation.getCurrentPosition(function(position) {
+      if (options.setBusy) setUserLocationBusy(false);
+      var coords = position && position.coords ? position.coords : null;
+      var lat = coords ? Number(coords.latitude) : NaN;
+      var lng = coords ? Number(coords.longitude) : NaN;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_INVALID_TEXT);
+        resolve(false);
+        return;
+      }
+      var point = { lat: lat, lng: lng };
+      if (typeof SLPassengerLogic.map.focusUserLocation === 'function') {
+        SLPassengerLogic.map.focusUserLocation(point);
+      } else {
+        SLPassengerLogic.map.focusPoint(point, true);
+      }
+      setLocationConsentVisible(false);
+      selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
+      updateBottomSheetSummary();
+      resolve(true);
+    }, function() {
+      if (options.setBusy) setUserLocationBusy(false);
+      if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_DENIED_TEXT);
+      resolve(false);
+    }, {
+      enableHighAccuracy: true,
+      timeout: options.timeout || 12000,
+      maximumAge: 30000
+    });
   });
 }
 
@@ -1258,7 +1268,8 @@ document.addEventListener('DOMContentLoaded', async function(){
   SLPassengerLogic.map.renderStops(routeData);
   updateBottomSheetSummary();
   SLPassengerLogic.map.refreshSize();
-  SLPassengerLogic.map.focusOrigin();
+  const initialUserLocation = await requestPassengerUserLocation({ showErrors: false, setBusy: false, timeout: 8000 });
+  if (!initialUserLocation) SLPassengerLogic.map.focusOrigin();
 
   window.addEventListener('resize', SLPassengerLogic.map.refreshSize);
 });

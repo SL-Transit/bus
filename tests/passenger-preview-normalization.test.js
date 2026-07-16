@@ -477,6 +477,8 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(logicSource.includes('focusUserLocation: focusUserLocation'), 'Passenger map API must expose a single user-location focus command');
   assert(html.includes('SLPassengerLogic.map.focusUserLocation(point)'), 'Passenger page must focus the browser-provided user point');
   assert(html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger location button must request a browser one-shot user location');
+  assert(html.includes('requestPassengerUserLocation({ showErrors: false, setBusy: false, timeout: 8000 })'), 'Passenger initial load must request one silent user-location focus before origin fallback');
+  assert(html.includes('if (!initialUserLocation) SLPassengerLogic.map.focusOrigin()'), 'Passenger initial load must fallback to origin only when user location is unavailable');
   assert(!html.includes('setLocationConsentVisible(true, USER_LOCATION_LOADING_TEXT)'), 'Passenger must not show its custom consent modal while browser geolocation is pending');
   assert(!html.includes('watchPosition'), 'Passenger must not continuously track user location');
   assert(!logicSource.includes('.sort('), 'Passenger logic must not sort stops or destination options locally');
