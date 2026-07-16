@@ -7,6 +7,10 @@ const fn = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 
 assert(fn.includes('const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN")'), 'Functions must keep LINE channel token secret');
 assert(!fn.includes('defineSecret("LINE_TO_ID")'), 'Booking LINE notifications must not use the old group LINE_TO_ID secret');
 assert(!fn.includes('defineSecret("LINE_CHECKIN_TO_ID")'), 'Check-in LINE notifications must not use the old group LINE_CHECKIN_TO_ID secret');
+assert(!fn.includes('SLIP2GO_SECRET_KEY'), 'LINE notification deploy must not require the paused Slip2Go secret');
+assert(!fn.includes('exports.verifySlip'), 'Slip2Go verification should remain paused while deploying LINE notifications first');
+assert(!fn.includes('region: "us-central1"'), 'Realtime Database triggers must not deploy cross-region from asia-southeast1 DB');
+assert(fn.includes('region: "asia-southeast1"'), 'Realtime Database triggers must deploy in the same region as the new DB');
 assert(fn.includes('function passengerLineUserId(booking)'), 'Functions must derive LINE target from passenger identity');
 assert(fn.includes('identity.provider !== "line"'), 'Functions must only target verified LINE passenger identities');
 assert(fn.includes('identity.lineUserId'), 'Functions must send to passengerIdentity.lineUserId');
