@@ -7,6 +7,7 @@ const adapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-ada
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 const rules = fs.readFileSync(path.join(__dirname, '..', 'database.rules.json'), 'utf8');
+const databaseRules = JSON.parse(rules).rules;
 
 function pageAncestors(html) {
   const re = /<\/?div\b[^>]*>/gi;
@@ -125,6 +126,8 @@ assert(adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Boo
 assert(rules.includes("newData.child('source').val() === 'booking1.html'"), 'Firebase rules must allow validated Booking1 public legacy booking creates');
 assert(rules.includes("newData.child('sourceMode').val() === 'erp_data_center'"), 'Booking1 booking writes must stay ERP Data Center scoped in Firebase rules');
 assert(rules.includes("newData.child('publishedSchedule').child('readyForApply').val() === false"), 'Booking1 public booking rule must preserve preview publishedSchedule marker validation');
+assert(databaseRules.bookings['$bookingId']['.write'].includes("source').val() === 'booking1.html'"), 'Booking1 public create rule must be on legacy top-level bookings/{code}');
+assert.strictEqual(databaseRules.operations.bookings['$bookingId']['.write'], 'auth != null', 'operations/bookings must remain auth-only');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
 assert(adapter.includes('function withoutUndefined'), 'Booking1 adapter must remove undefined fields before Firebase writes');
 assert(adapter.includes('withoutUndefined(legacyBookingPayload'), 'Booking1 real booking payload must be sanitized before Firebase set');
