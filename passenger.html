@@ -436,7 +436,7 @@ body { background:#edf6f8; }
   position:absolute;
   right:16px;
   bottom:calc(178px + env(safe-area-inset-bottom));
-  z-index:18;
+  z-index:30;
   width:auto;
   min-width:46px;
   height:46px;
@@ -448,6 +448,10 @@ body { background:#edf6f8; }
   color:var(--teal-dark);
   box-shadow:0 10px 24px rgba(15,23,42,.18);
   font-size:0;
+  pointer-events:auto;
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
 }
 .follow-user-btn::before { content:"◎"; font-size:23px; line-height:1; }
 .follow-user-btn.is-off { background:#ffffff; color:#64748b; }
@@ -716,7 +720,15 @@ function updateFollowUserButton() {
 function bindFollowUserButton() {
   var btn = document.getElementById('followUserBtn');
   if (!btn || btn.dataset.bound === '1') return;
-  btn.addEventListener('click', function() {
+  function stopMapGesture(e) {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  ['touchstart', 'touchmove', 'pointerdown', 'pointermove', 'mousedown'].forEach(function(eventName) {
+    btn.addEventListener(eventName, stopMapGesture, { passive: true });
+  });
+  btn.addEventListener('click', function(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    stopMapGesture(e);
     focusCurrentUserPosition();
   });
   bindLocationConsentButtons();
