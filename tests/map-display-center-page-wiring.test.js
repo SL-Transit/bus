@@ -23,7 +23,7 @@ assert(passengerLogic.includes('initialViewportPlan = getMapDisplayCenter().plan
 assert(!passengerLogic.includes('zoom: 10, location:'), 'Passenger must not keep a local initial zoom and center decision');
 assert(!passengerHtml.includes('focusPoint(stop, 14)'), 'Passenger UI must not choose stop zoom locally');
 assert(!passengerHtml.includes('focusPoint(pos, 14)'), 'Passenger UI must not choose vehicle zoom locally');
-assert(passengerHtml.includes('map-display-center.js?v=20260716center3'), 'Passenger must load the current Map Display Center version');
+assert(passengerHtml.includes('map-display-center.js?v=20260716center4'), 'Passenger must load the current Map Display Center version');
 assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live5'), 'Passenger must load the current ERP adapter version');
 assert(passengerHtml.includes('passenger-logic.js?v=20260716live5'), 'Passenger must load the current map adapter version');
 assert(passengerHtml.includes("db.ref('data/settings')"), 'Passenger settings must read the public data/settings path');

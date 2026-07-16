@@ -150,17 +150,6 @@
     return isFinite(ts) && ts > 0 ? ts : Date.now();
   }
 
-  function smoothDisplayPoint(display, target, dtSec) {
-    var meters = distanceMeters(display, target);
-    if (!isFinite(meters) || meters < 1.5) return target;
-    var alpha = Math.min(0.32, Math.max(0.10, num(dtSec, 0.12) * 2.4));
-    if (meters > 180) alpha = 0.18;
-    return {
-      lat: display.lat + (target.lat - display.lat) * alpha,
-      lng: display.lng + (target.lng - display.lng) * alpha
-    };
-  }
-
   function planVehicleMarker(previous, signal, options) {
     options = options || {};
     var next = normalizeVehicleSignal(signal);
@@ -222,8 +211,8 @@
       var predictMeters = Math.min(speedMs * (ageMs / 1000), num(options.maxPredictMeters, 300));
       target = projectPoint(limitedAnchor, heading, predictMeters);
     }
-    var nextDisplay = smoothDisplayPoint(display, target, dtSec);
-    var durationMs = Math.max(0, Math.min(900, Math.max(150, dtSec * 1000)));
+    var nextDisplay = target;
+    var durationMs = Math.max(0, Math.min(450, Math.max(120, dtSec * 180)));
     var mode = isFinite(rawMeters) && rawMeters > maxStepMeters ? 'no_warp_smooth_limited' : 'smooth';
     return {
       status: mode,
