@@ -64,6 +64,10 @@
     return !!(selected && selected.selectionAllowed && !selected.fareMissing && !selected.externalPaymentRequired);
   }
 
+  function bookingCode() {
+    return 'BK' + String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 90) + 10);
+  }
+
   function fareText(trip) {
     if (trip.externalPaymentRequired) return 'ชำระภายนอก';
     if (trip.fareMissing) return 'รอข้อมูลราคา';
@@ -123,6 +127,90 @@
     if (ti.nextDepartureTime || ti.leg2Time) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/242.png" alt="next trip"><span>\u0e23\u0e16\u0e15\u0e48\u0e2d ' + esc(ti.nextDepartureTime || ti.leg2Time) + ' \u0e19.</span></div>');
     if (ti.waitMinutes != null) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/243.png" alt="wait"><span>\u0e23\u0e2d\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13 ' + esc(ti.waitMinutes) + ' \u0e19\u0e32\u0e17\u0e35</span></div>');
     return rows.length ? '<div class="trip-transfer-detail">' + rows.join('') + '</div>' : '';
+  }
+
+  function transferPoint(state) {
+    var ti = state && state.transferInfo || {};
+    return ti.viaLabel || ti.transferNodeLabel || ti.transferStopLabel || ti.point ||
+      ti.transferPoint || ti.connectionPointLabel || ti.stopLabel || '';
+  }
+
+  function buildLegSchedule(state) {
+    var origin = state.originName || '';
+    var destination = state.destName || '';
+    var transfer = transferPoint(state);
+    var ti = state.transferInfo || {};
+    if (state.isLeg2Dest && transfer) {
+      return {
+        leg1: origin + ' - ' + transfer,
+        leg1Time: state.tripTime || '',
+        leg2: transfer + ' - ' + (ti.destLabel || destination),
+        leg2Time: ti.nextDepartureTime || ti.leg2Time || ''
+      };
+    }
+    return {
+      leg1: origin + ' - ' + destination,
+      leg1Time: state.tripTime || '',
+      leg2: '',
+      leg2Time: ''
+    };
+  }
+
+  function legacyBookingPayload(state, snapshot) {
+    var selected = state.selectedTrip || {};
+    var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : { basePrice: state.tripFare || 0, svcFee: 0, total: state._totalFare || 0 };
+    var legSchedule = buildLegSchedule(state);
+    var assignment = snapshot.assignment || {};
+    var route = (state.originName || '') + ' \u2192 ' + (state.destName || '');
+    return Object.assign({}, snapshot, {
+      code: snapshot.bookingCode,
+      bookingCode: snapshot.bookingCode,
+      source: 'booking1.html',
+      sourceMode: 'erp_data_center',
+      name: snapshot.name,
+      phone: snapshot.phone,
+      route: route,
+      origin: state.originName || '',
+      destination: state.destName || '',
+      date: snapshot.serviceDate,
+      time: snapshot.pickupTime,
+      departTime: snapshot.pickupTime,
+      pickupTime: snapshot.pickupTime,
+      seats: snapshot.pax,
+      pax: snapshot.pax,
+      price: total.total || snapshot.fare || 0,
+      fare: (total.basePrice || snapshot.fareAmount || 0) * (snapshot.pax || 1),
+      serviceFee: total.svcFee || 0,
+      paymentMode: snapshot.payMethod || '',
+      paymentStatus: snapshot.slipUploaded ? 'slip_uploaded' : 'awaiting_payment',
+      slipUploaded: snapshot.slipUploaded === true,
+      testMode: false,
+      mockPayment: false,
+      routeId: selected.routeId || '',
+      tripId: selected.tripId || '',
+      catalogRouteId: selected.routeId || '',
+      catalogTripId: selected.tripId || '',
+      catalogFare: snapshot.fareAmount || '',
+      leg1Route: legSchedule.leg1,
+      leg1Time: legSchedule.leg1Time,
+      leg2Route: legSchedule.leg2,
+      leg2Time: legSchedule.leg2Time,
+      legSchedule: legSchedule,
+      requiresTransfer: state.isLeg2Dest === true,
+      transfer: state.transferInfo || null,
+      transferInfo: state.transferInfo || null,
+      transferPoint: transfer,
+      queueNo: assignment.queueId || '',
+      plannedVehicleId: assignment.vehicleId || '',
+      scheduleOnly: assignment.scheduleOnly === true,
+      noLiveTracking: assignment.liveTrackingAvailable !== true,
+      assignmentSource: assignment.assignmentSource || 'none',
+      ticketQrVersion: 'SLT1',
+      passengerIdentity: { status: 'pending', verifiedAt: null, verifiedBy: '', vehicleId: '' },
+      originCheckin: { status: 'pending', identityVerified: false },
+      status: snapshot.status || 'awaiting_payment',
+      ts: global.firebase && global.firebase.database ? global.firebase.database.ServerValue.TIMESTAMP : Date.now()
+    });
   }
 
   function selectButton(trip, index, recommended) {
@@ -382,14 +470,18 @@
 
     global.goToTicket = function() {
       var state = appState();
+      if (state._bookingSubmitInFlight) { alert('กำลังบันทึกการจอง กรุณารอสักครู่'); return; }
       if (!state.consentAccepted) { alert('กรุณายอมรับเงื่อนไขก่อน'); return; }
       if (!selectedTripCanContinue()) { alert('เที่ยวนี้ยังไปต่อไม่ได้'); return; }
+      if (!global.currentPayMethod) { alert('กรุณาเลือกวิธีชำระเงิน'); return; }
+      var db = global._db || (global.firebase && global.firebase.database && global.firebase.database());
+      if (!db) { alert('ยังเชื่อมต่อฐานข้อมูลไม่ได้ กรุณาลองใหม่'); return; }
       var assignmentContract = (state.selectedTrip && state.selectedTrip.assignment) || {
         assignmentSource: 'none',
         scheduleOnly: true,
         liveTrackingAvailable: false
       };
-      state.bookingCode = typeof global.generateBookingId === 'function' ? global.generateBookingId() : 'BK-' + Date.now();
+      state.bookingCode = bookingCode();
       var bookingSnap = global.SLBookingBridge.buildBookingSnapshot({
         bookingCode: state.bookingCode,
         name: state.name || '-',
@@ -412,20 +504,20 @@
         slipUploaded: !!state.slipFile,
         assignment: assignmentContract
       });
-      console.log('[Booking1PreviewAdapter] snapshot ready:', bookingSnap.bookingCode, bookingSnap.publishedSchedule);
-      setText('t-name', state.name || '-');
-      setText('t-phone', state.phone || '-');
-      setText('t-trip-time', state.tripLabel || '-');
-      setText('t-pax', (state.pax || 1) + ' คน');
-      setText('t-booking-code', state.bookingCode);
-      var transferBox = document.getElementById('ticket-transfer-box');
-      if (transferBox) transferBox.style.display = 'none';
-      if (typeof global.showPage === 'function') global.showPage(4);
-      if (typeof global.renderQr === 'function') {
-        setTimeout(function() {
-          global.renderQr('ticketQrCode', global.getTicketQrText(state.bookingCode), 160);
-        }, 100);
-      }
+      var booking = legacyBookingPayload(state, bookingSnap);
+      var btn = document.getElementById('btnConfirm');
+      state._bookingSubmitInFlight = true;
+      if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึกการจอง...'; }
+      db.ref('bookings/' + booking.code).set(booking).then(function() {
+        console.log('[Booking1PreviewAdapter] booking saved:', booking.code);
+        if (typeof global.showTicketPage === 'function') global.showTicketPage(booking);
+      }).catch(function(err) {
+        console.error('[Booking1PreviewAdapter] booking save failed', err);
+        alert('บันทึกการจองไม่สำเร็จ กรุณาลองใหม่');
+      }).then(function() {
+        state._bookingSubmitInFlight = false;
+        if (btn) { btn.disabled = false; btn.textContent = 'ยืนยันการชำระเงิน ›'; }
+      });
     };
 
     global.SLBooking1PreviewAdapter = {

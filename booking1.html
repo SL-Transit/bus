@@ -3140,12 +3140,12 @@ function updateSummary() {
   }
 }
 
-/* ──────────────────────────────────────────────────────
-   SUBMIT GUARD
-   Booking1 now reads ERP only and does not create real bookings here.
-────────────────────────────────────────────────────── */
 function submitBooking() {
-  alert('Booking1 ตอนนี้อ่าน ERP เท่านั้น ยังไม่เปิดสร้าง booking จริง');
+  if (typeof goToTicket === 'function') {
+    goToTicket();
+    return;
+  }
+  alert('ระบบจองยังไม่พร้อม กรุณาลองใหม่');
 }
 
 /* ──────────────────────────────────────────────────────

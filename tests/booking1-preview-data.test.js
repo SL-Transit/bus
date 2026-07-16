@@ -76,6 +76,7 @@ assert(booking1.includes('global.sanitizePhone = sanitizePhone'), 'Booking1 must
 assert(booking1.includes('global.isValidThaiPhone = isValidThaiPhone'), 'Booking1 must expose phone validator to the preview adapter');
 assert(booking1.includes('window.showPage           = showPage'), 'Booking1 must expose page navigation to the preview adapter');
 assert(booking1.includes('window.selectPayMethod    = selectPayMethod'), 'Booking1 must expose payment method reset to the preview adapter');
+assert(booking1.includes('goToTicket();'), 'Booking1 confirm button must delegate submit to the ERP preview adapter booking flow');
 assert(bridge.includes('getPaymentContact: getPaymentContact'), 'Booking1 bridge must expose ERP payment contact');
 assert(booking1.includes('SLBookingBridge.getPaymentContact'), 'Booking1 must consume payment contact through the bridge');
 assert(booking1.includes('232-8-93015-6'), 'Booking1 must show the owner-provided account number fallback until ERP publishes paymentContact');
@@ -111,6 +112,9 @@ assert(!adapter.includes('selected.bookingAllowed'), 'Booking1 adapter page navi
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(bridge.includes('liveTrackingAvailable: false'), 'Booking1 bridge must keep schedule-only/no-live-tracking state internally');
+assert(adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Booking1 adapter must create real legacy bookings/{code} records');
+assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
+assert(adapter.includes("sourceMode: 'erp_data_center'"), 'Booking1 real booking payload must record ERP Data Center source mode');
 assert(!adapter.includes('No live vehicle tracking'), 'Booking1 adapter must not show no-live-tracking technical text to passengers');
 assert(!adapter.includes('schedule only'), 'Booking1 adapter must not show schedule-only technical text to passengers');
 assert(!adapter.includes('ERP Data Center pair:'), 'Booking1 adapter must not show ERP pair technical text to passengers');
@@ -121,6 +125,6 @@ assert(!bridge.includes('.sort(function'), 'Booking1 bridge must preserve ERP op
 assert(booking1.includes('background: #fff7ed; color: #d97706;'), 'Booking1 soon badges must keep orange styling');
 assert(booking1.includes('.trip-transfer-detail'), 'Booking1 must include trip transfer detail styling');
 
-assert(booking1.includes('Booking1 ตอนนี้อ่าน ERP เท่านั้น'), 'Booking1 submit guard must keep real booking creation disabled');
+assert(!booking1.includes('ยังไม่เปิดสร้าง booking จริง'), 'Booking1 submit guard must not block real booking creation');
 
 console.log('booking1 preview data contract ok');
