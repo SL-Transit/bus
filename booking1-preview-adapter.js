@@ -161,6 +161,7 @@
     var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : { basePrice: state.tripFare || 0, svcFee: 0, total: state._totalFare || 0 };
     var legSchedule = buildLegSchedule(state);
     var assignment = snapshot.assignment || {};
+    var transfer = transferPoint(state);
     var route = (state.originName || '') + ' \u2192 ' + (state.destName || '');
     return Object.assign({}, snapshot, {
       code: snapshot.bookingCode,

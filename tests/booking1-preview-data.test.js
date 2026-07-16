@@ -115,6 +115,7 @@ assert(bridge.includes('liveTrackingAvailable: false'), 'Booking1 bridge must ke
 assert(adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Booking1 adapter must create real legacy bookings/{code} records');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
 assert(adapter.includes("sourceMode: 'erp_data_center'"), 'Booking1 real booking payload must record ERP Data Center source mode');
+assert(adapter.includes('var transfer = transferPoint(state);'), 'Booking1 legacy payload must define transfer point before writing it');
 assert(!adapter.includes('No live vehicle tracking'), 'Booking1 adapter must not show no-live-tracking technical text to passengers');
 assert(!adapter.includes('schedule only'), 'Booking1 adapter must not show schedule-only technical text to passengers');
 assert(!adapter.includes('ERP Data Center pair:'), 'Booking1 adapter must not show ERP pair technical text to passengers');
