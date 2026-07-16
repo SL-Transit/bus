@@ -447,7 +447,7 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes('router.project-osrm.org'), 'Passenger must not fetch route geometry from OSRM');
   assert(!html.includes('setInterval(function(){'), 'Passenger must not keep a page-local map/vehicle retry loop');
   assert(!html.includes('SLPassengerLogic.map.updateVehicles(allBusPositions)'), 'Passenger page must not push locally cached vehicle positions back onto the map');
-  assert(html.includes('Destination option contract unavailable'), 'Passenger must show an explicit destination contract-unavailable state');
+  assert(html.includes('ไม่พบข้อมูลปลายทาง'), 'Passenger must show an explicit destination contract-unavailable state');
   assert(!logicSource.includes('normalizePreviewDestinationsByOrigin'), 'Passenger must not derive destinations from pairs');
   assert(!logicSource.includes('normalizePreviewDestinationLabels'), 'Passenger must not locally sort destination labels');
   assert(!html.includes('ADMIN_TESTER_PHONE') && !html.includes('0929383999'), 'Passenger must not contain a hardcoded tester phone');

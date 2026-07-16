@@ -972,7 +972,7 @@ function buildDropdowns(){
   if (!origins.length) {
     const opt = document.createElement('option');
     opt.value = '';
-    opt.textContent = 'Loading origins from central data...';
+    opt.textContent = 'กำลังโหลดต้นทางจากระบบกลาง...';
     originSel.appendChild(opt);
   }
   origins.forEach(o=>{
@@ -985,7 +985,7 @@ function buildDropdowns(){
 
   function appendDestinationUnavailable(message) {
     const grp0 = document.createElement('optgroup');
-    grp0.label = 'Data contract unavailable';
+    grp0.label = 'ข้อมูลยังไม่พร้อม';
     const opt = document.createElement('option');
     opt.value = '';
     opt.textContent = message;
@@ -1007,8 +1007,8 @@ function buildDropdowns(){
     if (contractStatus !== 'ready' || !destinationOptions.length) {
       appendDestinationUnavailable(
         S.isReady() && origins.length
-          ? 'Destination option contract unavailable'
-          : 'Loading destination options from central data...'
+          ? 'ไม่พบข้อมูลปลายทาง'
+          : 'กำลังโหลดปลายทางจากระบบกลาง...'
       );
       return;
     }
