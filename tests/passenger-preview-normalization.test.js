@@ -85,6 +85,7 @@ function installMapStub(sandbox) {
     markers: [],
     polylines: [],
     removed: [],
+    markerMoves: [],
     resizeCount: 0,
     repaintCount: 0,
     locations: [],
@@ -132,7 +133,19 @@ function installMapStub(sandbox) {
     OverlayWeight: { Top: 'top' },
     Map: function() { return mapObj; },
     Marker: function(point, options) {
-      return { __type: 'marker', point, options };
+      return {
+        __type: 'marker',
+        point,
+        options,
+        move: function(nextPoint) {
+          this.point = nextPoint;
+          state.markerMoves.push({ marker: this, point: nextPoint, method: 'move' });
+        },
+        location: function(nextPoint) {
+          this.point = nextPoint;
+          state.markerMoves.push({ marker: this, point: nextPoint, method: 'location' });
+        }
+      };
     },
     Polyline: function(points, options) {
       return { __type: 'polyline', points, options };
@@ -460,10 +473,11 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes('updateCurrentLocation'), 'Passenger must not use Longdo native geolocation marker');
   assert(!logicSource.includes('LocationMode.Geolocation'), 'Passenger must not use Longdo native geolocation mode');
   assert(!logicSource.includes('requestUserLocation'), 'Passenger location button must use one browser location request and one Passenger marker');
-  assert(logicSource.includes('if (userLocationMarker) mapObj.Overlays.remove(userLocationMarker)'), 'Passenger user location marker must replace the previous marker');
+  assert(logicSource.includes('userLocationMarker.move(normalized)'), 'Passenger user location marker must move the existing marker');
   assert(logicSource.includes('focusUserLocation: focusUserLocation'), 'Passenger map API must expose a single user-location focus command');
   assert(html.includes('SLPassengerLogic.map.focusUserLocation(point)'), 'Passenger page must focus the browser-provided user point');
   assert(html.includes('navigator.geolocation.getCurrentPosition'), 'Passenger location button must request a browser one-shot user location');
+  assert(!html.includes('setLocationConsentVisible(true, USER_LOCATION_LOADING_TEXT)'), 'Passenger must not show its custom consent modal while browser geolocation is pending');
   assert(!html.includes('watchPosition'), 'Passenger must not continuously track user location');
   assert(!logicSource.includes('.sort('), 'Passenger logic must not sort stops or destination options locally');
   [
@@ -505,8 +519,10 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   const userMarkers = mapFirstState.markers
     .slice(beforeUserMarkers)
     .filter((marker) => marker.options && marker.options.icon && marker.options.icon.html.indexOf('map-user-location-marker') !== -1);
-  assert.strictEqual(userMarkers.length, 2, 'two user-location requests should add replacement marker overlays');
-  assert(mapFirstState.removed.includes(userMarkers[0]), 'second user-location request must remove the previous marker overlay');
+  assert.strictEqual(userMarkers.length, 1, 'two user-location requests should keep one user marker overlay');
+  assert.strictEqual(mapFirstState.markerMoves.length, 1, 'second user-location request must move the existing marker');
+  assert.strictEqual(userMarkers[0].point.lat, secondUserPoint.lat, 'user marker must move to latest browser latitude');
+  assert.strictEqual(userMarkers[0].point.lon, secondUserPoint.lng, 'user marker must move to latest browser longitude');
   assert.strictEqual(mapFirstState.locations[mapFirstState.locations.length - 1].point.lat, secondUserPoint.lat, 'user-location focus must move map to latest browser latitude');
   assert.strictEqual(mapFirstState.locations[mapFirstState.locations.length - 1].point.lon, secondUserPoint.lng, 'user-location focus must move map to latest browser longitude');
 

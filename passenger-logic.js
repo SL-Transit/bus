@@ -236,11 +236,15 @@ function showUserLocationMarker(point) {
   if (!mapObj || !mapReady || !global.longdo) return false;
   var normalized = normalizeMapPoint(point);
   if (!normalized) return false;
-  try {
-    if (userLocationMarker) mapObj.Overlays.remove(userLocationMarker);
-  } catch(e) {}
+  if (userLocationMarker) {
+    try { userLocationMarker.move(normalized); return true; } catch(e) {}
+    try { userLocationMarker.location(normalized); return true; } catch(e2) {}
+    try { mapObj.Overlays.remove(userLocationMarker); } catch(e3) {}
+    userLocationMarker = null;
+  }
   try {
     userLocationMarker = new longdo.Marker(normalized, {
+      title: 'ตำแหน่งของคุณ',
       weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
       icon: {
         html: '<div class="map-user-location-marker"></div>',
@@ -261,7 +265,17 @@ function focusUserLocation(point) {
   userLocationPoint = { lat: normalized.lat, lng: normalized.lon };
   userLocationFocusActive = true;
   showUserLocationMarker(userLocationPoint);
-  focusMap(userLocationPoint, true);
+  var center = getMapDisplayCenter();
+  if (center && typeof center.planViewport === 'function') {
+    applyViewportPlan(center.planViewport({
+      focusPoint: userLocationPoint,
+      focusZoom: 15,
+      animate: true,
+      lockInteractionMs: 1200
+    }));
+  } else {
+    focusMap(userLocationPoint, true);
+  }
   return true;
 }
 
