@@ -684,7 +684,7 @@ function initMap() {
         try { mapObj.Ui.Fullscreen.visible(false); } catch(e){}
         try { mapObj.Ui.Scale.visible(false); } catch(e){}
         try { mapObj.Ui.Crosshair.visible(false); } catch(e){}
-        try { mapObj.Ui.Geolocation.visible(false); } catch(e){}
+        try { mapObj.Ui.Geolocation.visible(true); } catch(e){}
         console.log('Longdo map loaded');
         refreshMapSizeSafely();
         bindManualMapInteractionPause();
