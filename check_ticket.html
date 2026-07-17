@@ -638,6 +638,7 @@
     // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
     var TERMINAL = { lat: null, lng: null };
     var ROTATING_VEHICLE_IDS = ['car1', 'car2', 'car3', 'car4'];
+    var FIXED_LIVE_VEHICLE_IDS = ['car5'];
     var ACTIVE_VEHICLE_MAX_AGE_MS = 3 * 60 * 1000;
     var CURRENT_TRIP_MIN_CONFIDENCE = 0.45;
     var BOOKING_TRIP_MATCH_TOLERANCE_MINUTES = 45;
@@ -1793,7 +1794,7 @@
       if (assignment && (assignment.plannedVehicleId || assignment.vehicleId)) ids.push(String(assignment.plannedVehicleId || assignment.vehicleId));
       if (!ids.length && booking && (booking.plannedVehicleId || booking.vehicleId)) ids.push(String(booking.plannedVehicleId || booking.vehicleId));
       return ids.filter(function(id, index) {
-        return isRotatingVehicle(id) && ids.indexOf(id) === index;
+        return isTrackableVehicle(id) && ids.indexOf(id) === index;
       });
     }
 
@@ -1823,8 +1824,13 @@
       return ROTATING_VEHICLE_IDS.indexOf(String(vehicleId || '')) !== -1;
     }
 
+    function isTrackableVehicle(vehicleId) {
+      var id = String(vehicleId || '');
+      return ROTATING_VEHICLE_IDS.indexOf(id) !== -1 || FIXED_LIVE_VEHICLE_IDS.indexOf(id) !== -1;
+    }
+
     function isActiveVehicle(vehicleId, vehicleData, now) {
-      if (!isRotatingVehicle(vehicleId) || String(vehicleId) === 'car5') return false;
+      if (!isTrackableVehicle(vehicleId)) return false;
       if (vehicleData && vehicleData.enabled === false) return false;
       if (!normalizeTrackingPoint(vehicleData)) return false;
       var ts = vehicleTimestampMs(vehicleData);
@@ -1866,7 +1872,7 @@
       var ids = [];
       function scan(feed) {
         Object.keys(feed || {}).forEach(function(id) {
-          if (seen[id] || !isRotatingVehicle(id)) return;
+          if (seen[id] || !isTrackableVehicle(id)) return;
           var vehicleQueue = Number(feed[id] && (feed[id].todayQueueNo || feed[id].queueNo || feed[id].queueNumber || feed[id].queue || feed[id].queueIndex || 0));
           if (vehicleQueue === queueNo) { seen[id] = true; ids.push(id); }
         });

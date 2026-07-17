@@ -161,7 +161,6 @@
       var aliases = Array.isArray(after.legacyAliases) ? after.legacyAliases.map(String) : Array.isArray(after.aliases) ? after.aliases.map(String) : [];
       if (/^car[1-5]$/.test(entityId)) issue(blockers, 'blocker', 'legacy-alias-used-as-vehicle-id', targetPath, 'Vehicle identity must use veh_001-style stable IDs; car1-car5 are aliases only.');
       if ((entityId === 'veh_005' || aliases.indexOf('car5') !== -1) && after.productionReady === true && (!after.registrationNo || !after.loginIndexReady)) issue(blockers, 'blocker', 'veh-005-production-ready-without-login-data', targetPath, 'veh_005 must remain productionReady=false until real registration and login data exist.');
-      if ((entityId === 'veh_005' || aliases.indexOf('car5') !== -1) && after.liveTrackingAvailable !== false) issue(warnings, 'warning', 'veh-005-live-tracking-not-false', targetPath, 'veh_005/car5 bridge should explicitly support liveTrackingAvailable=false.');
     }
 
     if (entityType === 'serviceFee' && (after.fareAmount != null || after.baseFare != null || after.originStopKey != null || after.destStopKey != null)) {

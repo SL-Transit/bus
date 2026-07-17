@@ -208,7 +208,7 @@ const EXPECTED_TRIP_MAPPINGS = {
   const queue5Trips = values(erp.fleet.queueTrips).filter((trip) => trip.queueId === 'queue_005');
   queue5Trips.forEach((trip) => {
     assert(trip.assignmentMode === 'fixed' && trip.vehicleId === 'veh_005', `queue_005 assignment mismatch: ${trip.queueTripId}`);
-    assert(trip.scheduleOnly === false && trip.liveTrackingAvailable === false, `queue_005 tracking policy mismatch: ${trip.queueTripId}`);
+    assert(trip.scheduleOnly === false && trip.liveTrackingAvailable === true, `queue_005 tracking policy mismatch: ${trip.queueTripId}`);
     assert(trip.serviceDays.length === 1 && trip.serviceDays[0] === 'daily', `queue_005 service days mismatch: ${trip.queueTripId}`);
   });
   const tatakiab1720Offer = erp.scheduleOffers['TRIP-ROUTE-MAIN-011-1720'];

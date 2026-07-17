@@ -54,6 +54,12 @@ const approvedCar5 = adminMasterData.validateMasterDataChange(validVehicleChange
 assert(codes(approvedCar5).indexOf('car5-active-without-owner-activation') === -1, 'approved car5 must not require owner activation metadata blocker');
 assert(approvedCar5.readyForReview === true, 'approved car5 with productionReady=false and liveTrackingAvailable=false should validate');
 
+const fixedLiveCar5 = adminMasterData.validateMasterDataChange(Object.assign({}, validVehicleChange, {
+  after: { vehicleId: 'veh_005', status: 'active', productionReady: false, legacyAliases: ['car5'], liveTrackingAvailable: true }
+}));
+assert(fixedLiveCar5.readyForReview === true, 'fixed queue car5 with live tracking and productionReady=false should validate');
+assert(codes(fixedLiveCar5).indexOf('veh-005-live-tracking-not-false') === -1, 'fixed queue car5 live tracking must not warn');
+
 const car5ProductionReady = adminMasterData.validateMasterDataChange(Object.assign({}, validVehicleChange, {
   after: { vehicleId: 'veh_005', status: 'active', productionReady: true, legacyAliases: ['car5'], liveTrackingAvailable: false }
 }));

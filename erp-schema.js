@@ -389,7 +389,6 @@
       if (entityType === 'vehicle') {
         var aliases = Array.isArray(record.legacyAliases) ? record.legacyAliases.map(String) : Array.isArray(record.aliases) ? record.aliases.map(String) : [];
         if (isCarAlias(key) || isCar5Alias(key) || isCarAlias(record.vehicleId) || isCar5Alias(record.vehicleId)) blockers.push({ level: 'blocker', code: 'legacy-alias-used-as-vehicle-id', path: path, message: 'veh_001-style vehicleId must be separate from car1-car5 legacy aliases.' });
-        if ((key === 'veh_005' || aliases.indexOf('car5') !== -1) && record.liveTrackingAvailable !== false) warnings.push({ level: 'warning', code: 'veh-005-live-tracking-should-be-false', path: path, message: 'veh_005/car5 bridge should explicitly support liveTrackingAvailable=false unless owner activates it later.' });
         if ((aliases.indexOf('car5') !== -1 || key === 'veh_005') && record.productionReady === true && (!record.registrationNo || !record.loginIndexReady)) blockers.push({ level: 'blocker', code: 'veh-005-production-ready-without-login-data', path: path, message: 'veh_005 must remain productionReady=false until real registration and login data exist.' });
       }
       if (entityType === 'settlementRecipient' && /bank|account|promptpay|taxId|nationalId/i.test(JSON.stringify(record))) blockers.push({ level: 'blocker', code: 'financial-identity-not-allowed-in-batch-1', path: path, message: 'Batch 1 must not create real-looking personal or financial settlement data.' });

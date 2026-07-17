@@ -24,4 +24,9 @@ const expectedStatusBlock = html.slice(expectedStatusStart, expectedStatusEnd);
 assert(expectedStatusBlock.includes('SLTransitVehicleAssignmentCenter.selectBookedVehicle'), 'expected vehicle status must ask Vehicle Assignment Center');
 assert(!expectedStatusBlock.includes('getVehicleIdForQueue'), 'expected vehicle status must not infer vehicle from queue locally');
 
+assert(html.includes("var FIXED_LIVE_VEHICLE_IDS = ['car5'];"), 'Check Ticket must declare fixed queue live vehicles separately');
+assert(html.includes('function isTrackableVehicle(vehicleId)'), 'Check Ticket must separate trackable vehicles from rotating vehicles');
+assert(html.includes('if (!isTrackableVehicle(vehicleId)) return false;'), 'Check Ticket must allow fixed live vehicles to become active');
+assert(!html.includes("String(vehicleId) === 'car5'"), 'Check Ticket must not hard-block car5 from live tracking');
+
 console.log('check-ticket vehicle assignment wiring ok');

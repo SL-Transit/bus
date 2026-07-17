@@ -1219,7 +1219,7 @@ function buildVehicles() {
       status: 'provisional',
       productionReady: false,
       legacyAliases: [`car${n}`],
-      liveTrackingAvailable: n === 5 ? false : true,
+      liveTrackingAvailable: true,
       registrationNo: '',
       loginIndexReady: false,
       sourceLineage: [buildLineage('owner_decisions/fleet', vehicleId, `future vehicle identity with legacy alias car${n}`)]
@@ -1262,7 +1262,7 @@ function buildQueueTrips(stopTimes) {
       vehicleId: trip.queueId === 'queue_005' ? 'veh_005' : null,
       serviceDays: trip.queueId === 'queue_005' ? ['daily'] : ['legacy_schedule'],
       scheduleOnly: false,
-      liveTrackingAvailable: trip.queueId === 'queue_005' ? false : true,
+      liveTrackingAvailable: true,
       registryOwnerRef: registryOwnerRef(queueTripId),
       orderedStopTimes: orderedStopTimes.map((stopTime) => ({
         sequence: stopTime.sequence,
@@ -1716,7 +1716,7 @@ function validateReferences(erp) {
     if (queueTrip.queueId === 'queue_005') {
       if (queueTrip.scheduleOnly !== false) block('queue-005-schedule-only', `data/erpDataCenter/fleet/queueTrips/${queueTrip.queueTripId}`);
       if (queueTrip.assignmentMode !== 'fixed' || queueTrip.vehicleId !== 'veh_005') block('queue-005-invalid-assignment', `data/erpDataCenter/fleet/queueTrips/${queueTrip.queueTripId}`);
-      if (queueTrip.liveTrackingAvailable !== false) block('queue-005-fake-live-tracking', `data/erpDataCenter/fleet/queueTrips/${queueTrip.queueTripId}`);
+      if (queueTrip.liveTrackingAvailable !== true) block('queue-005-live-tracking-disabled', `data/erpDataCenter/fleet/queueTrips/${queueTrip.queueTripId}`);
     }
   });
   const fixedRule = erp.fleet.assignmentRules.fixed_queue_005_v1;
