@@ -12,6 +12,31 @@ This contract is a central ERP Alert / Notification Center boundary. It must sur
 - ERP Alert / Notification Center owns notification intent, target resolution, duplicate prevention, and message payload shape.
 - UI pages own display and user input only.
 
+## Stable Files And Bridge Boundary
+
+These files are the stable backend/center boundary. Future website or UX/UI rebuilds should not move notification policy into the page.
+
+- `booking-assignment-center.js`
+  - ERP Logic Center bridge for booking assignment contract.
+  - Builds `booking_assignment_v1` from resolved driver work or schedule-only state.
+  - Output fields such as `assignment.plannedVehicleId`, `queueNo`, `routeId`, and `tripId` are the stable bridge from booking UI to staff notification logic.
+
+- `functions/staff-notification-center.js`
+  - ERP Alert / Notification Center policy.
+  - Resolves staff recipients from central config, splits admin/driver/queue/terminal roles, builds role-specific staff message content, and prevents trusting public booking payload LINE IDs.
+  - This file decides who should receive staff LINE notification after the booking has enough assignment data.
+
+- `functions/index.js`
+  - Firebase trigger runtime.
+  - `sendStaffLineOnBooking` listens to `/bookings/{code}` writes and calls `staff-notification-center.js`.
+  - It sends only missing recipients by checking `/staff_line_sent/{code}` so later assignment updates can notify drivers without resending admin duplicates.
+
+- `/data/notificationCenter/staffLineTargets`
+  - Central Firebase config for LINE recipients.
+  - Drivers must be mapped by car ID at `driversByVehicleId/{carId}`. Example: `car3 -> LINE userId of car3 driver`.
+
+Website pages are replaceable. A new booking page only needs to write the booking contract to `/bookings/{code}` with the stable fields documented below. It must not decide staff LINE recipients itself.
+
 ## Firebase Config
 
 Staff LINE recipients are read from:
