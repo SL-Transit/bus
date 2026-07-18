@@ -98,4 +98,36 @@ const disabledAlerts = staff.bookingCreatedStaffAlerts({
 });
 assert.deepStrictEqual(disabledAlerts, []);
 
-console.log("staff notification center ok");
+(async () => {
+  const reads = [];
+  const readConfig = await staff.readStaffLineTargetsConfig({
+    ref(path) {
+      reads.push(path);
+      return {
+        async get() {
+          return {
+            val() {
+              return {
+                admins: {
+                  main: { staffId: "admin_1", lineUserId: "U-admin" }
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+  });
+  assert.deepStrictEqual(reads, ["data/notificationCenter/staffLineTargets"]);
+  assert.strictEqual(readConfig.admins.main.lineUserId, "U-admin");
+
+  await assert.rejects(
+    () => staff.readStaffLineTargetsConfig(null),
+    /staff_line_targets_database_required/
+  );
+
+  console.log("staff notification center ok");
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -112,6 +112,15 @@ function normalizeStaffLineTargetsConfig(raw) {
   };
 }
 
+async function readStaffLineTargetsConfig(database) {
+  if (!database || typeof database.ref !== "function") {
+    throw new Error("staff_line_targets_database_required");
+  }
+  const snapshot = await database.ref(STAFF_LINE_TARGETS_PATH).get();
+  const raw = snapshot && typeof snapshot.val === "function" ? snapshot.val() : null;
+  return normalizeStaffLineTargetsConfig(raw || {});
+}
+
 function addTarget(alerts, seen, role, target, booking, reason) {
   if (!isActiveTarget(target)) return;
   const lineTo = staffLineTo(target);
@@ -206,6 +215,7 @@ module.exports = {
   STAFF_LINE_TARGETS_PATH,
   STAFF_LINE_TARGETS_SCHEMA_VERSION,
   normalizeStaffLineTargetsConfig,
+  readStaffLineTargetsConfig,
   bookingCreatedStaffAlerts,
   staffBookingMessage,
   bookingVehicleId,
