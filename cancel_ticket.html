@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ยกเลิกตั๋ว – S.L.Transit</title>
+  <meta http-equiv="refresh" content="0; url=check_ticket.html?action=cancel">
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search || '');
+      params.set('action', 'cancel');
+      var query = params.toString();
+      window.location.replace('check_ticket.html' + (query ? '?' + query : '') + (window.location.hash || ''));
+    })();
+  </script>
+</head>
+<body>
+  <p>กำลังเปิดหน้ายกเลิกตั๋ว...</p>
+  <p><a href="check_ticket.html?action=cancel">เปิดหน้ายกเลิกตั๋ว</a></p>
+</body>
+</html>

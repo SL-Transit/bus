@@ -1169,9 +1169,9 @@ body {
       <h3 class="main-menu-title">การเดินทาง</h3>
       <a class="main-menu-link" href="index.html">หน้าหลัก</a>
       <a class="main-menu-link" href="booking1.html">เลือกเที่ยวและจองตั๋ว</a>
-      <a class="main-menu-link" href="check_ticket.html">ตรวจสอบตั๋ว / เช็กตั๋วของฉัน</a>
+      <a class="main-menu-link" href="track_trip.html">ติดตามรถของฉัน</a>
       <a class="main-menu-link" href="passenger.html">ติดตามรถ</a>
-      <a class="main-menu-link" href="check_ticket.html?action=cancel">ยกเลิกตั๋ว</a>
+      <a class="main-menu-link" href="cancel_ticket.html">ยกเลิกตั๋ว</a>
     </section>
     <section class="main-menu-section">
       <h3 class="main-menu-title">ข้อมูลบริการ</h3>
@@ -1367,7 +1367,7 @@ body {
         <div class="benefit-row">
           <div class="benefit-item">
             <img class="icon-img" src="assets/215.png" alt="ตรวจตั๋ว" style="width:30px;height:30px;">
-            <div class="benefit-label">ตรวจสอบตั๋วได้ทันที</div>
+            <div class="benefit-label">ติดตามรถได้ทันที</div>
           </div>
           <div class="benefit-item">
             <img class="icon-img" src="assets/216.png" alt="ติดตามรถ" style="width:30px;height:30px;">
@@ -2490,7 +2490,7 @@ function renderTrips() {
 
 /* ---------- QR CODE HELPERS ---------- */
 function getTicketQrText(code) {
-  return 'https://sl-transit.com/check_ticket.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
+  return 'https://sl-transit.com/track_trip.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
 }
 
 function renderQr(targetId, text, size) {
