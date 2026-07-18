@@ -1,10 +1,12 @@
 const admin = require("firebase-admin");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
 admin.initializeApp();
 
 const driverTicketCenter = require("./driver-ticket-center.js");
+const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 
@@ -194,4 +196,41 @@ exports.syncDriverTicketOnBookingWrite = onValueWritten({
   const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, before, after);
   if (!Object.keys(updates).length) return;
   await admin.database().ref().update(updates);
+});
+
+exports.refreshDailyDriverWork = onSchedule({
+  schedule: "every 5 minutes",
+  timeZone: "Asia/Bangkok",
+  region: "asia-southeast1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 1
+}, async () => {
+  const now = new Date();
+  const serviceDate = driverWorkAutoCenter.bangkokServiceDate(now);
+  const currentTime = driverWorkAutoCenter.bangkokTime(now);
+  const db = admin.database();
+  const [
+    erpSnap,
+    dailyAssignmentsSnap,
+    manualOverridesSnap,
+    configSnap
+  ] = await Promise.all([
+    db.ref("data/erpDataCenter").get(),
+    db.ref(`operations/driverDailyAssignments/${serviceDate}`).get(),
+    db.ref(`operations/driverManualOverrides/${serviceDate}`).get(),
+    db.ref("operations/driverWorkGenerationConfig").get()
+  ]);
+
+  const plan = driverWorkAutoCenter.buildUpdates({
+    erpDataCenter: erpSnap.val() || {},
+    serviceDate,
+    currentTime,
+    dailyAssignments: dailyAssignmentsSnap.val() || {},
+    manualOverrides: manualOverridesSnap.val() || {},
+    rotationConfig: (configSnap.val() || {}).rotation,
+    generatedAt: admin.database.ServerValue.TIMESTAMP
+  });
+
+  await db.ref().update(plan.updates);
 });
