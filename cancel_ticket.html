@@ -1,21 +1,520 @@
 <!doctype html>
 <html lang="th">
 <head>
+  <script src="site-runtime.js?v=20260621a" data-sl-runtime></script>
+  <link rel="manifest" href="manifest.webmanifest?v=20260621a">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/app-icon-192.png?v=20260621a">
+  <link rel="apple-touch-icon" sizes="192x192" href="assets/app-icon-192.png?v=20260621a">
+  <meta name="theme-color" content="#0b1d3a">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ยกเลิกตั๋ว – S.L.Transit</title>
-  <meta http-equiv="refresh" content="0; url=check_ticket.html?action=cancel">
-  <script>
-    (function() {
-      var params = new URLSearchParams(window.location.search || '');
-      params.set('action', 'cancel');
-      var query = params.toString();
-      window.location.replace('check_ticket.html' + (query ? '?' + query : '') + (window.location.hash || ''));
-    })();
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script defer src="site-analytics.js?v=20260624a"></script>
+  <style>
+    :root {
+      --navy: #0B1D3A;
+      --teal: #00A7B5;
+      --red: #dc2626;
+      --gray-text: #64748b;
+      --gray-border: #dbe5ef;
+      --gray-light: #eef2f7;
+      --dark-text: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Kanit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4ff;
+      color: var(--dark-text);
+    }
+    .hero {
+      min-height: 220px;
+      background:
+        linear-gradient(90deg, rgba(11,29,58,.98), rgba(11,29,58,.85)),
+        radial-gradient(circle at 82% 40%, rgba(0,167,181,.48), transparent 34%);
+      color: #fff;
+      padding: 18px 28px 72px;
+    }
+    .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 720px;
+      margin: 0 auto 26px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: .5px; }
+    .brand img { width: 58px; height: 58px; object-fit: contain; }
+    .brand small { display: block; font-size: 12px; font-weight: 500; opacity: .82; letter-spacing: 0; }
+    .menu { font-size: 32px; line-height: 1; color: #fff; text-decoration: none; }
+    .hero-copy { max-width: 720px; margin: 0 auto; }
+    .hero-copy h1 { margin: 0 0 6px; font-size: clamp(34px, 9vw, 54px); line-height: 1.05; }
+    .hero-copy p { margin: 0; font-size: 18px; color: rgba(255,255,255,.82); }
+    .content { max-width: 720px; margin: -44px auto 0; padding: 0 28px 28px; }
+    .lookup-card, .ticket-card, .action-list { max-width: 680px; margin-left: auto; margin-right: auto; }
+    .lookup-card, .ticket-card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .lookup-card { padding: 18px; }
+    label { display: block; margin-bottom: 8px; color: var(--navy); font-weight: 800; }
+    .lookup-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    input {
+      width: 100%;
+      border: 1.5px solid var(--gray-border);
+      border-radius: 14px;
+      padding: 13px 14px;
+      font: inherit;
+      font-size: 16px;
+      outline: none;
+    }
+    button, .action-btn {
+      font: inherit;
+      border: 0;
+      cursor: pointer;
+    }
+    .lookup-btn {
+      border-radius: 14px;
+      padding: 0 18px;
+      background: var(--navy);
+      color: #fff;
+      font-weight: 800;
+    }
+    .status {
+      margin-top: 12px;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 14px;
+      line-height: 1.55;
+      background: #eff6ff;
+      color: #1e3a8a;
+    }
+    .status.bad { background: #fef2f2; color: #991b1b; }
+    .status.good { background: #f0fdf4; color: #166534; }
+    .hidden { display: none !important; }
+    .ticket-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1.5px dashed var(--gray-light);
+    }
+    .paid-badge {
+      background: #1ab26a;
+      color: #fff;
+      border-radius: 20px;
+      padding: 7px 14px;
+      font-size: 14px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+    .paid-badge.cancelled { background: #ef4444; }
+    .booking-code { font-size: 14px; color: var(--gray-text); }
+    .booking-code strong { color: var(--navy); font-size: 19px; font-weight: 900; letter-spacing: .5px; }
+    .dash {
+      display: flex;
+      align-items: center;
+      background: #fff;
+    }
+    .dash:before, .dash:after {
+      content: "";
+      width: 18px;
+      height: 18px;
+      background: #f0f4ff;
+      border: 2px solid #dde3f0;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+    .dash:before { margin-left: -9px; }
+    .dash:after { margin-right: -9px; }
+    .dash span { flex: 1; border-top: 2px dashed #dde3f0; margin: 0 8px; }
+    .ticket-body { padding: 14px 16px 18px; }
+    .info-row {
+      display: grid;
+      grid-template-columns: 42px minmax(120px, .9fr) 1.3fr;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gray-light);
+    }
+    .info-row:last-child { border-bottom: 0; }
+    .icon-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #05739b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+    }
+    .info-label { color: var(--gray-text); font-size: 15px; }
+    .info-val { color: var(--navy); font-weight: 800; font-size: 16px; text-align: right; }
+    .cancel-box {
+      margin-top: 14px;
+      padding: 13px;
+      border-radius: 14px;
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .action-list { display: flex; flex-direction: column; gap: 10px; }
+    .action-btn {
+      width: 100%;
+      min-height: 58px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--dark-text);
+      font-weight: 800;
+    }
+    .action-btn[disabled] { opacity: .55; cursor: not-allowed; }
+    .icon-circle-lg {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex: 0 0 auto;
+    }
+    .red { background: #ef4444; }
+    .navy { background: #05739b; }
+    .ab-label { flex: 1; text-align: left; }
+    .ab-arrow { color: #0f5d80; font-size: 30px; line-height: 1; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(15,23,42,.62);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+    }
+    .modal-card {
+      width: min(100%, 420px);
+      background: #fff;
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.28);
+      text-align: center;
+    }
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+    .modal-actions button {
+      border-radius: 13px;
+      padding: 13px;
+      font-weight: 800;
+    }
+    .btn-light { background: #eef2f7; color: var(--navy); }
+    .btn-red { background: var(--red); color: #fff; }
+    @media (max-width: 560px) {
+      .hero { padding: 16px 26px 72px; }
+      .content { padding: 0 28px 24px; }
+      .lookup-row { grid-template-columns: 1fr; }
+      .lookup-btn { min-height: 48px; }
+      .info-row { grid-template-columns: 38px 1fr; }
+      .info-label { grid-column: 2; }
+      .info-val { grid-column: 2; text-align: left; margin-top: -5px; }
+    }
+  </style>
 </head>
 <body>
-  <p>กำลังเปิดหน้ายกเลิกตั๋ว...</p>
-  <p><a href="check_ticket.html?action=cancel">เปิดหน้ายกเลิกตั๋ว</a></p>
+  <header class="hero">
+    <div class="hero-top">
+      <div class="brand">
+        <img src="assets/app-icon-192.png" alt="S.L.Transit">
+        <div>S.L.TRANSIT<small>เดินทางมั่นใจ ไปได้ไกลกว่า</small></div>
+      </div>
+      <a class="menu" href="index.html" aria-label="กลับหน้าหลัก">☰</a>
+    </div>
+    <div class="hero-copy">
+      <h1>ยกเลิกตั๋ว</h1>
+      <p>ตรวจสอบข้อมูลการจองก่อนยืนยันการยกเลิก</p>
+    </div>
+  </header>
+
+  <main class="content">
+    <section id="lookupCard" class="lookup-card">
+      <form onsubmit="lookupTicket(event)">
+        <label for="lookupValue">กรอกรหัสตั๋วหรือเบอร์โทร</label>
+        <div class="lookup-row">
+          <input id="lookupValue" autocomplete="off" inputmode="text" placeholder="เช่น BK179633 หรือ 0812345678">
+          <button id="lookupButton" class="lookup-btn" type="submit">ค้นหา</button>
+        </div>
+      </form>
+      <div id="lookupStatus" class="status hidden"></div>
+    </section>
+
+    <section id="ticketCard" class="ticket-card hidden">
+      <div class="ticket-header-row">
+        <div id="ticketStatusBadge" class="paid-badge">✓ ชำระแล้ว</div>
+        <div class="booking-code">รหัสการจอง: <strong id="bookingCode">-</strong></div>
+      </div>
+      <div class="dash"><span></span></div>
+      <div class="ticket-body">
+        <div class="info-row"><div class="icon-circle">👤</div><div class="info-label">ชื่อผู้โดยสาร:</div><div id="passengerName" class="info-val">-</div></div>
+        <div class="info-row"><div class="icon-circle">☎</div><div class="info-label">เบอร์โทร:</div><div id="phone" class="info-val">-</div></div>
+        <div class="info-row"><div class="icon-circle">⌘</div><div class="info-label">เส้นทาง:</div><div id="route" class="info-val">-</div></div>
+        <div class="info-row"><div class="icon-circle">🚌</div><div class="info-label">ขึ้นรถที่:</div><div id="origin" class="info-val">-</div></div>
+        <div class="info-row"><div class="icon-circle">🚌</div><div class="info-label">เที่ยวรถ:</div><div id="tripTime" class="info-val">-</div></div>
+        <div class="info-row"><div class="icon-circle">▣</div><div class="info-label">วันที่เดินทาง:</div><div id="travelDate" class="info-val">-</div></div>
+        <div class="info-row"><div class="icon-circle">👥</div><div class="info-label">จำนวนผู้โดยสาร:</div><div id="seats" class="info-val">-</div></div>
+        <div class="cancel-box" id="cancelNotice">การยกเลิกจะมีผลทันที กรุณาตรวจสอบข้อมูลตั๋วให้ถูกต้องก่อนกดยืนยัน</div>
+      </div>
+    </section>
+
+    <section id="actions" class="action-list hidden">
+      <button id="cancelButton" class="action-btn" type="button" onclick="openCancelConfirm()">
+        <span class="icon-circle-lg red">×</span>
+        <span class="ab-label">ยกเลิกตั๋ว</span>
+        <span class="ab-arrow">›</span>
+      </button>
+      <a class="action-btn" href="index.html">
+        <span class="icon-circle-lg navy">⌂</span>
+        <span class="ab-label">กลับหน้าหลัก</span>
+        <span class="ab-arrow">›</span>
+      </a>
+    </section>
+  </main>
+
+  <div id="confirmModal" class="modal hidden">
+    <div class="modal-card">
+      <div style="font-size:44px;margin-bottom:6px;">⚠️</div>
+      <h2 style="margin:0 0 8px;color:var(--navy);">ยืนยันยกเลิกตั๋ว?</h2>
+      <p style="margin:0;color:var(--gray-text);line-height:1.7;">เมื่อตกลงแล้ว สถานะตั๋วจะถูกเปลี่ยนเป็นยกเลิกทันที</p>
+      <div class="modal-actions">
+        <button class="btn-light" type="button" onclick="closeCancelConfirm()">กลับ</button>
+        <button id="confirmCancelButton" class="btn-red" type="button" onclick="confirmCancel()">ยืนยันยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyCkIm74ysuQ9Y2tFP9VkrGNvGg0a_LqeGg",
+      authDomain: "sl-transit-9464e.firebaseapp.com",
+      databaseURL: "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "sl-transit-9464e",
+      storageBucket: "sl-transit-9464e.firebasestorage.app",
+      messagingSenderId: "480076551107",
+      appId: "1:480076551107:android:f5929194925bc19fbfe376"
+    });
+
+    var db = firebase.database();
+    var currentBooking = null;
+    var currentBookingPath = '';
+    var authReady = firebase.auth().signInAnonymously().catch(function(err) {
+      console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
+      return null;
+    });
+
+    function normalizeLookup(value) {
+      return String(value || '').trim();
+    }
+
+    function bookingPathForCode(code, booking) {
+      return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
+    }
+
+    function setText(id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = value || '-';
+    }
+
+    function show(id, yes) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('hidden', !yes);
+    }
+
+    function setStatus(type, text) {
+      var el = document.getElementById('lookupStatus');
+      el.className = 'status ' + (type || '');
+      el.textContent = text;
+      el.classList.remove('hidden');
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+      var d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function statusLabel(status) {
+      if (status === 'cancelled') return 'ยกเลิกแล้ว';
+      if (status === 'checked_in') return 'เช็คอินแล้ว';
+      return 'ชำระแล้ว';
+    }
+
+    function isCancelled(booking) {
+      return !!(booking && booking.status === 'cancelled');
+    }
+
+    function departureDate(booking) {
+      if (!booking || !booking.date || !booking.time) return null;
+      var d = new Date(booking.date + 'T' + String(booking.time).slice(0, 5) + ':00');
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function canCancel(booking) {
+      if (!booking || isCancelled(booking)) return false;
+      var dep = departureDate(booking);
+      if (!dep) return false;
+      return dep.getTime() - Date.now() >= 60 * 60000;
+    }
+
+    function normalizeBooking(booking, code) {
+      booking = booking || {};
+      booking.code = booking.code || code;
+      booking.status = booking.status || 'confirmed';
+      booking.seats = Number(booking.seats || booking.pax || 1);
+      return booking;
+    }
+
+    function findLatestBookingByPhone(phone) {
+      return db.ref('bookings').orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
+        if (!snap.exists()) return null;
+        var matches = [];
+        snap.forEach(function(child) {
+          var booking = child.val() || {};
+          if (String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
+            matches.push({ code: child.key, booking: booking });
+          }
+        });
+        matches.sort(function(a, b) {
+          return Number(b.booking.createdAt || b.booking.ts || 0) - Number(a.booking.createdAt || a.booking.ts || 0);
+        });
+        return matches[0] || null;
+      });
+    }
+
+    function renderBooking(booking) {
+      var status = statusLabel(booking.status);
+      setText('bookingCode', booking.code);
+      setText('passengerName', booking.name || booking.passengerName);
+      setText('phone', booking.phone);
+      setText('route', booking.route || [booking.origin || booking.pickupStopName, booking.destination].filter(Boolean).join(' - '));
+      setText('origin', booking.origin || booking.pickupStopName || booking.from);
+      setText('tripTime', booking.time ? booking.time + ' น.' : booking.departTime);
+      setText('travelDate', formatDate(booking.date || booking.serviceDate));
+      setText('seats', (booking.seats || 1) + ' คน');
+      document.getElementById('ticketStatusBadge').textContent = status === 'ยกเลิกแล้ว' ? '× ยกเลิกแล้ว' : '✓ ' + status;
+      document.getElementById('ticketStatusBadge').classList.toggle('cancelled', isCancelled(booking));
+      var cancelButton = document.getElementById('cancelButton');
+      var notice = document.getElementById('cancelNotice');
+      if (isCancelled(booking)) {
+        cancelButton.disabled = true;
+        notice.textContent = 'ตั๋วนี้ถูกยกเลิกแล้ว';
+      } else if (canCancel(booking)) {
+        cancelButton.disabled = false;
+        notice.textContent = 'ยังสามารถยกเลิกได้ กรุณาตรวจสอบข้อมูลการจองก่อนกดยกเลิก';
+      } else {
+        cancelButton.disabled = true;
+        notice.textContent = 'ตั๋วนี้ยกเลิกไม่ได้แล้ว เพราะเหลือเวลาก่อนรถออกน้อยกว่า 1 ชั่วโมง หรือข้อมูลเวลาไม่ครบ';
+      }
+      show('ticketCard', true);
+      show('actions', true);
+    }
+
+    function lookupTicket(event) {
+      if (event) event.preventDefault();
+      var input = document.getElementById('lookupValue');
+      var value = normalizeLookup(input && input.value);
+      if (!value) {
+        setStatus('bad', 'กรุณากรอกรหัสตั๋วหรือเบอร์โทร');
+        return;
+      }
+      setStatus('', 'กำลังค้นหาข้อมูลการจอง...');
+      show('ticketCard', false);
+      show('actions', false);
+      authReady.then(function() {
+        if (/^(BK\d{6,10}|TB\d{6})$/i.test(value)) {
+          var code = value.toUpperCase();
+          return db.ref(bookingPathForCode(code) + code).once('value').then(function(snap) {
+            return snap.exists() ? { code: code, booking: snap.val() } : null;
+          });
+        }
+        if (/^0[689]\d{8}$/.test(value)) return findLatestBookingByPhone(value);
+        return null;
+      }).then(function(found) {
+        if (!found) {
+          currentBooking = null;
+          currentBookingPath = '';
+          setStatus('bad', 'ไม่พบข้อมูลการจอง');
+          return;
+        }
+        currentBooking = normalizeBooking(found.booking, found.code);
+        currentBookingPath = bookingPathForCode(found.code, currentBooking) + found.code;
+        setStatus('good', 'พบข้อมูลการจองแล้ว กรุณาตรวจสอบก่อนยกเลิก');
+        renderBooking(currentBooking);
+      }).catch(function(err) {
+        console.error(err);
+        setStatus('bad', 'ไม่สามารถดึงข้อมูลตั๋วได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+      });
+    }
+
+    function openCancelConfirm() {
+      if (!currentBooking || !canCancel(currentBooking)) return;
+      show('confirmModal', true);
+    }
+
+    function closeCancelConfirm() {
+      show('confirmModal', false);
+    }
+
+    function confirmCancel() {
+      if (!currentBooking || !currentBookingPath || !canCancel(currentBooking)) return;
+      var button = document.getElementById('confirmCancelButton');
+      button.disabled = true;
+      button.textContent = 'กำลังยกเลิก...';
+      db.ref(currentBookingPath).update({
+        status: 'cancelled',
+        cancelledAt: firebase.database.ServerValue.TIMESTAMP,
+        officialStatus: 'ตั๋วของคุณถูกยกเลิกแล้ว'
+      }).then(function() {
+        currentBooking.status = 'cancelled';
+        closeCancelConfirm();
+        setStatus('good', 'ยกเลิกตั๋วสำเร็จ');
+        renderBooking(currentBooking);
+      }).catch(function(err) {
+        console.error(err);
+        setStatus('bad', 'ยกเลิกตั๋วไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      }).finally(function() {
+        button.disabled = false;
+        button.textContent = 'ยืนยันยกเลิก';
+      });
+    }
+
+    (function() {
+      var params = new URLSearchParams(window.location.search || '');
+      var initial = normalizeLookup(params.get('code') || params.get('phone'));
+      if (initial) {
+        document.getElementById('lookupValue').value = initial;
+        lookupTicket();
+      }
+    })();
+  </script>
 </body>
 </html>

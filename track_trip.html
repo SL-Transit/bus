@@ -7,9 +7,11 @@
   <meta http-equiv="refresh" content="0; url=check_ticket.html">
   <script>
     (function() {
-      var query = window.location.search || '';
+      var params = new URLSearchParams(window.location.search || '');
+      params.set('entry', 'track');
+      var query = params.toString();
       var hash = window.location.hash || '';
-      window.location.replace('check_ticket.html' + query + hash);
+      window.location.replace('check_ticket.html' + (query ? '?' + query : '') + hash);
     })();
   </script>
 </head>

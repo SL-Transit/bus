@@ -585,6 +585,7 @@
       <button id="btnCancel" type="button" onclick="openCancelConfirm()" style="margin-top:12px;width:100%;padding:14px;background:#dc2626;color:#fff;border:none;border-radius:13px;font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
         🚫 ยกเลิกตั๋ว (ขั้นตอนที่ 1/2)
       </button>
+      <a class="btn btn-dark" href="index.html" style="margin-top:12px;display:flex;align-items:center;justify-content:center;text-decoration:none">กลับหน้าหลัก</a>
     </section>
 </main>
 
@@ -668,6 +669,7 @@
 
     var currentBooking = null;
     var currentCode = null;
+    var PAGE_ENTRY_MODE = 'track';
     var TICKET_DATA_CENTER = { pair: null, pairKey: '', firebaseKeyEncoding: {}, ticket: null };
     var TICKET_CATALOG_VERSION_APPLIED = '';
     var TICKET_CATALOG_RAW = null;
@@ -1325,7 +1327,7 @@
         showCancelledDonePopup();
         return;
       }
-      show('ticketPanel', true); show('checkinPanel', true); show('cancelPanel', true);
+      show('ticketPanel', true); show('checkinPanel', true); show('cancelPanel', PAGE_ENTRY_MODE === 'cancel');
       document.getElementById('showCode').textContent = currentBooking.code;
       document.getElementById('showStatus').textContent = statusLabel(currentBooking.status);
       document.getElementById('showName').textContent = displayPassengerName(currentBooking.name);
@@ -1360,6 +1362,21 @@
 
       updateCancelAvailability();
       updateActionAvailability();
+      if (PAGE_ENTRY_MODE === 'cancel') {
+        show('lookupPanel', false);
+        show('ticketPanel', true);
+        show('checkinPanel', false);
+        show('flexPanel', false);
+        show('cancelPanel', true);
+        show('trackingPage', false);
+        show('trackingBottomSheet', false);
+        show('cancelTicketButton', false);
+        show('trackingLocateButton', false);
+        showTopbar(true);
+        setTrackingActive(false);
+        stopTrackingSubscription();
+        return;
+      }
       updateFlexiblePanel();
       renderTrackingLayout();
     }
@@ -1532,7 +1549,7 @@
       show('cancelPanel', false);
       show('trackingPage', true);
       show('trackingBottomSheet', true);
-      show('cancelTicketButton', true);
+      show('cancelTicketButton', PAGE_ENTRY_MODE === 'cancel');
       show('trackingLocateButton', true);
       showTopbar(false);
       setTrackingActive(true);
@@ -4064,6 +4081,7 @@
       if (e.key === 'Enter') lookupTicket();
     });
     var params = new URLSearchParams(location.search);
+    PAGE_ENTRY_MODE = params.get('action') === 'cancel' || params.get('entry') === 'cancel' ? 'cancel' : 'track';
     var urlInitial = params.get('code') || params.get('phone');
     if (!urlInitial && !shouldRestoreRememberedTicket()) clearRememberedTicket();
     var initial = urlInitial || (shouldRestoreRememberedTicket() ? getRememberedTicket() : '');
