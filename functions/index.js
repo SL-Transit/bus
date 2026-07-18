@@ -276,8 +276,33 @@ exports.syncDriverTicketOnBookingWrite = onValueWritten({
 }, async (event) => {
   const code = event.params.code || "";
   const before = event.data.before.exists() ? (event.data.before.val() || {}) : null;
-  const after = event.data.after.exists() ? (event.data.after.val() || {}) : null;
+  const rawAfter = event.data.after.exists() ? (event.data.after.val() || {}) : null;
+  let after = rawAfter;
+  if (rawAfter && !driverTicketCenter.plannedVehicleId(rawAfter)) {
+    const serviceDate = driverTicketCenter.serviceDate(rawAfter);
+    if (serviceDate) {
+      const workSnap = await admin.database()
+        .ref(`operations/driverWorkByServiceDate/${serviceDate}`)
+        .get();
+      after = driverTicketCenter.enrichBookingFromDriverWork(rawAfter, workSnap.val() || {});
+    }
+  }
   const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, before, after);
+  if (rawAfter && after !== rawAfter && driverTicketCenter.plannedVehicleId(after)) {
+    updates[`bookings/${code}/assignment`] = after.assignment;
+    updates[`bookings/${code}/assignmentSource`] = after.assignmentSource;
+    updates[`bookings/${code}/plannedVehicleId`] = after.plannedVehicleId;
+    updates[`bookings/${code}/vehicleId`] = after.vehicleId;
+    updates[`bookings/${code}/queueNo`] = after.queueNo;
+    updates[`bookings/${code}/routeId`] = after.routeId || "";
+    updates[`bookings/${code}/tripId`] = after.tripId || "";
+    updates[`bookings/${code}/catalogRouteId`] = after.catalogRouteId || "";
+    updates[`bookings/${code}/catalogTripId`] = after.catalogTripId || "";
+    updates[`bookings/${code}/scheduleOnly`] = false;
+    updates[`bookings/${code}/noLiveTracking`] = false;
+    updates[`bookings/${code}/driverTicketSyncStatus`] = "assigned_from_driver_work";
+    updates[`bookings/${code}/driverTicketSyncedAt`] = admin.database.ServerValue.TIMESTAMP;
+  }
   if (!Object.keys(updates).length) return;
   await admin.database().ref().update(updates);
 });

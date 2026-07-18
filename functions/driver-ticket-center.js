@@ -4,6 +4,18 @@ function clean(value) {
   return String(value == null ? "" : value).trim();
 }
 
+function normalizeLabel(value) {
+  return clean(value)
+    .replace(/\s+/g, "")
+    .replace(/\(แปดริ้ว\)/g, "")
+    .replace(/แปดริ้ว/g, "ฉะเชิงเทรา")
+    .replace(/[()]/g, "");
+}
+
+function timeText(value) {
+  return clean(value).slice(0, 5);
+}
+
 function assignmentSource(booking) {
   const assignment = booking && booking.assignment || {};
   return assignment.contractVersion === "booking_assignment_v1" ? assignment : booking || {};
@@ -74,11 +86,97 @@ function buildDriverTicketMirrorUpdate(code, before, after) {
   return updates;
 }
 
+function stopMatches(stop, label) {
+  const expected = normalizeLabel(label);
+  if (!expected) return false;
+  const actual = normalizeLabel(stop && (stop.stopNameTh || stop.stopName || stop.label || stop.stopKey));
+  if (!actual) return false;
+  return actual === expected || actual.includes(expected) || expected.includes(actual);
+}
+
+function findTripMatch(workByVehicle, booking) {
+  const targetTime = timeText(booking && (booking.time || booking.pickupTime || booking.departTime));
+  const origin = clean(booking && (booking.origin || booking.originName || booking.originStopKey));
+  const destination = clean(booking && (booking.destination || booking.destName || booking.destStopKey));
+  if (!workByVehicle || !targetTime || !origin || !destination) return null;
+
+  const vehicleIds = Object.keys(workByVehicle).sort();
+  for (const vehicleId of vehicleIds) {
+    const work = workByVehicle[vehicleId] || {};
+    const trips = Array.isArray(work.allTrips) ? work.allTrips : [];
+    for (const trip of trips) {
+      const stops = Array.isArray(trip.orderedStops) ? trip.orderedStops : [];
+      const originIndex = stops.findIndex((stop) => {
+        return timeText(stop && stop.time) === targetTime && stopMatches(stop, origin);
+      });
+      if (originIndex < 0) continue;
+      const destinationIndex = stops.findIndex((stop, index) => {
+        return index > originIndex && stopMatches(stop, destination);
+      });
+      if (destinationIndex < 0) continue;
+      return { vehicleId, work, trip, originIndex, destinationIndex };
+    }
+  }
+  return null;
+}
+
+function assignmentFromWorkMatch(booking, match) {
+  if (!match) return null;
+  const work = match.work || {};
+  const trip = match.trip || {};
+  const stops = Array.isArray(trip.orderedStops) ? trip.orderedStops : [];
+  const originStop = stops[match.originIndex] || {};
+  return {
+    contractVersion: "booking_assignment_v1",
+    serviceDate: serviceDate(booking),
+    routeId: clean(trip.routeId),
+    tripId: clean(trip.tripNo || trip.queueTripId),
+    queueNo: work.queueNo || "",
+    plannedVehicleId: clean(work.vehicleId || match.vehicleId),
+    driverId: clean(work.driverId),
+    tripIndex: "",
+    departTime: timeText(originStop.time || booking.time || booking.departTime),
+    pickupTime: timeText(originStop.time || booking.pickupTime || booking.time),
+    pickupStopKey: clean(originStop.stopKey),
+    pickupStopName: clean(originStop.stopNameTh || booking.origin),
+    routeDirection: clean(trip.routeDirection),
+    routeStops: stops.map((stop) => clean(stop.stopKey)).filter(Boolean),
+    routeStopNames: stops.map((stop) => clean(stop.stopNameTh)).filter(Boolean),
+    serviceType: "normal",
+    scheduleOnly: false,
+    noLiveTracking: false,
+    assignmentSource: "driver_work_by_service_date"
+  };
+}
+
+function enrichBookingFromDriverWork(booking, workByVehicle) {
+  if (!booking || typeof booking !== "object") return booking;
+  if (plannedVehicleId(booking)) return booking;
+  const match = findTripMatch(workByVehicle, booking);
+  const assignment = assignmentFromWorkMatch(booking, match);
+  if (!assignment) return booking;
+  return Object.assign({}, booking, {
+    assignment,
+    assignmentSource: assignment.assignmentSource,
+    plannedVehicleId: assignment.plannedVehicleId,
+    vehicleId: assignment.plannedVehicleId,
+    queueNo: assignment.queueNo,
+    routeId: assignment.routeId || booking.routeId || "",
+    tripId: assignment.tripId || booking.tripId || "",
+    catalogRouteId: assignment.routeId || booking.catalogRouteId || "",
+    catalogTripId: assignment.tripId || booking.catalogTripId || "",
+    scheduleOnly: false,
+    noLiveTracking: false
+  });
+}
+
 module.exports = {
   plannedVehicleId,
   serviceDate,
   driverTicketPath,
   buildDriverTicket,
   buildDriverTicketMirrorUpdate,
-  shouldPublishDriverTicket
+  shouldPublishDriverTicket,
+  enrichBookingFromDriverWork,
+  findTripMatch
 };
