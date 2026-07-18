@@ -23,9 +23,13 @@ assert(checkTicket.includes('<h1>ติดตามรถของฉัน</h1>
 assert(trackTrip.includes("params.set('entry', 'track')"), 'track_trip.html must force tracking entry mode');
 assert(trackTrip.includes("window.location.replace('check_ticket.html' + (query ? '?' + query : '') + hash)"), 'track_trip.html must preserve tracking query parameters');
 assert(!cancelTicket.includes('http-equiv="refresh"'), 'cancel_ticket.html must be a real cancellation entry page, not only a meta redirect');
-assert(cancelTicket.includes('submitCancelLookup'), 'cancel_ticket.html must expose a cancellation lookup form');
-assert(cancelTicket.includes("params.set('entry', 'cancel')"), 'cancel_ticket.html must force cancellation entry mode');
-assert(cancelTicket.includes("params.set('action', 'cancel')"), 'cancel_ticket.html must force cancel mode');
+assert(cancelTicket.includes('lookupTicket'), 'cancel_ticket.html must expose its own cancellation lookup form');
+assert(!cancelTicket.includes("window.location.replace('check_ticket.html"), 'cancel_ticket.html must not redirect into the tracking page');
+assert(!cancelTicket.includes('mapbox'), 'cancel_ticket.html must not load map dependencies');
+assert(!cancelTicket.includes('trackingMap'), 'cancel_ticket.html must not render a tracking map');
+assert(cancelTicket.includes('id="ticketCard"'), 'cancel_ticket.html must show a ticket-style booking card');
+assert(cancelTicket.includes('id="cancelButton"'), 'cancel_ticket.html must provide a cancellation action');
+assert(cancelTicket.includes('href="index.html"'), 'cancel_ticket.html must provide a home-page return link');
 assert(checkTicket.includes("var PAGE_ENTRY_MODE = 'track'"), 'Check Ticket must default to tracking mode');
 assert(checkTicket.includes("show('cancelPanel', PAGE_ENTRY_MODE === 'cancel')"), 'Tracking mode must not show the cancellation panel');
 assert(checkTicket.includes("show('cancelTicketButton', PAGE_ENTRY_MODE === 'cancel')"), 'Tracking map must not show the cancellation button unless opened from cancellation entry');
