@@ -2,14 +2,14 @@
 
 Status: preview contract, ready for review. Do not treat this as production apply approval.
 
-This contract is a central ERP Alert / Notification Center boundary. It must survive page rebuilds, Booking1 replacement, and future app rewrites. UI pages may submit booking data, but they must not own staff notification policy.
+This contract is a central ERP Notification Center boundary. It must survive page rebuilds, Booking1 replacement, and future app rewrites. UI pages may submit booking data, but they must not own staff notification policy.
 
 ## Ownership
 
 - ERP Data Center owns source and display data such as stops, routes, timetables, fares, queues, vehicles, and `publishedSchedule`.
 - ERP Logic Center decides policy such as whether a booking is eligible, which journey legs exist, and whether a notification is required.
 - ERP Calculator Center computes numbers such as fares, ETA, distance, duration, and wait time.
-- ERP Alert / Notification Center owns notification intent, target resolution, duplicate prevention, and message payload shape.
+- ERP Notification Center owns notification intent, target resolution, duplicate prevention, and message payload shape.
 - UI pages own display and user input only.
 
 ## Stable Files And Bridge Boundary
@@ -22,7 +22,7 @@ These files are the stable backend/center boundary. Future website or UX/UI rebu
   - Output fields such as `assignment.plannedVehicleId`, `queueNo`, `routeId`, and `tripId` are the stable bridge from booking UI to staff notification logic.
 
 - `functions/staff-notification-center.js`
-  - ERP Alert / Notification Center policy.
+  - ERP Notification Center policy.
   - Resolves staff recipients from central config, splits admin/driver/queue/terminal roles, builds role-specific staff message content, and prevents trusting public booking payload LINE IDs.
   - This file decides who should receive staff LINE notification after the booking has enough assignment data.
 
