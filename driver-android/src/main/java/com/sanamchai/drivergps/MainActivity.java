@@ -906,6 +906,13 @@ public class MainActivity extends Activity {
 
     private boolean bookingBelongsToVehicle(DataSnapshot booking, String vehicleId) {
         if (booking == null || vehicleId == null || vehicleId.isEmpty()) return false;
+        DataSnapshot erpTicket = booking.child("erpTicket");
+        if ("erp_ticket_v1".equals(erpTicket.child("contractVersion").getValue(String.class))) {
+            if (Boolean.TRUE.equals(erpTicket.child("assignment").child("scheduleOnly").getValue(Boolean.class))
+                    || Boolean.TRUE.equals(erpTicket.child("assignment").child("noLiveTracking").getValue(Boolean.class))) return false;
+            String plannedVehicleId = erpTicket.child("assignment").child("plannedVehicleId").getValue(String.class);
+            return vehicleId.equals(plannedVehicleId);
+        }
         DataSnapshot assignment = booking.child("assignment");
         String contractVersion = assignment.child("contractVersion").getValue(String.class);
         boolean hasCentralContract = "booking_assignment_v1".equals(contractVersion);
@@ -918,6 +925,10 @@ public class MainActivity extends Activity {
 
     private String plannedVehicleIdForBooking(DataSnapshot booking) {
         if (booking == null) return null;
+        DataSnapshot erpTicket = booking.child("erpTicket");
+        if ("erp_ticket_v1".equals(erpTicket.child("contractVersion").getValue(String.class))) {
+            return erpTicket.child("assignment").child("plannedVehicleId").getValue(String.class);
+        }
         DataSnapshot assignment = booking.child("assignment");
         if ("booking_assignment_v1".equals(assignment.child("contractVersion").getValue(String.class))) {
             return assignment.child("plannedVehicleId").getValue(String.class);

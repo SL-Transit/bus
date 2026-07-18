@@ -392,7 +392,7 @@
       scheduleOnly: true,
       liveTrackingAvailable: false
     };
-    return {
+    var snapshot = {
       bookingCode: params.bookingCode,
       catalogVersion: _preview.schemaVersion || '',
       publishedSchedule: {
@@ -426,6 +426,13 @@
       queueNo: assignment.queueId || '',
       vehicleId: assignment.vehicleId || ''
     };
+    if (global.SLTransitTicketCenter && typeof global.SLTransitTicketCenter.buildTicketContract === 'function') {
+      var ticketPlan = global.SLTransitTicketCenter.buildTicketContract(snapshot);
+      snapshot.erpTicket = ticketPlan.contract;
+      snapshot.erpTicketStatus = ticketPlan.status;
+      snapshot.erpTicketMissing = ticketPlan.missing || [];
+    }
+    return snapshot;
   }
 
   global.SLBookingBridge = {

@@ -512,6 +512,13 @@
         booking.mockPayment      = global.TEST_MODE;
         booking.ticketQrVersion  = 'SLT1';
         booking.ts               = firebase.database.ServerValue.TIMESTAMP;
+        booking.legacyBookingPath = bookingPath + result.code;
+        if (global.SLTransitTicketCenter && typeof global.SLTransitTicketCenter.buildTicketContract === 'function') {
+          var centralTicketPlan = global.SLTransitTicketCenter.buildTicketContract(booking);
+          booking.erpTicket = centralTicketPlan.contract;
+          booking.erpTicketStatus = centralTicketPlan.status;
+          booking.erpTicketMissing = centralTicketPlan.missing || [];
+        }
 
         /* โ”€โ”€ Firebase write โ”€โ”€ */
         return db.ref(bookingPath + result.code).set(booking)

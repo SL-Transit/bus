@@ -24,6 +24,7 @@
 <script src="erp-alert-center.js?v=20260713center1"></script>
 <script src="vehicle-assignment-center.js?v=20260713center1"></script>
 <script src="journey-status-center.js?v=20260713center1"></script>
+<script src="erp-ticket-center.js?v=20260716a"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
@@ -1219,6 +1220,9 @@
       booking.code = booking.code || code;
       booking.status = booking.status || 'confirmed';
       booking.seats = Math.min(Number(booking.seats || 1), MAX_SEATS);
+      if (window.SLTransitTicketCenter && typeof window.SLTransitTicketCenter.requireTicketContract === 'function') {
+        booking.erpTicketReadiness = window.SLTransitTicketCenter.requireTicketContract(booking).status;
+      }
       return booking;
     }
 
@@ -1820,6 +1824,10 @@
 
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking) return null;
+      var erpTicket = window.SLTransitTicketCenter && typeof window.SLTransitTicketCenter.getTicketContract === 'function'
+        ? window.SLTransitTicketCenter.getTicketContract(booking)
+        : null;
+      if (erpTicket && erpTicket.assignment) return erpTicket.assignment;
       if (booking.assignment && booking.assignment.contractVersion === 'booking_assignment_v1') return booking.assignment;
       if (isScheduleOnlyAssignment(booking)) return booking;
       var persistedQueueNo = Number(booking.queueNo || booking.queueNumber || booking.queue || booking.queueIndex || 0);
