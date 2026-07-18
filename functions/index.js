@@ -7,8 +7,10 @@ admin.initializeApp();
 
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
+const staffNotificationCenter = require("./staff-notification-center.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
+const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -61,10 +63,14 @@ function buildBookingMessage(booking) {
 }
 
 async function pushLineMessage(to, text) {
+  return pushLineMessageWithToken(lineToken.value(), to, text);
+}
+
+async function pushLineMessageWithToken(token, to, text) {
   const response = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${lineToken.value()}`,
+      "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -77,6 +83,70 @@ async function pushLineMessage(to, text) {
     throw new Error(`LINE push failed ${response.status}: ${body}`);
   }
   return body;
+}
+
+async function sendStaffLineForBooking(ref, code, booking) {
+  if (booking.testMode === true || booking.mockOnly === true) {
+    await ref.update({
+      staffLineMessagingStatus: "mock_skipped",
+      staffLineMessagingAt: admin.database.ServerValue.TIMESTAMP
+    });
+    return;
+  }
+
+  if (booking.staffLineMessagingStatus === "sent") return;
+
+  const staffConfig = await staffNotificationCenter.readStaffLineTargetsConfig(admin.database());
+  const alerts = staffNotificationCenter.bookingCreatedStaffAlerts({ booking, staffConfig });
+  if (!alerts.length) {
+    await ref.update({
+      staffLineMessagingStatus: "skipped_no_staff_targets",
+      staffLineMessagingAt: admin.database.ServerValue.TIMESTAMP
+    });
+    return;
+  }
+
+  const token = staffLineToken.value();
+  const results = await Promise.allSettled(alerts.map(async (alert) => {
+    const message = staffNotificationCenter.staffBookingMessage(alert, booking);
+    await pushLineMessageWithToken(token, alert.lineTo, message);
+    await admin.database().ref(`staff_line_sent/${code}/${encodeURIComponent(alert.onceKey)}`).set({
+      code,
+      event: alert.event,
+      recipientRole: alert.recipientRole,
+      staffId: alert.staffId || "",
+      scopeId: alert.scopeId || "",
+      sentAt: admin.database.ServerValue.TIMESTAMP,
+      status: "sent"
+    });
+    return alert.onceKey;
+  }));
+
+  const failed = results
+    .map((result, index) => ({ result, alert: alerts[index] }))
+    .filter((item) => item.result.status === "rejected");
+
+  if (failed.length) {
+    const errors = failed.map((item) => ({
+      recipientRole: item.alert.recipientRole,
+      staffId: item.alert.staffId || "",
+      scopeId: item.alert.scopeId || "",
+      error: item.result.reason && item.result.reason.message ? item.result.reason.message : String(item.result.reason)
+    }));
+    console.error("sendStaffLineForBooking failed", { code, errors });
+    await ref.update({
+      staffLineMessagingStatus: "failed",
+      staffLineMessagingAt: admin.database.ServerValue.TIMESTAMP,
+      staffLineMessagingError: JSON.stringify(errors).slice(0, 1200)
+    });
+    return;
+  }
+
+  await ref.update({
+    staffLineMessagingStatus: "sent",
+    staffLineMessagingAt: admin.database.ServerValue.TIMESTAMP,
+    staffLineMessagingCount: alerts.length
+  });
 }
 
 function isTransferSlipBooking(booking) {
@@ -161,6 +231,20 @@ exports.sendLineOnBooking = onValueCreated({
   const booking = event.data.val() || {};
   const code = event.params.code || booking.code || "";
   await sendLineForBooking(event.data.ref, code, booking);
+});
+
+exports.sendStaffLineOnBooking = onValueCreated({
+  ref: "/bookings/{code}",
+  instance: "sl-transit-9464e-default-rtdb",
+  region: "asia-southeast1",
+  secrets: [staffLineToken],
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (event) => {
+  const booking = event.data.val() || {};
+  const code = event.params.code || booking.code || "";
+  await sendStaffLineForBooking(event.data.ref, code, booking);
 });
 
 exports.sendLineOnPaymentVerified = onValueUpdated({
