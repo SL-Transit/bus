@@ -8,12 +8,19 @@ const booking = {
   code: "BK123456",
   name: "Somchai",
   phone: "0812345678",
-  origin: "Kilo 1",
-  destination: "Wang Nam Yen",
+  origin: "Nong Khok",
+  destination: "Pattaya",
   date: "2026-07-18",
   time: "09:00",
   seats: 2,
   price: 240,
+  slipUrl: "https://res.cloudinary.com/sl-transit/slips/BK123456.jpg",
+  legSchedule: {
+    leg1: "Nong Khok - Chachoengsao",
+    leg1Time: "09:00",
+    leg2: "Chachoengsao - Pattaya",
+    leg2Time: "11:30"
+  },
   resolvedAssignment: {
     runtimeVehicleId: "car1",
     queueId: "queue_001"
@@ -78,13 +85,23 @@ assert(!alerts.some((item) => item.lineTo === "U-driver-off"));
 
 const driverAlert = alerts.find((item) => item.recipientRole === "driver");
 const driverMessage = staff.staffBookingMessage(driverAlert, booking);
-assert(driverMessage.includes("Role: driver"));
-assert(driverMessage.includes("Vehicle: car1"));
-assert(!driverMessage.includes("0812345678"), "Driver messages must not expose passenger phone by default");
+assert(driverMessage.includes("รหัส: BK123456"));
+assert(driverMessage.includes("โทร: 0812345678"));
+assert(driverMessage.includes("เส้นทาง: Nong Khok - Chachoengsao"));
+assert(driverMessage.includes("วันที่: 2026-07-18 เวลา 09:00 น."));
+assert(driverMessage.includes("จำนวน: 2 คน  ราคา: 240 บาท"));
+assert(driverMessage.includes("สลิป: https://res.cloudinary.com/sl-transit/slips/BK123456.jpg"));
+assert(driverMessage.includes("รถ: car1"));
+assert(!driverMessage.includes("Chachoengsao - Pattaya"), "Driver messages must use the first leg for transfer bookings");
 
 const adminAlert = alerts.find((item) => item.recipientRole === "admin");
 const adminMessage = staff.staffBookingMessage(adminAlert, booking);
-assert(adminMessage.includes("Phone: 0812345678"), "Admin messages may include passenger contact details");
+assert(adminMessage.includes("โทร: 0812345678"), "Admin messages must include passenger contact details");
+
+const terminalAlert = alerts.find((item) => item.recipientRole === "transfer_terminal");
+const terminalMessage = staff.staffBookingMessage(terminalAlert, booking);
+assert(terminalMessage.includes("เส้นทาง: Chachoengsao - Pattaya"), "Transfer terminal messages must use the transfer leg");
+assert(terminalMessage.includes("วันที่: 2026-07-18 เวลา 11:30 น."));
 
 const noConfigAlerts = staff.bookingCreatedStaffAlerts({ booking, staffConfig: {} });
 assert.deepStrictEqual(noConfigAlerts, []);

@@ -57,6 +57,42 @@ function routeText(booking) {
   return `${origin} -> ${destination}`;
 }
 
+function legSchedule(booking) {
+  booking = booking || {};
+  const schedule = booking.legSchedule || {};
+  return {
+    leg1: clean(schedule.leg1 || booking.leg1Route),
+    leg1Time: clean(schedule.leg1Time || booking.leg1Time || booking.time || booking.pickupTime || booking.departTime),
+    leg2: clean(schedule.leg2 || booking.leg2Route),
+    leg2Time: clean(schedule.leg2Time || booking.leg2Time)
+  };
+}
+
+function routeTextForRole(role, booking) {
+  const legs = legSchedule(booking);
+  if ((role === "driver" || role === "queue") && legs.leg1) return legs.leg1;
+  if (role === "transfer_terminal" && legs.leg2) return legs.leg2;
+  return routeText(booking);
+}
+
+function timeTextForRole(role, booking) {
+  const legs = legSchedule(booking);
+  if ((role === "driver" || role === "queue") && legs.leg1Time) return legs.leg1Time;
+  if (role === "transfer_terminal" && legs.leg2Time) return legs.leg2Time;
+  return clean(booking && (booking.time || booking.pickupTime || booking.departTime));
+}
+
+function slipText(booking) {
+  booking = booking || {};
+  return clean(
+    booking.slip ||
+    booking.slipUrl ||
+    booking.slipImageUrl ||
+    booking.paymentSlipUrl ||
+    booking.cloudinarySlipUrl
+  ) || "-";
+}
+
 function staffLineTo(target) {
   target = target || {};
   return clean(target.lineUserId || target.lineGroupId || target.lineRoomId || target.lineTo);
@@ -136,6 +172,8 @@ function addTarget(alerts, seen, role, target, booking, reason) {
     staffId: clean(target.staffId || target.id),
     scopeId: clean(reason),
     bookingCode: code,
+    routeText: routeTextForRole(role, booking),
+    tripTime: timeTextForRole(role, booking),
     onceKey
   });
 }
@@ -180,32 +218,25 @@ function bookingCreatedStaffAlerts(input) {
 function staffBookingMessage(alert, booking) {
   alert = alert || {};
   booking = booking || {};
+  const roleRoute = clean(alert.routeText) || routeTextForRole(alert.recipientRole, booking);
+  const roleTime = clean(alert.tripTime) || timeTextForRole(alert.recipientRole, booking) || "-";
   const lines = [
-    "SL Transit Staff",
-    "Event: booking_created",
-    `Role: ${alert.recipientRole || "-"}`,
-    `Booking: ${bookingCode(booking) || "-"}`,
-    `Route: ${routeText(booking)}`,
-    `Date/Time: ${clean(booking.date) || "-"} ${clean(booking.time) || "-"}`,
-    `Seats: ${booking.seats || 1}`,
-    `Fare: ${money(booking.price)} THB`
+    `รหัส: ${bookingCode(booking) || "-"}`,
+    `👤 ชื่อ: ${clean(booking.name) || "-"}   โทร: ${clean(booking.phone) || "-"}`,
+    `🛣️ เส้นทาง: ${roleRoute || "-"}`,
+    `🗓 วันที่: ${clean(booking.date) || "-"} เวลา ${roleTime} น.`,
+    `🚌 จำนวน: ${booking.seats || booking.pax || 1} คน  ราคา: ${money(booking.price || booking.fareAmount || booking.fare)} บาท`,
+    `🖼 สลิป: ${slipText(booking)}`
   ];
 
-  if (alert.recipientRole === "admin") {
-    lines.push(`Passenger: ${clean(booking.name) || "-"}`);
-    lines.push(`Phone: ${clean(booking.phone) || "-"}`);
-  } else {
-    lines.push(`Passenger: ${clean(booking.name) || "-"}`);
-  }
-
   if (alert.recipientRole === "driver" && bookingVehicleId(booking)) {
-    lines.push(`Vehicle: ${bookingVehicleId(booking)}`);
+    lines.push(`รถ: ${bookingVehicleId(booking)}`);
   }
   if (alert.recipientRole === "queue" && bookingQueueId(booking)) {
-    lines.push(`Queue: ${bookingQueueId(booking)}`);
+    lines.push(`คิว: ${bookingQueueId(booking)}`);
   }
   if (alert.recipientRole === "transfer_terminal" && bookingTransferStopKey(booking)) {
-    lines.push(`Transfer stop: ${bookingTransferStopKey(booking)}`);
+    lines.push(`จุดต่อรถ: ${bookingTransferStopKey(booking)}`);
   }
 
   return lines.join("\n");
@@ -220,5 +251,7 @@ module.exports = {
   staffBookingMessage,
   bookingVehicleId,
   bookingQueueId,
-  bookingTransferStopKey
+  bookingTransferStopKey,
+  routeTextForRole,
+  timeTextForRole
 };
