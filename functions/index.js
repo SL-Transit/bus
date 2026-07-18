@@ -94,8 +94,6 @@ async function sendStaffLineForBooking(ref, code, booking) {
     return;
   }
 
-  if (booking.staffLineMessagingStatus === "sent") return;
-
   const staffConfig = await staffNotificationCenter.readStaffLineTargetsConfig(admin.database());
   const alerts = staffNotificationCenter.bookingCreatedStaffAlerts({ booking, staffConfig });
   if (!alerts.length) {
@@ -106,11 +104,17 @@ async function sendStaffLineForBooking(ref, code, booking) {
     return;
   }
 
+  const sentRef = admin.database().ref(`staff_line_sent/${code}`);
+  const sentSnapshot = await sentRef.get();
+  const sentMap = sentSnapshot.exists() ? (sentSnapshot.val() || {}) : {};
+  const pendingAlerts = alerts.filter((alert) => !sentMap[encodeURIComponent(alert.onceKey)]);
+  if (!pendingAlerts.length) return;
+
   const token = staffLineToken.value();
-  const results = await Promise.allSettled(alerts.map(async (alert) => {
+  const results = await Promise.allSettled(pendingAlerts.map(async (alert) => {
     const message = staffNotificationCenter.staffBookingMessage(alert, booking);
     await pushLineMessageWithToken(token, alert.lineTo, message);
-    await admin.database().ref(`staff_line_sent/${code}/${encodeURIComponent(alert.onceKey)}`).set({
+    await sentRef.child(encodeURIComponent(alert.onceKey)).set({
       code,
       event: alert.event,
       recipientRole: alert.recipientRole,
@@ -123,7 +127,7 @@ async function sendStaffLineForBooking(ref, code, booking) {
   }));
 
   const failed = results
-    .map((result, index) => ({ result, alert: alerts[index] }))
+    .map((result, index) => ({ result, alert: pendingAlerts[index] }))
     .filter((item) => item.result.status === "rejected");
 
   if (failed.length) {
@@ -145,7 +149,7 @@ async function sendStaffLineForBooking(ref, code, booking) {
   await ref.update({
     staffLineMessagingStatus: "sent",
     staffLineMessagingAt: admin.database.ServerValue.TIMESTAMP,
-    staffLineMessagingCount: alerts.length
+    staffLineMessagingCount: Object.keys(sentMap).length + pendingAlerts.length
   });
 }
 
@@ -233,7 +237,7 @@ exports.sendLineOnBooking = onValueCreated({
   await sendLineForBooking(event.data.ref, code, booking);
 });
 
-exports.sendStaffLineOnBooking = onValueCreated({
+exports.sendStaffLineOnBooking = onValueWritten({
   ref: "/bookings/{code}",
   instance: "sl-transit-9464e-default-rtdb",
   region: "asia-southeast1",
@@ -242,9 +246,10 @@ exports.sendStaffLineOnBooking = onValueCreated({
   memory: "256MiB",
   maxInstances: 20
 }, async (event) => {
-  const booking = event.data.val() || {};
+  if (!event.data.after.exists()) return;
+  const booking = event.data.after.val() || {};
   const code = event.params.code || booking.code || "";
-  await sendStaffLineForBooking(event.data.ref, code, booking);
+  await sendStaffLineForBooking(event.data.after.ref, code, booking);
 });
 
 exports.sendLineOnPaymentVerified = onValueUpdated({
