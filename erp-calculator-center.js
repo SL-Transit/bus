@@ -91,14 +91,26 @@
     var firstUpcomingIndex = -1;
     trips.forEach(function(trip, index) {
       var depart = minutesOfDay(trip && (trip.pickupTime || trip.time || trip.departureTime || trip.roundTime));
-      if (firstUpcomingIndex === -1 && (cutoff == null || (depart !== null && depart >= cutoff))) {
+      /* connection-reference trips (ERP connectionOptions, e.g. cross-group transfer
+         pairs with no fixed daily schedule) describe a suggested connection pattern,
+         not a literal today-only departure — they must not be excluded by today's
+         clock cutoff or every cross-group pair loses its recommended card once the
+         reference time of day has passed. */
+      var alwaysEligible = !!(trip && trip.referenceOnly === true);
+      if (firstUpcomingIndex === -1 && (cutoff == null || alwaysEligible || (depart !== null && depart >= cutoff))) {
         firstUpcomingIndex = index;
       }
     });
+    /* Safety net: if every trip in this pair looks "past" (e.g. malformed/missing
+       time field on an otherwise valid ERP entry), still surface a recommended trip
+       instead of silently dropping the whole recommended-card UI for that pair. */
+    if (firstUpcomingIndex === -1 && trips.length) {
+      firstUpcomingIndex = 0;
+    }
     return trips.map(function(trip, index) {
       var copy = Object.assign({}, trip);
       var depart = minutesOfDay(copy.pickupTime || copy.time || copy.departureTime || copy.roundTime);
-      var isPast = cutoff != null && depart !== null && depart < cutoff;
+      var isPast = cutoff != null && depart !== null && depart < cutoff && copy.referenceOnly !== true;
       copy.recommendationRank = index;
       copy.recommended = index === firstUpcomingIndex;
       copy.recommendationSource = 'erp_logic_center';

@@ -606,6 +606,12 @@
     }
 
     var recommendedIndex = available.findIndex(function(trip) { return trip && trip.recommended === true; });
+    /* Display-only fallback: ERP Calculator Center should always flag one trip as
+       recommended, but if a pair ever comes back without that flag (e.g. a cross-group
+       transfer pair), still show the first trip as the recommended hero card instead of
+       silently collapsing to the plain compact list. This does not compare/derive times
+       locally — it only picks which already-decided trip object to feature. */
+    if (recommendedIndex < 0 && available.length) recommendedIndex = 0;
     var best = recommendedIndex >= 0 ? available[recommendedIndex] : null;
     if (!best) {
       container.innerHTML = '<div class="all-trips-label">เที่ยวทั้งหมดในวันนี้</div>' + available.map(compactCard).join('');
