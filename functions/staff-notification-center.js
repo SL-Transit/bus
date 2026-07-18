@@ -1,3 +1,6 @@
+const STAFF_LINE_TARGETS_PATH = "data/notificationCenter/staffLineTargets";
+const STAFF_LINE_TARGETS_SCHEMA_VERSION = "staff_line_targets_v1";
+
 function clean(value) {
   return String(value == null ? "" : value).trim();
 }
@@ -63,6 +66,52 @@ function isActiveTarget(target) {
   return target && target.active !== false && staffLineTo(target);
 }
 
+function normalizeTarget(target, fallbackId) {
+  target = target || {};
+  return {
+    staffId: clean(target.staffId || target.id || fallbackId),
+    displayName: clean(target.displayName || target.name),
+    lineUserId: clean(target.lineUserId),
+    lineGroupId: clean(target.lineGroupId),
+    lineRoomId: clean(target.lineRoomId),
+    active: target.active !== false
+  };
+}
+
+function normalizeTargetMap(value) {
+  const result = {};
+  if (!value || typeof value !== "object") return result;
+  Object.keys(value).forEach((key) => {
+    const normalizedKey = clean(key);
+    const targets = list(value[key])
+      .map((target, index) => normalizeTarget(target, `${normalizedKey}_${index + 1}`))
+      .filter((target) => staffLineTo(target));
+    if (normalizedKey && targets.length) result[normalizedKey] = targets;
+  });
+  return result;
+}
+
+function normalizeStaffLineTargetsConfig(raw) {
+  raw = raw || {};
+  const admins = {};
+  if (raw.admins && typeof raw.admins === "object") {
+    Object.keys(raw.admins).forEach((key) => {
+      const normalizedKey = clean(key);
+      const target = normalizeTarget(raw.admins[key], normalizedKey);
+      if (normalizedKey && staffLineTo(target)) admins[normalizedKey] = target;
+    });
+  }
+
+  return {
+    schemaVersion: clean(raw.schemaVersion) || STAFF_LINE_TARGETS_SCHEMA_VERSION,
+    active: raw.active !== false,
+    admins,
+    driversByVehicleId: normalizeTargetMap(raw.driversByVehicleId),
+    queuesByQueueId: normalizeTargetMap(raw.queuesByQueueId),
+    terminalsByStopKey: normalizeTargetMap(raw.terminalsByStopKey)
+  };
+}
+
 function addTarget(alerts, seen, role, target, booking, reason) {
   if (!isActiveTarget(target)) return;
   const lineTo = staffLineTo(target);
@@ -85,9 +134,11 @@ function addTarget(alerts, seen, role, target, booking, reason) {
 function bookingCreatedStaffAlerts(input) {
   input = input || {};
   const booking = input.booking || {};
-  const config = input.staffConfig || {};
+  const config = normalizeStaffLineTargetsConfig(input.staffConfig || {});
   const alerts = [];
   const seen = {};
+  if (config.active === false) return alerts;
+
   const vehicleId = bookingVehicleId(booking);
   const queueId = bookingQueueId(booking);
   const transferStopKey = bookingTransferStopKey(booking);
@@ -122,13 +173,13 @@ function staffBookingMessage(alert, booking) {
   booking = booking || {};
   const lines = [
     "SL Transit Staff",
-    `Event: booking_created`,
+    "Event: booking_created",
     `Role: ${alert.recipientRole || "-"}`,
     `Booking: ${bookingCode(booking) || "-"}`,
     `Route: ${routeText(booking)}`,
-    `Date/Time: ${clean(booking.date) || "-"} ${clean(booking.time) || "-"} น.`,
+    `Date/Time: ${clean(booking.date) || "-"} ${clean(booking.time) || "-"}`,
     `Seats: ${booking.seats || 1}`,
-    `Fare: ${money(booking.price)} บาท`
+    `Fare: ${money(booking.price)} THB`
   ];
 
   if (alert.recipientRole === "admin") {
@@ -152,6 +203,9 @@ function staffBookingMessage(alert, booking) {
 }
 
 module.exports = {
+  STAFF_LINE_TARGETS_PATH,
+  STAFF_LINE_TARGETS_SCHEMA_VERSION,
+  normalizeStaffLineTargetsConfig,
   bookingCreatedStaffAlerts,
   staffBookingMessage,
   bookingVehicleId,

@@ -1,6 +1,9 @@
 const assert = require("assert");
 const staff = require("../functions/staff-notification-center.js");
 
+assert.strictEqual(staff.STAFF_LINE_TARGETS_PATH, "data/notificationCenter/staffLineTargets");
+assert.strictEqual(staff.STAFF_LINE_TARGETS_SCHEMA_VERSION, "staff_line_targets_v1");
+
 const booking = {
   code: "BK123456",
   name: "Somchai",
@@ -43,6 +46,24 @@ const alerts = staff.bookingCreatedStaffAlerts({
   }
 });
 
+const normalized = staff.normalizeStaffLineTargetsConfig({
+  active: true,
+  admins: {
+    main: { name: "Admin", lineUserId: "U-admin" },
+    missingLine: { name: "No LINE" }
+  },
+  driversByVehicleId: {
+    car1: {
+      primary: { staffId: "driver_1", lineUserId: "U-driver" },
+      missingLine: { staffId: "driver_2" }
+    }
+  }
+});
+assert.strictEqual(normalized.schemaVersion, "staff_line_targets_v1");
+assert.strictEqual(normalized.admins.main.displayName, "Admin");
+assert(!normalized.admins.missingLine);
+assert.strictEqual(normalized.driversByVehicleId.car1.length, 1);
+
 assert.deepStrictEqual(alerts.map((item) => item.recipientRole), [
   "admin",
   "driver",
@@ -67,5 +88,14 @@ assert(adminMessage.includes("Phone: 0812345678"), "Admin messages may include p
 
 const noConfigAlerts = staff.bookingCreatedStaffAlerts({ booking, staffConfig: {} });
 assert.deepStrictEqual(noConfigAlerts, []);
+
+const disabledAlerts = staff.bookingCreatedStaffAlerts({
+  booking,
+  staffConfig: {
+    active: false,
+    admins: { main: { staffId: "admin_1", lineUserId: "U-admin" } }
+  }
+});
+assert.deepStrictEqual(disabledAlerts, []);
 
 console.log("staff notification center ok");
