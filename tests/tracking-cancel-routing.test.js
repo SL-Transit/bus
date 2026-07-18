@@ -29,5 +29,8 @@ assert(cancelTicket.includes("params.set('action', 'cancel')"), 'cancel_ticket.h
 assert(checkTicket.includes("var PAGE_ENTRY_MODE = 'track'"), 'Check Ticket must default to tracking mode');
 assert(checkTicket.includes("show('cancelPanel', PAGE_ENTRY_MODE === 'cancel')"), 'Tracking mode must not show the cancellation panel');
 assert(checkTicket.includes("show('cancelTicketButton', PAGE_ENTRY_MODE === 'cancel')"), 'Tracking map must not show the cancellation button unless opened from cancellation entry');
+assert(checkTicket.includes("if (PAGE_ENTRY_MODE === 'cancel')"), 'Cancellation entry mode must branch before tracking layout');
+assert(checkTicket.includes("show('trackingPage', false)"), 'Cancellation entry mode must keep the map/tracking page hidden');
+assert(checkTicket.includes('href="index.html"'), 'Cancellation flow must provide a home-page return link');
 
 console.log('tracking/cancel routing ok');

@@ -585,6 +585,7 @@
       <button id="btnCancel" type="button" onclick="openCancelConfirm()" style="margin-top:12px;width:100%;padding:14px;background:#dc2626;color:#fff;border:none;border-radius:13px;font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
         🚫 ยกเลิกตั๋ว (ขั้นตอนที่ 1/2)
       </button>
+      <a class="btn btn-dark" href="index.html" style="margin-top:12px;display:flex;align-items:center;justify-content:center;text-decoration:none">กลับหน้าหลัก</a>
     </section>
 </main>
 
@@ -1361,6 +1362,21 @@
 
       updateCancelAvailability();
       updateActionAvailability();
+      if (PAGE_ENTRY_MODE === 'cancel') {
+        show('lookupPanel', false);
+        show('ticketPanel', true);
+        show('checkinPanel', false);
+        show('flexPanel', false);
+        show('cancelPanel', true);
+        show('trackingPage', false);
+        show('trackingBottomSheet', false);
+        show('cancelTicketButton', false);
+        show('trackingLocateButton', false);
+        showTopbar(true);
+        setTrackingActive(false);
+        stopTrackingSubscription();
+        return;
+      }
       updateFlexiblePanel();
       renderTrackingLayout();
     }
