@@ -207,11 +207,13 @@
   }
 
   function currentPassengerIdentity(state) {
+    syncLineIdentityState(state, false);
     if (isLinePassenger(state)) return state.passengerIdentity;
     return guestPassengerIdentity(state.name || '', state.phone || '');
   }
 
   function currentNotificationPreference(state) {
+    syncLineIdentityState(state, false);
     if (isLinePassenger(state)) return state.notificationPreference || lineNotificationPreference();
     return state.notificationPreference || guestNotificationPreference();
   }
@@ -305,6 +307,29 @@
     if (typeof global.updateSteps === 'function') global.updateSteps(3);
     if (typeof global.selectPayMethod === 'function' && !global.currentPayMethod) global.selectPayMethod('onsite');
     return true;
+  }
+
+  function syncLineIdentityState(state, render) {
+    var center = identityCenter();
+    var identity = center && typeof center.getCurrentIdentity === 'function'
+      ? center.getCurrentIdentity()
+      : null;
+    if (center && center.isLineIdentity(identity)) {
+      state.passengerIdentity = identity;
+      state.notificationPreference = lineNotificationPreference();
+      state.consent = state.consent || buildLineConsent();
+      state.consentAccepted = true;
+      if (render !== false) renderLineIdentity(identity);
+      return true;
+    }
+    if (state.passengerIdentity && state.passengerIdentity.provider === 'line') {
+      state.passengerIdentity = null;
+      state.notificationPreference = guestNotificationPreference();
+      state.consent = null;
+      state.consentAccepted = false;
+    }
+    if (render !== false) renderLineIdentity(null);
+    return false;
   }
 
   function resumePendingLineLogin() {
@@ -450,6 +475,7 @@
 
   function preparePassengerAndPayment(allowEmptyPassenger) {
     var state = appState();
+    syncLineIdentityState(state, true);
     var nameEl = document.getElementById('inp-name');
     var phoneEl = document.getElementById('inp-phone');
     var nameVal = nameEl ? nameEl.value.trim() : '';

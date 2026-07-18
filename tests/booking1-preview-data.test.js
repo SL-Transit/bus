@@ -176,6 +176,8 @@ assert(adapter.includes('savePendingLineBookingState(state)'), 'Booking1 LINE lo
 assert(adapter.includes('resumePendingLineLogin()'), 'Booking1 adapter must resume LINE login after trip data reloads');
 assert(adapter.includes('completeLineLogin'), 'Booking1 adapter must complete LINE login without forcing another redirect');
 assert(adapter.includes('showPaymentPageAfterLineIdentity'), 'Booking1 LINE login and redirect resume must share the payment continuation flow');
+assert(adapter.includes('syncLineIdentityState(state, true)'), 'Booking1 must clear stale LINE UI before payment/submit when no current LINE identity exists');
+assert(adapter.includes('center.getCurrentIdentity()'), 'Booking1 must read the current LINE identity from Passenger Identity Center before writing bookings');
 assert(adapter.includes('guestPassengerIdentity(state.name, state.phone)'), 'Guest bookings must keep manual passenger identity');
 assert(adapter.includes('lineNotificationPreference()'), 'LINE bookings must opt in to LINE ticket/trip notifications');
 assert(adapter.includes('passengerIdentity: currentPassengerIdentity(state)'), 'Booking1 snapshot must include passenger identity');
