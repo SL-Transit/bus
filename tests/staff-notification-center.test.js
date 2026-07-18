@@ -1,8 +1,19 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 const staff = require("../functions/staff-notification-center.js");
+
+const contractDoc = fs.readFileSync(
+  path.join(__dirname, "../ai-handoffs/NOTIFICATION-CENTER-CONTRACT.md"),
+  "utf8"
+);
 
 assert.strictEqual(staff.STAFF_LINE_TARGETS_PATH, "data/notificationCenter/staffLineTargets");
 assert.strictEqual(staff.STAFF_LINE_TARGETS_SCHEMA_VERSION, "staff_line_targets_v1");
+assert(contractDoc.includes("Notification Center Contract"));
+assert(contractDoc.includes("must survive page rebuilds"));
+assert(contractDoc.includes("/data/notificationCenter/staffLineTargets"));
+assert(contractDoc.includes("Do not bind notification policy to `booking1.html`"));
 
 const booking = {
   code: "BK123456",
