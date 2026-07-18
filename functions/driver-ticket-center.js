@@ -7,8 +7,6 @@ function clean(value) {
 function normalizeLabel(value) {
   return clean(value)
     .replace(/\s+/g, "")
-    .replace(/\(แปดริ้ว\)/g, "")
-    .replace(/แปดริ้ว/g, "ฉะเชิงเทรา")
     .replace(/[()]/g, "");
 }
 
@@ -86,19 +84,66 @@ function buildDriverTicketMirrorUpdate(code, before, after) {
   return updates;
 }
 
-function stopMatches(stop, label) {
-  const expected = normalizeLabel(label);
-  if (!expected) return false;
-  const actual = normalizeLabel(stop && (stop.stopNameTh || stop.stopName || stop.label || stop.stopKey));
-  if (!actual) return false;
-  return actual === expected || actual.includes(expected) || expected.includes(actual);
+function normalizeGroupStops(groupStops) {
+  if (!groupStops || typeof groupStops !== "object") return {};
+  const result = {};
+  Object.keys(groupStops).forEach((key) => {
+    const stop = groupStops[key] || {};
+    [
+      key,
+      stop.groupStopId,
+      stop.groupStopCode,
+      stop.stopKey,
+      stop.workbookStopKey,
+      stop.nodeId
+    ].map(clean).filter(Boolean).forEach((id) => {
+      result[id] = stop;
+    });
+  });
+  return result;
 }
 
-function findTripMatch(workByVehicle, booking) {
+function stopLabelCandidates(stop, groupStopsById) {
+  stop = stop || {};
+  const groupStop = groupStopsById && (
+    groupStopsById[clean(stop.groupStopId)] ||
+    groupStopsById[clean(stop.groupStopCode)] ||
+    groupStopsById[clean(stop.stopKey)] ||
+    groupStopsById[clean(stop.nodeId)]
+  ) || {};
+  return [
+    stop.stopNameTh,
+    stop.stopName,
+    stop.label,
+    stop.stopKey,
+    stop.groupStopId,
+    stop.groupStopCode,
+    groupStop.displayNameTh,
+    groupStop.label,
+    groupStop.stopKey,
+    groupStop.workbookStopKey,
+    groupStop.groupStopCode,
+    groupStop.groupStopId,
+    groupStop.nodeId
+  ].concat(Array.isArray(groupStop.aliases) ? groupStop.aliases : [])
+    .map(normalizeLabel)
+    .filter(Boolean);
+}
+
+function stopMatches(stop, label, groupStopsById) {
+  const expected = normalizeLabel(label);
+  if (!expected) return false;
+  return stopLabelCandidates(stop, groupStopsById).some((actual) => {
+    return actual === expected || actual.includes(expected) || expected.includes(actual);
+  });
+}
+
+function findTripMatch(workByVehicle, booking, groupStops) {
   const targetTime = timeText(booking && (booking.time || booking.pickupTime || booking.departTime));
   const origin = clean(booking && (booking.origin || booking.originName || booking.originStopKey));
   const destination = clean(booking && (booking.destination || booking.destName || booking.destStopKey));
   if (!workByVehicle || !targetTime || !origin || !destination) return null;
+  const groupStopsById = normalizeGroupStops(groupStops);
 
   const vehicleIds = Object.keys(workByVehicle).sort();
   for (const vehicleId of vehicleIds) {
@@ -107,11 +152,11 @@ function findTripMatch(workByVehicle, booking) {
     for (const trip of trips) {
       const stops = Array.isArray(trip.orderedStops) ? trip.orderedStops : [];
       const originIndex = stops.findIndex((stop) => {
-        return timeText(stop && stop.time) === targetTime && stopMatches(stop, origin);
+        return timeText(stop && stop.time) === targetTime && stopMatches(stop, origin, groupStopsById);
       });
       if (originIndex < 0) continue;
       const destinationIndex = stops.findIndex((stop, index) => {
-        return index > originIndex && stopMatches(stop, destination);
+        return index > originIndex && stopMatches(stop, destination, groupStopsById);
       });
       if (destinationIndex < 0) continue;
       return { vehicleId, work, trip, originIndex, destinationIndex };
@@ -149,10 +194,10 @@ function assignmentFromWorkMatch(booking, match) {
   };
 }
 
-function enrichBookingFromDriverWork(booking, workByVehicle) {
+function enrichBookingFromDriverWork(booking, workByVehicle, groupStops) {
   if (!booking || typeof booking !== "object") return booking;
   if (plannedVehicleId(booking)) return booking;
-  const match = findTripMatch(workByVehicle, booking);
+  const match = findTripMatch(workByVehicle, booking, groupStops);
   const assignment = assignmentFromWorkMatch(booking, match);
   if (!assignment) return booking;
   return Object.assign({}, booking, {
@@ -178,5 +223,6 @@ module.exports = {
   buildDriverTicketMirrorUpdate,
   shouldPublishDriverTicket,
   enrichBookingFromDriverWork,
-  findTripMatch
+  findTripMatch,
+  normalizeGroupStops
 };

@@ -286,10 +286,15 @@ exports.syncDriverTicketOnBookingWrite = onValueWritten({
   if (rawAfter && !driverTicketCenter.plannedVehicleId(rawAfter)) {
     const serviceDate = driverTicketCenter.serviceDate(rawAfter);
     if (serviceDate) {
-      const workSnap = await admin.database()
-        .ref(`operations/driverWorkByServiceDate/${serviceDate}`)
-        .get();
-      after = driverTicketCenter.enrichBookingFromDriverWork(rawAfter, workSnap.val() || {});
+      const [workSnap, groupStopsSnap] = await Promise.all([
+        admin.database().ref(`operations/driverWorkByServiceDate/${serviceDate}`).get(),
+        admin.database().ref("data/erpDataCenter/groupStops").get()
+      ]);
+      after = driverTicketCenter.enrichBookingFromDriverWork(
+        rawAfter,
+        workSnap.val() || {},
+        groupStopsSnap.val() || {}
+      );
     }
   }
   const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, before, after);
