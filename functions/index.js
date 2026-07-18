@@ -198,8 +198,8 @@ exports.syncDriverTicketOnBookingWrite = onValueWritten({
   await admin.database().ref().update(updates);
 });
 
-exports.refreshDailyDriverWork = onSchedule({
-  schedule: "every 5 minutes",
+exports.prepareNextDayDriverWork = onSchedule({
+  schedule: "45 23 * * *",
   timeZone: "Asia/Bangkok",
   region: "asia-southeast1",
   timeoutSeconds: 60,
@@ -207,8 +207,8 @@ exports.refreshDailyDriverWork = onSchedule({
   maxInstances: 1
 }, async () => {
   const now = new Date();
-  const serviceDate = driverWorkAutoCenter.bangkokServiceDate(now);
-  const currentTime = driverWorkAutoCenter.bangkokTime(now);
+  const serviceDate = driverWorkAutoCenter.nextBangkokServiceDate(now);
+  const currentTime = "00:00";
   const db = admin.database();
   const [
     erpSnap,

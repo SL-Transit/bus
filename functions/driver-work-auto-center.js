@@ -45,6 +45,17 @@ function bangkokServiceDate(date) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+function addDays(serviceDate, days) {
+  const ordinal = dateOrdinal(serviceDate);
+  if (ordinal === null) return "";
+  const date = new Date((ordinal + Number(days || 0)) * 86400000);
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+}
+
+function nextBangkokServiceDate(date) {
+  return addDays(bangkokServiceDate(date), 1);
+}
+
 function bangkokTime(date) {
   const parts = bangkokParts(date);
   return `${parts.hour}:${parts.minute}`;
@@ -141,11 +152,13 @@ function buildUpdates(input) {
 
 module.exports = {
   DEFAULT_ROTATION_CONFIG,
+  addDays,
   bangkokServiceDate,
   bangkokTime,
   buildRotatingDailyAssignments,
   buildUpdates,
   daysBetween,
+  nextBangkokServiceDate,
   normalizeRotationConfig,
   mergeAssignments
 };
