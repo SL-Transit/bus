@@ -26,6 +26,9 @@ assert(main.includes('signOutDriver()'), 'Driver app must provide a sign-out pat
 assert(main.includes('showLoginScreen'), 'Driver app must have a login-only screen before work opens');
 assert(main.includes('FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT'), 'Login form must be vertically centered on screen');
 assert(main.includes('rootLp.gravity = Gravity.CENTER'), 'Login form must stay centered instead of sticking to the top');
+assert(main.includes('Context.RECEIVER_NOT_EXPORTED'), 'Driver app must register runtime receivers with Android 13+ safety flags');
+assert(main.includes('screen receiver unavailable'), 'Driver app must not crash when screen receiver registration is blocked');
+assert(main.includes('driver screen failed'), 'Driver app must return to login instead of closing when driver screen startup fails');
 
 assert(!main.includes('autoSelectAvailableVehicle'), 'Driver app must not auto-select a vehicle from liveVehicles');
 assert(!main.includes('VEHICLE_IDS'), 'Driver app must not offer a hard-coded car1-car5 picker');

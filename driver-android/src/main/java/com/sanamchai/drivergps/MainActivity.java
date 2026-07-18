@@ -279,6 +279,7 @@ public class MainActivity extends Activity {
     }
 
     private void enterDriverWorkMode() {
+        try {
         if (!ensureFirebaseApp()) {
             forceStopGpsForIdentityGate();
             showLoginScreen("ยังไม่ได้ตั้งค่า Firebase ของแอปคนขับให้ครบ");
@@ -297,6 +298,16 @@ public class MainActivity extends Activity {
         initRemoteCommandListener();
         if (prefs.getBoolean(KEY_ENABLED, false)) requestPermissionsThenStart();
         else refreshUi();
+        } catch (Exception error) {
+            forceStopGpsForIdentityGate();
+            prefs.edit()
+                    .putBoolean(KEY_ENABLED, false)
+                    .putString(KEY_LAST_ERROR, error.getMessage() == null
+                            ? "driver screen failed"
+                            : error.getMessage())
+                    .apply();
+            showLoginScreen("เปิดหน้าแอปคนขับไม่สำเร็จ กรุณาลองเข้าใหม่");
+        }
     }
 
     private void forceStopGpsForIdentityGate() {
@@ -341,11 +352,12 @@ public class MainActivity extends Activity {
     private void showLoginScreen(String errorMessage) {
         FrameLayout screen = new FrameLayout(this);
         screen.setBackgroundColor(COLOR_BG_PAGE);
+        screen.setFitsSystemWindows(true);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(28), dp(24), dp(28), dp(24));
+        root.setGravity(Gravity.CENTER);
+        root.setPadding(dp(28), dp(32), dp(28), dp(32));
 
         TextView title = new TextView(this);
         title.setText("เข้าสู่ระบบคนขับ");
@@ -615,7 +627,19 @@ public class MainActivity extends Activity {
         android.content.IntentFilter f = new android.content.IntentFilter();
         f.addAction(android.content.Intent.ACTION_SCREEN_OFF);
         f.addAction(android.content.Intent.ACTION_SCREEN_ON);
-        registerReceiver(screenReceiver, f);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(screenReceiver, f, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(screenReceiver, f);
+            }
+        } catch (Exception error) {
+            prefs.edit()
+                    .putString(KEY_LAST_ERROR, error.getMessage() == null
+                            ? "screen receiver unavailable"
+                            : error.getMessage())
+                    .apply();
+        }
     }
 
     // ===== Remote Command Listener — admin สั่งจาก dashboard ได้เลย =====
