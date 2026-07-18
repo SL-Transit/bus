@@ -44,6 +44,56 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-18 20:55 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Notification Center Bridge - DONE
+
+Scope:
+- `booking1-preview-adapter.js`
+- `booking-assignment-center.js`
+- `functions/index.js`
+- `functions/staff-notification-center.js`
+- `functions/driver-ticket-center.js`
+- `ai-handoffs/NOTIFICATION-CENTER-CONTRACT.md`
+- `tests/staff-line-function-wiring.test.js`
+- `tests/staff-notification-center.test.js`
+- `tests/driver-ticket-center.test.js`
+- `tests/booking-assignment-center.test.js`
+
+Summary:
+- Booking1 real booking flow has been tested end-to-end against `sl-transit-9464e`.
+- Booking pages write booking payloads to `/bookings/{code}` only; staff notification policy is not owned by the page.
+- `syncDriverTicketOnBookingWrite` enriches schedule-only bookings from `operations/driverWorkByServiceDate/{serviceDate}` and ERP Data Center stop aliases at `data/erpDataCenter/groupStops`.
+- `sendStaffLineOnBooking` listens to `/bookings/{code}` writes, resolves missing staff recipients through ERP Notification Center, and prevents duplicates through `/staff_line_sent/{code}`.
+- Staff LINE recipients are centralized at `/data/notificationCenter/staffLineTargets`; driver recipients are keyed by `driversByVehicleId/{carId}`.
+- Current driver LINE readiness: `car1`, `car3/2575`, and `car4/2649` are configured; `car2` still needs a LINE user ID.
+- Passenger LINE remains separate: it sends to the passenger only when the booking has LINE identity and passenger notification preference.
+- Stop alias hard-code for `แปดริ้ว/ฉะเชิงเทรา` was removed from driver ticket matching; alias resolution now comes from ERP Data Center.
+
+Evidence:
+- Commits: `a8391b1`, `a3ddf9e`, `908beda`, `5e9e3dc`
+- Actions: not run locally; GitHub push succeeded.
+- Pages: not run for this backend/function work.
+- Functions deployed: `sendStaffLineOnBooking`, `syncDriverTicketOnBookingWrite`.
+- Live test bookings: `BK7978267473` and `BK7991918149`.
+- Firebase verification: `/staff_line_sent/BK7978267473` contains both `admin` and `driver` for `car3`; driver ticket mirror exists at `operations/driverTicketsByServiceDate/2026-07-19/car3/BK7978267473`.
+- Tests: `staff-line-function-wiring`, `staff-notification-center`, `driver-ticket-center`, `booking-assignment-center`.
+
+Safety:
+- Firebase writes: owner-approved test bookings and scoped booking retry/update only; backup created at `/bookingsBackups/staffLineRetry/20260718T133649Z/BK7978267473`.
+- Seed applied: no.
+- Production apply: no.
+- `readyForApply=false` unchanged.
+- Passenger/private data touched: no bulk/private passenger export; notification targets read from central config only.
+- Fake GPS/ETA/vehicle/driver assignment: none.
+
+Blockers:
+- `car2` LINE user ID is not configured, so car2 driver notification cannot send yet.
+- Queue/terminal LINE targets are not configured yet, so queue/terminal notification awaits central config.
+- Passenger ETA notification is future work and must use real operational ETA via ERP Logic Center + ERP Calculator Center before ERP Notification Center sends it.
+
+Next action:
+- Add `car2` LINE user ID and queue/terminal target config when owner provides IDs.
+- Continue keeping any future booking UI replacement as a bridge that writes the stable booking contract to `/bookings/{code}`.
+
 ## 2026-07-16 08:18 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Real Booking ERP Totals - REVIEW
 
 Scope:
