@@ -188,7 +188,8 @@ function buildDriverWorkDay(input) {
       queueNo: queue.legacyQueueNo,
       queueScheduleVersionId: sourceTrips[0] && sourceTrips[0].queueScheduleVersionId,
       currentTrip: selected.currentTrip,
-      nextTrip: selected.nextTrip
+      nextTrip: selected.nextTrip,
+      allTrips: trips
     });
     if (!result.contract) {
       blockers.push({ code: "driver_work_contract_invalid", erpVehicleId, vehicleId, queueId: queue.queueId });

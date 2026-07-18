@@ -73,10 +73,13 @@
     var assignmentMode = clean(input.assignmentMode);
     var currentTrip = normalizeTrip(input.currentTrip);
     var nextTrip = normalizeTrip(input.nextTrip);
+    var allTrips = Array.isArray(input.allTrips)
+      ? input.allTrips.map(normalizeTrip).filter(Boolean)
+      : [];
     var serviceComplete = status === 'service_complete';
     if (!clean(input.assignmentId) || !clean(input.queueId) || !Number(input.queueNo)
         || ASSIGNMENT_MODES.indexOf(assignmentMode) === -1
-        || (!serviceComplete && !currentTrip && !nextTrip)) {
+        || (!serviceComplete && !currentTrip && !nextTrip && !allTrips.length)) {
       return { status: 'invalid_contract', contract: null };
     }
 
@@ -94,7 +97,8 @@
         queueNo: Number(input.queueNo),
         queueScheduleVersionId: clean(input.queueScheduleVersionId),
         currentTrip: currentTrip,
-        nextTrip: nextTrip
+        nextTrip: nextTrip,
+        allTrips: allTrips
       }
     };
   }

@@ -42,6 +42,8 @@ const { buildDriverWorkDay } = require('../driver-work-producer.js');
   assert.strictEqual(assigned.counts.fixed, 1);
   assert.strictEqual(Object.keys(assigned.contractsByRuntimeVehicleId).length, 5);
   assert(assigned.contractsByRuntimeVehicleId.car1.currentTrip || assigned.contractsByRuntimeVehicleId.car1.nextTrip, 'central producer must select current or next trip');
+  assert(Array.isArray(assigned.contractsByRuntimeVehicleId.car1.allTrips), 'driver work must include all trips for client-side real-time trip selection');
+  assert(assigned.contractsByRuntimeVehicleId.car1.allTrips.length >= 2, 'driver work allTrips must include the full daily queue schedule');
   assert(Number.isFinite(assigned.contractsByRuntimeVehicleId.car1.currentTrip.orderedStops[0].lat), 'driver work must contain ready stop coordinates');
 
   const overridden = buildDriverWorkDay({

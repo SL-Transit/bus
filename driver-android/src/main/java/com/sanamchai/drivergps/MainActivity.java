@@ -1117,8 +1117,10 @@ public class MainActivity extends Activity {
         prefs.edit().putInt(KEY_DRIVER_QUEUE_NO, queueNo.intValue()).apply();
         stopCoordsCache.clear();
         stopNameCache.clear();
-        Trip current = readDriverWorkTrip(snap.child("currentTrip"));
-        Trip next = readDriverWorkTrip(snap.child("nextTrip"));
+        java.util.List<Trip> allTrips = readDriverWorkTrips(snap.child("allTrips"));
+        TripSelection selectedTrips = selectTripsForCurrentBangkokTime(allTrips);
+        Trip current = selectedTrips.current != null ? selectedTrips.current : readDriverWorkTrip(snap.child("currentTrip"));
+        Trip next = selectedTrips.next != null ? selectedTrips.next : readDriverWorkTrip(snap.child("nextTrip"));
         if ("assigned".equals(contractStatus) && current == null && next == null) {
             showUnassignedQueue("ระบบกลางไม่ได้ส่งเที่ยวปัจจุบันหรือเที่ยวถัดไป");
             return;
@@ -1145,6 +1147,67 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    private static class TripSelection {
+        Trip current;
+        Trip next;
+    }
+
+    private java.util.List<Trip> readDriverWorkTrips(DataSnapshot tripsSnap) {
+        java.util.List<Trip> trips = new ArrayList<>();
+        if (tripsSnap == null || !tripsSnap.exists()) return trips;
+        for (DataSnapshot tripSnap : tripsSnap.getChildren()) {
+            Trip trip = readDriverWorkTrip(tripSnap);
+            if (trip != null) trips.add(trip);
+        }
+        trips.sort((a, b) -> Integer.compare(tripStartMinutes(a), tripStartMinutes(b)));
+        return trips;
+    }
+
+    private TripSelection selectTripsForCurrentBangkokTime(java.util.List<Trip> trips) {
+        TripSelection selection = new TripSelection();
+        if (trips == null || trips.isEmpty()) return selection;
+        int now = currentBangkokMinutes();
+        for (Trip trip : trips) {
+            int start = tripStartMinutes(trip);
+            int end = tripEndMinutes(trip);
+            if (start <= now && now <= end) {
+                selection.current = trip;
+            } else if (start > now && selection.next == null) {
+                selection.next = trip;
+            }
+        }
+        return selection;
+    }
+
+    private int currentBangkokMinutes() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Bangkok"));
+        return calendar.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calendar.get(java.util.Calendar.MINUTE);
+    }
+
+    private int tripStartMinutes(Trip trip) {
+        if (trip == null || trip.stops.isEmpty()) return 24 * 60 + 1;
+        return timeMinutes(trip.stops.get(0).time);
+    }
+
+    private int tripEndMinutes(Trip trip) {
+        if (trip == null || trip.stops.isEmpty()) return -1;
+        return timeMinutes(trip.stops.get(trip.stops.size() - 1).time);
+    }
+
+    private int timeMinutes(String value) {
+        if (value == null) return -1;
+        String[] parts = value.trim().split(":");
+        if (parts.length != 2) return -1;
+        try {
+            int hour = Integer.parseInt(parts[0]);
+            int minute = Integer.parseInt(parts[1]);
+            if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return -1;
+            return hour * 60 + minute;
+        } catch (Exception ignored) {
+            return -1;
+        }
     }
 
     private Trip readDriverWorkTrip(DataSnapshot tripSnap) {
