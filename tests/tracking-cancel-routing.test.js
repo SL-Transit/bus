@@ -20,7 +20,14 @@ assert(booking.includes('track_trip.html?code='), 'Booking QR/check-in link must
 assert(booking1.includes('track_trip.html?code='), 'Booking1 QR link must open tracking entry');
 assert(checkTicket.includes('<title>ติดตามรถของฉัน'), 'Underlying ticket page must use passenger tracking title');
 assert(checkTicket.includes('<h1>ติดตามรถของฉัน</h1>'), 'Underlying ticket page must use passenger tracking heading');
-assert(trackTrip.includes("window.location.replace('check_ticket.html' + query + hash)"), 'track_trip.html must preserve tracking query parameters');
+assert(trackTrip.includes("params.set('entry', 'track')"), 'track_trip.html must force tracking entry mode');
+assert(trackTrip.includes("window.location.replace('check_ticket.html' + (query ? '?' + query : '') + hash)"), 'track_trip.html must preserve tracking query parameters');
+assert(!cancelTicket.includes('http-equiv="refresh"'), 'cancel_ticket.html must be a real cancellation entry page, not only a meta redirect');
+assert(cancelTicket.includes('submitCancelLookup'), 'cancel_ticket.html must expose a cancellation lookup form');
+assert(cancelTicket.includes("params.set('entry', 'cancel')"), 'cancel_ticket.html must force cancellation entry mode');
 assert(cancelTicket.includes("params.set('action', 'cancel')"), 'cancel_ticket.html must force cancel mode');
+assert(checkTicket.includes("var PAGE_ENTRY_MODE = 'track'"), 'Check Ticket must default to tracking mode');
+assert(checkTicket.includes("show('cancelPanel', PAGE_ENTRY_MODE === 'cancel')"), 'Tracking mode must not show the cancellation panel');
+assert(checkTicket.includes("show('cancelTicketButton', PAGE_ENTRY_MODE === 'cancel')"), 'Tracking map must not show the cancellation button unless opened from cancellation entry');
 
 console.log('tracking/cancel routing ok');

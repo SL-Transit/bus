@@ -4,18 +4,107 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ยกเลิกตั๋ว – S.L.Transit</title>
-  <meta http-equiv="refresh" content="0; url=check_ticket.html?action=cancel">
-  <script>
-    (function() {
-      var params = new URLSearchParams(window.location.search || '');
-      params.set('action', 'cancel');
-      var query = params.toString();
-      window.location.replace('check_ticket.html' + (query ? '?' + query : '') + (window.location.hash || ''));
-    })();
-  </script>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Kanit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #eef7fb;
+      color: #0b1d3a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    main {
+      width: min(100%, 460px);
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 18px 48px rgba(11,29,58,.14);
+      padding: 28px;
+    }
+    h1 { margin: 0 0 10px; font-size: 28px; line-height: 1.25; }
+    p { margin: 0 0 18px; color: #4b6078; line-height: 1.6; }
+    label { display: block; margin: 18px 0 8px; font-weight: 700; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: inherit;
+    }
+    button, a.button {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      margin-top: 14px;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    button { background: #dc2626; color: #fff; }
+    a.button { background: #e5f4f7; color: #0b1d3a; }
+    .hint { font-size: 14px; color: #64748b; }
+  </style>
 </head>
 <body>
-  <p>กำลังเปิดหน้ายกเลิกตั๋ว...</p>
-  <p><a href="check_ticket.html?action=cancel">เปิดหน้ายกเลิกตั๋ว</a></p>
+  <main>
+    <h1>ยกเลิกตั๋ว</h1>
+    <p>หน้านี้สำหรับผู้โดยสารที่ต้องการเปิดข้อมูลตั๋วเพื่อยืนยันการยกเลิกเท่านั้น</p>
+    <form onsubmit="submitCancelLookup(event)">
+      <label for="cancelLookupValue">กรอกรหัสตั๋วหรือเบอร์โทร</label>
+      <input id="cancelLookupValue" name="code" autocomplete="off" inputmode="text" placeholder="เช่น SL123456 หรือ 0812345678">
+      <button type="submit">ค้นหาตั๋วเพื่อยกเลิก</button>
+    </form>
+    <p class="hint">ระบบจะเปิดหน้าตั๋วในโหมดยกเลิก และยังใช้ข้อมูลตั๋วจากระบบกลางเหมือนเดิม</p>
+    <a class="button" href="track_trip.html">กลับไปหน้าติดตามรถของฉัน</a>
+  </main>
+  <script>
+    function normalizeLookup(value) {
+      return String(value || '').trim();
+    }
+
+    function buildCancelUrl(value) {
+      var params = new URLSearchParams(window.location.search || '');
+      var lookup = normalizeLookup(value || params.get('code') || params.get('phone'));
+      params.set('entry', 'cancel');
+      params.set('action', 'cancel');
+      if (lookup) {
+        if (/^\d{8,}$/.test(lookup)) {
+          params.set('phone', lookup);
+          params.delete('code');
+        } else {
+          params.set('code', lookup);
+          params.delete('phone');
+        }
+      }
+      var query = params.toString();
+      return 'check_ticket.html' + (query ? '?' + query : '') + (window.location.hash || '');
+    }
+
+    function submitCancelLookup(event) {
+      if (event) event.preventDefault();
+      var input = document.getElementById('cancelLookupValue');
+      window.location.href = buildCancelUrl(input ? input.value : '');
+    }
+
+    (function() {
+      var params = new URLSearchParams(window.location.search || '');
+      var initial = normalizeLookup(params.get('code') || params.get('phone'));
+      if (initial) {
+        var input = document.getElementById('cancelLookupValue');
+        if (input) input.value = initial;
+        window.location.replace(buildCancelUrl(initial));
+      }
+    })();
+  </script>
 </body>
 </html>
