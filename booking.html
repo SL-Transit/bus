@@ -2415,7 +2415,7 @@ function verifySlipPayment(bookingId, imageUrl) {
 }
 
 function getTicketQrText(code) {
-  return 'https://sl-transit.com/check_ticket.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
+  return 'https://sl-transit.com/track_trip.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
 }
 
 function renderTicketQr(booking) {
@@ -3276,7 +3276,7 @@ function goCheckin() {
       console.warn('Cannot save booking session', err);
     }
   }
-  window.location.href = 'check_ticket.html?code=' + encodeURIComponent(code) +
+  window.location.href = 'track_trip.html?code=' + encodeURIComponent(code) +
     '&phone=' + encodeURIComponent(phone) +
     '&v=' + Date.now();
 }
