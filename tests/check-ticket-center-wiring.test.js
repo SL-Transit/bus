@@ -32,6 +32,10 @@ assert(html.includes('/^(BK\\d{10}|TB\\d{6})$/.test(value)'), 'Check Ticket must
 assert(html.includes('placeholder="0812345678 หรือ BK1234567890"'), 'Check Ticket code placeholder must match Booking1 code length');
 assert(html.includes("booking.sourceMode === 'erp_data_center' || booking.publishedSchedule"), 'Check Ticket must not load legacy catalogs for ERP Data Center bookings');
 assert(html.includes('/^[A-Za-z0-9_-]+$/.test(version)'), 'Check Ticket catalogVersion paths must exclude Firebase-invalid dots');
+assert(html.includes('function buildTicketDataCenterContract'), 'Check Ticket must build a display-ready ticket contract before using booking fields');
+assert(html.includes("contractVersion: 'check_ticket_data_center_v1'"), 'Check Ticket ticket data center contract must be versioned');
+assert(html.includes('TICKET_DATA_CENTER.ticket = buildTicketDataCenterContract(booking)'), 'Check Ticket must cache the central ticket contract for the current booking');
+assert(html.includes('ticketContract.assignment'), 'Check Ticket must prefer ticket data center assignment before legacy booking fields');
 
 function blockBetween(start, end) {
   const startIndex = html.indexOf(start);

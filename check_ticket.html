@@ -668,7 +668,7 @@
 
     var currentBooking = null;
     var currentCode = null;
-    var TICKET_DATA_CENTER = { pair: null, pairKey: '', firebaseKeyEncoding: {} };
+    var TICKET_DATA_CENTER = { pair: null, pairKey: '', firebaseKeyEncoding: {}, ticket: null };
     var TICKET_CATALOG_VERSION_APPLIED = '';
     var TICKET_CATALOG_RAW = null;
     var TICKET_CATALOG_LOADS = {};
@@ -743,6 +743,65 @@
       return String(booking && (booking.pairKey || booking.canonicalPairKey || booking.pairId || (booking.publishedSchedule && booking.publishedSchedule.pairKey)) || '');
     }
 
+    function cleanTicketValue(value) {
+      return String(value == null ? '' : value).trim();
+    }
+
+    function firstTicketValue() {
+      for (var i = 0; i < arguments.length; i++) {
+        var value = cleanTicketValue(arguments[i]);
+        if (value) return value;
+      }
+      return '';
+    }
+
+    function buildTicketDataCenterContract(booking) {
+      booking = booking || {};
+      var assignment = booking.assignment && booking.assignment.contractVersion === 'booking_assignment_v1'
+        ? booking.assignment
+        : (booking.assignment || {});
+      var scheduleOnly = assignment.scheduleOnly === true
+        || assignment.noLiveTracking === true
+        || booking.scheduleOnly === true
+        || booking.noLiveTracking === true;
+      return {
+        contractVersion: 'check_ticket_data_center_v1',
+        source: 'check_ticket_data_center',
+        bookingCode: firstTicketValue(booking.code, booking.bookingCode),
+        serviceDate: firstTicketValue(booking.date, booking.serviceDate),
+        status: firstTicketValue(booking.status) || 'confirmed',
+        passenger: {
+          name: firstTicketValue(booking.name),
+          phone: firstTicketValue(booking.phone),
+          seats: Number(booking.seats || booking.pax || 1) || 1
+        },
+        journey: {
+          route: firstTicketValue(booking.route),
+          origin: firstTicketValue(booking.origin, booking.from, booking.pickupStopName, booking.originStopKey),
+          destination: firstTicketValue(booking.destination, booking.to, booking.destStopKey),
+          pickupTime: firstTicketValue(booking.pickupTime, booking.time, booking.departTime, booking.leg1Time),
+          pairKey: ticketPairKeyFromBooking(booking)
+        },
+        assignment: {
+          contractVersion: firstTicketValue(assignment.contractVersion),
+          queueNo: firstTicketValue(assignment.queueNo, booking.queueNo, booking.queueNumber),
+          queueId: firstTicketValue(assignment.queueId),
+          plannedVehicleId: scheduleOnly ? '' : firstTicketValue(assignment.plannedVehicleId, assignment.vehicleId, booking.plannedVehicleId, booking.vehicleId),
+          vehicleId: scheduleOnly ? '' : firstTicketValue(assignment.vehicleId, assignment.plannedVehicleId, booking.vehicleId, booking.plannedVehicleId),
+          tripId: firstTicketValue(assignment.tripId, booking.tripId, booking.catalogTripId),
+          departTime: firstTicketValue(assignment.departTime, booking.departTime, booking.time),
+          pickupTime: firstTicketValue(assignment.pickupTime, booking.pickupTime, booking.time),
+          pickupStopKey: firstTicketValue(assignment.pickupStopKey, booking.originStopKey),
+          pickupStopName: firstTicketValue(assignment.pickupStopName, booking.origin, booking.from),
+          routeDirection: firstTicketValue(assignment.routeDirection),
+          routeStopNames: Array.isArray(assignment.routeStopNames) ? assignment.routeStopNames.slice() : [],
+          scheduleOnly: scheduleOnly,
+          noLiveTracking: scheduleOnly,
+          assignmentSource: firstTicketValue(assignment.assignmentSource, booking.assignmentSource)
+        }
+      };
+    }
+
     function resolveTicketPairStorageKey(pairKey) {
       if (!pairKey) return '';
       var encoded = TICKET_DATA_CENTER.firebaseKeyEncoding && TICKET_DATA_CENTER.firebaseKeyEncoding.encodedKeyIndex || {};
@@ -776,6 +835,7 @@
     }
 
     function ensureTicketDataCenterForBooking(booking) {
+      TICKET_DATA_CENTER.ticket = buildTicketDataCenterContract(booking);
       var pairKey = ticketPairKeyFromBooking(booking);
       if (!pairKey) {
         TICKET_DATA_CENTER.pair = null;
@@ -1216,6 +1276,7 @@
       booking.code = booking.code || code;
       booking.status = booking.status || 'confirmed';
       booking.seats = Math.min(Number(booking.seats || 1), MAX_SEATS);
+      booking.ticketDataCenterStatus = 'ready';
       return booking;
     }
 
@@ -1764,6 +1825,9 @@
 
     function resolveSharedScheduleAssignmentForBooking(booking) {
       if (!booking) return null;
+      var ticketContract = TICKET_DATA_CENTER.ticket;
+      if (ticketContract && ticketContract.bookingCode === String(booking.code || booking.bookingCode || '').trim()
+          && ticketContract.assignment) return ticketContract.assignment;
       if (booking.assignment && booking.assignment.contractVersion === 'booking_assignment_v1') return booking.assignment;
       if (booking.assignment && (booking.assignment.queueNo || booking.assignment.queueId || booking.assignment.plannedVehicleId || booking.assignment.vehicleId)) return booking.assignment;
       if (isScheduleOnlyAssignment(booking)) return booking;
