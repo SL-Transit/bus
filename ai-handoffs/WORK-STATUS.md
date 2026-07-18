@@ -15,6 +15,7 @@ Before changing any code or writing a plan, update or report your intended work 
 ## Active Work Locks
 | Area | Owner AI | Status | Scope / Files | Started | Last Update | Commit / Report | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Ticket Center read contract | Supervisor AI / Project Secretary | REVIEW | `ticket-data-center.js`, `check_ticket.html`, `cancel_ticket.html`, scoped ticket-center tests | 2026-07-18 23:15 +07 | 2026-07-18 23:22 +07 | local branch `agent/ticket-center-read-contract`; awaiting owner commit/push approval | Added a shared read contract/helper so Track Trip and Cancel Ticket consume ticket data through the central Ticket Center boundary first. Firebase writes/seed/production apply: none. Driver identity/read rules untouched. |
 | Backbone schema + adapter | Main Backbone Lead | REVIEW | `erp-schema.js`, `erp-data-adapter.js`, `admin-erp.html` | 2026-07-05 | 2026-07-05 | `29c9754`, `6908457` | Core validator, assessment, seed plan added. |
 | Data import / catalog | Data Import AI | TODO | `data/erpDataCenter/*` dry-run plan; legacy `data/catalog/*`, `publishedCatalog`, `routeData`, `settings/routes` are source-only | - | - | - | Start with dry-run JSON only. |
 | QA / release guard | QA Release Guard AI | TODO | Actions, Pages, live source, regression checklist | - | - | - | Read-only by default. |
