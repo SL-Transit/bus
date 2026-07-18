@@ -29,6 +29,9 @@ assert(main.includes('rootLp.gravity = Gravity.CENTER'), 'Login form must stay c
 assert(main.includes('Context.RECEIVER_NOT_EXPORTED'), 'Driver app must register runtime receivers with Android 13+ safety flags');
 assert(main.includes('screen receiver unavailable'), 'Driver app must not crash when screen receiver registration is blocked');
 assert(main.includes('driver screen failed'), 'Driver app must return to login instead of closing when driver screen startup fails');
+assert(main.includes('private void stopDriverWorkLoops()'), 'Driver app must stop active work loops before returning to login');
+assert(main.includes('uiHandler.removeCallbacks(uiTick)'), 'Driver app must stop the UI refresh loop on logout');
+assert(main.includes('stopDriverWorkLoops();\n        clearDriverIdentity();'), 'Driver app must stop stale listeners before clearing identity');
 
 assert(!main.includes('autoSelectAvailableVehicle'), 'Driver app must not auto-select a vehicle from liveVehicles');
 assert(!main.includes('VEHICLE_IDS'), 'Driver app must not offer a hard-coded car1-car5 picker');

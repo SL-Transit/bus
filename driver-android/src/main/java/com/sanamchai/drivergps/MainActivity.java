@@ -280,6 +280,7 @@ public class MainActivity extends Activity {
 
     private void enterDriverWorkMode() {
         try {
+        stopDriverWorkLoops();
         if (!ensureFirebaseApp()) {
             forceStopGpsForIdentityGate();
             showLoginScreen("ยังไม่ได้ตั้งค่า Firebase ของแอปคนขับให้ครบ");
@@ -290,6 +291,7 @@ public class MainActivity extends Activity {
         loadTestModeSetting();
         initFirebaseListener();
         watchDriverIdentityProfile();
+        uiTickCount = 0;
         uiHandler.post(uiTick);
         checkForUpdate();
         reportVersionToFirebase();
@@ -492,9 +494,7 @@ public class MainActivity extends Activity {
 
     private void signOutDriver() {
         forceStopGpsForIdentityGate();
-        if (driverIdentityRef != null && driverIdentityListener != null) {
-            try { driverIdentityRef.removeEventListener(driverIdentityListener); } catch (Exception ignored) {}
-        }
+        stopDriverWorkLoops();
         clearDriverIdentity();
         if (driverAuth != null) driverAuth.signOut();
         showLoginScreen("ออกจากระบบแล้ว");
@@ -502,12 +502,31 @@ public class MainActivity extends Activity {
 
     private void requireActiveDriverOrReturnToLogin(String message) {
         forceStopGpsForIdentityGate();
-        if (driverIdentityRef != null && driverIdentityListener != null) {
-            try { driverIdentityRef.removeEventListener(driverIdentityListener); } catch (Exception ignored) {}
-        }
+        stopDriverWorkLoops();
         clearDriverIdentity();
         if (driverAuth != null) driverAuth.signOut();
         showLoginScreen(message);
+    }
+
+    private void stopDriverWorkLoops() {
+        uiHandler.removeCallbacks(uiTick);
+        if (diagRefreshRunnable != null) {
+            diagHandler.removeCallbacks(diagRefreshRunnable);
+        }
+        if (screenReceiver != null) {
+            try { unregisterReceiver(screenReceiver); } catch (Exception ignored) {}
+            screenReceiver = null;
+        }
+        if (remoteCommandRef != null && remoteCommandListener != null) {
+            try { remoteCommandRef.removeEventListener(remoteCommandListener); } catch (Exception ignored) {}
+            remoteCommandRef = null;
+            remoteCommandListener = null;
+        }
+        if (driverIdentityRef != null && driverIdentityListener != null) {
+            try { driverIdentityRef.removeEventListener(driverIdentityListener); } catch (Exception ignored) {}
+            driverIdentityRef = null;
+            driverIdentityListener = null;
+        }
     }
 
     private void reportVersionToFirebase() {
