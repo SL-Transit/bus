@@ -135,15 +135,69 @@
     return esc(origin) + ' &rarr; ' + esc(state.destName || destination);
   }
 
-  function transferDetailHtml(trip) {
-    if (!trip || !trip.isLeg2) return '';
-    var ti = trip.transferInfo || {};
+  /* กรณี 1 (กลุ่มเดียวกัน, ไม่ต่อรถ): ต้นทาง + ปลายทาง 2 แถว
+     กรณี 2 (กลุ่มอื่น, ต้องต่อรถ): ต้นทาง + จุดต่อรถ + ปลายทางจริง 3 แถว */
+  function stopsHtml(trip) {
+    var state = appState();
+    var origin = state.originName || '\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07';
+    var destination = finalDestinationText(trip) || state.destName || '\u0e1b\u0e25\u0e32\u0e22\u0e17\u0e32\u0e07';
     var transfer = transferPointText(trip);
+    var rows = '<div class="trip-stop-row"><img class="icon-img trip-stop-icon" src="assets/241.png" alt="\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07"><span>' + esc(origin) + '</span></div>';
+    if (trip && trip.isLeg2 && transfer) {
+      rows += '<div class="trip-stop-row"><span class="trip-stop-dot"></span><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span></div>';
+    }
+    rows += '<div class="trip-stop-row"><img class="icon-img trip-stop-icon" src="assets/205.png" alt="\u0e1b\u0e25\u0e32\u0e22\u0e17\u0e32\u0e07"><span>' + esc(destination) + '</span></div>';
+    return '<div class="trip-stops">' + rows + '</div>';
+  }
+
+  function seatsAvailableValue(trip) {
+    var n = trip && trip.availabilityDecision && trip.availabilityDecision.seatsAvailable;
+    n = Number(n);
+    return isFinite(n) ? n : null;
+  }
+
+  /* ERP publishedSchedule does not currently expose a trip-duration field (checked
+     booking-bridge.js / booking-availability-center.js / erp-calculator-center.js /
+     published-schedule-v1-dry-run.js — none publish one). Booking1 must stay a pure
+     counter and must not estimate/guess a duration locally, so this only reads an
+     ERP-provided value if/when one exists and otherwise renders nothing. */
+  function durationMinutesValue(trip) {
+    var candidates = [
+      trip && trip.durationMinutes,
+      trip && trip.estimatedDurationMinutes,
+      trip && trip.sourceTime && trip.sourceTime.durationMinutes,
+      trip && trip.sourceTime && trip.sourceTime.estimatedDurationMinutes,
+      trip && trip.sourceSegment && trip.sourceSegment.durationMinutes,
+      trip && trip.sourceSegment && trip.sourceSegment.estimatedDurationMinutes,
+      trip && trip.sourcePair && trip.sourcePair.estimatedDurationMinutes
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var n = Number(candidates[i]);
+      if (isFinite(n) && n > 0) return n;
+    }
+    return null;
+  }
+
+  function durationText(trip) {
+    var minutes = durationMinutesValue(trip);
+    if (minutes == null) return '';
+    var hours = Math.floor(minutes / 60);
+    var mins = Math.round(minutes % 60);
+    var text = (hours > 0 ? hours + ' \u0e0a\u0e21. ' : '') + mins + ' \u0e19\u0e32\u0e17\u0e35';
+    return '\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13 ' + text;
+  }
+
+  function transferDetailHtml(trip) {
     var rows = [];
-    if (transfer) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/241.png" alt="transfer"><span>\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e17\u0e35\u0e48 ' + esc(transfer) + '</span></div>');
-    if (ti.nextDepartureTime || ti.leg2Time) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/242.png" alt="next trip"><span>\u0e23\u0e16\u0e15\u0e48\u0e2d ' + esc(ti.nextDepartureTime || ti.leg2Time) + ' \u0e19.</span></div>');
-    if (ti.waitMinutes != null) rows.push('<div class="trip-transfer-line"><img class="icon-img" src="assets/243.png" alt="wait"><span>\u0e23\u0e2d\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13 ' + esc(ti.waitMinutes) + ' \u0e19\u0e32\u0e17\u0e35</span></div>');
-    return rows.length ? '<div class="trip-transfer-detail">' + rows.join('') + '</div>' : '';
+    var transfer = transferPointText(trip);
+    if (trip && trip.isLeg2 && transfer) {
+      rows.push('<div class="trip-meta-row"><img class="icon-img" src="assets/245.png" alt="transfer"><span>\u0e15\u0e48\u0e2d\u0e23\u0e16\u0e17\u0e35\u0e48 ' + esc(transfer) + '</span></div>');
+    }
+    var dur = durationText(trip);
+    if (dur) rows.push('<div class="trip-meta-row"><img class="icon-img" src="assets/242.png" alt="duration"><span>' + esc(dur) + '</span></div>');
+    var seats = seatsAvailableValue(trip);
+    if (seats != null) rows.push('<div class="trip-meta-row"><img class="icon-img" src="assets/243.png" alt="seats"><span>\u0e17\u0e35\u0e48\u0e19\u0e31\u0e48\u0e07\u0e27\u0e48\u0e32\u0e07 <b>' + seats + '</b> \u0e17\u0e35\u0e48\u0e19\u0e31\u0e48\u0e07</span></div>');
+    return rows.length ? '<div class="trip-meta-col">' + rows.join('') + '</div>' : '';
   }
 
   function transferPoint(state) {
@@ -596,13 +650,14 @@
     }
     function compactCard(trip, index) {
       return '<div class="' + cardClass(trip, 'trip-card trip-card-compact') + '" data-index="' + index + '" data-time="' + esc(trip.pickupTime) + '" data-label="' + esc(trip.label) + '" data-fare="' + (trip.fareAmount || 0) + '" onclick="selectTrip(this)">'
-        + '<div class="trip-compact-row"><div class="trip-compact-left">'
+        + '<div class="trip-card-head"><div class="trip-time-wrap">'
         + '<span class="trip-time-compact">' + esc(trip.label) + '</span>' + tripBadges(trip)
-        + '<div class="trip-compact-route">' + routeText(trip) + '</div>'
-        + transferDetailHtml(trip)
-        + noteHtml(trip) + '</div><div class="trip-compact-right">'
-        + '<span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false)
-        + '</div></div></div>';
+        + '</div></div>'
+        + '<div class="trip-route-row"><span class="trip-route-text">' + routeText(trip) + '</span></div>'
+        + '<div class="trip-card-body">' + stopsHtml(trip) + transferDetailHtml(trip) + '</div>'
+        + noteHtml(trip)
+        + '<div class="trip-bottom"><span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false) + '</div>'
+        + '</div>';
     }
 
     var recommendedIndex = available.findIndex(function(trip) { return trip && trip.recommended === true; });
@@ -630,8 +685,8 @@
       + '<div class="trip-card-head"><div class="trip-time-wrap">'
       + '<span class="trip-time">' + esc(best.label) + '</span><span class="trip-time-badge badge-recommend">เที่ยวแนะนำ</span>'
       + tripBadges(best) + '</div></div>'
-      + '<div class="trip-route-row"><img class="icon-img" src="assets/221.png" alt="stop" style="width:13px;height:13px;"><span class="trip-route-text">' + routeText(best) + '</span></div>'
-      + transferDetailHtml(best)
+      + '<div class="trip-route-row"><span class="trip-route-text">' + routeText(best) + '</span></div>'
+      + '<div class="trip-card-body">' + stopsHtml(best) + transferDetailHtml(best) + '</div>'
       + noteHtml(best)
       + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
 

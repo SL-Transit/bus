@@ -910,6 +910,33 @@ body {
   flex: 0 0 13px;
 }
 
+/* ── โครงการ์ด 2 คอลัมน์: รายการจุดจอด (ซ้าย) + ข้อมูลเสริม (ขวา) ──
+   ใช้ร่วมกันทั้งการ์ดแนะนำและการ์ดอื่น ๆ ตามดีไซน์ใหม่ */
+.trip-card-body {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin: 0 0 8px;
+}
+.trip-stops { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.trip-stop-row {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--dark-text); font-weight: 600;
+}
+.trip-stop-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trip-stop-icon { width: 14px; height: 14px; flex: 0 0 14px; }
+.trip-stop-dot {
+  width: 8px; height: 8px; flex: 0 0 8px; margin: 0 3px;
+  border-radius: 50%; border: 2px solid var(--gray-text); background: #fff;
+}
+.trip-meta-col {
+  display: grid; gap: 5px; flex: 0 0 auto; text-align: left;
+}
+.trip-meta-row {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--body-text); white-space: nowrap;
+}
+.trip-meta-row img { width: 13px; height: 13px; flex: 0 0 13px; }
+.trip-meta-row b { color: var(--teal); font-weight: 800; }
+
 /* ── กล่องข้อมูลต่อรถ (inline ในการ์ดแนะนำ) ── */
 .transfer-inline-box {
   background: #f8fafc;
@@ -965,8 +992,8 @@ body {
 
 /* ===== TRIP CARD — COMPACT (การ์ดกะทัดรัด) ===== */
 .trip-card-compact {
-  padding: 10px 12px !important;
-  margin-bottom: 8px !important;
+  padding: 14px 14px 12px !important;
+  margin-bottom: 10px !important;
 }
 .trip-compact-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
