@@ -187,6 +187,8 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(nongkhokPattaya.transferStatus === 'feasible_reference', 'Nongkhok to Pattaya must expose ERP transfer reference');
   assert(Array.isArray(nongkhokPattaya.connectionOptions) && nongkhokPattaya.connectionOptions.length > 0, 'Nongkhok to Pattaya must expose ERP connectionOptions');
   assert(nongkhokPattaya.connectionOptions[0].time, 'connectionOptions must expose display departure time');
+  assert.deepStrictEqual(nongkhokPattaya.connectionOptions.map((option) => option.time), ['06:20', '09:40', '13:00'], 'Nongkhok to Pattaya must expose all origin departure connection options');
+  assert.deepStrictEqual(nongkhokPattaya.connectionOptions.map((option) => option.nextDepartureTime), ['09:00', '12:00', '15:20'], 'Nongkhok to Pattaya must pair each origin departure with the ERP next-leg timetable');
   const nongkhokOriginLabel = schedule.originOptions.find((origin) => origin.originDestinationId === 'nongkhok').originLabel;
   const pattayaOption = destinationOptionById(schedule, nongkhokOriginLabel, 'pattaya');
   assert(pattayaOption && pattayaOption.pairKey === nongkhokPattaya.compatibilityPairKey, 'Nongkhok to Pattaya destination option pairKey mismatch');

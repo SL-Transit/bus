@@ -696,6 +696,7 @@ function buildTransferAudit(rule, erp) {
     status: feasibleCandidates.length ? 'feasible' : 'infeasible',
     policy,
     bestCandidate: feasibleCandidates[0] || candidates[0] || null,
+    feasibleCandidates,
     candidateCount: candidates.length,
     feasibleCandidateCount: feasibleCandidates.length,
     missing,
@@ -706,6 +707,55 @@ function buildTransferAudit(rule, erp) {
     } : null,
     reason: feasibleCandidates.length ? null : 'wait_time_outside_policy_or_missing_transfer_timing'
   };
+}
+
+function connectionOptionFromCandidate(candidate) {
+  return {
+    time: candidate.leg1DepartureTime,
+    departTime: candidate.leg1DepartureTime,
+    label: `${candidate.leg1DepartureTime} น.`,
+    referenceOnly: true,
+    routeChoiceStatus: 'reference_only',
+    passengerDisplayMode: 'transfer_reference',
+    displayBadgeTh: TRANSFER_REFERENCE_BADGE_TH,
+    disclaimerKey: TRANSFER_REFERENCE_DISCLAIMER_KEY,
+    disclaimerTh: TRANSFER_REFERENCE_DISCLAIMER_TH,
+    transferStopKey: candidate.transferStopKey,
+    transferArrivalTime: candidate.arrivalTimeAtTransfer,
+    nextDepartureTime: candidate.nextDepartureTime,
+    waitMinutes: candidate.waitMinutes,
+    leg1ScheduleOfferId: candidate.leg1ScheduleOfferId,
+    leg2ScheduleOfferId: candidate.leg2ScheduleOfferId,
+    sourceLineage: []
+      .concat(candidate.sourceEvidence && candidate.sourceEvidence.transferRule || [])
+      .concat(candidate.sourceEvidence && candidate.sourceEvidence.leg1ScheduleOffer || [])
+      .concat(candidate.sourceEvidence && candidate.sourceEvidence.leg2ScheduleOffer || [])
+  };
+}
+
+function connectionOptionsByOriginDeparture(audit) {
+  const byDeparture = {};
+  const candidates = Array.isArray(audit.feasibleCandidates) ? audit.feasibleCandidates : [];
+  candidates.forEach((candidate) => {
+    if (!candidate || !candidate.leg1DepartureTime) return;
+    const existing = byDeparture[candidate.leg1DepartureTime];
+    if (!existing) {
+      byDeparture[candidate.leg1DepartureTime] = candidate;
+      return;
+    }
+    const existingFit = Math.abs(existing.waitMinutes - TRANSFER_POLICY.idealWaitMinutes);
+    const candidateFit = Math.abs(candidate.waitMinutes - TRANSFER_POLICY.idealWaitMinutes);
+    if (
+      candidateFit < existingFit ||
+      (candidateFit === existingFit && candidate.waitMinutes < existing.waitMinutes) ||
+      (candidateFit === existingFit && candidate.waitMinutes === existing.waitMinutes && candidate.nextDepartureTime.localeCompare(existing.nextDepartureTime) < 0)
+    ) {
+      byDeparture[candidate.leg1DepartureTime] = candidate;
+    }
+  });
+  return Object.keys(byDeparture)
+    .sort((a, b) => timeToMinutes(a) - timeToMinutes(b))
+    .map((departureTime) => connectionOptionFromCandidate(byDeparture[departureTime]));
 }
 
 function applyFeasibleTransferPolicy(pair, audit) {
@@ -721,33 +771,12 @@ function applyFeasibleTransferPolicy(pair, audit) {
   pair.transferTiming = {
     policy: audit.policy,
     bestConnection: audit.bestCandidate,
+    connectionOptions: connectionOptionsByOriginDeparture(audit),
     candidateCount: audit.candidateCount,
     feasibleCandidateCount: audit.feasibleCandidateCount,
     boardingPoint: audit.boardingPoint
   };
-  if (audit.bestCandidate && audit.bestCandidate.leg1DepartureTime) {
-    pair.connectionOptions = [{
-      time: audit.bestCandidate.leg1DepartureTime,
-      departTime: audit.bestCandidate.leg1DepartureTime,
-      label: `${audit.bestCandidate.leg1DepartureTime} น.`,
-      referenceOnly: true,
-      routeChoiceStatus: 'reference_only',
-      passengerDisplayMode: 'transfer_reference',
-      displayBadgeTh: TRANSFER_REFERENCE_BADGE_TH,
-      disclaimerKey: TRANSFER_REFERENCE_DISCLAIMER_KEY,
-      disclaimerTh: TRANSFER_REFERENCE_DISCLAIMER_TH,
-      transferStopKey: audit.bestCandidate.transferStopKey,
-      transferArrivalTime: audit.bestCandidate.arrivalTimeAtTransfer,
-      nextDepartureTime: audit.bestCandidate.nextDepartureTime,
-      waitMinutes: audit.bestCandidate.waitMinutes,
-      leg1ScheduleOfferId: audit.bestCandidate.leg1ScheduleOfferId,
-      leg2ScheduleOfferId: audit.bestCandidate.leg2ScheduleOfferId,
-      sourceLineage: []
-        .concat(audit.bestCandidate.sourceEvidence && audit.bestCandidate.sourceEvidence.transferRule || [])
-        .concat(audit.bestCandidate.sourceEvidence && audit.bestCandidate.sourceEvidence.leg1ScheduleOffer || [])
-        .concat(audit.bestCandidate.sourceEvidence && audit.bestCandidate.sourceEvidence.leg2ScheduleOffer || [])
-    }];
-  }
+  pair.connectionOptions = pair.transferTiming.connectionOptions;
   pair.segments.forEach((segment) => {
     segment.note = TRANSFER_REFERENCE_DISCLAIMER_TH;
     segment.unavailable = false;
