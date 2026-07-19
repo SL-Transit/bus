@@ -44,6 +44,42 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-19 00:08 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Transaction - REVIEW
+
+Scope:
+- `booking-bridge.js`
+- `booking1-preview-adapter.js`
+- `tests/booking-capacity-transaction.test.js`
+- `tests/booking1-preview-data.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Added a `booking_capacity_v1` contract in the Booking bridge.
+- The default trip capacity is 3 seats when ERP Data Center has not yet published a capacity policy, matching the owner Excel limit.
+- Booking1 now reserves seats through a Firebase transaction at `operations/bookingCapacityByServiceDate/{serviceDate}/{capacityKey}` before writing `bookings/{code}`.
+- If the capacity transaction would exceed 3 seats, the booking write is blocked.
+- If the capacity reservation succeeds but the booking write fails, Booking1 rolls back the reserved seats.
+- ERP Calculator Center remains responsible for fare/service-fee/total arithmetic. Booking Availability/bridge owns the booking-capacity decision and transaction boundary.
+
+Evidence:
+- Commit: none yet; local review only.
+- Actions: not run; nothing pushed.
+- Pages: not run; nothing pushed.
+- Tests: `node tests/booking-capacity-transaction.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- Live Firebase rules must already allow the scoped capacity counter write path for Booking1 runtime, or a later owner-approved rules pass will be required. This pass did not alter rules.
+
+Next action:
+- If owner approves, commit and push branch `agent/booking-capacity-transaction`.
+
 ## 2026-07-18 20:55 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Notification Center Bridge - DONE
 
 Scope:

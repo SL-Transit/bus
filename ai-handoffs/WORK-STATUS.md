@@ -15,6 +15,7 @@ Before changing any code or writing a plan, update or report your intended work 
 ## Active Work Locks
 | Area | Owner AI | Status | Scope / Files | Started | Last Update | Commit / Report | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Booking1 capacity transaction | Supervisor AI / Project Secretary | REVIEW | `booking-bridge.js`, `booking1-preview-adapter.js`, scoped booking capacity tests | 2026-07-19 00:00 +07 | 2026-07-19 00:08 +07 | local branch `agent/booking-capacity-transaction`; awaiting owner commit/push approval | Added central capacity contract and Booking1 transaction guard so confirmed seats cannot exceed 3 seats/trip. Firebase writes/seed/production apply: none during implementation/tests. `database.rules.json` and driver identity untouched. |
 | Backbone schema + adapter | Main Backbone Lead | REVIEW | `erp-schema.js`, `erp-data-adapter.js`, `admin-erp.html` | 2026-07-05 | 2026-07-05 | `29c9754`, `6908457` | Core validator, assessment, seed plan added. |
 | Data import / catalog | Data Import AI | TODO | `data/erpDataCenter/*` dry-run plan; legacy `data/catalog/*`, `publishedCatalog`, `routeData`, `settings/routes` are source-only | - | - | - | Start with dry-run JSON only. |
 | QA / release guard | QA Release Guard AI | TODO | Actions, Pages, live source, regression checklist | - | - | - | Read-only by default. |
