@@ -114,8 +114,8 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.mappingStatusSummary.departure_only === 262, 'departure_only count mismatch');
   assert(schedule.mappingStatusSummary.external_schedule === 132, 'external_schedule count mismatch');
   assert((schedule.mappingStatusSummary.needs_review || 0) === 0, 'needs_review must be zero');
-  assert(schedule.counts.pairs === 471, 'visible pair count mismatch');
-  assert(schedule.counts.visiblePairs === 471, 'visible pair count alias mismatch');
+  assert(schedule.counts.pairs === 508, 'visible pair count mismatch');
+  assert(schedule.counts.visiblePairs === 508, 'visible pair count alias mismatch');
   assert(schedule.counts.transferUnknownPairs === 0, 'transfer unknown count mismatch');
   assert(schedule.counts.transferReferencePairs === 264, 'transfer reference count mismatch');
   assert(schedule.counts.transferFeasibleReferencePairs === 264, 'transfer feasible reference count mismatch');
@@ -127,6 +127,13 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(schedule.counts.mapViewRoutes === 1, 'mapView route count mismatch');
   assert(Array.isArray(schedule.originOptions) && schedule.originOptions.length === schedule.counts.origins, 'originOptions count mismatch');
   assert(schedule.originOptions.every((origin, index) => origin.displayOrder === index && origin.originLabel && origin.originDestinationId), 'originOptions must be ordered ERP options');
+  const groupOneDestinationIds = new Set(schedule.originOptions.map((origin) => origin.originDestinationId));
+  schedule.originOptions.forEach((origin) => {
+    const options = (schedule.destinationOptionsByOrigin || {})[origin.originLabel] || [];
+    const groupOneOptions = options.filter((option) => groupOneDestinationIds.has(option.destinationId));
+    assert(groupOneOptions.length === schedule.originOptions.length - 1, `group_001 destinations must expose 14 stops for ${origin.originLabel}`);
+    assert(groupOneOptions.every((option) => option.destinationId !== origin.originDestinationId), `group_001 destination options must exclude selected origin for ${origin.originLabel}`);
+  });
   assert(schedule.mapView && schedule.mapView.schemaVersion === 'publishedSchedule.mapView.v1.preview', 'mapView schema missing');
   assert(Array.isArray(schedule.mapView.stops) && schedule.mapView.stops.length === 15, 'mapView must expose 15 corridor stops');
   assert(schedule.mapView.stops.every((stop, index) => stop.label && stop.displayOrder === index && Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)) && stop.icon), 'mapView stops must have label/displayOrder/lat/lng/icon');
@@ -187,6 +194,8 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert(nongkhokPattaya.transferStatus === 'feasible_reference', 'Nongkhok to Pattaya must expose ERP transfer reference');
   assert(Array.isArray(nongkhokPattaya.connectionOptions) && nongkhokPattaya.connectionOptions.length > 0, 'Nongkhok to Pattaya must expose ERP connectionOptions');
   assert(nongkhokPattaya.connectionOptions[0].time, 'connectionOptions must expose display departure time');
+  assert.deepStrictEqual(nongkhokPattaya.connectionOptions.map((option) => option.time), ['06:20', '09:40', '13:00'], 'Nongkhok to Pattaya must expose all origin departure connection options');
+  assert.deepStrictEqual(nongkhokPattaya.connectionOptions.map((option) => option.nextDepartureTime), ['09:00', '12:00', '15:20'], 'Nongkhok to Pattaya must pair each origin departure with the ERP next-leg timetable');
   const nongkhokOriginLabel = schedule.originOptions.find((origin) => origin.originDestinationId === 'nongkhok').originLabel;
   const pattayaOption = destinationOptionById(schedule, nongkhokOriginLabel, 'pattaya');
   assert(pattayaOption && pattayaOption.pairKey === nongkhokPattaya.compatibilityPairKey, 'Nongkhok to Pattaya destination option pairKey mismatch');

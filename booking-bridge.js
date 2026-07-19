@@ -10,6 +10,7 @@
   'use strict';
 
   var PREVIEW_BASE_PATH = 'publishedSchedule';
+  var DEFAULT_TRIP_CAPACITY = 3;
   var AvailabilityCenter = global.SLTransitBookingAvailabilityCenter;
   var FareDecisionCenter = global.SLTransitFareDecisionCenter;
   if ((!AvailabilityCenter || !FareDecisionCenter) && typeof require === 'function') {
@@ -260,10 +261,119 @@
   function getBookingSeatLimit(trip) {
     var policyLimit = Number(_preview.bookingPolicy && _preview.bookingPolicy.maxSeatsPerBooking);
     var available = Number(trip && trip.availabilityDecision && trip.availabilityDecision.seatsAvailable);
+    var capacityLimit = getBookingTripCapacityLimit(trip);
     var limits = [];
     if (isFinite(policyLimit) && policyLimit > 0) limits.push(Math.floor(policyLimit));
     if (isFinite(available) && available > 0) limits.push(Math.floor(available));
+    if (isFinite(capacityLimit) && capacityLimit > 0) limits.push(Math.floor(capacityLimit));
     return limits.length ? Math.min.apply(Math, limits) : null;
+  }
+
+  function getBookingTripCapacityLimit(trip) {
+    var policy = _preview.bookingPolicy || {};
+    var tripLimit = Number(trip && (trip.capacity || trip.seatCapacity || trip.maxSeats || trip.maxSeatsPerTrip));
+    var decisionLimit = Number(trip && trip.availabilityDecision && trip.availabilityDecision.capacity);
+    var policyLimit = Number(policy.maxSeatsPerTrip || policy.tripCapacity || policy.defaultTripCapacity || policy.capacityPerTrip);
+    var limits = [];
+    if (isFinite(tripLimit) && tripLimit > 0) limits.push(Math.floor(tripLimit));
+    if (isFinite(decisionLimit) && decisionLimit > 0) limits.push(Math.floor(decisionLimit));
+    if (isFinite(policyLimit) && policyLimit > 0) limits.push(Math.floor(policyLimit));
+    limits.push(DEFAULT_TRIP_CAPACITY);
+    return Math.min.apply(Math, limits);
+  }
+
+  function firebaseSafeKey(value) {
+    return String(value == null ? '' : value)
+      .trim()
+      .replace(/[.#$\[\]\/]/g, '_')
+      .replace(/\s+/g, '_')
+      || 'unknown';
+  }
+
+  function buildBookingCapacityContract(params) {
+    params = params || {};
+    var trip = params.trip || {};
+    var serviceDate = params.serviceDate || trip.serviceDate || '';
+    var pickupTime = params.pickupTime || trip.pickupTime || trip.time || '';
+    var pairKey = params.pairKey || trip.pairKey || trip.canonicalPairKey || trip.pairId || '';
+    var routeKey = params.routeKey || trip.routeId || trip.catalogRouteId || '';
+    var tripKey = params.tripKey || trip.tripId || trip.catalogTripId || '';
+    var capacityKey = [
+      serviceDate,
+      pairKey || routeKey || 'pair_unknown',
+      tripKey || pickupTime || 'time_unknown'
+    ].map(firebaseSafeKey).join('__');
+    var capacityLimit = getBookingTripCapacityLimit(trip);
+    var requestedSeats = Math.max(1, Number(params.requestedSeats || params.pax || 1));
+    return {
+      contractVersion: 'booking_capacity_v1',
+      source: 'erp_logic_center',
+      serviceDate: serviceDate,
+      pairKey: pairKey,
+      routeKey: routeKey,
+      tripKey: tripKey,
+      pickupTime: pickupTime,
+      capacityKey: capacityKey,
+      capacityLimit: capacityLimit,
+      requestedSeats: requestedSeats,
+      counterPath: 'operations/bookingCapacityByServiceDate/' + firebaseSafeKey(serviceDate) + '/' + capacityKey,
+      status: capacityLimit > 0 ? 'ready' : 'missing_capacity'
+    };
+  }
+
+  function reserveBookingCapacity(db, contract) {
+    if (!db || typeof db.ref !== 'function') return Promise.reject(new Error('BOOKING_CAPACITY_DB_REQUIRED'));
+    if (!contract || contract.status !== 'ready' || !contract.counterPath) return Promise.reject(new Error('BOOKING_CAPACITY_CONTRACT_NOT_READY'));
+    var bookingCode = firebaseSafeKey(contract.bookingCode);
+    var requestedSeats = Math.max(1, Number(contract.requestedSeats || 1));
+    var capacityLimit = Math.max(1, Number(contract.capacityLimit || DEFAULT_TRIP_CAPACITY));
+    var ref = db.ref(contract.counterPath);
+    return ref.transaction(function(current) {
+      current = current || {};
+      var bookings = current.bookings || {};
+      if (bookings[bookingCode]) return current;
+      var bookedSeats = Math.max(0, Number(current.bookedSeats || 0));
+      if (bookedSeats + requestedSeats > capacityLimit) return;
+      bookings[bookingCode] = {
+        seats: requestedSeats,
+        status: 'reserved',
+        reservedAt: (global.firebase && global.firebase.database && global.firebase.database.ServerValue && global.firebase.database.ServerValue.TIMESTAMP) || Date.now()
+      };
+      current.contractVersion = 'booking_capacity_v1';
+      current.capacityLimit = capacityLimit;
+      current.bookedSeats = bookedSeats + requestedSeats;
+      current.seatsAvailable = Math.max(0, capacityLimit - current.bookedSeats);
+      current.bookings = bookings;
+      current.updatedAt = (global.firebase && global.firebase.database && global.firebase.database.ServerValue && global.firebase.database.ServerValue.TIMESTAMP) || Date.now();
+      return current;
+    }).then(function(result) {
+      if (!result || result.committed !== true) {
+        var err = new Error('BOOKING_CAPACITY_FULL');
+        err.code = 'BOOKING_CAPACITY_FULL';
+        throw err;
+      }
+      return Object.assign({}, contract, {
+        status: 'reserved',
+        bookedSeats: result.snapshot && result.snapshot.val && result.snapshot.val() && result.snapshot.val().bookedSeats,
+        seatsAvailable: result.snapshot && result.snapshot.val && result.snapshot.val() && result.snapshot.val().seatsAvailable
+      });
+    });
+  }
+
+  function releaseBookingCapacity(db, contract) {
+    if (!db || typeof db.ref !== 'function' || !contract || !contract.counterPath || !contract.bookingCode) return Promise.resolve(null);
+    var bookingCode = firebaseSafeKey(contract.bookingCode);
+    var requestedSeats = Math.max(1, Number(contract.requestedSeats || 1));
+    return db.ref(contract.counterPath).transaction(function(current) {
+      if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
+      var bookings = current.bookings || {};
+      delete bookings[bookingCode];
+      current.bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - requestedSeats);
+      current.seatsAvailable = Math.max(0, Number(current.capacityLimit || DEFAULT_TRIP_CAPACITY) - current.bookedSeats);
+      current.bookings = bookings;
+      current.updatedAt = (global.firebase && global.firebase.database && global.firebase.database.ServerValue && global.firebase.database.ServerValue.TIMESTAMP) || Date.now();
+      return current;
+    });
   }
 
   function _tripFromTimeEntry(pair, option, segment, timeEntry, segmentIndex, timeIndex, serviceDate) {
@@ -472,6 +582,7 @@
       paymentOwnership: params.paymentOwnership || 'sl_transit',
       externalPaymentRequired: params.externalPaymentRequired === true,
       referenceOnly: params.referenceOnly === true,
+      capacity: params.capacity || null,
       payMethod: params.payMethod || '',
       slipUploaded: params.slipUploaded || false,
       passengerIdentity: params.passengerIdentity || null,
@@ -502,6 +613,10 @@
     canCreateProductionBookings: canCreateProductionBookings,
     getLastFareContractStatus: getLastFareContractStatus,
     getBookingSeatLimit: getBookingSeatLimit,
+    getBookingTripCapacityLimit: getBookingTripCapacityLimit,
+    buildBookingCapacityContract: buildBookingCapacityContract,
+    reserveBookingCapacity: reserveBookingCapacity,
+    releaseBookingCapacity: releaseBookingCapacity,
     buildBookingSnapshot: buildBookingSnapshot,
     getTransferBufferAsync: getTransferBufferAsync,
     get _catalog() { return null; },
