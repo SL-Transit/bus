@@ -168,6 +168,10 @@ function transferCanonicalPairKey(rule) {
   return `psv1_pair_dest_${rule.originStopKey}_to_${rule.destStopKey}_via_${rule.viaStopKey}`;
 }
 
+function unavailableReferenceCanonicalPairKey(originDestinationId, destinationId) {
+  return `psv1_pair_dest_${originDestinationId}_to_${destinationId}_unavailable_reference`;
+}
+
 function timeToMinutes(time) {
   const match = /^(\d\d?):(\d\d)$/.exec(String(time || ''));
   if (!match) return null;
@@ -426,6 +430,63 @@ function buildDestinationOptionsByOrigin(originOptions, pairs, destinationsById,
     map[origin.originLabel] = options;
     return map;
   }, {});
+}
+
+function buildUnavailableReferencePair(origin, destination) {
+  const pairKey = compatibilityPairKey(origin.originLabel, destination.originLabel);
+  const canonicalPairKey = unavailableReferenceCanonicalPairKey(origin.originDestinationId, destination.originDestinationId);
+  return {
+    pairId: canonicalPairKey,
+    canonicalPairKey,
+    compatibilityPairKey: pairKey,
+    keyType: 'compatibility_label_pair',
+    compatibilityOnly: true,
+    originLabel: origin.originLabel,
+    destinationLabel: destination.originLabel,
+    originDestinationId: origin.originDestinationId,
+    destinationId: destination.originDestinationId,
+    originNodeId: origin.nodeId,
+    destinationNodeId: destination.nodeId,
+    serviceGroupId: 'group_001',
+    previewPriority: 'phase1_owner_review',
+    publicationStatus: 'preview',
+    productionReady: false,
+    bookingEligible: false,
+    referenceOnly: true,
+    previewDisplayMode: 'reference_unavailable',
+    routeChoiceStatus: 'unavailable_reference',
+    unavailableReasonCode: 'missing_group_001_timetable_pair',
+    transfer: null,
+    transferStatus: 'not_required',
+    transferDisclaimerKey: null,
+    transferDisclaimerTh: null,
+    transferRuleId: null,
+    segments: [
+      {
+        label: 'ตารางเวลา',
+        fromLabel: origin.originLabel,
+        toLabel: destination.originLabel,
+        note: 'ยังไม่มีตารางเวลาสำหรับคู่ป้ายนี้ในข้อมูลกลาง',
+        referenceOnly: true,
+        unavailable: true,
+        availabilityStatus: 'unavailable_reference',
+        routeChoiceStatus: 'unavailable_reference',
+        times: []
+      }
+    ],
+    sourceLineage: []
+  };
+}
+
+function addMissingGroupOneDestinationPairs(originOptions, pairs) {
+  originOptions.forEach((origin) => {
+    originOptions.forEach((destination) => {
+      if (origin.originDestinationId === destination.originDestinationId) return;
+      const pairKey = compatibilityPairKey(origin.originLabel, destination.originLabel);
+      if (pairs[pairKey]) return;
+      pairs[pairKey] = buildUnavailableReferencePair(origin, destination);
+    });
+  });
 }
 
 function resolveFareContract(erp, offer) {
@@ -1243,6 +1304,8 @@ async function buildPublishedScheduleV1DryRun() {
       excludedInfeasibleTransferPairs[pairKey] = applyInfeasibleTransferPolicy(transferPair, audit);
     }
   });
+
+  addMissingGroupOneDestinationPairs(originOptions, pairs);
 
   Object.keys(pairs).forEach((pairKey) => {
     pairs[pairKey].segments.forEach((segment) => {
