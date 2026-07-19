@@ -77,6 +77,14 @@ assert(calculator.includes('function calculateBookingTotal'), 'ERP Calculator Ce
 assert(adapter.includes('calculator.calculateBookingTotal'), 'Booking1 adapter must delegate totals to ERP Calculator Center');
 assert(!adapter.includes('base * n') && !adapter.includes('SERVICE_FEE_AMOUNT * n'), 'Booking1 adapter must not calculate fare or service fee locally');
 assert(bridge.includes('getBookingSeatLimit'), 'Booking1 must obtain the seat limit through the ERP Data Center bridge');
+assert(bridge.includes('var DEFAULT_TRIP_CAPACITY = 3'), 'Booking1 central capacity fallback must match the owner Excel limit of 3 seats per trip');
+assert(bridge.includes('function buildBookingCapacityContract'), 'Booking1 bridge must build a central capacity contract');
+assert(bridge.includes('operations/bookingCapacityByServiceDate/'), 'Booking1 capacity counters must be service-date scoped central records');
+assert(bridge.includes('function reserveBookingCapacity'), 'Booking1 bridge must reserve seats through a central capacity transaction');
+assert(bridge.includes('.transaction(function(current)'), 'Booking1 capacity reservation must use a Firebase transaction');
+assert(adapter.includes('buildBookingCapacityContract'), 'Booking1 adapter must build a capacity contract before saving a booking');
+assert(adapter.includes('reserveBookingCapacity(db, capacityContract).then'), 'Booking1 adapter must reserve capacity before writing a booking');
+assert(adapter.includes('releaseBookingCapacity(db, capacityContract)'), 'Booking1 adapter must roll back capacity when booking write fails');
 assert(!booking1.includes('Math.min(10'), 'Booking1 must not hardcode a ten-seat maximum');
 assert(!booking1.includes('แปดริ้ว'), 'Booking1 must not hardcode the transfer point label');
 assert(bridge.includes("info.source = 'erp_data_center'"), 'Booking1 transfer display data must be marked as ERP Data Center output');
