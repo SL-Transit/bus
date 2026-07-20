@@ -192,7 +192,7 @@ public class MainActivity extends Activity {
     private GradientDrawable startWorkIconBg;
 
     // ===== ข้อ 8: Bottom Navigation =====
-    private static final String[] NAV_LABELS = {"หน้าหลัก", "แผนที่งานวันนี้", "รายงาน", "แจ้งเตือน", "บัญชี"};
+    private static final String[] NAV_LABELS = {"หน้าหลัก", "แผนที่", "รายงาน", "แจ้งเตือน", "บัญชี"};
     private static final String[] NAV_ICONS  = {"🏠", "📋", "📊", "🔔", "👤"};
     private static final int COLOR_DEEP_NAVY = Color.parseColor("#0B1D3A");
     private FrameLayout contentContainer;
@@ -202,10 +202,15 @@ public class MainActivity extends Activity {
     private final ImageView[] navIconImgs = new ImageView[NAV_LABELS.length]; // PNG icons
     private final TextView[] navTabLabels = new TextView[NAV_LABELS.length];
 
-    // ===== หน้าแผนที่งานวันนี้ (Grab/Uber-style live map) =====
+    // ===== หน้าแผนที่ (Grab/Uber-style live map) =====
     private WebView driverMapWebView;
     private boolean driverMapReady = false;
     private TextView mapBookedCount, mapCheckedCount, mapEarningsValue;
+
+    // ===== หน้ารายงาน (Grab/Uber-style: hero earnings + tab ช่วงเวลา) =====
+    private LinearLayout reportDetailContainer;
+    private TextView[] reportTabButtons;
+    private int reportSelectedPeriod = 0; // 0=วันนี้ 1=สัปดาห์นี้ 2=ทั้งหมด
     private int currentNavIndex = 0;
 
     private String lastCoords = "";
@@ -2355,7 +2360,7 @@ public class MainActivity extends Activity {
         root.addView(versionLabel, versionLp);
 
         // ===== สร้างหน้า nav ทั้ง 4 หน้าจริง =====
-        contentContainer.addView(buildLiveMapPage());       // index 1: แผนที่งานวันนี้
+        contentContainer.addView(buildLiveMapPage());       // index 1: แผนที่
         contentContainer.addView(buildReportPage());        // index 2: รายงาน (รวมวันนี้/สัปดาห์/รวม/รายได้)
         contentContainer.addView(buildNotificationPage());  // index 3: แจ้งเตือน
         contentContainer.addView(buildAccountPage());       // index 4: บัญชี
@@ -2988,12 +2993,12 @@ public class MainActivity extends Activity {
 
     // ===== ข้อ 8: หน้า "เร็วๆนี้" สำหรับแท็บที่ยังไม่มีเนื้อหา — กันแอป crash ตอนกดแท็บ =====
     // =====================================================================
-    // หน้า 1: แผนที่งานวันนี้ — ตำแหน่งรถสด + ป้ายจอด + สรุปผู้โดยสาร (Grab/Uber-style)
+    // หน้า 1: แผนที่ — ตำแหน่งรถสด + ป้ายจอด + สรุปผู้โดยสาร (Grab/Uber-style)
     // =====================================================================
     private LinearLayout buildLiveMapPage() {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setTag("nav_page_แผนที่งานวันนี้");
+        page.setTag("nav_page_แผนที่");
         page.setBackgroundColor(COLOR_BG_PAGE);
         page.setVisibility(android.view.View.GONE);
         page.setLayoutParams(new FrameLayout.LayoutParams(
@@ -3004,7 +3009,7 @@ public class MainActivity extends Activity {
         header.setOrientation(LinearLayout.VERTICAL);
         header.setPadding(dp(16), dp(52), dp(16), dp(8));
         TextView title = new TextView(this);
-        title.setText("🗺  แผนที่งานวันนี้");
+        title.setText("🗺  แผนที่");
         title.setTextColor(COLOR_NAVY);
         title.setTextSize(20);
         title.setTypeface(Typeface.DEFAULT_BOLD);
@@ -3144,7 +3149,7 @@ public class MainActivity extends Activity {
 
     private void updateLiveMapIfVisible() {
         if (driverMapWebView == null || contentContainer == null) return;
-        android.view.View mapPage = contentContainer.findViewWithTag("nav_page_แผนที่งานวันนี้");
+        android.view.View mapPage = contentContainer.findViewWithTag("nav_page_แผนที่");
         if (mapPage != null && mapPage.getVisibility() == android.view.View.VISIBLE) {
             updateLiveMap();
         }
@@ -3175,72 +3180,120 @@ public class MainActivity extends Activity {
         String vehicleId = authorizedRuntimeVehicleId();
         String todayLabel = new java.text.SimpleDateFormat("dd MMM yyyy", new java.util.Locale("th")).format(new java.util.Date());
 
+        // === Header ===
         TextView header = new TextView(this);
-        header.setText("📊  รายงาน & รายได้");
+        header.setText("รายงาน");
         header.setTextColor(COLOR_NAVY);
         header.setTextSize(20);
         header.setTypeface(Typeface.DEFAULT_BOLD);
-        header.setPadding(0, 0, 0, dp(4));
+        header.setPadding(0, 0, 0, dp(2));
         root.addView(header);
         TextView dateLabel = new TextView(this);
-        dateLabel.setText(todayLabel + (vehicleId != null ? "  |  " + vehicleId : ""));
+        dateLabel.setText(todayLabel + (vehicleId != null ? "  •  " + vehicleId : ""));
         dateLabel.setTextColor(COLOR_TEXT_MUTED);
         dateLabel.setTextSize(12);
         LinearLayout.LayoutParams dateLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        dateLp.setMargins(0, 0, 0, dp(16));
+        dateLp.setMargins(0, 0, 0, dp(14));
         dateLabel.setLayoutParams(dateLp);
         root.addView(dateLabel);
 
-        // === รายได้วันนี้ (คำนวณจากผู้โดยสารที่จอง/เช็คอินจริงของคันนี้ — ไม่เกี่ยวกับค่าจ้างบริษัท) ===
+        // === Hero earnings card (gradient, ตัวเลขใหญ่ แบบ Grab/Uber) ===
         int totalPax = prefs.getInt("today_total_pax", 0);
         int checkedIn = prefs.getInt("today_checked_in", 0);
-        int notChecked = Math.max(0, totalPax - checkedIn);
         float bookedAmount = prefs.getFloat(KEY_TODAY_BOOKED_AMOUNT, 0f);
         float checkedInAmount = prefs.getFloat(KEY_TODAY_CHECKEDIN_AMOUNT, 0f);
-        root.addView(buildSectionCard("💰  รายได้วันนี้", new String[][]{
-            {"จองทั้งหมด",     totalPax + " คน / " + formatBaht(bookedAmount)},
-            {"เช็คอินจริง",    checkedIn + " คน / " + formatBaht(checkedInAmount)},
-            {"ยังไม่เช็คอิน",  notChecked + " คน"},
-            {"รวมรายได้วันนี้", formatBaht(checkedInAmount)},
-        }));
 
-        // === สรุปกะวันนี้ ===
-        root.addView(buildSectionCard("⏱  สรุปกะวันนี้", new String[][]{
-            {"เวลาเริ่มงาน",  prefs.getString("today_start_time", "--:--")},
-            {"เวลาสิ้นสุด",   prefs.getString("today_end_time",   "--:--")},
-            {"ชั่วโมงทำงาน", prefs.getString("today_active_hrs", "0") + " ชม."},
-            {"สัญญาณ GPS หาย", prefs.getString("today_gps_down", "0") + " นาที"},
-        }));
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(dp(20), dp(20), dp(20), dp(20));
+        GradientDrawable heroBg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, new int[]{COLOR_NAVY, COLOR_TEAL});
+        heroBg.setCornerRadius(dp(18));
+        hero.setBackground(heroBg);
+        hero.setElevation(dp(2));
+        LinearLayout.LayoutParams heroLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        heroLp.setMargins(0, 0, 0, dp(14));
+        hero.setLayoutParams(heroLp);
 
-        // === เส้นทางวันนี้ ===
-        root.addView(buildSectionCard("🗺  เส้นทางวันนี้", new String[][]{
-            {"เส้นทาง",   "สนามชัยเขต → ฉะเชิงเทรา"},
-            {"คิวที่วิ่ง", prefs.getString(KEY_TODAY_QUEUE, "—")},
-            {"เที่ยวทั้งหมด", prefs.getString("today_trips", "—") + " เที่ยว"},
-        }));
+        TextView heroLabel = new TextView(this);
+        heroLabel.setText("รายได้วันนี้");
+        heroLabel.setTextColor(Color.argb(200, 255, 255, 255));
+        heroLabel.setTextSize(13);
+        hero.addView(heroLabel);
 
-        // === สัปดาห์นี้ ===
-        root.addView(buildSectionCard("📅  สัปดาห์นี้", new String[][]{
-            {"วันทำงาน",   prefs.getString("stat_week_days", "0") + " วัน"},
-            {"เที่ยววิ่ง",  prefs.getString("stat_week_trips", "0") + " เที่ยว"},
-            {"ผู้โดยสาร",  prefs.getString("stat_week_pax", "0") + " คน"},
-        }));
+        TextView heroAmount = new TextView(this);
+        heroAmount.setText(formatBaht(checkedInAmount));
+        heroAmount.setTextColor(Color.WHITE);
+        heroAmount.setTextSize(36);
+        heroAmount.setTypeface(Typeface.DEFAULT_BOLD);
+        heroAmount.setPadding(0, dp(2), 0, dp(2));
+        hero.addView(heroAmount);
 
-        // === สถิติรวมทั้งหมด ===
-        root.addView(buildSectionCard("📈  สถิติรวมทั้งหมด", new String[][]{
-            {"วันที่ทำงาน",   prefs.getString("stat_total_days", "0") + " วัน"},
-            {"เที่ยวรวม",     prefs.getString("stat_total_trips", "0") + " เที่ยว"},
-            {"ผู้โดยสารรวม",  prefs.getString("stat_total_pax", "0") + " คน"},
-            {"ชั่วโมงรวม",    prefs.getString("stat_total_hrs", "0") + " ชม."},
-        }));
+        TextView heroSub = new TextView(this);
+        heroSub.setText("เช็คอินแล้ว " + checkedIn + " คน  •  จองทั้งหมด " + totalPax + " คน");
+        heroSub.setTextColor(Color.argb(200, 255, 255, 255));
+        heroSub.setTextSize(12);
+        heroSub.setPadding(0, 0, 0, dp(14));
+        hero.addView(heroSub);
 
-        // === ประวัติสัญญาณ GPS ===
-        root.addView(buildSectionCard("📡  ประวัติสัญญาณ GPS", new String[][]{
-            {"เฉลี่ยสัญญาณหาย/วัน", prefs.getString("stat_avg_gps_down", "0") + " นาที"},
-            {"ครั้งที่ reconnect",    prefs.getString("stat_reconnect_count", "0") + " ครั้ง"},
-            {"uptime เฉลี่ย",         prefs.getString("stat_avg_uptime", "—")},
-        }));
+        // divider
+        android.view.View divider = new android.view.View(this);
+        divider.setBackgroundColor(Color.argb(60, 255, 255, 255));
+        hero.addView(divider, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
+
+        // แถวย่อย: จองทั้งหมด / เช็คอินจริง
+        LinearLayout heroRow = new LinearLayout(this);
+        heroRow.setOrientation(LinearLayout.HORIZONTAL);
+        heroRow.setPadding(0, dp(14), 0, 0);
+        heroRow.addView(buildHeroStat("จองทั้งหมด", totalPax + " คน", formatBaht(bookedAmount)));
+        android.view.View vDivider = new android.view.View(this);
+        vDivider.setBackgroundColor(Color.argb(60, 255, 255, 255));
+        heroRow.addView(vDivider, new LinearLayout.LayoutParams(dp(1), dp(38)));
+        heroRow.addView(buildHeroStat("เช็คอินจริง", checkedIn + " คน", formatBaht(checkedInAmount)));
+        hero.addView(heroRow);
+        root.addView(hero);
+
+        // === Segmented tabs: วันนี้ / สัปดาห์นี้ / ทั้งหมด ===
+        String[] tabLabels = {"วันนี้", "สัปดาห์นี้", "ทั้งหมด"};
+        LinearLayout tabRow = new LinearLayout(this);
+        tabRow.setOrientation(LinearLayout.HORIZONTAL);
+        GradientDrawable tabRowBg = new GradientDrawable();
+        tabRowBg.setColor(Color.WHITE);
+        tabRowBg.setCornerRadius(dp(10));
+        tabRow.setBackground(tabRowBg);
+        tabRow.setPadding(dp(4), dp(4), dp(4), dp(4));
+        LinearLayout.LayoutParams tabRowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tabRowLp.setMargins(0, 0, 0, dp(14));
+        tabRow.setLayoutParams(tabRowLp);
+        reportTabButtons = new TextView[tabLabels.length];
+        for (int i = 0; i < tabLabels.length; i++) {
+            final int idx = i;
+            TextView tab = new TextView(this);
+            tab.setText(tabLabels[i]);
+            tab.setTextSize(13);
+            tab.setTypeface(Typeface.DEFAULT_BOLD);
+            tab.setGravity(Gravity.CENTER);
+            tab.setPadding(0, dp(9), 0, dp(9));
+            tab.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            tab.setOnClickListener(v -> {
+                reportSelectedPeriod = idx;
+                applyReportTabStyles();
+                buildReportDetailForPeriod(reportDetailContainer, idx);
+            });
+            reportTabButtons[i] = tab;
+            tabRow.addView(tab);
+        }
+        root.addView(tabRow);
+        applyReportTabStyles();
+
+        // === Detail area (สลับตาม tab) ===
+        reportDetailContainer = new LinearLayout(this);
+        reportDetailContainer.setOrientation(LinearLayout.VERTICAL);
+        root.addView(reportDetailContainer);
+        buildReportDetailForPeriod(reportDetailContainer, reportSelectedPeriod);
 
         // === ปุ่ม refresh ===
         TextView refreshBtn = new TextView(this);
@@ -3259,6 +3312,79 @@ public class MainActivity extends Activity {
         note.setTextColor(COLOR_TEXT_MUTED);
         note.setTextSize(11);
         root.addView(note);
+    }
+
+    private void applyReportTabStyles() {
+        if (reportTabButtons == null) return;
+        for (int i = 0; i < reportTabButtons.length; i++) {
+            TextView tab = reportTabButtons[i];
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(8));
+            boolean selected = (i == reportSelectedPeriod);
+            bg.setColor(selected ? COLOR_TEAL : Color.WHITE);
+            tab.setBackground(bg);
+            tab.setTextColor(selected ? Color.WHITE : COLOR_TEXT_MUTED);
+        }
+    }
+
+    private void buildReportDetailForPeriod(LinearLayout container, int period) {
+        if (container == null) return;
+        container.removeAllViews();
+        if (period == 0) {
+            container.addView(buildSectionCard("⏱  สรุปกะวันนี้", new String[][]{
+                {"เวลาเริ่มงาน",  prefs.getString("today_start_time", "--:--")},
+                {"เวลาสิ้นสุด",   prefs.getString("today_end_time",   "--:--")},
+                {"ชั่วโมงทำงาน", prefs.getString("today_active_hrs", "0") + " ชม."},
+                {"สัญญาณ GPS หาย", prefs.getString("today_gps_down", "0") + " นาที"},
+            }));
+            container.addView(buildSectionCard("🗺  เส้นทางวันนี้", new String[][]{
+                {"เส้นทาง",   "สนามชัยเขต → ฉะเชิงเทรา"},
+                {"คิวที่วิ่ง", prefs.getString(KEY_TODAY_QUEUE, "—")},
+                {"เที่ยวทั้งหมด", prefs.getString("today_trips", "—") + " เที่ยว"},
+            }));
+        } else if (period == 1) {
+            container.addView(buildSectionCard("📅  สัปดาห์นี้", new String[][]{
+                {"วันทำงาน",   prefs.getString("stat_week_days", "0") + " วัน"},
+                {"เที่ยววิ่ง",  prefs.getString("stat_week_trips", "0") + " เที่ยว"},
+                {"ผู้โดยสาร",  prefs.getString("stat_week_pax", "0") + " คน"},
+            }));
+        } else {
+            container.addView(buildSectionCard("📈  สถิติรวมทั้งหมด", new String[][]{
+                {"วันที่ทำงาน",   prefs.getString("stat_total_days", "0") + " วัน"},
+                {"เที่ยวรวม",     prefs.getString("stat_total_trips", "0") + " เที่ยว"},
+                {"ผู้โดยสารรวม",  prefs.getString("stat_total_pax", "0") + " คน"},
+                {"ชั่วโมงรวม",    prefs.getString("stat_total_hrs", "0") + " ชม."},
+            }));
+            container.addView(buildSectionCard("📡  ประวัติสัญญาณ GPS", new String[][]{
+                {"เฉลี่ยสัญญาณหาย/วัน", prefs.getString("stat_avg_gps_down", "0") + " นาที"},
+                {"ครั้งที่ reconnect",    prefs.getString("stat_reconnect_count", "0") + " ครั้ง"},
+                {"uptime เฉลี่ย",         prefs.getString("stat_avg_uptime", "—")},
+            }));
+        }
+    }
+
+    private LinearLayout buildHeroStat(String label, String mainValue, String subValue) {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(14), 0, dp(14), 0);
+        col.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView l = new TextView(this);
+        l.setText(label);
+        l.setTextColor(Color.argb(190, 255, 255, 255));
+        l.setTextSize(11);
+        col.addView(l);
+        TextView v1 = new TextView(this);
+        v1.setText(mainValue);
+        v1.setTextColor(Color.WHITE);
+        v1.setTextSize(15);
+        v1.setTypeface(Typeface.DEFAULT_BOLD);
+        col.addView(v1);
+        TextView v2 = new TextView(this);
+        v2.setText(subValue);
+        v2.setTextColor(Color.argb(200, 255, 255, 255));
+        v2.setTextSize(12);
+        col.addView(v2);
+        return col;
     }
 
     // =====================================================================
@@ -3391,19 +3517,23 @@ public class MainActivity extends Activity {
         root.setPadding(dp(16), dp(52), dp(16), dp(80));
         sv.addView(root);
 
-        // Profile header card
+        // === Profile hero card (gradient, สไตล์ Grab/Uber driver profile) ===
         LinearLayout profileCard = new LinearLayout(this);
-        profileCard.setOrientation(LinearLayout.HORIZONTAL);
-        profileCard.setGravity(Gravity.CENTER_VERTICAL);
-        profileCard.setPadding(dp(16), dp(20), dp(16), dp(20));
-        GradientDrawable profileBg = new GradientDrawable();
-        profileBg.setColor(COLOR_NAVY);
-        profileBg.setCornerRadius(dp(16));
+        profileCard.setOrientation(LinearLayout.VERTICAL);
+        profileCard.setPadding(dp(18), dp(20), dp(18), dp(18));
+        GradientDrawable profileBg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, new int[]{COLOR_NAVY, COLOR_OCEAN});
+        profileBg.setCornerRadius(dp(18));
         profileCard.setBackground(profileBg);
+        profileCard.setElevation(dp(2));
         LinearLayout.LayoutParams pcLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        pcLp.setMargins(0, 0, 0, dp(16));
+        pcLp.setMargins(0, 0, 0, dp(14));
         profileCard.setLayoutParams(pcLp);
+
+        LinearLayout identityRow = new LinearLayout(this);
+        identityRow.setOrientation(LinearLayout.HORIZONTAL);
+        identityRow.setGravity(Gravity.CENTER_VERTICAL);
 
         // Avatar วงกลม
         FrameLayout avatar = new FrameLayout(this);
@@ -3411,43 +3541,60 @@ public class MainActivity extends Activity {
         avBg.setShape(GradientDrawable.OVAL);
         avBg.setColor(COLOR_TEAL);
         avatar.setBackground(avBg);
-        LinearLayout.LayoutParams avLp = new LinearLayout.LayoutParams(dp(56), dp(56));
+        LinearLayout.LayoutParams avLp = new LinearLayout.LayoutParams(dp(60), dp(60));
         avLp.setMargins(0, 0, dp(14), 0);
         avatar.setLayoutParams(avLp);
         TextView avIcon = new TextView(this);
         avIcon.setText("👤");
-        avIcon.setTextSize(24);
+        avIcon.setTextSize(26);
         avIcon.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams avIconLp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
         avIconLp.gravity = Gravity.CENTER;
         avatar.addView(avIcon, avIconLp);
-        profileCard.addView(avatar);
+        identityRow.addView(avatar);
 
         LinearLayout profileInfo = new LinearLayout(this);
         profileInfo.setOrientation(LinearLayout.VERTICAL);
         String vehicleId = authorizedRuntimeVehicleId();
-        if (vehicleId == null) vehicleId = "not signed in";
-        String erpVehicleId = prefs.getString(KEY_ERP_VEHICLE_ID, "not assigned");
+        if (vehicleId == null) vehicleId = "ยังไม่ได้เข้าสู่ระบบ";
+        String erpVehicleId = prefs.getString(KEY_ERP_VEHICLE_ID, "ยังไม่ได้กำหนด");
         TextView driverName = new TextView(this);
-        driverName.setText("คนขับ — " + vehicleId);
+        driverName.setText("คนขับรถ  " + vehicleId);
         driverName.setTextColor(Color.WHITE);
-        driverName.setTextSize(16);
+        driverName.setTextSize(17);
         driverName.setTypeface(Typeface.DEFAULT_BOLD);
         profileInfo.addView(driverName);
         TextView driverSub = new TextView(this);
-        driverSub.setText("ST Transit  •  v" + BuildConfig.VERSION_NAME);
-        driverSub.setTextColor(Color.argb(180, 255, 255, 255));
+        driverSub.setText("สนามชัยเดินรถ จำกัด  •  สาย 373");
+        driverSub.setTextColor(Color.argb(190, 255, 255, 255));
         driverSub.setTextSize(12);
-        driverSub.setPadding(0, dp(4), 0, 0);
+        driverSub.setPadding(0, dp(3), 0, 0);
         profileInfo.addView(driverSub);
-        profileCard.addView(profileInfo);
+        identityRow.addView(profileInfo);
+        profileCard.addView(identityRow);
+
+        // divider
+        android.view.View pDivider = new android.view.View(this);
+        pDivider.setBackgroundColor(Color.argb(50, 255, 255, 255));
+        LinearLayout.LayoutParams pDividerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        pDividerLp.setMargins(0, dp(16), 0, dp(12));
+        profileCard.addView(pDivider, pDividerLp);
+
+        // สถิติย่อ (เที่ยวรวม / ผู้โดยสารสะสม / เวอร์ชันแอพ) — แถวสไตล์โปรไฟล์ Grab
+        LinearLayout statsRow = new LinearLayout(this);
+        statsRow.setOrientation(LinearLayout.HORIZONTAL);
+        statsRow.addView(buildHeroStat("เที่ยวรวม", prefs.getString("stat_total_trips", "0"), "เที่ยว"));
+        statsRow.addView(buildHeroStat("ผู้โดยสารสะสม", prefs.getString("stat_total_pax", "0"), "คน"));
+        statsRow.addView(buildHeroStat("เวอร์ชันแอพ", "v" + BuildConfig.VERSION_NAME, ""));
+        profileCard.addView(statsRow);
         root.addView(profileCard);
 
         // ข้อมูลรถ
         root.addView(buildSectionCard("🚌  ข้อมูลรถที่ใช้", new String[][]{
-            {"Runtime vehicle",       vehicleId},
-            {"ERP vehicle",           erpVehicleId},
+            {"ทะเบียนที่ใช้งาน (Runtime)", vehicleId},
+            {"ทะเบียนตามระบบ ERP",         erpVehicleId},
             {"เวอร์ชันแอพ",  BuildConfig.VERSION_NAME + " (code " + BuildConfig.VERSION_CODE + ")"},
             {"คิววันนี้",     prefs.getString(KEY_TODAY_QUEUE, "—")},
         }));
@@ -3466,9 +3613,9 @@ public class MainActivity extends Activity {
             {"ติดต่อ",       "admin@st-transit.com"},
         }));
 
-        // ปุ่ม logout / เปลี่ยนรถ
+        // ปุ่ม: รายละเอียดรถ / ออกจากระบบ
         TextView changeVehicleBtn = new TextView(this);
-        changeVehicleBtn.setText("Assigned vehicle details");
+        changeVehicleBtn.setText("รายละเอียดรถที่ได้รับมอบหมาย");
         changeVehicleBtn.setTextColor(Color.WHITE);
         changeVehicleBtn.setTextSize(14);
         changeVehicleBtn.setTypeface(Typeface.DEFAULT_BOLD);
@@ -3486,7 +3633,7 @@ public class MainActivity extends Activity {
         root.addView(changeVehicleBtn);
 
         TextView signOutBtn = new TextView(this);
-        signOutBtn.setText("Sign out");
+        signOutBtn.setText("ออกจากระบบ");
         signOutBtn.setTextColor(Color.WHITE);
         signOutBtn.setTextSize(14);
         signOutBtn.setTypeface(Typeface.DEFAULT_BOLD);
@@ -3501,10 +3648,10 @@ public class MainActivity extends Activity {
         signOutLp.setMargins(0, dp(8), 0, dp(8));
         signOutBtn.setLayoutParams(signOutLp);
         signOutBtn.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("Sign out")
-                .setMessage("Stop GPS and sign out of this driver account?")
-                .setPositiveButton("Sign out", (d, w) -> signOutDriver())
-                .setNegativeButton("Cancel", null)
+                .setTitle("ออกจากระบบ")
+                .setMessage("หยุดส่ง GPS และออกจากระบบบัญชีคนขับนี้หรือไม่?")
+                .setPositiveButton("ออกจากระบบ", (d, w) -> signOutDriver())
+                .setNegativeButton("ยกเลิก", null)
                 .show());
         root.addView(signOutBtn);
         return sv;
