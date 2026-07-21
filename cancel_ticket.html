@@ -13,6 +13,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="ticket-data-center.js?v=20260718center1"></script>
   <script defer src="site-analytics.js?v=20260624a"></script>
   <style>
     :root {
@@ -335,6 +336,9 @@
     }
 
     function bookingPathForCode(code, booking) {
+      if (window.SLTransitTicketDataCenter && typeof window.SLTransitTicketDataCenter.bookingPathForCode === 'function') {
+        return window.SLTransitTicketDataCenter.bookingPathForCode(code, {}, booking);
+      }
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
 
@@ -394,19 +398,13 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      return db.ref('bookings').orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
-        if (!snap.exists()) return null;
-        var matches = [];
-        snap.forEach(function(child) {
-          var booking = child.val() || {};
-          if (String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
-            matches.push({ code: child.key, booking: booking });
-          }
-        });
-        matches.sort(function(a, b) {
-          return Number(b.booking.createdAt || b.booking.ts || 0) - Number(a.booking.createdAt || a.booking.ts || 0);
-        });
-        return matches[0] || null;
+      return window.SLTransitTicketDataCenter.findTicket(db, phone, {
+        excludeNotificationOnly: true,
+        sortValue: function(booking) {
+          return Number(booking.createdAt || booking.ts || 0);
+        }
+      }).then(function(result) {
+        return result ? { code: result.code, booking: result.booking, readPath: result.readPath, matchCount: result.matchCount } : null;
       });
     }
 
@@ -450,14 +448,12 @@
       show('ticketCard', false);
       show('actions', false);
       authReady.then(function() {
-        if (/^(BK\d{6,10}|TB\d{6})$/i.test(value)) {
-          var code = value.toUpperCase();
-          return db.ref(bookingPathForCode(code) + code).once('value').then(function(snap) {
-            return snap.exists() ? { code: code, booking: snap.val() } : null;
-          });
-        }
-        if (/^0[689]\d{8}$/.test(value)) return findLatestBookingByPhone(value);
-        return null;
+        return window.SLTransitTicketDataCenter.findTicket(db, value, {
+          excludeNotificationOnly: true,
+          sortValue: function(booking) {
+            return Number(booking.createdAt || booking.ts || 0);
+          }
+        });
       }).then(function(found) {
         if (!found) {
           currentBooking = null;
@@ -466,7 +462,7 @@
           return;
         }
         currentBooking = normalizeBooking(found.booking, found.code);
-        currentBookingPath = bookingPathForCode(found.code, currentBooking) + found.code;
+        currentBookingPath = found.readPath || (bookingPathForCode(found.code, currentBooking) + found.code);
         setStatus('good', 'พบข้อมูลการจองแล้ว กรุณาตรวจสอบก่อนยกเลิก');
         renderBooking(currentBooking);
       }).catch(function(err) {

@@ -80,6 +80,44 @@ Blockers:
 Next action:
 - If owner approves, commit and push branch `agent/booking-capacity-transaction`.
 
+## 2026-07-18 23:22 +07 (Asia/Bangkok) - Supervisor AI / Ticket Center Read Contract - REVIEW
+
+Scope:
+- `ticket-data-center.js`
+- `check_ticket.html`
+- `cancel_ticket.html`
+- `tests/ticket-data-center.test.js`
+- `tests/ticket-data-center-page-wiring.test.js`
+- `tests/check-ticket-center-wiring.test.js`
+- `tests/tracking-cancel-routing.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Added a shared `ticket_data_center_read_v1` helper for ticket lookup by booking code or phone number.
+- Check Ticket and Cancel Ticket now call the shared Ticket Data Center read helper instead of each page owning its own booking lookup path logic.
+- Cancel Ticket remains standalone and map-free: no redirect to Check Ticket, no Mapbox dependency, and no `trackingMap`.
+- This is a read-boundary cleanup only. Cancellation eligibility/write behavior is still existing page/runtime behavior and should be moved behind an ERP Logic/Notification-owned action contract in a later scoped pass.
+
+Evidence:
+- Commit: none yet; local review only.
+- Actions: not run; nothing pushed.
+- Pages: not run; nothing pushed.
+- Tests: `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/check-ticket-center-wiring.test.js`; `node tests/check-ticket-vehicle-assignment-wiring.test.js`; `node tests/check-ticket-alert-center-wiring.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- None for this read-contract pass.
+- Full cancellation action ownership still needs a separate ERP Logic/Notification Center pass.
+
+Next action:
+- If owner approves, commit and push branch `agent/ticket-center-read-contract`.
+
 ## 2026-07-18 20:55 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Notification Center Bridge - DONE
 
 Scope:
