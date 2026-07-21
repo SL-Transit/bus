@@ -3055,7 +3055,48 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);
 
+        loadErpMapStops();
         return page;
+    }
+
+    // ===== ป้ายจอด + เส้นทาง จาก ERP Data Center (data/erpDataCenter/catalog/stops) =====
+    private static class MapStop {
+        double lat, lng;
+        String name;
+        boolean terminal;
+        double order;
+    }
+    private final java.util.List<MapStop> erpMapStops = new java.util.ArrayList<>();
+    private boolean erpMapStopsLoaded = false;
+
+    private void loadErpMapStops() {
+        FirebaseDatabase.getInstance().getReference("data/erpDataCenter/catalog/stops")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(DataSnapshot snap) {
+                        erpMapStops.clear();
+                        for (DataSnapshot child : snap.getChildren()) {
+                            Double lat = child.child("lat").getValue(Double.class);
+                            Double lng = child.child("lng").getValue(Double.class);
+                            if (lat == null || lng == null) continue;
+                            MapStop s = new MapStop();
+                            s.lat = lat;
+                            s.lng = lng;
+                            String name = child.child("nameTh").getValue(String.class);
+                            if (name == null) name = child.child("name").getValue(String.class);
+                            if (name == null) name = child.child("stopTh").getValue(String.class);
+                            s.name = name == null ? "" : name;
+                            String stopType = child.child("stopType").getValue(String.class);
+                            s.terminal = "terminal".equals(stopType);
+                            Double order = child.child("order").getValue(Double.class);
+                            s.order = order == null ? 999999 : order;
+                            erpMapStops.add(s);
+                        }
+                        java.util.Collections.sort(erpMapStops, (a, b) -> Double.compare(a.order, b.order));
+                        erpMapStopsLoaded = true;
+                        updateLiveMapIfVisible();
+                    }
+                    @Override public void onCancelled(DatabaseError error) {}
+                });
     }
 
     private LinearLayout buildMapStripStat(String label, TextView valueView) {
@@ -3083,30 +3124,49 @@ public class MainActivity extends Activity {
         return "<!DOCTYPE html><html><head><meta charset='utf-8'/>"
             + "<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'/>"
             + "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>"
-            + "<style>html,body,#map{height:100%;margin:0;padding:0;}</style></head>"
+            + "<style>html,body,#map{height:100%;margin:0;padding:0;}"
+            + ".map-stop-dot{width:14px;height:14px;border-radius:50%;background:#00B8A9;"
+            + "border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);}"
+            + ".map-stop-dot.terminal{width:18px;height:18px;background:#0B1D3A;}"
+            + ".map-stop-label{background:rgba(11,29,58,0.85);color:#fff;font-size:11px;font-weight:700;"
+            + "padding:3px 8px;border-radius:6px;white-space:nowrap;}"
+            + ".map-user-dot{width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;"
+            + "box-shadow:0 0 0 4px rgba(37,99,235,0.30);animation:userPulse 2s ease-in-out infinite;}"
+            + "@keyframes userPulse{0%,100%{box-shadow:0 0 0 4px rgba(37,99,235,0.30)}"
+            + "50%{box-shadow:0 0 0 9px rgba(37,99,235,0.10)}}"
+            + "</style></head>"
             + "<body><div id='map'></div>"
             + "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
             + "<script>"
             + "var map=L.map('map',{zoomControl:true}).setView([13.65,101.60],9);"
             + "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,"
             + "attribution:'&copy; OpenStreetMap'}).addTo(map);"
-            + "var busIcon=L.divIcon({html:'🚐',className:'',iconSize:[28,28]});"
-            + "var driverMarker=null,stopMarkers=[],firstFix=true;"
+            + "var driverMarker=null,stopMarkers=[],routeLine=null,firstFix=true;"
             + "function setDriverPosition(lat,lng){"
-            + "if(!driverMarker){driverMarker=L.marker([lat,lng],{icon:busIcon}).addTo(map);}"
-            + "else{driverMarker.setLatLng([lat,lng]);}"
-            + "if(firstFix){map.setView([lat,lng],13);firstFix=false;}}"
+            + "if(!driverMarker){"
+            + "var icon=L.divIcon({className:'',html:\"<div class='map-user-dot'></div>\",iconSize:[18,18],iconAnchor:[9,9]});"
+            + "driverMarker=L.marker([lat,lng],{icon:icon,zIndexOffset:900}).addTo(map);"
+            + "}else{driverMarker.setLatLng([lat,lng]);}"
+            + "if(firstFix){map.setView([lat,lng],12);firstFix=false;}}"
             + "function setStops(json){"
             + "var stops=JSON.parse(json);"
             + "stopMarkers.forEach(function(m){map.removeLayer(m);});stopMarkers=[];"
+            + "if(routeLine){map.removeLayer(routeLine);routeLine=null;}"
+            + "var pts=[];"
             + "stops.forEach(function(s){"
-            + "var m=L.circleMarker([s.lat,s.lng],{radius:6,color:'#0d9488',fillColor:'#14b8a6',fillOpacity:0.9}).addTo(map);"
-            + "m.bindPopup((s.name||'')+(s.time?(' — '+s.time):''));"
-            + "stopMarkers.push(m);});}"
+            + "pts.push([s.lat,s.lng]);"
+            + "var icon=L.divIcon({className:'',"
+            + "html:\"<div class='map-stop-dot\"+(s.terminal?' terminal':'')+\"' title='\"+(s.name||'')+\"'></div>\","
+            + "iconSize:[16,16],iconAnchor:[8,8]});"
+            + "var m=L.marker([s.lat,s.lng],{icon:icon,title:s.name||''}).addTo(map);"
+            + "if(s.name){m.bindPopup(s.name+(s.time?(' — '+s.time):''));}"
+            + "stopMarkers.push(m);});"
+            + "if(pts.length>1){routeLine=L.polyline(pts,{color:'#00B8A9',weight:4,opacity:0.7}).addTo(map);}"
+            + "}"
             + "</script></body></html>";
     }
 
-    // เรียกทุกวินาทีจาก uiTick (ถ้าหน้านี้กำลังแสดงอยู่) — ส่งตำแหน่งรถ + ป้ายจอดของคิววันนี้เข้า WebView
+    // เรียกทุกวินาทีจาก uiTick (ถ้าหน้านี้กำลังแสดงอยู่) — ส่งตำแหน่งรถ + ป้ายจอด/เส้นทางจาก ERP เข้า WebView
     private void updateLiveMap() {
         if (driverMapWebView == null || !driverMapReady) return;
         String coords = prefs.getString(KEY_LAST_COORDS, "");
@@ -3119,17 +3179,15 @@ public class MainActivity extends Activity {
                         "setDriverPosition(" + lat + "," + lng + ");", null);
             } catch (Exception ignored) {}
         }
-        if (activeTrip != null && stopsCacheLoaded && !activeTrip.stops.isEmpty()) {
+        if (erpMapStopsLoaded && !erpMapStops.isEmpty()) {
             JSONArray arr = new JSONArray();
-            for (TripStop stop : activeTrip.stops) {
-                double[] c = stopCoordsCache.get(stop.stopKey);
-                if (c == null) continue;
+            for (MapStop stop : erpMapStops) {
                 try {
                     JSONObject o = new JSONObject();
-                    o.put("lat", c[0]);
-                    o.put("lng", c[1]);
-                    o.put("name", stop.stopTh);
-                    o.put("time", stop.time);
+                    o.put("lat", stop.lat);
+                    o.put("lng", stop.lng);
+                    o.put("name", stop.name);
+                    o.put("terminal", stop.terminal);
                     arr.put(o);
                 } catch (Exception ignored) {}
             }
@@ -3172,6 +3230,7 @@ public class MainActivity extends Activity {
         root.setTag("report_page_root");
         sv.addView(root);
         buildReportPageContent(root);
+        loadAdvanceBookingsSummary();
         return sv;
     }
 
@@ -3303,7 +3362,7 @@ public class MainActivity extends Activity {
         refreshBtn.setTypeface(Typeface.DEFAULT_BOLD);
         refreshBtn.setGravity(Gravity.CENTER);
         refreshBtn.setPadding(0, dp(16), 0, dp(4));
-        refreshBtn.setOnClickListener(v -> { refreshPassengerSummary(); buildReportPageContent(root); });
+        refreshBtn.setOnClickListener(v -> { refreshPassengerSummary(); loadAdvanceBookingsSummary(); buildReportPageContent(root); });
         root.addView(refreshBtn);
 
         // หมายเหตุ
@@ -3335,7 +3394,6 @@ public class MainActivity extends Activity {
                 {"เวลาเริ่มงาน",  prefs.getString("today_start_time", "--:--")},
                 {"เวลาสิ้นสุด",   prefs.getString("today_end_time",   "--:--")},
                 {"ชั่วโมงทำงาน", prefs.getString("today_active_hrs", "0") + " ชม."},
-                {"สัญญาณ GPS หาย", prefs.getString("today_gps_down", "0") + " นาที"},
             }));
             container.addView(buildSectionCard("🗺  เส้นทางวันนี้", new String[][]{
                 {"เส้นทาง",   "สนามชัยเขต → ฉะเชิงเทรา"},
@@ -3355,13 +3413,76 @@ public class MainActivity extends Activity {
                 {"ผู้โดยสารรวม",  prefs.getString("stat_total_pax", "0") + " คน"},
                 {"ชั่วโมงรวม",    prefs.getString("stat_total_hrs", "0") + " ชม."},
             }));
-            container.addView(buildSectionCard("📡  ประวัติสัญญาณ GPS", new String[][]{
-                {"เฉลี่ยสัญญาณหาย/วัน", prefs.getString("stat_avg_gps_down", "0") + " นาที"},
-                {"ครั้งที่ reconnect",    prefs.getString("stat_reconnect_count", "0") + " ครั้ง"},
-                {"uptime เฉลี่ย",         prefs.getString("stat_avg_uptime", "—")},
-            }));
+            container.addView(buildSectionCard("🗓  ข้อมูลการจองตั๋วล่วงหน้า", advanceBookingRowsForCard()));
         }
     }
+
+    // ===== ข้อมูลการจองตั๋วล่วงหน้า (7 วันข้างหน้า) =====
+    private final java.util.List<String[]> advanceBookingRows = new java.util.ArrayList<>();
+    private boolean advanceBookingsLoading = false;
+
+    private String[][] advanceBookingRowsForCard() {
+        if (advanceBookingRows.isEmpty()) {
+            return new String[][]{{"สถานะ", advanceBookingsLoading ? "กำลังโหลด…" : "ยังไม่มีการจองล่วงหน้า"}};
+        }
+        return advanceBookingRows.toArray(new String[0][]);
+    }
+
+    private void loadAdvanceBookingsSummary() {
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null || advanceBookingsLoading) return;
+        advanceBookingsLoading = true;
+        final int days = 7;
+        java.text.SimpleDateFormat keyFmt = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        java.text.SimpleDateFormat labelFmt = new java.text.SimpleDateFormat("d MMM", new java.util.Locale("th"));
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        final String[] dateKeys = new String[days];
+        final String[] dateLabels = new String[days];
+        for (int i = 0; i < days; i++) {
+            cal.add(java.util.Calendar.DATE, 1);
+            dateKeys[i] = keyFmt.format(cal.getTime());
+            dateLabels[i] = labelFmt.format(cal.getTime()) + (i == 0 ? " (พรุ่งนี้)" : "");
+        }
+        final int[] counts = new int[days];
+        final double[] amounts = new double[days];
+        final int[] pending = {days};
+        for (int i = 0; i < days; i++) {
+            final int idx = i;
+            FirebaseDatabase.getInstance()
+                    .getReference("operations/driverTicketsByServiceDate/" + dateKeys[idx] + "/" + vehicleId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(DataSnapshot snap) {
+                            int c = 0;
+                            double amt = 0;
+                            for (DataSnapshot child : snap.getChildren()) {
+                                String status = String.valueOf(child.child("status").getValue());
+                                if ("cancelled".equals(status)) continue;
+                                c++;
+                                amt += ticketFareAmount(child);
+                            }
+                            counts[idx] = c;
+                            amounts[idx] = amt;
+                            onAdvanceDayDone();
+                        }
+                        @Override public void onCancelled(DatabaseError error) { onAdvanceDayDone(); }
+                        private void onAdvanceDayDone() {
+                            pending[0]--;
+                            if (pending[0] == 0) {
+                                advanceBookingRows.clear();
+                                for (int j = 0; j < days; j++) {
+                                    if (counts[j] <= 0) continue;
+                                    advanceBookingRows.add(new String[]{dateLabels[j], counts[j] + " คน / " + formatBaht((float) amounts[j])});
+                                }
+                                advanceBookingsLoading = false;
+                                if (reportSelectedPeriod == 2 && reportDetailContainer != null) {
+                                    buildReportDetailForPeriod(reportDetailContainer, 2);
+                                }
+                            }
+                        }
+                    });
+        }
+    }
+
 
     private LinearLayout buildHeroStat(String label, String mainValue, String subValue) {
         LinearLayout col = new LinearLayout(this);
