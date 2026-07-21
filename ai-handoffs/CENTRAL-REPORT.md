@@ -44,7 +44,46 @@ Next action:
 
 ## Current Reports
 
-## 2026-07-19 00:08 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Transaction - REVIEW
+## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - REVIEW
+
+Scope:
+- `ticket-action-center.js`
+- `cancel_ticket.html`
+- `tests/ticket-action-center.test.js`
+- `tests/ticket-action-center-page-wiring.test.js`
+- `tests/ticket-data-center-page-wiring.test.js`
+- `tests/tracking-cancel-routing.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Merged PR #6 into `main`, so Track Trip / Check Ticket / Cancel Ticket now have the shared Ticket Data Center read contract on main.
+- Added `ticket_action_center_cancel_v1` as the central cancellation action contract.
+- Moved cancellation eligibility and cancellation write payload construction out of `cancel_ticket.html`.
+- `cancel_ticket.html` now asks `SLTransitTicketActionCenter.evaluateCancellation(...)` before showing/enabling cancellation and calls `SLTransitTicketActionCenter.cancelTicket(...)` for the cancellation action.
+- Added regression guards so the cancellation page does not reintroduce local `canCancel`, local departure policy calculation, or direct `db.ref(currentBookingPath).update(...)` writes.
+
+Evidence:
+- Commit: none yet; local branch `agent/cancel-ticket-action-center`.
+- Actions: not run; nothing pushed yet.
+- Pages: not run; nothing pushed yet.
+- Tests: `node tests/ticket-action-center.test.js`; `node tests/ticket-action-center-page-wiring.test.js`; `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/check-ticket-center-wiring.test.js`; `node tests/check-ticket-vehicle-assignment-wiring.test.js`; `node tests/check-ticket-alert-center-wiring.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- Live cancellation still depends on the existing approved client write permission for the booking record. This pass centralizes page behavior but does not change Firebase rules.
+- Seat-capacity restoration after cancellation is not added in this pass; it should be a later scoped Booking Availability / Ticket Action Center transaction pass.
+- Paused driver vehicle identity work remains paused.
+
+Next action:
+- Commit and push branch `agent/cancel-ticket-action-center`, then open a PR to `main`.
+
+## 2026-07-19 00:08 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Transaction - DONE
 
 Scope:
 - `booking-bridge.js`
@@ -62,9 +101,9 @@ Summary:
 - ERP Calculator Center remains responsible for fare/service-fee/total arithmetic. Booking Availability/bridge owns the booking-capacity decision and transaction boundary.
 
 Evidence:
-- Commit: none yet; local review only.
-- Actions: not run; nothing pushed.
-- Pages: not run; nothing pushed.
+- Commit: merged to `main` via PR #7 at `582ed32`.
+- Actions: not run locally for this report.
+- Pages: not run for this bridge/workflow change.
 - Tests: `node tests/booking-capacity-transaction.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
 
 Safety:
@@ -78,9 +117,9 @@ Blockers:
 - Live Firebase rules must already allow the scoped capacity counter write path for Booking1 runtime, or a later owner-approved rules pass will be required. This pass did not alter rules.
 
 Next action:
-- If owner approves, commit and push branch `agent/booking-capacity-transaction`.
+- Keep the live Firebase rules caveat visible; do not change rules without a separate owner-approved pass.
 
-## 2026-07-18 23:22 +07 (Asia/Bangkok) - Supervisor AI / Ticket Center Read Contract - REVIEW
+## 2026-07-18 23:22 +07 (Asia/Bangkok) - Supervisor AI / Ticket Center Read Contract - DONE
 
 Scope:
 - `ticket-data-center.js`
@@ -99,9 +138,9 @@ Summary:
 - This is a read-boundary cleanup only. Cancellation eligibility/write behavior is still existing page/runtime behavior and should be moved behind an ERP Logic/Notification-owned action contract in a later scoped pass.
 
 Evidence:
-- Commit: none yet; local review only.
-- Actions: not run; nothing pushed.
-- Pages: not run; nothing pushed.
+- Commit: merged to `main` via PR #6 at `6fdcb5f`.
+- Actions: not run locally for this report.
+- Pages: not run for this read-boundary change.
 - Tests: `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/check-ticket-center-wiring.test.js`; `node tests/check-ticket-vehicle-assignment-wiring.test.js`; `node tests/check-ticket-alert-center-wiring.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
 
 Safety:
@@ -116,7 +155,7 @@ Blockers:
 - Full cancellation action ownership still needs a separate ERP Logic/Notification Center pass.
 
 Next action:
-- If owner approves, commit and push branch `agent/ticket-center-read-contract`.
+- Continue cancellation/action ownership in the scoped Ticket Action Center pass.
 
 ## 2026-07-18 20:55 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Notification Center Bridge - DONE
 
