@@ -572,6 +572,9 @@ public class MainActivity extends Activity {
         if (driverIdentityRef != null && driverIdentityListener != null) {
             driverIdentityRef.removeEventListener(driverIdentityListener);
         }
+        if (driverMapConfigRef != null && driverMapConfigListener != null) {
+            try { driverMapConfigRef.removeEventListener(driverMapConfigListener); } catch (Exception ignored) {}
+        }
         super.onDestroy();
     }
 
@@ -3046,6 +3049,7 @@ public class MainActivity extends Activity {
         driverMapWebView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 driverMapReady = true;
+                pushMapConfigIfReady();
                 pushStopsIfReady();
                 pushRouteIfReady();
                 updateLiveMap();
@@ -3057,12 +3061,48 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);
 
+        watchDriverMapConfig();
         loadErpMapStops();
         loadPublishedRoutePolyline();
         return page;
     }
 
-    // ===== ป้ายจอด จาก ERP Data Center (data/erpDataCenter/catalog/stops) =====
+    // ===== ตั้งค่าพฤติกรรมแผนที่ จาก ERP กลาง (data/erpDataCenter/settings/driverMap) =====
+    // แอพเป็นแค่ตัวอ่าน/แสดงผล (เหมือนเคาน์เตอร์) — ไม่ hardcode ค่าพวกนี้ในแอพ
+    // ผูก listener แบบ live (ไม่ใช่อ่านครั้งเดียว) เพื่อให้แก้ค่าจากส่วนกลางแล้วมีผลทันทีโดยไม่ต้องอัพเดทแอพ
+    private DatabaseReference driverMapConfigRef;
+    private com.google.firebase.database.ValueEventListener driverMapConfigListener;
+    private JSONObject driverMapConfigJson;
+    private boolean driverMapConfigLoaded = false;
+
+    private void watchDriverMapConfig() {
+        if (driverMapConfigRef != null && driverMapConfigListener != null) {
+            try { driverMapConfigRef.removeEventListener(driverMapConfigListener); } catch (Exception ignored) {}
+        }
+        driverMapConfigRef = FirebaseDatabase.getInstance().getReference("data/erpDataCenter/settings/driverMap");
+        driverMapConfigListener = new com.google.firebase.database.ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                JSONObject o = new JSONObject();
+                try {
+                    for (DataSnapshot child : snap.getChildren()) {
+                        o.put(child.getKey(), child.getValue());
+                    }
+                } catch (Exception ignored) {}
+                driverMapConfigJson = o;
+                driverMapConfigLoaded = true;
+                pushMapConfigIfReady();
+            }
+            @Override public void onCancelled(DatabaseError error) {}
+        };
+        driverMapConfigRef.addValueEventListener(driverMapConfigListener);
+    }
+
+    private void pushMapConfigIfReady() {
+        if (driverMapWebView == null || !driverMapReady || !driverMapConfigLoaded) return;
+        driverMapWebView.evaluateJavascript(
+                "setMapConfig('" + driverMapConfigJson.toString().replace("\\", "\\\\").replace("'", "\\'") + "');",
+                null);
+    }
     private static class MapStop {
         double lat, lng;
         String name;
@@ -3208,14 +3248,26 @@ public class MainActivity extends Activity {
             + "<div class='locate-btn' id='locateBtn'><img src='https://sl-transit.com/assets/icon-location.png'/></div>"
             + "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
             + "<script>"
-            + "var map=L.map('map',{zoomControl:true}).setView([13.65,101.60],9);"
+            // cfg เก็บค่าที่มาจาก ERP กลางเท่านั้น (data/erpDataCenter/settings/driverMap ผ่าน setMapConfig)
+            // ค่า null หมายถึง 'ยังไม่ได้ตั้งค่าจากส่วนกลาง' — แอพจะไม่เดาเอง แต่รอค่าจริงมาก่อนจึงเปิดพฤติกรรมนั้น
+            + "var cfg={animationEnabled:null,animationDurationMs:null,followZoomLevel:null,"
+            + "initialZoom:null,initialCenterLat:null,initialCenterLng:null};"
+            + "var map=L.map('map',{zoomControl:true}).setView([13.75,101.4],9);" // มุมมองตั้งต้นชั่วคราว ก่อน ERP/GPS ส่งค่าจริงมา
             + "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,"
             + "attribution:'&copy; OpenStreetMap'}).addTo(map);"
             + "var driverMarker=null,stopMarkers=[],routeLine=null,firstFix=true;"
-            + "var lastLat=null,lastLng=null,followMode=false,animReq=null;"
+            + "var lastLat=null,lastLng=null,followMode=false,animReq=null,initialViewApplied=false;"
+            + "function setMapConfig(json){"
+            + "try{var c=JSON.parse(json);Object.keys(c).forEach(function(k){cfg[k]=c[k];});}catch(e){return;}"
+            + "if(!initialViewApplied&&firstFix&&cfg.initialCenterLat!=null&&cfg.initialCenterLng!=null){"
+            + "map.setView([cfg.initialCenterLat,cfg.initialCenterLng],cfg.initialZoom!=null?cfg.initialZoom:map.getZoom());"
+            + "initialViewApplied=true;}}"
             + "function animateMarkerTo(fromLat,fromLng,toLat,toLng){"
+            + "var enabled=cfg.animationEnabled!==false;" // ค่าจากส่วนกลาง: false เท่านั้นที่ปิดอนิเมชั่น
+            + "if(!enabled){driverMarker.setLatLng([toLat,toLng]);if(followMode)map.panTo([toLat,toLng],{animate:false});return;}"
+            + "var duration=cfg.animationDurationMs!=null?cfg.animationDurationMs:900;"
             + "if(animReq) cancelAnimationFrame(animReq);"
-            + "var start=null,duration=900;"
+            + "var start=null;"
             + "function step(ts){"
             + "if(!start) start=ts;"
             + "var p=Math.min((ts-start)/duration,1);"
@@ -3234,7 +3286,11 @@ public class MainActivity extends Activity {
             + "animateMarkerTo(lastLat,lastLng,lat,lng);"
             + "lastLat=lat;lastLng=lng;"
             + "}"
-            + "if(firstFix){map.setView([lat,lng],12);firstFix=false;}"
+            + "if(firstFix){"
+            + "if(cfg.initialCenterLat!=null){map.setView([cfg.initialCenterLat,cfg.initialCenterLng],cfg.initialZoom!=null?cfg.initialZoom:12);initialViewApplied=true;}"
+            + "else{map.setView([lat,lng],12);}"
+            + "firstFix=false;"
+            + "}"
             + "else if(followMode){map.panTo([lat,lng]);}}"
             + "function setStops(json){"
             + "var stops=JSON.parse(json);"
@@ -3254,7 +3310,9 @@ public class MainActivity extends Activity {
             + "locateBtn.addEventListener('click',function(){"
             + "followMode=!followMode;"
             + "locateBtn.classList.toggle('active',followMode);"
-            + "if(followMode&&lastLat!==null){map.flyTo([lastLat,lastLng],15,{duration:0.8});}});"
+            + "if(followMode&&lastLat!==null){"
+            + "var z=cfg.followZoomLevel!=null?cfg.followZoomLevel:15;"
+            + "map.flyTo([lastLat,lastLng],z,{duration:0.8});}});"
             + "['dragstart','wheel','touchstart'].forEach(function(ev){"
             + "map.on(ev,function(){ if(followMode){followMode=false;locateBtn.classList.remove('active');} });"
             + "});"
