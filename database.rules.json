@@ -62,6 +62,19 @@
           ".write": "auth != null"
         }
       },
+      "bookingCapacityByServiceDate": {
+        "$serviceDate": {
+          "$capacityKey": {
+            ".read": true,
+            ".write": "auth != null || (newData.child('contractVersion').val() === 'booking_capacity_v1' && newData.child('capacityLimit').isNumber() && newData.child('capacityLimit').val() >= 1 && newData.child('capacityLimit').val() <= 10 && newData.child('bookedSeats').isNumber() && newData.child('bookedSeats').val() >= 0 && newData.child('bookedSeats').val() <= newData.child('capacityLimit').val() && newData.child('seatsAvailable').isNumber() && newData.child('seatsAvailable').val() >= 0)",
+            "bookings": {
+              "$bookingId": {
+                ".validate": "newData.hasChildren(['seats', 'status', 'reservedAt']) && newData.child('seats').isNumber() && newData.child('seats').val() >= 1 && newData.child('seats').val() <= 10 && newData.child('status').val() === 'reserved'"
+              }
+            }
+          }
+        }
+      },
       "passengers": {
         ".read": "auth != null",
         ".write": false,
