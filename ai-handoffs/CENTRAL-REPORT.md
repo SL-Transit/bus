@@ -44,6 +44,36 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-22 12:39 +07 (Asia/Bangkok) - Booking Logic AI (Booking1) - BLOCKED
+
+Scope:
+- `booking1.html`, `booking1-preview-adapter.js` (redesigned trip card UI: same-group vs transfer-group stop list, route-text position, `assets/2088.png` route icon, seats display, "ที่นั่งเต็มแล้ว" state)
+- `erp-calculator-center.js` (recommended-trip fallback for cross-group/reference-only pairs)
+- Inspected only, not modified: `booking-bridge.js`, `booking-availability-center.js`, `tools/published-schedule-v1-dry-run.js`
+
+Summary:
+- Owner reported Booking1's redesigned trip cards don't show seat counts even though the reference design does. Root-caused against ERP data (not assumed): `booking-bridge.js#_tripFromTimeEntry()` calls `SLTransitBookingAvailabilityCenter.decideBookingAvailability()` without `capacity`/`bookedSeats`, so `availabilityDecision.seatsAvailable` is always `null` at listing time. Booking1 correctly renders nothing in that case (pure-counter rule: never fabricate a number ERP hasn't provided) — this is a real data-plumbing gap, not a Booking1 bug.
+- The separately-merged `Booking1 capacity transaction` work (PR #7, `582ed32`) already tracks real `bookedSeats`/`seatsAvailable` per trip under `operations/bookingCapacityByServiceDate/{serviceDate}/{capacityKey}`, but only reads/writes that counter at booking-confirm time (`reserveBookingCapacity`/`releaseBookingCapacity`), not when the trip list is first rendered.
+- Requesting whoever owns `booking-bridge.js` next (Main Backbone Lead or the capacity-transaction AI) decide the read strategy (e.g. batch-read the relevant `operations/bookingCapacityByServiceDate/{serviceDate}` node once per pair render vs. per-trip reads, with caching) and wire the resulting count into the `decideBookingAvailability()` call so `seatsAvailable` is real at listing time. Filed as a `BLOCKED` row in `WORK-STATUS.md` instead of implemented directly here because `booking-bridge.js` is shared/actively developed by another AI and this needs a real read-strategy decision, not a cosmetic patch.
+- Also fixed, in the same pass: a self-inflicted display bug where `Number(null) === 0` in JS caused the "no seat data yet" case to render as a false "ที่นั่งว่าง 0 ที่นั่ง" on every card; and a stop-list icon mismatch where the single 3-element route icon (`assets/2088.png`, confirmed by the owner via screenshot) was being stretched over 2-row (same-group/direct) cards too, producing a floating unlabeled middle dot.
+- Booking1 is ready to display real seats and correctly show "ที่นั่งเต็มแล้ว" + disable booking the moment `seatsAvailable` starts arriving as a real number (including `0`); no further Booking1-side change needed for that once the data is wired.
+
+Evidence:
+- Commits: `b5f04a6`, `aa5d12c`, `eef50f4` (pushed to `main`; merged cleanly with `Booking1 capacity transaction` PR #7 at `5afc880`)
+- Actions: not run from this session
+- Pages: not checked from this session
+- Tests: `tests/booking1-preview-data.test.js`, `tests/erp-calculator-center.test.js`, `tests/booking-capacity-transaction.test.js` pass (`TZ=Asia/Bangkok`); full suite run, same 5 pre-existing unrelated failures as unmodified `main` (Firebase-network-dependent ERP dry-run tests, 403s in this sandbox)
+
+Safety:
+- Firebase writes: none
+- Passenger/private data touched: none
+
+Blockers:
+- Real per-trip seat counts at listing time require `booking-bridge.js` to read `operations/bookingCapacityByServiceDate/...` (or an equivalent summary) when building each trip, which is out of Booking1's own scope and overlaps a file another AI is actively developing.
+
+Next action:
+- Main Backbone Lead / capacity-transaction owner: decide read strategy and wire real `seatsAvailable` into `decideBookingAvailability()` at listing time; Booking1 needs no further change once that lands.
+
 ## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - REVIEW
 
 Scope:

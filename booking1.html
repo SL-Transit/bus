@@ -891,9 +891,9 @@ body {
 
 /* ชื่อเส้นทาง (ต้นทาง → ปลายทาง) อยู่คอลัมน์ขวา แถวเดียวกับเวลา */
 .trip-head-route {
-  flex: 0 1 auto; text-align: right; max-width: 58%;
+  flex: 0 1 auto; text-align: right; max-width: 64%;
 }
-.trip-route-text { font-weight: 700; color: var(--dark-text); font-size: 13px; }
+.trip-route-text { font-weight: 700; color: var(--dark-text); font-size: 12.5px; line-height: 1.3; }
 .trip-transfer-detail {
   display: grid;
   gap: 3px;
@@ -919,13 +919,12 @@ body {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 10px; margin: 0 0 8px;
 }
-/* เส้นเชื่อมจุดจอด (บัส → เส้นประ → หมุด) ใช้ภาพเดียว assets/2088.png
-   ครอบทั้งความสูงของรายการจุดจอด แทนไอคอนแยกทีละแถว */
-.trip-stops {
-  display: grid; gap: 6px; flex: 1; min-width: 0;
-  position: relative; padding-left: 22px;
-}
-.trip-stops::before {
+/* กรณีต่อรถ (3 แถว): เส้นเชื่อมจุดจอด (บัส → เส้นประ → หมุด) ใช้ภาพเดียว
+   assets/2088.png ครอบทั้งความสูง — ภาพนี้มี 3 องค์ประกอบตายตัว จึงใช้กับ
+   การ์ด 3 แถวเท่านั้น */
+.trip-stops { display: grid; gap: 6px; flex: 1; min-width: 0; position: relative; }
+.trip-stops-linked { padding-left: 22px; }
+.trip-stops-linked::before {
   content: '';
   position: absolute; left: 0; top: 2px; bottom: 2px; width: 15px;
   background-image: url('assets/2088.png');
@@ -933,6 +932,9 @@ body {
   background-position: center;
   background-size: 100% 100%;
 }
+/* กรณีตรง/กลุ่มเดียวกัน (2 แถว): ไอคอนต้นทาง/ปลายทางแยกต่อแถวแทน เพื่อไม่ให้
+   เห็น "จุดกลาง" ของภาพ 2088.png ลอยขึ้นมาโดยไม่มีข้อความกำกับ */
+.trip-stops-simple .trip-stop-icon { width: 14px; height: 14px; flex: 0 0 14px; margin-right: 7px; }
 .trip-stop-row {
   display: flex; align-items: center;
   font-size: 12px; color: var(--dark-text); font-weight: 600;
