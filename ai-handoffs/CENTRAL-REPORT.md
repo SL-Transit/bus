@@ -61,10 +61,10 @@ Summary:
 - Owner provided evidence for the missing `car2` LINE user ID. The board now records that evidence is available, while the actual Firebase central-config write remains a separate approval-gated action.
 
 Evidence:
-- Commit: none yet; local branch `agent/booking-remaining-seats-display`.
-- Actions: not run; nothing pushed yet.
-- Pages: not run; nothing pushed yet.
-- Tests: `node tests/booking-capacity-transaction.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `git diff --check`.
+- Commit: branch `agent/booking-remaining-seats-display`, local merge with latest `origin/main` in progress.
+- Actions: not run; branch update not pushed yet.
+- Pages: not run; branch update not pushed yet.
+- Tests: pending rerun after conflict resolution.
 
 Safety:
 - Firebase writes: none performed during implementation/tests.
@@ -79,7 +79,43 @@ Blockers:
 - car2 driver notification still requires a separate owner-approved Firebase write to `/data/notificationCenter/staffLineTargets/driversByVehicleId/car2/...`.
 
 Next action:
-- Commit and push branch `agent/booking-remaining-seats-display`, then open a PR to `main`.
+- Resolve this branch against latest `main`, rerun tests, commit, push PR #10 update.
+
+## 2026-07-22 00:20 +07 (Asia/Bangkok) - Supervisor AI / Cancel Capacity Release - DONE
+
+Scope:
+- `ticket-action-center.js`
+- `cancel_ticket.html`
+- `tests/ticket-action-center.test.js`
+- `tests/ticket-action-center-page-wiring.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Extended `ticket_action_center_cancel_v1` so successful cancellation can release the original Booking1 capacity reservation.
+- Cancel Ticket now loads `booking-bridge.js` and passes `window.SLBookingBridge` into Ticket Action Center.
+- Ticket Action Center reads the existing `booking.capacity` contract from the ticket/booking and calls `releaseBookingCapacity(...)` through the central Booking Bridge transaction.
+- If an older ticket has no capacity contract, cancellation still succeeds and the capacity release is reported as skipped instead of guessing a trip.
+- Added regression guards for capacity release wiring.
+
+Evidence:
+- Commit: merged to `main` via PR #9 at `5436bab`.
+- Actions: not run locally for this report.
+- Pages: not run for this action-center wiring change.
+- Tests: `node tests/ticket-action-center.test.js`; `node tests/ticket-action-center-page-wiring.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- Live runtime still depends on existing approved write permission for the scoped booking record and capacity counter path. This pass does not change Firebase rules.
+- A future backend/server action may still be preferred for stronger all-or-nothing cancellation + capacity release guarantees.
+
+Next action:
+- Continue with Booking remaining seats display PR #10.
 
 ## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - DONE
 
@@ -118,7 +154,7 @@ Blockers:
 - Paused driver vehicle identity work remains paused.
 
 Next action:
-- Continue with scoped capacity-release-on-cancellation transaction work in PR #9.
+- Continue with Booking remaining seats display PR #10.
 
 ## 2026-07-19 00:08 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Transaction - DONE
 
