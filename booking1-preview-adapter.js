@@ -135,21 +135,27 @@
     return esc(origin) + ' &rarr; ' + esc(state.destName || destination);
   }
 
-  /* กรณี 1 (กลุ่มเดียวกัน, ไม่ต่อรถ): ต้นทาง + ปลายทาง 2 แถว
-     กรณี 2 (กลุ่มอื่น, ต้องต่อรถ): ต้นทาง + จุดต่อรถ + ปลายทางจริง 3 แถว
-     เส้นเชื่อมจุดจอด (บัส/เส้นประ/หมุด) คือภาพเดียว assets/2088.png ที่วาดเป็น
-     พื้นหลังของ .trip-stops (ดู CSS) ครอบความสูงทั้งหมด ไม่ใช่ไอคอนแยกต่อแถว */
+  /* กรณี 1 (กลุ่มเดียวกัน, ไม่ต่อรถ): ต้นทาง + ปลายทาง 2 แถว — ใช้ไอคอนต้นทาง/
+     ปลายทางแยกต่อแถว (204.png/205.png) เพราะภาพ 2088.png มี "จุดกลาง" ตายตัว
+     ในภาพ ถ้ายืดครอบแค่ 2 แถวจะเห็นจุดลอยที่ไม่มีข้อความกำกับ
+     กรณี 2 (กลุ่มอื่น, ต้องต่อรถ): ต้นทาง + จุดต่อรถ + ปลายทางจริง 3 แถว — ใช้
+     assets/2088.png (บัส/เส้นประ/หมุด ในภาพเดียว) เป็นพื้นหลังครอบทั้งก้อน
+     ตามภาพต้นแบบที่ยืนยันมา */
   function stopsHtml(trip) {
     var state = appState();
     var origin = state.originName || '\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07';
     var destination = finalDestinationText(trip) || state.destName || '\u0e1b\u0e25\u0e32\u0e22\u0e17\u0e32\u0e07';
     var transfer = transferPointText(trip);
-    var rows = '<div class="trip-stop-row"><span>' + esc(origin) + '</span></div>';
-    if (trip && trip.isLeg2 && transfer) {
-      rows += '<div class="trip-stop-row"><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span></div>';
+    var isTransfer = !!(trip && trip.isLeg2 && transfer);
+    if (isTransfer) {
+      var rows = '<div class="trip-stop-row"><span>' + esc(origin) + '</span></div>'
+        + '<div class="trip-stop-row"><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span></div>'
+        + '<div class="trip-stop-row"><span>' + esc(destination) + '</span></div>';
+      return '<div class="trip-stops trip-stops-linked">' + rows + '</div>';
     }
-    rows += '<div class="trip-stop-row"><span>' + esc(destination) + '</span></div>';
-    return '<div class="trip-stops">' + rows + '</div>';
+    var rows2 = '<div class="trip-stop-row"><img class="icon-img trip-stop-icon" src="assets/204.png" alt="\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07"><span>' + esc(origin) + '</span></div>'
+      + '<div class="trip-stop-row"><img class="icon-img trip-stop-icon" src="assets/205.png" alt="\u0e1b\u0e25\u0e32\u0e22\u0e17\u0e32\u0e07"><span>' + esc(destination) + '</span></div>';
+    return '<div class="trip-stops trip-stops-simple">' + rows2 + '</div>';
   }
 
   /* สำคัญ: seatsAvailable ที่ null หมายถึง "ยังไม่มีข้อมูลจำนวนที่นั่งจาก ERP" ส่วน 0
@@ -670,7 +676,7 @@
         + '</div><div class="trip-head-route"><span class="trip-route-text">' + routeText(trip) + '</span></div></div>'
         + '<div class="trip-card-body">' + stopsHtml(trip) + transferDetailHtml(trip) + '</div>'
         + noteHtml(trip)
-        + '<div class="trip-bottom"><span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false) + '</div>'
+        + '<div class="trip-bottom">' + selectButton(trip, index, false) + '</div>'
         + '</div>';
     }
 
@@ -701,7 +707,7 @@
       + tripBadges(best) + '</div><div class="trip-head-route"><span class="trip-route-text">' + routeText(best) + '</span></div></div>'
       + '<div class="trip-card-body">' + stopsHtml(best) + transferDetailHtml(best) + '</div>'
       + noteHtml(best)
-      + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
+      + '<div class="trip-bottom">' + selectButton(best, recommendedIndex, true) + '</div></div>';
 
     if (available.length > 1) {
       html += '<div class="all-trips-label">เที่ยวอื่น ๆ ในวันนี้</div>';

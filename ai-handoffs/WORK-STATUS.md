@@ -44,7 +44,8 @@ Before changing any code or writing a plan, update or report your intended work 
 | Passenger UI bug fix | Passenger AI | REVIEW | `passenger.html` — fixed location-consent popup buttons being clipped off-screen (reported by owner with screenshot, admin test session) | 2026-07-11 12:22 +07 | 2026-07-11 12:22 +07 | see `ai-handoffs/CENTRAL-REPORT.md` (12:22 entry) | CSS-only fix (position:fixed instead of position:absolute for the consent overlay). No Firebase/schema/data changes. |
 | Passenger UI bug fix (follow-up) | Passenger AI | REVIEW | `passenger.html` — fixed consent popup never reappearing after a decline (follow-me button couldn't re-prompt); button text-align defensive fix | 2026-07-11 12:32 +07 | 2026-07-11 12:32 +07 | see `ai-handoffs/CENTRAL-REPORT.md` (12:32 entry) | JS+CSS only. No Firebase/schema/data changes. |
 
-## How To Add / Update A Lock
+| Booking1 real seat availability at listing time | Unassigned — requesting Main Backbone Lead / booking-bridge.js owner | DONE | `booking-bridge.js` (`_tripFromTimeEntry`, `decideBookingAvailability` call site), possibly `booking-availability-center.js` | 2026-07-22 12:39 +07 | 2026-07-22 13:41 +07 | see `ai-handoffs/CENTRAL-REPORT.md` (2026-07-22 12:39 update + 00:35 entry, PR #10 at `78212f0`) | Resolved same day by "Booking Remaining Seats Display": loadAvailableTrips now calls attachRuntimeCapacity(...), reading the real operations/bookingCapacityByServiceDate/... counter per trip and re-running decideBookingAvailability() with real capacity before Booking1 sees the list. booking1-preview-adapter.js was not touched by that change; Booking1 existing seats/"ที่นั่งเต็มแล้ว" rendering picks up real numbers automatically. Full test suite re-verified after merging both sides. |
+
 Use one row per work area. Keep scope narrow.
 
 Template:
