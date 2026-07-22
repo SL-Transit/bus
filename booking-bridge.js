@@ -376,6 +376,81 @@
     });
   }
 
+  function readBookingCapacityCounter(db, contract) {
+    if (!db || typeof db.ref !== 'function' || !contract || !contract.counterPath) {
+      return Promise.resolve(null);
+    }
+    return db.ref(contract.counterPath).once('value').then(function(snap) {
+      return snap && snap.exists && snap.exists() ? snap.val() : null;
+    }).catch(function(err) {
+      console.warn('[BookingBridge] capacity counter read failed:', contract.counterPath, err);
+      return null;
+    });
+  }
+
+  function applyRuntimeCapacityToTrip(trip, counter) {
+    trip = trip || {};
+    var capacityContract = buildBookingCapacityContract({
+      serviceDate: trip.serviceDate || '',
+      trip: trip,
+      requestedSeats: 1,
+      pickupTime: trip.pickupTime || '',
+      pairKey: trip.pairKey || '',
+      tripKey: trip.tripId || trip.catalogTripId || '',
+      routeKey: trip.routeId || trip.catalogRouteId || ''
+    });
+    var capacityLimit = Number((counter && counter.capacityLimit) || capacityContract.capacityLimit || DEFAULT_TRIP_CAPACITY);
+    var bookedSeats = Math.max(0, Number(counter && counter.bookedSeats || 0));
+    var runtimeCapacity = {
+      contractVersion: 'booking_capacity_runtime_read_v1',
+      source: 'booking_capacity_center',
+      counterPath: capacityContract.counterPath,
+      capacityKey: capacityContract.capacityKey,
+      capacity: capacityLimit,
+      bookedSeats: bookedSeats,
+      seatsAvailable: Math.max(0, capacityLimit - bookedSeats)
+    };
+    var availabilityDecision = AvailabilityCenter && typeof AvailabilityCenter.decideBookingAvailability === 'function'
+      ? AvailabilityCenter.decideBookingAvailability({
+        pair: trip.sourcePair || {},
+        segment: trip.sourceSegment || {},
+        timeEntry: trip.sourceTime || {},
+        option: trip.sourceOption || {},
+        preview: _preview,
+        serviceDate: trip.serviceDate || '',
+        capacity: runtimeCapacity
+      })
+      : trip.availabilityDecision;
+    trip.capacity = Object.assign({}, trip.capacity || {}, runtimeCapacity);
+    trip.availabilityDecision = availabilityDecision || trip.availabilityDecision;
+    var fareMissing = trip.fareMissing === true;
+    trip.bookingEligible = trip.availabilityDecision && trip.availabilityDecision.bookingEligible === true;
+    trip.selectionAllowed = trip.availabilityDecision && trip.availabilityDecision.selectionAllowed === true && fareMissing === false;
+    trip.bookingAllowed = trip.bookingEligible === true && fareMissing === false;
+    trip.disabledReason = fareMissing ? 'missing_fare' : (trip.availabilityDecision && trip.availabilityDecision.reasonCode);
+    trip.displayDisabledReasonTh = trip.availabilityDecision && trip.availabilityDecision.displayReasonTh || '';
+    return trip;
+  }
+
+  function attachRuntimeCapacity(trips) {
+    trips = Array.isArray(trips) ? trips : [];
+    if (!_db || !trips.length) return Promise.resolve(trips);
+    return Promise.all(trips.map(function(trip) {
+      var contract = buildBookingCapacityContract({
+        serviceDate: trip.serviceDate || '',
+        trip: trip,
+        requestedSeats: 1,
+        pickupTime: trip.pickupTime || '',
+        pairKey: trip.pairKey || '',
+        tripKey: trip.tripId || trip.catalogTripId || '',
+        routeKey: trip.routeId || trip.catalogRouteId || ''
+      });
+      return readBookingCapacityCounter(_db, contract).then(function(counter) {
+        return applyRuntimeCapacityToTrip(trip, counter);
+      });
+    }));
+  }
+
   function _tripFromTimeEntry(pair, option, segment, timeEntry, segmentIndex, timeIndex, serviceDate) {
     var fareContract = FareDecisionCenter && typeof FareDecisionCenter.decideFare === 'function'
       ? FareDecisionCenter.decideFare({
@@ -434,6 +509,7 @@
       sourcePair: pair,
       sourceSegment: segment,
       sourceTime: timeEntry,
+      sourceOption: option,
       segmentIndex: segmentIndex,
       timeIndex: timeIndex,
       serviceDate: serviceDate || '',
@@ -508,7 +584,7 @@
     var option = _selectedDestinationOption(originLabel, destLabel);
     return loadPair(originLabel, destLabel).then(function(pair) {
       if (!pair) return [];
-      return _pairToTrips(pair, option, serviceDate);
+      return attachRuntimeCapacity(_pairToTrips(pair, option, serviceDate));
     });
   }
 
@@ -615,6 +691,8 @@
     getBookingSeatLimit: getBookingSeatLimit,
     getBookingTripCapacityLimit: getBookingTripCapacityLimit,
     buildBookingCapacityContract: buildBookingCapacityContract,
+    readBookingCapacityCounter: readBookingCapacityCounter,
+    attachRuntimeCapacity: attachRuntimeCapacity,
     reserveBookingCapacity: reserveBookingCapacity,
     releaseBookingCapacity: releaseBookingCapacity,
     buildBookingSnapshot: buildBookingSnapshot,
