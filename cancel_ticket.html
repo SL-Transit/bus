@@ -13,6 +13,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="booking-bridge.js?v=20260722capacity1"></script>
   <script src="ticket-data-center.js?v=20260718center1"></script>
   <script src="ticket-action-center.js?v=20260722cancel1"></script>
   <script defer src="site-analytics.js?v=20260624a"></script>
@@ -474,6 +475,7 @@
       window.SLTransitTicketActionCenter.cancelTicket({
         db: db,
         firebase: firebase,
+        bookingBridge: window.SLBookingBridge,
         ticket: currentTicket || { booking: currentBooking, readPath: currentBookingPath }
       }).then(function(result) {
         currentBooking = result.booking || Object.assign({}, currentBooking, { status: 'cancelled' });
