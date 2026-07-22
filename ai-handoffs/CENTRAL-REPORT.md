@@ -44,7 +44,43 @@ Next action:
 
 ## Current Reports
 
-## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - REVIEW
+## 2026-07-22 00:20 +07 (Asia/Bangkok) - Supervisor AI / Cancel Capacity Release - REVIEW
+
+Scope:
+- `ticket-action-center.js`
+- `cancel_ticket.html`
+- `tests/ticket-action-center.test.js`
+- `tests/ticket-action-center-page-wiring.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Extended `ticket_action_center_cancel_v1` so successful cancellation can release the original Booking1 capacity reservation.
+- Cancel Ticket now loads `booking-bridge.js` and passes `window.SLBookingBridge` into Ticket Action Center.
+- Ticket Action Center reads the existing `booking.capacity` contract from the ticket/booking and calls `releaseBookingCapacity(...)` through the central Booking Bridge transaction.
+- If an older ticket has no capacity contract, cancellation still succeeds and the capacity release is reported as skipped instead of guessing a trip.
+- Added regression guards for capacity release wiring.
+
+Evidence:
+- Commit: none yet; local branch `agent/cancel-capacity-release`.
+- Actions: not run; nothing pushed yet.
+- Pages: not run; nothing pushed yet.
+- Tests: `node tests/ticket-action-center.test.js`; `node tests/ticket-action-center-page-wiring.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- Live runtime still depends on existing approved write permission for the scoped booking record and capacity counter path. This pass does not change Firebase rules.
+- A future backend/server action may still be preferred for stronger all-or-nothing cancellation + capacity release guarantees.
+
+Next action:
+- Commit and push branch `agent/cancel-capacity-release`, then open a PR to `main`.
+
+## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - DONE
 
 Scope:
 - `ticket-action-center.js`
@@ -63,9 +99,9 @@ Summary:
 - Added regression guards so the cancellation page does not reintroduce local `canCancel`, local departure policy calculation, or direct `db.ref(currentBookingPath).update(...)` writes.
 
 Evidence:
-- Commit: none yet; local branch `agent/cancel-ticket-action-center`.
-- Actions: not run; nothing pushed yet.
-- Pages: not run; nothing pushed yet.
+- Commit: merged to `main` via PR #8 at `a15f465`.
+- Actions: not run locally for this report.
+- Pages: not run for this action-center wiring change.
 - Tests: `node tests/ticket-action-center.test.js`; `node tests/ticket-action-center-page-wiring.test.js`; `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/check-ticket-center-wiring.test.js`; `node tests/check-ticket-vehicle-assignment-wiring.test.js`; `node tests/check-ticket-alert-center-wiring.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
 
 Safety:
@@ -81,7 +117,7 @@ Blockers:
 - Paused driver vehicle identity work remains paused.
 
 Next action:
-- Commit and push branch `agent/cancel-ticket-action-center`, then open a PR to `main`.
+- Continue with scoped capacity-release-on-cancellation transaction work.
 
 ## 2026-07-19 00:08 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Transaction - DONE
 

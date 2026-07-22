@@ -1,10 +1,10 @@
 (function(root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    module.exports = factory(root);
   } else {
-    root.SLTransitTicketActionCenter = factory();
+    root.SLTransitTicketActionCenter = factory(root);
   }
-})(typeof self !== 'undefined' ? self : this, function() {
+})(typeof self !== 'undefined' ? self : this, function(root) {
   'use strict';
 
   var CONTRACT_VERSION = 'ticket_action_center_cancel_v1';
@@ -98,6 +98,32 @@
     };
   }
 
+  function capacityContractFromTicket(ticket) {
+    ticket = ticket || {};
+    var booking = ticket.booking || {};
+    var capacity = booking.capacity || ticket.capacity || null;
+    if (!capacity || !capacity.counterPath || !capacity.bookingCode) return null;
+    return Object.assign({}, capacity, {
+      bookingCode: capacity.bookingCode || booking.code || ticket.code,
+      requestedSeats: capacity.requestedSeats || booking.seats || booking.pax || 1
+    });
+  }
+
+  function releaseCapacity(params, ticket) {
+    params = params || {};
+    var bridge = params.bookingBridge || (root && root.SLBookingBridge);
+    var contract = params.capacityContract || capacityContractFromTicket(ticket);
+    if (!contract) {
+      return Promise.resolve({ status: 'skipped', reason: 'missing_capacity_contract' });
+    }
+    if (!bridge || typeof bridge.releaseBookingCapacity !== 'function') {
+      return Promise.resolve({ status: 'skipped', reason: 'missing_booking_capacity_bridge', contract: contract });
+    }
+    return bridge.releaseBookingCapacity(params.db, contract).then(function(result) {
+      return { status: 'released', contract: contract, result: result || null };
+    });
+  }
+
   function cancelTicket(params) {
     params = params || {};
     var db = params.db;
@@ -123,15 +149,18 @@
       firebaseNamespace.database.ServerValue.TIMESTAMP;
     var patch = cancellationPatch(serverTimestamp);
     return db.ref(path).update(patch).then(function() {
-      return {
-        contractVersion: CONTRACT_VERSION,
-        source: 'ticket-action-center',
-        action: 'cancel_ticket',
-        allowed: true,
-        bookingPath: path,
-        patch: patch,
-        booking: Object.assign({}, booking || {}, patch)
-      };
+      return releaseCapacity(params, Object.assign({}, ticket, { booking: booking })).then(function(capacityRelease) {
+        return {
+          contractVersion: CONTRACT_VERSION,
+          source: 'ticket-action-center',
+          action: 'cancel_ticket',
+          allowed: true,
+          bookingPath: path,
+          patch: patch,
+          capacityRelease: capacityRelease,
+          booking: Object.assign({}, booking || {}, patch)
+        };
+      });
     });
   }
 
@@ -142,6 +171,8 @@
     evaluateCancellation: evaluateCancellation,
     bookingPathFromTicket: bookingPathFromTicket,
     cancellationPatch: cancellationPatch,
+    capacityContractFromTicket: capacityContractFromTicket,
+    releaseCapacity: releaseCapacity,
     cancelTicket: cancelTicket
   };
 });
