@@ -105,7 +105,7 @@ body {
    223.png  — กรอกข้อมูล / Passenger form (section title) (20×20px)
    224.png  — ผู้โดยสาร2 / Passenger2 (ใน info row วงกลม) (20×20px)
    225.png  — โทรศัพท์ / Phone (ใน info row วงกลม) (20×20px)
-   226.png  — กลุ่มคน / Group (ใน info row วงกลม) (20×20px)
+   226.png  — กลุ่มคน / Group — ใช้กับแถวจำนวนที่นั่ง และแถวชื่อผู้โดยสาร (ใน info row วงกลม) (20×20px)
    227.png  — ตั๋ว / Ticket (section title สรุปรายการ) (20×20px)
    228.png  — ชำระเงิน / Payment (section title) (20×20px)
    229.png  — ธนาคาร / Bank (วิธีชำระ) (28×28px)
@@ -114,7 +114,7 @@ body {
    232.png  — แนบไฟล์ / Upload (section title) (20×20px)
    233.png  — กล้อง / Camera (upload area) (36×36px)
    234.png  — เอกสาร / Document consent (18×18px)
-   235.png  — ชื่อผู้โดยสาร / Passenger name (ใน ticket วงกลม) (20×20px)
+   235.png  — (ไม่มีไฟล์จริงใน assets/ — เลิกใช้ ใช้ 226.png แทนสำหรับชื่อผู้โดยสาร) (20×20px)
    236.png  — ชำระแล้ว check / Paid check (ใน badge สีเขียว) (16×16px)
    237.png  — ติดตามรถ / Track (action button) (22×22px)
    238.png  — ยกเลิก / Cancel (action button) (22×22px)
@@ -1525,6 +1525,11 @@ body {
           <div class="info-label">วันที่เดินทาง:</div>
           <div class="info-val" id="p2-date">วันนี้</div>
         </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/207.png" alt="ผู้โดยสาร" style="width:20px;height:20px;"></div>
+          <div class="info-label">ผู้โดยสาร:</div>
+          <div class="info-val" id="p2-pax">1 คน</div>
+        </div>
       </div>
 
       <!-- LEG2 SUMMARY (แสดงเฉพาะเส้นทางต่อรถ) -->
@@ -1571,14 +1576,6 @@ body {
           </div>
           <div id="adminTesterNote" style="display:none;font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:5px 8px;margin-top:4px;">
             ✅ เบอร์เจ้าหน้าที่ตรวจสอบ — การจองนี้จะถูกบันทึกแยก
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">จำนวนผู้โดยสาร</label>
-          <div class="counter-row">
-            <button class="counter-btn" onclick="changeSeat(-1)">−</button>
-            <div class="counter-val" id="pax-count"><span id="seatCount">1</span> คน</div>
-            <button class="counter-btn" onclick="changeSeat(1)">+</button>
           </div>
         </div>
         <div class="form-group">
@@ -1955,7 +1952,7 @@ body {
 
           <!-- info rows — static + dynamic -->
           <div class="info-row">
-            <div class="icon-circle"><img class="icon-img" src="assets/235.png" alt="ชื่อ" style="width:20px;height:20px;"></div>
+            <div class="icon-circle"><img class="icon-img" src="assets/226.png" alt="ชื่อ" style="width:20px;height:20px;"></div>
             <div class="info-label">ชื่อผู้โดยสาร:</div>
             <div class="info-val" id="t-name" id="pName">-</div>
           </div>
@@ -2909,7 +2906,7 @@ function resetBookingState() {
   var nameEl  = document.getElementById('inp-name');
   var phoneEl = document.getElementById('inp-phone');
   var noteEl  = document.getElementById('inp-note');
-  var paxEl   = document.getElementById('pax-count');
+  var p2PaxEl = document.getElementById('p2-pax');
   var searchPaxEl = document.getElementById('search-pax-count');
   if (nameEl)  nameEl.value  = '';
   if (phoneEl) phoneEl.value = '';
@@ -2920,7 +2917,7 @@ function resetBookingState() {
   var lineStatus = document.getElementById('lineIdentityStatus');
   if (lineProfile) lineProfile.style.display = 'none';
   if (lineStatus) lineStatus.textContent = 'ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้';
-  if (paxEl)   paxEl.textContent = '1 คน';
+  if (p2PaxEl) p2PaxEl.textContent = '1 คน';
   if (searchPaxEl) searchPaxEl.textContent = '1 คน ▾';
 
   /* รีเซ็ต consent bar */
@@ -2990,12 +2987,10 @@ function changeSeat(delta) {
   var nextPax = (state.pax || 1) + delta;
   if (delta > 0) nextPax = Math.min(effectiveLimit, nextPax);
   state.pax = Math.max(1, nextPax);
-  var paxEl = document.getElementById('pax-count');
-  if (paxEl) paxEl.innerHTML = '<span id="seatCount">' + state.pax + '</span> คน';
   var searchPaxEl = document.getElementById('search-pax-count');
   if (searchPaxEl) searchPaxEl.textContent = state.pax + ' คน ▾';
-  var scEl = document.getElementById('seatCount');
-  if (scEl) scEl.textContent = state.pax;
+  var p2PaxEl = document.getElementById('p2-pax');
+  if (p2PaxEl) p2PaxEl.textContent = state.pax + ' คน';
   var tot = getBookingTotal(state.pax);
   if (tot.status !== 'ready') return;
   state._totalFare = tot.total;
@@ -3273,6 +3268,10 @@ function updateSummary() {
   /* date */
   var p2date = document.getElementById('p2-date');
   if (p2date) p2date.textContent = dateStr;
+
+  /* ผู้โดยสาร (read-only, เลือกไว้ตั้งแต่หน้าค้นหา) */
+  var p2pax = document.getElementById('p2-pax');
+  if (p2pax) p2pax.textContent = (state.pax || 1) + ' คน';
 
   /* trip time + leg2 hint */
   var p2time = document.getElementById('p2-trip-time');
