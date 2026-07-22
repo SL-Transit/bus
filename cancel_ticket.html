@@ -13,6 +13,8 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="ticket-data-center.js?v=20260718center1"></script>
+  <script src="ticket-action-center.js?v=20260722cancel1"></script>
   <script defer src="site-analytics.js?v=20260624a"></script>
   <style>
     :root {
@@ -325,6 +327,7 @@
     var db = firebase.database();
     var currentBooking = null;
     var currentBookingPath = '';
+    var currentTicket = null;
     var authReady = firebase.auth().signInAnonymously().catch(function(err) {
       console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
       return null;
@@ -335,6 +338,9 @@
     }
 
     function bookingPathForCode(code, booking) {
+      if (window.SLTransitTicketDataCenter && typeof window.SLTransitTicketDataCenter.bookingPathForCode === 'function') {
+        return window.SLTransitTicketDataCenter.bookingPathForCode(code, {}, booking);
+      }
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
 
@@ -372,19 +378,6 @@
       return !!(booking && booking.status === 'cancelled');
     }
 
-    function departureDate(booking) {
-      if (!booking || !booking.date || !booking.time) return null;
-      var d = new Date(booking.date + 'T' + String(booking.time).slice(0, 5) + ':00');
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    function canCancel(booking) {
-      if (!booking || isCancelled(booking)) return false;
-      var dep = departureDate(booking);
-      if (!dep) return false;
-      return dep.getTime() - Date.now() >= 60 * 60000;
-    }
-
     function normalizeBooking(booking, code) {
       booking = booking || {};
       booking.code = booking.code || code;
@@ -394,19 +387,13 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      return db.ref('bookings').orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
-        if (!snap.exists()) return null;
-        var matches = [];
-        snap.forEach(function(child) {
-          var booking = child.val() || {};
-          if (String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
-            matches.push({ code: child.key, booking: booking });
-          }
-        });
-        matches.sort(function(a, b) {
-          return Number(b.booking.createdAt || b.booking.ts || 0) - Number(a.booking.createdAt || a.booking.ts || 0);
-        });
-        return matches[0] || null;
+      return window.SLTransitTicketDataCenter.findTicket(db, phone, {
+        excludeNotificationOnly: true,
+        sortValue: function(booking) {
+          return Number(booking.createdAt || booking.ts || 0);
+        }
+      }).then(function(result) {
+        return result ? { code: result.code, booking: result.booking, readPath: result.readPath, matchCount: result.matchCount } : null;
       });
     }
 
@@ -424,16 +411,9 @@
       document.getElementById('ticketStatusBadge').classList.toggle('cancelled', isCancelled(booking));
       var cancelButton = document.getElementById('cancelButton');
       var notice = document.getElementById('cancelNotice');
-      if (isCancelled(booking)) {
-        cancelButton.disabled = true;
-        notice.textContent = 'ตั๋วนี้ถูกยกเลิกแล้ว';
-      } else if (canCancel(booking)) {
-        cancelButton.disabled = false;
-        notice.textContent = 'ยังสามารถยกเลิกได้ กรุณาตรวจสอบข้อมูลการจองก่อนกดยกเลิก';
-      } else {
-        cancelButton.disabled = true;
-        notice.textContent = 'ตั๋วนี้ยกเลิกไม่ได้แล้ว เพราะเหลือเวลาก่อนรถออกน้อยกว่า 1 ชั่วโมง หรือข้อมูลเวลาไม่ครบ';
-      }
+      var cancellation = window.SLTransitTicketActionCenter.evaluateCancellation(booking);
+      cancelButton.disabled = !cancellation.allowed;
+      notice.textContent = cancellation.notice;
       show('ticketCard', true);
       show('actions', true);
     }
@@ -450,23 +430,23 @@
       show('ticketCard', false);
       show('actions', false);
       authReady.then(function() {
-        if (/^(BK\d{6,10}|TB\d{6})$/i.test(value)) {
-          var code = value.toUpperCase();
-          return db.ref(bookingPathForCode(code) + code).once('value').then(function(snap) {
-            return snap.exists() ? { code: code, booking: snap.val() } : null;
-          });
-        }
-        if (/^0[689]\d{8}$/.test(value)) return findLatestBookingByPhone(value);
-        return null;
+        return window.SLTransitTicketDataCenter.findTicket(db, value, {
+          excludeNotificationOnly: true,
+          sortValue: function(booking) {
+            return Number(booking.createdAt || booking.ts || 0);
+          }
+        });
       }).then(function(found) {
         if (!found) {
           currentBooking = null;
           currentBookingPath = '';
+          currentTicket = null;
           setStatus('bad', 'ไม่พบข้อมูลการจอง');
           return;
         }
         currentBooking = normalizeBooking(found.booking, found.code);
-        currentBookingPath = bookingPathForCode(found.code, currentBooking) + found.code;
+        currentBookingPath = found.readPath || (bookingPathForCode(found.code, currentBooking) + found.code);
+        currentTicket = { code: found.code, booking: currentBooking, readPath: currentBookingPath };
         setStatus('good', 'พบข้อมูลการจองแล้ว กรุณาตรวจสอบก่อนยกเลิก');
         renderBooking(currentBooking);
       }).catch(function(err) {
@@ -476,7 +456,8 @@
     }
 
     function openCancelConfirm() {
-      if (!currentBooking || !canCancel(currentBooking)) return;
+      var cancellation = window.SLTransitTicketActionCenter.evaluateCancellation(currentBooking);
+      if (!cancellation.allowed) return;
       show('confirmModal', true);
     }
 
@@ -485,16 +466,17 @@
     }
 
     function confirmCancel() {
-      if (!currentBooking || !currentBookingPath || !canCancel(currentBooking)) return;
+      var cancellation = window.SLTransitTicketActionCenter.evaluateCancellation(currentBooking);
+      if (!currentBooking || !currentBookingPath || !cancellation.allowed) return;
       var button = document.getElementById('confirmCancelButton');
       button.disabled = true;
       button.textContent = 'กำลังยกเลิก...';
-      db.ref(currentBookingPath).update({
-        status: 'cancelled',
-        cancelledAt: firebase.database.ServerValue.TIMESTAMP,
-        officialStatus: 'ตั๋วของคุณถูกยกเลิกแล้ว'
-      }).then(function() {
-        currentBooking.status = 'cancelled';
+      window.SLTransitTicketActionCenter.cancelTicket({
+        db: db,
+        firebase: firebase,
+        ticket: currentTicket || { booking: currentBooking, readPath: currentBookingPath }
+      }).then(function(result) {
+        currentBooking = result.booking || Object.assign({}, currentBooking, { status: 'cancelled' });
         closeCancelConfirm();
         setStatus('good', 'ยกเลิกตั๋วสำเร็จ');
         renderBooking(currentBooking);

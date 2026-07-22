@@ -31,6 +31,16 @@ function bookingCode(code, booking) {
   return clean(code || (booking && booking.code) || (booking && booking.bookingCode)).toUpperCase();
 }
 
+function resolveFareAmount(booking) {
+  if (!booking || typeof booking !== "object") return null;
+  const candidates = [booking.price, booking.fareAmount, booking.fare];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const n = Number(candidates[i]);
+    if (candidates[i] != null && candidates[i] !== "" && Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 function shouldPublishDriverTicket(booking) {
   if (!booking || typeof booking !== "object") return false;
   if (booking.cancelled === true || clean(booking.status) === "cancelled") return false;
@@ -64,6 +74,7 @@ function buildDriverTicket(code, booking) {
     route: clean(booking.route),
     origin: clean(booking.origin),
     destination: clean(booking.destination),
+    fareAmount: resolveFareAmount(booking),
     status: clean(booking.status || "awaiting_payment"),
     paymentStatus: clean(booking.paymentStatus),
     assignment: booking.assignment || null,

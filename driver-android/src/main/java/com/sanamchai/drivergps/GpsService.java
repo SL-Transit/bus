@@ -91,6 +91,11 @@ public class GpsService extends Service implements SensorEventListener {
     private LocationCallback fusedCallback;
     private FirebaseAuth auth;
     private DatabaseReference liveVehicleRef, connectedRef, vehicleSettingsRef;
+    private DatabaseReference bookingAlertsRef;
+    private com.google.firebase.database.ChildEventListener bookingAlertsListener;
+    private final java.util.Set<String> seenBookingAlertKeys = new java.util.HashSet<>();
+    private String bookingAlertsWatchedDate = null;
+    private static final String BOOKING_ALERT_CHANNEL_ID = "booking_alerts";
     private com.google.firebase.database.ValueEventListener vehicleSettingsListener;
     private volatile boolean manualRemoteEnabled = true;
     private volatile boolean scheduleRemoteEnabled = true;
@@ -731,6 +736,7 @@ public class GpsService extends Service implements SensorEventListener {
         // ไม่ใช้ keepSynced — ป้องกัน Firebase sync queue เก่าก่อนส่งข้อมูลใหม่
         watchConnectionState();
         watchVehicleSettings();
+        watchBookingAlerts();
     }    // แอปคนขับอ่าน manual switch และตารางเวลาเอง ไม่พึ่งหน้า admin เปิดค้างไว้
 
     private boolean hasFirebaseConfig() {
@@ -798,6 +804,102 @@ public class GpsService extends Service implements SensorEventListener {
         vehicleSettingsRef.addValueEventListener(vehicleSettingsListener);
     }
 
+    // ===== แจ้งเตือนคนขับทันทีที่มีผู้โดยสารจองตั๋วตรงกับคิว/คันของตัวเอง =====
+    private void watchBookingAlerts() {
+        if (queueId == null) return;
+        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+        if (today.equals(bookingAlertsWatchedDate) && bookingAlertsListener != null) return; // ยังเป็นวันเดิม ไม่ต้องผูกใหม่
+
+        if (bookingAlertsRef != null && bookingAlertsListener != null) {
+            try { bookingAlertsRef.removeEventListener(bookingAlertsListener); } catch (Exception ignored) {}
+        }
+        bookingAlertsWatchedDate = today;
+        seenBookingAlertKeys.clear();
+        bookingAlertsRef = FirebaseDatabase.getInstance()
+                .getReference("operations/driverTicketsByServiceDate/" + today + "/" + queueId);
+
+        // seed ตั๋วที่มีอยู่แล้วก่อนแอปเปิด ไม่ให้เด้งแจ้งเตือนย้อนหลังทั้งหมด
+        bookingAlertsRef.addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+            @Override public void onDataChange(com.google.firebase.database.DataSnapshot snap) {
+                for (com.google.firebase.database.DataSnapshot child : snap.getChildren()) {
+                    seenBookingAlertKeys.add(child.getKey());
+                }
+                attachBookingAlertListener();
+            }
+            @Override public void onCancelled(com.google.firebase.database.DatabaseError error) {
+                attachBookingAlertListener();
+            }
+        });
+    }
+
+    private void attachBookingAlertListener() {
+        if (bookingAlertsRef == null) return;
+        bookingAlertsListener = new com.google.firebase.database.ChildEventListener() {
+            @Override public void onChildAdded(com.google.firebase.database.DataSnapshot snap, String prevKey) {
+                String key = snap.getKey();
+                if (key == null || seenBookingAlertKeys.contains(key)) return;
+                seenBookingAlertKeys.add(key);
+                String status = String.valueOf(snap.child("status").getValue());
+                if ("cancelled".equals(status)) return;
+                showBookingAlertNotification(snap);
+            }
+            @Override public void onChildChanged(com.google.firebase.database.DataSnapshot snap, String prevKey) {}
+            @Override public void onChildRemoved(com.google.firebase.database.DataSnapshot snap) {}
+            @Override public void onChildMoved(com.google.firebase.database.DataSnapshot snap, String prevKey) {}
+            @Override public void onCancelled(com.google.firebase.database.DatabaseError error) {
+                Log.w(TAG, "booking alerts cancelled: " + error.getMessage());
+            }
+        };
+        bookingAlertsRef.addChildEventListener(bookingAlertsListener);
+    }
+
+    private void showBookingAlertNotification(com.google.firebase.database.DataSnapshot ticket) {
+        String origin = str(ticket.child("origin").getValue());
+        String destination = str(ticket.child("destination").getValue());
+        String time = str(ticket.child("time").getValue());
+        String phone = str(ticket.child("phone").getValue());
+        Object paxVal = ticket.child("pax").getValue();
+        if (paxVal == null) paxVal = ticket.child("seats").getValue();
+        String pax = paxVal == null ? "1" : String.valueOf(paxVal);
+        Object fareVal = ticket.child("fareAmount").getValue();
+        String fareText = fareVal == null ? "-" : String.format(java.util.Locale.US, "%,.0f", Double.parseDouble(String.valueOf(fareVal)));
+
+        String route = (!origin.isEmpty() || !destination.isEmpty())
+                ? (origin.isEmpty() ? "?" : origin) + " → " + (destination.isEmpty() ? "?" : destination)
+                : str(ticket.child("route").getValue());
+
+        String title = "🎫 มีผู้โดยสารจองตั๋ว " + pax + " คน";
+        String body = route + (time.isEmpty() ? "" : " เวลา " + time + " น.")
+                + "\nราคา " + fareText + " บาท" + (phone.isEmpty() ? "" : " | โทร " + phone);
+
+        android.app.NotificationManager nm =
+                (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm != null) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                android.app.NotificationChannel ch = new android.app.NotificationChannel(
+                        BOOKING_ALERT_CHANNEL_ID, "แจ้งเตือนการจองตั๋ว",
+                        android.app.NotificationManager.IMPORTANCE_HIGH);
+                ch.setDescription("แจ้งเตือนเมื่อมีผู้โดยสารจองตั๋วตรงกับคันนี้");
+                ch.enableVibration(true);
+                nm.createNotificationChannel(ch);
+            }
+            android.app.Notification n = new androidx.core.app.NotificationCompat.Builder(this, BOOKING_ALERT_CHANNEL_ID)
+                    .setContentTitle(title)
+                    .setContentText(route)
+                    .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(body))
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true)
+                    .setDefaults(android.app.Notification.DEFAULT_ALL)
+                    .build();
+            nm.notify((int) System.currentTimeMillis(), n);
+        }
+    }
+
+    private String str(Object v) {
+        return v == null ? "" : String.valueOf(v).trim();
+    }
+
     private boolean isValidTime(String value) {
         return value != null && value.matches("(?:[01]\\d|2[0-3]):[0-5]\\d");
     }
@@ -842,6 +944,7 @@ public class GpsService extends Service implements SensorEventListener {
             if (!running) return;
             applyEffectiveTrackingState("clock");
             scheduleHealthCheck(GpsService.this);
+            watchBookingAlerts(); // no-op ถ้าวันที่ยังเหมือนเดิม, re-attach listener ถ้าข้ามวัน
             handler.postDelayed(this, SERVICE_WINDOW_CHECK_MS);
         }
     };
@@ -995,6 +1098,9 @@ public class GpsService extends Service implements SensorEventListener {
 
     @Override public void onDestroy() {
         super.onDestroy();
+        if (bookingAlertsRef != null && bookingAlertsListener != null) {
+            try { bookingAlertsRef.removeEventListener(bookingAlertsListener); } catch (Exception ignored) {}
+        }
         // บันทึกว่าถูก kill กี่ครั้ง
         if (prefs != null && prefs.getBoolean(MainActivity.KEY_ENABLED, false)) {
             int count = prefs.getInt(MainActivity.KEY_RESTART_COUNT, 0);

@@ -25,6 +25,7 @@
 <script src="erp-alert-center.js?v=20260713center1"></script>
 <script src="vehicle-assignment-center.js?v=20260713center1"></script>
 <script src="journey-status-center.js?v=20260713center1"></script>
+<script src="ticket-data-center.js?v=20260718center1"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
@@ -1057,6 +1058,12 @@
       if (el) el.style.display = TEST_MODE ? 'block' : 'none';
     }
     function bookingPathForCode(code, booking) {
+      if (window.SLTransitTicketDataCenter && typeof window.SLTransitTicketDataCenter.bookingPathForCode === 'function') {
+        return window.SLTransitTicketDataCenter.bookingPathForCode(code, {
+          testMode: TEST_MODE,
+          testBookingsPath: TEST_PATHS.bookings
+        }, booking);
+      }
       if (TEST_MODE) return TEST_PATHS.bookings;
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
@@ -1107,18 +1114,13 @@
       setStatus('lookupStatus', 'info', 'กำลังดึงข้อมูลการจอง...');
 
       var task = authReady.then(function() {
-        if (/^(BK\d{10}|TB\d{6})$/.test(value)) {
-          if (TEST_MODE && /^BK\d{10}$/.test(value)) {
-            throw new Error('TEST_MODE_PRODUCTION_CODE');
-          }
-          return db.ref(bookingPathForCode(value) + value).once('value').then(function(snap) {
-            return snap.exists() ? { code: value, booking: snap.val() } : null;
-          });
-        }
-        if (/^0[689]\d{8}$/.test(value)) {
-          return findLatestBookingByPhone(value);
-        }
-        return null;
+        return window.SLTransitTicketDataCenter.findTicket(db, value, {
+          testMode: TEST_MODE,
+          testBookingsPath: TEST_PATHS.bookings,
+          excludeNotificationOnly: true,
+          excludeBooking: function(booking) { return isBookingPastTravelDate(booking); },
+          sortValue: bookingSortTime
+        });
       });
 
       task.then(function(found) {
@@ -1166,22 +1168,14 @@
     }
 
     function findLatestBookingByPhone(phone) {
-      var path = TEST_MODE ? TEST_PATHS.bookings.replace(/\/$/, '') : 'bookings';
-      return db.ref(path).orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
-        if (!snap.exists()) return null;
-        var matches = [];
-        snap.forEach(function(child) {
-          var booking = child.val() || {};
-          if (!booking.notificationOnly && !isBookingPastTravelDate(booking) && String(booking.phone || '').replace(/[^0-9]/g, '') === phone) {
-            matches.push({ code: child.key, booking: booking });
-          }
-        });
-        matches.sort(function(a, b) {
-          return bookingSortTime(b.booking) - bookingSortTime(a.booking);
-        });
-        if (!matches[0]) return null;
-        matches[0].matchCount = matches.length;
-        return matches[0];
+      return window.SLTransitTicketDataCenter.findTicket(db, phone, {
+        testMode: TEST_MODE,
+        testBookingsPath: TEST_PATHS.bookings,
+        excludeNotificationOnly: true,
+        excludeBooking: function(booking) { return isBookingPastTravelDate(booking); },
+        sortValue: bookingSortTime
+      }).then(function(result) {
+        return result ? { code: result.code, booking: result.booking, matchCount: result.matchCount } : null;
       });
     }
 

@@ -918,6 +918,16 @@
         liveTrackingAvailable: false
       };
       state.bookingCode = bookingCode();
+      var capacityContract = global.SLBookingBridge.buildBookingCapacityContract({
+        serviceDate: serviceDateISO(),
+        trip: state.selectedTrip,
+        requestedSeats: state.pax || 1,
+        pickupTime: state.tripTime,
+        pairKey: state.selectedTrip.pairKey || '',
+        tripKey: state.selectedTrip.tripId || state.selectedTrip.catalogTripId || '',
+        routeKey: state.selectedTrip.routeId || state.selectedTrip.catalogRouteId || ''
+      });
+      capacityContract.bookingCode = state.bookingCode;
       var bookingSnap = global.SLBookingBridge.buildBookingSnapshot({
         bookingCode: state.bookingCode,
         name: state.name || '-',
@@ -936,6 +946,7 @@
         paymentOwnership: state.selectedTrip.paymentOwnership || 'sl_transit',
         externalPaymentRequired: state.selectedTrip.externalPaymentRequired === true,
         referenceOnly: state.selectedTrip.referenceOnly === true,
+        capacity: capacityContract,
         payMethod: global.currentPayMethod || '',
         slipUploaded: global.currentPayMethod === 'onsite' ? false : !!state.slipFile,
         passengerIdentity: currentPassengerIdentity(state),
@@ -947,12 +958,18 @@
       var btn = document.getElementById('btnConfirm');
       state._bookingSubmitInFlight = true;
       if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึกการจอง...'; }
-      db.ref('bookings/' + booking.code).set(booking).then(function() {
+      global.SLBookingBridge.reserveBookingCapacity(db, capacityContract).then(function(reservation) {
+        booking.capacity = reservation;
+        return db.ref('bookings/' + booking.code).set(booking).catch(function(err) {
+          return global.SLBookingBridge.releaseBookingCapacity(db, capacityContract).then(function() { throw err; });
+        });
+      }).then(function() {
         console.log('[Booking1PreviewAdapter] booking saved:', booking.code);
         if (typeof global.showTicketPage === 'function') global.showTicketPage(booking);
       }).catch(function(err) {
         console.error('[Booking1PreviewAdapter] booking save failed', err);
-        alert('บันทึกการจองไม่สำเร็จ กรุณาลองใหม่');
+        if (err && err.code === 'BOOKING_CAPACITY_FULL') alert('เที่ยวนี้ที่นั่งเต็มแล้ว กรุณาเลือกเที่ยวอื่น');
+        else alert('บันทึกการจองไม่สำเร็จ กรุณาลองใหม่');
       }).then(function() {
         state._bookingSubmitInFlight = false;
         if (btn) { btn.disabled = false; btn.textContent = 'ยืนยันการชำระเงิน ›'; }

@@ -10,6 +10,7 @@ const booking = {
   name: 'Driver Passenger',
   phone: '0900000000',
   seats: 2,
+  price: 320,
   status: 'awaiting_payment',
   assignment: {
     contractVersion: 'booking_assignment_v1',
@@ -24,7 +25,13 @@ assert.strictEqual(ticket.date, '2026-07-16');
 assert.strictEqual(ticket.plannedVehicleId, 'car1');
 assert.strictEqual(ticket.code, 'BK123456');
 assert.strictEqual(ticket.queueNo, 1);
+assert.strictEqual(ticket.fareAmount, 320, 'driver ticket must carry fareAmount for driver earnings reporting');
 assert.strictEqual(center.driverTicketPath('BK123456', booking), 'operations/driverTicketsByServiceDate/2026-07-16/car1/BK123456');
+
+const fareFallbackTicket = center.buildDriverTicket('BK123457', Object.assign({}, booking, {
+  code: 'BK123457', price: undefined, fareAmount: undefined, fare: 180
+}));
+assert.strictEqual(fareFallbackTicket.fareAmount, 180, 'fareAmount must fall back to booking.fare when price/fareAmount are absent');
 
 const updates = center.buildDriverTicketMirrorUpdate('BK123456', null, booking);
 assert(updates['operations/driverTicketsByServiceDate/2026-07-16/car1/BK123456'], 'driver ticket mirror update missing');
