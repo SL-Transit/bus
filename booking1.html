@@ -569,6 +569,9 @@ body {
   font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
   transition: background .15s;
 }
+.select-trip-btn:disabled {
+  background: #cbd5e1; color: #64748b; cursor: not-allowed;
+}
 .trip-card.selected .select-trip-btn { background: var(--teal); }
 .no-trips-msg {
   text-align: center; padding: 28px 16px;
@@ -870,11 +873,11 @@ body {
   padding: 14px 14px 12px !important;
 }
 .trip-card-head {
-  display: flex; align-items: flex-start; gap: 6px; margin-bottom: 8px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;
   position: relative;
 }
 .trip-time-wrap {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex: 1;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex: 0 1 auto;
 }
 .trip-time {
   font-size: 20px; font-weight: 800; color: var(--navy); line-height: 1;
@@ -886,11 +889,11 @@ body {
 .badge-recommend { background: #d1fae5; color: #065f46; }
 .badge-schedule   { background: #eef2f7; color: #475569; }
 
-.trip-route-row {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--body-text); margin: 0 0 8px;
+/* ชื่อเส้นทาง (ต้นทาง → ปลายทาง) อยู่คอลัมน์ขวา แถวเดียวกับเวลา */
+.trip-head-route {
+  flex: 0 1 auto; text-align: right; max-width: 58%;
 }
-.trip-route-text { font-weight: 600; color: var(--dark-text); font-size: 13px; }
+.trip-route-text { font-weight: 700; color: var(--dark-text); font-size: 13px; }
 .trip-transfer-detail {
   display: grid;
   gap: 3px;
@@ -916,17 +919,26 @@ body {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 10px; margin: 0 0 8px;
 }
-.trip-stops { display: grid; gap: 6px; flex: 1; min-width: 0; }
+/* เส้นเชื่อมจุดจอด (บัส → เส้นประ → หมุด) ใช้ภาพเดียว assets/2088.png
+   ครอบทั้งความสูงของรายการจุดจอด แทนไอคอนแยกทีละแถว */
+.trip-stops {
+  display: grid; gap: 6px; flex: 1; min-width: 0;
+  position: relative; padding-left: 22px;
+}
+.trip-stops::before {
+  content: '';
+  position: absolute; left: 0; top: 2px; bottom: 2px; width: 15px;
+  background-image: url('assets/2088.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
 .trip-stop-row {
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center;
   font-size: 12px; color: var(--dark-text); font-weight: 600;
+  min-height: 16px;
 }
 .trip-stop-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trip-stop-icon { width: 14px; height: 14px; flex: 0 0 14px; }
-.trip-stop-dot {
-  width: 8px; height: 8px; flex: 0 0 8px; margin: 0 3px;
-  border-radius: 50%; border: 2px solid var(--gray-text); background: #fff;
-}
 .trip-meta-col {
   display: grid; gap: 5px; flex: 0 0 auto; text-align: left;
 }
@@ -936,6 +948,7 @@ body {
 }
 .trip-meta-row img { width: 13px; height: 13px; flex: 0 0 13px; }
 .trip-meta-row b { color: var(--teal); font-weight: 800; }
+.trip-meta-full { color: #b91c1c; font-weight: 800; }
 
 /* ── กล่องข้อมูลต่อรถ (inline ในการ์ดแนะนำ) ── */
 .transfer-inline-box {
