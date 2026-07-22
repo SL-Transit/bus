@@ -81,6 +81,9 @@ assert(bridge.includes('var DEFAULT_TRIP_CAPACITY = 3'), 'Booking1 central capac
 assert(bridge.includes('function buildBookingCapacityContract'), 'Booking1 bridge must build a central capacity contract');
 assert(bridge.includes('operations/bookingCapacityByServiceDate/'), 'Booking1 capacity counters must be service-date scoped central records');
 assert(bridge.includes('function reserveBookingCapacity'), 'Booking1 bridge must reserve seats through a central capacity transaction');
+assert(bridge.includes('function readBookingCapacityCounter'), 'Booking1 bridge must read central capacity counters for remaining-seat display');
+assert(bridge.includes('function attachRuntimeCapacity'), 'Booking1 bridge must attach runtime capacity to trips before Booking renders them');
+assert(bridge.includes('return attachRuntimeCapacity(_pairToTrips(pair, option, serviceDate))'), 'Booking1 async trip loading must enrich trips with central remaining seats');
 assert(bridge.includes('.transaction(function(current)'), 'Booking1 capacity reservation must use a Firebase transaction');
 assert(adapter.includes('buildBookingCapacityContract'), 'Booking1 adapter must build a capacity contract before saving a booking');
 assert(adapter.includes('reserveBookingCapacity(db, capacityContract).then'), 'Booking1 adapter must reserve capacity before writing a booking');

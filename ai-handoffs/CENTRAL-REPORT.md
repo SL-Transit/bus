@@ -44,6 +44,8 @@ Next action:
 
 ## Current Reports
 
+## Current Reports
+
 ## 2026-07-22 12:39 +07 (Asia/Bangkok) - Booking Logic AI (Booking1) - BLOCKED
 
 Scope:
@@ -57,24 +59,98 @@ Summary:
 - Requesting whoever owns `booking-bridge.js` next (Main Backbone Lead or the capacity-transaction AI) decide the read strategy (e.g. batch-read the relevant `operations/bookingCapacityByServiceDate/{serviceDate}` node once per pair render vs. per-trip reads, with caching) and wire the resulting count into the `decideBookingAvailability()` call so `seatsAvailable` is real at listing time. Filed as a `BLOCKED` row in `WORK-STATUS.md` instead of implemented directly here because `booking-bridge.js` is shared/actively developed by another AI and this needs a real read-strategy decision, not a cosmetic patch.
 - Also fixed, in the same pass: a self-inflicted display bug where `Number(null) === 0` in JS caused the "no seat data yet" case to render as a false "ที่นั่งว่าง 0 ที่นั่ง" on every card; and a stop-list icon mismatch where the single 3-element route icon (`assets/2088.png`, confirmed by the owner via screenshot) was being stretched over 2-row (same-group/direct) cards too, producing a floating unlabeled middle dot.
 - Booking1 is ready to display real seats and correctly show "ที่นั่งเต็มแล้ว" + disable booking the moment `seatsAvailable` starts arriving as a real number (including `0`); no further Booking1-side change needed for that once the data is wired.
+- **Update same day:** the request above was picked up and delivered — see "Booking Remaining Seats Display" report immediately below. `booking-bridge.js#loadAvailableTrips` now calls `attachRuntimeCapacity(...)`, which reads the real `operations/bookingCapacityByServiceDate/...` counter per trip and re-runs `decideBookingAvailability()` with real `capacity`/`bookedSeats` before Booking1 ever sees the trip list. Confirmed `booking1-preview-adapter.js` was not touched by that change, so Booking1's existing seats/"ที่นั่งเต็มแล้ว" rendering (already reading `trip.availabilityDecision.seatsAvailable`) picks up real numbers with no further Booking1-side change. Re-verified full test suite after merging both sides' work locally: pass (see commit evidence below).
 
 Evidence:
-- Commits: `b5f04a6`, `aa5d12c`, `eef50f4` (pushed to `main`; merged cleanly with `Booking1 capacity transaction` PR #7 at `5afc880`)
+- Commits: `b5f04a6`, `aa5d12c`, `eef50f4`, `a8560ee` (pushed to `main`; merged cleanly with `Booking1 capacity transaction` PR #7 at `5afc880`, and with `Booking Remaining Seats Display` PR #10 / `Cancel Capacity Release` PR #9 at `78212f0`)
 - Actions: not run from this session
 - Pages: not checked from this session
-- Tests: `tests/booking1-preview-data.test.js`, `tests/erp-calculator-center.test.js`, `tests/booking-capacity-transaction.test.js` pass (`TZ=Asia/Bangkok`); full suite run, same 5 pre-existing unrelated failures as unmodified `main` (Firebase-network-dependent ERP dry-run tests, 403s in this sandbox)
+- Tests: `tests/booking1-preview-data.test.js`, `tests/erp-calculator-center.test.js`, `tests/booking-capacity-transaction.test.js` pass (`TZ=Asia/Bangkok`) both before and after merging PR #9/#10; full suite run, same 5 pre-existing unrelated failures as unmodified `main` (Firebase-network-dependent ERP dry-run tests, 403s in this sandbox)
 
 Safety:
 - Firebase writes: none
 - Passenger/private data touched: none
 
 Blockers:
-- Real per-trip seat counts at listing time require `booking-bridge.js` to read `operations/bookingCapacityByServiceDate/...` (or an equivalent summary) when building each trip, which is out of Booking1's own scope and overlaps a file another AI is actively developing.
+- None remaining for this item — resolved by the "Booking Remaining Seats Display" work merged same day.
 
 Next action:
-- Main Backbone Lead / capacity-transaction owner: decide read strategy and wire real `seatsAvailable` into `decideBookingAvailability()` at listing time; Booking1 needs no further change once that lands.
+- None; closing this row to DONE in `WORK-STATUS.md`.
 
-## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - REVIEW
+## 2026-07-22 00:35 +07 (Asia/Bangkok) - Supervisor AI / Booking Remaining Seats Display - REVIEW
+
+Scope:
+- `booking-bridge.js`
+- `tests/booking-capacity-transaction.test.js`
+- `tests/booking1-preview-data.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Filled the central-board gap where ERP/Booking Bridge had a capacity transaction but did not read central remaining-seat counters back for Booking display.
+- Booking Bridge now reads `operations/bookingCapacityByServiceDate/{serviceDate}/{capacityKey}` as a central read source before returning trips from `loadAvailableTrips(...)`.
+- Trips are enriched with `capacity.source = booking_capacity_center` and `availabilityDecision.seatsAvailable`, so Booking1 displays the remaining seats from the central counter rather than guessing locally.
+- If the central counter is missing, Booking Bridge falls back to the central capacity contract limit and zero booked seats instead of scanning bookings or inventing a count.
+- Owner provided evidence for the missing `car2` LINE user ID. The board now records that evidence is available, while the actual Firebase central-config write remains a separate approval-gated action.
+
+Evidence:
+- Commit: branch `agent/booking-remaining-seats-display`, local merge with latest `origin/main` in progress.
+- Actions: not run; branch update not pushed yet.
+- Pages: not run; branch update not pushed yet.
+- Tests: pending rerun after conflict resolution.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+- LINE user ID evidence: not written to Firebase and not committed verbatim to repo.
+
+Blockers:
+- Live runtime still needs read access to the central capacity counter path if Firebase rules currently block it. This pass does not change rules.
+- car2 driver notification still requires a separate owner-approved Firebase write to `/data/notificationCenter/staffLineTargets/driversByVehicleId/car2/...`.
+
+Next action:
+- Resolve this branch against latest `main`, rerun tests, commit, push PR #10 update.
+
+## 2026-07-22 00:20 +07 (Asia/Bangkok) - Supervisor AI / Cancel Capacity Release - DONE
+
+Scope:
+- `ticket-action-center.js`
+- `cancel_ticket.html`
+- `tests/ticket-action-center.test.js`
+- `tests/ticket-action-center-page-wiring.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+
+Summary:
+- Extended `ticket_action_center_cancel_v1` so successful cancellation can release the original Booking1 capacity reservation.
+- Cancel Ticket now loads `booking-bridge.js` and passes `window.SLBookingBridge` into Ticket Action Center.
+- Ticket Action Center reads the existing `booking.capacity` contract from the ticket/booking and calls `releaseBookingCapacity(...)` through the central Booking Bridge transaction.
+- If an older ticket has no capacity contract, cancellation still succeeds and the capacity release is reported as skipped instead of guessing a trip.
+- Added regression guards for capacity release wiring.
+
+Evidence:
+- Commit: merged to `main` via PR #9 at `5436bab`.
+- Actions: not run locally for this report.
+- Pages: not run for this action-center wiring change.
+- Tests: `node tests/ticket-action-center.test.js`; `node tests/ticket-action-center-page-wiring.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none performed during implementation/tests.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- Live runtime still depends on existing approved write permission for the scoped booking record and capacity counter path. This pass does not change Firebase rules.
+- A future backend/server action may still be preferred for stronger all-or-nothing cancellation + capacity release guarantees.
+
+Next action:
+- Continue with Booking remaining seats display PR #10.
+
+## 2026-07-22 00:00 +07 (Asia/Bangkok) - Supervisor AI / Cancel Ticket Action Center - DONE
 
 Scope:
 - `ticket-action-center.js`
@@ -93,9 +169,9 @@ Summary:
 - Added regression guards so the cancellation page does not reintroduce local `canCancel`, local departure policy calculation, or direct `db.ref(currentBookingPath).update(...)` writes.
 
 Evidence:
-- Commit: none yet; local branch `agent/cancel-ticket-action-center`.
-- Actions: not run; nothing pushed yet.
-- Pages: not run; nothing pushed yet.
+- Commit: merged to `main` via PR #8 at `a15f465`.
+- Actions: not run locally for this report.
+- Pages: not run for this action-center wiring change.
 - Tests: `node tests/ticket-action-center.test.js`; `node tests/ticket-action-center-page-wiring.test.js`; `node tests/ticket-data-center.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `node tests/check-ticket-center-wiring.test.js`; `node tests/check-ticket-vehicle-assignment-wiring.test.js`; `node tests/check-ticket-alert-center-wiring.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-availability-center.test.js`; `node tests/erp-calculator-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
 
 Safety:
@@ -111,7 +187,7 @@ Blockers:
 - Paused driver vehicle identity work remains paused.
 
 Next action:
-- Commit and push branch `agent/cancel-ticket-action-center`, then open a PR to `main`.
+- Continue with Booking remaining seats display PR #10.
 
 ## 2026-07-19 00:08 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Transaction - DONE
 
@@ -207,7 +283,7 @@ Summary:
 - `syncDriverTicketOnBookingWrite` enriches schedule-only bookings from `operations/driverWorkByServiceDate/{serviceDate}` and ERP Data Center stop aliases at `data/erpDataCenter/groupStops`.
 - `sendStaffLineOnBooking` listens to `/bookings/{code}` writes, resolves missing staff recipients through ERP Notification Center, and prevents duplicates through `/staff_line_sent/{code}`.
 - Staff LINE recipients are centralized at `/data/notificationCenter/staffLineTargets`; driver recipients are keyed by `driversByVehicleId/{carId}`.
-- Current driver LINE readiness: `car1`, `car3/2575`, and `car4/2649` are configured; `car2` still needs a LINE user ID.
+- Current driver LINE readiness: `car1`, `car3/2575`, and `car4/2649` are configured; owner has provided `car2` LINE user ID evidence, but it still needs an approval-gated Firebase central-config write before car2 driver notification can send.
 - Passenger LINE remains separate: it sends to the passenger only when the booking has LINE identity and passenger notification preference.
 - Stop alias hard-code for `แปดริ้ว/ฉะเชิงเทรา` was removed from driver ticket matching; alias resolution now comes from ERP Data Center.
 
@@ -229,12 +305,12 @@ Safety:
 - Fake GPS/ETA/vehicle/driver assignment: none.
 
 Blockers:
-- `car2` LINE user ID is not configured, so car2 driver notification cannot send yet.
+- `car2` LINE user ID evidence has been provided by the owner, but the Firebase central config is not updated in this pass, so car2 driver notification cannot send yet.
 - Queue/terminal LINE targets are not configured yet, so queue/terminal notification awaits central config.
 - Passenger ETA notification is future work and must use real operational ETA via ERP Logic Center + ERP Calculator Center before ERP Notification Center sends it.
 
 Next action:
-- Add `car2` LINE user ID and queue/terminal target config when owner provides IDs.
+- With owner approval for Firebase write, add the provided `car2` LINE user ID to central notification config; add queue/terminal target config when owner provides those IDs.
 - Continue keeping any future booking UI replacement as a bridge that writes the stable booking contract to `/bookings/{code}`.
 
 ## 2026-07-16 08:18 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Real Booking ERP Totals - REVIEW
