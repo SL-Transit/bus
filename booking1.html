@@ -561,7 +561,7 @@ body {
 .trip-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .trip-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--body-text); }
 .trip-meta-icon { width: 14px; height: 14px; background: var(--teal-bg); border-radius: 3px; flex-shrink: 0; }
-.trip-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.trip-bottom { display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; }
 .trip-price { font-size: 16px; font-weight: 800; color: var(--teal); }
 .select-trip-btn {
   background: var(--navy); color: white; border: none;
@@ -1689,8 +1689,8 @@ body {
           สรุปรายการ
         </div>
         <div class="summary-line"><span>ค่าตั๋วโดยสาร</span><span id="p3-ticket-price">-</span></div>
-        <div class="summary-line" id="serviceFeeRow" style="display:none;"><span>ค่าบริการ</span><span id="sumServiceFee">0 บาท</span></div>
-        <div class="summary-line total"><span>ยอดชำระ</span><span class="total-amount" id="sumTotal">-</span></div>
+        <div class="summary-line" id="serviceFeeRow"><span>ค่าธรรมเนียม</span><span id="sumServiceFee">0 บาท</span></div>
+        <div class="summary-line total"><span>รวมยอดชำระ</span><span class="total-amount" id="sumTotal">-</span></div>
       </div>
 
       <!-- วิธีชำระเงิน -->
@@ -3057,9 +3057,8 @@ function _applySettings(data) {
   set('paymentAccountName', data.payment && data.payment.accountName);
   set('paymentPhone',       data.payment && data.payment.phone);
   set('paymentDescription', data.payment && data.payment.description);
-  /* service fee row */
-  var feeRow = document.getElementById('serviceFeeRow');
-  if (feeRow) feeRow.style.display = (data.fees && data.fees.serviceEnabled) ? 'flex' : 'none';
+  /* service fee row: always visible now (matches target payment-summary design);
+     ERP serviceEnabled setting no longer hides it, just leaves the amount at 0 บาท */
   /* consent policy */
   var cEl = document.getElementById('consentPolicyContent');
   var lEl = document.getElementById('consentLoading');

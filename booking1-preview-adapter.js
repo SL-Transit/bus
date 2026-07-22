@@ -676,7 +676,7 @@
         + '</div><div class="trip-head-route"><span class="trip-route-text">' + routeText(trip) + '</span></div></div>'
         + '<div class="trip-card-body">' + stopsHtml(trip) + transferDetailHtml(trip) + '</div>'
         + noteHtml(trip)
-        + '<div class="trip-bottom"><span class="trip-price-compact">' + fareText(trip) + '</span>' + selectButton(trip, index, false) + '</div>'
+        + '<div class="trip-bottom">' + selectButton(trip, index, false) + '</div>'
         + '</div>';
     }
 
@@ -707,7 +707,7 @@
       + tripBadges(best) + '</div><div class="trip-head-route"><span class="trip-route-text">' + routeText(best) + '</span></div></div>'
       + '<div class="trip-card-body">' + stopsHtml(best) + transferDetailHtml(best) + '</div>'
       + noteHtml(best)
-      + '<div class="trip-bottom"><div class="trip-price">' + fareText(best) + '</div>' + selectButton(best, recommendedIndex, true) + '</div></div>';
+      + '<div class="trip-bottom">' + selectButton(best, recommendedIndex, true) + '</div></div>';
 
     if (available.length > 1) {
       html += '<div class="all-trips-label">เที่ยวอื่น ๆ ในวันนี้</div>';
