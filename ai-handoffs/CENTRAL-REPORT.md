@@ -44,6 +44,42 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-22 21:00 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Refresh After Booking - REVIEW
+
+Scope:
+- `booking1-preview-adapter.js`
+- `tests/booking1-preview-data.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Owner reported Booking1 still showing 3 seats for a just-booked 11:30 trip.
+- Read-only Firebase verification showed the central capacity counter did decrease for booking `BK2133505594`: `/operations/bookingCapacityByServiceDate/2026-07-23/2026-07-23__คลองหาด__พนมสารคาม__11:30` has `bookedSeats=1` and `seatsAvailable=2`.
+- The screenshot route was `คลองหาด -> ฉะเชิงเทรา (แปดริ้ว)`, while the verified latest counter/booking was `คลองหาด -> พนมสารคาม`, so this pass does not fabricate or backfill a counter for the screenshot route.
+- Added Booking1 refresh guards so the trip list reloads from the central counter after a successful booking, after browser back/forward-cache restore, and when the tab becomes visible/focused again.
+- This keeps Booking1 display-only: it still reads `availabilityDecision.seatsAvailable` from the central Booking Bridge and does not calculate seat counts locally.
+
+Evidence:
+- Commit: branch head of `agent/booking1-refresh-capacity-on-return` after push.
+- Actions: not run from this session.
+- Pages: not run from this session.
+- Firebase read-only checks: `/operations/bookingCapacityByServiceDate/2026-07-22` returned `null`; `/operations/bookingCapacityByServiceDate/2026-07-23` contained the 11:30 counter for `คลองหาด__พนมสารคาม`; `/bookings/BK2133505594` confirmed `date/serviceDate=2026-07-23`.
+- Tests: `node tests/booking1-preview-data.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/booking-availability-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none in this pass.
+- Firebase reads: scoped diagnostic reads of booking/capacity nodes only.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- If the owner expects `คลองหาด -> ฉะเชิงเทรา (แปดริ้ว)` 11:30 to be reduced, the matching booking code/counter must exist for that exact pair/date/time. It was not found in the scoped read performed here.
+
+Next action:
+- Merge PR #13 after conflict resolution and verify live behavior.
+
 ## 2026-07-22 14:02 +07 (Asia/Bangkok) - Supervisor AI / Car2 LINE Central Record - DONE
 
 Scope:

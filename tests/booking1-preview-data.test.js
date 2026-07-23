@@ -88,6 +88,10 @@ assert(bridge.includes('.transaction(function(current)'), 'Booking1 capacity res
 assert(adapter.includes('buildBookingCapacityContract'), 'Booking1 adapter must build a capacity contract before saving a booking');
 assert(adapter.includes('reserveBookingCapacity(db, capacityContract).then'), 'Booking1 adapter must reserve capacity before writing a booking');
 assert(adapter.includes('releaseBookingCapacity(db, capacityContract)'), 'Booking1 adapter must roll back capacity when booking write fails');
+assert(adapter.includes('function installCapacityRefreshGuards'), 'Booking1 must install guards to refresh central capacity counters when returning to the page');
+assert(adapter.includes("global.addEventListener('pageshow'"), 'Booking1 must refresh capacity counters after browser back/forward cache restores the page');
+assert(adapter.includes("document.addEventListener('visibilitychange'"), 'Booking1 must refresh capacity counters when the tab becomes visible again');
+assert(adapter.includes("refreshBookingCapacityFromCenter('booking_saved')"), 'Booking1 must refresh central capacity counters after a successful booking');
 assert(!booking1.includes('Math.min(10'), 'Booking1 must not hardcode a ten-seat maximum');
 assert(!booking1.includes('แปดริ้ว'), 'Booking1 must not hardcode the transfer point label');
 assert(bridge.includes("info.source = 'erp_data_center'"), 'Booking1 transfer display data must be marked as ERP Data Center output');

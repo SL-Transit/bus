@@ -216,6 +216,30 @@
     return rows.length ? '<div class="trip-meta-col">' + rows.join('') + '</div>' : '';
   }
 
+  function installCapacityRefreshGuards() {
+    var state = appState();
+    if (state._capacityRefreshGuardsInstalled) return;
+    state._capacityRefreshGuardsInstalled = true;
+    function refreshFromCenter(reason) {
+      var current = appState();
+      clearTimeout(current._capacityRefreshTimer);
+      current._capacityRefreshTimer = setTimeout(function() {
+        if (!global.SLBookingBridge || !current.originKey || !current.destKey) return;
+        if (typeof global.renderTrips === 'function') global.renderTrips();
+      }, reason === 'booking_saved' ? 0 : 150);
+    }
+    global.addEventListener('pageshow', function(event) {
+      if (event && event.persisted) refreshFromCenter('pageshow');
+    });
+    global.addEventListener('focus', function() {
+      refreshFromCenter('focus');
+    });
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') refreshFromCenter('visible');
+    });
+    state.refreshBookingCapacityFromCenter = refreshFromCenter;
+  }
+
   function transferPoint(state) {
     var ti = state && state.transferInfo || {};
     return ti.viaLabel || ti.transferNodeLabel || ti.transferStopLabel || ti.point ||
@@ -730,6 +754,7 @@
 
   function patch() {
     enforceSeparatePaymentStep();
+    installCapacityRefreshGuards();
     global._populateStopPicker = function() {
       var state = appState();
       var origins = global.SLBookingBridge.getBookableStops();
@@ -971,6 +996,7 @@
         });
       }).then(function() {
         console.log('[Booking1PreviewAdapter] booking saved:', booking.code);
+        if (state.refreshBookingCapacityFromCenter) state.refreshBookingCapacityFromCenter('booking_saved');
         if (typeof global.showTicketPage === 'function') global.showTicketPage(booking);
       }).catch(function(err) {
         console.error('[Booking1PreviewAdapter] booking save failed', err);
