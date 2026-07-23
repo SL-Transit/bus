@@ -44,6 +44,42 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-23 11:25 +07 (Asia/Bangkok) - Supervisor AI / Legacy Booking Entrypoint Cutover - REVIEW
+
+Scope:
+- `booking.html`
+- `index.html`
+- `passenger.html`
+- `tests/legacy-booking-entrypoint.test.js`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Audited the legacy `booking.html` after PR #11 and PR #13 were merged.
+- Found that the old page still owned local route tables, hardcoded fares, transfer-point/buffer rules, local service-fee/total calculations, booking availability scans, queue counters, and a separate capacity ledger.
+- Replaced `booking.html` with a redirect-only entrypoint to `booking1.html`.
+- Updated public links in `index.html` and `passenger.html` to point directly to `booking1.html`.
+- Added regression guards so the legacy entrypoint cannot silently regain direct Firebase booking reads/writes or local route/fee/total logic.
+
+Evidence:
+- Commit: pending.
+- Actions: not run; branch not pushed yet.
+- Pages: not run; branch not pushed yet.
+- Tests: `node tests/legacy-booking-entrypoint.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/passenger-preview-normalization.test.js`; simple HTML close-tag check for `booking.html`, `index.html`, and `passenger.html`; `git diff --check`.
+
+Safety:
+- Firebase writes: none in this pass.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+
+Blockers:
+- Full live cross-device booking reduction still needs either an owner-run real booking or explicit approval for a controlled live test booking. This pass did not create fake operational bookings.
+
+Next action:
+- Run scoped tests, commit, push, and open PR for review.
+
 ## 2026-07-22 21:00 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Refresh After Booking - REVIEW
 
 Scope:
