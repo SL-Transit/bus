@@ -44,7 +44,44 @@ Next action:
 
 ## Current Reports
 
-## 2026-07-23 11:25 +07 (Asia/Bangkok) - Supervisor AI / Legacy Booking Entrypoint Cutover - REVIEW
+## 2026-07-23 12:00 +07 (Asia/Bangkok) - Supervisor AI / Board Closure And Remaining Work Snapshot - DONE
+
+Scope:
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/MAIN-AI-DASHBOARD.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+- `tests/tracking-cancel-routing.test.js`
+
+Summary:
+- Checked latest `main` against `origin/main`: both point to `7e883dc33afef55bf372e5b048f6100e1d8b7f46`.
+- Confirmed the recent owner-reviewed work is already merged: Booking1 capacity refresh via PR #13 (`e3ca71c`) and legacy Booking entrypoint cutover via PR #14 (`7e883dc`).
+- Updated the central work board so completed Booking and Check Ticket bridge rows no longer look unstarted.
+- Marked Driver operations runtime delivery as `BLOCKED`, not `TODO`, because the owner-paused vehicle/device identity issue still prevents safe `driverWorkByServiceDate` runtime read access.
+- Added a current runtime snapshot to the main dashboard so the next AI sees the actual live compatibility phase: Booking1 is the public booking entry, central capacity counters own seat availability, Track Trip/Cancel Ticket/Check Ticket read through Ticket Center first, and driver identity remains paused.
+- Updated the tracking/cancel routing regression guard so it matches the current cutover: `booking.html` is redirect-only and must not own QR/check-in tracking links; Booking1 remains the QR/tracking entry owner.
+
+Evidence:
+- Commit: this board-closure commit.
+- Actions: not run yet; documentation-only change.
+- Pages: not run yet; documentation-only change.
+- Tests: `git status -sb`; `git rev-parse --short HEAD`; `git rev-parse --short origin/main`; `gh pr list --state open`; grep/rg audit of Booking, Track Trip, Cancel Ticket, Check Ticket, capacity, and driver-work references; `node tests/legacy-booking-entrypoint.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/ticket-data-center-page-wiring.test.js`; `node tests/tracking-cancel-routing.test.js`; `git diff --check`.
+
+Safety:
+- Firebase writes: none.
+- Seed: none.
+- Production apply: none.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: still blocked/paused.
+
+Blockers:
+- Driver runtime work cannot be completed until the owner approves a backend-owned vehicle/device identity flow.
+- Data Import / catalog dry-run and QA release guard remain separate non-runtime workstreams.
+- PR #2 (`[codex] Add review check website`) remains open as an old draft/review-site PR and was not merged or closed in this pass.
+
+Next action:
+- If the owner wants every board item closed, handle Data Import dry-run and QA release guard as separate read-only/scoped passes. Do not resume paused driver identity work without explicit owner approval.
+
+## 2026-07-23 11:25 +07 (Asia/Bangkok) - Supervisor AI / Legacy Booking Entrypoint Cutover - DONE
 
 Scope:
 - `booking.html`
@@ -62,9 +99,9 @@ Summary:
 - Added regression guards so the legacy entrypoint cannot silently regain direct Firebase booking reads/writes or local route/fee/total logic.
 
 Evidence:
-- Commit: pending.
-- Actions: not run; branch not pushed yet.
-- Pages: not run; branch not pushed yet.
+- Commit: merged to `main` via PR #14 at `7e883dc33afef55bf372e5b048f6100e1d8b7f46`.
+- Actions: no required checks on PR; merge completed on GitHub.
+- Pages: GitHub Pages deployment was checked after merge in the owner handoff flow.
 - Tests: `node tests/legacy-booking-entrypoint.test.js`; `node tests/booking1-preview-data.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/passenger-preview-normalization.test.js`; simple HTML close-tag check for `booking.html`, `index.html`, and `passenger.html`; `git diff --check`.
 
 Safety:
@@ -78,9 +115,9 @@ Blockers:
 - Full live cross-device booking reduction still needs either an owner-run real booking or explicit approval for a controlled live test booking. This pass did not create fake operational bookings.
 
 Next action:
-- Run scoped tests, commit, push, and open PR for review.
+- None for the legacy entrypoint cutover. Continue with separate Data Import / QA / driver-identity-blocked workstreams only.
 
-## 2026-07-22 21:00 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Refresh After Booking - REVIEW
+## 2026-07-22 21:00 +07 (Asia/Bangkok) - Supervisor AI / Booking1 Capacity Refresh After Booking - DONE
 
 Scope:
 - `booking1-preview-adapter.js`
@@ -96,9 +133,9 @@ Summary:
 - This keeps Booking1 display-only: it still reads `availabilityDecision.seatsAvailable` from the central Booking Bridge and does not calculate seat counts locally.
 
 Evidence:
-- Commit: branch head of `agent/booking1-refresh-capacity-on-return` after push.
-- Actions: not run from this session.
-- Pages: not run from this session.
+- Commit: merged to `main` via PR #13 at `e3ca71c757580bc0592478aead0271607e59607b`.
+- Actions: no required checks on PR; merge completed on GitHub.
+- Pages: GitHub Pages deployment was checked after the following main merge in the owner handoff flow.
 - Firebase read-only checks: `/operations/bookingCapacityByServiceDate/2026-07-22` returned `null`; `/operations/bookingCapacityByServiceDate/2026-07-23` contained the 11:30 counter for `คลองหาด__พนมสารคาม`; `/bookings/BK2133505594` confirmed `date/serviceDate=2026-07-23`.
 - Tests: `node tests/booking1-preview-data.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/booking-availability-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
 
@@ -114,7 +151,7 @@ Blockers:
 - If the owner expects `คลองหาด -> ฉะเชิงเทรา (แปดริ้ว)` 11:30 to be reduced, the matching booking code/counter must exist for that exact pair/date/time. It was not found in the scoped read performed here.
 
 Next action:
-- Merge PR #13 after conflict resolution and verify live behavior.
+- None for Booking1 refresh itself. If a future screenshot shows stale seats again, verify the exact route/date/time capacity key before changing code.
 
 ## 2026-07-22 14:02 +07 (Asia/Bangkok) - Supervisor AI / Car2 LINE Central Record - DONE
 

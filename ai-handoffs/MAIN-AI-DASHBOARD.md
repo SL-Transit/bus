@@ -2,6 +2,24 @@
 
 Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
 
+## 2026-07-23 Current Runtime Coordination Snapshot
+
+Plain owner summary: the live website is now in a controlled compatibility phase. Public booking entry points use `booking1.html`; legacy `booking.html` only redirects. Booking1 writes the owner-approved legacy booking record at `/bookings/{code}` for the current public flow, but fare/fee/total, vehicle assignment, and capacity decisions are routed through central contracts before the page writes. Remaining-seat display reads the central `operations/bookingCapacityByServiceDate/{serviceDate}/{capacityKey}` counter and refreshes after booking/return-to-page.
+
+Current central wiring:
+- Passenger: reads published schedule/map data for display and must not create route, fare, transfer, GPS, ETA, or booking rules locally.
+- Booking1: uses Booking Bridge plus ERP Calculator/availability/capacity contracts; legacy `booking.html` is no longer a booking decision surface.
+- Track Trip / Cancel Ticket / Check Ticket: read through Ticket Center boundary first; Check Ticket consumes ERP Data Center timetable/map inputs and central calculator, assignment, alert, journey-status, and map-display contracts.
+- Driver App: central Driver Work Center foundation exists, but runtime delivery remains blocked by paused vehicle/device identity work.
+
+Hard stops still active:
+- Do not add broad `driverWorkByServiceDate` read rules.
+- Do not edit `database.rules.json` for paused driver identity/read access.
+- Do not seed or production-apply ERP data without separate owner approval.
+- Do not write fake operational data, fake driver work, fake GPS, fake ETA, or fake tickets.
+
+Latest checked main for this snapshot: `7e883dc33afef55bf372e5b048f6100e1d8b7f46`.
+
 ## 2026-07-13 Current Work Orders: Passenger / Booking / Check Ticket
 
 Plain owner summary: ERP Data Center preview data has been written and read back successfully at `preview/publishedSchedule`. Passenger, Booking, and Check Ticket may now work against the preview data only. Do not write production data, do not seed, and do not enable production booking.
