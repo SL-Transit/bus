@@ -13,6 +13,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,6 +38,8 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > driver-android/keystore.jks
       
       - name: Build release APK
+        id: build
+        continue-on-error: true
         env:
           KEYSTORE_PATH: keystore.jks
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -43,7 +47,32 @@ jobs:
           SL_TRANSIT_FIREBASE_API_KEY: ${{ secrets.SL_TRANSIT_FIREBASE_API_KEY }}
           SL_TRANSIT_FIREBASE_APP_ID: ${{ secrets.SL_TRANSIT_FIREBASE_APP_ID }}
           SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID }}
-        run: gradle :driver-android:assembleRelease
+        run: gradle :driver-android:assembleRelease --console=plain 2>&1 | tee build.log
+
+      - name: Post compile error as commit comment (on failure)
+        if: steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tail -c 60000 build.log > build_tail.log
+          python3 - <<'PYEOF'
+          import json, os, subprocess
+          with open("build_tail.log", "r", errors="replace") as f:
+              body = f.read()
+          body = "```\n" + body[-60000:] + "\n```"
+          payload = json.dumps({"body": body})
+          with open("comment_payload.json", "w") as f:
+              f.write(payload)
+          PYEOF
+          curl -s -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -d @comment_payload.json
+
+      - name: Fail job if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

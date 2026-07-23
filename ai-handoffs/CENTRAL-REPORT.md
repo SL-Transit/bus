@@ -60,9 +60,9 @@ Summary:
 - This keeps Booking1 display-only: it still reads `availabilityDecision.seatsAvailable` from the central Booking Bridge and does not calculate seat counts locally.
 
 Evidence:
-- Commit: pending.
-- Actions: not run; branch not pushed yet.
-- Pages: not run; branch not pushed yet.
+- Commit: branch head of `agent/booking1-refresh-capacity-on-return` after push.
+- Actions: not run from this session.
+- Pages: not run from this session.
 - Firebase read-only checks: `/operations/bookingCapacityByServiceDate/2026-07-22` returned `null`; `/operations/bookingCapacityByServiceDate/2026-07-23` contained the 11:30 counter for `คลองหาด__พนมสารคาม`; `/bookings/BK2133505594` confirmed `date/serviceDate=2026-07-23`.
 - Tests: `node tests/booking1-preview-data.test.js`; `node tests/booking-capacity-transaction.test.js`; `node tests/booking-availability-center.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
 
@@ -78,7 +78,47 @@ Blockers:
 - If the owner expects `คลองหาด -> ฉะเชิงเทรา (แปดริ้ว)` 11:30 to be reduced, the matching booking code/counter must exist for that exact pair/date/time. It was not found in the scoped read performed here.
 
 Next action:
-- Push branch and open PR for review.
+- Merge PR #13 after conflict resolution and verify live behavior.
+
+## 2026-07-22 14:02 +07 (Asia/Bangkok) - Supervisor AI / Car2 LINE Central Record - DONE
+
+Scope:
+- Firebase RTDB central notification config: `/data/notificationCenter/staffLineTargets/driversByVehicleId/car2/car2_driver`
+- Owner Excel workbook: `C:\Users\com\Downloads\SL-Transit_20260712_payment_contact_updated.xlsx`, sheet `08_StaffLineConfig`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+
+Summary:
+- Owner approved recording the car2 driver LINE user ID that was provided as evidence from the central board.
+- Added `car2_driver` to the central notification target config in Firebase under `driversByVehicleId/car2`.
+- Updated the owner Excel workbook row `targetKey=car2_driver`, `vehicleId=car2` with the same LINE user ID.
+- Created an Excel backup before the workbook update: `C:\Users\com\Downloads\SL-Transit_20260712_payment_contact_updated.backup_before_car2_line_20260722_135816.xlsx`.
+- Existing central driver targets for `car1`, `car3`, and `car4` were not changed.
+- The full LINE user ID is intentionally not committed verbatim to GitHub; this report records the central path and status only.
+
+Evidence:
+- Commit: branch head of `agent/car2-line-central-record` after push.
+- Actions: not run; documentation-only branch not pushed yet.
+- Pages: not run; documentation-only branch not pushed yet.
+- Tests: `node tests/staff-notification-center.test.js`; `node tests/staff-line-function-wiring.test.js`; `node tests/driver-firebase-cutover.test.js`; `git diff --check`.
+- Firebase verification: `firebase.cmd database:get /data/notificationCenter/staffLineTargets/driversByVehicleId/car2 --project sl-transit-9464e` returned `car2_driver` with `active=true`, `displayName=Driver car2`, and `staffId=driver_002`.
+- Excel verification: sheet `08_StaffLineConfig` row 15 has `targetKey=car2_driver`, `staffId=driver_002`, `displayName=Driver car2`, `vehicleId=car2`, `active=TRUE`, and the provided LINE user ID.
+
+Safety:
+- Firebase writes: exactly one owner-approved scoped config write to `/data/notificationCenter/staffLineTargets/driversByVehicleId/car2/car2_driver`.
+- Firebase triggers: suppressed with `--disable-triggers` during the config write.
+- Seed applied: no.
+- Production apply: no.
+- `database.rules.json`: untouched.
+- Driver vehicle identity and `driverWorkByServiceDate` read access: untouched.
+- Operational booking/ticket/passenger data: untouched.
+
+Blockers:
+- Queue/terminal LINE targets are still not configured unless the owner provides those IDs and approves a separate scoped write.
+- Driver vehicle identity and `driverWorkByServiceDate` read access remain intentionally paused.
+
+Next action:
+- Push this central-board documentation branch and open a PR.
 
 ## 2026-07-22 12:39 +07 (Asia/Bangkok) - Booking Logic AI (Booking1) - BLOCKED
 
