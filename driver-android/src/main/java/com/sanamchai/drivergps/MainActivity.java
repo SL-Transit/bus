@@ -3196,10 +3196,12 @@ public class MainActivity extends Activity {
                 || erpRoutePolylineSent || erpRoutePolyline.isEmpty()) return;
         JSONArray arr = new JSONArray();
         for (double[] pt : erpRoutePolyline) {
-            JSONArray pair = new JSONArray();
-            pair.put(pt[0]);
-            pair.put(pt[1]);
-            arr.put(pair);
+            try {
+                JSONArray pair = new JSONArray();
+                pair.put(pt[0]);
+                pair.put(pt[1]);
+                arr.put(pair);
+            } catch (Exception ignored) {}
         }
         driverMapWebView.evaluateJavascript("setRoutePolyline('" + arr.toString() + "');", null);
         erpRoutePolylineSent = true;
