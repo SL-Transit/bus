@@ -1729,7 +1729,9 @@ body {
           </div>
         </div>
 
-        <div class="pay-method-card" id="pm-promptpay" onclick="selectPayMethod('promptpay')">
+        <!-- ปิดการชำระผ่านสแกน QR/PromptPay ไปก่อนตามคำขอเจ้าของระบบ (2026-07-23) —
+             ยังไม่ลบออก แค่ซ่อนไว้ เผื่อเปิดใช้อีกครั้งในอนาคต -->
+        <div class="pay-method-card" id="pm-promptpay" onclick="selectPayMethod('promptpay')" style="display:none;">
           <div class="pm-radio" id="pm-radio-promptpay"></div>
           <div class="pm-icon pp-icon"><img class="icon-img" src="assets/230.png" alt="พร้อมเพย์" style="width:28px;height:28px;"></div>
           <div class="pm-text">
