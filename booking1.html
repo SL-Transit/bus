@@ -116,15 +116,25 @@ body {
    234.png  — เอกสาร / Document consent (18×18px)
    235.png  — (ไม่มีไฟล์จริงใน assets/ — เลิกใช้ ใช้ 226.png แทนสำหรับชื่อผู้โดยสาร) (20×20px)
    236.png  — ชำระแล้ว check / Paid check (ใน badge สีเขียว) (16×16px)
-   237.png  — ติดตามรถ / Track (action button) (22×22px)
-   238.png  — ยกเลิก / Cancel (action button) (22×22px)
-   239.png  — กลับหน้าหลัก / Home (action button) (22×22px)
+   237.png  — ดูตั๋ว/เช็คอิน / View ticket-Check-in (action button, ticket page) (22×22px) [รอเปลี่ยนเป็น 251.png]
+   238.png  — ยกเลิกตั๋ว / Cancel ticket (action button, ticket page) (22×22px) [รอเปลี่ยนเป็น 252.png]
+   239.png  — กลับสู่เมนูหลัก / Back to main menu (action button, ticket page) (22×22px)
+              (เดิมใช้กับปุ่ม "สำรองที่นั่งเพิ่มเติม" ย้ายไปใช้ 253.png แทนแล้ว จึงเอา 239.png
+              กลับมาใช้ตามความหมายเดิมของมันกับปุ่มใหม่นี้)
    240.png  — แสดง QR / Scan QR hint (20×20px)
    241.png  — รถ meta / Bus meta (ใน trip card) (14×14px)
    242.png  — เวลา meta / Time meta (ใน trip card) (14×14px)
    243.png  — ที่นั่ง meta / Seat meta (ใน trip card) (14×14px)
    244.png  — ไม่มีเที่ยว / No trips (54×54px)
    245.png  — จุดต่อรถ / Transfer point (22×22px)
+   250.png  — บันทึกรูปตั๋ว / Save ticket image (action button, ticket page) (22×22px)
+              [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
+   251.png  — ดูตั๋ว/เช็คอิน / View ticket-Check-in (action button, ticket page) (22×22px)
+              [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
+   252.png  — ยกเลิกตั๋ว / Cancel ticket (action button, ticket page) (22×22px)
+              [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
+   253.png  — สำรองที่นั่งเพิ่มเติม / Book more seats (action button, ticket page) (22×22px)
+              [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
    ===================================================== */
 
 /* .icon-img ใช้แทน icon-placeholder ทุกที่ */
@@ -2060,23 +2070,28 @@ body {
       <!-- Action buttons -->
       <div class="action-list">
         <button class="action-btn" onclick="showTicketSavePopup()" style="border:1.5px solid var(--teal);">
-          <div class="icon-circle-lg teal" style="display:flex;align-items:center;justify-content:center;background:#e8f7f6;"><span style="font-size:20px;">💾</span></div>
+          <div class="icon-circle-lg teal" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/250.png" alt="บันทึกรูปตั๋ว" style="width:22px;height:22px;"></div>
           <span class="ab-label" style="color:var(--teal);">บันทึกรูปตั๋ว</span>
           <span class="ab-arrow" style="color:var(--teal);">›</span>
         </button>
         <button class="action-btn" id="btnCheckin" onclick="goCheckin()">
-          <div class="icon-circle-lg teal" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/237.png" alt="เช็คอิน" style="width:22px;height:22px;"></div>
+          <div class="icon-circle-lg teal" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/251.png" alt="เช็คอิน" style="width:22px;height:22px;"></div>
           <span class="ab-label">ดูตั๋ว / เช็คอิน</span>
           <span class="ab-arrow">›</span>
         </button>
         <button class="action-btn">
-          <div class="icon-circle-lg red" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/238.png" alt="ยกเลิก" style="width:22px;height:22px;"></div>
+          <div class="icon-circle-lg red" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/252.png" alt="ยกเลิก" style="width:22px;height:22px;"></div>
           <span class="ab-label">ยกเลิกตั๋ว</span>
           <span class="ab-arrow">›</span>
         </button>
         <button class="action-btn" onclick="newBooking()">
-          <div class="icon-circle-lg navy" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/239.png" alt="จองใหม่" style="width:22px;height:22px;"></div>
+          <div class="icon-circle-lg navy" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/253.png" alt="จองใหม่" style="width:22px;height:22px;"></div>
           <span class="ab-label">สำรองที่นั่งเพิ่มเติม</span>
+          <span class="ab-arrow">›</span>
+        </button>
+        <button class="action-btn" onclick="window.location.href='index.html'">
+          <div class="icon-circle-lg navy" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/239.png" alt="กลับสู่เมนูหลัก" style="width:22px;height:22px;"></div>
+          <span class="ab-label">กลับสู่เมนูหลัก</span>
           <span class="ab-arrow">›</span>
         </button>
       </div>
