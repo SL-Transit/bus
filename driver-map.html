@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>แผนที่คนขับ – Smart Transit</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="assets/map-marker-styles.css?v=20260724a">
+<style>
+html, body, #map { height:100%; margin:0; padding:0; }
+.map-user-dot {
+  width:18px; height:18px; border-radius:50%; background:#2563eb; border:3px solid #fff;
+  box-shadow:0 0 0 4px rgba(37,99,235,0.30); animation:userPulse 2s ease-in-out infinite;
+}
+@keyframes userPulse {
+  0%,100% { box-shadow:0 0 0 4px rgba(37,99,235,0.30); }
+  50% { box-shadow:0 0 0 9px rgba(37,99,235,0.10); }
+}
+.locate-btn {
+  position:absolute; right:12px; bottom:24px; width:44px; height:44px; border-radius:50%;
+  background:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.3); display:flex; align-items:center;
+  justify-content:center; z-index:1000; cursor:pointer;
+}
+.locate-btn img { width:22px; height:22px; object-fit:contain; }
+.locate-btn.active { background:#00B8A9; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="locate-btn" id="locateBtn"><img src="assets/icon-location.png" alt=""></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="driver-map-logic.js?v=20260724a"></script>
+</body>
+</html>

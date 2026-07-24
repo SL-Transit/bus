@@ -1,0 +1,42 @@
+/*
+ * map-marker-styles.css
+ * Shared stop-marker styling for the map (icon pin + name label).
+ *
+ * Single source of truth: linked by both passenger.html (Longdo Maps) and
+ * driver-map.html (Leaflet). Change the look of a stop pin here once and
+ * it updates everywhere that links this file — nothing should duplicate
+ * these rules inline.
+ *
+ * Values below are the exact values previously defined inline in
+ * passenger.html (the --blue brand color there is #0f3a5f).
+ */
+.map-stop-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #0f3a5f;
+  border: 3px solid #fff;
+  box-shadow: 0 5px 14px rgba(15,23,42,.34), 0 0 0 3px rgba(15,58,95,.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.map-stop-label {
+  background: rgba(15,23,42,.9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(15,23,42,.24);
+  border: 1px solid rgba(255,255,255,.82);
+}
+
+.map-stop-icon, .map-stop-label {
+  cursor: pointer;
+}

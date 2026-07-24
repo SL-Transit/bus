@@ -572,9 +572,6 @@ public class MainActivity extends Activity {
         if (driverIdentityRef != null && driverIdentityListener != null) {
             driverIdentityRef.removeEventListener(driverIdentityListener);
         }
-        if (driverMapConfigRef != null && driverMapConfigListener != null) {
-            try { driverMapConfigRef.removeEventListener(driverMapConfigListener); } catch (Exception ignored) {}
-        }
         super.onDestroy();
     }
 
@@ -3040,7 +3037,12 @@ public class MainActivity extends Activity {
         stripCard.addView(buildMapStripStat("รายได้วันนี้", mapEarningsValue));
         page.addView(stripCard);
 
-        // แผนที่ (WebView + Leaflet/OpenStreetMap)
+        // ===== แผนที่ =====
+        // โหลดหน้าเว็บจริงจาก sl-transit.com (driver-map.html + driver-map-logic.js) แทนการฝัง
+        // HTML/CSS/JS ไว้ในแอพ — ป้าย/เส้นทาง/สไตล์ไอคอน/ค่าอนิเมชั่น ทั้งหมดถูกกำหนดและอัพเดทที่ฝั่งเว็บ
+        // (ซึ่งอ่านจาก ERP กลางแบบ live เช่นเดียวกับ passenger.html) แอพมีหน้าที่แค่โหลดหน้านี้
+        // แล้วป้อนพิกัด GPS ของคนขับเข้าไปทาง setDriverPosition() เท่านั้น — ถ้าฝั่งเว็บเปลี่ยนดีไซน์/
+        // ข้อมูลในอนาคต แอพจะเห็นผลทันทีโดยไม่ต้องแก้โค้ดหรือปล่อยเวอร์ชันใหม่
         driverMapWebView = new WebView(this);
         driverMapReady = false;
         WebSettings ws = driverMapWebView.getSettings();
@@ -3049,166 +3051,15 @@ public class MainActivity extends Activity {
         driverMapWebView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 driverMapReady = true;
-                pushMapConfigIfReady();
-                pushStopsIfReady();
-                pushRouteIfReady();
                 updateLiveMap();
             }
         });
-        driverMapWebView.loadDataWithBaseURL(
-                "https://sl-transit.com/", buildDriverMapHtml(), "text/html", "UTF-8", null);
+        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html");
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);
 
-        watchDriverMapConfig();
-        loadErpMapStops();
-        loadPublishedRoutePolyline();
         return page;
-    }
-
-    // ===== ตั้งค่าพฤติกรรมแผนที่ จาก ERP กลาง (data/erpDataCenter/settings/driverMap) =====
-    // แอพเป็นแค่ตัวอ่าน/แสดงผล (เหมือนเคาน์เตอร์) — ไม่ hardcode ค่าพวกนี้ในแอพ
-    // ผูก listener แบบ live (ไม่ใช่อ่านครั้งเดียว) เพื่อให้แก้ค่าจากส่วนกลางแล้วมีผลทันทีโดยไม่ต้องอัพเดทแอพ
-    private DatabaseReference driverMapConfigRef;
-    private com.google.firebase.database.ValueEventListener driverMapConfigListener;
-    private JSONObject driverMapConfigJson;
-    private boolean driverMapConfigLoaded = false;
-
-    private void watchDriverMapConfig() {
-        if (driverMapConfigRef != null && driverMapConfigListener != null) {
-            try { driverMapConfigRef.removeEventListener(driverMapConfigListener); } catch (Exception ignored) {}
-        }
-        driverMapConfigRef = FirebaseDatabase.getInstance().getReference("data/erpDataCenter/settings/driverMap");
-        driverMapConfigListener = new com.google.firebase.database.ValueEventListener() {
-            @Override public void onDataChange(DataSnapshot snap) {
-                JSONObject o = new JSONObject();
-                try {
-                    for (DataSnapshot child : snap.getChildren()) {
-                        o.put(child.getKey(), child.getValue());
-                    }
-                } catch (Exception ignored) {}
-                driverMapConfigJson = o;
-                driverMapConfigLoaded = true;
-                pushMapConfigIfReady();
-            }
-            @Override public void onCancelled(DatabaseError error) {}
-        };
-        driverMapConfigRef.addValueEventListener(driverMapConfigListener);
-    }
-
-    private void pushMapConfigIfReady() {
-        if (driverMapWebView == null || !driverMapReady || !driverMapConfigLoaded) return;
-        driverMapWebView.evaluateJavascript(
-                "setMapConfig('" + driverMapConfigJson.toString().replace("\\", "\\\\").replace("'", "\\'") + "');",
-                null);
-    }
-    private static class MapStop {
-        double lat, lng;
-        String name;
-        String icon;
-        boolean terminal;
-        double order;
-    }
-    private final java.util.List<MapStop> erpMapStops = new java.util.ArrayList<>();
-    private boolean erpMapStopsLoaded = false;
-    private boolean erpMapStopsSent = false;
-
-    private void loadErpMapStops() {
-        FirebaseDatabase.getInstance().getReference("data/erpDataCenter/catalog/stops")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override public void onDataChange(DataSnapshot snap) {
-                        erpMapStops.clear();
-                        for (DataSnapshot child : snap.getChildren()) {
-                            Double lat = child.child("lat").getValue(Double.class);
-                            Double lng = child.child("lng").getValue(Double.class);
-                            if (lat == null || lng == null) continue;
-                            MapStop s = new MapStop();
-                            s.lat = lat;
-                            s.lng = lng;
-                            String name = child.child("nameTh").getValue(String.class);
-                            if (name == null) name = child.child("name").getValue(String.class);
-                            if (name == null) name = child.child("stopTh").getValue(String.class);
-                            s.name = name == null ? "" : name;
-                            String icon = child.child("icon").getValue(String.class);
-                            s.icon = (icon == null || icon.isEmpty()) ? "🚏" : icon;
-                            String stopType = child.child("stopType").getValue(String.class);
-                            s.terminal = "terminal".equals(stopType);
-                            Double order = child.child("order").getValue(Double.class);
-                            s.order = order == null ? 999999 : order;
-                            erpMapStops.add(s);
-                        }
-                        java.util.Collections.sort(erpMapStops, (a, b) -> Double.compare(a.order, b.order));
-                        erpMapStopsLoaded = true;
-                        erpMapStopsSent = false;
-                        pushStopsIfReady();
-                    }
-                    @Override public void onCancelled(DatabaseError error) {}
-                });
-    }
-
-    // ===== เส้นทางจริงตามถนน จาก ERP (publishedSchedule/mapView/routes — geometryType: road_polyline) =====
-    private final java.util.List<double[]> erpRoutePolyline = new java.util.ArrayList<>();
-    private boolean erpRoutePolylineLoaded = false;
-    private boolean erpRoutePolylineSent = false;
-
-    private void loadPublishedRoutePolyline() {
-        FirebaseDatabase.getInstance().getReference("publishedSchedule/mapView/routes")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override public void onDataChange(DataSnapshot snap) {
-                        erpRoutePolyline.clear();
-                        for (DataSnapshot route : snap.getChildren()) {
-                            String geometryType = route.child("geometryType").getValue(String.class);
-                            if (!"road_polyline".equals(geometryType)) continue;
-                            for (DataSnapshot pt : route.child("polyline").getChildren()) {
-                                Double lat = pt.child("lat").getValue(Double.class);
-                                Double lng = pt.child("lng").getValue(Double.class);
-                                if (lat == null || lng == null) continue;
-                                erpRoutePolyline.add(new double[]{lat, lng});
-                            }
-                            if (!erpRoutePolyline.isEmpty()) break; // ใช้เส้นทางแรกที่มี geometry จริง
-                        }
-                        erpRoutePolylineLoaded = true;
-                        erpRoutePolylineSent = false;
-                        pushRouteIfReady();
-                    }
-                    @Override public void onCancelled(DatabaseError error) {}
-                });
-    }
-
-    private void pushStopsIfReady() {
-        if (driverMapWebView == null || !driverMapReady || !erpMapStopsLoaded || erpMapStopsSent) return;
-        JSONArray arr = new JSONArray();
-        for (MapStop stop : erpMapStops) {
-            try {
-                JSONObject o = new JSONObject();
-                o.put("lat", stop.lat);
-                o.put("lng", stop.lng);
-                o.put("name", stop.name);
-                o.put("icon", stop.icon);
-                o.put("terminal", stop.terminal);
-                arr.put(o);
-            } catch (Exception ignored) {}
-        }
-        String escaped = arr.toString().replace("\\", "\\\\").replace("'", "\\'");
-        driverMapWebView.evaluateJavascript("setStops('" + escaped + "');", null);
-        erpMapStopsSent = true;
-    }
-
-    private void pushRouteIfReady() {
-        if (driverMapWebView == null || !driverMapReady || !erpRoutePolylineLoaded
-                || erpRoutePolylineSent || erpRoutePolyline.isEmpty()) return;
-        JSONArray arr = new JSONArray();
-        for (double[] pt : erpRoutePolyline) {
-            try {
-                JSONArray pair = new JSONArray();
-                pair.put(pt[0]);
-                pair.put(pt[1]);
-                arr.put(pair);
-            } catch (Exception ignored) {}
-        }
-        driverMapWebView.evaluateJavascript("setRoutePolyline('" + arr.toString() + "');", null);
-        erpRoutePolylineSent = true;
     }
 
     private LinearLayout buildMapStripStat(String label, TextView valueView) {
@@ -3232,113 +3083,9 @@ public class MainActivity extends Activity {
         return col;
     }
 
-    private String buildDriverMapHtml() {
-        return "<!DOCTYPE html><html><head><meta charset='utf-8'/>"
-            + "<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'/>"
-            + "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>"
-            + "<style>html,body,#map{height:100%;margin:0;padding:0;}"
-            // สไตล์ป้ายจอดคัดลอกจาก passenger.html (.map-stop-icon / .map-stop-label) ให้ตรงกับฝั่งผู้โดยสารเป๊ะ
-            + ".map-stop-icon{width:34px;height:34px;border-radius:50%;background:#0f3a5f;border:3px solid #fff;"
-            + "box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(15,58,95,.18);display:flex;"
-            + "align-items:center;justify-content:center;color:#fff;font-size:18px;line-height:1;}"
-            + ".map-stop-label{background:rgba(15,23,42,.9);color:#fff;font-size:11px;font-weight:700;"
-            + "padding:4px 8px;border-radius:12px;white-space:nowrap;box-shadow:0 3px 8px rgba(15,23,42,.24);"
-            + "border:1px solid rgba(255,255,255,.82);}"
-            + ".map-user-dot{width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;"
-            + "box-shadow:0 0 0 4px rgba(37,99,235,0.30);animation:userPulse 2s ease-in-out infinite;}"
-            + "@keyframes userPulse{0%,100%{box-shadow:0 0 0 4px rgba(37,99,235,0.30)}"
-            + "50%{box-shadow:0 0 0 9px rgba(37,99,235,0.10)}}"
-            + ".locate-btn{position:absolute;right:12px;bottom:24px;width:44px;height:44px;border-radius:50%;"
-            + "background:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);display:flex;align-items:center;"
-            + "justify-content:center;z-index:1000;}"
-            + ".locate-btn img{width:22px;height:22px;object-fit:contain;}"
-            + ".locate-btn.active{background:#00B8A9;}"
-            + "</style></head>"
-            + "<body><div id='map'></div>"
-            + "<div class='locate-btn' id='locateBtn'><img src='https://sl-transit.com/assets/icon-location.png'/></div>"
-            + "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
-            + "<script>"
-            // cfg เก็บค่าที่มาจาก ERP กลางเท่านั้น (data/erpDataCenter/settings/driverMap ผ่าน setMapConfig)
-            // ค่า null หมายถึง 'ยังไม่ได้ตั้งค่าจากส่วนกลาง' — แอพจะไม่เดาเอง แต่รอค่าจริงมาก่อนจึงเปิดพฤติกรรมนั้น
-            + "var cfg={animationEnabled:null,animationDurationMs:null,followZoomLevel:null,"
-            + "initialZoom:null,initialCenterLat:null,initialCenterLng:null};"
-            + "var map=L.map('map',{zoomControl:true}).setView([13.75,101.4],9);" // มุมมองตั้งต้นชั่วคราว ก่อน ERP/GPS ส่งค่าจริงมา
-            + "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,"
-            + "attribution:'&copy; OpenStreetMap'}).addTo(map);"
-            + "var driverMarker=null,stopMarkers=[],routeLine=null,firstFix=true;"
-            + "var lastLat=null,lastLng=null,followMode=false,animReq=null,initialViewApplied=false;"
-            + "function setMapConfig(json){"
-            + "try{var c=JSON.parse(json);Object.keys(c).forEach(function(k){cfg[k]=c[k];});}catch(e){return;}"
-            + "if(!initialViewApplied&&firstFix&&cfg.initialCenterLat!=null&&cfg.initialCenterLng!=null){"
-            + "map.setView([cfg.initialCenterLat,cfg.initialCenterLng],cfg.initialZoom!=null?cfg.initialZoom:map.getZoom());"
-            + "initialViewApplied=true;}}"
-            + "function animateMarkerTo(fromLat,fromLng,toLat,toLng){"
-            + "var enabled=cfg.animationEnabled!==false;" // ค่าจากส่วนกลาง: false เท่านั้นที่ปิดอนิเมชั่น
-            + "if(!enabled){driverMarker.setLatLng([toLat,toLng]);if(followMode)map.panTo([toLat,toLng],{animate:false});return;}"
-            + "var duration=cfg.animationDurationMs!=null?cfg.animationDurationMs:900;"
-            + "if(animReq) cancelAnimationFrame(animReq);"
-            + "var start=null;"
-            + "function step(ts){"
-            + "if(!start) start=ts;"
-            + "var p=Math.min((ts-start)/duration,1);"
-            + "var lat=fromLat+(toLat-fromLat)*p;"
-            + "var lng=fromLng+(toLng-fromLng)*p;"
-            + "driverMarker.setLatLng([lat,lng]);"
-            + "if(followMode) map.panTo([lat,lng],{animate:false});"
-            + "if(p<1) animReq=requestAnimationFrame(step);"
-            + "} animReq=requestAnimationFrame(step);}"
-            + "function setDriverPosition(lat,lng){"
-            + "if(!driverMarker){"
-            + "var icon=L.divIcon({className:'',html:\"<div class='map-user-dot'></div>\",iconSize:[18,18],iconAnchor:[9,9]});"
-            + "driverMarker=L.marker([lat,lng],{icon:icon,zIndexOffset:900}).addTo(map);"
-            + "lastLat=lat;lastLng=lng;"
-            + "}else if(lastLat!==lat||lastLng!==lng){"
-            + "animateMarkerTo(lastLat,lastLng,lat,lng);"
-            + "lastLat=lat;lastLng=lng;"
-            + "}"
-            + "if(firstFix){"
-            + "if(cfg.initialCenterLat!=null){map.setView([cfg.initialCenterLat,cfg.initialCenterLng],cfg.initialZoom!=null?cfg.initialZoom:12);initialViewApplied=true;}"
-            + "else{map.setView([lat,lng],12);}"
-            + "firstFix=false;"
-            + "}"
-            + "else if(followMode){map.panTo([lat,lng]);}}"
-            + "function escHtml(s){return String(s==null?'':s).replace(/[&<>\"']/g,function(c){"
-            + "return({'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c]);});}"
-            + "function setStops(json){"
-            + "var stops=JSON.parse(json);"
-            + "stopMarkers.forEach(function(m){map.removeLayer(m);});stopMarkers=[];"
-            + "stops.forEach(function(s){"
-            + "var iconIcon=L.divIcon({className:'',"
-            + "html:\"<div class='map-stop-icon'>\"+escHtml(s.icon||'\\uD83D\\uDE8F')+\"</div>\","
-            + "iconSize:[34,34],iconAnchor:[17,17]});"
-            + "var iconM=L.marker([s.lat,s.lng],{icon:iconIcon,title:s.name||''}).addTo(map);"
-            + "stopMarkers.push(iconM);"
-            + "var labelIcon=L.divIcon({className:'',"
-            + "html:\"<div class='map-stop-label'>\"+escHtml(s.name)+\"</div>\","
-            + "iconSize:null,iconAnchor:[-6,44]});"
-            + "var labelM=L.marker([s.lat,s.lng],{icon:labelIcon,interactive:false}).addTo(map);"
-            + "stopMarkers.push(labelM);"
-            + "});}"
-            + "function setRoutePolyline(json){"
-            + "var pts=JSON.parse(json);"
-            + "if(routeLine){map.removeLayer(routeLine);routeLine=null;}"
-            + "if(pts.length>1){routeLine=L.polyline(pts,{color:'#00B8A9',weight:4,opacity:0.75}).addTo(map);}}"
-            + "var locateBtn=document.getElementById('locateBtn');"
-            + "locateBtn.addEventListener('click',function(){"
-            + "followMode=!followMode;"
-            + "locateBtn.classList.toggle('active',followMode);"
-            + "if(followMode&&lastLat!==null){"
-            + "var z=cfg.followZoomLevel!=null?cfg.followZoomLevel:15;"
-            + "map.flyTo([lastLat,lastLng],z,{duration:0.8});}});"
-            + "['dragstart','wheel','touchstart'].forEach(function(ev){"
-            + "map.on(ev,function(){ if(followMode){followMode=false;locateBtn.classList.remove('active');} });"
-            + "});"
-            + "</script></body></html>";
-    }
-
-    // เรียกทุกวินาทีจาก uiTick (ถ้าหน้านี้กำลังแสดงอยู่) — ส่งเฉพาะตำแหน่งรถ (animate ฝั่ง JS เอง ไม่วาร์ป)
-    // ป้ายจอด/เส้นทางถูกส่งครั้งเดียวตอนโหลดข้อมูลเสร็จ (pushStopsIfReady/pushRouteIfReady) — ไม่ส่งซ้ำทุก tick
-    // เพื่อไม่ให้ marker สั่น/ขยับตอนผู้ใช้ซูมหรือลากแผนที่เอง
+    // เรียกทุกวินาทีจาก uiTick (ถ้าหน้านี้กำลังแสดงอยู่) — ป้อนตำแหน่ง GPS ล่าสุดเข้าไปในหน้าเว็บจริง
+    // (driver-map.html) ผ่าน setDriverPosition() เท่านั้น ป้าย/เส้นทาง/สไตล์/อนิเมชั่นทั้งหมดหน้าเว็บ
+    // จัดการเองจากข้อมูล ERP โดยตรง แอพไม่ผลักดันหรือกำหนดค่าพวกนั้นอีกต่อไป
     private void updateLiveMap() {
         if (driverMapWebView == null || !driverMapReady) return;
         String coords = prefs.getString(KEY_LAST_COORDS, "");
@@ -3351,8 +3098,6 @@ public class MainActivity extends Activity {
                         "setDriverPosition(" + lat + "," + lng + ");", null);
             } catch (Exception ignored) {}
         }
-        pushStopsIfReady();
-        pushRouteIfReady();
         if (mapBookedCount != null) mapBookedCount.setText(String.valueOf(prefs.getInt("today_total_pax", 0)));
         if (mapCheckedCount != null) mapCheckedCount.setText(String.valueOf(prefs.getInt("today_checked_in", 0)));
         if (mapEarningsValue != null) {
@@ -3371,6 +3116,9 @@ public class MainActivity extends Activity {
             updateLiveMap();
         }
     }
+
+    // =====================================================================
+    // หน้า 2: รายงาน — รวม "วันนี้" + "สัปดาห์นี้" + "สถิติรวม" + "รายได้" ไว้หน้าเดียว (เดิมแยก 2 หน้าซ้ำข้อมูลกัน)
 
     // =====================================================================
     // หน้า 2: รายงาน — รวม "วันนี้" + "สัปดาห์นี้" + "สถิติรวม" + "รายได้" ไว้หน้าเดียว (เดิมแยก 2 หน้าซ้ำข้อมูลกัน)
