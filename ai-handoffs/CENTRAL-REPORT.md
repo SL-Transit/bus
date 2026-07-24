@@ -1214,3 +1214,77 @@ Blockers: none for this change. Owner should confirm on a real device once deplo
 
 Next action:
 - Owner to verify live rendering once `preview/publishedSchedule` has real data behind it (origins/destinations dropdowns populate, a transfer-reference journey shows the reference badge + disclaimer, an external/train destination shows its disclaimer, a missing pair shows the unavailable message).
+# 2026-07-24 00:00 +07 - Owner Blueprint: Admin Console / ERP Workbook
+
+## PASS
+
+Owner-approved platform direction has been recorded in:
+
+- `ai-handoffs/ADMIN-CONSOLE-ERP-BLUEPRINT.md`
+- `ai-handoffs/START-HERE-FOR-ALL-AIS.md`
+
+## Blueprint Summary
+
+Admin Console is the future SL-Transit Backoffice / Control Panel. It should work like an Excel-style ERP workbook editor, not the confusing old admin form model.
+
+Phase 1 direction:
+
+```text
+Excel ERP Workbook
+  -> Admin Console
+  -> Draft / Review / Publish
+  -> publishedSchedule and approved config/runtime nodes
+  -> Passenger / Booking1 / Check Ticket / Driver
+```
+
+Excel remains the source workbook first. Admin Console reads/uploads/exports Excel, validates it, previews the result, then publishes only after owner review.
+
+## Owner Decisions Captured
+
+- Old admin is no longer trusted as source data.
+- Admin Console should use platform-style roles, but only Owner is active now.
+- Required lifecycle is `Draft -> Review -> Publish`.
+- Audit log and rollback history are required.
+- Announcements/news/content management is required.
+- Admin UI should be table/grid based like Excel and support Excel upload/export.
+- Five ERP Centers remain separate:
+  - ERP Data Center
+  - ERP Logic Center
+  - ERP Calculator Center
+  - ERP Alert / Notification Center
+  - Map Display Center
+- Logic and Calculator must not be merged.
+- Old 2.5 km radius alert model should be replaced by ETA-before-stop notification policy.
+- GPS fallback policy: use fresh GPS when available; if GPS is missing/stale use fallback average speed 70 km/h; when GPS returns, switch back immediately.
+- External terminal/groups should be modeled as queues with LINE targets for นายท่า.
+- External/other queue schedules must support daily schedules and overrides, not only permanent timetables.
+
+## Owner-Approved Origin Stop Order
+
+```text
+1  ฉะเชิงเทรา (แปดริ้ว)
+2  พนมสารคาม
+3  ท่ารถสนามชัยเขต
+4  กม.1
+5  กม.7
+6  ห้วยโสม
+7  ท่าตะเกียบ
+8  หนองคอก
+9  คลองตะเคียน
+10 หนองเรือ
+11 ไพรจิต
+12 ทุ่งกบินทร์
+13 สี่แยกโคนม
+14 วังน้ำเย็น
+15 คลองหาด
+```
+
+Important: stop data must move/validate as a whole row. Do not change only order numbers while leaving lat/lng/icon attached to the wrong stop.
+
+## New Required Blueprint File
+
+All AIs must read `ai-handoffs/ADMIN-CONSOLE-ERP-BLUEPRINT.md` before working on Admin, ERP workbook, notification policy, queue model, map, schedule, Passenger, Booking, Check Ticket, or Driver integration.
+
+## Safety
+
+Documentation only. No app code, Excel file, Firebase data, seed, production apply, booking/ticket/passenger/driver/payment/LINE/runtime data was changed.

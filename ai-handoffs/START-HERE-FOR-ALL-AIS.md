@@ -13,6 +13,7 @@ Then read:
 - `ai-handoffs/WORK-STATUS.md`
 - `ai-handoffs/CENTRAL-REPORT.md`
 - `ai-handoffs/COORDINATION-RULES.md`
+- `ai-handoffs/ADMIN-CONSOLE-ERP-BLUEPRINT.md`
 
 ## Safety Rules
 - GitHub is the source of truth.
