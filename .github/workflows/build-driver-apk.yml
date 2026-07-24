@@ -74,8 +74,33 @@ jobs:
         if: steps.build.outcome == 'failure'
         run: exit 1
 
+      - name: Debug list APK outputs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "=== find driver-android/build/outputs ===" > outputs_listing.txt
+          find driver-android/build/outputs -type f 2>&1 >> outputs_listing.txt || true
+          echo "=== apk dir tree ===" >> outputs_listing.txt
+          find driver-android/build/outputs/apk -maxdepth 5 2>&1 >> outputs_listing.txt || true
+          cat outputs_listing.txt
+          python3 - <<'PYEOF'
+          import json
+          with open("outputs_listing.txt", "r", errors="replace") as f:
+              body = f.read()
+          body = "APK output listing:\n```\n" + body[-50000:] + "\n```"
+          with open("outputs_comment.json", "w") as f:
+              json.dump({"body": body}, f)
+          PYEOF
+          curl -s -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -d @outputs_comment.json
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: sanamchai-driver-gps-apk
-          path: driver-android/build/outputs/apk/release/driver-android-release.apk
+          path: driver-android/build/outputs/apk/release/*.apk
+          if-no-files-found: error
