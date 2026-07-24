@@ -3106,6 +3106,7 @@ public class MainActivity extends Activity {
     private static class MapStop {
         double lat, lng;
         String name;
+        String icon;
         boolean terminal;
         double order;
     }
@@ -3129,6 +3130,8 @@ public class MainActivity extends Activity {
                             if (name == null) name = child.child("name").getValue(String.class);
                             if (name == null) name = child.child("stopTh").getValue(String.class);
                             s.name = name == null ? "" : name;
+                            String icon = child.child("icon").getValue(String.class);
+                            s.icon = (icon == null || icon.isEmpty()) ? "🚏" : icon;
                             String stopType = child.child("stopType").getValue(String.class);
                             s.terminal = "terminal".equals(stopType);
                             Double order = child.child("order").getValue(Double.class);
@@ -3182,6 +3185,7 @@ public class MainActivity extends Activity {
                 o.put("lat", stop.lat);
                 o.put("lng", stop.lng);
                 o.put("name", stop.name);
+                o.put("icon", stop.icon);
                 o.put("terminal", stop.terminal);
                 arr.put(o);
             } catch (Exception ignored) {}
@@ -3233,9 +3237,13 @@ public class MainActivity extends Activity {
             + "<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'/>"
             + "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>"
             + "<style>html,body,#map{height:100%;margin:0;padding:0;}"
-            + ".map-stop-dot{width:14px;height:14px;border-radius:50%;background:#00B8A9;"
-            + "border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);}"
-            + ".map-stop-dot.terminal{width:18px;height:18px;background:#0B1D3A;}"
+            // สไตล์ป้ายจอดคัดลอกจาก passenger.html (.map-stop-icon / .map-stop-label) ให้ตรงกับฝั่งผู้โดยสารเป๊ะ
+            + ".map-stop-icon{width:34px;height:34px;border-radius:50%;background:#0f3a5f;border:3px solid #fff;"
+            + "box-shadow:0 5px 14px rgba(15,23,42,.34),0 0 0 3px rgba(15,58,95,.18);display:flex;"
+            + "align-items:center;justify-content:center;color:#fff;font-size:18px;line-height:1;}"
+            + ".map-stop-label{background:rgba(15,23,42,.9);color:#fff;font-size:11px;font-weight:700;"
+            + "padding:4px 8px;border-radius:12px;white-space:nowrap;box-shadow:0 3px 8px rgba(15,23,42,.24);"
+            + "border:1px solid rgba(255,255,255,.82);}"
             + ".map-user-dot{width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;"
             + "box-shadow:0 0 0 4px rgba(37,99,235,0.30);animation:userPulse 2s ease-in-out infinite;}"
             + "@keyframes userPulse{0%,100%{box-shadow:0 0 0 4px rgba(37,99,235,0.30)}"
@@ -3294,16 +3302,23 @@ public class MainActivity extends Activity {
             + "firstFix=false;"
             + "}"
             + "else if(followMode){map.panTo([lat,lng]);}}"
+            + "function escHtml(s){return String(s==null?'':s).replace(/[&<>\"']/g,function(c){"
+            + "return({'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c]);});}"
             + "function setStops(json){"
             + "var stops=JSON.parse(json);"
             + "stopMarkers.forEach(function(m){map.removeLayer(m);});stopMarkers=[];"
             + "stops.forEach(function(s){"
-            + "var icon=L.divIcon({className:'',"
-            + "html:\"<div class='map-stop-dot\"+(s.terminal?' terminal':'')+\"' title='\"+(s.name||'')+\"'></div>\","
-            + "iconSize:[16,16],iconAnchor:[8,8]});"
-            + "var m=L.marker([s.lat,s.lng],{icon:icon,title:s.name||''}).addTo(map);"
-            + "if(s.name){m.bindPopup(s.name);}"
-            + "stopMarkers.push(m);});}"
+            + "var iconIcon=L.divIcon({className:'',"
+            + "html:\"<div class='map-stop-icon'>\"+escHtml(s.icon||'\\uD83D\\uDE8F')+\"</div>\","
+            + "iconSize:[34,34],iconAnchor:[17,17]});"
+            + "var iconM=L.marker([s.lat,s.lng],{icon:iconIcon,title:s.name||''}).addTo(map);"
+            + "stopMarkers.push(iconM);"
+            + "var labelIcon=L.divIcon({className:'',"
+            + "html:\"<div class='map-stop-label'>\"+escHtml(s.name)+\"</div>\","
+            + "iconSize:null,iconAnchor:[-6,44]});"
+            + "var labelM=L.marker([s.lat,s.lng],{icon:labelIcon,interactive:false}).addTo(map);"
+            + "stopMarkers.push(labelM);"
+            + "});}"
             + "function setRoutePolyline(json){"
             + "var pts=JSON.parse(json);"
             + "if(routeLine){map.removeLayer(routeLine);routeLine=null;}"
