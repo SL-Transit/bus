@@ -16,6 +16,9 @@ assert.ok(!/\.ref\([^)]*routeData[^)]*\)\.(set|update|push|remove)\s*\(/.test(ht
 assert.ok(!/\.ref\([^)]*settings\/routes[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(!/\.ref\([^)]*routes[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(html.includes('ERP_SOURCE_REGISTRY'));
+assert.ok(html.includes('CENTER_STATUS_RULES'));
+assert.ok(html.includes('centerStatusPackage'));
+assert.ok(html.includes('downloadCenterStatus'));
 assert.ok(html.includes('erp-data-adapter.js'));
 assert.ok(html.includes('erp-engine.js'));
 assert.ok(html.includes('erp-calculator-center.js'));
@@ -43,6 +46,7 @@ assert.ok(html.includes('firebaseRulesReview'));
 assert.ok(html.includes('data-release-check'));
 assert.ok(html.includes('sl-transit-admin-draft-package.json'));
 assert.ok(html.includes('sl-transit-admin-file-audit.json'));
+assert.ok(html.includes('sl-transit-admin-center-status.json'));
 assert.ok(html.includes('sl-transit-admin-candidate-publishedSchedule.json'));
 assert.ok(html.includes('sl-transit-admin-blocked-publish-plan.json'));
 assert.ok(html.includes("publicationStatus:'review_candidate_blocked'"));
