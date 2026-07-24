@@ -47,7 +47,9 @@ jobs:
           SL_TRANSIT_FIREBASE_API_KEY: ${{ secrets.SL_TRANSIT_FIREBASE_API_KEY }}
           SL_TRANSIT_FIREBASE_APP_ID: ${{ secrets.SL_TRANSIT_FIREBASE_APP_ID }}
           SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.SL_TRANSIT_FIREBASE_MESSAGING_SENDER_ID }}
-        run: gradle :driver-android:assembleRelease --console=plain 2>&1 | tee build.log
+        run: |
+          set -o pipefail
+          gradle :driver-android:assembleRelease --console=plain 2>&1 | tee build.log
 
       - name: Post compile error as commit comment (on failure)
         if: steps.build.outcome == 'failure'
