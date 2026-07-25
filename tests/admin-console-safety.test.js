@@ -110,6 +110,8 @@ assert.ok(html.includes('downloadOwnerPublishGate'));
 assert.ok(html.includes('sl-transit-admin-owner-publish-gate.json'));
 assert.ok(html.includes('applyButton:false'));
 assert.ok(html.includes('futureApplyContract'));
+assert.ok(html.includes('requiredGates'));
+assert.ok(html.includes('readyForApplyStillFalse'));
 assert.ok(html.includes('ROLE_ACCESS_MATRIX'));
 assert.ok(html.includes('roleAccessMatrixPackage'));
 assert.ok(html.includes('downloadRoleAccessMatrix'));
