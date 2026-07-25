@@ -56,8 +56,8 @@ for (const control of forbiddenControls) {
   assert.ok(!html.includes(`id="${control}"`), `forbidden control ${control}`);
 }
 
-assert.ok(html.includes('Operations Control Panel'));
-assert.ok(html.includes('Backoffice / Admin Console'));
+assert.ok(html.includes('ศูนย์ควบคุมระบบหลังบ้าน'));
+assert.ok(html.includes('ระบบหลังบ้าน / ศูนย์ควบคุม'));
 assert.ok(html.includes('Excel -> Draft -> Review -> Publish'));
 
 console.log('admin-erp ui contract ok');
