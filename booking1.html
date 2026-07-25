@@ -116,11 +116,9 @@ body {
    234.png  — เอกสาร / Document consent (18×18px)
    235.png  — (ไม่มีไฟล์จริงใน assets/ — เลิกใช้ ใช้ 226.png แทนสำหรับชื่อผู้โดยสาร) (20×20px)
    236.png  — ชำระแล้ว check / Paid check (ใน badge สีเขียว) (16×16px)
-   237.png  — ดูตั๋ว/เช็คอิน / View ticket-Check-in (action button, ticket page) (22×22px) [รอเปลี่ยนเป็น 251.png]
-   238.png  — ยกเลิกตั๋ว / Cancel ticket (action button, ticket page) (22×22px) [รอเปลี่ยนเป็น 252.png]
+   237.png  — (ไม่ได้ใช้แล้ว — ปุ่มดูตั๋ว/เช็คอิน ใช้ 251.png แทน) (22×22px)
+   238.png  — (ไม่ได้ใช้แล้ว — ปุ่มยกเลิกตั๋ว ใช้ 252.png แทน) (22×22px)
    239.png  — กลับสู่เมนูหลัก / Back to main menu (action button, ticket page) (22×22px)
-              (เดิมใช้กับปุ่ม "สำรองที่นั่งเพิ่มเติม" ย้ายไปใช้ 253.png แทนแล้ว จึงเอา 239.png
-              กลับมาใช้ตามความหมายเดิมของมันกับปุ่มใหม่นี้)
    240.png  — แสดง QR / Scan QR hint (20×20px)
    241.png  — รถ meta / Bus meta (ใน trip card) (14×14px)
    242.png  — เวลา meta / Time meta (ใน trip card) (14×14px)
@@ -132,8 +130,6 @@ body {
    251.png  — ดูตั๋ว/เช็คอิน / View ticket-Check-in (action button, ticket page) (22×22px)
               [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
    252.png  — ยกเลิกตั๋ว / Cancel ticket (action button, ticket page) (22×22px)
-              [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
-   253.png  — สำรองที่นั่งเพิ่มเติม / Book more seats (action button, ticket page) (22×22px)
               [ไฟล์ยังไม่ถูกอัปโหลดใน assets/ ณ วันที่เขียน — กำลังสร้างอยู่ ใช้ชื่อนี้รอไว้]
    ===================================================== */
 
@@ -2084,11 +2080,6 @@ body {
         <button class="action-btn">
           <div class="icon-circle-lg red" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/252.png" alt="ยกเลิก" style="width:22px;height:22px;"></div>
           <span class="ab-label">ยกเลิกตั๋ว</span>
-          <span class="ab-arrow">›</span>
-        </button>
-        <button class="action-btn" onclick="newBooking()">
-          <div class="icon-circle-lg navy" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/253.png" alt="จองใหม่" style="width:22px;height:22px;"></div>
-          <span class="ab-label">สำรองที่นั่งเพิ่มเติม</span>
           <span class="ab-arrow">›</span>
         </button>
         <button class="action-btn" onclick="window.location.href='index.html'">
