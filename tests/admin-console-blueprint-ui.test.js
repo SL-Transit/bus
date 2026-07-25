@@ -5,16 +5,19 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, '..', 'admin-erp-ui.css'), 'utf8');
 
-for (const label of [
-  'ERP Workbook Editor',
-  'Upload Excel',
-  'Preview / Diff',
-  'Publish Center',
-  'Announcements / News',
-  'Policy / Notification Settings',
-  'Audit / Rollback',
+for (const page of [
+  'dashboard',
+  'workbook',
+  'upload',
+  'validation',
+  'preview',
+  'diff',
+  'publish',
+  'announcements',
+  'policy',
+  'audit',
 ]) {
-  assert.ok(html.includes(label), `missing blueprint menu label: ${label}`);
+  assert.ok(html.includes(`data-page="${page}"`), `missing blueprint page: ${page}`);
 }
 
 for (const statusField of [
@@ -30,20 +33,31 @@ for (const statusField of [
   assert.ok(html.includes(statusField), `missing publishedSchedule status field: ${statusField}`);
 }
 
-assert.ok(html.includes('publishedSchedule status panel'));
+for (const token of [
+  'dashboard-grid',
+  'kpi-grid',
+  'kpi-card',
+  'donut-box',
+  'line-chart',
+  'map-card',
+  'quick-grid',
+  'top-left',
+  'searchbox',
+  'top-meta',
+]) {
+  assert.ok(html.includes(token), `missing dashboard layout token: ${token}`);
+}
+
+assert.ok(/[\u0E00-\u0E7F]/.test(html), 'admin console must contain real Thai Unicode text');
 assert.ok(html.includes('id="publishApplyDisabled"'));
 assert.ok(html.includes('disabled>Publish disabled - waiting for owner approval</button>'));
 assert.ok(html.includes('navgroup'));
-assert.ok(html.includes('Workbook Flow'));
-assert.ok(html.includes('Master Data'));
-assert.ok(html.includes('Governance'));
 assert.ok(html.includes('class="workflow"'));
 assert.ok(html.includes('class="step"'));
-assert.ok(html.includes('@media(max-width:1400px)'));
-assert.ok(html.includes('overflow-x:auto'));
+assert.ok(html.includes('document.addEventListener'));
+assert.ok(html.includes('@media(max-width:980px)'));
 assert.ok(html.includes('@media(max-width:760px)'));
-assert.ok(html.includes('grid-template-columns:1fr'));
-assert.ok(css.includes('@media(max-width:1400px)'));
+assert.ok(css.includes('@media(max-width:980px)'));
 assert.ok(css.includes('.side{position:static;height:auto;display:block}'));
 assert.ok(css.includes('.nav{display:flex;gap:6px;overflow-x:auto'));
 assert.ok(css.includes('.sheet{min-width:980px}'));
@@ -53,7 +67,7 @@ assert.ok(html.includes('NO FIREBASE WRITE'));
 assert.ok(html.includes('NOT PRODUCTION APPLY'));
 
 assert.ok(!html.includes('?????'));
-assert.ok(html.includes('เลือกไฟล์ Excel'));
-assert.ok(html.includes('ข้อมูลป้ายต้นทาง'));
+assert.equal((html.match(/\u0E40\u0E18/g) || []).length, 0, 'mojibake Thai marker found');
+assert.equal((html.match(/\u0E40\u0E19\u20AC/g) || []).length, 0, 'mojibake Thai marker found');
 
 console.log('admin-erp blueprint ui ok');
