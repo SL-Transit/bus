@@ -32,6 +32,12 @@ for (const statusField of [
 assert.ok(html.includes('publishedSchedule status panel'));
 assert.ok(html.includes('id="publishApplyDisabled"'));
 assert.ok(html.includes('disabled>Publish disabled - waiting for owner approval</button>'));
+assert.ok(html.includes('navgroup'));
+assert.ok(html.includes('Workbook Flow'));
+assert.ok(html.includes('Master Data'));
+assert.ok(html.includes('Governance'));
+assert.ok(html.includes('class="workflow"'));
+assert.ok(html.includes('class="step"'));
 assert.ok(html.includes('DRY-RUN'));
 assert.ok(html.includes('NO FIREBASE WRITE'));
 assert.ok(html.includes('NOT PRODUCTION APPLY'));
