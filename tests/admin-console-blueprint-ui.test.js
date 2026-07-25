@@ -44,9 +44,19 @@ for (const token of [
   'top-left',
   'searchbox',
   'top-meta',
+  'adminSearch',
+  'refreshDashboard',
+  'function goPage',
+  'closest(\'[data-page]\')',
+  'recordAudit(\'admin-search\'',
+  'recordAudit(\'dashboard-refresh\'',
 ]) {
   assert.ok(html.includes(token), `missing dashboard layout token: ${token}`);
 }
+
+assert.ok(html.includes('<button class="kpi-card" data-page="'));
+assert.ok(html.includes('<button class="event-row" data-page="'));
+assert.ok(html.includes('id="focusSearch"'));
 
 assert.ok(/[\u0E00-\u0E7F]/.test(html), 'admin console must contain real Thai Unicode text');
 assert.ok(html.includes('id="publishApplyDisabled"'));
