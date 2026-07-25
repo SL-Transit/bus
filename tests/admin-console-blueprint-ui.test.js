@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', 'admin-erp-ui.css'), 'utf8');
 
 for (const label of [
   'ERP Workbook Editor',
@@ -38,10 +39,15 @@ assert.ok(html.includes('Master Data'));
 assert.ok(html.includes('Governance'));
 assert.ok(html.includes('class="workflow"'));
 assert.ok(html.includes('class="step"'));
-assert.ok(html.includes('@media(max-width:1180px)'));
+assert.ok(html.includes('@media(max-width:1400px)'));
 assert.ok(html.includes('overflow-x:auto'));
 assert.ok(html.includes('@media(max-width:760px)'));
 assert.ok(html.includes('grid-template-columns:1fr'));
+assert.ok(css.includes('@media(max-width:1400px)'));
+assert.ok(css.includes('.side{position:static;height:auto;display:block}'));
+assert.ok(css.includes('.nav{display:flex;gap:6px;overflow-x:auto'));
+assert.ok(css.includes('.sheet{min-width:980px}'));
+assert.ok(css.includes('@media(max-width:760px)'));
 assert.ok(html.includes('DRY-RUN'));
 assert.ok(html.includes('NO FIREBASE WRITE'));
 assert.ok(html.includes('NOT PRODUCTION APPLY'));
