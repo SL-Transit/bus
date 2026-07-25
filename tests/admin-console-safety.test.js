@@ -8,7 +8,11 @@ const compatibilityAdmin = fs.readFileSync(path.join(__dirname, '..', 'admin-con
 
 assert.ok(html.includes("projectId: 'sl-transit-9464e'"));
 assert.ok(html.includes("databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app'"));
-assert.ok(html.includes("var PUBLISHED_SCHEDULE_PATH = 'preview/publishedSchedule';"));
+assert.ok(html.includes("var PRIMARY_PUBLISHED_SCHEDULE_PATH = 'publishedSchedule';"));
+assert.ok(html.includes("var PREVIEW_PUBLISHED_SCHEDULE_PATH = 'preview/publishedSchedule';"));
+assert.ok(html.includes("var PUBLISHED_SCHEDULE_PATH = PRIMARY_PUBLISHED_SCHEDULE_PATH;"));
+assert.ok(html.includes('activeReadPath'));
+assert.ok(html.includes('fallbackReadPath'));
 assert.ok(html.includes('bus-booking-1d68c not used'));
 assert.ok(!/projectId:\s*['"]bus-booking-1d68c['"]/.test(html));
 assert.ok(!/\.ref\([^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
