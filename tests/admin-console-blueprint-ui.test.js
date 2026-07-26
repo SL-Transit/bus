@@ -77,9 +77,11 @@ for (const token of [
 assert.ok(html.includes('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'));
 assert.ok(html.includes('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'));
 assert.ok(html.includes('publishedSchedule.mapView'));
-assert.ok(html.includes('operations/liveVehicles ไม่ถูกใช้ในหน้านี้'));
+assert.ok(html.includes('operations/liveVehicles'));
+assert.ok(html.includes('live vehicle source'));
 assert.ok(html.includes('ไม่มีแหล่งข้อมูลที่ปลอดภัยใน Admin read adapter'));
-assert.ok(html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'));
+assert.ok(!html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'));
+assert.ok(html.includes('หน้านี้ยังอยู่ระหว่างพัฒนาในรอบถัดไป'));
 
 for (const forbiddenValue of ['4,238', '1,285,450', '25 พ.ค. 2567', '1000018505']) {
   assert.ok(!html.includes(forbiddenValue), `screenshot/mock value must not be hardcoded: ${forbiddenValue}`);

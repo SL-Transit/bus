@@ -24,7 +24,8 @@ for (const label of approvedSidebarLabels) {
 }
 
 assert.ok(html.includes('data-page="dashboard"'), 'dashboard nav page must exist');
-assert.ok(html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'), 'non-dashboard screens must stay disabled in Screen 01');
+assert.ok(!html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'), 'approved sidebar routes must be clickable');
+assert.ok(html.includes('หน้านี้ยังอยู่ระหว่างพัฒนาในรอบถัดไป'), 'unimplemented routes must render an under-development page');
 
 const downloadIds = Array.from(html.matchAll(/id="(download[A-Za-z0-9]+)"/g)).map((m) => m[1]);
 assert.ok(downloadIds.length >= 20, 'expected backoffice export buttons');
