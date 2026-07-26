@@ -11,7 +11,8 @@ const dashboardEnd = html.indexOf('function flowStatus()', dashboardStart);
 assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart, 'Dashboard renderer boundaries must be explicit');
 const dashboardSource = html.slice(dashboardStart, dashboardEnd);
 
-const navPages = Array.from(html.matchAll(/<button[^>]+data-page="([^"]+)"/g)).map((match) => match[1]);
+const navSource = html.slice(html.indexOf('<nav class="nav"'), html.indexOf('</nav>', html.indexOf('<nav class="nav"')));
+const navPages = Array.from(navSource.matchAll(/<button[^>]+data-page="([^"]+)"/g)).map((match) => match[1]);
 assert.deepStrictEqual(navPages, [
   'dashboard',
   'today',
@@ -48,9 +49,11 @@ assert.ok(!html.includes('focusSearch'), 'hamburger must not be wired as search 
 assert.ok(!html.includes('nav{display:flex;gap:6px;overflow-x:auto'), 'mobile must not use horizontal main menu');
 
 for (const label of [
-  'จำนวนครั้งเข้าเว็บไซต์',
+  'สถิติการเข้าใช้งานเว็บไซต์',
+  'จำนวนครั้งเข้าเยี่ยมชม',
   'ผู้เยี่ยมชมโดยประมาณ',
-  'จำนวนการจองวันนี้',
+  'จำนวนการจอง',
+  'ดูการจอง',
   'ยอดรับจากผู้โดยสารวันนี้',
   'รายได้ค่าบริการแพลตฟอร์มวันนี้',
   'คืนเงินรอดำเนินการ',
@@ -63,8 +66,14 @@ for (const label of [
   assert.ok(html.includes(label), `missing Screen 01 business UI label: ${label}`);
 }
 
-for (const range of ['วันนี้', 'รายวัน', 'รายเดือน', '6 เดือน', '1 ปี']) {
-  assert.ok(html.includes(range), `missing time range: ${range}`);
+assert.ok(!dashboardSource.includes('จำนวนครั้งเข้าเว็บไซต์'), 'old visit KPI card must be removed from Dashboard renderer');
+assert.ok(!dashboardSource.includes("businessKpi('↗'"), 'old visit count KPI renderer must be removed');
+assert.ok(!dashboardSource.includes("businessKpi('👥'"), 'old visitor KPI renderer must be removed');
+assert.ok(dashboardSource.includes('analyticsChart(visits)'), 'Dashboard must render one analytics chart card');
+assert.ok(dashboardSource.includes('bookingSummaryCard(bookings,bookingCount)'), 'Dashboard must render booking summary card');
+
+for (const range of ['รายชั่วโมง', 'รายวัน', 'รายสัปดาห์', 'รายเดือน', 'รายปี']) {
+  assert.ok(html.includes(range), `missing analytics time range: ${range}`);
 }
 
 for (const forbidden of [
@@ -93,6 +102,13 @@ assert.ok(!html.includes('function donutStyle'), 'old decorative chart helper mu
 for (const forbiddenValue of ['4,238', '1,285,450', '1,250', '15,000', '+12%', '1000018505']) {
   assert.ok(!html.includes(forbiddenValue), `mock/screenshot value must not be hardcoded: ${forbiddenValue}`);
 }
+
+for (const debugWord of ['endpoint', 'adapter', 'privacy-safe', 'canonical', 'mock', 'unavailable source']) {
+  assert.ok(!dashboardSource.includes(debugWord), `Dashboard must not show debug wording: ${debugWord}`);
+}
+
+assert.ok(!html.includes('Math.random'), 'Dashboard analytics shell must not generate random analytics values');
+assert.ok(!dashboardSource.includes('analytics/mainWeb'), 'Dashboard analytics shell must not read legacy private analytics path');
 
 assert.ok(!html.includes('<img'), 'reference screenshot must not be embedded as img');
 assert.ok(!html.includes('background-image'), 'reference screenshot must not be embedded as CSS background');

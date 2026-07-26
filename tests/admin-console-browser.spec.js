@@ -14,18 +14,15 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'dashboard');
 });
 
-test('Dashboard business KPIs and sections render', async ({ page }) => {
+test('Dashboard analytics chart shell, booking card, and remaining sections render', async ({ page }) => {
   const main = await dashboardContent(page);
-  for (const label of [
-    'จำนวนครั้งเข้าเว็บไซต์',
-    'ผู้เยี่ยมชมโดยประมาณ',
-    'จำนวนการจองวันนี้',
-    'ยอดรับจากผู้โดยสารวันนี้',
-    'รายได้ค่าบริการแพลตฟอร์มวันนี้',
-    'คืนเงินรอดำเนินการ',
-  ]) {
-    await expect(main.getByText(label)).toBeVisible();
-  }
+  await expect(main.locator('#website-analytics')).toBeVisible();
+  await expect(main.locator('#booking-summary')).toBeVisible();
+  await expect(main.locator('.analytics-ranges button')).toHaveCount(5);
+  await expect(main.locator('.legend-box.red')).toHaveCount(1);
+  await expect(main.locator('.legend-box.blue')).toHaveCount(1);
+  await expect(main.locator('.analytics-empty')).toBeVisible();
+  await expect(main.locator('.kpi-card')).toHaveCount(3);
 
   await expect(main.getByText('ภาพรวมการรับเงินและรายได้', { exact: true })).toBeVisible();
   await expect(main.getByText('ยอดของรถและคนขับ', { exact: true })).toBeVisible();
@@ -45,22 +42,22 @@ test('Dashboard removes operations-only widgets from the business canvas', async
   await expect(page.locator('#operationsMap')).toHaveCount(0);
 });
 
-test('Time range controls update selected state without inventing data', async ({ page }) => {
+test('Analytics time range controls update selected state without inventing data', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.getByRole('tab', { name: 'วันนี้' })).toHaveAttribute('aria-selected', 'true');
-  await main.getByRole('tab', { name: 'รายเดือน' }).click();
-  await expect(main.getByRole('tab', { name: 'รายเดือน' })).toHaveAttribute('aria-selected', 'true');
-  await expect(main.getByText('ช่วงเวลานี้ยังไม่เชื่อมข้อมูล')).toBeVisible();
+  await expect(main.locator('[data-analytics-range="daily"]')).toHaveAttribute('aria-pressed', 'true');
+  await main.locator('[data-analytics-range="monthly"]').click();
+  await expect(main.locator('[data-analytics-range="monthly"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(main.locator('.analytics-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
   await expect(main).not.toContainText('1,250');
   await expect(main).not.toContainText('15,000');
   await expect(main).not.toContainText('+12%');
 });
 
-test('Unavailable values are not shown as business zero', async ({ page }) => {
+test('Unavailable analytics and booking values are not shown as business zero', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.getByText('ยังไม่เชื่อมแหล่งข้อมูล').first()).toBeVisible();
-  const visitCard = main.locator('.kpi-card').filter({ hasText: 'จำนวนครั้งเข้าเว็บไซต์' });
-  await expect(visitCard.locator('b')).toHaveText('—');
+  await expect(main.locator('.analytics-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('#booking-summary .booking-main')).toContainText('—');
+  await expect(main.locator('#booking-summary')).not.toContainText('0 รายการ');
 });
 
 test('Sidebar routes still work and ERP workbook remains accessible', async ({ page }) => {
@@ -69,6 +66,12 @@ test('Sidebar routes still work and ERP workbook remains accessible', async ({ p
   await expect(page.getByText('ERP workbook sheets')).toBeVisible();
   await page.getByRole('button', { name: 'แดชบอร์ด' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'dashboard');
+});
+
+test('Booking summary button opens Booking section and active menu', async ({ page }) => {
+  await page.locator('#booking-summary [data-page="bookings"]').click();
+  await expect(page.locator('body')).toHaveAttribute('data-current-page', 'bookings');
+  await expect(page.locator('.nav button[data-page="bookings"]')).toHaveClass(/on/);
 });
 
 test('Desktop Admin shell uses left sidebar and collapses without horizontal menu', async ({ page }) => {
@@ -143,6 +146,32 @@ test('Mobile Admin shell opens and closes sidebar drawer safely', async ({ page 
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'workbook');
 });
 
+test('Mobile analytics and booking cards stack without page horizontal scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pageUrl);
+  const layout = await page.evaluate(() => {
+    const analytics = document.querySelector('#website-analytics').getBoundingClientRect();
+    const booking = document.querySelector('#booking-summary').getBoundingClientRect();
+    const ranges = document.querySelector('.analytics-ranges');
+    return {
+      analyticsTop: Math.round(analytics.top),
+      bookingTop: Math.round(booking.top),
+      analyticsWidth: Math.round(analytics.width),
+      bookingWidth: Math.round(booking.width),
+      scrollWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      rangeScrollable: ranges.scrollWidth >= ranges.clientWidth,
+    };
+  });
+  expect(layout.analyticsTop).toBeLessThan(layout.bookingTop);
+  expect(layout.analyticsWidth).toBeGreaterThanOrEqual(360);
+  expect(layout.bookingWidth).toBeGreaterThanOrEqual(360);
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
+  expect(layout.rangeScrollable).toBeTruthy();
+  await page.locator('#booking-summary [data-page="bookings"]').click();
+  await expect(page.locator('body')).toHaveAttribute('data-current-page', 'bookings');
+});
+
 test('Keyboard focus is visible on range controls and refresh', async ({ page }) => {
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();
@@ -160,6 +189,8 @@ test('No Firebase writes, screenshot assets, or consumer edits are present in Da
   expect(html).not.toContain('<img');
   expect(html).not.toContain('background-image');
   expect(html).not.toContain('1000018505');
+  expect(html).not.toContain('Math.random');
+  expect(html).not.toMatch(/analytics\/mainWeb[\s\S]{0,80}\.once\(/);
   for (const file of ['booking1.html', 'passenger.html', 'check_ticket.html', 'cancel_ticket.html']) {
     expect(fs.existsSync(path.join(repoRoot, file))).toBe(true);
   }
