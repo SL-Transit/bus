@@ -1,15 +1,81 @@
-(function(){
+(function() {
   'use strict';
-  var ADMIN_KEY='slTransitAdminDevice';
-  var DEVICE_KEY='slTransitAnalyticsDeviceId';
-  try{if(localStorage.getItem(ADMIN_KEY)==='1')return;}catch(e){}
-  function start(){
-    if(!window.firebase||!firebase.apps||!firebase.apps.length||!firebase.database){setTimeout(start,300);return;}
-    var id='';
-    try{id=localStorage.getItem(DEVICE_KEY)||'';if(!id){id='web_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);localStorage.setItem(DEVICE_KEY,id);}}catch(e){id='session_'+Math.random().toString(36).slice(2,12);}
-    var parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),p={};parts.forEach(function(x){p[x.type]=x.value;});
-    var day=p.year+'-'+p.month+'-'+p.day,page=(location.pathname.split('/').pop()||'index.html').replace(/[.#$\[\]/]/g,'_'),root=firebase.database().ref('analytics/mainWeb/'+day),device=root.child('devices/'+id),now=firebase.database.ServerValue.TIMESTAMP;
-    device.transaction(function(current){var v=current||{firstSeenAt:now,pageViews:0,pages:{}};v.lastSeenAt=now;v.pageViews=Number(v.pageViews||0)+1;v.pages=v.pages||{};v.pages[page]=Number(v.pages[page]||0)+1;return v;},function(err,committed,snap){if(err||!committed)return;if(Number(snap.child('pageViews').val()||0)===1)root.child('count').transaction(function(n){return Number(n||0)+1;});root.child('pageViews').transaction(function(n){return Number(n||0)+1;});});
+
+  var ADMIN_KEY = 'slTransitAdminDevice';
+  var DEVICE_KEY = 'slTransitAnalyticsDeviceV1';
+  var ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/trackWebVisit';
+
+  try {
+    if (localStorage.getItem(ADMIN_KEY) === '1') return;
+  } catch (err) {}
+  if (navigator.webdriver) return;
+
+  function randomId(prefix) {
+    var cryptoObj = window.crypto || window.msCrypto;
+    if (cryptoObj && cryptoObj.getRandomValues) {
+      var bytes = new Uint8Array(16);
+      cryptoObj.getRandomValues(bytes);
+      return prefix + Array.prototype.map.call(bytes, function(byte) {
+        return ('0' + byte.toString(16)).slice(-2);
+      }).join('');
+    }
+    return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 14);
   }
-  start();
+
+  function storedId(key, prefix) {
+    try {
+      var value = localStorage.getItem(key) || '';
+      if (!value) {
+        value = randomId(prefix);
+        localStorage.setItem(key, value);
+      }
+      return value;
+    } catch (err) {
+      return randomId(prefix);
+    }
+  }
+
+  function pageCategory() {
+    var path = (location.pathname || '/').replace(/\/+/g, '/');
+    var file = (path.split('/').pop() || 'index.html').toLowerCase();
+    if (!file || file === 'index.html') return 'home';
+    if (file === 'booking1.html') return 'booking';
+    if (file === 'passenger.html') return 'passenger';
+    if (file === 'check_ticket.html' || file === 'track_trip.html') return 'ticket_check';
+    if (file === 'cancel_ticket.html') return 'cancellation';
+    if (file === 'info.html') return 'help_info';
+    return '';
+  }
+
+  function send(payload) {
+    var body = JSON.stringify(payload);
+    if (navigator.sendBeacon) {
+      try {
+        if (navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }))) return;
+      } catch (err) {}
+    }
+    try {
+      fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+        keepalive: true,
+        credentials: 'omit'
+      }).catch(function() {});
+    } catch (err) {}
+  }
+
+  function track() {
+    var category = pageCategory();
+    if (!category) return;
+    send({
+      contractVersion: 'web_analytics_v1',
+      eventType: 'page_view',
+      deviceId: storedId(DEVICE_KEY, 'd_'),
+      pageCategory: category
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', track, { once: true });
+  else track();
 })();
