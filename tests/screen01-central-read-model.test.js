@@ -42,10 +42,10 @@ const raw = {
     car4: { vehicleId: 'car4', lat: 13.4, lng: 101.4, gpsTimestamp: NOW - 30_000 },
   },
   driverWork: {
-    car1: { vehicleId: 'car1', status: 'active', activeTripId: 'TRIP1' },
-    car2: { vehicleId: 'car2', status: 'active', activeTripId: 'TRIP2' },
-    car3: { vehicleId: 'car3', status: 'active', activeTripId: 'TRIP3' },
-    car5: { vehicleId: 'car5', status: 'active', activeTripId: 'TRIP5' },
+    car1: { contractVersion: 'driver_work_v1', vehicleId: 'car1', status: 'assigned', currentTrip: { queueTripId: 'TRIP1' } },
+    car2: { contractVersion: 'driver_work_v1', vehicleId: 'car2', status: 'assigned', currentTrip: { queueTripId: 'TRIP2' } },
+    car3: { contractVersion: 'driver_work_v1', vehicleId: 'car3', status: 'assigned', currentTrip: { queueTripId: 'TRIP3' } },
+    car5: { contractVersion: 'driver_work_v1', vehicleId: 'car5', status: 'assigned', currentTrip: { queueTripId: 'TRIP5' } },
   },
 };
 
@@ -71,19 +71,56 @@ assert.strictEqual(safeRuntime.fleet.gpsFreshness.status, 'proposed', 'default G
 assert(safeRuntime.chartProportions.fleet.some((item) => item.key === 'active_service' && item.percent === 80), 'fleet chart proportions must use operational state counts');
 assert(safeRuntime.chartProportions.gps.some((item) => item.key === 'missing_gps' && item.percent === 40), 'GPS chart proportions must use telemetry state counts');
 
+const driverWorkV1 = model.build({
+  liveVehicles: {
+    assignedCurrent: { vehicleId: 'assignedCurrent', lat: 13.1, lng: 101.1, gpsTimestamp: NOW },
+    assignedNext: { vehicleId: 'assignedNext', lat: 13.2, lng: 101.2, gpsTimestamp: NOW },
+    complete: { vehicleId: 'complete', lat: 13.3, lng: 101.3, gpsTimestamp: NOW },
+    unassigned: { vehicleId: 'unassigned', lat: 13.4, lng: 101.4, gpsTimestamp: NOW },
+    unknownVersion: { vehicleId: 'unknownVersion', lat: 13.5, lng: 101.5, gpsTimestamp: NOW },
+    readyOnly: { vehicleId: 'readyOnly', lat: 13.6, lng: 101.6, gpsTimestamp: NOW },
+  },
+  driverWork: {
+    assignedCurrent: { contractVersion: 'driver_work_v1', vehicleId: 'assignedCurrent', status: 'assigned', currentTrip: { queueTripId: 'qt1' } },
+    assignedNext: { contractVersion: 'driver_work_v1', vehicleId: 'assignedNext', status: 'assigned', nextTrip: { queueTripId: 'qt2' } },
+    complete: { contractVersion: 'driver_work_v1', vehicleId: 'complete', status: 'service_complete' },
+    unassigned: { contractVersion: 'driver_work_v1', vehicleId: 'unassigned', status: 'unassigned' },
+    unknownVersion: { contractVersion: 'driver_work_v0', vehicleId: 'unknownVersion', status: 'assigned', currentTrip: { queueTripId: 'qt5' } },
+    readyOnly: { vehicleId: 'readyOnly', status: 'ready' },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW, gpsStaleMs: GPS_STALE_MS });
+assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'assignedCurrent').operationalState, 'active_service', 'driver_work_v1 assigned + currentTrip is active service');
+assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'assignedNext').operationalState, 'inactive', 'assigned + only nextTrip is waiting/inactive');
+assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'complete').operationalState, 'inactive', 'service_complete is inactive');
+assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'unassigned').operationalState, 'inactive', 'unassigned is inactive');
+assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'unknownVersion').operationalState, 'unknown', 'unknown contract version is unknown');
+assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'readyOnly').operationalState, 'unknown', 'generic ready status without currentTrip is not active service');
+assert.strictEqual(driverWorkV1.fleet.activeServiceCount, 1);
+
 const confirmedFixture = model.build(raw, { serviceDate: SERVICE_DATE, nowMs: NOW, gpsStaleMs: GPS_STALE_MS, paymentContract, refundContract });
 assert.strictEqual(confirmedFixture.revenue.amount, 230, 'paid revenue excludes unpaid, cancelled, completed refund, missing amount, and subtracts partial refund by contract');
 assert.strictEqual(confirmedFixture.refunds.count, 1, 'only pending refund status is counted');
 
 const empty = model.build({ bookings: {}, liveVehicles: {}, driverWork: {} }, { serviceDate: SERVICE_DATE, nowMs: NOW });
 assert.strictEqual(empty.bookings.status, 'empty', 'confirmed empty source must be distinct from read error');
+assert.strictEqual(empty.bookings.contractStatus, 'proposed', 'empty proposed source must preserve proposed contract status');
 assert.strictEqual(empty.bookings.count, 0);
 assert.strictEqual(empty.fleet.status, 'empty');
+assert.strictEqual(empty.health.Booking, 'ไม่มีข้อมูล');
 assert.strictEqual(empty.health.GPS, 'ไม่มีข้อมูล');
+assert.strictEqual(empty.status, 'empty');
 
 const unavailable = model.build({ sources: {} }, { serviceDate: SERVICE_DATE, nowMs: NOW });
 assert.strictEqual(unavailable.bookings.status, 'unavailable', 'missing Firebase/config/adapter returns unavailable, not empty');
 assert.strictEqual(unavailable.bookings.count, null);
+assert.strictEqual(unavailable.status, 'unavailable', 'all unavailable sources must not report proposed_partial');
+assert.deepStrictEqual(unavailable.health, {
+  Booking: 'ยังไม่ได้เชื่อมต่อ',
+  GPS: 'ยังไม่ได้เชื่อมต่อ',
+  Notification: 'ยังไม่ได้เชื่อมต่อ',
+  ERP: 'ยังไม่ได้เชื่อมต่อ',
+  DriverApp: 'ยังไม่ได้เชื่อมต่อ',
+}, 'all five modules must distinguish unavailable from partial connection');
 
 const failed = model.build({
   sources: {
@@ -99,6 +136,8 @@ assert.strictEqual(failed.bookings.count, null);
 assert.strictEqual(failed.health.Booking, 'อ่านข้อมูลไม่ได้');
 assert.strictEqual(failed.fleet.status, 'error');
 assert.strictEqual(failed.fleet.activeServiceCount, null);
+assert.strictEqual(failed.activities.status, 'error', 'activity read failures must preserve error state');
+assert.strictEqual(failed.activities.errors.length, 2, 'notification and audit activity errors must be retained');
 
 let wrote = false;
 const calls = [];

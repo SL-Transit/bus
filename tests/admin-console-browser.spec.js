@@ -49,6 +49,23 @@ test('Search Enter does not open legacy hidden audit page', async ({ page }) => 
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'dashboard');
 });
 
+test('Proposed empty Booking source remains visibly unconfirmed', async ({ page }) => {
+  await page.evaluate(() => {
+    window.SLTransit.screen01ReadModel.load = (_db, options) => Promise.resolve(
+      window.SLTransit.screen01ReadModel.build({
+        bookings: {},
+        liveVehicles: {},
+        driverWork: {},
+        notificationEvents: {},
+        erpAudit: {},
+      }, options)
+    );
+  });
+  await page.getByRole('button', { name: 'รีเฟรช' }).click();
+  await expect(page.getByText('รอยืนยันแหล่งข้อมูล - ยังไม่มีรายการที่อ่านพบ').first()).toBeVisible();
+  await expect(page.getByText('จาก operations/bookings query ตามวันที่')).toHaveCount(0);
+});
+
 test('No Firebase writes and incident quick action routes to blackbox', async ({ page }) => {
   const html = fs.readFileSync(path.join(repoRoot, 'admin-erp.html'), 'utf8');
   const readModel = fs.readFileSync(path.join(repoRoot, 'screen01-central-read-model.js'), 'utf8');

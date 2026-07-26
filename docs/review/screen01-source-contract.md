@@ -20,6 +20,7 @@ This report documents technical evidence found in the repository. Owner confirma
 - `database.rules.json` declares `operations/bookings` with `.indexOn`: `date`, `originKey`, `destKey`, `status`.
 - No `operations/bookingsByServiceDate/{serviceDate}` path was found in the repository.
 - `functions/driver-work-auto-center.js` writes daily driver work contracts to `operations/driverWorkByServiceDate/{serviceDate}/{vehicleId}`.
+- `driver-work-center.js` defines `driver_work_v1`: stored contracts use `status: assigned`, `service_complete`, or `unassigned`, and include `currentTrip`/`nextTrip`.
 - `erp-schema.js` validates `operations/liveVehicles` fields including `lat`, `lng`, `serviceStatus`, `vehicleId`, `queueId`, and `currentTripId`.
 - `database.rules.json` restricts `driverWorkByServiceDate` reads to authenticated driver identity matching a runtime vehicle. This means Admin Console broad read access is not confirmed in this PR.
 
@@ -29,9 +30,10 @@ Operational state and telemetry state are separate.
 
 Operational state:
 
-- `active_service`: vehicle has approved active driver work for the selected service date, based on an active trip/work signal such as `activeTripId`, `currentTripId`, `tripId`, or active work status.
-- `inactive`: vehicle has a driver-work record for the service date but no active-service signal.
+- `active_service`: `driver_work_v1` contract has `status: assigned` and a real `currentTrip` object.
+- `inactive`: `driver_work_v1` contract has `status: assigned` with only `nextTrip`, or `status: service_complete`, or `status: unassigned`.
 - `unknown`: vehicle appears only in live GPS data and has no matching driver-work contract for the selected service date.
+- `unknown`: driver work has an unknown `contractVersion` or unsupported shape.
 
 Telemetry state:
 
@@ -40,6 +42,8 @@ Telemetry state:
 - `missing_gps`: no valid coordinate or no live vehicle record for a vehicle that exists in driver work.
 
 The KPI "รถที่กำลังวิ่ง" uses `active_service` count only. It does not use total `operations/liveVehicles` records.
+
+Unsupported generic status strings such as `ready`, `active`, or `running` are not enough to mark active service unless the confirmed `driver_work_v1` shape proves current service with `status: assigned` and `currentTrip`.
 
 ## GPS Freshness
 
@@ -63,7 +67,28 @@ Unresolved future option:
 - No Firebase/config/adapter: `unavailable`, count is `null`, UI displays `ยังไม่ได้เชื่อมต่อ`.
 - Permission/network/read failure: `error`, count is `null`, UI displays `อ่านข้อมูลไม่ได้`.
 - Unconfirmed source contract with readable records: `proposed`, UI displays `รอยืนยันแหล่งข้อมูล`.
+- Unconfirmed source contract with zero records: status may be `empty`, but `contractStatus: proposed` is preserved and UI displays `รอยืนยันแหล่งข้อมูล - ยังไม่มีรายการที่อ่านพบ`.
 - Unresolved contract: `unresolved`, UI displays unavailable/no data instead of invented values.
+
+Top-level model states:
+
+- `unavailable`: every read source is unavailable, usually missing Firebase/config/adapter.
+- `error`: every available read failed or only error/unavailable states are present.
+- `error_partial`: at least one source failed while at least one other source is readable.
+- `proposed_partial`: at least one proposed source is readable and no read source failed.
+- `empty`: every read source succeeded with zero records.
+
+Connection-status panel behavior:
+
+- `unavailable`: `ยังไม่ได้เชื่อมต่อ`
+- `error`: `อ่านข้อมูลไม่ได้`
+- `empty`: `ไม่มีข้อมูล`
+- `proposed`: `เชื่อมต่อบางส่วน`
+
+Activity model:
+
+- Activities are normalized as `{ status, items, errors, sources }`.
+- Notification/Audit read failures are shown as `อ่านข้อมูลไม่ได้`, not as an empty-activity message.
 
 ## Legacy Source Rejected
 

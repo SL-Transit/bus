@@ -105,18 +105,15 @@
     return String(item.vehicleId || item.runtimeVehicleId || item.erpVehicleId || item.id || item.__key || '').trim();
   }
   function hasActiveWork(work) {
-    var status = String(work.status || work.workState || work.serviceState || '').toLowerCase();
-    return !!(
-      work.activeTripId ||
-      work.currentTripId ||
-      work.currentTrip ||
-      work.tripId ||
-      status === 'active' ||
-      status === 'active_service' ||
-      status === 'running' ||
-      status === 'in_service' ||
-      status === 'ready'
-    );
+    return driverWorkOperationalState(work) === 'active_service';
+  }
+  function driverWorkOperationalState(work) {
+    if (!work || !keys(work).length) return 'unknown';
+    if (work.contractVersion !== 'driver_work_v1') return 'unknown';
+    var status = String(work.status || '').toLowerCase();
+    if (status === 'assigned') return work.currentTrip ? 'active_service' : 'inactive';
+    if (status === 'service_complete' || status === 'unassigned') return 'inactive';
+    return 'unknown';
   }
   function source(status, path, value, error) {
     return { status: status, path: path || '', value: value || {}, error: error || null };
@@ -213,7 +210,7 @@
       var point = pointOf(live);
       var gpsAt = stampMs(firstField(live, SOURCE_CONTRACTS.vehicleRuntime.timestampFields));
       var telemetryState = !point ? 'missing_gps' : (!gpsAt || (nowMs - gpsAt) > threshold ? 'stale_gps' : 'live_gps');
-      var operationalState = hasActiveWork(work) ? 'active_service' : (workByVehicle[id] ? 'inactive' : 'unknown');
+      var operationalState = workByVehicle[id] ? driverWorkOperationalState(work) : 'unknown';
       return {
         vehicleId: id,
         point: point,
@@ -265,8 +262,10 @@
     };
   }
   function normalizeActivities(notificationSource, auditSource) {
-    if ((!notificationSource || notificationSource.status === 'unavailable') && (!auditSource || auditSource.status === 'unavailable')) return [];
-    var events = sourceItems(notificationSource).concat(sourceItems(auditSource)).map(function(item) {
+    var sources = { notificationEvents: notificationSource, erpAudit: auditSource };
+    var sourceList = [notificationSource, auditSource].filter(Boolean);
+    var errors = sourceList.filter(function(item) { return item.status === 'error'; }).map(function(item) { return { path: item.path, error: item.error }; });
+    var items = sourceItems(notificationSource).concat(sourceItems(auditSource)).map(function(item) {
       var time = item.createdAt || item.updatedAt || item.timestamp || item.at || '';
       return {
         time: time,
@@ -276,16 +275,46 @@
         sort: stampMs(time)
       };
     }).sort(function(a, b) { return b.sort - a.sort; });
-    return events;
+    var status = 'unavailable';
+    if (errors.length && items.length) status = 'error_partial';
+    else if (errors.length) status = 'error';
+    else if (sourceList.every(function(item) { return item.status === 'unavailable'; })) status = 'unavailable';
+    else if (items.length) status = 'proposed';
+    else if (sourceList.every(function(item) { return item.status === 'empty'; })) status = 'empty';
+    else if (sourceList.some(function(item) { return item.status === 'proposed'; })) status = 'proposed';
+    else status = 'empty';
+    return { status: status, items: items, errors: errors, sources: sources };
+  }
+  function connectionLabel(sourceModel) {
+    if (!sourceModel || sourceModel.status === 'unavailable') return NOT_CONNECTED;
+    if (sourceModel.status === 'error') return READ_FAILED;
+    if (sourceModel.status === 'empty') return NO_DATA;
+    if (sourceModel.status === 'proposed') return PARTIAL;
+    return PARTIAL;
   }
   function healthFromSources(sources) {
+    var gps;
+    if (sources.liveVehicles.status === 'error' || sources.driverWork.status === 'error') gps = READ_FAILED;
+    else if (sources.liveVehicles.status === 'unavailable' && sources.driverWork.status === 'unavailable') gps = NOT_CONNECTED;
+    else if (sources.liveVehicles.status === 'empty' && sources.driverWork.status === 'empty') gps = NO_DATA;
+    else gps = PARTIAL;
     return {
-      Booking: sources.bookings.status === 'error' ? READ_FAILED : (sources.bookings.status === 'unavailable' ? NOT_CONNECTED : PARTIAL),
-      GPS: sources.liveVehicles.status === 'error' || sources.driverWork.status === 'error' ? READ_FAILED : ((sources.liveVehicles.status === 'empty' && sources.driverWork.status === 'empty') ? NO_DATA : PARTIAL),
-      Notification: sources.notificationEvents.status === 'error' ? READ_FAILED : (sources.notificationEvents.status === 'empty' ? NO_DATA : PARTIAL),
-      ERP: sources.erpAudit.status === 'error' ? READ_FAILED : (sources.erpAudit.status === 'empty' ? NO_DATA : PARTIAL),
-      DriverApp: sources.driverWork.status === 'error' ? READ_FAILED : (sources.driverWork.status === 'empty' ? NO_DATA : PARTIAL)
+      Booking: connectionLabel(sources.bookings),
+      GPS: gps,
+      Notification: connectionLabel(sources.notificationEvents),
+      ERP: connectionLabel(sources.erpAudit),
+      DriverApp: connectionLabel(sources.driverWork)
     };
+  }
+  function topLevelStatus(sources) {
+    var list = keys(sources).map(function(key) { return sources[key].status; });
+    if (list.every(function(status) { return status === 'unavailable'; })) return 'unavailable';
+    if (list.every(function(status) { return status === 'empty'; })) return 'empty';
+    if (list.some(function(status) { return status === 'error'; })) {
+      return list.every(function(status) { return status === 'error' || status === 'unavailable'; }) ? 'error' : 'error_partial';
+    }
+    if (list.some(function(status) { return status === 'proposed'; })) return 'proposed_partial';
+    return 'empty';
   }
   function build(raw, options) {
     raw = raw || {};
@@ -304,7 +333,7 @@
     var revenue = normalizeRevenue(bookings, options.paymentContract);
     var fleet = normalizeFleet(sources.liveVehicles, sources.driverWork, options);
     var activities = normalizeActivities(sources.notificationEvents, sources.erpAudit);
-    var modelStatus = keys(sources).some(function(key) { return sources[key].status === 'error'; }) ? 'error_partial' : 'proposed_partial';
+    var modelStatus = topLevelStatus(sources);
     return {
       status: modelStatus,
       serviceDate: serviceDate,
@@ -390,6 +419,8 @@
       normalizeRefunds: normalizeRefunds,
       normalizeRevenue: normalizeRevenue,
       normalizeFleet: normalizeFleet,
+      driverWorkOperationalState: driverWorkOperationalState,
+      healthFromSources: healthFromSources,
       proportions: proportions,
       readSources: readSources
     }
