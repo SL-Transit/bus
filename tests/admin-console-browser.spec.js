@@ -71,6 +71,78 @@ test('Sidebar routes still work and ERP workbook remains accessible', async ({ p
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'dashboard');
 });
 
+test('Desktop Admin shell uses left sidebar and collapses without horizontal menu', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto(pageUrl);
+
+  const navButtons = page.locator('.nav button[data-page]');
+  await expect(navButtons).toHaveCount(9);
+  await expect(page.locator('.nav button[data-page="dashboard"]')).toHaveClass(/on/);
+
+  const layout = await page.evaluate(() => {
+    const side = document.querySelector('.side').getBoundingClientRect();
+    const top = document.querySelector('.top').getBoundingClientRect();
+    const nav = getComputedStyle(document.querySelector('.nav'));
+    return {
+      sideLeft: Math.round(side.left),
+      sideWidth: Math.round(side.width),
+      topLeft: Math.round(top.left),
+      navDisplay: nav.display,
+      bodyScrollWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    };
+  });
+  expect(layout.sideLeft).toBe(0);
+  expect(layout.sideWidth).toBeGreaterThanOrEqual(220);
+  expect(layout.sideWidth).toBeLessThanOrEqual(240);
+  expect(layout.topLeft).toBeGreaterThanOrEqual(layout.sideWidth - 1);
+  expect(layout.navDisplay).not.toBe('flex');
+  expect(layout.bodyScrollWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
+
+  await page.locator('#toggleSidebar').click();
+  await expect(page.locator('body')).toHaveClass(/nav-collapsed/);
+  const collapsedWidth = await page.locator('.side').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+  expect(collapsedWidth).toBeGreaterThanOrEqual(64);
+  expect(collapsedWidth).toBeLessThanOrEqual(72);
+  await page.locator('#toggleSidebar').click();
+  await expect(page.locator('body')).not.toHaveClass(/nav-collapsed/);
+});
+
+test('Mobile Admin shell opens and closes sidebar drawer safely', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pageUrl);
+
+  await expect(page.locator('body')).not.toHaveClass(/nav-open/);
+  const hiddenLeft = await page.locator('.side').evaluate((el) => Math.round(el.getBoundingClientRect().left));
+  expect(hiddenLeft).toBeLessThan(0);
+
+  await page.locator('#toggleSidebar').click();
+  await expect(page.locator('body')).toHaveClass(/nav-open/);
+  await expect(page.locator('#drawerOverlay')).toBeVisible();
+  let mobileLayout = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+    navDisplay: getComputedStyle(document.querySelector('.nav')).display,
+    labelWhiteSpace: getComputedStyle(document.querySelector('.nav-label')).whiteSpace,
+  }));
+  expect(mobileLayout.scrollWidth).toBeLessThanOrEqual(mobileLayout.viewportWidth + 1);
+  expect(mobileLayout.navDisplay).not.toBe('flex');
+  expect(mobileLayout.labelWhiteSpace).not.toBe('nowrap');
+
+  await page.locator('#drawerOverlay').click();
+  await expect(page.locator('body')).not.toHaveClass(/nav-open/);
+
+  await page.locator('#toggleSidebar').click();
+  await expect(page.locator('body')).toHaveClass(/nav-open/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/nav-open/);
+
+  await page.locator('#toggleSidebar').click();
+  await page.locator('.nav button[data-page="workbook"]').click();
+  await expect(page.locator('body')).not.toHaveClass(/nav-open/);
+  await expect(page.locator('body')).toHaveAttribute('data-current-page', 'workbook');
+});
+
 test('Keyboard focus is visible on range controls and refresh', async ({ page }) => {
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();
