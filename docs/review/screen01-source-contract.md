@@ -1,23 +1,77 @@
 # Screen 01 Source-Contract Report
 
-Status: corrective branch report before enabling production calculations.
+Status: corrective PR 18 report before enabling production calculations.
 
-| Domain | Status | Firebase path | Canonical ID | Service-date field | Status fields | Timestamp fields | Amount fields | Permission assumptions | Related modules |
+This report documents technical evidence found in the repository. Owner confirmation is still needed for business meaning and final rules; the Dashboard must not present proposed sources as Owner-approved operational totals.
+
+| Domain | Status | Firebase path/query | Canonical ID | Service-date field | Status fields | Timestamp fields | Amount fields | Permission assumptions | Related modules |
 |---|---|---|---|---|---|---|---|---|---|
-| Booking | proposed | `operations/bookings` | `bookingId` or record key | `serviceDate` preferred, `date` observed in legacy ticket code | `status`, `bookingStatus` | `createdAt`, `updatedAt` | none for booking count | Admin read-only permission must be approved; no writes | `erp-data-adapter.js`, `functions/index.js`, `functions/driver-ticket-center.js` |
-| Payment | unresolved | not confirmed | unresolved | unresolved: service date vs payment date not confirmed | `paymentStatus` observed on legacy `/bookings/{code}` only | unresolved | unresolved | Do not enable revenue until owner confirms source and rules | `functions/index.js`, `booking-bridge.js` |
-| Refund | unresolved | not confirmed | unresolved | unresolved | `refundStatus`/refund lifecycle not confirmed for central ops | unresolved | unresolved | Do not enable refund KPI until owner confirms contract | `ticket-action-center.js`, `cancel_ticket.html` |
-| Vehicle runtime | proposed | `operations/liveVehicles`, `operations/driverWorkByServiceDate/{serviceDate}` | `vehicleId` or record key | driver work path date | live vehicle `status`; driver work `status`, `workState`, `activeTripId` | `gpsTimestamp`, `locationUpdatedAt`, `updatedAt`, `lastSeenAt` | none | Read-only access only; GPS alone is not enough to count running | `erp-data-adapter.js`, `driver-map-logic.js`, `functions/driver-work-auto-center.js`, `functions/driver-ticket-center.js` |
+| Booking | proposed | `operations/bookings.orderByChild('date').equalTo(serviceDate)` | `bookingId`, `code`, `id`, or record key | `date` is the indexed/query field; `serviceDate` is accepted only for fixture/backward parsing | `status`, `bookingStatus` | `updatedAt`, `createdAt`, `reservedAt` | none for booking count | `operations/bookings` requires authenticated read; Admin read permission must be approved | `erp-data-adapter.js`, `database.rules.json`, `booking-capacity.js` |
+| Payment | unresolved | not confirmed | unresolved | unresolved: service date vs payment date not confirmed | unresolved | unresolved | unresolved | Do not enable revenue until source/rules are confirmed | `functions/index.js`, `booking-bridge.js` |
+| Refund | unresolved | not confirmed | unresolved | unresolved | unresolved central lifecycle | unresolved | unresolved | Do not enable refund KPI until source/rules are confirmed | `ticket-action-center.js`, `cancel_ticket.html` |
+| Vehicle runtime | proposed | `operations/liveVehicles` plus `operations/driverWorkByServiceDate/{serviceDate}` | `vehicleId`, `runtimeVehicleId`, `id`, or record key | driver work path date | live vehicle `serviceStatus`; driver work `status`, `workState`, `serviceState`, `activeTripId`, `currentTripId`, `tripId` | `gpsTimestamp`, `locationUpdatedAt`, `updatedAt`, `lastSeenAt` | none | Broad `driverWorkByServiceDate` read is restricted by rules; Admin permission/role contract must be approved | `erp-schema.js`, `functions/driver-work-auto-center.js`, `database.rules.json`, `driver-android/.../MainActivity.java` |
 | Incident | unresolved | not confirmed | unresolved | unresolved | unresolved | unresolved | none | Display unavailable until an incident/blackbox source is approved | `erp-alert-center.js`, `staff-notification-center.js` |
-| System health | unresolved | not confirmed | module-specific only | not date-scoped unless source says so | unresolved | unresolved | none | Do not mark healthy because Firebase read succeeded | none confirmed |
-| Recent activity | proposed | `operations/notificationEvents`, `data/erpDataCenter/meta/audit` | record key | optional | `event`, `type`, `status` | `createdAt`, `updatedAt`, `timestamp`, `at` | none | Read-only activity preview only; not a full audit contract | `erp-admin-master-data.js`, `functions/index.js` |
+| System health | unresolved | no consolidated health contract found | module-specific source read states only | not date-scoped unless source says so | unresolved | unresolved | none | UI must say data-connection status, not application health | none confirmed |
+| Recent activity | proposed | `operations/notificationEvents.limitToLast(50)`, `data/erpDataCenter/meta/audit.limitToLast(50)` | record key | optional | `event`, `type`, `status` | `createdAt`, `updatedAt`, `timestamp`, `at` | none | Read-only activity preview only; not a full audit contract | `erp-admin-master-data.js`, `functions/index.js` |
 
-Legacy source rejected:
+## Evidence
+
+- `erp-data-adapter.js` contains `watchBookings(date)` and uses `operations/bookings.orderByChild('date').equalTo(date)`.
+- `database.rules.json` declares `operations/bookings` with `.indexOn`: `date`, `originKey`, `destKey`, `status`.
+- No `operations/bookingsByServiceDate/{serviceDate}` path was found in the repository.
+- `functions/driver-work-auto-center.js` writes daily driver work contracts to `operations/driverWorkByServiceDate/{serviceDate}/{vehicleId}`.
+- `erp-schema.js` validates `operations/liveVehicles` fields including `lat`, `lng`, `serviceStatus`, `vehicleId`, `queueId`, and `currentTripId`.
+- `database.rules.json` restricts `driverWorkByServiceDate` reads to authenticated driver identity matching a runtime vehicle. This means Admin Console broad read access is not confirmed in this PR.
+
+## Corrected Vehicle Model
+
+Operational state and telemetry state are separate.
+
+Operational state:
+
+- `active_service`: vehicle has approved active driver work for the selected service date, based on an active trip/work signal such as `activeTripId`, `currentTripId`, `tripId`, or active work status.
+- `inactive`: vehicle has a driver-work record for the service date but no active-service signal.
+- `unknown`: vehicle appears only in live GPS data and has no matching driver-work contract for the selected service date.
+
+Telemetry state:
+
+- `live_gps`: valid coordinate and GPS timestamp within the configured freshness threshold.
+- `stale_gps`: valid coordinate exists but timestamp is missing or older than the threshold.
+- `missing_gps`: no valid coordinate or no live vehicle record for a vehicle that exists in driver work.
+
+The KPI "รถที่กำลังวิ่ง" uses `active_service` count only. It does not use total `operations/liveVehicles` records.
+
+## GPS Freshness
+
+No Owner-confirmed GPS freshness configuration source was found. The read model accepts a runtime `gpsStaleMs` contract. If none is passed, it uses a temporary proposed default of 5 minutes and labels it as proposed. This default is only for deterministic read-only review and is not a production rule.
+
+## Service-Date Query Decision
+
+Decision for PR 18: use the repository's existing indexed query:
+
+`operations/bookings.orderByChild('date').equalTo(serviceDate)`
+
+Do not read all `operations/bookings` and filter in the browser. Do not create or modify Firebase Rules/indexes in this PR.
+
+Unresolved future option:
+
+- If Owner wants a materialized read model, create `operations/bookingsByServiceDate/{serviceDate}` in a separate approved task.
+
+## Error-State Behavior
+
+- Successful read with zero records: `empty`, count may be `0`.
+- No Firebase/config/adapter: `unavailable`, count is `null`, UI displays `ยังไม่ได้เชื่อมต่อ`.
+- Permission/network/read failure: `error`, count is `null`, UI displays `อ่านข้อมูลไม่ได้`.
+- Unconfirmed source contract with readable records: `proposed`, UI displays `รอยืนยันแหล่งข้อมูล`.
+- Unresolved contract: `unresolved`, UI displays unavailable/no data instead of invented values.
+
+## Legacy Source Rejected
 
 - `/bookings` is legacy/public booking storage. It is not used as automatic Dashboard fallback.
+- `operations/bookings` and `/bookings` are not concatenated.
 - Screenshot values are not data contracts.
 
-Revenue and refund are intentionally unavailable in runtime until the owner confirms:
+Revenue and refund remain intentionally unavailable in runtime until these are confirmed:
 
 - authoritative data source
 - canonical amount field
