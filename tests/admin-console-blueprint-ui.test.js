@@ -56,8 +56,11 @@ for (const label of [
   'ดูการจอง',
   'ยอดรับจากผู้โดยสารวันนี้',
   'รายได้ค่าบริการแพลตฟอร์มวันนี้',
-  'คืนเงินรอดำเนินการ',
-  'ภาพรวมการรับเงินและรายได้',
+  'ค่าโดยสารของผู้ให้บริการ',
+  'ค่าบริการแพลตฟอร์ม',
+  'รายได้ค่าบริการสุทธิ',
+  'ค่าบริการที่คืนแล้ว',
+  'ข้อมูลประกอบการรับเงินและรายได้',
   'ยอดของรถและคนขับ',
   'ยอดของคิวรถและผู้ให้บริการช่วงต่อ',
   'รายการคืนเงินล่าสุด',
@@ -72,6 +75,11 @@ assert.ok(!dashboardSource.includes("businessKpi('👥'"), 'old visitor KPI rend
 assert.ok(dashboardSource.includes('analyticsChart(visits)'), 'Dashboard must render one analytics chart card');
 assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookingCount)'), 'Dashboard must render booking activity chart card');
 assert.ok(!dashboardSource.includes('bookingSummaryCard'), 'old booking number card must be removed');
+assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render finance donut charts');
+assert.ok(!dashboardSource.includes('คืนเงินรอดำเนินการ'), 'Pending refund KPI must be removed from Dashboard renderer');
+assert.ok(!dashboardSource.includes("businessKpi('฿'"), 'old finance KPI cards must be removed from Dashboard renderer');
+assert.ok(html.includes('finance-donut-grid'), 'finance donut grid missing');
+assert.ok(html.includes('donut-empty'), 'donut empty ring missing');
 assert.ok(html.includes('chart-frame'), 'charts must keep a visible plot frame');
 assert.ok(html.includes('chart-axis-zero'), 'charts must keep a Y axis zero label');
 assert.ok(html.includes('chart-x-labels'), 'charts must render X axis labels');

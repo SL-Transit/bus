@@ -30,9 +30,15 @@ test('Dashboard visible chart grids and remaining sections render', async ({ pag
   await expect(main.locator('#booking-activity .legend-line.blue')).toHaveCount(1);
   await expect(main.locator('#booking-activity .legend-line.red')).toHaveCount(1);
   await expect(main.locator('#booking-activity .legend-line.orange')).toHaveCount(1);
-  await expect(main.locator('.kpi-card')).toHaveCount(3);
+  await expect(main.locator('#finance-donuts')).toBeVisible();
+  await expect(main.locator('#finance-donuts .finance-donut')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts .donut-svg')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts .donut-legend-row')).toHaveCount(4);
+  await expect(main).not.toContainText('คืนเงินรอดำเนินการ');
+  await expect(main.locator('.kpi-card')).toHaveCount(0);
 
-  await expect(main.getByText('ภาพรวมการรับเงินและรายได้', { exact: true })).toBeVisible();
+  await expect(main.locator('#money-overview .ph')).toBeVisible();
   await expect(main.getByText('ยอดของรถและคนขับ', { exact: true })).toBeVisible();
   await expect(main.getByText('ยอดของคิวรถและผู้ให้บริการช่วงต่อ', { exact: true })).toBeVisible();
   await expect(main.getByText('รายการคืนเงินล่าสุด', { exact: true })).toBeVisible();
@@ -67,6 +73,9 @@ test('Unavailable analytics and booking chart values are not shown as business z
   await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
   await expect(main.locator('#booking-activity')).not.toContainText('0 รายการ');
   await expect(main.locator('#booking-activity polyline')).toHaveCount(0);
+  await expect(main.locator('#finance-donuts')).toContainText('—');
+  await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts')).not.toContainText('฿ 0');
 });
 
 test('Sidebar routes still work and ERP workbook remains accessible', async ({ page }) => {
@@ -161,13 +170,16 @@ test('Mobile chart cards stack and scroll internally without page horizontal scr
   const layout = await page.evaluate(() => {
     const analytics = document.querySelector('#website-analytics').getBoundingClientRect();
     const booking = document.querySelector('#booking-activity').getBoundingClientRect();
+    const finance = document.querySelector('#finance-donuts').getBoundingClientRect();
     const ranges = document.querySelector('#website-analytics .chart-ranges');
     const chartScroll = document.querySelector('#website-analytics .chart-scroll');
     return {
       analyticsTop: Math.round(analytics.top),
       bookingTop: Math.round(booking.top),
+      financeTop: Math.round(finance.top),
       analyticsWidth: Math.round(analytics.width),
       bookingWidth: Math.round(booking.width),
+      financeWidth: Math.round(finance.width),
       scrollWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
       rangeScrollable: ranges.scrollWidth >= ranges.clientWidth,
@@ -175,8 +187,10 @@ test('Mobile chart cards stack and scroll internally without page horizontal scr
     };
   });
   expect(layout.analyticsTop).toBeLessThan(layout.bookingTop);
+  expect(layout.bookingTop).toBeLessThan(layout.financeTop);
   expect(layout.analyticsWidth).toBeGreaterThanOrEqual(360);
   expect(layout.bookingWidth).toBeGreaterThanOrEqual(360);
+  expect(layout.financeWidth).toBeGreaterThanOrEqual(360);
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.rangeScrollable).toBeTruthy();
   expect(layout.chartInternalScroll).toBeTruthy();
