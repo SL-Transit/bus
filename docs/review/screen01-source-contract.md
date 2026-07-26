@@ -106,6 +106,13 @@ Activity model:
 - Notification/Audit read failures are shown as `อ่านข้อมูลไม่ได้`, not as an empty-activity message.
 - Activity `empty + unavailable` and `proposed + unavailable` are `unavailable_partial`, not `empty`.
 
+## Dashboard UI Wiring
+
+- The "รถที่กำลังวิ่ง" KPI reads `fleet.operational.status`, `fleet.operational.activeServiceCount`, and `fleet.operational.error` only.
+- The "คุณภาพ GPS" panel reads `fleet.telemetry.status`, `fleet.telemetry.vehicles`, and `fleet.telemetry.error` only.
+- The connection panel maps `GPS` to `operations/liveVehicles` and `Driver App` to `operations/driverWorkByServiceDate/{serviceDate}` separately.
+- When activity is `unavailable_partial` with readable rows, the UI keeps the rows visible and adds a `เชื่อมต่อบางส่วน` notice.
+
 ## Legacy Source Rejected
 
 - `/bookings` is legacy/public booking storage. It is not used as automatic Dashboard fallback.

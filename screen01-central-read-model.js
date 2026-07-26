@@ -312,14 +312,9 @@
     return PARTIAL;
   }
   function healthFromSources(sources) {
-    var gps;
-    if (sources.liveVehicles.status === 'error' || sources.driverWork.status === 'error') gps = READ_FAILED;
-    else if (sources.liveVehicles.status === 'unavailable') gps = NOT_CONNECTED;
-    else if (sources.liveVehicles.status === 'empty' && sources.driverWork.status === 'empty') gps = NO_DATA;
-    else gps = PARTIAL;
     return {
       Booking: connectionLabel(sources.bookings),
-      GPS: gps,
+      GPS: connectionLabel(sources.liveVehicles),
       Notification: connectionLabel(sources.notificationEvents),
       ERP: connectionLabel(sources.erpAudit),
       DriverApp: connectionLabel(sources.driverWork)
