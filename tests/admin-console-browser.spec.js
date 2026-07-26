@@ -14,14 +14,22 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'dashboard');
 });
 
-test('Dashboard analytics chart shell, booking card, and remaining sections render', async ({ page }) => {
+test('Dashboard visible chart grids and remaining sections render', async ({ page }) => {
   const main = await dashboardContent(page);
   await expect(main.locator('#website-analytics')).toBeVisible();
-  await expect(main.locator('#booking-summary')).toBeVisible();
-  await expect(main.locator('.analytics-ranges button')).toHaveCount(5);
+  await expect(main.locator('#booking-activity')).toBeVisible();
+  await expect(main.locator('#website-analytics .chart-ranges button')).toHaveCount(5);
+  await expect(main.locator('#booking-activity .chart-ranges button')).toHaveCount(5);
+  await expect(main.locator('.chart-frame')).toHaveCount(2);
+  await expect(main.locator('.chart-axis-zero')).toHaveCount(2);
+  await expect(main.locator('.chart-x-labels')).toHaveCount(2);
   await expect(main.locator('.legend-box.red')).toHaveCount(1);
   await expect(main.locator('.legend-box.blue')).toHaveCount(1);
-  await expect(main.locator('.analytics-empty')).toBeVisible();
+  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
+  await expect(main.locator('#booking-activity .legend-line.blue')).toHaveCount(1);
+  await expect(main.locator('#booking-activity .legend-line.red')).toHaveCount(1);
+  await expect(main.locator('#booking-activity .legend-line.orange')).toHaveCount(1);
   await expect(main.locator('.kpi-card')).toHaveCount(3);
 
   await expect(main.getByText('ภาพรวมการรับเงินและรายได้', { exact: true })).toBeVisible();
@@ -47,17 +55,18 @@ test('Analytics time range controls update selected state without inventing data
   await expect(main.locator('[data-analytics-range="daily"]')).toHaveAttribute('aria-pressed', 'true');
   await main.locator('[data-analytics-range="monthly"]').click();
   await expect(main.locator('[data-analytics-range="monthly"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(main.locator('.analytics-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
   await expect(main).not.toContainText('1,250');
   await expect(main).not.toContainText('15,000');
   await expect(main).not.toContainText('+12%');
 });
 
-test('Unavailable analytics and booking values are not shown as business zero', async ({ page }) => {
+test('Unavailable analytics and booking chart values are not shown as business zero', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('.analytics-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
-  await expect(main.locator('#booking-summary .booking-main')).toContainText('—');
-  await expect(main.locator('#booking-summary')).not.toContainText('0 รายการ');
+  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
+  await expect(main.locator('#booking-activity')).not.toContainText('0 รายการ');
+  await expect(main.locator('#booking-activity polyline')).toHaveCount(0);
 });
 
 test('Sidebar routes still work and ERP workbook remains accessible', async ({ page }) => {
@@ -69,7 +78,7 @@ test('Sidebar routes still work and ERP workbook remains accessible', async ({ p
 });
 
 test('Booking summary button opens Booking section and active menu', async ({ page }) => {
-  await page.locator('#booking-summary [data-page="bookings"]').click();
+  await page.locator('#booking-activity [data-page="bookings"]').click();
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'bookings');
   await expect(page.locator('.nav button[data-page="bookings"]')).toHaveClass(/on/);
 });
@@ -146,13 +155,14 @@ test('Mobile Admin shell opens and closes sidebar drawer safely', async ({ page 
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'workbook');
 });
 
-test('Mobile analytics and booking cards stack without page horizontal scroll', async ({ page }) => {
+test('Mobile chart cards stack and scroll internally without page horizontal scroll', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pageUrl);
   const layout = await page.evaluate(() => {
     const analytics = document.querySelector('#website-analytics').getBoundingClientRect();
-    const booking = document.querySelector('#booking-summary').getBoundingClientRect();
-    const ranges = document.querySelector('.analytics-ranges');
+    const booking = document.querySelector('#booking-activity').getBoundingClientRect();
+    const ranges = document.querySelector('#website-analytics .chart-ranges');
+    const chartScroll = document.querySelector('#website-analytics .chart-scroll');
     return {
       analyticsTop: Math.round(analytics.top),
       bookingTop: Math.round(booking.top),
@@ -161,6 +171,7 @@ test('Mobile analytics and booking cards stack without page horizontal scroll', 
       scrollWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
       rangeScrollable: ranges.scrollWidth >= ranges.clientWidth,
+      chartInternalScroll: chartScroll.scrollWidth > chartScroll.clientWidth,
     };
   });
   expect(layout.analyticsTop).toBeLessThan(layout.bookingTop);
@@ -168,7 +179,8 @@ test('Mobile analytics and booking cards stack without page horizontal scroll', 
   expect(layout.bookingWidth).toBeGreaterThanOrEqual(360);
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.rangeScrollable).toBeTruthy();
-  await page.locator('#booking-summary [data-page="bookings"]').click();
+  expect(layout.chartInternalScroll).toBeTruthy();
+  await page.locator('#booking-activity [data-page="bookings"]').click();
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'bookings');
 });
 

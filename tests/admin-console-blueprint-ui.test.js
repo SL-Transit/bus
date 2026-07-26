@@ -70,7 +70,16 @@ assert.ok(!dashboardSource.includes('จำนวนครั้งเข้า�
 assert.ok(!dashboardSource.includes("businessKpi('↗'"), 'old visit count KPI renderer must be removed');
 assert.ok(!dashboardSource.includes("businessKpi('👥'"), 'old visitor KPI renderer must be removed');
 assert.ok(dashboardSource.includes('analyticsChart(visits)'), 'Dashboard must render one analytics chart card');
-assert.ok(dashboardSource.includes('bookingSummaryCard(bookings,bookingCount)'), 'Dashboard must render booking summary card');
+assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookingCount)'), 'Dashboard must render booking activity chart card');
+assert.ok(!dashboardSource.includes('bookingSummaryCard'), 'old booking number card must be removed');
+assert.ok(html.includes('chart-frame'), 'charts must keep a visible plot frame');
+assert.ok(html.includes('chart-axis-zero'), 'charts must keep a Y axis zero label');
+assert.ok(html.includes('chart-x-labels'), 'charts must render X axis labels');
+assert.ok(html.includes('สถิติการจอง ยกเลิก และคืนเงิน'), 'booking activity chart title missing');
+assert.ok(html.includes('จำนวนการจอง'), 'booking series legend missing');
+assert.ok(html.includes('ยกเลิก'), 'cancel series legend missing');
+assert.ok(html.includes('คืนเงิน'), 'refund series legend missing');
+assert.ok(html.includes('ยังไม่มีข้อมูลการจอง'), 'booking chart empty state missing');
 
 for (const range of ['รายชั่วโมง', 'รายวัน', 'รายสัปดาห์', 'รายเดือน', 'รายปี']) {
   assert.ok(html.includes(range), `missing analytics time range: ${range}`);
