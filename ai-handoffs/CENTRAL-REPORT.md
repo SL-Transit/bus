@@ -44,6 +44,44 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-26 00:00 +07 - Documentation and AI Coordination Agent - REVIEW
+
+Scope:
+- `ai-handoffs/MAIN-AI-DASHBOARD.md`
+- `ai-handoffs/START-HERE-FOR-ALL-AIS.md`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/COORDINATION-RULES.md`
+- `README.md`
+
+Summary:
+- Added highest-precedence Owner-approved Admin Console direction to the main AI dashboard.
+- Recorded Admin-first, Screen-01-only workflow; Screen 02 remains blocked.
+- Recorded counter-page architecture: Booking1, Passenger, Check Ticket, Driver App, and Cancel Ticket ask central services and must not recreate fares, schedules, booking, route, ETA, alert, GPS, refund, or payment rules locally.
+- Reconfirmed five separated ERP Centers: Data, Logic, Calculator, Alert/Notification, and Map Display. Logic and Calculator must not be merged.
+- Recorded Admin Console as the backoffice/control platform with Excel-style ERP editing, upload/export, validation, draft/review/publish, audit, rollback, permissions, and announcements.
+- Recorded GPS fallback at 70 km/h, ETA source labels, ETA-before-stop alert trigger, passenger LINE alerts, terminal/dispatcher alerts, no CCTV scope, RBAC target, versioning, and historical integrity.
+- Recorded reconciliation items: Operations count versus ERP vehicle records, and Owner target service fee THB 5 versus any current free-trial effective fee 0.
+
+Evidence:
+- Commit: pending in Draft PR branch.
+- Actions: not run yet.
+- Pages: not run yet.
+- Tests: Markdown/diff checks pending before PR.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+- Runtime code changed: none.
+- Deploy: none.
+- Merge: none.
+- Screen 02 started: no.
+
+Blockers:
+- None for documentation alignment. Runtime/Admin implementation remains separately gated by Owner review.
+
+Next action:
+- Open documentation-only Draft PR and stop; do not merge or start implementation.
+
 ## 2026-07-23 12:00 +07 (Asia/Bangkok) - Supervisor AI / Board Closure And Remaining Work Snapshot - DONE
 
 Scope:

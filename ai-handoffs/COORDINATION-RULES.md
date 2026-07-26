@@ -1,5 +1,12 @@
 # SL-Transit AI Coordination Rules
 
+
+## Latest Owner Decision Override
+
+All AIs must treat `ai-handoffs/MAIN-AI-DASHBOARD.md` section `2026-07-26 OWNER-APPROVED ADMIN CONSOLE DIRECTION` as the highest current precedence. If this file or any older report conflicts with that section, stop and follow the dashboard section.
+
+Current hard stops: Screen 02 must not start; consumer pages must not be edited for Admin Console Screen 01 work; documentation-only tasks must not deploy, merge, write Firebase, seed, or change runtime code.
+
 ## Goal
 Prevent duplicate work, overlapping edits, and hidden changes across multiple AI agents.
 

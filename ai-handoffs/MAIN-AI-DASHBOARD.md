@@ -1,6 +1,214 @@
-# SL-Transit Main AI Dashboard
+﻿# SL-Transit Main AI Dashboard
 
-Purpose: coordinate the main AI roles while ERP Data Center is completed as the blocking core of the SL-Transit travel network platform.
+## 2026-07-26 OWNER-APPROVED ADMIN CONSOLE DIRECTION
+## HIGHEST CURRENT PRECEDENCE
+
+Latest Owner Decision Overrides Conflicting Older Coordination Notes. This section is the latest Owner decision and overrides any older coordination note that conflicts with it. Older reports remain historical reference only.
+
+### Current priority and work order
+
+- Primary current goal: finish Admin Console Screen 01 Dashboard correctly before starting any other Admin screen.
+- Work one screen at a time: requirement -> technical specification -> repository/source inspection -> implementation -> tests -> Owner review -> approval -> next screen.
+- Do not start Screen 02 until Screen 01 is approved.
+- Do not edit Booking1, Passenger, Check Ticket, Driver App, or Cancel Ticket as part of Admin Console Screen 01 work. Those pages may be inspected only to understand data contracts.
+- Do not deploy, merge, write Firebase, seed data, or production-apply from this documentation task.
+
+Current status:
+
+- PR 18 has been merged into `main` as the Screen 01 Dashboard architecture foundation.
+- Dashboard Screen 01 foundation: PASS.
+- Dashboard production readiness: INCOMPLETE / NOT APPROVED.
+- Current active implementation area remains Dashboard Screen 01.
+- Screen 02: DO NOT START.
+
+### Architecture model
+
+Consumer pages are counter/service-desk pages. They ask the central system, receive prepared answers, and display them.
+
+Consumer pages must not:
+
+- set fares themselves;
+- create timetable rules themselves;
+- decide transfers themselves;
+- set seat counts themselves;
+- decide cancellation/refund rules themselves;
+- calculate settlement splits themselves;
+- create fake GPS or ETA;
+- use legacy data as current authority.
+
+Canonical flow:
+
+```text
+Admin ERP / Admin Console
+  -> Draft
+  -> Validate
+  -> Review
+  -> Approve
+  -> Publish
+  -> ERP Data Center / ERP Logic configuration
+  -> Derived published contracts
+  -> Booking1 / Passenger / Check Ticket / Driver App / Cancel Ticket
+```
+
+Consumer pages must not read from `admin-erp.html` directly. `admin-erp.html` is a control plane, not a database.
+
+### Five separated ERP Centers
+
+Keep these responsibilities separate. Do not merge Logic and Calculator.
+
+1. ERP Data Center owns source/master data: stops, coordinates, stop order, pickup points, terminals, route groups, routes, route sequences, timetables, queues, vehicles, drivers, fares, transfer points, seat counts, provider/payment ownership, service fee configuration, versions, and audit metadata.
+2. ERP Logic Center owns policy decisions: booking eligibility, stop open/closed decisions, route/transfer decisions, trip eligibility, refund/cancellation eligibility, notification requirement, terminal coordination requirement, protected/recommended connection decisions, and permission-sensitive rule outcomes.
+3. ERP Calculator Center owns numeric calculation only: ETA math, distance, remaining time, travel duration, fares, service fees, totals, wait time, transfer buffer, fallback estimates, and other computed numeric values.
+4. ERP Alert / Notification Center owns notification intent and delivery control: passenger LINE, terminal/dispatcher, driver, admin alerts, announcements, delivery status, retry, failure logs, once keys, and duplicate suppression.
+5. Map Display Center owns map-ready display state: OpenStreetMap presentation, stop markers, route polylines, vehicle markers, current positions, popup information, GPS source state, and approved map data shared by Passenger, Check Ticket, Driver, and Admin.
+
+### Admin Console direction
+
+The Admin Console is the SL-Transit backoffice/control platform. It is not only a dashboard and it is not the old admin form.
+
+It must eventually manage:
+
+- Dashboard
+- Today Operations
+- Bookings
+- Tickets and Refunds
+- Driver App Control
+- Live Vehicles
+- Alerts
+- Blackbox / Incident Center
+- ERP Data Management
+- Review and Publish
+- User Permissions
+- System Settings
+
+Admin Console editing must be Excel/workbook-style where practical: table editing, Excel upload/export, validation, draft saving, diff review, publish, version history, audit log, rollback, and role permissions.
+
+### Dashboard Screen 01 rules
+
+Screen 01 must use real read models/adapters and honest loading/empty/error/stale/unavailable states.
+
+Screen 01 is not complete merely because the visual shell exists. Production readiness remains incomplete until unresolved adapters and routing behavior are handled.
+
+Known unresolved Screen 01 areas include:
+
+- operations data meaning and permissions;
+- live vehicle runtime source;
+- payment/revenue source;
+- refund source;
+- incident/blackbox source;
+- consolidated system health source;
+- service-date and refresh behavior across all date-dependent data.
+
+### Operations, Blackbox, and Map rules
+
+- Today Operations must show real trips, queues, assignments, drivers, passenger counts, delays, and operational issues when approved sources exist.
+- Blackbox must show only real driver/runtime/system incident data. Never generate fictional incidents.
+- Never include CCTV in the central rules or Admin Console scope unless the Owner explicitly approves it later.
+- All operational maps must use real OpenStreetMap-based presentation and approved real data. No screenshot maps, random coordinates, fake vehicles, fake routes, fake GPS, or fake ETA.
+
+### GPS, ETA, and alert rules
+
+ETA source priority is locked:
+
+1. valid fresh GPS -> use real GPS;
+2. missing/stale/temporarily unavailable GPS -> fallback calculation at average speed 70 km/h;
+3. GPS returns -> immediately switch back to real GPS;
+4. insufficient inputs -> unavailable.
+
+Every ETA result must expose its source: `live_gps`, `fallback_average_speed`, or `unavailable`.
+
+Alert trigger model moves from a fixed 2.5 km radius to configurable ETA-before-stop minutes.
+
+Passenger LINE alert general rule:
+
+- booking exists;
+- passenger has connected/logged in with LINE as required;
+- assigned vehicle approaches the booked origin stop;
+- ETA <= configured X minutes;
+- once key confirms this alert was not already sent.
+
+Terminal/dispatcher alert general rule:
+
+- journey belongs to another route group or requires transfer coordination;
+- assigned vehicle approaches the relevant stop/transfer point;
+- ETA <= configured X minutes;
+- eligible terminal/dispatcher LINE target exists;
+- duplicate prevention allows sending.
+
+X-minute thresholds must be centrally configurable, preferably in the ERP workbook/Admin Console configuration.
+
+### Booking, fare, refund, settlement, and versioning
+
+- Booking and ticket history must retain the exact policy/version used at booking time.
+- Required booking snapshot references include `fareVersion`, `scheduleVersion`, `bookingPolicyVersion`, `refundPolicyVersion`, `serviceFeeVersion`, `connectionPolicyVersion`, and `publishedAt` where applicable.
+- Old bookings/tickets must not be rewritten when Admin changes prices, schedules, or rules later.
+- Protected/recommended connections must be explicit central policy results, not page guesses.
+- Current Owner-approved target platform service fee is THB 5 per booking.
+- Existing runtime/documentation that still shows a free-trial effective fee of THB 0 is a reconciliation item, not proof that the latest Owner target is 0.
+- Do not change runtime fees in this documentation task.
+- Settlement by transfer/cash and future accountant approval remain central policy/accounting workflows. Owner currently has full control; future roles must use RBAC and least privilege.
+
+### News and announcement rule
+
+Homepage news/announcements are public content for the index/home page, such as:
+
+- `homepage_banner`
+- `service_announcement`
+- `important_notice`
+
+Booking1 may show only directly relevant booking policy notices, cancellation/refund conditions, transfer/connection notices, important pre-payment messages, and links to full policies.
+
+General marketing/news content must not disrupt the booking flow.
+
+### Approved and forbidden sources
+
+Approved consumer sources:
+
+- `/publishedSchedule`
+- ERP Data Center
+- ERP Logic Center outputs
+- ERP Calculator Center outputs
+- ERP Alert / Notification Center outputs
+- Map Display Center outputs
+- approved runtime contracts
+
+Forbidden as current authority:
+
+- `routeData`
+- `publishedCatalog`
+- old `bus` data
+- old Firebase project `bus-booking-1d68c`
+- old `liveVehicles` paths that bypass approved runtime
+- hardcoded page-specific business data
+- screenshot/sample data
+- mock data
+- guessed fallback values
+
+If an approved source/adapter is not ready, show unavailable or report unresolved. Do not silently fall back to legacy authority.
+
+### Visual source rule
+
+Approved screenshots are UX/visual blueprints only. They are not data sources.
+
+Never:
+
+- embed screenshots as page images;
+- use full-page screenshots as CSS backgrounds;
+- use canvas/full-page SVG to fake an interface;
+- hardcode screenshot sample values;
+- invent names, GPS, revenue, bookings, vehicles, incidents, or chart values.
+
+### Pull-request evidence rule
+
+Every implementation PR must report scope, files, data sources, mappings, adapters, unresolved adapters, reused business logic, tests, browser screenshot/review artifact, visual differences, production-write confirmation, legacy-source confirmation, remaining work, and whether the next screen was started.
+
+For this documentation-only PR, no runtime tests are required, but Markdown/diff checks and safety scope verification are required.
+
+### Reconciliation items to keep visible
+
+- Current Operations UI count of 4 versus any additional ERP vehicle records must be reconciled before production-ready status.
+- Latest Owner target service fee THB 5 per booking versus any current free-trial effective fee of THB 0 must be reconciled before runtime fee changes.
+- Any older note saying Admin expansion should pause, Admin is not current priority, Screen 02 is approved, service fee 0 is the final owner rule, or four/five vehicle counts are forced UI truth is overridden by this section.
 
 ## 2026-07-23 Current Runtime Coordination Snapshot
 
@@ -31,8 +239,8 @@ Current approved preview source:
 - Preview metadata: `dryRun=true`, `writesEnabled=false`, `readyForApply=false`, `productionReady=false`, `publicationStatus=preview`
 - Review gate: `readyForReview=true`, `readyForApply=false`, blockers 0, warnings 0
 - Verified counts: `mapView.stops=15`, `visiblePairs=471`, `scheduleOfferTimes=820`
-- All 15 `mapView.stops` use the source icon `🚏`.
-- Coordinate spot checks: กม.1 = `13.572126, 101.450481`; กม.7 = `13.529181, 101.497615`; ห้วยโสม = `13.498219, 101.537783`.
+- All 15 `mapView.stops` use the source icon `๐`.
+- Coordinate spot checks: เธเธก.1 = `13.572126, 101.450481`; เธเธก.7 = `13.529181, 101.497615`; เธซเนเธงเธขเนเธชเธก = `13.498219, 101.537783`.
 - Safety verified: no GPS, ETA, live vehicle, vehicle assignment, driver, booking, ticket, payment, LINE, notification, or operations data in the preview payload
 
 ### Passenger Preview AI: approved next work
@@ -45,8 +253,8 @@ Required behavior:
 - Render only visible `pairs`.
 - Do not render `excludedPreviewPairs.transferInfeasible` as selectable journeys.
 - Treat feasible transfers as reference-only, not guaranteed and not booking-enabled.
-- Show estimated/pass-through times with badge `เวลาโดยประมาณ`.
-- Show estimated disclaimer: `เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง`.
+- Show estimated/pass-through times with badge `เน€เธงเธฅเธฒเนเธ”เธขเธเธฃเธฐเธกเธฒเธ“`.
+- Show estimated disclaimer: `เน€เธงเธฅเธฒเธเธฃเธฐเธกเธฒเธ“เธเธฒเธฃ เธญเธฒเธเน€เธเธฅเธตเนเธขเธเนเธเธฅเธเธ•เธฒเธกเธชเธ เธฒเธเธเธฒเธฃเน€เธ”เธดเธเธ—เธฒเธ`.
 - Render external/train rows as external reference only. Do not imply SL-Transit fare collection or operational guarantee.
 - If a pair is missing, show unavailable/no-route message. Do not invent route, time, transfer, fare, queue, vehicle, GPS, or ETA.
 - Passenger remains display-only. It must not calculate route, transfer feasibility, fare, queue assignment, booking eligibility, GPS, ETA, LINE, or payment rules locally.
@@ -193,7 +401,7 @@ Shared approved ERP Data Center contract:
 - via_chachoengsao fares: 322
 - external_pay fares: 165
 - primary stops: chachoengsao, sanamchaikhet, khlonghat
-- canonical stop corrections: huaisom display is `ห้วยโสม`; `nongkhok` is not permanently pass-through-only
+- canonical stop corrections: huaisom display is `เธซเนเธงเธขเนเธชเธก`; `nongkhok` is not permanently pass-through-only
 - group_005/train: external_pay; passenger pays outside SL-Transit; SL-Transit collects no train fare
 - canonical destination keys: system-managed and stable
 - seed/import target root: data/erpDataCenter/*
@@ -202,7 +410,7 @@ Shared approved ERP Data Center contract:
 
 ## Owner-Approved Platform Vision And Current Priority
 
-- ERP Data Center is the blocking heart of the project. Pause Admin expansion and Booking/Passenger/Check Ticket/Driver/Payment/LINE implementation until the ERP Data Center Phase 1 contract and dry-run snapshot pass owner review and QA.
+- Historical superseded note: ERP Data Center was previously treated as the blocking heart of the project, with Admin expansion and consumer-page implementation paused until ERP Data Center Phase 1 passed owner review and QA. The 2026-07-26 Owner-approved Admin Console direction above now controls current priority.
 - The network behaves like an interconnected web: a passenger starts near home, travels to a city terminal or transfer node, and may continue through other vehicle, van, bus, or train services.
 - A location may participate in multiple service groups, routes, terminals, boarding points, and transfers.
 - Phase capability is configurable. A node that is origin-disabled now is not permanently destination-only.
@@ -248,21 +456,21 @@ Shared approved ERP Data Center contract:
 - Base/outbound direction: `g01p001` -> `g01p015`.
 - Return direction: `g01p015` -> `g01p001`.
 - Mapping:
-  1. `g01p001` ฉะเชิงเทรา
-  2. `g01p002` พนมสารคาม
-  3. `g01p003` สนามชัยเขต
-  4. `g01p004` กม.1
-  5. `g01p005` กม.7
-  6. `g01p006` ห้วยโสม
-  7. `g01p007` ท่าตะเกียบ
-  8. `g01p008` หนองคอก
-  9. `g01p009` คลองตะเคียน
-  10. `g01p010` หนองเรือ
-  11. `g01p011` ไพรจิต
-  12. `g01p012` ทุ่งกบินทร์
-  13. `g01p013` สี่แยกโคนม
-  14. `g01p014` วังน้ำเย็น
-  15. `g01p015` คลองหาด
+  1. `g01p001` เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ
+  2. `g01p002` เธเธเธกเธชเธฒเธฃเธเธฒเธก
+  3. `g01p003` เธชเธเธฒเธกเธเธฑเธขเน€เธเธ•
+  4. `g01p004` เธเธก.1
+  5. `g01p005` เธเธก.7
+  6. `g01p006` เธซเนเธงเธขเนเธชเธก
+  7. `g01p007` เธ—เนเธฒเธ•เธฐเน€เธเธตเธขเธ
+  8. `g01p008` เธซเธเธญเธเธเธญเธ
+  9. `g01p009` เธเธฅเธญเธเธ•เธฐเน€เธเธตเธขเธ
+  10. `g01p010` เธซเธเธญเธเน€เธฃเธทเธญ
+  11. `g01p011` เนเธเธฃเธเธดเธ•
+  12. `g01p012` เธ—เธธเนเธเธเธเธดเธเธ—เธฃเน
+  13. `g01p013` เธชเธตเนเนเธขเธเนเธเธเธก
+  14. `g01p014` เธงเธฑเธเธเนเธณเน€เธขเนเธ
+  15. `g01p015` เธเธฅเธญเธเธซเธฒเธ”
 - `nodeId` and `groupStopId` remain internally stable. Code/order changes require a new sequence version and version-scoped historical aliases.
 - Trips and tickets must retain the exact sequence version they used. Never rewrite historical sequence references.
 - A stop's origin/intermediate/destination role is trip-specific, not a permanent node classification.
@@ -272,11 +480,11 @@ Shared approved ERP Data Center contract:
 - Vehicle identity and queue/work schedule are separate.
 - Vehicles are analogous to employees; queues are work schedules; queue trips are the work performed during that schedule.
 - `veh_001` through `veh_004` rotate across `queue_001` through `queue_004` through an effective-dated rotation rule.
-- `veh_005` is fixed to `queue_005`, does not join the rotation, begins its workday at `g01p008` หนองคอก, and ends its workday at the same stop.
+- `veh_005` is fixed to `queue_005`, does not join the rotation, begins its workday at `g01p008` เธซเธเธญเธเธเธญเธ, and ends its workday at the same stop.
 - Owner-approved queue_005 schedule runs every day with no regular day off:
-  - 06:20 หนองคอก -> 06:35 ท่าตะเกียบ -> 07:20 สนามชัยเขต -> 07:40 พนมสารคาม -> 08:20 ฉะเชิงเทรา
-  - 17:20 ฉะเชิงเทรา -> 18:00 พนมสารคาม -> 18:20 สนามชัยเขต -> 18:50 ท่าตะเกียบ -> 19:05 หนองคอก
-- The 08:20 and 19:05 arrivals are owner-approved from matching reference durations: หนองคอก -> ฉะเชิงเทรา 120 minutes and ฉะเชิงเทรา -> หนองคอก 105 minutes.
+  - 06:20 เธซเธเธญเธเธเธญเธ -> 06:35 เธ—เนเธฒเธ•เธฐเน€เธเธตเธขเธ -> 07:20 เธชเธเธฒเธกเธเธฑเธขเน€เธเธ• -> 07:40 เธเธเธกเธชเธฒเธฃเธเธฒเธก -> 08:20 เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ
+  - 17:20 เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ -> 18:00 เธเธเธกเธชเธฒเธฃเธเธฒเธก -> 18:20 เธชเธเธฒเธกเธเธฑเธขเน€เธเธ• -> 18:50 เธ—เนเธฒเธ•เธฐเน€เธเธตเธขเธ -> 19:05 เธซเธเธญเธเธเธญเธ
+- The 08:20 and 19:05 arrivals are owner-approved from matching reference durations: เธซเธเธญเธเธเธญเธ -> เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ 120 minutes and เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ -> เธซเธเธญเธเธเธญเธ 105 minutes.
 - `veh_005` has an assignment and is not schedule-only merely because it lacks GPS.
 - Queue_005 booking/assignment state is `assignmentMode=fixed`, `scheduleOnly=false`, and `liveTrackingAvailable=false`.
 - `veh_005.liveTrackingAvailable=false` until real live data exists. Never create fake GPS or ETA.
@@ -318,7 +526,7 @@ Shared approved ERP Data Center contract:
 - For the 14 active queueTrips and 94 stopTimes, expect 14 origin departures and treat the remaining intermediate/destination times as estimates; Data Import must verify the exact role counts rather than assume every stopTime is equally authoritative.
 - The 73 group_001 offers previously classified as `needs_review/missing_stop_time` are owner-created estimated timetable offers, not missing data. Reclassify them under estimated timetable semantics using the actual queue-origin boundary.
 - An estimated offer may be used for journey planning/reference, but must not claim an exact pickup time, queueTrip, vehicle, assignment, GPS, live tracking, or ETA unless separately evidence-mapped.
-- Passenger-facing surfaces must label estimated timetable values clearly, for example: `เวลาประมาณการ อาจเปลี่ยนแปลงตามสภาพการเดินทาง`.
+- Passenger-facing surfaces must label estimated timetable values clearly, for example: `เน€เธงเธฅเธฒเธเธฃเธฐเธกเธฒเธ“เธเธฒเธฃ เธญเธฒเธเน€เธเธฅเธตเนเธขเธเนเธเธฅเธเธ•เธฒเธกเธชเธ เธฒเธเธเธฒเธฃเน€เธ”เธดเธเธ—เธฒเธ`.
 - Preserve the planned timetable even when a live ETA is available; do not overwrite scheduled/estimated source data with runtime predictions.
 - For intermediate-stop pickup, the platform should focus on the real vehicle position and approaching-stop ETA when available; the rough pass-through time remains reference data only.
 
@@ -337,13 +545,13 @@ Shared approved ERP Data Center contract:
 - Proven active routes: 244. Keep `ROUTE-MAIN-211` through `ROUTE-MAIN-221` review-only and excluded from active Phase 1 data.
 - Proven unique stopTimes before queue_005 correction: 84 from 120 raw rows after 36 corroborating duplicates were removed.
 - Owner-approved queue_005 adds 10 unique stopTimes with no overlap, producing 94 active Phase 1 stopTimes.
-- `km_1` 15:10, `km_7` 15:15, `huaisom`/ห้วยโสม 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
+- `km_1` 15:10, `km_7` 15:15, `huaisom`/เธซเนเธงเธขเนเธชเธก 15:20, and `tatakiab` 15:30 belong to `TRIP-ROUTE-MAIN-021-1400`.
 - Older local Round 2 preview descriptions must not be used for current Firebase status. The current `preview/publishedSchedule` read-back source is `31ace5fa559706668e5ff0814ef8f5a511be78e9`, with `readyForReview=true`, blockers 0, warnings 0, and `readyForApply=false`; Firebase seed/production apply is not approved.
 - Fleet Queue Audit established that queue_001-queue_004 rotate veh_001-veh_004 and queue_005 is fixed to veh_005.
 - Owner-approved normalized Round 2 counts: vehicles 5, queues 5, queue schedule versions 5, active queue trips 14, assignment rules 2, unique routeSequenceVersions 6, trip-to-sequence assignments 14, unique stopTimes 94, and retained raw lineage containers 26.
-- The six active sequence versions are: สนามชัยเขต -> ฉะเชิงเทรา, ฉะเชิงเทรา -> คลองหาด, คลองหาด -> ฉะเชิงเทรา, ฉะเชิงเทรา -> สนามชัยเขต, หนองคอก -> ฉะเชิงเทรา, and ฉะเชิงเทรา -> หนองคอก.
+- The six active sequence versions are: เธชเธเธฒเธกเธเธฑเธขเน€เธเธ• -> เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ, เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ -> เธเธฅเธญเธเธซเธฒเธ”, เธเธฅเธญเธเธซเธฒเธ” -> เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ, เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ -> เธชเธเธฒเธกเธเธฑเธขเน€เธเธ•, เธซเธเธญเธเธเธญเธ -> เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ, and เธเธฐเน€เธเธดเธเน€เธ—เธฃเธฒ -> เธซเธเธญเธเธเธญเธ.
 - Queue_002 08:00 raw order is not authoritative. Use the approved reverse corridor order and chronological times; preserve the malformed raw ordering only as source-conflict evidence.
-- The legacy singleton rows at กม.1 15:10, กม.7 15:15, ห้วยโสม 15:20, and ท่าตะเกียบ 15:30 are intermediate evidence for the queue_003 14:00 trip, not separate queue_004/005/006 trips.
+- The legacy singleton rows at เธเธก.1 15:10, เธเธก.7 15:15, เธซเนเธงเธขเนเธชเธก 15:20, and เธ—เนเธฒเธ•เธฐเน€เธเธตเธขเธ 15:30 are intermediate evidence for the queue_003 14:00 trip, not separate queue_004/005/006 trips.
 - `readyForReview=true` may describe an internally valid dry-run only. It is not production approval.
 - `readyForApply=false` remains a hard stop.
 

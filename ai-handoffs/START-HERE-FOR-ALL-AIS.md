@@ -3,6 +3,15 @@
 ## Command
 Read this file first, then read the coordination files, then read your role-specific handoff file in `ai-handoffs/`.
 
+
+## Highest Current Precedence
+
+Before using older handoff notes, every AI must read `ai-handoffs/MAIN-AI-DASHBOARD.md` section:
+
+`2026-07-26 OWNER-APPROVED ADMIN CONSOLE DIRECTION`
+
+That section is the latest Owner decision and overrides conflicting older coordination notes. Do not start Screen 02, do not edit consumer pages, and do not merge/deploy from documentation-only work unless a later Owner instruction explicitly changes that.
+
 ## Repository
 https://github.com/SL-Transit/bus/tree/main
 
