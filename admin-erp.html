@@ -269,11 +269,11 @@
       '</div>'+
       '<div class="dashboard-grid">'+
       '<section class="panel wide" id="money-overview"><div class="ph">ภาพรวมการรับเงินและรายได้</div><div class="body"><div class="money-grid">'+
-      moneyCard('ยอดรับจากผู้โดยสาร',passengerGross,revenue,'ยอดที่ผู้โดยสารชำระจริงเมื่อ contract พร้อม')+
+      moneyCard('ยอดรับจากผู้โดยสาร',passengerGross,revenue,'ยอดที่ผู้โดยสารชำระจริงเมื่อข้อมูลพร้อม')+
       moneyCard('ค่าโดยสารของผู้ให้บริการ',providerFare,revenue,'เงินส่วนรถ/คนขับ/คิว ไม่ใช่รายได้แพลตฟอร์ม')+
       moneyCard('รายได้ค่าบริการแพลตฟอร์ม',platformFee,revenue,'แยกจากค่าโดยสารทุกช่วงเดินทาง')+
       moneyCard('เงินคืนผู้โดยสาร',refundAmount,refunds,'ต้องแยก fare refund และ service fee refund')+
-      '</div><div class="data-state" style="margin-top:10px">Dashboard รอบนี้ไม่วาดกราฟรายได้ เพราะยังไม่มี time-series revenue contract ที่ยืนยันแล้ว</div></div></section>'+
+      '</div><div class="data-state" style="margin-top:10px">Dashboard รอบนี้ไม่วาดกราฟรายได้ เพราะยังไม่มีข้อมูลรายได้แบบรายช่วงเวลา</div></div></section>'+
       '<section class="panel wide" id="vehicle-settlements"><div class="ph">ยอดของรถและคนขับ</div><div class="body">'+settlementTable('vehicle',vehicleSettlements.rows,vehicleSettlements)+'</div></section>'+
       '<section class="panel wide" id="queue-settlements"><div class="ph">ยอดของคิวรถและผู้ให้บริการช่วงต่อ</div><div class="body">'+settlementTable('queue',queueSettlements.rows,queueSettlements)+'</div></section>'+
       '<section class="panel wide" id="refunds-section"><div class="ph">รายการคืนเงินล่าสุด</div><div class="body">'+refundTable(refunds)+'</div></section>'+
