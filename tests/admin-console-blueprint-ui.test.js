@@ -3,7 +3,13 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
-const dashboardSource = html.slice(html.lastIndexOf('function dashboard()'));
+const dashboardMatches = html.match(/function dashboard\(\)/g) || [];
+assert.strictEqual(dashboardMatches.length, 1, 'admin-erp.html must contain exactly one function dashboard()');
+
+const dashboardStart = html.indexOf('function dashboard()');
+const dashboardEnd = html.indexOf('function flowStatus()', dashboardStart);
+assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart, 'Dashboard renderer boundaries must be explicit');
+const dashboardSource = html.slice(dashboardStart, dashboardEnd);
 
 for (const label of [
   'แดชบอร์ด',
@@ -54,6 +60,16 @@ for (const forbidden of [
 ]) {
   assert.ok(!dashboardSource.includes(forbidden), `Dashboard must not include operations widget: ${forbidden}`);
 }
+
+assert.ok(!html.includes('function initOperationsMap'), 'Screen 01 branch must not keep initOperationsMap dead code');
+assert.ok(!html.includes('id="operationsMap"'), 'Dashboard must not render operationsMap');
+assert.ok(!html.includes('https://unpkg.com/leaflet'), 'Leaflet import must not exist in business Dashboard UX');
+assert.ok(!html.includes('function dashboardLegacyDisabled'), 'legacy dashboard helper must be removed');
+assert.ok(!html.includes('function opsKpiValue'), 'old running-vehicle KPI helper must be removed');
+assert.ok(!html.includes('function opsKpiNote'), 'old running-vehicle note helper must be removed');
+assert.ok(!html.includes('function opsPanelState'), 'old operations panel helper must be removed');
+assert.ok(!html.includes('function gpsPanelState'), 'old GPS panel helper must be removed');
+assert.ok(!html.includes('function donutStyle'), 'old decorative chart helper must be removed');
 
 for (const forbiddenValue of ['4,238', '1,285,450', '1,250', '15,000', '+12%', '1000018505']) {
   assert.ok(!html.includes(forbiddenValue), `mock/screenshot value must not be hardcoded: ${forbiddenValue}`);
