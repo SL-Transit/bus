@@ -11,22 +11,41 @@ const dashboardEnd = html.indexOf('function flowStatus()', dashboardStart);
 assert.ok(dashboardStart >= 0 && dashboardEnd > dashboardStart, 'Dashboard renderer boundaries must be explicit');
 const dashboardSource = html.slice(dashboardStart, dashboardEnd);
 
-for (const label of [
-  'แดชบอร์ด',
-  'ปฏิบัติการวันนี้',
-  'การจอง',
-  'ตั๋วและคืนเงิน',
-  'ควบคุมแอปคนขับ',
-  'รถที่กำลังวิ่ง',
-  'แจ้งเตือน',
-  'กล่องดำระบบ',
-  'จัดการข้อมูล ERP',
-  'ตรวจสอบและเผยแพร่',
-  'สิทธิ์ผู้ใช้งาน',
-  'ตั้งค่าระบบ',
-]) {
-  assert.ok(html.includes(label), `missing preserved sidebar label: ${label}`);
+const navPages = Array.from(html.matchAll(/<button[^>]+data-page="([^"]+)"/g)).map((match) => match[1]);
+assert.deepStrictEqual(navPages, [
+  'dashboard',
+  'today',
+  'bookings',
+  'tickets-refunds',
+  'alerts',
+  'workbook',
+  'announcements',
+  'roles',
+  'settings',
+], 'Sidebar must contain exactly the approved 9 primary menu items');
+
+for (const forbiddenPage of ['driver-control', 'running-vehicles', 'blackbox', 'publish']) {
+  assert.ok(!navPages.includes(forbiddenPage), `old primary menu must be removed: ${forbiddenPage}`);
 }
+
+for (const requiredShell of [
+  'class="side"',
+  'id="adminSidebar"',
+  'class="drawer-overlay"',
+  'id="toggleSidebar"',
+  'class="brand-lockup"',
+  'class="nav-ico"',
+  'body.nav-collapsed',
+  'body.nav-open',
+  'setMobileDrawer',
+  'toggleNavigation',
+  "ev.key==='Escape'",
+]) {
+  assert.ok(html.includes(requiredShell), `missing navigation shell behavior: ${requiredShell}`);
+}
+
+assert.ok(!html.includes('focusSearch'), 'hamburger must not be wired as search focus');
+assert.ok(!html.includes('nav{display:flex;gap:6px;overflow-x:auto'), 'mobile must not use horizontal main menu');
 
 for (const label of [
   'จำนวนครั้งเข้าเว็บไซต์',
