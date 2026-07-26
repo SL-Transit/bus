@@ -282,6 +282,7 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     ensureUi();
+    if (document.body && document.body.getAttribute('data-admin-screen') === 'dashboard-screen01') return;
     clearDraft();
     renderMasterRecords();
     validateDraft();
