@@ -28,6 +28,12 @@ This report documents technical evidence found in the repository. Owner confirma
 
 Operational state and telemetry state are separate.
 
+Availability is also separate:
+
+- `fleet.operational.status`, `fleet.operational.activeServiceCount`, and `fleet.operational.error` come from `operations/driverWorkByServiceDate/{serviceDate}`.
+- `fleet.telemetry.status`, `fleet.telemetry.vehicles`, and `fleet.telemetry.error` come from `operations/liveVehicles`.
+- A failure in one source must not discard valid data from the other source.
+
 Operational state:
 
 - `active_service`: `driver_work_v1` contract has `status: assigned` and a real `currentTrip` object.
@@ -44,6 +50,13 @@ Telemetry state:
 The KPI "รถที่กำลังวิ่ง" uses `active_service` count only. It does not use total `operations/liveVehicles` records.
 
 Unsupported generic status strings such as `ready`, `active`, or `running` are not enough to mark active service unless the confirmed `driver_work_v1` shape proves current service with `status: assigned` and `currentTrip`.
+
+Partial fleet behavior:
+
+- Driver Work readable + Live Vehicles unavailable/error: preserve `active_service` count, show operational data, mark telemetry unavailable/error, and do not create map positions.
+- Live Vehicles readable + Driver Work unavailable/error: preserve real GPS markers, mark operational state as `unknown`, and make the active-service KPI unavailable/error. GPS alone never means running.
+- Both readable: combine by union of vehicle IDs.
+- Both empty: use read-empty behavior.
 
 ## GPS Freshness
 
@@ -73,6 +86,7 @@ Unresolved future option:
 Top-level model states:
 
 - `unavailable`: every read source is unavailable, usually missing Firebase/config/adapter.
+- `unavailable_partial`: some sources read successfully while other required sources are not connected.
 - `error`: every available read failed or only error/unavailable states are present.
 - `error_partial`: at least one source failed while at least one other source is readable.
 - `proposed_partial`: at least one proposed source is readable and no read source failed.
@@ -84,11 +98,13 @@ Connection-status panel behavior:
 - `error`: `อ่านข้อมูลไม่ได้`
 - `empty`: `ไม่มีข้อมูล`
 - `proposed`: `เชื่อมต่อบางส่วน`
+- `unavailable_partial`: valid partial data is preserved, while unavailable parts remain clearly marked.
 
 Activity model:
 
 - Activities are normalized as `{ status, items, errors, sources }`.
 - Notification/Audit read failures are shown as `อ่านข้อมูลไม่ได้`, not as an empty-activity message.
+- Activity `empty + unavailable` and `proposed + unavailable` are `unavailable_partial`, not `empty`.
 
 ## Legacy Source Rejected
 

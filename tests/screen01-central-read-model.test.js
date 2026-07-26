@@ -97,11 +97,77 @@ assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId ===
 assert.strictEqual(driverWorkV1.fleet.vehicles.find((item) => item.vehicleId === 'readyOnly').operationalState, 'unknown', 'generic ready status without currentTrip is not active service');
 assert.strictEqual(driverWorkV1.fleet.activeServiceCount, 1);
 
+const activeWorkOnly = {
+  workA: { contractVersion: 'driver_work_v1', vehicleId: 'workA', status: 'assigned', currentTrip: { queueTripId: 'qtA' } },
+  workB: { contractVersion: 'driver_work_v1', vehicleId: 'workB', status: 'assigned', nextTrip: { queueTripId: 'qtB' } },
+};
+const liveOnly = {
+  gpsA: { vehicleId: 'gpsA', lat: 13.1, lng: 101.1, gpsTimestamp: NOW },
+  gpsB: { vehicleId: 'gpsB', lat: 13.2, lng: 101.2, gpsTimestamp: NOW - 900_000 },
+};
+const liveUnavailable = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'unavailable', path: 'operations/liveVehicles', value: {} },
+    driverWork: { status: 'proposed', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: activeWorkOnly },
+    notificationEvents: { status: 'empty', path: 'operations/notificationEvents', value: {} },
+    erpAudit: { status: 'empty', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW });
+assert.strictEqual(liveUnavailable.fleet.operational.status, 'proposed', 'driver work remains usable when live GPS is unavailable');
+assert.strictEqual(liveUnavailable.fleet.operational.activeServiceCount, 1);
+assert.strictEqual(liveUnavailable.fleet.telemetry.status, 'unavailable');
+assert.strictEqual(liveUnavailable.fleet.telemetry.vehicles.length, 0, 'no fake map positions when live GPS is unavailable');
+assert.strictEqual(liveUnavailable.fleet.status, 'unavailable_partial');
+
+const liveError = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'error', path: 'operations/liveVehicles', value: {}, error: 'gps denied' },
+    driverWork: { status: 'proposed', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: activeWorkOnly },
+    notificationEvents: { status: 'empty', path: 'operations/notificationEvents', value: {} },
+    erpAudit: { status: 'empty', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW });
+assert.strictEqual(liveError.fleet.operational.activeServiceCount, 1, 'driver work count survives live GPS error');
+assert.strictEqual(liveError.fleet.telemetry.status, 'error');
+assert.strictEqual(liveError.fleet.status, 'error_partial');
+
+const workUnavailable = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'proposed', path: 'operations/liveVehicles', value: liveOnly },
+    driverWork: { status: 'unavailable', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: {} },
+    notificationEvents: { status: 'empty', path: 'operations/notificationEvents', value: {} },
+    erpAudit: { status: 'empty', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW, gpsStaleMs: GPS_STALE_MS });
+assert.strictEqual(workUnavailable.fleet.telemetry.status, 'proposed', 'live GPS remains usable when driver work unavailable');
+assert.strictEqual(workUnavailable.fleet.telemetry.vehicles.length, 2, 'real GPS markers are preserved');
+assert.strictEqual(workUnavailable.fleet.operational.status, 'unavailable');
+assert.strictEqual(workUnavailable.fleet.operational.activeServiceCount, null, 'active-service KPI must be unavailable without driver work');
+assert.strictEqual(workUnavailable.fleet.operational.unknown, 2, 'GPS alone does not infer running');
+assert.strictEqual(workUnavailable.fleet.status, 'unavailable_partial');
+
+const workError = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'proposed', path: 'operations/liveVehicles', value: liveOnly },
+    driverWork: { status: 'error', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: {}, error: 'work denied' },
+    notificationEvents: { status: 'empty', path: 'operations/notificationEvents', value: {} },
+    erpAudit: { status: 'empty', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW, gpsStaleMs: GPS_STALE_MS });
+assert.strictEqual(workError.fleet.telemetry.vehicles.length, 2, 'real GPS markers survive driver work read error');
+assert.strictEqual(workError.fleet.operational.status, 'error');
+assert.strictEqual(workError.fleet.operational.activeServiceCount, null);
+assert.strictEqual(workError.fleet.status, 'error_partial');
+
 const confirmedFixture = model.build(raw, { serviceDate: SERVICE_DATE, nowMs: NOW, gpsStaleMs: GPS_STALE_MS, paymentContract, refundContract });
 assert.strictEqual(confirmedFixture.revenue.amount, 230, 'paid revenue excludes unpaid, cancelled, completed refund, missing amount, and subtracts partial refund by contract');
 assert.strictEqual(confirmedFixture.refunds.count, 1, 'only pending refund status is counted');
 
-const empty = model.build({ bookings: {}, liveVehicles: {}, driverWork: {} }, { serviceDate: SERVICE_DATE, nowMs: NOW });
+const empty = model.build({ bookings: {}, liveVehicles: {}, driverWork: {}, notificationEvents: {}, erpAudit: {} }, { serviceDate: SERVICE_DATE, nowMs: NOW });
 assert.strictEqual(empty.bookings.status, 'empty', 'confirmed empty source must be distinct from read error');
 assert.strictEqual(empty.bookings.contractStatus, 'proposed', 'empty proposed source must preserve proposed contract status');
 assert.strictEqual(empty.bookings.count, 0);
@@ -109,6 +175,40 @@ assert.strictEqual(empty.fleet.status, 'empty');
 assert.strictEqual(empty.health.Booking, 'ไม่มีข้อมูล');
 assert.strictEqual(empty.health.GPS, 'ไม่มีข้อมูล');
 assert.strictEqual(empty.status, 'empty');
+
+const emptyPlusUnavailable = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'empty', path: 'operations/liveVehicles', value: {} },
+    driverWork: { status: 'unavailable', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: {} },
+    notificationEvents: { status: 'empty', path: 'operations/notificationEvents', value: {} },
+    erpAudit: { status: 'empty', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW });
+assert.strictEqual(emptyPlusUnavailable.status, 'unavailable_partial', 'top-level empty + unavailable must not become empty');
+
+const activityEmptyUnavailable = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'empty', path: 'operations/liveVehicles', value: {} },
+    driverWork: { status: 'empty', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: {} },
+    notificationEvents: { status: 'empty', path: 'operations/notificationEvents', value: {} },
+    erpAudit: { status: 'unavailable', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW });
+assert.strictEqual(activityEmptyUnavailable.activities.status, 'unavailable_partial', 'activity empty + unavailable must be unavailable_partial');
+
+const activityProposedUnavailable = model.build({
+  sources: {
+    bookings: { status: 'empty', path: 'operations/bookings', value: {} },
+    liveVehicles: { status: 'empty', path: 'operations/liveVehicles', value: {} },
+    driverWork: { status: 'empty', path: `operations/driverWorkByServiceDate/${SERVICE_DATE}`, value: {} },
+    notificationEvents: { status: 'proposed', path: 'operations/notificationEvents', value: { ev1: { message: 'review event', at: NOW } } },
+    erpAudit: { status: 'unavailable', path: 'data/erpDataCenter/meta/audit', value: {} },
+  },
+}, { serviceDate: SERVICE_DATE, nowMs: NOW });
+assert.strictEqual(activityProposedUnavailable.activities.status, 'unavailable_partial', 'activity proposed + unavailable must be unavailable_partial');
+assert.strictEqual(activityProposedUnavailable.activities.items.length, 1, 'readable activity items must be preserved');
 
 const unavailable = model.build({ sources: {} }, { serviceDate: SERVICE_DATE, nowMs: NOW });
 assert.strictEqual(unavailable.bookings.status, 'unavailable', 'missing Firebase/config/adapter returns unavailable, not empty');

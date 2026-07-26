@@ -177,19 +177,16 @@
   }
   function normalizeFleet(liveSource, workSource, options) {
     options = options || {};
-    if (!liveSource || liveSource.status === 'unavailable' || !workSource || workSource.status === 'unavailable') {
-      return emptyFleet('unavailable', null, liveSource, workSource, options);
-    }
-    if (liveSource.status === 'error' || workSource.status === 'error') {
-      return emptyFleet('error', sourceError(liveSource) || sourceError(workSource), liveSource, workSource, options);
-    }
-
     var nowMs = options.nowMs || Date.now();
     var gpsStaleMs = Number(options.gpsStaleMs);
     var gpsFreshness = options.gpsFreshness || {};
     var threshold = Number.isFinite(gpsStaleMs) ? gpsStaleMs : DEFAULT_GPS_STALE_MS;
     var thresholdStatus = gpsFreshness.confirmed === true ? 'confirmed' : 'proposed';
     var liveByVehicle = {}, workByVehicle = {}, ids = {};
+    var operationalStatus = fleetPartStatus(workSource);
+    var telemetryStatus = fleetPartStatus(liveSource);
+    var operationalError = sourceError(workSource);
+    var telemetryError = sourceError(liveSource);
 
     sourceItems(liveSource).forEach(function(live) {
       var id = vehicleIdOf(live);
@@ -209,8 +206,8 @@
       var work = workByVehicle[id] || {};
       var point = pointOf(live);
       var gpsAt = stampMs(firstField(live, SOURCE_CONTRACTS.vehicleRuntime.timestampFields));
-      var telemetryState = !point ? 'missing_gps' : (!gpsAt || (nowMs - gpsAt) > threshold ? 'stale_gps' : 'live_gps');
-      var operationalState = workByVehicle[id] ? driverWorkOperationalState(work) : 'unknown';
+      var telemetryState = telemetryStatus === 'error' || telemetryStatus === 'unavailable' ? 'missing_gps' : (!point ? 'missing_gps' : (!gpsAt || (nowMs - gpsAt) > threshold ? 'stale_gps' : 'live_gps'));
+      var operationalState = operationalStatus === 'error' || operationalStatus === 'unavailable' ? 'unknown' : (workByVehicle[id] ? driverWorkOperationalState(work) : 'unknown');
       return {
         vehicleId: id,
         point: point,
@@ -228,23 +225,44 @@
     var telemetry = { live_gps: 0, stale_gps: 0, missing_gps: 0 };
     vehicles.forEach(function(vehicle) {
       operational[vehicle.operationalState] = (operational[vehicle.operationalState] || 0) + 1;
-      telemetry[vehicle.telemetryState] = (telemetry[vehicle.telemetryState] || 0) + 1;
+      if (telemetryStatus !== 'error' && telemetryStatus !== 'unavailable') telemetry[vehicle.telemetryState] = (telemetry[vehicle.telemetryState] || 0) + 1;
     });
+    operational.status = operationalStatus;
+    operational.activeServiceCount = operationalStatus === 'error' || operationalStatus === 'unavailable' ? null : (operational.active_service || 0);
+    operational.error = operationalError;
+    telemetry.status = telemetryStatus;
+    telemetry.vehicles = vehicles.filter(function(vehicle) { return !!vehicle.point; });
+    telemetry.error = telemetryError;
     return {
-      status: vehicles.length ? 'proposed' : 'empty',
+      status: combinePairStatus(operationalStatus, telemetryStatus),
       contractStatus: 'proposed',
       vehicles: vehicles,
       byStatus: Object.assign({}, operational, telemetry),
       operational: operational,
       telemetry: telemetry,
-      activeServiceCount: operational.active_service || 0,
-      runningCount: operational.active_service || 0,
+      activeServiceCount: operational.activeServiceCount,
+      runningCount: operational.activeServiceCount,
+      error: operationalError || telemetryError || null,
       gpsFreshness: {
         status: thresholdStatus,
         thresholdMs: threshold,
         source: gpsFreshness.source || (thresholdStatus === 'confirmed' ? 'runtime contract' : 'temporary proposed default')
       }
     };
+  }
+  function fleetPartStatus(sourceModel) {
+    if (!sourceModel || sourceModel.status === 'unavailable') return 'unavailable';
+    if (sourceModel.status === 'error') return 'error';
+    if (sourceModel.status === 'empty') return 'empty';
+    return 'proposed';
+  }
+  function combinePairStatus(a, b) {
+    if (a === 'error' && b === 'error') return 'error';
+    if (a === 'error' || b === 'error') return 'error_partial';
+    if (a === 'unavailable' && b === 'unavailable') return 'unavailable';
+    if (a === 'unavailable' || b === 'unavailable') return 'unavailable_partial';
+    if (a === 'empty' && b === 'empty') return 'empty';
+    return 'proposed';
   }
   function emptyFleet(status, error, liveSource, workSource, options) {
     var threshold = Number.isFinite(Number(options && options.gpsStaleMs)) ? Number(options.gpsStaleMs) : DEFAULT_GPS_STALE_MS;
@@ -279,6 +297,7 @@
     if (errors.length && items.length) status = 'error_partial';
     else if (errors.length) status = 'error';
     else if (sourceList.every(function(item) { return item.status === 'unavailable'; })) status = 'unavailable';
+    else if (sourceList.some(function(item) { return item.status === 'unavailable'; })) status = 'unavailable_partial';
     else if (items.length) status = 'proposed';
     else if (sourceList.every(function(item) { return item.status === 'empty'; })) status = 'empty';
     else if (sourceList.some(function(item) { return item.status === 'proposed'; })) status = 'proposed';
@@ -295,7 +314,7 @@
   function healthFromSources(sources) {
     var gps;
     if (sources.liveVehicles.status === 'error' || sources.driverWork.status === 'error') gps = READ_FAILED;
-    else if (sources.liveVehicles.status === 'unavailable' && sources.driverWork.status === 'unavailable') gps = NOT_CONNECTED;
+    else if (sources.liveVehicles.status === 'unavailable') gps = NOT_CONNECTED;
     else if (sources.liveVehicles.status === 'empty' && sources.driverWork.status === 'empty') gps = NO_DATA;
     else gps = PARTIAL;
     return {
@@ -313,6 +332,7 @@
     if (list.some(function(status) { return status === 'error'; })) {
       return list.every(function(status) { return status === 'error' || status === 'unavailable'; }) ? 'error' : 'error_partial';
     }
+    if (list.some(function(status) { return status === 'unavailable'; })) return 'unavailable_partial';
     if (list.some(function(status) { return status === 'proposed'; })) return 'proposed_partial';
     return 'empty';
   }
@@ -349,15 +369,16 @@
       unresolved: ['payment', 'refund', 'incident', 'systemHealth'].filter(function(name) { return SOURCE_CONTRACTS[name] && SOURCE_CONTRACTS[name].status === 'unresolved'; }),
       chartProportions: {
         bookings: proportions(bookings.byStatus),
-        fleet: proportions(fleet.operational),
-        gps: proportions(fleet.telemetry)
+        fleet: proportions({ active_service: fleet.operational.active_service || 0, inactive: fleet.operational.inactive || 0, unknown: fleet.operational.unknown || 0 }),
+        gps: proportions({ live_gps: fleet.telemetry.live_gps || 0, stale_gps: fleet.telemetry.stale_gps || 0, missing_gps: fleet.telemetry.missing_gps || 0 })
       },
       legacyRejected: ['bookings']
     };
   }
   function proportions(counts) {
-    var total = keys(counts).reduce(function(sum, key) { return sum + Number(counts[key] || 0); }, 0);
-    return keys(counts).sort().map(function(key) {
+    var numericKeys = keys(counts).filter(function(key) { return typeof counts[key] === 'number'; });
+    var total = numericKeys.reduce(function(sum, key) { return sum + Number(counts[key] || 0); }, 0);
+    return numericKeys.sort().map(function(key) {
       return { key: key, count: counts[key], percent: total ? Math.round((counts[key] / total) * 1000) / 10 : 0 };
     });
   }

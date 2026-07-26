@@ -12,6 +12,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Dashboard renders without screenshot assets', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'แดชบอร์ดศูนย์ควบคุม' })).toBeVisible();
+  await expect(page.getByText('การเชื่อมต่อข้อมูลกลาง')).toBeVisible();
   await expect(page.locator('#operationsMap')).toBeVisible();
   await expect(page.locator('img')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('4,238');
