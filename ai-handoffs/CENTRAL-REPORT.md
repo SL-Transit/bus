@@ -1288,3 +1288,47 @@ All AIs must read `ai-handoffs/ADMIN-CONSOLE-ERP-BLUEPRINT.md` before working on
 ## Safety
 
 Documentation only. No app code, Excel file, Firebase data, seed, production apply, booking/ticket/passenger/driver/payment/LINE/runtime data was changed.
+
+# 2026-07-26 10:00 +07 - PR 18 Screen 01 Dashboard Foundation Merge
+
+## PASS
+
+PR 18 was squash-merged into `main` as the Screen 01 Admin Console Dashboard architecture foundation.
+
+- PR: https://github.com/SL-Transit/bus/pull/18
+- Approved head SHA: `581617dbd1f19a4845d75b91b561f44759313f3a`
+- Merge commit: `01dca831ac7d463d004de0bdc227f038d89bf8bf`
+- Merge method: squash merge
+
+## Status
+
+- PR 18: MERGED AS SCREEN 01 ARCHITECTURE FOUNDATION
+- Screen 01 Foundation: PASS
+- Screen 01 Production Readiness: INCOMPLETE
+- Screen 02: NOT STARTED
+
+## Remaining Unresolved Contracts
+
+- Booking source business meaning remains proposed.
+- Admin read permission for operations data remains unresolved.
+- Vehicle Runtime source permission remains proposed.
+- GPS freshness threshold remains proposed.
+- Payment and Revenue contract remains unresolved.
+- Refund contract remains unresolved.
+- Incident / Blackbox source remains unresolved.
+- Consolidated System Health contract remains unresolved.
+
+## Verification
+
+Local tests before merge:
+
+- `node --check screen01-central-read-model.js`
+- `node tests/screen01-central-read-model.test.js`
+- `node tests/admin-console-all.test.js`
+- `git diff --check`
+
+GitHub Actions CI: unavailable; no workflow run evidence existed for the PR branch at merge time.
+
+## Safety
+
+No deployment occurred. No Firebase production write occurred. No Firebase Rules or Indexes were modified as part of the merge action. No seed, ERP data publish, production apply, or Screen 02 work was started.
