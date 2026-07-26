@@ -421,12 +421,6 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 .site-footer-nav a:not(:last-child)::after{content:"";width:1px;height:11px;margin:0 9px;background:rgba(96,116,137,.28)}
 .site-footer-nav a:hover{color:var(--teal)}
 .site-footer-copy{margin:0;color:#8b9aa8;font-size:11px}
-.site-footer-dbd{flex:0 0 auto;width:96px;text-align:center;color:rgba(100,116,139,0.72);font-size:11px;line-height:1.5}
-.site-footer-dbd-heading{display:none}
-.dbd-footer{display:grid;justify-items:center;gap:4px}
-.dbd-footer a{display:inline-flex;align-items:center;justify-content:center;line-height:0}
-.dbd-footer img{display:block;width:76px;max-width:76px;height:auto;object-fit:contain;border:0;opacity:.84}
-.dbd-footer p{margin:0;color:rgba(100,116,139,0.72);font-size:11px;line-height:1.4;white-space:nowrap}
 
 @media(min-width:768px){
   :root{--page-max:720px}
@@ -493,9 +487,6 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
     margin-bottom:140px;
   }
   .site-footer-nav a{color:#90aac2}
-  .dbd-footer img{width:92px;max-width:92px;opacity:0.7}
-  .site-footer-dbd{width:112px}
-
   /* ── ann text ─────────────────────────────────── */
   .ann-slide-title{font-size:clamp(24px,2vw,32px);line-height:1.18}
   .ann-slide-body{font-size:14px;-webkit-line-clamp:3}
@@ -601,8 +592,6 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   .site-footer-inner{flex-direction:column;align-items:center;gap:14px;text-align:center}
   .site-footer-left{width:100%}
   .site-footer-nav{justify-content:center}
-  .site-footer-dbd{width:auto}
-  .dbd-footer img{width:68px;max-width:68px}
 }
 
 /* ═══════════════════════════════════════════
@@ -818,15 +807,6 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
         <a href="info.html#help">ช่วยเหลือ</a>
       </nav>
       <p class="site-footer-copy">© 2026 S.L. Transit</p>
-    </div>
-    <div class="site-footer-dbd" aria-label="DBD Registered">
-      <p class="site-footer-dbd-heading">DBD Registered</p>
-      <div class="dbd-footer">
-        <a href="https://dbdregistered.dbd.go.th/api/public/shopinfoReg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20" target="_blank" rel="noopener">
-          <img src="https://dbdregistered.dbd.go.th/api/public/bannerreg?param=9911247A65379ABBAE0AB04D766627D8AD5BB95CAAB4CEFC0DC5F05565EB8C20" alt="DBD Registered">
-        </a>
-        <p>DBD Registered</p>
-      </div>
     </div>
   </div>
 </footer>
