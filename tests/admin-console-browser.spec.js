@@ -1,7 +1,9 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('fs');
 const path = require('path');
 
-const pageUrl = 'file:///' + path.resolve(__dirname, '..', 'admin-erp.html').replace(/\\/g, '/');
+const repoRoot = path.resolve(__dirname, '..');
+const pageUrl = 'file:///' + path.join(repoRoot, 'admin-erp.html').replace(/\\/g, '/');
 
 test.beforeEach(async ({ page }) => {
   await page.goto(pageUrl);
@@ -45,4 +47,17 @@ test('Search Enter does not open legacy hidden audit page', async ({ page }) => 
   await page.locator('#adminSearch').fill('BK test');
   await page.locator('#adminSearch').press('Enter');
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'dashboard');
+});
+
+test('No Firebase writes and incident quick action routes to blackbox', async ({ page }) => {
+  const html = fs.readFileSync(path.join(repoRoot, 'admin-erp.html'), 'utf8');
+  const readModel = fs.readFileSync(path.join(repoRoot, 'screen01-central-read-model.js'), 'utf8');
+  const firebaseWritePattern = /\.ref\([^)]*\)\s*\.\s*(set|update|push|remove)\s*\(/;
+
+  expect(html).not.toMatch(firebaseWritePattern);
+  expect(readModel).not.toMatch(firebaseWritePattern);
+
+  await page.getByRole('button', { name: 'เปิดศูนย์เหตุขัดข้อง' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-current-page', 'blackbox');
+  await expect(page.getByText('ยังอยู่ระหว่างพัฒนา')).toBeVisible();
 });
