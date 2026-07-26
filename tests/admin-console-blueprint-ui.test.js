@@ -5,20 +5,26 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, '..', 'admin-erp-ui.css'), 'utf8');
 
-for (const page of [
-  'dashboard',
-  'workbook',
-  'upload',
-  'validation',
-  'preview',
-  'diff',
-  'publish',
-  'announcements',
-  'policy',
-  'audit',
+for (const label of [
+  'แดชบอร์ด',
+  'ปฏิบัติการวันนี้',
+  'การจอง',
+  'ตั๋วและคืนเงิน',
+  'ควบคุมแอปคนขับ',
+  'รถที่กำลังวิ่ง',
+  'แจ้งเตือน',
+  'กล่องดำระบบ',
+  'จัดการข้อมูล ERP',
+  'ตรวจสอบและเผยแพร่',
+  'สิทธิ์ผู้ใช้งาน',
+  'ตั้งค่าระบบ',
 ]) {
-  assert.ok(html.includes(`data-page="${page}"`), `missing blueprint page: ${page}`);
+  assert.ok(html.includes(label), `missing approved sidebar label: ${label}`);
 }
+
+assert.ok(!html.includes('กล้องวงจรปิด'), 'CCTV Thai menu must not exist');
+assert.ok(!/CCTV/i.test(html), 'CCTV menu must not exist');
+assert.ok(!html.includes('กล่องข้อความ'), 'must not replace blackbox with inbox wording');
 
 for (const statusField of [
   'origins',
@@ -34,29 +40,54 @@ for (const statusField of [
 }
 
 for (const token of [
+  'แดชบอร์ดศูนย์ควบคุม',
+  'การจองวันนี้',
+  'รถที่กำลังวิ่ง',
+  'คืนเงินรอดำเนินการ',
+  'เหตุผิดปกติ',
+  'รายได้วันนี้',
+  'สถานะระบบ',
   'dashboard-grid',
   'kpi-grid',
   'kpi-card',
   'donut-box',
-  'line-chart',
-  'map-card',
+  'line-chart empty-chart',
+  'operationsMap',
+  'map-osm',
   'quick-grid',
   'top-left',
   'searchbox',
   'top-meta',
   'adminSearch',
+  'serviceDate',
+  'notificationButton',
+  'userProfileButton',
   'refreshDashboard',
+  'function initOperationsMap',
+  'L.map',
+  'tileLayer',
+  'OpenStreetMap',
   'function goPage',
-  'closest(\'[data-page]\')',
-  'recordAudit(\'admin-search\'',
+  'recordAudit(\'service-date-changed\'',
   'recordAudit(\'dashboard-refresh\'',
 ]) {
-  assert.ok(html.includes(token), `missing dashboard layout token: ${token}`);
+  assert.ok(html.includes(token), `missing dashboard screen 01 token: ${token}`);
 }
 
-assert.ok(html.includes('<button class="kpi-card" data-page="'));
-assert.ok(html.includes('<button class="event-row" data-page="'));
-assert.ok(html.includes('id="focusSearch"'));
+assert.ok(html.includes('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'));
+assert.ok(html.includes('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'));
+assert.ok(html.includes('publishedSchedule.mapView'));
+assert.ok(html.includes('operations/liveVehicles ไม่ถูกใช้ในหน้านี้'));
+assert.ok(html.includes('ไม่มีแหล่งข้อมูลที่ปลอดภัยใน Admin read adapter'));
+assert.ok(html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'));
+
+for (const forbiddenValue of ['4,238', '1,285,450', '25 พ.ค. 2567', '1000018505']) {
+  assert.ok(!html.includes(forbiddenValue), `screenshot/mock value must not be hardcoded: ${forbiddenValue}`);
+}
+
+assert.ok(!html.includes('<img'), 'reference screenshot must not be embedded as img');
+assert.ok(!html.includes('background-image'), 'reference screenshot must not be embedded as CSS background');
+assert.ok(!html.includes('base64'), 'reference screenshot must not be embedded as base64');
 
 assert.ok(/[\u0E00-\u0E7F]/.test(html), 'admin console must contain real Thai Unicode text');
 assert.ok(html.includes('id="publishApplyDisabled"'));
@@ -80,4 +111,4 @@ assert.ok(!html.includes('?????'));
 assert.equal((html.match(/\u0E40\u0E18/g) || []).length, 0, 'mojibake Thai marker found');
 assert.equal((html.match(/\u0E40\u0E19\u20AC/g) || []).length, 0, 'mojibake Thai marker found');
 
-console.log('admin-erp blueprint ui ok');
+console.log('admin-erp dashboard screen 01 ui ok');

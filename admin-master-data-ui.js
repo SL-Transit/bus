@@ -116,6 +116,7 @@
   }
 
   function ensureUi() {
+    if (document.body && document.body.getAttribute('data-admin-screen') === 'dashboard-screen01') return;
     if ($('masterdataPage')) return;
     var nav = document.querySelector('.nav');
     if (nav) {
