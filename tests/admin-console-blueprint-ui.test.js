@@ -78,7 +78,7 @@ assert.ok(html.includes('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'));
 assert.ok(html.includes('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'));
 assert.ok(html.includes('publishedSchedule.mapView'));
 assert.ok(html.includes('operations/liveVehicles'));
-assert.ok(html.includes('live vehicle source'));
+assert.ok(html.includes('Driver Work'));
 assert.ok(html.includes('ไม่มีแหล่งข้อมูลที่ปลอดภัยใน Admin read adapter'));
 assert.ok(!html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'));
 assert.ok(html.includes('หน้านี้ยังอยู่ระหว่างพัฒนาในรอบถัดไป'));
