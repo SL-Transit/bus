@@ -51,6 +51,17 @@ test('Dashboard visible chart grids and remaining sections render', async ({ pag
   await expect(main.getByText('รายการคืนเงินล่าสุด', { exact: true })).toBeVisible();
 });
 
+test('Vehicle and driver settlement section shows ERP rotation Excel table', async ({ page }) => {
+  const main = await dashboardContent(page);
+  await expect(main.locator('#vehicle-driver-excel')).toBeVisible();
+  await expect(main.locator('#vehicle-driver-excel tbody tr')).toHaveCount(4);
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('veh_001');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('veh_004');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('queue_001');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('queue_004');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('rotation_rule_v1');
+});
+
 test('Dashboard removes operations-only widgets from the business canvas', async ({ page }) => {
   const main = await dashboardContent(page);
   await expect(main).not.toContainText('Incident');
