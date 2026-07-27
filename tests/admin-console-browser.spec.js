@@ -57,12 +57,24 @@ test('Vehicle and driver settlement section shows ERP rotation Excel table', asy
   await expect(main.locator('#vehicle-driver-excel tbody tr')).toHaveCount(4);
   await expect(main.locator('#vehicle-driver-excel')).toContainText('car1');
   await expect(main.locator('#vehicle-driver-excel')).toContainText('car4');
-  await expect(main.locator('#vehicle-driver-excel')).toContainText('คิวที่ 1');
   await expect(main.locator('#vehicle-driver-excel')).toContainText('คิวที่ 4');
   await expect(main.locator('#vehicle-driver-excel')).toContainText('สถานะอนุมัติ');
   await expect(main.locator('#vehicle-driver-excel')).not.toContainText('veh_001');
   await expect(main.locator('#vehicle-driver-excel')).not.toContainText('queue_001');
   await expect(main.locator('#vehicle-driver-excel .count-detail')).toHaveCount(4);
+});
+
+test('Vehicle queue column follows selected service-date rotation', async ({ page }) => {
+  const main = await dashboardContent(page);
+  const rows = main.locator('#vehicle-driver-excel tbody tr');
+  await expect(rows.nth(0)).toContainText('car1');
+  await expect(rows.nth(0)).toContainText('คิวที่ 4');
+  await expect(rows.nth(1)).toContainText('car2');
+  await expect(rows.nth(1)).toContainText('คิวที่ 1');
+  await expect(rows.nth(2)).toContainText('car3');
+  await expect(rows.nth(2)).toContainText('คิวที่ 2');
+  await expect(rows.nth(3)).toContainText('car4');
+  await expect(rows.nth(3)).toContainText('คิวที่ 3');
 });
 
 test('Dashboard removes operations-only widgets from the business canvas', async ({ page }) => {
