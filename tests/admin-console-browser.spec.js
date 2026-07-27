@@ -55,11 +55,14 @@ test('Vehicle and driver settlement section shows ERP rotation Excel table', asy
   const main = await dashboardContent(page);
   await expect(main.locator('#vehicle-driver-excel')).toBeVisible();
   await expect(main.locator('#vehicle-driver-excel tbody tr')).toHaveCount(4);
-  await expect(main.locator('#vehicle-driver-excel')).toContainText('veh_001');
-  await expect(main.locator('#vehicle-driver-excel')).toContainText('veh_004');
-  await expect(main.locator('#vehicle-driver-excel')).toContainText('queue_001');
-  await expect(main.locator('#vehicle-driver-excel')).toContainText('queue_004');
-  await expect(main.locator('#vehicle-driver-excel')).toContainText('rotation_rule_v1');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('car1');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('car4');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('คิวที่ 1');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('คิวที่ 4');
+  await expect(main.locator('#vehicle-driver-excel')).toContainText('สถานะอนุมัติ');
+  await expect(main.locator('#vehicle-driver-excel')).not.toContainText('veh_001');
+  await expect(main.locator('#vehicle-driver-excel')).not.toContainText('queue_001');
+  await expect(main.locator('#vehicle-driver-excel .count-detail')).toHaveCount(4);
 });
 
 test('Dashboard removes operations-only widgets from the business canvas', async ({ page }) => {

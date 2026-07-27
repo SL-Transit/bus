@@ -71,10 +71,14 @@ assert.ok(html.includes('donut-empty'), 'donut empty ring missing');
 assert.ok(html.includes('ERP_ROTATION_VEHICLE_ROWS'), 'ERP vehicle rotation rows must be explicit in the Dashboard UI shell');
 assert.ok(html.includes('id="vehicle-driver-excel"'), 'vehicle/driver Excel-like table id missing');
 assert.ok(html.includes('excel-table'), 'vehicle/driver table must use Excel-like styling');
-assert.ok(html.includes('rotation_rule_v1'), 'queue rotation rule must be visible in Dashboard source');
+assert.ok(html.includes('rotation_rule_v1'), 'queue rotation rule must remain in Dashboard source');
 for (const id of ['veh_001', 'veh_002', 'veh_003', 'veh_004', 'queue_001', 'queue_002', 'queue_003', 'queue_004']) {
-  assert.ok(html.includes(id), `ERP Data Center rotation row missing: ${id}`);
+  assert.ok(html.includes(id), `ERP Data Center internal rotation contract missing: ${id}`);
 }
+for (const label of ["car: 'car1'", "car: 'car2'", "car: 'car3'", "car: 'car4'", "'รถ','คนขับ','คิว','จำนวน','ได้ราย','จ่าย','สถานะอนุมัติ','เซ็นรับ'"]) {
+  assert.ok(html.includes(label), `vehicle accounting table label missing: ${label}`);
+}
+assert.ok(html.includes('class="count-detail"'), 'booking count detail button placeholder missing');
 assert.ok(!html.includes("{ vehicleId: 'veh_005'"), 'fixed veh_005 must not be shown in the four-car rotation Dashboard table');
 
 assert.ok(html.includes('chart-frame'), 'charts must keep a visible plot frame');
