@@ -78,6 +78,9 @@ for (const id of ['veh_001', 'veh_002', 'veh_003', 'veh_004', 'queue_001', 'queu
 for (const label of ["car: 'car1'", "car: 'car2'", "car: 'car3'", "car: 'car4'", "'รถ','คนขับ','คิว','จำนวน','ได้ราย','จ่าย','สถานะอนุมัติ','เซ็นรับ'"]) {
   assert.ok(html.includes(label), `vehicle accounting table label missing: ${label}`);
 }
+assert.ok(html.includes("ERP_ROTATION_BASE_DATE = '2026-07-16'"), 'rotation base date must match the driver work auto center contract');
+assert.ok(html.includes('function rotationQueueLabel'), 'Dashboard table must compute the service-date queue label');
+assert.ok(html.includes('state.serviceDate||todayInput()'), 'Dashboard table must use the selected service date for rotation');
 assert.ok(html.includes('class="count-detail"'), 'booking count detail button placeholder missing');
 assert.ok(!html.includes("{ vehicleId: 'veh_005'"), 'fixed veh_005 must not be shown in the four-car rotation Dashboard table');
 
