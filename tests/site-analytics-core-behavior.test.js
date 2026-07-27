@@ -28,16 +28,20 @@ class MemoryAdapter {
     this.root = {};
     this.retryCallbacks = 0;
     this.failNextCommit = false;
+    this.failPathOnce = '';
+    this.paths = [];
   }
   async transaction(path, updateFn) {
+    this.paths.push(path);
     const current = clone(getAt(this.root, path));
     if (this.retryCallbacks) {
       this.retryCallbacks -= 1;
       updateFn(clone(current));
     }
     const next = updateFn(clone(current));
-    if (this.failNextCommit) {
+    if (this.failNextCommit || (this.failPathOnce && path === this.failPathOnce)) {
       this.failNextCommit = false;
+      this.failPathOnce = '';
       throw new Error('simulated commit failure');
     }
     setAt(this.root, path, clone(next));
@@ -57,7 +61,7 @@ function event(visitorHash, nowMs, eventType = 'page_view') {
 }
 
 function rollup(db, granularity, key) {
-  return getAt(db.root, `analytics/webV1/rollups/${granularity}/${key}`) || {};
+  return getAt(db.root, `analytics/webV1/bucketState/${granularity}/${key}`) || {};
 }
 
 async function commit(db, item) {
@@ -71,6 +75,7 @@ async function commit(db, item) {
     const db = new MemoryAdapter();
     await Promise.all([commit(db, event('v1', base)), commit(db, event('v1', base))]);
     assert.strictEqual(rollup(db, 'daily', '2026-07-27').visits, 1, 'concurrent same visitor requests must add one visit');
+    assert(!db.paths.includes('analytics/webV1'), 'root analytics transaction must not be used');
   }
 
   {
@@ -123,9 +128,38 @@ async function commit(db, item) {
   {
     const db = new MemoryAdapter();
     const item = event('v1', base);
+    const dailyKey = core.bucketKeys(new Date(base)).daily;
+    db.failPathOnce = `analytics/webV1/bucketState/daily/${dailyKey}`;
+    await assert.rejects(() => commit(db, item), /simulated/);
+    assert.strictEqual(rollup(db, 'hourly', core.bucketKeys(new Date(base)).hourly).visits, 1, 'other buckets can commit before partial failure');
+    assert.strictEqual(rollup(db, 'daily', dailyKey).visits || 0, 0, 'failed bucket is missing before retry');
+    await commit(db, item);
+    assert.strictEqual(rollup(db, 'daily', dailyKey).visits, 1, 'retry fills only the missing bucket');
+    assert.strictEqual(rollup(db, 'hourly', core.bucketKeys(new Date(base)).hourly).visits, 1, 'retry does not duplicate already committed bucket');
+  }
+
+  {
+    const db = new MemoryAdapter();
+    const item = event('v1', base);
     await commit(db, item);
     await commit(db, item);
     assert.strictEqual(rollup(db, 'daily', '2026-07-27').visits, 1, 'duplicate retry must not duplicate visits');
+  }
+
+  {
+    const oldBucket = {
+      visits: 4,
+      visitorsApprox: 3,
+      visitCommitted: { old: { committedAt: base - core.RETENTION_MS.daily - 1 }, fresh: { committedAt: base } },
+      visitorSeen: { oldVisitor: { firstSeenAt: base - core.RETENTION_MS.daily - 1 }, freshVisitor: { firstSeenAt: base } }
+    };
+    const cleaned = core.cleanupBucketState(oldBucket, 'daily', base);
+    assert.strictEqual(cleaned.visits, 4, 'cleanup must not change aggregate visits');
+    assert.strictEqual(cleaned.visitorsApprox, 3, 'cleanup must not change aggregate visitors');
+    assert(!cleaned.visitCommitted.old, 'expired visit marker must be removed');
+    assert(cleaned.visitCommitted.fresh, 'open bucket visit marker must remain');
+    assert(!cleaned.visitorSeen.oldVisitor, 'expired visitor marker must be removed');
+    assert(cleaned.visitorSeen.freshVisitor, 'open bucket visitor marker must remain');
   }
 
   {

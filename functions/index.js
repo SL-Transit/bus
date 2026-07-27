@@ -526,7 +526,7 @@ exports.readSiteAnalytics = onRequest({
   try {
     const db = admin.database();
     const snaps = await Promise.all(plan.points.map((point) =>
-      db.ref(`analytics/webV1/rollups/${plan.granularity}/${point.key}`).get()
+      db.ref(`analytics/webV1/bucketState/${plan.granularity}/${point.key}`).get()
     ));
     points = plan.points.map((point, index) => {
       const row = snaps[index].val() || {};
@@ -557,4 +557,36 @@ exports.readSiteAnalytics = onRequest({
     return;
   }
   res.status(200).json(payload);
+});
+
+exports.cleanupSiteAnalyticsPrivate = onSchedule({
+  schedule: "every 24 hours",
+  timeZone: "Asia/Bangkok",
+  region: "asia-southeast1",
+  timeoutSeconds: 120,
+  memory: "256MiB"
+}, async () => {
+  const db = admin.database();
+  const nowMs = Date.now();
+  const visitorSnap = await db.ref("analytics/webV1/private/visitorState").get();
+  const visitorUpdates = {};
+  visitorSnap.forEach((child) => {
+    if (siteAnalyticsCore.shouldRemoveVisitorState(child.val(), nowMs)) {
+      visitorUpdates[child.key] = null;
+    }
+  });
+  if (Object.keys(visitorUpdates).length) {
+    await db.ref("analytics/webV1/private/visitorState").update(visitorUpdates);
+  }
+
+  await Promise.all(Array.from(siteAnalyticsCore.RANGES).map(async (granularity) => {
+    const snap = await db.ref(`analytics/webV1/bucketState/${granularity}`).get();
+    const jobs = [];
+    snap.forEach((child) => {
+      jobs.push(db.ref(`analytics/webV1/bucketState/${granularity}/${child.key}`).transaction((current) =>
+        siteAnalyticsCore.cleanupBucketState(current, granularity, nowMs)
+      ));
+    });
+    await Promise.all(jobs);
+  }));
 });

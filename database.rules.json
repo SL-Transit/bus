@@ -145,6 +145,10 @@
           ".read": false,
           ".write": false
         },
+        "bucketState": {
+          ".read": false,
+          ".write": false
+        },
         "private": {
           ".read": false,
           ".write": false,

@@ -6,6 +6,15 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const ACTIVITY_THROTTLE_MS = 5 * 60 * 1000;
 const MIN_EVENT_INTERVAL_MS = 1000;
 const MAX_BODY_BYTES = 2048;
+const RETENTION_MS = {
+  visitorState: 180 * 24 * 60 * 60 * 1000,
+  eventRate: 2 * 24 * 60 * 60 * 1000,
+  hourly: 7 * 24 * 60 * 60 * 1000,
+  daily: 60 * 24 * 60 * 60 * 1000,
+  weekly: 16 * 7 * 24 * 60 * 60 * 1000,
+  monthly: 15 * 31 * 24 * 60 * 60 * 1000,
+  yearly: 400 * 24 * 60 * 60 * 1000
+};
 const RANGES = new Set(["hourly", "daily", "weekly", "monthly", "yearly"]);
 const EVENT_TYPES = new Set(["page_view", "activity"]);
 const ACTIVITY_SOURCES = new Set(["click", "keydown", "touchstart", "visibilitychange"]);
@@ -125,7 +134,9 @@ function validateAnchor(anchor) {
 }
 
 function byteLength(value) {
-  return Buffer.byteLength(typeof value === "string" ? value : JSON.stringify(value || {}), "utf8");
+  if (Buffer.isBuffer(value)) return value.length;
+  if (typeof value === "string") return Buffer.byteLength(value, "utf8");
+  return Buffer.byteLength(JSON.stringify(value || {}), "utf8");
 }
 
 function validatePayload(body, rawBodyLength) {
@@ -153,78 +164,116 @@ function inc(value, amount) {
   return Number(value || 0) + amount;
 }
 
-function applyEvent(rootValue, event) {
-  const root = ensureObject(rootValue);
-  root.private = ensureObject(root.private);
-  root.rollups = ensureObject(root.rollups);
-  const privateRoot = root.private;
-  privateRoot.visitorState = ensureObject(privateRoot.visitorState);
-  privateRoot.visitCommitted = ensureObject(privateRoot.visitCommitted);
-  privateRoot.visitorSeen = ensureObject(privateRoot.visitorSeen);
-  privateRoot.eventRate = ensureObject(privateRoot.eventRate);
-
-  const rate = ensureObject(privateRoot.eventRate[event.visitorHash]);
-  if (rate.lastEventAt && event.nowMs - Number(rate.lastEventAt) < MIN_EVENT_INTERVAL_MS) {
-    return { root, accepted: false, reason: "rate_limited" };
+function applyVisitorState(currentValue, event) {
+  const previousState = ensureObject(currentValue);
+  const isSameVisitRetry = previousState.acceptedVisitId && previousState.acceptedVisitId === event.newVisitId;
+  if (!isSameVisitRetry && previousState.lastEventAt && event.nowMs - Number(previousState.lastEventAt) < MIN_EVENT_INTERVAL_MS) {
+    return { value: previousState, accepted: false, reason: "rate_limited" };
   }
-  if (event.eventType === "activity" && rate.lastActivityPingAt && event.nowMs - Number(rate.lastActivityPingAt) < ACTIVITY_THROTTLE_MS) {
-    return { root, accepted: false, reason: "activity_throttled" };
+  if (!isSameVisitRetry && event.eventType === "activity" && previousState.lastActivityPingAt && event.nowMs - Number(previousState.lastActivityPingAt) < ACTIVITY_THROTTLE_MS) {
+    return { value: previousState, accepted: false, reason: "activity_throttled" };
   }
-
-  const previousState = ensureObject(privateRoot.visitorState[event.visitorHash]);
   const lastActivityAt = Number(previousState.lastActivityAt || 0);
   const isNewVisit = !lastActivityAt || event.nowMs - lastActivityAt >= SESSION_TIMEOUT_MS;
   const acceptedVisitId = isNewVisit ? event.newVisitId : String(previousState.currentSessionHash || event.newVisitId);
-  privateRoot.visitorState[event.visitorHash] = {
+  const value = {
     currentSessionHash: acceptedVisitId,
+    acceptedVisitId,
+    visitStartedAt: isNewVisit ? event.nowMs : Number(previousState.visitStartedAt || event.nowMs),
     lastActivityAt: event.nowMs,
-    lastAcceptedVisitAt: isNewVisit ? event.nowMs : Number(previousState.lastAcceptedVisitAt || 0)
-  };
-  privateRoot.eventRate[event.visitorHash] = Object.assign({}, rate, {
+    lastAcceptedVisitAt: isNewVisit ? event.nowMs : Number(previousState.lastAcceptedVisitAt || 0),
     lastEventAt: event.nowMs,
-    lastActivityPingAt: event.eventType === "activity" ? event.nowMs : Number(rate.lastActivityPingAt || 0)
-  });
+    lastActivityPingAt: event.eventType === "activity" ? event.nowMs : Number(previousState.lastActivityPingAt || 0)
+  };
+  return { value, accepted: true, isNewVisit, acceptedVisitId, visitStartedAt: value.visitStartedAt };
+}
 
-  const buckets = bucketKeys(new Date(event.nowMs));
-  const committed = ensureObject(privateRoot.visitCommitted[acceptedVisitId]);
-  const visitWasNew = isNewVisit;
-  Object.keys(buckets).forEach((granularity) => {
-    const key = buckets[granularity];
-    root.rollups[granularity] = ensureObject(root.rollups[granularity]);
-    const rollup = ensureObject(root.rollups[granularity][key]);
-    rollup.contractVersion = VERSION;
-    rollup.granularity = granularity;
-    rollup.key = key;
-    rollup.updatedAt = event.nowMs;
-    if (event.eventType === "page_view") {
-      rollup.pageViews = inc(rollup.pageViews, 1);
-      rollup.pages = ensureObject(rollup.pages);
-      rollup.pages[event.pageCategory] = ensureObject(rollup.pages[event.pageCategory]);
-      rollup.pages[event.pageCategory].pageViews = inc(rollup.pages[event.pageCategory].pageViews, 1);
-    }
-    if (visitWasNew && !committed[granularity]) {
-      rollup.visits = inc(rollup.visits, 1);
-      committed[granularity] = { key, committedAt: event.nowMs };
-    }
-    privateRoot.visitorSeen[granularity] = ensureObject(privateRoot.visitorSeen[granularity]);
-    privateRoot.visitorSeen[granularity][key] = ensureObject(privateRoot.visitorSeen[granularity][key]);
-    if (!privateRoot.visitorSeen[granularity][key][event.visitorHash]) {
-      rollup.visitorsApprox = inc(rollup.visitorsApprox, 1);
-      privateRoot.visitorSeen[granularity][key][event.visitorHash] = { firstSeenAt: event.nowMs };
-    }
-    root.rollups[granularity][key] = rollup;
-  });
-  privateRoot.visitCommitted[acceptedVisitId] = committed;
-  return { root, accepted: true, isNewVisit, acceptedVisitId };
+function applyBucketState(currentValue, event, granularity, bucketKey) {
+  const bucket = ensureObject(currentValue);
+  bucket.contractVersion = VERSION;
+  bucket.granularity = granularity;
+  bucket.key = bucketKey;
+  bucket.updatedAt = event.nowMs;
+  bucket.visitCommitted = ensureObject(bucket.visitCommitted);
+  bucket.visitorSeen = ensureObject(bucket.visitorSeen);
+  bucket.pages = ensureObject(bucket.pages);
+  if (event.countPageView === true && event.eventType === "page_view") {
+    bucket.pageViews = inc(bucket.pageViews, 1);
+    bucket.pages[event.pageCategory] = ensureObject(bucket.pages[event.pageCategory]);
+    bucket.pages[event.pageCategory].pageViews = inc(bucket.pages[event.pageCategory].pageViews, 1);
+  }
+  if (event.countVisit === true && !bucket.visitCommitted[event.acceptedVisitId]) {
+    bucket.visits = inc(bucket.visits, 1);
+    bucket.visitCommitted[event.acceptedVisitId] = { committedAt: event.nowMs, visitStartedAt: event.visitStartedAt };
+  }
+  if (event.countVisitor === true && !bucket.visitorSeen[event.visitorHash]) {
+    bucket.visitorsApprox = inc(bucket.visitorsApprox, 1);
+    bucket.visitorSeen[event.visitorHash] = { firstSeenAt: event.nowMs };
+  }
+  return bucket;
 }
 
 async function commitEvent(adapter, event) {
-  let result;
-  await adapter.transaction("analytics/webV1", (current) => {
-    result = applyEvent(current, event);
-    return result.root;
+  let visitorResult;
+  await adapter.transaction(`analytics/webV1/private/visitorState/${event.visitorHash}`, (current) => {
+    visitorResult = applyVisitorState(current, event);
+    return visitorResult.value;
   });
-  return result;
+  if (!visitorResult.accepted) return visitorResult;
+  const visitBuckets = bucketKeys(new Date(visitorResult.visitStartedAt));
+  const eventBuckets = bucketKeys(new Date(event.nowMs));
+  const bucketResults = {};
+  const jobs = {};
+  Object.keys(visitBuckets).forEach((granularity) => {
+    const key = visitBuckets[granularity];
+    jobs[`${granularity}/${key}`] = { granularity, key, countVisit: true, countVisitor: true, countPageView: false };
+  });
+  Object.keys(eventBuckets).forEach((granularity) => {
+    const key = eventBuckets[granularity];
+    const id = `${granularity}/${key}`;
+    jobs[id] = Object.assign(jobs[id] || { granularity, key, countVisit: false, countVisitor: false, countPageView: false }, {
+      countVisitor: true,
+      countPageView: event.eventType === "page_view"
+    });
+  });
+  await Promise.all(Object.keys(jobs).map((id) => {
+    const job = jobs[id];
+    const bucketEvent = Object.assign({}, event, {
+      acceptedVisitId: visitorResult.acceptedVisitId,
+      visitStartedAt: visitorResult.visitStartedAt,
+      isNewVisit: visitorResult.isNewVisit,
+      countVisit: job.countVisit,
+      countVisitor: job.countVisitor,
+      countPageView: job.countPageView
+    });
+    return adapter.transaction(`analytics/webV1/bucketState/${job.granularity}/${job.key}`, (current) => {
+      const next = applyBucketState(current, bucketEvent, job.granularity, job.key);
+      bucketResults[id] = { key: job.key, visits: Number(next.visits || 0), visitorsApprox: Number(next.visitorsApprox || 0), pageViews: Number(next.pageViews || 0) };
+      return next;
+    });
+  }));
+  return Object.assign({}, visitorResult, { bucketResults });
+}
+
+function cleanupBucketState(currentValue, granularity, nowMs) {
+  const bucket = ensureObject(currentValue);
+  const ttl = RETENTION_MS[granularity];
+  if (!ttl) return bucket;
+  const cutoff = nowMs - ttl;
+  bucket.visitCommitted = ensureObject(bucket.visitCommitted);
+  bucket.visitorSeen = ensureObject(bucket.visitorSeen);
+  Object.keys(bucket.visitCommitted).forEach((key) => {
+    if (Number(bucket.visitCommitted[key].committedAt || 0) < cutoff) delete bucket.visitCommitted[key];
+  });
+  Object.keys(bucket.visitorSeen).forEach((key) => {
+    if (Number(bucket.visitorSeen[key].firstSeenAt || 0) < cutoff) delete bucket.visitorSeen[key];
+  });
+  bucket.cleanupAt = nowMs;
+  return bucket;
+}
+
+function shouldRemoveVisitorState(state, nowMs) {
+  return Number(ensureObject(state).lastActivityAt || 0) < nowMs - RETENTION_MS.visitorState;
 }
 
 module.exports = {
@@ -249,6 +298,10 @@ module.exports = {
   validateAnchor,
   byteLength,
   validatePayload,
-  applyEvent,
-  commitEvent
+  applyVisitorState,
+  applyBucketState,
+  commitEvent,
+  cleanupBucketState,
+  shouldRemoveVisitorState,
+  RETENTION_MS
 };

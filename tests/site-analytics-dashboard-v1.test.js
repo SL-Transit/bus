@@ -31,12 +31,14 @@ assert(!functionsIndex.includes('crypto.createHash("sha256")'), 'plain SHA-256 m
 assert(functionsIndex.includes('safeAnalyticsId(payload.deviceId, "visitor")'), 'visitor id must be hashed on server');
 assert(!/body\.sessionId|safeAnalyticsId\(body\.sessionId/.test(functionsIndex + coreSource), 'server must not trust a client session id');
 assert(coreSource.includes('SESSION_TIMEOUT_MS = 30 * 60 * 1000'), 'server session timeout must be 30 minutes');
-assert(coreSource.includes('privateRoot.visitorState'), 'server visitor state path must exist');
+assert(coreSource.includes('analytics/webV1/private/visitorState/${event.visitorHash}'), 'server visitor state path must exist');
+assert(coreSource.includes('analytics/webV1/bucketState/${job.granularity}/${job.key}'), 'bucket transaction path must exist');
+assert(!coreSource.includes('transaction("analytics/webV1"') && !coreSource.includes("transaction('analytics/webV1'"), 'root analytics transaction must not be used');
 assert(coreSource.includes('event.nowMs - lastActivityAt >= SESSION_TIMEOUT_MS'), 'server must enforce 30-minute visit acceptance');
-assert(coreSource.includes('privateRoot.visitCommitted') && coreSource.includes('acceptedVisitId'), 'accepted visit id and commit marker must exist');
+assert(coreSource.includes('bucket.visitCommitted') && coreSource.includes('acceptedVisitId'), 'accepted visit id and commit marker must exist');
 assert(coreSource.includes('event.eventType === "page_view"'), 'only page_view may add pageViews');
 assert(coreSource.includes('event.eventType === "activity"'), 'activity events must be handled');
-assert(coreSource.includes('privateRoot.visitorSeen'), 'visitor approximate marker must exist');
+assert(coreSource.includes('bucket.visitorSeen'), 'visitor approximate marker must exist');
 assert(!/let\s+firstSeen|var\s+firstSeen|markFirstSeen/.test(functionsIndex), 'transaction race fix must not use stale firstSeen variables');
 assert(coreSource.includes('timeZone: TIMEZONE'), 'Bangkok timezone must be explicit on server');
 assert(!/req\.ip|x-forwarded-for|user-agent|User-Agent/i.test(functionsIndex), 'raw IP and raw user agent must not be read or stored');
@@ -44,6 +46,7 @@ assert(!/deviceId.*set|body\.deviceId.*update|body\.deviceId.*set/.test(function
 assert(functionsIndex.includes('unsupported_media_type'), 'trackWebVisit must validate content type');
 assert(functionsIndex.includes('siteAnalyticsCore.validatePayload'), 'trackWebVisit must validate the narrow payload');
 assert(coreSource.includes('MAX_BODY_BYTES = 2048'), 'trackWebVisit must enforce body size limit');
+assert.strictEqual(require('../functions/site-analytics-core.js').byteLength(Buffer.from('abcd')), 4, 'byteLength must support Buffer');
 assert(coreSource.includes('PAYLOAD_FIELDS'), 'trackWebVisit must reject unknown fields');
 assert(coreSource.includes('EVENT_TYPES') && coreSource.includes('"activity"'), 'trackWebVisit must allow only known event types');
 
@@ -57,7 +60,9 @@ assert(functionsIndex.includes('JSON.stringify(payload).length > 24576'), 'readS
 assert(functionsIndex.includes('analytics_read_failed'), 'database read failures must return HTTP error, not fake zero data');
 assert(functionsIndex.includes('!origin && !healthCheck'), 'production browser reads must require an allowed origin');
 assert(functionsIndex.includes('WEB_ANALYTICS_LOCAL_ORIGINS') && functionsIndex.includes('FUNCTIONS_EMULATOR'), 'localhost must be limited to emulator/test');
-assert(functionsIndex.includes('analytics/webV1/rollups/${plan.granularity}/${point.key}'), 'readSiteAnalytics may only read selected rollup buckets');
+assert(functionsIndex.includes('analytics/webV1/bucketState/${plan.granularity}/${point.key}'), 'readSiteAnalytics may only read selected bucket counters');
+assert(functionsIndex.includes('exports.cleanupSiteAnalyticsPrivate = onSchedule'), 'scheduled cleanup function must exist');
+assert(coreSource.includes('RETENTION_MS'), 'retention policy must be declared in contract');
 assert(!/req\.query\.path|req\.body\.path|databasePath|firebasePath/i.test(functionsIndex), 'client must not choose a database path');
 assert(functionsIndex.includes('key: point.key') && functionsIndex.includes('visits,') && functionsIndex.includes('estimatedVisitors'), 'readSiteAnalytics response must expose only chart aggregate fields');
 for (const granularity of ['hourly', 'daily', 'weekly', 'monthly', 'yearly']) {
@@ -70,6 +75,8 @@ assert.strictEqual(webV1Rules['.read'], false, 'client reads to analytics/webV1 
 assert.strictEqual(webV1Rules['.write'], false, 'client writes to analytics/webV1 must be blocked');
 assert.strictEqual(webV1Rules.rollups['.read'], false, 'browser must not read rollups directly');
 assert.strictEqual(webV1Rules.rollups['.write'], false, 'browser must not write rollups directly');
+assert.strictEqual(webV1Rules.bucketState['.read'], false, 'browser must not read bucketState directly');
+assert.strictEqual(webV1Rules.bucketState['.write'], false, 'browser must not write bucketState directly');
 assert.strictEqual(webV1Rules.private['.read'], false, 'private analytics paths must not be readable');
 assert.strictEqual(webV1Rules.private['.write'], false, 'private analytics paths must not be writable');
 assert.strictEqual(webV1Rules.private.visitorState['.read'], false, 'visitorState must not be readable');
