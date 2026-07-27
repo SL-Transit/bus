@@ -47,6 +47,7 @@ assert.ok(!html.includes('nav{display:flex;gap:6px;overflow-x:auto'), 'mobile mu
 assert.ok(dashboardSource.includes('analyticsChart(visits)'), 'Dashboard must render one analytics chart card');
 assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookingCount)'), 'Dashboard must render booking activity chart card');
 assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render the passenger payment donut');
+assert.ok(dashboardSource.includes('vehicleDriverExcelTable(vehicleSettlements)'), 'Dashboard must render the ERP vehicle/driver Excel table');
 assert.ok(!dashboardSource.includes('bookingSummaryCard'), 'old booking number card must be removed');
 assert.ok(!dashboardSource.includes("businessKpi('฿'"), 'old finance KPI cards must be removed from Dashboard renderer');
 assert.ok(!dashboardSource.includes('money-overview'), 'duplicate money overview section must be removed');
@@ -66,6 +67,15 @@ assert.ok(!html.includes('รายได้ค่าบริการสุท
 assert.ok(!html.includes('ค่าบริการที่คืนแล้ว'), 'refunded service fee donut legend must be removed');
 assert.ok(!html.includes('netPlatform'), 'platform revenue donut calculation must be removed');
 assert.ok(html.includes('donut-empty'), 'donut empty ring missing');
+
+assert.ok(html.includes('ERP_ROTATION_VEHICLE_ROWS'), 'ERP vehicle rotation rows must be explicit in the Dashboard UI shell');
+assert.ok(html.includes('id="vehicle-driver-excel"'), 'vehicle/driver Excel-like table id missing');
+assert.ok(html.includes('excel-table'), 'vehicle/driver table must use Excel-like styling');
+assert.ok(html.includes('rotation_rule_v1'), 'queue rotation rule must be visible in Dashboard source');
+for (const id of ['veh_001', 'veh_002', 'veh_003', 'veh_004', 'queue_001', 'queue_002', 'queue_003', 'queue_004']) {
+  assert.ok(html.includes(id), `ERP Data Center rotation row missing: ${id}`);
+}
+assert.ok(!html.includes("{ vehicleId: 'veh_005'"), 'fixed veh_005 must not be shown in the four-car rotation Dashboard table');
 
 assert.ok(html.includes('chart-frame'), 'charts must keep a visible plot frame');
 assert.ok(html.includes('chart-axis-zero'), 'charts must keep a Y axis zero label');
