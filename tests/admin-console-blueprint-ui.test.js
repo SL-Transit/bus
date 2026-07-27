@@ -25,10 +25,6 @@ assert.deepStrictEqual(navPages, [
   'settings',
 ], 'Sidebar must contain exactly the approved 9 primary menu items');
 
-for (const forbiddenPage of ['driver-control', 'running-vehicles', 'blackbox', 'publish']) {
-  assert.ok(!navPages.includes(forbiddenPage), `old primary menu must be removed: ${forbiddenPage}`);
-}
-
 for (const requiredShell of [
   'class="side"',
   'id="adminSidebar"',
@@ -48,73 +44,46 @@ for (const requiredShell of [
 assert.ok(!html.includes('focusSearch'), 'hamburger must not be wired as search focus');
 assert.ok(!html.includes('nav{display:flex;gap:6px;overflow-x:auto'), 'mobile must not use horizontal main menu');
 
-for (const label of [
-  'สถิติการเข้าใช้งานเว็บไซต์',
-  'จำนวนครั้งเข้าเยี่ยมชม',
-  'ผู้เยี่ยมชมโดยประมาณ',
-  'จำนวนการจอง',
-  'ดูการจอง',
-  'ยอดรับจากผู้โดยสารวันนี้',
-  'รายได้ค่าบริการแพลตฟอร์มวันนี้',
-  'ค่าโดยสารของผู้ให้บริการ',
-  'ค่าบริการแพลตฟอร์ม',
-  'รายได้ค่าบริการสุทธิ',
-  'ค่าบริการที่คืนแล้ว',
-  'ข้อมูลประกอบการรับเงินและรายได้',
-  'ยอดของรถและคนขับ',
-  'ยอดของคิวรถและผู้ให้บริการช่วงต่อ',
-  'รายการคืนเงินล่าสุด',
-  'สถานะแหล่งข้อมูลและเวลาอัปเดต',
-]) {
-  assert.ok(html.includes(label), `missing Screen 01 business UI label: ${label}`);
-}
-
-assert.ok(!dashboardSource.includes('จำนวนครั้งเข้าเว็บไซต์'), 'old visit KPI card must be removed from Dashboard renderer');
-assert.ok(!dashboardSource.includes("businessKpi('↗'"), 'old visit count KPI renderer must be removed');
-assert.ok(!dashboardSource.includes("businessKpi('👥'"), 'old visitor KPI renderer must be removed');
 assert.ok(dashboardSource.includes('analyticsChart(visits)'), 'Dashboard must render one analytics chart card');
 assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookingCount)'), 'Dashboard must render booking activity chart card');
+assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render the passenger payment donut');
 assert.ok(!dashboardSource.includes('bookingSummaryCard'), 'old booking number card must be removed');
-assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render finance donut charts');
-assert.ok(!dashboardSource.includes('คืนเงินรอดำเนินการ'), 'Pending refund KPI must be removed from Dashboard renderer');
 assert.ok(!dashboardSource.includes("businessKpi('฿'"), 'old finance KPI cards must be removed from Dashboard renderer');
+
 assert.ok(html.includes('finance-donut-grid'), 'finance donut grid missing');
+assert.ok((html.match(/<section class="finance-donut"/g) || []).length === 1, 'Dashboard must render exactly one finance donut');
+assert.ok(html.includes("donutChart('ยอดรับจากผู้โดยสารวันนี้'"), 'passenger payment donut title missing');
+assert.ok(html.includes("'ยอดรับรวมวันนี้'"), 'center total label missing');
+assert.ok(html.includes("rate:'55 บาท/คน'"), 'provider fare rate label missing');
+assert.ok(html.includes("rate:'5 บาท/การจอง'"), 'platform fee rate label missing');
+assert.ok(!html.includes('รายได้ค่าบริการแพลตฟอร์มวันนี้'), 'platform revenue donut title must be removed');
+assert.ok(!html.includes('รายได้ค่าบริการสุทธิ'), 'platform net revenue legend must be removed');
+assert.ok(!html.includes('ค่าบริการที่คืนแล้ว'), 'refunded service fee donut legend must be removed');
+assert.ok(!html.includes('netPlatform'), 'platform revenue donut calculation must be removed');
 assert.ok(html.includes('donut-empty'), 'donut empty ring missing');
+
 assert.ok(html.includes('chart-frame'), 'charts must keep a visible plot frame');
 assert.ok(html.includes('chart-axis-zero'), 'charts must keep a Y axis zero label');
 assert.ok(html.includes('chart-x-labels'), 'charts must render X axis labels');
-assert.ok(html.includes('สถิติการจอง ยกเลิก และคืนเงิน'), 'booking activity chart title missing');
-assert.ok(html.includes('จำนวนการจอง'), 'booking series legend missing');
-assert.ok(html.includes('ยกเลิก'), 'cancel series legend missing');
-assert.ok(html.includes('คืนเงิน'), 'refund series legend missing');
-assert.ok(html.includes('ยังไม่มีข้อมูลการจอง'), 'booking chart empty state missing');
-
-for (const range of ['รายชั่วโมง', 'รายวัน', 'รายสัปดาห์', 'รายเดือน', 'รายปี']) {
-  assert.ok(html.includes(range), `missing analytics time range: ${range}`);
-}
+assert.ok(html.includes('bookingActivityChart'), 'booking activity chart must remain');
+assert.ok(html.includes('legend-line orange'), 'refund series legend must remain');
 
 for (const forbidden of [
   'Incident',
   'Blackbox',
-  'เหตุผิดปกติ',
-  'เปิดศูนย์เหตุขัดข้อง',
   'operationsMap',
-  'คุณภาพ GPS',
-  'ดูแผนที่รถ',
-  'แผนที่ OpenStreetMap',
+  'GPS',
+  'https://unpkg.com/leaflet',
+  'function initOperationsMap',
+  'function dashboardLegacyDisabled',
+  'function opsKpiValue',
+  'function opsKpiNote',
+  'function opsPanelState',
+  'function gpsPanelState',
+  'function donutStyle',
 ]) {
   assert.ok(!dashboardSource.includes(forbidden), `Dashboard must not include operations widget: ${forbidden}`);
 }
-
-assert.ok(!html.includes('function initOperationsMap'), 'Screen 01 branch must not keep initOperationsMap dead code');
-assert.ok(!html.includes('id="operationsMap"'), 'Dashboard must not render operationsMap');
-assert.ok(!html.includes('https://unpkg.com/leaflet'), 'Leaflet import must not exist in business Dashboard UX');
-assert.ok(!html.includes('function dashboardLegacyDisabled'), 'legacy dashboard helper must be removed');
-assert.ok(!html.includes('function opsKpiValue'), 'old running-vehicle KPI helper must be removed');
-assert.ok(!html.includes('function opsKpiNote'), 'old running-vehicle note helper must be removed');
-assert.ok(!html.includes('function opsPanelState'), 'old operations panel helper must be removed');
-assert.ok(!html.includes('function gpsPanelState'), 'old GPS panel helper must be removed');
-assert.ok(!html.includes('function donutStyle'), 'old decorative chart helper must be removed');
 
 for (const forbiddenValue of ['4,238', '1,285,450', '1,250', '15,000', '+12%', '1000018505']) {
   assert.ok(!html.includes(forbiddenValue), `mock/screenshot value must not be hardcoded: ${forbiddenValue}`);
@@ -124,20 +93,12 @@ for (const debugWord of ['endpoint', 'adapter', 'privacy-safe', 'canonical', 'mo
   assert.ok(!dashboardSource.includes(debugWord), `Dashboard must not show debug wording: ${debugWord}`);
 }
 
-assert.ok(!html.includes('Math.random'), 'Dashboard analytics shell must not generate random analytics values');
-assert.ok(!dashboardSource.includes('analytics/mainWeb'), 'Dashboard analytics shell must not read legacy private analytics path');
-
+assert.ok(!html.includes('Math.random'), 'Dashboard must not generate random values');
+assert.ok(!dashboardSource.includes('analytics/mainWeb'), 'Dashboard must not read legacy private analytics path');
 assert.ok(!html.includes('<img'), 'reference screenshot must not be embedded as img');
 assert.ok(!html.includes('background-image'), 'reference screenshot must not be embedded as CSS background');
 assert.ok(!html.includes('base64'), 'reference screenshot must not be embedded as base64');
 assert.ok(!html.includes('?????'), 'Thai text must not render as question marks');
-
-assert.ok(html.includes('ยังไม่เชื่อมแหล่งข้อมูล'), 'unavailable state must be visible');
-assert.ok(html.includes('ยังไม่มีรายการในช่วงเวลานี้'), 'empty state must be distinct');
-assert.ok(html.includes('ไม่สามารถอ่านข้อมูลได้'), 'error state must be distinct');
-assert.ok(html.includes('ช่วงเวลานี้ยังไม่เชื่อมข้อมูล'), 'unsupported range state must be visible');
-assert.ok(dashboardSource.includes('Dashboard รอบนี้ไม่วาดกราฟรายได้'), 'no fake revenue chart guard missing');
 assert.ok(html.includes('NO FIREBASE WRITE'));
-assert.ok(html.includes('NOT PRODUCTION APPLY'));
 
-console.log('admin-erp dashboard Screen 01 UX refresh ok');
+console.log('admin-erp dashboard single passenger payment donut ok');

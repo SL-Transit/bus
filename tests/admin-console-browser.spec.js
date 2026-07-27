@@ -31,10 +31,14 @@ test('Dashboard visible chart grids and remaining sections render', async ({ pag
   await expect(main.locator('#booking-activity .legend-line.red')).toHaveCount(1);
   await expect(main.locator('#booking-activity .legend-line.orange')).toHaveCount(1);
   await expect(main.locator('#finance-donuts')).toBeVisible();
-  await expect(main.locator('#finance-donuts .finance-donut')).toHaveCount(2);
-  await expect(main.locator('#finance-donuts .donut-svg')).toHaveCount(2);
-  await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(2);
-  await expect(main.locator('#finance-donuts .donut-legend-row')).toHaveCount(4);
+  await expect(main.locator('#finance-donuts .finance-donut')).toHaveCount(1);
+  await expect(main.locator('#finance-donuts .donut-svg')).toHaveCount(1);
+  await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(1);
+  await expect(main.locator('#finance-donuts .donut-legend-row')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts')).toContainText('55 บาท/คน');
+  await expect(main.locator('#finance-donuts')).toContainText('5 บาท/การจอง');
+  await expect(main.locator('#finance-donuts')).toContainText('ยอดรับรวมวันนี้');
+  await expect(main).not.toContainText('รายได้ค่าบริการแพลตฟอร์มวันนี้');
   await expect(main).not.toContainText('คืนเงินรอดำเนินการ');
   await expect(main.locator('.kpi-card')).toHaveCount(0);
 
@@ -74,7 +78,7 @@ test('Unavailable analytics and booking chart values are not shown as business z
   await expect(main.locator('#booking-activity')).not.toContainText('0 รายการ');
   await expect(main.locator('#booking-activity polyline')).toHaveCount(0);
   await expect(main.locator('#finance-donuts')).toContainText('—');
-  await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(1);
   await expect(main.locator('#finance-donuts')).not.toContainText('฿ 0');
 });
 
