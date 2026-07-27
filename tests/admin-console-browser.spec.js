@@ -44,7 +44,8 @@ test('Dashboard visible chart grids and remaining sections render', async ({ pag
   await expect(main).not.toContainText('คืนเงินรอดำเนินการ');
   await expect(main.locator('.kpi-card')).toHaveCount(0);
 
-  await expect(main.locator('#money-overview .ph')).toBeVisible();
+  await expect(main.locator('#money-overview')).toHaveCount(0);
+  await expect(main).not.toContainText('ข้อมูลประกอบการรับเงินและรายได้');
   await expect(main.getByText('ยอดของรถและคนขับ', { exact: true })).toBeVisible();
   await expect(main.getByText('ยอดของคิวรถและผู้ให้บริการช่วงต่อ', { exact: true })).toBeVisible();
   await expect(main.getByText('รายการคืนเงินล่าสุด', { exact: true })).toBeVisible();

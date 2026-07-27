@@ -49,6 +49,9 @@ assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookin
 assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render the passenger payment donut');
 assert.ok(!dashboardSource.includes('bookingSummaryCard'), 'old booking number card must be removed');
 assert.ok(!dashboardSource.includes("businessKpi('฿'"), 'old finance KPI cards must be removed from Dashboard renderer');
+assert.ok(!dashboardSource.includes('money-overview'), 'duplicate money overview section must be removed');
+assert.ok(!dashboardSource.includes('ข้อมูลประกอบการรับเงินและรายได้'), 'duplicate money overview title must be removed');
+assert.ok(!html.includes('function moneyCard'), 'money overview helper must be removed');
 
 assert.ok(html.includes('finance-donut-grid'), 'finance donut grid missing');
 assert.ok((html.match(/<section class="finance-donut"/g) || []).length === 1, 'Dashboard must render exactly one finance donut');
