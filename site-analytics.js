@@ -4,6 +4,8 @@
   var ADMIN_KEY = 'slTransitAdminDevice';
   var DEVICE_KEY = 'slTransitAnalyticsDeviceV1';
   var ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/trackWebVisit';
+  var ACTIVITY_THROTTLE_MS = 5 * 60 * 1000;
+  var lastActivitySentAt = 0;
 
   try {
     if (localStorage.getItem(ADMIN_KEY) === '1') return;
@@ -65,17 +67,38 @@
     } catch (err) {}
   }
 
-  function track() {
+  function payload(type, source) {
     var category = pageCategory();
-    if (!category) return;
-    send({
+    if (!category) return null;
+    var data = {
       contractVersion: 'web_analytics_v1',
-      eventType: 'page_view',
+      eventType: type,
       deviceId: storedId(DEVICE_KEY, 'd_'),
       pageCategory: category
-    });
+    };
+    if (type === 'activity') data.activitySource = source;
+    return data;
+  }
+
+  function track() {
+    var data = payload('page_view');
+    if (data) send(data);
+  }
+
+  function activity(source) {
+    var now = Date.now();
+    if (now - lastActivitySentAt < ACTIVITY_THROTTLE_MS) return;
+    lastActivitySentAt = now;
+    var data = payload('activity', source);
+    if (data) send(data);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', track, { once: true });
   else track();
+  document.addEventListener('click', function() { activity('click'); }, { passive: true });
+  document.addEventListener('keydown', function() { activity('keydown'); });
+  document.addEventListener('touchstart', function() { activity('touchstart'); }, { passive: true });
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') activity('visibilitychange');
+  });
 })();

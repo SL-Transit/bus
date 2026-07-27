@@ -6,6 +6,7 @@ const functionsIndex = fs.readFileSync('functions/index.js', 'utf8');
 const rules = fs.readFileSync('database.rules.json', 'utf8');
 const adminHtml = fs.readFileSync('admin-erp.html', 'utf8');
 const readModelSource = fs.readFileSync('screen01-central-read-model.js', 'utf8');
+const coreSource = fs.readFileSync('functions/site-analytics-core.js', 'utf8');
 const readModel = require('../screen01-central-read-model.js');
 
 assert(siteAnalytics.includes('navigator.webdriver'), 'automated browser runs must not be counted');
@@ -14,6 +15,10 @@ assert(siteAnalytics.includes('fetch(ENDPOINT'), 'browser must send analytics to
 assert(!/firebase|database\(|\.ref\(|analytics\/webV1/.test(siteAnalytics), 'browser must not read/write analytics database paths');
 assert(!/crypto\.subtle|SHA-|digest\(/.test(siteAnalytics), 'browser must not hash or access dedupe hashes');
 assert(!/sessionId|occurredAt|timeZone|screen\.width|screen\.height/.test(siteAnalytics), 'client payload must not include session id, client time, timezone, or screen size');
+assert(siteAnalytics.includes("payload('activity', source)") && siteAnalytics.includes('activitySource'), 'client must send throttled activity pings');
+assert(siteAnalytics.includes('ACTIVITY_THROTTLE_MS = 5 * 60 * 1000'), 'activity ping must be throttled to 5 minutes');
+assert(siteAnalytics.includes('visibilityState') && siteAnalytics.includes('click') && siteAnalytics.includes('keydown') && siteAnalytics.includes('touchstart'), 'activity sources must be allowed sources only');
+assert(!/mousemove|scroll/.test(siteAnalytics), 'mousemove and unthrottled scroll must not be tracked');
 for (const category of ['home', 'booking', 'passenger', 'ticket_check', 'cancellation', 'help_info']) {
   assert(siteAnalytics.includes(`'${category}'`), `missing page category ${category}`);
 }
@@ -23,23 +28,30 @@ assert(functionsIndex.includes('defineSecret("ANALYTICS_HASH_SECRET")'), 'HMAC s
 assert(functionsIndex.includes('secrets: [analyticsHashSecret]'), 'tracking function must bind the HMAC secret');
 assert(functionsIndex.includes('crypto.createHmac("sha256", analyticsHashSecret.value())'), 'hashing must use server-side HMAC-SHA256');
 assert(!functionsIndex.includes('crypto.createHash("sha256")'), 'plain SHA-256 must not be used');
-assert(functionsIndex.includes('safeAnalyticsId(body.deviceId, "visitor")'), 'visitor id must be hashed on server');
-assert(!/body\.sessionId|safeAnalyticsId\(body\.sessionId/.test(functionsIndex), 'server must not trust a client session id');
-assert(functionsIndex.includes('WEB_ANALYTICS_SESSION_TIMEOUT_MS = 30 * 60 * 1000'), 'server session timeout must be 30 minutes');
-assert(functionsIndex.includes('analytics/webV1/private/visitorState/${visitorHash}'), 'server visitor state path must exist');
-assert(functionsIndex.includes('(nowMs - lastActivityAt) >= WEB_ANALYTICS_SESSION_TIMEOUT_MS'), 'server must enforce 30-minute visit acceptance');
-assert(functionsIndex.includes('event.isNewVisit ? incrementCounter(root.child("visits"), 1)'), 'visits must increment only after server accepts a new visit');
-assert(functionsIndex.includes('firstWriteToken') && functionsIndex.includes('result.snapshot.val()'), 'transaction result must use committed state, not stale outer variables');
+assert(functionsIndex.includes('safeAnalyticsId(payload.deviceId, "visitor")'), 'visitor id must be hashed on server');
+assert(!/body\.sessionId|safeAnalyticsId\(body\.sessionId/.test(functionsIndex + coreSource), 'server must not trust a client session id');
+assert(coreSource.includes('SESSION_TIMEOUT_MS = 30 * 60 * 1000'), 'server session timeout must be 30 minutes');
+assert(coreSource.includes('privateRoot.visitorState'), 'server visitor state path must exist');
+assert(coreSource.includes('event.nowMs - lastActivityAt >= SESSION_TIMEOUT_MS'), 'server must enforce 30-minute visit acceptance');
+assert(coreSource.includes('privateRoot.visitCommitted') && coreSource.includes('acceptedVisitId'), 'accepted visit id and commit marker must exist');
+assert(coreSource.includes('event.eventType === "page_view"'), 'only page_view may add pageViews');
+assert(coreSource.includes('event.eventType === "activity"'), 'activity events must be handled');
+assert(coreSource.includes('privateRoot.visitorSeen'), 'visitor approximate marker must exist');
 assert(!/let\s+firstSeen|var\s+firstSeen|markFirstSeen/.test(functionsIndex), 'transaction race fix must not use stale firstSeen variables');
-assert(functionsIndex.includes('timeZone: "Asia/Bangkok"'), 'Bangkok timezone must be explicit on server');
+assert(coreSource.includes('timeZone: TIMEZONE'), 'Bangkok timezone must be explicit on server');
 assert(!/req\.ip|x-forwarded-for|user-agent|User-Agent/i.test(functionsIndex), 'raw IP and raw user agent must not be read or stored');
 assert(!/deviceId.*set|body\.deviceId.*update|body\.deviceId.*set/.test(functionsIndex), 'raw visitor ids must not be written');
+assert(functionsIndex.includes('unsupported_media_type'), 'trackWebVisit must validate content type');
+assert(functionsIndex.includes('siteAnalyticsCore.validatePayload'), 'trackWebVisit must validate the narrow payload');
+assert(coreSource.includes('MAX_BODY_BYTES = 2048'), 'trackWebVisit must enforce body size limit');
+assert(coreSource.includes('PAYLOAD_FIELDS'), 'trackWebVisit must reject unknown fields');
+assert(coreSource.includes('EVENT_TYPES') && coreSource.includes('"activity"'), 'trackWebVisit must allow only known event types');
 
 assert(functionsIndex.includes('exports.readSiteAnalytics = onRequest'), 'readSiteAnalytics HTTPS Function must exist');
 assert(functionsIndex.includes('region: "asia-southeast1"'), 'functions must use asia-southeast1');
 assert(functionsIndex.includes('req.method !== "GET"'), 'readSiteAnalytics must validate GET method');
-assert(functionsIndex.includes('WEB_ANALYTICS_RANGES.has(range)'), 'readSiteAnalytics must validate range allowlist');
-assert(functionsIndex.includes('validateAnalyticsAnchor(req.query.anchor)'), 'readSiteAnalytics must validate anchor format');
+assert(functionsIndex.includes('siteAnalyticsCore.RANGES.has(range)'), 'readSiteAnalytics must validate range allowlist');
+assert(functionsIndex.includes('siteAnalyticsCore.validateAnchor(req.query.anchor)'), 'readSiteAnalytics must validate anchor format');
 assert(functionsIndex.includes('readLimitOk(origin || "health-check", nowMs)'), 'readSiteAnalytics must rate limit requests');
 assert(functionsIndex.includes('JSON.stringify(payload).length > 24576'), 'readSiteAnalytics must enforce a response size limit');
 assert(functionsIndex.includes('analytics_read_failed'), 'database read failures must return HTTP error, not fake zero data');
@@ -49,7 +61,7 @@ assert(functionsIndex.includes('analytics/webV1/rollups/${plan.granularity}/${po
 assert(!/req\.query\.path|req\.body\.path|databasePath|firebasePath/i.test(functionsIndex), 'client must not choose a database path');
 assert(functionsIndex.includes('key: point.key') && functionsIndex.includes('visits,') && functionsIndex.includes('estimatedVisitors'), 'readSiteAnalytics response must expose only chart aggregate fields');
 for (const granularity of ['hourly', 'daily', 'weekly', 'monthly', 'yearly']) {
-  assert(functionsIndex.includes(`writeRollup(db, "${granularity}"`), `missing ${granularity} rollup write`);
+  assert(coreSource.includes(granularity), `missing ${granularity} rollup logic`);
 }
 
 const parsedRules = JSON.parse(rules);
