@@ -56,6 +56,8 @@ assert.ok(html.includes("donutChart('ยอดรับจากผู้โด�
 assert.ok(html.includes("'ยอดรับรวมวันนี้'"), 'center total label missing');
 assert.ok(html.includes("rate:'55 บาท/คน'"), 'provider fare rate label missing');
 assert.ok(html.includes("rate:'5 บาท/การจอง'"), 'platform fee rate label missing');
+assert.ok(html.includes("label:'เงินคืนผู้โดยสาร'"), 'passenger refund legend missing');
+assert.ok(html.includes("rate:'คืนตามรายการที่อนุมัติ'"), 'passenger refund rate label missing');
 assert.ok(!html.includes('รายได้ค่าบริการแพลตฟอร์มวันนี้'), 'platform revenue donut title must be removed');
 assert.ok(!html.includes('รายได้ค่าบริการสุทธิ'), 'platform net revenue legend must be removed');
 assert.ok(!html.includes('ค่าบริการที่คืนแล้ว'), 'refunded service fee donut legend must be removed');
