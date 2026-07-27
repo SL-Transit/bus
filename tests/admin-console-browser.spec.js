@@ -34,9 +34,11 @@ test('Dashboard visible chart grids and remaining sections render', async ({ pag
   await expect(main.locator('#finance-donuts .finance-donut')).toHaveCount(1);
   await expect(main.locator('#finance-donuts .donut-svg')).toHaveCount(1);
   await expect(main.locator('#finance-donuts .donut-empty')).toHaveCount(1);
-  await expect(main.locator('#finance-donuts .donut-legend-row')).toHaveCount(2);
+  await expect(main.locator('#finance-donuts .donut-legend-row')).toHaveCount(3);
   await expect(main.locator('#finance-donuts')).toContainText('55 บาท/คน');
   await expect(main.locator('#finance-donuts')).toContainText('5 บาท/การจอง');
+  await expect(main.locator('#finance-donuts')).toContainText('เงินคืนผู้โดยสาร');
+  await expect(main.locator('#finance-donuts')).toContainText('คืนตามรายการที่อนุมัติ');
   await expect(main.locator('#finance-donuts')).toContainText('ยอดรับรวมวันนี้');
   await expect(main).not.toContainText('รายได้ค่าบริการแพลตฟอร์มวันนี้');
   await expect(main).not.toContainText('คืนเงินรอดำเนินการ');
