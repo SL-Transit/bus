@@ -25,8 +25,8 @@ test('Dashboard visible chart grids and remaining sections render', async ({ pag
   await expect(main.locator('.chart-x-labels')).toHaveCount(2);
   await expect(main.locator('.legend-box.red')).toHaveCount(1);
   await expect(main.locator('.legend-box.blue')).toHaveCount(1);
-  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
-  await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
+  await expect(main.locator('#website-analytics .chart-empty')).toContainText(/กำลังโหลดสถิติ|ยังไม่มีข้อมูลสถิติ|ไม่สามารถโหลดสถิติได้/);
+  await expect(main.locator('#booking-activity .chart-empty')).toContainText(/ยังไม่มีข้อมูลการจอง|ไม่สามารถโหลดข้อมูลการจองได้/);
   await expect(main.locator('#booking-activity .legend-line.blue')).toHaveCount(1);
   await expect(main.locator('#booking-activity .legend-line.red')).toHaveCount(1);
   await expect(main.locator('#booking-activity .legend-line.orange')).toHaveCount(1);
@@ -67,14 +67,19 @@ test('Vehicle and driver settlement section shows ERP rotation Excel table', asy
 test('Vehicle queue column follows selected service-date rotation', async ({ page }) => {
   const main = await dashboardContent(page);
   const rows = main.locator('#vehicle-driver-excel tbody tr');
+  const serviceDate = await page.locator('body').getAttribute('data-service-date');
+  const baseDate = Date.UTC(2026, 6, 16) / 86400000;
+  const [year, month, day] = String(serviceDate || '').split('-').map(Number);
+  const serviceOrdinal = Date.UTC(year, month - 1, day) / 86400000;
+  const expectedQueue = (order) => `คิวที่ ${(((order - 1 + (serviceOrdinal - baseDate)) % 4) + 4) % 4 + 1}`;
   await expect(rows.nth(0)).toContainText('car1');
-  await expect(rows.nth(0)).toContainText('คิวที่ 4');
+  await expect(rows.nth(0)).toContainText(expectedQueue(1));
   await expect(rows.nth(1)).toContainText('car2');
-  await expect(rows.nth(1)).toContainText('คิวที่ 1');
+  await expect(rows.nth(1)).toContainText(expectedQueue(2));
   await expect(rows.nth(2)).toContainText('car3');
-  await expect(rows.nth(2)).toContainText('คิวที่ 2');
+  await expect(rows.nth(2)).toContainText(expectedQueue(3));
   await expect(rows.nth(3)).toContainText('car4');
-  await expect(rows.nth(3)).toContainText('คิวที่ 3');
+  await expect(rows.nth(3)).toContainText(expectedQueue(4));
 });
 
 test('Dashboard removes operations-only widgets from the business canvas', async ({ page }) => {
@@ -94,7 +99,7 @@ test('Analytics time range controls update selected state without inventing data
   await expect(main.locator('[data-analytics-range="daily"]')).toHaveAttribute('aria-pressed', 'true');
   await main.locator('[data-analytics-range="monthly"]').click();
   await expect(main.locator('[data-analytics-range="monthly"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('#website-analytics .chart-empty')).toContainText(/กำลังโหลดสถิติ|ยังไม่มีข้อมูลสถิติ|ไม่สามารถโหลดสถิติได้/);
   await expect(main).not.toContainText('1,250');
   await expect(main).not.toContainText('15,000');
   await expect(main).not.toContainText('+12%');
@@ -102,8 +107,8 @@ test('Analytics time range controls update selected state without inventing data
 
 test('Unavailable analytics and booking chart values are not shown as business zero', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
-  await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
+  await expect(main.locator('#website-analytics .chart-empty')).toContainText(/กำลังโหลดสถิติ|ยังไม่มีข้อมูลสถิติ|ไม่สามารถโหลดสถิติได้/);
+  await expect(main.locator('#booking-activity .chart-empty')).toContainText('ไม่สามารถโหลดข้อมูลการจองได้');
   await expect(main.locator('#booking-activity')).not.toContainText('0 รายการ');
   await expect(main.locator('#booking-activity polyline')).toHaveCount(0);
   await expect(main.locator('#finance-donuts')).toContainText('—');

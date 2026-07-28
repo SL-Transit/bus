@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
@@ -8,9 +9,77 @@ admin.initializeApp();
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
+const bookingActivityAggregate = require("./booking-activity-aggregate.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
+const ALLOWED_ADMIN_ORIGINS = new Set([
+  "https://sl-transit.com",
+  "https://www.sl-transit.com"
+]);
+
+function applyAggregateCors(req, res) {
+  const origin = req.get("origin") || "";
+  if (ALLOWED_ADMIN_ORIGINS.has(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+}
+
+function validateAggregateOrigin(req) {
+  const origin = req.get("origin") || "";
+  if (!origin) return true;
+  if (ALLOWED_ADMIN_ORIGINS.has(origin)) return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
+exports.readBookingActivity = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB"
+}, async (req, res) => {
+  applyAggregateCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return;
+  }
+  if (!validateAggregateOrigin(req)) {
+    res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    return;
+  }
+  const range = String(req.query.range || "daily");
+  const anchor = req.query.anchor ? String(req.query.anchor) : undefined;
+  if (!Object.prototype.hasOwnProperty.call(bookingActivityAggregate.RANGE_SIZES, range)) {
+    res.status(400).json({ ok: false, error: "invalid_range" });
+    return;
+  }
+  if (anchor && !/^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+    res.status(400).json({ ok: false, error: "invalid_anchor" });
+    return;
+  }
+  try {
+    const snap = await admin.database().ref("bookings").get();
+    const aggregate = bookingActivityAggregate.aggregateBookingActivity(snap.val() || {}, { range, anchor });
+    res.set("Cache-Control", "private, max-age=30");
+    res.status(200).json({
+      status: aggregate.status,
+      range: aggregate.range,
+      timezone: aggregate.timezone,
+      points: aggregate.points,
+      totals: aggregate.totals,
+      generatedAt: Date.now()
+    });
+  } catch (err) {
+    console.error("readBookingActivity failed", err && err.message ? err.message : String(err));
+    res.status(500).json({ ok: false, error: "booking_activity_read_failed" });
+  }
+});
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
