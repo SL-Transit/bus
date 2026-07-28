@@ -47,9 +47,9 @@ assert.ok(!html.includes('nav{display:flex;gap:6px;overflow-x:auto'), 'mobile mu
 assert.ok(dashboardSource.includes('keyMetricsCards()'), 'Dashboard must render the real-data KPI card row in place of the old empty visits chart');
 assert.ok(html.includes('grid kpis'), 'Dashboard KPI row must use the square card grid');
 assert.ok(html.includes('การจองวันนี้'), 'Dashboard KPI row must include today booking card');
-assert.ok(html.includes('รถที่กำลังวิ่ง'), 'Dashboard KPI row must include the running vehicle card');
-assert.ok(html.includes('dashboardData().fleet'), 'running vehicle KPI must read from the central Dashboard fleet model');
-assert.ok(html.includes('operational.activeServiceCount'), 'running vehicle KPI must use the operational active-service count');
+assert.ok(!dashboardSource.includes('รถที่กำลังวิ่ง'), 'Dashboard KPI row must not include the running vehicle card');
+assert.ok(!dashboardSource.includes('runningCard'), 'Dashboard KPI row must not render the removed running vehicle card');
+assert.ok(!dashboardSource.includes('operational.activeServiceCount'), 'Dashboard KPI row must not wire running-vehicle operational counts');
 assert.ok(!dashboardSource.includes('analyticsChart(visits)'), 'old empty website-visits chart must no longer be called from Dashboard renderer (replaced by keyMetricsCards())');
 assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookingCount)'), 'Dashboard must render booking activity chart card');
 assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render the passenger payment donut');
