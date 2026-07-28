@@ -39,6 +39,33 @@ Commit/branch: pushed to `analytics-real-stats` (not merged to `main` yet — Ow
 
 Next action: Owner reviews on the branch/PR, confirms the `bookings` vs `operations/bookings` path choice is acceptable as an interim measure, then merges.
 
+## 2026-07-28 15:20 +07 - Site Analytics / Booking Activity AI - REVIEW
+
+Scope:
+- `admin-erp.html` (dashboard top area only — replaced `analyticsChart(visits)` call with `keyMetricsCards()`)
+- `site-analytics-read-model.js`, `booking-activity-read-model.js`, `site-analytics.js` (extended)
+- `tests/admin-console-blueprint-ui.test.js` (updated UI contract assertion), `tests/site-analytics-read-model.test.js`, `tests/booking-activity-read-model.test.js` (extended)
+
+Summary:
+Follow-up to the 14:55 entry above. Owner reviewed live screenshots (Firebase dashboard chart was empty; a separate reference-mockup dashboard shows a 6-box KPI row) and asked to remove the empty website-visits line chart entirely and replace it with 3 of those 6 KPI boxes, wired to real data:
+1. **ผู้เข้าเยี่ยมชมเว็บไซต์** — today's unique visitor count from `site-analytics-read-model.getDaySummary()`, % vs yesterday.
+2. **ผู้ใช้งานจริง** ("real users", Owner's definition: someone who completed a booking OR reached the passenger/check-ticket login pages) — unique devices that hit `passenger.html`/`check_ticket.html` today (new `pageDeviceCounts` counter added to `site-analytics.js`, additive/non-breaking) **plus** completed bookings today (`booking-activity-read-model`), % vs yesterday. This is an additive estimate (can't dedupe a booking against a page-visit device id), same "estimated" convention already used elsewhere on this dashboard.
+3. **รายได้วันนี้** — sum of today's non-cancelled bookings' `price` field (`booking-activity-read-model`), % vs yesterday.
+
+The remaining 3 boxes from the reference mockup (คืนเงินรอดำเนินการ / เหตุผิดปกติ / ระบบออนไลน์) were explicitly NOT requested this round — out of scope for this change.
+
+`analyticsChart()`/`analyticsModel()`/`analyticsRangeTabs()` etc. are left defined in the file but no longer called from `dashboard()` — low-risk to leave as dead code for now rather than risk breaking something else that might reference the helpers; safe to delete in a follow-up cleanup pass if desired.
+
+One coordination-contract test (`tests/admin-console-blueprint-ui.test.js`) asserted the old `analyticsChart(visits)` call existed — updated that specific assertion to require `keyMetricsCards()` instead, since this is the actual, Owner-approved dashboard change it exists to guard.
+
+Firebase writes: none from this change beyond the additive `pageDeviceCounts` counter in `site-analytics.js` (same write path/permissions as existing `count`/`pageViews` counters — no rules changes). No passenger PII displayed or newly retained.
+
+Tests: full suite re-run; result matches the exact same pre-existing-failure baseline reported in the 14:55 entry (10 tests, all network/date-dependent in this sandbox, unrelated to this change) — zero new failures.
+
+Commit/branch: pushed to `analytics-real-stats` (same branch as the 14:55 entry, not yet merged to `main`).
+
+Next action: Owner reviews the 3 KPI boxes against real traffic (visit the 5 tracked pages, then check the dashboard), then decide on merge + whether/when to build the remaining 3 boxes.
+
 ## Report Template
 
 ```md
