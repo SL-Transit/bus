@@ -116,6 +116,47 @@ test('Unavailable analytics and booking chart values are not shown as business z
   await expect(main.locator('#finance-donuts')).not.toContainText('฿ 0');
 });
 
+test('Booking hourly response with full backend key renders in graph', async ({ page }) => {
+  await page.route('**/readBookingActivity**', async (route) => {
+    const url = new URL(route.request().url());
+    const range = url.searchParams.get('range') || 'daily';
+    const anchor = url.searchParams.get('anchor') || '2026-07-28';
+    const points = [];
+    if (range === 'hourly') {
+      for (let hour = 0; hour < 24; hour += 1) {
+        const hh = String(hour).padStart(2, '0');
+        points.push({ key: `${anchor}T${hh}`, label: `${hh}:00`, bookings: hour === 9 ? 1 : 0, cancellations: 0, refunds: 0 });
+      }
+    } else {
+      for (let i = 29; i >= 0; i -= 1) {
+        const d = new Date(`${anchor}T00:00:00+07:00`);
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        points.push({ key, label: key.slice(8) + '/' + String(Number(key.slice(5, 7))), bookings: 0, cancellations: 0, refunds: 0 });
+      }
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        status: range === 'hourly' ? 'ready' : 'empty',
+        range,
+        timezone: 'Asia/Bangkok',
+        points,
+        totals: range === 'hourly' ? { bookings: 1, cancellations: 0, refunds: 0 } : { bookings: 0, cancellations: 0, refunds: 0 },
+        generatedAt: 1
+      })
+    });
+  });
+  await page.goto(pageUrl);
+  const main = await dashboardContent(page);
+  await main.locator('[data-booking-range="hourly"]').click();
+  await expect(main.locator('#booking-activity .chart-x-labels')).toContainText('09:00');
+  await expect(main.locator('#booking-activity polyline')).not.toHaveCount(0);
+  await expect(main.locator('#booking-activity .chart-summary')).toContainText('1');
+});
+
 test('Sidebar routes still work and ERP workbook remains accessible', async ({ page }) => {
   await page.getByRole('button', { name: 'จัดการข้อมูล ERP' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'workbook');

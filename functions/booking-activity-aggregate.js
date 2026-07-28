@@ -2,6 +2,21 @@
 
 const TIMEZONE = "Asia/Bangkok";
 const RANGE_SIZES = { hourly: 24, daily: 30, weekly: 12, monthly: 12, yearly: 5 };
+const DAY_MS = 86400000;
+const ALLOWED_SOURCES = new Set(["booking1.html"]);
+const ALLOWED_SOURCE_MODES = new Set(["erp_data_center"]);
+const COUNTED_STATUSES = new Set([
+  "awaiting_payment",
+  "pay_on_site",
+  "slip_uploaded",
+  "confirmed",
+  "paid",
+  "completed",
+  "cancelled",
+  "canceled",
+  "refunded"
+]);
+const EXCLUDED_STATUSES = new Set(["draft", "failed", "invalid", "write_failed"]);
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -30,7 +45,8 @@ function parseAnchor(anchor, nowMs) {
   const value = anchor || ymdFromMs(nowMs || Date.now());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, -7, 0, 0, 0));
+  const date = new Date(Date.UTC(year, month - 1, day, -7, 0, 0, 0));
+  return ymdFromMs(date.getTime()) === value ? date : null;
 }
 
 function addDays(date, days) {
@@ -49,6 +65,16 @@ function addYears(date, years) {
   const d = new Date(date.getTime());
   d.setUTCFullYear(d.getUTCFullYear() + years);
   return d;
+}
+
+function startOfBangkokMonth(date) {
+  const p = bangkokParts(date.getTime());
+  return new Date(Date.UTC(Number(p.year), Number(p.month) - 1, 1, -7, 0, 0, 0));
+}
+
+function startOfBangkokYear(date) {
+  const p = bangkokParts(date.getTime());
+  return new Date(Date.UTC(Number(p.year), 0, 1, -7, 0, 0, 0));
 }
 
 function weekNo(date) {
@@ -106,17 +132,51 @@ function bucketPlan(range, anchor, nowMs) {
   return points;
 }
 
-function createdAtMs(record) {
-  const candidates = [record.createdAtMs, record.createdAt, record.ts, record.timestamp, record.serverTimestamp];
-  for (const value of candidates) {
-    if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
-    if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
-    if (typeof value === "string") {
-      const parsed = Date.parse(value);
-      if (Number.isFinite(parsed)) return parsed;
-    }
+function queryWindow(range, anchor, nowMs) {
+  const anchorDate = parseAnchor(anchor, nowMs);
+  if (!anchorDate || !Object.prototype.hasOwnProperty.call(RANGE_SIZES, range)) return null;
+  let start = anchorDate;
+  let end = addDays(anchorDate, 1).getTime() - 1;
+  if (range === "daily") start = addDays(anchorDate, -29);
+  else if (range === "weekly") start = addDays(anchorDate, -83);
+  else if (range === "monthly") {
+    start = addMonths(startOfBangkokMonth(anchorDate), -11);
+    end = addMonths(startOfBangkokMonth(anchorDate), 1).getTime() - 1;
+  } else if (range === "yearly") {
+    start = addYears(startOfBangkokYear(anchorDate), -4);
+    end = addYears(startOfBangkokYear(anchorDate), 1).getTime() - 1;
+  }
+  return { startMs: start.getTime(), endMs: end };
+}
+
+function numericTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return null;
+}
+
+function createdTimestamp(record, options) {
+  const opts = options || {};
+  const ts = numericTimestamp(record.ts);
+  if (ts) return { ms: ts, field: "ts", serverVerified: true };
+  if (opts.allowFallbackCreatedAtMs === true) {
+    const createdAtMs = numericTimestamp(record.createdAtMs);
+    if (createdAtMs) return { ms: createdAtMs, field: "createdAtMs", serverVerified: true };
+  }
+  if (opts.allowLegacyCreatedAt === true) {
+    const createdAt = numericTimestamp(record.createdAt);
+    if (createdAt) return { ms: createdAt, field: "createdAt", serverVerified: true };
+  }
+  if (opts.allowContractTimestamp === true) {
+    const timestamp = numericTimestamp(record.timestamp) || numericTimestamp(record.serverTimestamp);
+    if (timestamp) return { ms: timestamp, field: record.timestamp ? "timestamp" : "serverTimestamp", serverVerified: true };
   }
   return null;
+}
+
+function createdAtMs(record, options) {
+  const timestamp = createdTimestamp(record, options);
+  return timestamp ? timestamp.ms : null;
 }
 
 function validBookingId(id, record) {
@@ -124,13 +184,33 @@ function validBookingId(id, record) {
   return /^[A-Z0-9][A-Z0-9_-]{5,}$/i.test(value);
 }
 
-function isRealBooking(id, record) {
+function validYmd(value) {
+  const text = String(value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const [year, month, day] = text.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, -7, 0, 0, 0));
+  return ymdFromMs(date.getTime()) === text;
+}
+
+function bookingStatus(record) {
+  return String(record.status || record.bookingStatus || record.paymentStatus || "").toLowerCase();
+}
+
+function isRealBooking(id, record, options) {
   if (!record || typeof record !== "object") return { ok: false, reason: "not_object" };
   if (record.testMode === true || record.mockPayment === true || record.mockOnly === true || record.automatedTest === true) {
     return { ok: false, reason: "test_or_mock" };
   }
   if (!validBookingId(id, record)) return { ok: false, reason: "invalid_booking_id" };
-  if (!createdAtMs(record)) return { ok: false, reason: "missing_created_server_timestamp" };
+  if (!createdTimestamp(record, options)) return { ok: false, reason: "missing_created_server_timestamp" };
+  if (!ALLOWED_SOURCES.has(String(record.source || ""))) return { ok: false, reason: "invalid_source" };
+  if (!ALLOWED_SOURCE_MODES.has(String(record.sourceMode || ""))) return { ok: false, reason: "invalid_source_mode" };
+  if (!validYmd(record.date || record.serviceDate)) return { ok: false, reason: "invalid_service_date" };
+  if (!String(record.origin || "").trim() || !String(record.destination || "").trim()) return { ok: false, reason: "missing_route" };
+  if (!(Number(record.pax || record.seats || 0) > 0)) return { ok: false, reason: "invalid_pax" };
+  const status = bookingStatus(record);
+  if (EXCLUDED_STATUSES.has(status)) return { ok: false, reason: "excluded_status" };
+  if (!COUNTED_STATUSES.has(status)) return { ok: false, reason: "unknown_status" };
   return { ok: true };
 }
 
@@ -155,12 +235,12 @@ function aggregateBookingActivity(records, options) {
   const invalid = {};
   Object.keys(records || {}).forEach((id) => {
     const record = records[id] || {};
-    const valid = isRealBooking(id, record);
+    const valid = isRealBooking(id, record, opts);
     if (!valid.ok) {
       invalid[valid.reason] = (invalid[valid.reason] || 0) + 1;
       return;
     }
-    const key = bucketForMs(range, createdAtMs(record));
+    const key = bucketForMs(range, createdAtMs(record, opts));
     const point = byKey[key];
     if (!point) return;
     point.bookings += 1;
@@ -188,7 +268,10 @@ module.exports = {
   RANGE_SIZES,
   aggregateBookingActivity,
   bucketPlan,
+  queryWindow,
   bucketForMs,
   createdAtMs,
+  createdTimestamp,
+  validYmd,
   isRealBooking
 };

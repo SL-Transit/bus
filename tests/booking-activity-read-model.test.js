@@ -9,32 +9,66 @@ const yesterday = '2026-07-27';
 const createdToday = Date.parse(`${today}T09:00:00${BKK}`);
 const createdYesterday = Date.parse(`${yesterday}T23:00:00${BKK}`);
 
+function complete(extra) {
+  return Object.assign({
+    source: 'booking1.html',
+    sourceMode: 'erp_data_center',
+    date: today,
+    origin: 'A',
+    destination: 'B',
+    pax: 1,
+    status: 'awaiting_payment'
+  }, extra || {});
+}
+
 const records = {
-  BK_TODAY_TRAVEL_TODAY: { code: 'BK_TODAY_TRAVEL_TODAY', createdAt: createdToday, date: today, status: 'confirmed' },
-  BK_TODAY_TRAVEL_FUTURE: { code: 'BK_TODAY_TRAVEL_FUTURE', createdAtMs: createdToday + 60000, serviceDate: tomorrow, status: 'confirmed' },
-  BK_YESTERDAY_TRAVEL_TODAY: { code: 'BK_YESTERDAY_TRAVEL_TODAY', createdAt: createdYesterday, date: today, status: 'confirmed' },
-  BK_CANCELLED_TODAY: { code: 'BK_CANCELLED_TODAY', ts: createdToday + 120000, date: tomorrow, status: 'cancelled' },
-  BK_REFUNDED_TODAY: { code: 'BK_REFUNDED_TODAY', createdAt: createdToday + 180000, date: tomorrow, paymentStatus: 'refunded' },
-  BK_TEST_MODE: { code: 'BK_TEST_MODE', createdAt: createdToday, date: today, testMode: true },
-  BK_MOCK_PAYMENT: { code: 'BK_MOCK_PAYMENT', createdAt: createdToday, date: today, mockPayment: true },
-  BK_NO_CREATED: { code: 'BK_NO_CREATED', date: today, status: 'confirmed' }
+  BK_TODAY_TRAVEL_TODAY: complete({ code: 'BK_TODAY_TRAVEL_TODAY', ts: createdToday, date: today }),
+  BK_TODAY_TRAVEL_FUTURE: complete({ code: 'BK_TODAY_TRAVEL_FUTURE', ts: createdToday + 60000, serviceDate: tomorrow, date: tomorrow }),
+  BK_YESTERDAY_TRAVEL_TODAY: complete({ code: 'BK_YESTERDAY_TRAVEL_TODAY', ts: createdYesterday, date: today }),
+  BK_CANCELLED_TODAY: complete({ code: 'BK_CANCELLED_TODAY', ts: createdToday + 120000, date: tomorrow, status: 'cancelled' }),
+  BK_REFUNDED_TODAY: complete({ code: 'BK_REFUNDED_TODAY', ts: createdToday + 180000, date: tomorrow, paymentStatus: 'refunded' }),
+  BK_TEST_MODE: complete({ code: 'BK_TEST_MODE', ts: createdToday, testMode: true }),
+  BK_MOCK_PAYMENT: complete({ code: 'BK_MOCK_PAYMENT', ts: createdToday, mockPayment: true }),
+  BK_DRAFT: complete({ code: 'BK_DRAFT', ts: createdToday, status: 'draft' }),
+  BK_FAILED: complete({ code: 'BK_FAILED', ts: createdToday, status: 'failed' }),
+  BK_NO_CREATED: complete({ code: 'BK_NO_CREATED', ts: null }),
+  BK_INCOMPLETE: { code: 'BK_INCOMPLETE', ts: createdToday, source: 'booking1.html', sourceMode: 'erp_data_center', date: today, status: 'awaiting_payment' },
+  BK_CREATED_AT_ONLY: complete({ code: 'BK_CREATED_AT_ONLY', createdAt: createdToday, date: today }),
+  BK_TS_WINS: complete({ code: 'BK_TS_WINS', ts: createdToday, createdAt: createdYesterday, date: tomorrow })
 };
 
 const daily = aggregate.aggregateBookingActivity(records, { range: 'daily', anchor: today });
 const todayPoint = daily.points.find((point) => point.key === today);
-assert.strictEqual(todayPoint.bookings, 4, 'booking today must count by createdDate, including future serviceDate');
+assert.strictEqual(todayPoint.bookings, 5, 'booking today must count by canonical ts, including future serviceDate');
 assert.strictEqual(todayPoint.cancellations, 1, 'cancelled booking remains booking history and cancellation series');
 assert.strictEqual(todayPoint.refunds, 1, 'refunded booking remains booking history and refund series');
-assert.strictEqual(daily.totals.bookings, 5, '30-day daily total includes yesterday-created booking too');
+assert.strictEqual(daily.totals.bookings, 6, '30-day daily total includes yesterday-created booking too');
 assert.strictEqual(daily.invalidRecords.test_or_mock, 2, 'testMode/mockPayment records are excluded');
-assert.strictEqual(daily.invalidRecords.missing_created_server_timestamp, 1, 'missing server created timestamp is reported and excluded');
+assert.strictEqual(daily.invalidRecords.missing_created_server_timestamp, 2, 'missing server created timestamp is reported and excluded');
+assert.strictEqual(daily.invalidRecords.excluded_status, 2, 'failed/draft records are excluded');
+assert.strictEqual(daily.invalidRecords.missing_route, 1, 'incomplete records are excluded');
 
 const yesterdayPoint = daily.points.find((point) => point.key === yesterday);
 assert.strictEqual(yesterdayPoint.bookings, 1, 'booking yesterday and travel today must not increase today bucket');
 
 const hourly = aggregate.aggregateBookingActivity(records, { range: 'hourly', anchor: today });
 assert.strictEqual(hourly.points.length, 24);
-assert.strictEqual(hourly.points.find((point) => point.key === `${today}T09`).bookings, 4);
+assert.strictEqual(hourly.points.find((point) => point.key === `${today}T09`).bookings, 5);
+
+const tsPriority = aggregate.createdTimestamp(records.BK_TS_WINS);
+assert.strictEqual(tsPriority.field, 'ts', 'ts must be selected before createdAt');
+assert.strictEqual(tsPriority.ms, createdToday);
+
+const fallbackDisabled = aggregate.createdTimestamp(records.BK_CREATED_AT_ONLY);
+assert.strictEqual(fallbackDisabled, null, 'createdAt cannot outrank missing ts unless explicitly enabled');
+
+const bkkBoundary = aggregate.aggregateBookingActivity({
+  BK_BKK_BOUNDARY: complete({ code: 'BK_BKK_BOUNDARY', ts: Date.parse('2026-07-27T23:30:00+00:00'), date: today })
+}, { range: 'daily', anchor: today });
+assert.strictEqual(bkkBoundary.points.find((point) => point.key === today).bookings, 1, 'Bangkok date before 07:00 UTC boundary must map to the correct local day');
+const windowDaily = aggregate.queryWindow('daily', today);
+assert.strictEqual(windowDaily.startMs, Date.parse('2026-06-29T00:00:00+07:00'), 'daily query starts 30 Bangkok dates including anchor');
+assert.strictEqual(windowDaily.endMs, Date.parse('2026-07-28T23:59:59.999+07:00'), 'daily query ends at anchor Bangkok day');
 
 const validated = readModel.validateResponse('daily', {
   status: 'ready',
@@ -74,6 +108,15 @@ assert(adminHtml.includes("source.refresh({range:state.bookingChartRange"), 'Das
 const functionsIndex = require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'index.js'), 'utf8');
 assert(functionsIndex.includes('exports.readBookingActivity = onRequest'), 'readBookingActivity HTTPS Function must exist');
 assert(functionsIndex.includes('aggregateBookingActivity'), 'readBookingActivity must aggregate on the server');
+assert(functionsIndex.includes('orderByChild("ts").startAt(window.startMs).endAt(window.endMs)'), 'Function must query by ts range');
+assert(!functionsIndex.includes('ref("bookings").get()'), 'Function must not read the whole bookings root');
+assert(functionsIndex.includes('origin_not_allowed'), 'Function must reject invalid/no-origin production requests');
+assert(functionsIndex.includes('FUNCTIONS_EMULATOR === "true"'), 'localhost must be emulator-only');
+assert(functionsIndex.includes('rate_limited'), 'Function must enforce rate limiting');
+assert(functionsIndex.includes('maxInstances: 10'), 'Function must cap max instances');
 assert(!/json\(\{[^}]*name\s*:|json\(\{[^}]*phone\s*:|rawBooking\s*:/.test(functionsIndex), 'Function response must not return private booking fields');
+
+const rules = require('fs').readFileSync(require('path').join(__dirname, '..', 'database.rules.json'), 'utf8');
+assert(rules.includes('"ts"'), 'database rules must index bookings.ts');
 
 console.log('booking-activity-read-model.test.js OK');

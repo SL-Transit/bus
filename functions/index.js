@@ -17,10 +17,15 @@ const ALLOWED_ADMIN_ORIGINS = new Set([
   "https://sl-transit.com",
   "https://www.sl-transit.com"
 ]);
+const bookingActivityRate = new Map();
+const BOOKING_ACTIVITY_RATE_WINDOW_MS = 60 * 1000;
+const BOOKING_ACTIVITY_RATE_LIMIT = 60;
+const BOOKING_ACTIVITY_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 function applyAggregateCors(req, res) {
   const origin = req.get("origin") || "";
-  if (ALLOWED_ADMIN_ORIGINS.has(origin)) {
+  const emulatorLocalhost = process.env.FUNCTIONS_EMULATOR === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (ALLOWED_ADMIN_ORIGINS.has(origin) || emulatorLocalhost) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
   }
@@ -30,15 +35,39 @@ function applyAggregateCors(req, res) {
 
 function validateAggregateOrigin(req) {
   const origin = req.get("origin") || "";
-  if (!origin) return true;
+  if (!origin) return req.get("x-sl-transit-healthcheck") === "booking-activity";
   if (ALLOWED_ADMIN_ORIGINS.has(origin)) return true;
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  return process.env.FUNCTIONS_EMULATOR === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
+function bookingActivityRateOk(req) {
+  const origin = req.get("origin") || "healthcheck";
+  const key = String(origin).slice(0, 120);
+  const now = Date.now();
+  const current = bookingActivityRate.get(key) || { windowStart: now, count: 0 };
+  if (now - current.windowStart >= BOOKING_ACTIVITY_RATE_WINDOW_MS) {
+    bookingActivityRate.set(key, { windowStart: now, count: 1 });
+    return true;
+  }
+  current.count += 1;
+  bookingActivityRate.set(key, current);
+  return current.count <= BOOKING_ACTIVITY_RATE_LIMIT;
+}
+
+function sendLimitedJson(res, status, body) {
+  const json = JSON.stringify(body);
+  if (Buffer.byteLength(json, "utf8") > BOOKING_ACTIVITY_RESPONSE_LIMIT_BYTES) {
+    res.status(500).json({ ok: false, error: "response_too_large" });
+    return;
+  }
+  res.status(status).type("application/json").send(json);
 }
 
 exports.readBookingActivity = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 15,
-  memory: "256MiB"
+  memory: "256MiB",
+  maxInstances: 10
 }, async (req, res) => {
   applyAggregateCors(req, res);
   if (req.method === "OPTIONS") {
@@ -53,21 +82,26 @@ exports.readBookingActivity = onRequest({
     res.status(403).json({ ok: false, error: "origin_not_allowed" });
     return;
   }
+  if (!bookingActivityRateOk(req)) {
+    res.status(429).json({ ok: false, error: "rate_limited" });
+    return;
+  }
   const range = String(req.query.range || "daily");
   const anchor = req.query.anchor ? String(req.query.anchor) : undefined;
   if (!Object.prototype.hasOwnProperty.call(bookingActivityAggregate.RANGE_SIZES, range)) {
     res.status(400).json({ ok: false, error: "invalid_range" });
     return;
   }
-  if (anchor && !/^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+  const window = bookingActivityAggregate.queryWindow(range, anchor);
+  if (!window) {
     res.status(400).json({ ok: false, error: "invalid_anchor" });
     return;
   }
   try {
-    const snap = await admin.database().ref("bookings").get();
+    const snap = await admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get();
     const aggregate = bookingActivityAggregate.aggregateBookingActivity(snap.val() || {}, { range, anchor });
     res.set("Cache-Control", "private, max-age=30");
-    res.status(200).json({
+    sendLimitedJson(res, 200, {
       status: aggregate.status,
       range: aggregate.range,
       timezone: aggregate.timezone,
