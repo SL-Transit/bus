@@ -14,6 +14,31 @@ Every report must include:
 - Firebase/passenger-data safety statement
 - blockers and next recommended action
 
+## 2026-07-28 14:55 +07 - Site Analytics / Booking Activity AI - REVIEW
+
+Scope:
+- `site-analytics-read-model.js` (new)
+- `booking-activity-read-model.js` (new)
+- `admin-erp.html` (added the two script includes + `sltransit:*-updated` re-render listeners; no other dashboard UI/markup changed)
+- `booking1.html` (added `site-analytics.js` include, matching index/passenger/check_ticket/cancel_ticket)
+- `tests/site-analytics-read-model.test.js`, `tests/booking-activity-read-model.test.js` (new)
+
+Summary:
+Owner asked for real website-visitor and real-booking stats on the Admin ERP dashboard. The dashboard already had chart UI wired to two hooks that nobody had implemented: `SLTransit.siteAnalyticsReadModel` and `SLTransit.bookingActivityReadModel` (both fell through to an empty/no-data state). This work implements both hooks as read-only aggregators:
+
+- `site-analytics-read-model.js` reads `analytics/mainWeb/{day}` (already written by the existing `site-analytics.js`) and buckets it into daily/weekly/monthly/yearly points matching `admin-erp.html`'s existing `bucketLabels()` key format. `hourly` range is honestly reported `unavailable` because that source has no per-hour breakdown (no fabricated data).
+- `booking-activity-read-model.js` reads the **live** `bookings/{code}` path (public `.read: true`, indexed on `date`) — this is the path Booking1 actually writes to today. Note: `screen01-central-read-model.js` marks legacy `bookings` as "rejected: true, do not use as automatic Dashboard fallback" for other modules; this module is a scoped, Owner-approved exception specifically for stats reporting, called out in code comments. Once `operations/bookings` is confirmed as the canonical path, re-point `BOOKINGS_PATH` in this file.
+- `booking1.html` did not previously include `site-analytics.js` at all, so real booking-flow visits were never counted; added it (Owner approved editing Booking1 for this task, overriding the general Screen-01-in-progress "don't touch consumer pages" note for this specific, scoped change).
+- Both read models only cache a minimal aggregate subset (`date`/`status`/`paymentStatus`/`pax` for bookings; `pageViews`/`count` for analytics) — no passenger name/phone is read into memory.
+
+Firebase writes: none. Rules/index changes: none needed (both paths already have the required `.read`/`.indexOn`). Passenger/private data: not displayed, not retained beyond aggregate counts.
+
+Tests: `node tests/site-analytics-read-model.test.js` and `node tests/booking-activity-read-model.test.js` pass. Full existing suite re-run; the 9 pre-existing failures (`admin-console-*`, `booking-assignment-center-wiring`, `driver-work-*`, `erp-calculator-center`, `erp-data-center-dry-run-snapshot`, `erp-stable-id-registry`, `published-schedule-v1-dry-run`, `ticket-action-center`) were confirmed present on `main` before this change too (sandbox network 403s to live Firebase/legacy JSON endpoints, plus date-dependent assertions) — unrelated to this work, not introduced by it.
+
+Commit/branch: pushed to `analytics-real-stats` (not merged to `main` yet — Owner review requested before merge).
+
+Next action: Owner reviews on the branch/PR, confirms the `bookings` vs `operations/bookings` path choice is acceptable as an interim measure, then merges.
+
 ## Report Template
 
 ```md

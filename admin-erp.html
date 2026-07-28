@@ -11,6 +11,8 @@
   <script src="erp-admin-master-data.js"></script>
   <script src="admin-master-data-ui.js"></script>
   <script src="screen01-central-read-model.js"></script>
+  <script src="site-analytics-read-model.js"></script>
+  <script src="booking-activity-read-model.js"></script>
   <style>
     :root{--ink:#1f2933;--muted:#667085;--line:#d9e0e8;--soft:#eef3f6;--bg:#f5f7fa;--panel:#fff;--nav:#061d36;--nav2:#0d58b5;--accent:#0f766e;--accent2:#315b91;--ok:#067647;--warn:#a15c07;--bad:#b42318;--blue:#2368d8;--teal:#13a8b8;--orange:#f59e0b;--shadow:0 10px 28px rgba(27,39,51,.07)}
     *{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}body{margin:0;background:var(--bg);color:var(--ink);font-family:Kanit,system-ui,sans-serif;font-size:14px;line-height:1.45}
@@ -400,6 +402,8 @@
     document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&document.body.classList.contains('nav-open'))setMobileDrawer(false);if((ev.ctrlKey||ev.metaKey)&&String(ev.key).toLowerCase()==='k'){var input=$('adminSearch');if(input){ev.preventDefault();input.focus()}}});
     var searchInput=$('adminSearch');if(searchInput)searchInput.addEventListener('keydown',function(ev){if(ev.key==='Enter'){recordAudit('admin-search',this.value||'empty');ev.preventDefault()}});
     syncNavigationState();
+    window.addEventListener('sltransit:analytics-updated', function(){render()});
+    window.addEventListener('sltransit:booking-activity-updated', function(){render()});
     load();
   </script>
 </body>
