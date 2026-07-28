@@ -11,8 +11,12 @@
  * passenger.html (the --blue brand color there is #0f3a5f).
  */
 .map-stop-icon {
-  width: 34px;
-  height: 34px;
+  width: var(--erp-map-stop-icon-size, 34px) !important;
+  height: var(--erp-map-stop-icon-size, 34px) !important;
+  min-width: var(--erp-map-stop-icon-size, 34px) !important;
+  min-height: var(--erp-map-stop-icon-size, 34px) !important;
+  max-width: var(--erp-map-stop-icon-size, 34px) !important;
+  max-height: var(--erp-map-stop-icon-size, 34px) !important;
   border-radius: 50%;
   background: #0f3a5f;
   border: 3px solid #fff;
@@ -21,20 +25,24 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 18px;
+  font-size: var(--erp-map-stop-icon-font-size, 18px) !important;
   line-height: 1;
+  box-sizing: border-box !important;
+  flex: 0 0 var(--erp-map-stop-icon-size, 34px) !important;
+  transform-origin: center center !important;
 }
 
 .map-stop-label {
   background: rgba(15,23,42,.9);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--erp-map-stop-label-font-size, 11px) !important;
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 12px;
   white-space: nowrap;
   box-shadow: 0 3px 8px rgba(15,23,42,.24);
   border: 1px solid rgba(255,255,255,.82);
+  transform-origin: center center !important;
 }
 
 .map-stop-icon, .map-stop-label {

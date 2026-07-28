@@ -663,6 +663,25 @@ function applyPublishedScheduleMapView(mapView) {
   applyPassengerRouteData(PASSENGER_ROUTE_DATA);
 }
 
+function passengerStopMarkerPolicy() {
+  return PASSENGER_ROUTE_DATA && PASSENGER_ROUTE_DATA.displayPolicy && PASSENGER_ROUTE_DATA.displayPolicy.stopMarkers || {};
+}
+
+function passengerPolicyNumber(value, fallback) {
+  var n = Number(value);
+  return isFinite(n) && n > 0 ? n : fallback;
+}
+
+function applyPassengerStopMarkerDisplayPolicy() {
+  var policy = passengerStopMarkerPolicy();
+  var root = document.documentElement || document.body;
+  if (!root || !root.style) return;
+  root.style.setProperty('--erp-map-stop-icon-size', passengerPolicyNumber(policy.iconSizePx, 34) + 'px');
+  root.style.setProperty('--erp-map-stop-icon-font-size', passengerPolicyNumber(policy.iconFontSizePx, 18) + 'px');
+  root.style.setProperty('--erp-map-stop-label-font-size', passengerPolicyNumber(policy.labelFontSizePx, 11) + 'px');
+  if (root.dataset) root.dataset.erpMapStopScaleMode = policy.scaleMode || '';
+}
+
 function applyPassengerRouteData(data) {
   PASSENGER_ROUTE_DATA = data || null;
   var stations = data && Array.isArray(data.stations) ? data.stations : null;
@@ -851,6 +870,10 @@ function clearStationMarkers() {
 
 function renderStationMarkers(routeData, skipEnsure) {
   if (!mapReady || !mapObj || !routeData || !Array.isArray(routeData.stations)) return;
+  applyPassengerStopMarkerDisplayPolicy();
+  var markerPolicy = passengerStopMarkerPolicy();
+  var iconSizePx = passengerPolicyNumber(markerPolicy.iconSizePx, 34);
+  var iconAnchor = iconSizePx / 2;
   clearStationMarkers();
   routeData.stations.forEach(function(s, i) {
     var point = normalizeMapPoint(s);
@@ -858,7 +881,7 @@ function renderStationMarkers(routeData, skipEnsure) {
     var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     var safeIcon = String(s.icon || '🚏').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
-      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
+      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: iconAnchor, y: iconAnchor } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
     } catch(e) { console.warn('Stop marker error:', e); }
     try {

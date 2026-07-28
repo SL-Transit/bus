@@ -262,7 +262,10 @@ function buildMapView(erp) {
       localRendererDecisionAllowed: false,
       stopMarkers: {
         scaleMode: 'fixed_screen_size',
+        iconSizePx: 34,
+        iconFontSizePx: 18,
         labelMode: 'always_visible',
+        labelFontSizePx: 11,
         iconSource: 'publishedSchedule/mapView/stops/{index}/icon',
         labelSource: 'publishedSchedule/mapView/stops/{index}/label'
       },
@@ -1010,7 +1013,7 @@ function validatePublishedSchedule(publishedSchedule) {
   if (displayPolicy.policySource !== 'erp_map_data_center' || displayPolicy.localRendererDecisionAllowed !== false) {
     block('map-view-display-policy-authority-invalid', 'publishedSchedule/mapView/displayPolicy');
   }
-  if (stopMarkerPolicy.scaleMode !== 'fixed_screen_size' || stopMarkerPolicy.iconSource !== 'publishedSchedule/mapView/stops/{index}/icon' || stopMarkerPolicy.labelSource !== 'publishedSchedule/mapView/stops/{index}/label') {
+  if (stopMarkerPolicy.scaleMode !== 'fixed_screen_size' || stopMarkerPolicy.iconSizePx !== 34 || stopMarkerPolicy.iconFontSizePx !== 18 || stopMarkerPolicy.labelFontSizePx !== 11 || stopMarkerPolicy.iconSource !== 'publishedSchedule/mapView/stops/{index}/icon' || stopMarkerPolicy.labelSource !== 'publishedSchedule/mapView/stops/{index}/label') {
     block('map-view-stop-marker-policy-invalid', 'publishedSchedule/mapView/displayPolicy/stopMarkers');
   }
   if (routeGeometryPolicy.source !== 'publishedSchedule/mapView/routes' || routeGeometryPolicy.calculationAuthority !== 'erp_map_data_center') {

@@ -69,6 +69,25 @@
     return policy && policy.scaleMode === 'fixed_screen_size';
   }
 
+  function stopMarkerPolicy(mapView) {
+    return mapView && mapView.displayPolicy && mapView.displayPolicy.stopMarkers || {};
+  }
+
+  function policyNumber(value, fallback) {
+    var n = Number(value);
+    return isFinite(n) && n > 0 ? n : fallback;
+  }
+
+  function applyStopMarkerDisplayPolicy(mapView) {
+    var policy = stopMarkerPolicy(mapView);
+    var root = document.documentElement || document.body;
+    if (!root || !root.style) return;
+    root.style.setProperty('--erp-map-stop-icon-size', policyNumber(policy.iconSizePx, 34) + 'px');
+    root.style.setProperty('--erp-map-stop-icon-font-size', policyNumber(policy.iconFontSizePx, 18) + 'px');
+    root.style.setProperty('--erp-map-stop-label-font-size', policyNumber(policy.labelFontSizePx, 11) + 'px');
+    if (root.dataset) root.dataset.erpMapStopScaleMode = policy.scaleMode || '';
+  }
+
   function leafletOptionsForMapView(mapView) {
     var fixedStopMarkers = stopMarkersAreFixedScreenSize(mapView);
     return {
@@ -80,6 +99,7 @@
   }
 
   function initMap(mapView) {
+    applyStopMarkerDisplayPolicy(mapView);
     map = L.map('map', {
       zoomControl: leafletOptionsForMapView(mapView).zoomControl,
       zoomAnimation: leafletOptionsForMapView(mapView).zoomAnimation,
@@ -164,14 +184,17 @@
     }
   }
 
-  function renderStops(stops) {
+  function renderStops(stops, mapView) {
+    var policy = stopMarkerPolicy(mapView);
+    var iconSizePx = policyNumber(policy.iconSizePx, 34);
+    var labelAnchorY = iconSizePx + 10;
     stopMarkers.forEach(function (m) { map.removeLayer(m); });
     stopMarkers = [];
     stops.forEach(function (s) {
       var iconDiv = L.divIcon({
         className: '',
         html: "<div class='map-stop-icon'>" + escHtml(s.icon || '\uD83D\uDE8F') + "</div>",
-        iconSize: [34, 34], iconAnchor: [17, 17]
+        iconSize: [iconSizePx, iconSizePx], iconAnchor: [iconSizePx / 2, iconSizePx / 2]
       });
       var iconM = L.marker([s.lat, s.lng], { icon: iconDiv, title: s.name || '' }).addTo(map);
       stopMarkers.push(iconM);
@@ -179,7 +202,7 @@
       var labelDiv = L.divIcon({
         className: '',
         html: "<div class='map-stop-label'>" + escHtml(s.name) + "</div>",
-        iconSize: null, iconAnchor: [-6, 44]
+        iconSize: null, iconAnchor: [-6, labelAnchorY]
       });
       var labelM = L.marker([s.lat, s.lng], { icon: labelDiv, interactive: false }).addTo(map);
       stopMarkers.push(labelM);
@@ -234,6 +257,7 @@
   function watchMapView() {
     db.ref(MAP_VIEW_PATH).on('value', function (snap) {
       var mapView = snap.val() || {};
+      applyStopMarkerDisplayPolicy(mapView);
       if (!map) {
         initMap(mapView);
         if (pendingDriverPosition) {
@@ -241,7 +265,7 @@
           pendingDriverPosition = null;
         }
       }
-      renderStops(normalizeStops(mapView.stops));
+      renderStops(normalizeStops(mapView.stops), mapView);
       renderRoute(extractRoadRoute(mapView.routes));
     });
   }
