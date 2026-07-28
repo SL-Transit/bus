@@ -9,6 +9,10 @@ const mapDisplayCenter = fs.readFileSync(path.join(__dirname, '..', 'map-display
 const checkTicketHtml = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'utf8');
 const driverMapHtml = fs.readFileSync(path.join(__dirname, '..', 'driver-map.html'), 'utf8');
 const driverMapLogic = fs.readFileSync(path.join(__dirname, '..', 'driver-map-logic.js'), 'utf8');
+const driverMain = fs.readFileSync(
+  path.join(__dirname, '..', 'driver-android', 'src', 'main', 'java', 'com', 'sanamchai', 'drivergps', 'MainActivity.java'),
+  'utf8'
+);
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
 assert(checkTicketHtml.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
@@ -19,6 +23,9 @@ assert(driverMapLogic.includes('s.label || s.displayNameTh || s.nameTh'), 'Drive
 assert(driverMapLogic.includes("icon: s.icon || '\\uD83D\\uDE8F'"), 'Driver map stop icons must come from mapView stop data');
 assert(driverMapLogic.includes('renderRoute(extractRoadRoute(mapView.routes))'), 'Driver map must render the ERP Map road route from mapView');
 assert(!driverMapLogic.includes("data/erpDataCenter/catalog/stops"), 'Driver map must not read raw catalog stops instead of the published mapView contract');
+assert(driverMain.includes('ws.setCacheMode(WebSettings.LOAD_NO_CACHE)'), 'Driver app WebView must not reuse stale driver-map HTML');
+assert(driverMain.includes('driverMapWebView.clearCache(true)'), 'Driver app must clear stale driver map WebView cache');
+assert(driverMain.includes('https://sl-transit.com/driver-map.html?v=20260728a'), 'Driver app must load the current driver map HTML version');
 
 const passengerUpdateStart = passengerLogic.indexOf('function updateAllBusesOnMap');
 const passengerUpdateEnd = passengerLogic.indexOf('function removeBusFromMap', passengerUpdateStart);

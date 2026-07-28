@@ -3048,13 +3048,15 @@ public class MainActivity extends Activity {
         WebSettings ws = driverMapWebView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
+        ws.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        driverMapWebView.clearCache(true);
         driverMapWebView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 driverMapReady = true;
                 updateLiveMap();
             }
         });
-        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html");
+        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html?v=20260728a");
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);
