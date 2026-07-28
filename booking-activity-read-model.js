@@ -69,6 +69,22 @@
     return { bookingCount: ids.length, cancelledCount: cancelledCount, refundedCount: refundedCount, passengerCount: passengerCount };
   }
 
+  // Real-users source (booking half): a completed booking write to
+  // `bookings/{code}` means someone finished the booking flow that day. The
+  // page-visit half (passenger.html / check_ticket.html) comes from
+  // site-analytics-read-model.js, since a booking record has no device id to
+  // correlate with page-view analytics.
+  function daySummary(dayKey) {
+    var bookingCount = 0, revenue = 0;
+    Object.keys(CACHE.byId).forEach(function (id) {
+      var rec = CACHE.byId[id] || {};
+      if (String(rec.date || '').slice(0, 10) !== dayKey) return;
+      bookingCount += 1;
+      if (!isCancelled(rec)) revenue += Number(rec.price || 0) || 0;
+    });
+    return { bookingCount: bookingCount, revenue: revenue, hasData: CACHE.status === 'ready' };
+  }
+
   function snapshot(params) {
     params = params || {};
     var range = params.range || 'daily';
@@ -106,7 +122,8 @@
             status: rec.status || rec.bookingStatus || '',
             paymentStatus: rec.paymentStatus || '',
             refundStatus: rec.refundStatus || '',
-            pax: Number(rec.pax || rec.seats || 0) || 0
+            pax: Number(rec.pax || rec.seats || 0) || 0,
+            price: Number(rec.price || 0) || 0
           };
         });
         CACHE.byId = byId;
@@ -125,7 +142,7 @@
   }
   if (isBrowser) start();
 
-  var api = { getSnapshot: snapshot };
+  var api = { getSnapshot: snapshot, getDaySummary: daySummary };
   global.SLTransit = global.SLTransit || {};
   global.SLTransit.bookingActivityReadModel = api;
 
@@ -134,6 +151,7 @@
       aggregate: aggregate,
       snapshot: snapshot,
       totals: totals,
+      daySummary: daySummary,
       weekKeyFromDate: weekKeyFromDate,
       monthKeyFromDate: monthKeyFromDate,
       yearKeyFromDate: yearKeyFromDate,

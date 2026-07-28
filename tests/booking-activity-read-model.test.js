@@ -26,4 +26,14 @@ assert.deepStrictEqual(day1, { key: '2026-07-20', bookings: 2, cancellations: 1,
 const day2 = daily.points.find(p => p.key === '2026-07-21');
 assert.deepStrictEqual(day2, { key: '2026-07-21', bookings: 1, cancellations: 0, refunds: 1 });
 
+// daySummary powers the "รายได้วันนี้" KPI card; cancelled bookings excluded from revenue
+model._setCacheForTest({
+  BK010: { date: '2026-07-28', status: 'awaiting_payment', price: 100 },
+  BK011: { date: '2026-07-28', status: 'cancelled', price: 200 },
+  BK012: { date: '2026-07-27', status: 'awaiting_payment', price: 300 }
+}, 'ready');
+const summary = model.daySummary('2026-07-28');
+assert.strictEqual(summary.bookingCount, 2);
+assert.strictEqual(summary.revenue, 100); // cancelled booking's 200 excluded
+
 console.log('booking-activity-read-model.test.js OK');

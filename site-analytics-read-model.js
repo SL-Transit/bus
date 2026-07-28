@@ -54,6 +54,21 @@
     });
   }
 
+  // Real-users source (page-based half only): unique devices that reached a
+  // "real intent" page today (passenger.html or check_ticket.html login/lookup
+  // screens). The other half — successful bookings — comes from
+  // booking-activity-read-model.js, since a completed booking is a Firebase
+  // write to `bookings/{code}`, not a page load site-analytics.js can see.
+  var REAL_USER_PAGES = ['passenger_html', 'check_ticket_html'];
+
+  function daySummary(dayKey) {
+    var rec = CACHE.byDay[dayKey];
+    if (!rec) return { visits: 0, estimatedVisitors: 0, realUserPageVisitors: 0, hasData: false };
+    var pdc = rec.pageDeviceCounts || {};
+    var realUserPageVisitors = REAL_USER_PAGES.reduce(function (sum, page) { return sum + Number(pdc[page] || 0); }, 0);
+    return { visits: Number(rec.pageViews || 0), estimatedVisitors: Number(rec.count || 0), realUserPageVisitors: realUserPageVisitors, hasData: true };
+  }
+
   function snapshot(params) {
     params = params || {};
     var range = params.range || 'daily';
@@ -86,7 +101,7 @@
         var byDay = {};
         Object.keys(val).forEach(function (dayKey) {
           var rec = val[dayKey] || {};
-          byDay[dayKey] = { pageViews: Number(rec.pageViews || 0), count: Number(rec.count || 0) };
+          byDay[dayKey] = { pageViews: Number(rec.pageViews || 0), count: Number(rec.count || 0), pageDeviceCounts: rec.pageDeviceCounts || {} };
         });
         CACHE.byDay = byDay;
         CACHE.status = 'ready';
@@ -104,7 +119,7 @@
   }
   if (isBrowser) start();
 
-  var api = { getSnapshot: snapshot };
+  var api = { getSnapshot: snapshot, getDaySummary: daySummary };
   global.SLTransit = global.SLTransit || {};
   global.SLTransit.siteAnalyticsReadModel = api;
 
@@ -112,6 +127,7 @@
     module.exports = {
       aggregate: aggregate,
       snapshot: snapshot,
+      daySummary: daySummary,
       weekKeyFromDate: weekKeyFromDate,
       monthKeyFromDate: monthKeyFromDate,
       yearKeyFromDate: yearKeyFromDate,
