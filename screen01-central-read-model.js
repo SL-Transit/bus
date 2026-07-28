@@ -2,6 +2,8 @@
   'use strict';
 
   var DEFAULT_GPS_STALE_MS = 5 * 60 * 1000;
+  var SITE_ANALYTICS_ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/readSiteAnalytics';
+  var ANALYTICS_PRIVATE_FIELDS = /visitorHash|sessionHash|visitorState|visitorSeen|firstWriteToken|rawVisitor|rawSession|userAgent|ip|pagePath|pageCategory|privateMarker|secret|hmac/i;
   var NOT_CONNECTED = 'ยังไม่ได้เชื่อมต่อ';
   var NO_DATA = 'ไม่มีข้อมูล';
   var PARTIAL = 'เชื่อมต่อบางส่วน';
@@ -46,6 +48,13 @@
     },
     incident: { status: 'unresolved' },
     systemHealth: { status: 'unresolved' },
+    webAnalytics: {
+      status: 'confirmed',
+      path: SITE_ANALYTICS_ENDPOINT,
+      contractVersion: 'web_analytics_v1',
+      metrics: ['visits', 'estimatedVisitors'],
+      legacyExcluded: 'analytics/mainWeb'
+    },
     recentActivity: {
       status: 'proposed',
       paths: ['operations/notificationEvents', 'data/erpDataCenter/meta/audit'],
@@ -91,6 +100,40 @@
     if (value === '' || value == null) return null;
     var parsed = Number(String(value).replace(/,/g, ''));
     return Number.isFinite(parsed) ? parsed : null;
+  }
+  function integerAtLeastZero(value) {
+    return Number.isInteger(value) && value >= 0;
+  }
+  function hasPrivateField(value) {
+    if (!value || typeof value !== 'object') return false;
+    return keys(value).some(function(key) {
+      return ANALYTICS_PRIVATE_FIELDS.test(key) || hasPrivateField(value[key]);
+    });
+  }
+  function pad2(value) { return String(value).padStart(2, '0'); }
+  function dateFromYmd(ymd) {
+    var parts = String(ymd || '').split('-').map(Number);
+    return new Date(Date.UTC(parts[0] || 1970, (parts[1] || 1) - 1, parts[2] || 1));
+  }
+  function formatYmd(date) {
+    return date.getUTCFullYear() + '-' + pad2(date.getUTCMonth() + 1) + '-' + pad2(date.getUTCDate());
+  }
+  function addDays(ymd, amount) {
+    var date = dateFromYmd(ymd);
+    date.setUTCDate(date.getUTCDate() + amount);
+    return formatYmd(date);
+  }
+  function addMonths(ym, amount) {
+    var parts = String(ym || '').split('-').map(Number);
+    var date = new Date(Date.UTC(parts[0] || 1970, (parts[1] || 1) - 1 + amount, 1));
+    return date.getUTCFullYear() + '-' + pad2(date.getUTCMonth() + 1);
+  }
+  function isoWeekKey(ymd) {
+    var date = dateFromYmd(ymd);
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    var yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    var week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    return date.getUTCFullYear() + '-W' + pad2(week);
   }
   function pointOf(item) {
     var source = item && (item.location || item.gps || item.position || item);
@@ -174,6 +217,171 @@
       buckets[hour] = (buckets[hour] || 0) + amount;
     });
     return { status: total ? 'confirmed' : 'empty', amount: total, hourly: keys(buckets).sort().map(function(hour) { return { hour: hour, amount: buckets[hour] }; }) };
+  }
+  function analyticsBucketPlan(range, serviceDate) {
+    var day = serviceDate || formatYmd(new Date());
+    var month = day.slice(0, 7);
+    if (range === 'hourly') {
+      return {
+        granularity: 'hourly',
+        buckets: Array.from({ length: 24 }, function(_, hour) {
+          var key = day + 'T' + pad2(hour);
+          return { key: key, label: pad2(hour) + ':00' };
+        })
+      };
+    }
+    if (range === 'weekly') {
+      return {
+        granularity: 'weekly',
+        buckets: Array.from({ length: 12 }, function(_, index) {
+          var key = isoWeekKey(addDays(day, (index - 11) * 7));
+          return { key: key, label: key.replace('-', ' ') };
+        })
+      };
+    }
+    if (range === 'monthly') {
+      return {
+        granularity: 'monthly',
+        buckets: Array.from({ length: 12 }, function(_, index) {
+          var key = addMonths(month, index - 11);
+          return { key: key, label: key.slice(5) + '/' + key.slice(2, 4) };
+        })
+      };
+    }
+    if (range === 'yearly') {
+      var year = Number(day.slice(0, 4)) || new Date().getUTCFullYear();
+      return {
+        granularity: 'yearly',
+        buckets: Array.from({ length: 5 }, function(_, index) {
+          var key = String(year - 4 + index);
+          return { key: key, label: key };
+        })
+      };
+    }
+    return {
+      granularity: 'daily',
+      buckets: Array.from({ length: 30 }, function(_, index) {
+        var key = addDays(day, index - 29);
+        return { key: key, label: key.slice(5) };
+      })
+    };
+  }
+  function normalizeVisits(snapshotSource, range, serviceDate) {
+    var plan = analyticsBucketPlan(range || 'daily', serviceDate);
+    if (!snapshotSource || snapshotSource.status === 'unavailable') {
+      return {
+        status: 'unavailable',
+        contractStatus: 'confirmed',
+        range: range || 'daily',
+        granularity: plan.granularity,
+        buckets: plan.buckets.map(function(item) { return Object.assign({}, item, { visits: 0, pageViews: 0, visitorsApprox: 0, sessions: 0 }); }),
+        visitCount: null,
+        approximateVisitorCount: null,
+        sessionCount: null,
+        legacyExcluded: 'analytics/mainWeb'
+      };
+    }
+    if (snapshotSource.status === 'error') {
+      return {
+        status: 'error',
+        contractStatus: 'confirmed',
+        range: range || 'daily',
+        granularity: plan.granularity,
+        buckets: [],
+        visitCount: null,
+        approximateVisitorCount: null,
+        sessionCount: null,
+        error: snapshotSource.error,
+        legacyExcluded: 'analytics/mainWeb'
+      };
+    }
+    if (snapshotSource.status === 'ready' || snapshotSource.status === 'empty') {
+      var response = obj(snapshotSource.value);
+      var points = Array.isArray(response.points) ? response.points : [];
+      var expected = plan.buckets.length;
+      if (response.range !== (range || 'daily') || points.length !== expected || hasPrivateField(response)) {
+        return {
+          status: 'error',
+          contractStatus: 'confirmed',
+          range: range || 'daily',
+          granularity: plan.granularity,
+          buckets: [],
+          points: [],
+          visitCount: null,
+          approximateVisitorCount: null,
+          sessionCount: null,
+          error: 'invalid analytics response',
+          legacyExcluded: 'analytics/mainWeb'
+        };
+      }
+      var total = { visits: 0, estimatedVisitors: 0 };
+      var valid = points.every(function(point, index) {
+        if (!point || point.key !== plan.buckets[index].key) return false;
+        if (!integerAtLeastZero(point.visits) || !integerAtLeastZero(point.estimatedVisitors)) return false;
+        total.visits += point.visits;
+        total.estimatedVisitors += point.estimatedVisitors;
+        return true;
+      });
+      if (!valid || (response.status !== 'ready' && response.status !== 'empty')) {
+        return {
+          status: 'error',
+          contractStatus: 'confirmed',
+          range: range || 'daily',
+          granularity: plan.granularity,
+          buckets: [],
+          points: [],
+          visitCount: null,
+          approximateVisitorCount: null,
+          sessionCount: null,
+          error: 'invalid analytics response',
+          legacyExcluded: 'analytics/mainWeb'
+        };
+      }
+      return {
+        status: response.status,
+        contractStatus: 'confirmed',
+        range: range || 'daily',
+        granularity: plan.granularity,
+        buckets: points.map(function(point) {
+          return { key: point.key, label: point.label, visits: point.visits, pageViews: 0, visitorsApprox: point.estimatedVisitors, sessions: 0 };
+        }),
+        points: points.map(function(point) {
+          return { key: point.key, label: point.label, visits: point.visits, estimatedVisitors: point.estimatedVisitors };
+        }),
+        visitCount: total.visits,
+        pageViewCount: null,
+        approximateVisitorCount: total.estimatedVisitors,
+        sessionCount: null,
+        legacyExcluded: 'analytics/mainWeb'
+      };
+    }
+    var data = obj(snapshotSource.value);
+    var totals = { visits: 0, pageViews: 0, visitorsApprox: 0, sessions: 0 };
+    var buckets = plan.buckets.map(function(bucket) {
+      var row = obj(data[bucket.key]);
+      var pageViews = Number(row.pageViews || 0);
+      var visits = Number(row.visits != null ? row.visits : row.sessions || 0);
+      var visitorsApprox = Number(row.visitorsApprox || 0);
+      var sessions = Number(row.sessions || 0);
+      totals.visits += visits;
+      totals.pageViews += pageViews;
+      totals.visitorsApprox += visitorsApprox;
+      totals.sessions += sessions;
+      return Object.assign({}, bucket, { visits: visits, pageViews: pageViews, visitorsApprox: visitorsApprox, sessions: sessions });
+    });
+    return {
+      status: totals.visits || totals.visitorsApprox ? 'ready' : 'empty',
+      contractStatus: 'confirmed',
+      range: range || 'daily',
+      granularity: plan.granularity,
+      buckets: buckets,
+      points: buckets.map(function(bucket) { return { key: bucket.key, label: bucket.label, visits: bucket.visits, estimatedVisitors: bucket.visitorsApprox }; }),
+      visitCount: totals.visits,
+      pageViewCount: totals.pageViews,
+      approximateVisitorCount: totals.visitorsApprox,
+      sessionCount: totals.sessions,
+      legacyExcluded: 'analytics/mainWeb'
+    };
   }
   function normalizeFleet(liveSource, workSource, options) {
     options = options || {};
@@ -341,9 +549,11 @@
       liveVehicles: normalizeSource(raw, 'liveVehicles', sourcePaths.liveVehicles || 'operations/liveVehicles'),
       driverWork: normalizeSource(raw, 'driverWork', sourcePaths.driverWork || ('operations/driverWorkByServiceDate/' + serviceDate)),
       notificationEvents: normalizeSource(raw, 'notificationEvents', sourcePaths.notificationEvents || 'operations/notificationEvents'),
-      erpAudit: normalizeSource(raw, 'erpAudit', sourcePaths.erpAudit || 'data/erpDataCenter/meta/audit')
+      erpAudit: normalizeSource(raw, 'erpAudit', sourcePaths.erpAudit || 'data/erpDataCenter/meta/audit'),
+      webAnalytics: normalizeSource(raw, 'webAnalytics', sourcePaths.webAnalytics || SITE_ANALYTICS_ENDPOINT)
     };
     var bookings = normalizeBookings(sources.bookings, serviceDate);
+    var visits = normalizeVisits(sources.webAnalytics, options.range || 'daily', serviceDate);
     var refunds = normalizeRefunds(bookings, options.refundContract);
     var revenue = normalizeRevenue(bookings, options.paymentContract);
     var fleet = normalizeFleet(sources.liveVehicles, sources.driverWork, options);
@@ -354,6 +564,7 @@
       serviceDate: serviceDate,
       sourceContracts: SOURCE_CONTRACTS,
       sources: sources,
+      visits: visits,
       bookings: bookings,
       refunds: refunds,
       revenue: revenue,
@@ -367,7 +578,7 @@
         fleet: proportions({ active_service: fleet.operational.active_service || 0, inactive: fleet.operational.inactive || 0, unknown: fleet.operational.unknown || 0 }),
         gps: proportions({ live_gps: fleet.telemetry.live_gps || 0, stale_gps: fleet.telemetry.stale_gps || 0, missing_gps: fleet.telemetry.missing_gps || 0 })
       },
-      legacyRejected: ['bookings']
+      legacyRejected: ['bookings', 'analytics/mainWeb']
     };
   }
   function proportions(counts) {
@@ -387,19 +598,23 @@
       output[key + 'Error'] = err.message || String(err);
     });
   }
-  function readSources(db, serviceDate) {
+  function readSources(db, serviceDate, options) {
+    options = options || {};
     var paths = {
       bookings: 'operations/bookings',
       liveVehicles: 'operations/liveVehicles',
       driverWork: 'operations/driverWorkByServiceDate/' + serviceDate,
       notificationEvents: 'operations/notificationEvents',
-      erpAudit: 'data/erpDataCenter/meta/audit'
+      erpAudit: 'data/erpDataCenter/meta/audit',
+      webAnalytics: SITE_ANALYTICS_ENDPOINT
     };
+    var analyticsPlan = analyticsBucketPlan(options && options.range || 'daily', serviceDate);
     var limits = SOURCE_CONTRACTS.recentActivity.limits;
     var output = { paths: paths, queryPlan: {
       bookings: "operations/bookings.orderByChild('date').equalTo(serviceDate)",
       notificationEvents: 'limitToLast(' + limits.notificationEvents + ')',
       erpAudit: 'limitToLast(' + limits.erpAudit + ')',
+      webAnalytics: 'readSiteAnalytics HTTPS Function range=' + (options.range || 'daily'),
       driverTickets: 'not read: no documented Dashboard use'
     } };
     return Promise.all([
@@ -407,21 +622,41 @@
       safeRead(output, 'liveVehicles', paths.liveVehicles, function() { return db.ref(paths.liveVehicles); }),
       safeRead(output, 'driverWork', paths.driverWork, function() { return db.ref(paths.driverWork); }),
       safeRead(output, 'notificationEvents', paths.notificationEvents, function() { return db.ref(paths.notificationEvents).limitToLast(limits.notificationEvents); }),
-      safeRead(output, 'erpAudit', paths.erpAudit, function() { return db.ref(paths.erpAudit).limitToLast(limits.erpAudit); })
+      safeRead(output, 'erpAudit', paths.erpAudit, function() { return db.ref(paths.erpAudit).limitToLast(limits.erpAudit); }),
+      readAnalyticsSource(serviceDate, options).then(function(model) { output.sources = Object.assign(output.sources || {}, { webAnalytics: model }); })
     ]).then(function() {
       return output;
     });
   }
+  function analyticsFetchUrl(serviceDate, options) {
+    var range = options && options.range || 'daily';
+    var anchor = serviceDate || formatYmd(new Date());
+    return SITE_ANALYTICS_ENDPOINT + '?range=' + encodeURIComponent(range) + '&anchor=' + encodeURIComponent(anchor);
+  }
+  function readAnalyticsSource(serviceDate, options) {
+    if (typeof fetch !== 'function') return Promise.resolve(source('unavailable', SITE_ANALYTICS_ENDPOINT, {}, null));
+    return fetch(analyticsFetchUrl(serviceDate, options), { method: 'GET', credentials: 'omit', cache: 'no-store' }).then(function(res) {
+      if (!res.ok) throw new Error('readSiteAnalytics HTTP ' + res.status);
+      return res.json();
+    }).then(function(payload) {
+      return source(payload.status || 'empty', SITE_ANALYTICS_ENDPOINT, payload, null);
+    }).catch(function(err) {
+      return source('error', SITE_ANALYTICS_ENDPOINT, {}, err.message || String(err));
+    });
+  }
   function load(db, options) {
     options = options || {};
-    if (!db) return Promise.resolve(build({ sources: {
-      bookings: source('unavailable', 'operations/bookings', {}, null),
-      liveVehicles: source('unavailable', 'operations/liveVehicles', {}, null),
-      driverWork: source('unavailable', 'operations/driverWorkByServiceDate/' + (options.serviceDate || ''), {}, null),
-      notificationEvents: source('unavailable', 'operations/notificationEvents', {}, null),
-      erpAudit: source('unavailable', 'data/erpDataCenter/meta/audit', {}, null)
-    } }, options));
-    return readSources(db, options.serviceDate || '').then(function(raw) {
+    if (!db) return readAnalyticsSource(options.serviceDate || '', options).then(function(analyticsSource) {
+      return build({ sources: {
+        bookings: source('unavailable', 'operations/bookings', {}, null),
+        liveVehicles: source('unavailable', 'operations/liveVehicles', {}, null),
+        driverWork: source('unavailable', 'operations/driverWorkByServiceDate/' + (options.serviceDate || ''), {}, null),
+        notificationEvents: source('unavailable', 'operations/notificationEvents', {}, null),
+        erpAudit: source('unavailable', 'data/erpDataCenter/meta/audit', {}, null),
+        webAnalytics: analyticsSource
+      } }, options);
+    });
+    return readSources(db, options.serviceDate || '', options).then(function(raw) {
       return build(raw, options);
     });
   }
@@ -438,7 +673,10 @@
       driverWorkOperationalState: driverWorkOperationalState,
       healthFromSources: healthFromSources,
       proportions: proportions,
-      readSources: readSources
+      readSources: readSources,
+      readAnalyticsSource: readAnalyticsSource,
+      analyticsFetchUrl: analyticsFetchUrl,
+      analyticsBucketPlan: analyticsBucketPlan
     }
   };
 

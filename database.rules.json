@@ -136,6 +136,41 @@
     "meta": {
       ".read": true,
       ".write": false
+    },
+    "analytics": {
+      "webV1": {
+        ".read": false,
+        ".write": false,
+        "rollups": {
+          ".read": false,
+          ".write": false
+        },
+        "bucketState": {
+          ".read": false,
+          ".write": false
+        },
+        "private": {
+          ".read": false,
+          ".write": false,
+          "visitorState": {
+            ".read": false
+          },
+          "visitorSeen": {
+            ".read": false
+          },
+          "sessionSeen": {
+            ".read": false
+          }
+        },
+        "visitorSeen": {
+          ".read": false,
+          ".write": false
+        },
+        "sessionSeen": {
+          ".read": false,
+          ".write": false
+        }
+      }
     }
   }
 }

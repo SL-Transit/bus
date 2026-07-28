@@ -1,4 +1,6 @@
 const admin = require("firebase-admin");
+const crypto = require("crypto");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
@@ -8,9 +10,11 @@ admin.initializeApp();
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
+const siteAnalyticsCore = require("./site-analytics-core.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
+const analyticsHashSecret = defineSecret("ANALYTICS_HASH_SECRET");
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -352,4 +356,343 @@ exports.prepareNextDayDriverWork = onSchedule({
   });
 
   await db.ref().update(plan.updates);
+});
+
+const WEB_ANALYTICS_ORIGINS = new Set([
+  "https://sl-transit.com",
+  "https://www.sl-transit.com"
+]);
+const WEB_ANALYTICS_LOCAL_ORIGINS = new Set([
+  "http://localhost:5000",
+  "http://127.0.0.1:5000"
+]);
+const WEB_ANALYTICS_READ_LIMIT = { windowMs: 60 * 1000, max: 120 };
+const webAnalyticsReadRate = new Map();
+
+function isAllowedAnalyticsOrigin(origin) {
+  if (WEB_ANALYTICS_ORIGINS.has(origin)) return true;
+  return process.env.FUNCTIONS_EMULATOR === "true" && WEB_ANALYTICS_LOCAL_ORIGINS.has(origin);
+}
+
+function readLimitOk(key, nowMs) {
+  const current = webAnalyticsReadRate.get(key) || { startedAt: nowMs, count: 0 };
+  if ((nowMs - current.startedAt) >= WEB_ANALYTICS_READ_LIMIT.windowMs) {
+    webAnalyticsReadRate.set(key, { startedAt: nowMs, count: 1 });
+    return true;
+  }
+  current.count += 1;
+  webAnalyticsReadRate.set(key, current);
+  return current.count <= WEB_ANALYTICS_READ_LIMIT.max;
+}
+
+function safeAnalyticsId(value, prefix) {
+  const text = String(value || "").trim();
+  if (!text || text.length > 96 || !/^[a-z]_[a-zA-Z0-9_-]+$/.test(text)) return "";
+  return crypto.createHmac("sha256", analyticsHashSecret.value()).update(`${prefix}:${text}`).digest("hex");
+}
+
+function analyticsAdapter(db) {
+  return {
+    transaction(path, updateFn) {
+      return db.ref(path).transaction(updateFn);
+    }
+  };
+}
+
+exports.trackWebVisit = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 30,
+  secrets: [analyticsHashSecret]
+}, async (req, res) => {
+  const origin = req.get("origin") || "";
+  if (!origin || !isAllowedAnalyticsOrigin(origin)) {
+    res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    return;
+  }
+  res.set("Access-Control-Allow-Origin", origin);
+  res.set("Vary", "Origin");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Cache-Control", "no-store");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return;
+  }
+  if (!String(req.get("content-type") || "").toLowerCase().startsWith("application/json")) {
+    res.status(415).json({ ok: false, error: "unsupported_media_type" });
+    return;
+  }
+  const body = req.body || {};
+  const validation = siteAnalyticsCore.validatePayload(body, siteAnalyticsCore.byteLength(req.rawBody || body));
+  if (!validation.ok) {
+    res.status(validation.error === "payload_too_large" ? 413 : 400).json({ ok: false, error: validation.error });
+    return;
+  }
+
+  const payload = validation.payload;
+  const visitor = safeAnalyticsId(payload.deviceId, "visitor");
+  const nowMs = Date.now();
+  const newVisitId = crypto.createHmac("sha256", analyticsHashSecret.value()).update(`visit:${visitor}:${nowMs}`).digest("hex");
+  const event = {
+    visitorHash: visitor,
+    pageCategory: payload.pageCategory,
+    eventType: payload.eventType,
+    activitySource: payload.activitySource,
+    nowMs,
+    newVisitId
+  };
+
+  const db = admin.database();
+  const result = await siteAnalyticsCore.commitEvent(analyticsAdapter(db), event);
+  if (!result.accepted) {
+    res.status(result.reason === "rate_limited" || result.reason === "activity_throttled" ? 429 : 400).json({ ok: false, error: result.reason });
+    return;
+  }
+  await db.ref("analytics/webV1/meta").update({
+    contractVersion: siteAnalyticsCore.VERSION,
+    source: "trackWebVisit",
+    legacyPathExcluded: "analytics/mainWeb",
+    updatedAt: nowMs
+  });
+
+  res.status(204).send("");
+});
+
+exports.readSiteAnalytics = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  const origin = req.get("origin") || "";
+  const healthCheck = !origin && req.get("x-sl-transit-health-check") === "1";
+  if (origin && !isAllowedAnalyticsOrigin(origin)) {
+    res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    return;
+  }
+  if (!origin && !healthCheck && process.env.FUNCTIONS_EMULATOR !== "true") {
+    res.status(403).json({ ok: false, error: "origin_required" });
+    return;
+  }
+  if (origin) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, X-SL-Transit-Health-Check");
+  res.set("Cache-Control", "private, max-age=60");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return;
+  }
+
+  const nowMs = Date.now();
+  if (!readLimitOk(origin || "health-check", nowMs)) {
+    res.status(429).json({ ok: false, error: "rate_limited" });
+    return;
+  }
+
+  const range = String(req.query.range || "daily").trim();
+  if (!siteAnalyticsCore.RANGES.has(range)) {
+    res.status(400).json({ ok: false, error: "invalid_range" });
+    return;
+  }
+  const anchor = req.query.anchor == null || req.query.anchor === ""
+    ? siteAnalyticsCore.currentBangkokYmd(new Date())
+    : siteAnalyticsCore.validateAnchor(req.query.anchor);
+  if (!anchor) {
+    res.status(400).json({ ok: false, error: "invalid_anchor" });
+    return;
+  }
+
+  const plan = siteAnalyticsCore.readPlan(range, anchor);
+  if (plan.points.length > 30) {
+    res.status(400).json({ ok: false, error: "range_too_large" });
+    return;
+  }
+
+  let points;
+  let hasData = false;
+  try {
+    const db = admin.database();
+    const snaps = await Promise.all(plan.points.map((point) =>
+      db.ref(`analytics/webV1/bucketState/${plan.granularity}/${point.key}`).get()
+    ));
+    points = plan.points.map((point, index) => {
+      const row = snaps[index].val() || {};
+      const visits = Math.max(0, Math.floor(Number(row.visits || 0)));
+      const estimatedVisitors = Math.max(0, Math.floor(Number(row.visitorsApprox || 0)));
+      if (visits || estimatedVisitors) hasData = true;
+      return {
+        key: point.key,
+        label: point.label,
+        visits,
+        estimatedVisitors
+      };
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "analytics_read_failed" });
+    return;
+  }
+
+  const payload = {
+    status: hasData ? "ready" : "empty",
+    range,
+    timezone: siteAnalyticsCore.TIMEZONE,
+    points,
+    generatedAt: nowMs
+  };
+  if (JSON.stringify(payload).length > 24576) {
+    res.status(500).json({ ok: false, error: "response_too_large" });
+    return;
+  }
+  res.status(200).json(payload);
+});
+
+function bookingBucketKey(range, booking) {
+  const day = String(booking.date || booking.serviceDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "";
+  if (range === "hourly") {
+    const stamp = String(booking.createdAt || booking.reservedAt || booking.updatedAt || "");
+    const hour = stamp.slice(11, 13);
+    return /^\d{2}$/.test(hour) ? `${day}T${hour}` : "";
+  }
+  if (range === "weekly") return siteAnalyticsCore.isoWeekKey(day);
+  if (range === "monthly") return day.slice(0, 7);
+  if (range === "yearly") return day.slice(0, 4);
+  return day;
+}
+
+function bookingIsCancelled(booking) {
+  const status = String(booking.status || booking.bookingStatus || "").toLowerCase();
+  return status === "cancelled" || status === "canceled";
+}
+
+function bookingIsRefunded(booking) {
+  const payment = String(booking.paymentStatus || "").toLowerCase();
+  const refund = String(booking.refundStatus || "").toLowerCase();
+  return payment === "refunded" || refund === "refunded" || refund === "approved" || refund === "completed";
+}
+
+exports.readBookingActivity = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  const origin = req.get("origin") || "";
+  const healthCheck = !origin && req.get("x-sl-transit-health-check") === "1";
+  if (origin && !isAllowedAnalyticsOrigin(origin)) {
+    res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    return;
+  }
+  if (!origin && !healthCheck && process.env.FUNCTIONS_EMULATOR !== "true") {
+    res.status(403).json({ ok: false, error: "origin_required" });
+    return;
+  }
+  if (origin) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, X-SL-Transit-Health-Check");
+  res.set("Cache-Control", "private, max-age=60");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return;
+  }
+
+  const nowMs = Date.now();
+  if (!readLimitOk(`booking:${origin || "health-check"}`, nowMs)) {
+    res.status(429).json({ ok: false, error: "rate_limited" });
+    return;
+  }
+  const range = String(req.query.range || "daily").trim();
+  if (!siteAnalyticsCore.RANGES.has(range)) {
+    res.status(400).json({ ok: false, error: "invalid_range" });
+    return;
+  }
+  const anchor = req.query.anchor == null || req.query.anchor === ""
+    ? siteAnalyticsCore.currentBangkokYmd(new Date())
+    : siteAnalyticsCore.validateAnchor(req.query.anchor);
+  if (!anchor) {
+    res.status(400).json({ ok: false, error: "invalid_anchor" });
+    return;
+  }
+
+  const plan = siteAnalyticsCore.readPlan(range, anchor);
+  const byKey = {};
+  plan.points.forEach((point) => {
+    byKey[point.key] = { key: point.key, label: point.label, bookings: 0, cancellations: 0, refunds: 0 };
+  });
+  try {
+    const oldest = plan.points[0] && String(plan.points[0].key).slice(0, 10);
+    const snap = await admin.database().ref("bookings").orderByChild("date").startAt(oldest || anchor).get();
+    snap.forEach((child) => {
+      const booking = child.val() || {};
+      const key = bookingBucketKey(range, booking);
+      if (!byKey[key]) return;
+      byKey[key].bookings += 1;
+      if (bookingIsCancelled(booking)) byKey[key].cancellations += 1;
+      if (bookingIsRefunded(booking)) byKey[key].refunds += 1;
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "booking_activity_read_failed" });
+    return;
+  }
+  const points = plan.points.map((point) => byKey[point.key]);
+  const hasData = points.some((point) => point.bookings || point.cancellations || point.refunds);
+  res.status(200).json({
+    status: hasData ? "ready" : "empty",
+    range,
+    timezone: siteAnalyticsCore.TIMEZONE,
+    points,
+    generatedAt: nowMs
+  });
+});
+
+exports.cleanupSiteAnalyticsPrivate = onSchedule({
+  schedule: "every 24 hours",
+  timeZone: "Asia/Bangkok",
+  region: "asia-southeast1",
+  timeoutSeconds: 120,
+  memory: "256MiB"
+}, async () => {
+  const db = admin.database();
+  const nowMs = Date.now();
+  const visitorSnap = await db.ref("analytics/webV1/private/visitorState").get();
+  const visitorUpdates = {};
+  visitorSnap.forEach((child) => {
+    if (siteAnalyticsCore.shouldRemoveVisitorState(child.val(), nowMs)) {
+      visitorUpdates[child.key] = null;
+    }
+  });
+  if (Object.keys(visitorUpdates).length) {
+    await db.ref("analytics/webV1/private/visitorState").update(visitorUpdates);
+  }
+
+  await Promise.all(Array.from(siteAnalyticsCore.RANGES).map(async (granularity) => {
+    const snap = await db.ref(`analytics/webV1/bucketState/${granularity}`).get();
+    const jobs = [];
+    snap.forEach((child) => {
+      jobs.push(db.ref(`analytics/webV1/bucketState/${granularity}/${child.key}`).transaction((current) =>
+        siteAnalyticsCore.cleanupBucketState(current, granularity, nowMs)
+      ));
+    });
+    await Promise.all(jobs);
+  }));
 });
