@@ -674,6 +674,7 @@
     var TICKET_CATALOG_ROUTES_APPLIED = false;
     var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
     var TICKET_ERP_MAP_ROUTES = [];
+    var TICKET_ERP_MAP_DISPLAY_POLICY = null;
     var MAIN_ROUTE_STOPS_FROM_CATALOG = [];
     function ticketStopSortValue(label, fallback) {
       if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
@@ -908,6 +909,7 @@
 
     function applyTicketPublishedScheduleMapView(mapView) {
       mapView = mapView || {};
+      TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null;
       TICKET_ERP_MAP_ROUTES = normalizeTicketErpMapRoutes(mapView.routes);
       var stops = Array.isArray(mapView.stops) ? mapView.stops : [];
       var centralStops = stops.map(function(stop, index) {
@@ -923,6 +925,7 @@
           lat: lat,
           lng: lng,
           icon: stop.icon || '',
+          displayPolicy: TICKET_ERP_MAP_DISPLAY_POLICY,
           stopType: 'main',
           order: ticketStopSortValue(name, Number(stop.displayOrder || stop.order) || (index + 1))
         };
@@ -2131,6 +2134,12 @@
       el.title = label;
       el.setAttribute('aria-label', label);
       el.dataset.markerIcon = markerIcon || '';
+      if ((className === 'pickup' || className === 'transfer') &&
+          TICKET_ERP_MAP_DISPLAY_POLICY &&
+          TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers &&
+          TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers.scaleMode) {
+        el.dataset.scaleMode = TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers.scaleMode;
+      }
       if (className === 'pickup' || className === 'transfer') el.classList.add('station');
       if (className === 'van') {
         var img = document.createElement('img');

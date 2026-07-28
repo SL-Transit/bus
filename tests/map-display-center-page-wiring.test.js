@@ -16,6 +16,9 @@ const driverMain = fs.readFileSync(
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
 assert(checkTicketHtml.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
+assert(checkTicketHtml.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read the same ERP mapView contract as Driver and Passenger');
+assert(checkTicketHtml.includes('TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null'), 'Check Ticket must consume the same ERP mapView display policy');
+assert(checkTicketHtml.includes('TICKET_ERP_MAP_ROUTES = normalizeTicketErpMapRoutes(mapView.routes)'), 'Check Ticket must consume the same ERP mapView route geometry');
 assert(driverMapHtml.includes('driver-map-logic.js?v=20260728c'), 'Driver map must load the current ERP map logic version');
 assert(driverMapLogic.includes("MAP_VIEW_PATH = 'publishedSchedule/mapView'"), 'Driver map must read the same ERP Data Center mapView contract as Passenger');
 assert(driverMapLogic.includes('renderStops(normalizeStops(mapView.stops))'), 'Driver map must render backend-provided mapView stops');
