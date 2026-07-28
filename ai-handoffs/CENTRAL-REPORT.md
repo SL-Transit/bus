@@ -2,6 +2,46 @@
 
 Purpose: every AI must report completed work, blockers, and handoffs here so other AIs can continue without repeating work.
 
+
+## 2026-07-28 00:00 +07 - Documentation and AI Coordination Agent - REVIEW
+
+Scope:
+- `ai-handoffs/MAIN-AI-DASHBOARD.md`
+- `ai-handoffs/WORK-STATUS.md`
+- `ai-handoffs/CENTRAL-REPORT.md`
+- `ai-handoffs/ADMIN-CONSOLE-ERP-BLUEPRINT.md`
+
+Summary:
+- Added latest Owner Admin ERP concept as the highest current Admin ERP concept decision.
+- Clarified this scope is only Admin ERP/backoffice concept documentation, not a redesign of Booking, Passenger, Firebase, Backend, Driver App, Check Ticket, or Cancel Ticket.
+- Clarified Admin ERP is the central backoffice control room; Dashboard is only the first summary page, not the whole Admin ERP scope.
+- Clarified module/capability lists are examples, not a closed scope.
+- Recorded required point-level Admin ERP controls: edit time, open/close booking, close a specific trip, close advance booking, change bookable capacity, change vehicle/driver, cancel for passenger, emergency control, and backoffice testing.
+- Clarified Excel is for bulk import/edit and remains useful, but Excel is not the only edit method and is not a replacement for Admin ERP.
+- Recorded real data domains Admin ERP must ultimately access: bookings, tickets, cancellations, refunds, revenue, fees, vehicles, drivers, queues, trips, routes, statistics, usage history, Driver App control, testing tools, news, permissions, settings, audit, and rollback.
+- Recorded latest Dashboard stat labels: `จำนวนผู้เยี่ยมชม (เว็บไซต์)` and `ผู้ใช้งานจริง`; old labels `จำนวนครั้งเข้าเยี่ยมชม` and `ผู้เยี่ยมชมโดยประมาณ` must not be reused.
+
+Evidence:
+- Commit: to be set by documentation-only Draft PR branch.
+- Actions: not applicable before Owner review.
+- Pages/deploy: not performed.
+- Tests/checks: documentation diff checks only.
+
+Safety:
+- Firebase writes: none.
+- Passenger/private data touched: none.
+- Runtime code changed: none.
+- Consumer pages changed: none.
+- Deploy: none.
+- Merge: none.
+- Screen 02 started: no.
+
+Blockers:
+- None for documentation alignment. Implementation remains separately gated by Owner approval.
+
+Next action:
+- Open documentation-only Draft PR and wait for Owner review.
+
 ## Report Rules
 Every report must include:
 - AI role/name
@@ -1384,19 +1424,20 @@ Owner-approved platform direction has been recorded in:
 
 ## Blueprint Summary
 
-Admin Console is the future SL-Transit Backoffice / Control Panel. It should work like an Excel-style ERP workbook editor, not the confusing old admin form model.
+Historical note, superseded by the 2026-07-28 Admin ERP concept update: Admin Console was previously described mainly as an Excel-style ERP workbook editor. The current Owner decision is broader: Admin ERP is the full backoffice/control room, while Excel is a bulk import/export/edit tool and not the only edit method.
 
 Phase 1 direction:
 
 ```text
-Excel ERP Workbook
-  -> Admin Console
-  -> Draft / Review / Publish
+Admin ERP / Backoffice
+  -> direct point editing and control
+  -> Excel bulk import/export when useful
+  -> Draft / Validate / Review / Publish where required
   -> publishedSchedule and approved config/runtime nodes
   -> Passenger / Booking1 / Check Ticket / Driver
 ```
 
-Excel remains the source workbook first. Admin Console reads/uploads/exports Excel, validates it, previews the result, then publishes only after owner review.
+Excel remains useful for bulk work. Admin Console / Admin ERP reads/uploads/exports Excel, validates it, previews the result, supports point-level control, and publishes only after owner review where publish is required.
 
 ## Owner Decisions Captured
 
