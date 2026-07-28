@@ -61,6 +61,15 @@ function sendJson(res, status, body) {
   res.status(status).type("application/json").send(text);
 }
 
+function mergeSnapshots(snaps) {
+  const out = {};
+  snaps.forEach((snap) => {
+    const val = snap && snap.val && snap.val() || {};
+    Object.keys(val || {}).forEach((key) => { out[key] = val[key]; });
+  });
+  return out;
+}
+
 exports.readAdminDashboardSummary = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 30,
@@ -89,20 +98,36 @@ exports.readAdminDashboardSummary = onRequest({
   }
   const range = String(req.query.range || "daily");
   const anchor = String(req.query.anchor || "");
-  const window = adminDashboardSummary.queryWindow(range, anchor || null, Date.now());
+  const now = Date.now();
+  const window = adminDashboardSummary.queryWindow(range, anchor || null, now);
+  const dateWindow = adminDashboardSummary.queryDateWindow(range, anchor || null, now);
   if (!window) {
     sendJson(res, 400, { status: "error", error: "invalid_range_or_anchor" });
     return;
   }
   try {
-    const [bookingSnap, analyticsSnap] = await Promise.all([
+    const [
+      bookingSnap,
+      travelDateSnap,
+      travelServiceDateSnap,
+      cancelledSnap,
+      refundedSnap,
+      refundApprovedSnap
+    ] = await Promise.all([
       admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
-      admin.database().ref("analytics/mainWeb").orderByKey().startAt(adminDashboardSummary.TIMEZONE ? "" : "").get()
+      admin.database().ref("bookings").orderByChild("date").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
+      admin.database().ref("bookings").orderByChild("serviceDate").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
+      admin.database().ref("bookings").orderByChild("cancelledAt").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get()
     ]);
     const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
       range,
       anchor: anchor || undefined,
-      legacyAnalytics: analyticsSnap.val() || {},
+      nowMs: now,
+      travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
+      cancelledRecords: cancelledSnap.val() || {},
+      refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
       identitySecret: analyticsHashSecret.value()
     });
     res.set("Cache-Control", "private, max-age=30");

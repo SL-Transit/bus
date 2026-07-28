@@ -21,6 +21,10 @@ const response = {
     travelPassengerCount: 2,
     cancelledCount: 0,
     refundedCount: 0,
+    cancellationContractStatus: 'ready',
+    refundContractStatus: 'ready',
+    createdDateSource: 'ts',
+    travelDateSource: 'date/serviceDate',
     points: Array.from({ length: 24 }, (_, hour) => ({
       key: `2026-07-28T${String(hour).padStart(2, '0')}`,
       label: `${String(hour).padStart(2, '0')}:00`,
@@ -48,6 +52,10 @@ assert.strictEqual(validated.visits.points[9].label, '09:00');
 assert.strictEqual(validated.visits.points[9].visitors, 2);
 assert.strictEqual(validated.visits.points[9].actualUsers, 1);
 assert.strictEqual(validated.bookings.points[9].bookings, 1);
+assert.strictEqual(validated.bookings.cancelledCount, 0);
+assert.strictEqual(validated.bookings.refundedCount, 0);
+assert.strictEqual(validated.bookings.createdDateSource, 'ts');
+assert.strictEqual(validated.bookings.travelDateSource, 'date/serviceDate');
 assert.strictEqual(validated.revenue.grossPassengerPayment, 120);
 assert.strictEqual(validated.revenue.fareCollected, 110);
 assert.strictEqual(validated.revenue.platformServiceFeeRevenue, 10);
@@ -55,5 +63,15 @@ assert.strictEqual(validated.vehicleSettlements.rows[0].bookingCount, 1);
 
 assert.throws(() => model.validateResponse('hourly', Object.assign({}, response, { name: 'Private' })), /private field/);
 assert.throws(() => model.validateResponse('daily', response), /range mismatch/);
+
+const unsupported = model.validateResponse('hourly', Object.assign({}, response, {
+  bookings: Object.assign({}, response.bookings, {
+    cancellationContractStatus: 'unsupported_missing_cancelledAt',
+    refundContractStatus: 'unsupported_missing_refund_timestamp'
+  })
+}));
+assert.strictEqual(unsupported.bookings.cancelledCount, null);
+assert.strictEqual(unsupported.bookings.refundedCount, null);
+assert.strictEqual(unsupported.bookings.cancellationMessage, 'ยังไม่รองรับข้อมูลวันยกเลิก');
 
 console.log('admin-dashboard-read-model.test.js OK');

@@ -159,6 +159,12 @@ function queryWindow(range, anchor, nowMs) {
   return { startMs: start.getTime(), endMs: end };
 }
 
+function queryDateWindow(range, anchor, nowMs) {
+  const window = queryWindow(range, anchor, nowMs);
+  if (!window) return null;
+  return { startDate: ymdFromMs(window.startMs), endDate: ymdFromMs(window.endMs) };
+}
+
 function numericTimestamp(value) {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
   if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
@@ -168,6 +174,14 @@ function numericTimestamp(value) {
 function createdTimestamp(record) {
   const ts = numericTimestamp(record && record.ts);
   return ts ? { ms: ts, field: "ts", serverVerified: true } : null;
+}
+
+function eventTimestamp(record, fields) {
+  for (const field of fields) {
+    const ms = numericTimestamp(record && record[field]);
+    if (ms) return { ms, field };
+  }
+  return null;
 }
 
 function validBookingId(id, record) {
@@ -196,6 +210,26 @@ function isRefunded(record) {
   const payment = String((record && record.paymentStatus) || "").toLowerCase();
   const refund = String((record && record.refundStatus) || "").toLowerCase();
   return payment === "refunded" || refund === "refunded" || refund === "approved" || refund === "completed";
+}
+
+function shapeOfLatestRecord(id, record) {
+  const value = record && typeof record === "object" ? record : {};
+  const serviceDate = value.date != null ? value.date : value.serviceDate;
+  return {
+    hasBookingId: validBookingId(id, value),
+    hasTs: value.ts != null,
+    tsType: value.ts == null ? "missing" : typeof value.ts,
+    hasSource: value.source != null,
+    sourceType: value.source == null ? "missing" : typeof value.source,
+    hasSourceMode: value.sourceMode != null,
+    sourceModeType: value.sourceMode == null ? "missing" : typeof value.sourceMode,
+    hasServiceDate: serviceDate != null,
+    serviceDateType: serviceDate == null ? "missing" : typeof serviceDate,
+    hasPax: value.pax != null || value.seats != null,
+    paxType: value.pax != null ? typeof value.pax : (value.seats != null ? typeof value.seats : "missing"),
+    hasStatus: normalizedStatus(value) !== "",
+    statusType: (value.status || value.bookingStatus || value.paymentStatus) == null ? "missing" : typeof (value.status || value.bookingStatus || value.paymentStatus)
+  };
 }
 
 function isRealBooking(id, record) {
@@ -309,6 +343,15 @@ function sanitizeForPrivateFields(value) {
   return value;
 }
 
+function countInvalid(invalidRecords, reason) {
+  invalidRecords[reason] = (invalidRecords[reason] || 0) + 1;
+}
+
+function isInRange(range, anchor, nowMs, ms) {
+  const window = queryWindow(range, anchor, nowMs);
+  return !!window && ms >= window.startMs && ms <= window.endMs;
+}
+
 function aggregateDashboard(records, options) {
   const opts = options || {};
   const range = opts.range || "daily";
@@ -318,6 +361,8 @@ function aggregateDashboard(records, options) {
   const websitePoints = pointsBase.map((point) => Object.assign({}, point, { visitors: 0, actualUsers: 0 }));
   const byKey = {};
   bookingPoints.forEach((point, index) => { byKey[point.key] = { booking: point, website: websitePoints[index] }; });
+  const anchorDate = parseAnchor(opts.anchor, opts.nowMs);
+  const anchorDayKey = bucketForMs("daily", (anchorDate || parseAnchor(null, opts.nowMs)).getTime());
 
   const totals = {
     createdCount: 0,
@@ -332,32 +377,44 @@ function aggregateDashboard(records, options) {
   const actualUsersByBucket = {};
   const actualUsersAll = {};
   const invalidRecords = {};
+  const diagnostic = {
+    tsQueryCount: Object.keys(records || {}).length,
+    acceptedCount: 0,
+    rejectedCount: 0,
+    invalidRecordSummary: invalidRecords,
+    latestBookingShape: null
+  };
+
+  let latestTs = -1;
+  Object.keys(records || {}).forEach((id) => {
+    const record = records[id] || {};
+    const ts = createdTimestamp(record);
+    if (ts && ts.ms > latestTs) {
+      latestTs = ts.ms;
+      diagnostic.latestBookingShape = shapeOfLatestRecord(id, record);
+    }
+  });
 
   Object.keys(records || {}).forEach((id) => {
     const record = records[id] || {};
     const valid = isRealBooking(id, record);
     if (!valid.ok) {
-      invalidRecords[valid.reason] = (invalidRecords[valid.reason] || 0) + 1;
+      countInvalid(invalidRecords, valid.reason);
+      diagnostic.rejectedCount += 1;
       return;
     }
+    diagnostic.acceptedCount += 1;
     const created = createdTimestamp(record);
     const key = bucketForMs(range, created.ms);
     const bucket = byKey[key];
     if (!bucket) return;
     const pax = Number(record.pax || record.seats || 0) || 0;
     const amounts = bookingAmounts(record);
-    totals.createdCount += 1;
-    totals.travelPassengerCount += pax;
+    if (bucketForMs("daily", created.ms) === anchorDayKey) {
+      totals.createdCount += 1;
+      addFinance(finance, amounts);
+    }
     bucket.booking.bookings += 1;
-    if (isCancelled(record)) {
-      totals.cancelledCount += 1;
-      bucket.booking.cancellations += 1;
-    }
-    if (isRefunded(record)) {
-      totals.refundedCount += 1;
-      bucket.booking.refunds += 1;
-    }
-    addFinance(finance, amounts);
 
     const actualHash = actualUserHash(record, opts.identitySecret);
     if (actualHash) {
@@ -393,19 +450,57 @@ function aggregateDashboard(records, options) {
     addFinance(routes[rKey], amounts);
   });
 
+  const travelSeen = {};
+  Object.keys(opts.travelRecords || {}).forEach((id) => {
+    const record = opts.travelRecords[id] || {};
+    if (travelSeen[id]) return;
+    travelSeen[id] = true;
+    const valid = isRealBooking(id, record);
+    if (!valid.ok) return;
+    if (isCancelled(record) || isRefunded(record)) return;
+    const serviceDate = String(record.date || record.serviceDate || "").slice(0, 10);
+    if (serviceDate === anchorDayKey) totals.travelPassengerCount += Number(record.pax || record.seats || 0) || 0;
+  });
+
+  let cancellationTimestampSupported = false;
+  Object.keys(opts.cancelledRecords || {}).forEach((id) => {
+    const record = opts.cancelledRecords[id] || {};
+    const valid = isRealBooking(id, record);
+    const cancelled = eventTimestamp(record, ["cancelledAt"]);
+    if (!valid.ok || !cancelled || !isCancelled(record) || !isInRange(range, opts.anchor, opts.nowMs, cancelled.ms)) return;
+    cancellationTimestampSupported = true;
+    const key = bucketForMs(range, cancelled.ms);
+    if (byKey[key]) {
+      if (bucketForMs("daily", cancelled.ms) === anchorDayKey) totals.cancelledCount += 1;
+      byKey[key].booking.cancellations += 1;
+    }
+  });
+
+  let refundTimestampSupported = false;
+  Object.keys(opts.refundedRecords || {}).forEach((id) => {
+    const record = opts.refundedRecords[id] || {};
+    const valid = isRealBooking(id, record);
+    const refunded = eventTimestamp(record, ["refundedAt", "refundApprovedAt"]);
+    if (!valid.ok || !refunded || !isRefunded(record) || !isInRange(range, opts.anchor, opts.nowMs, refunded.ms)) return;
+    refundTimestampSupported = true;
+    const key = bucketForMs(range, refunded.ms);
+    if (byKey[key]) {
+      if (bucketForMs("daily", refunded.ms) === anchorDayKey) totals.refundedCount += 1;
+      byKey[key].booking.refunds += 1;
+    }
+  });
+
   websitePoints.forEach((point) => {
     point.actualUsers = Object.keys(actualUsersByBucket[point.key] || {}).length;
   });
 
-  const legacyAnalytics = opts.legacyAnalytics || {};
-  Object.keys(legacyAnalytics).forEach((dayKey) => {
-    const dayMs = parseAnchor(dayKey, opts.nowMs);
-    if (!dayMs) return;
-    const key = bucketForMs(range, dayMs.getTime());
-    if (byKey[key]) byKey[key].website.visitors += Number(legacyAnalytics[dayKey] && legacyAnalytics[dayKey].count || 0);
+  const websiteRollups = opts.websiteRollups || {};
+  Object.keys(websiteRollups).forEach((key) => {
+    if (!byKey[key]) return;
+    byKey[key].website.visitors += Number(websiteRollups[key] && websiteRollups[key].visitors || 0);
   });
 
-  const status = totals.createdCount || finance.grossAmount || websitePoints.some((p) => p.visitors || p.actualUsers) ? "ready" : "empty";
+  const status = totals.createdCount || totals.travelPassengerCount || finance.grossAmount || bookingPoints.some((p) => p.bookings || p.cancellations || p.refunds) || websitePoints.some((p) => p.visitors || p.actualUsers) ? "ready" : "empty";
   return sanitizeForPrivateFields({
     status,
     timezone: TIMEZONE,
@@ -416,12 +511,20 @@ function aggregateDashboard(records, options) {
       actualUsers: Object.keys(actualUsersAll).length,
       points: websitePoints
     },
-    bookings: Object.assign({}, totals, { points: bookingPoints }),
+    bookings: Object.assign({}, totals, {
+      points: bookingPoints,
+      createdDateSource: "ts",
+      travelDateSource: "date/serviceDate",
+      cancellationDateSource: cancellationTimestampSupported ? "cancelledAt" : null,
+      refundDateSource: refundTimestampSupported ? "refundedAt/refundApprovedAt" : null,
+      cancellationContractStatus: cancellationTimestampSupported ? "ready" : "unsupported_missing_cancelledAt",
+      refundContractStatus: refundTimestampSupported ? "ready" : "unsupported_missing_refund_timestamp"
+    }),
     finance,
     vehicles: Object.keys(vehicles).sort().map((key) => vehicles[key]),
     queues: Object.keys(queues).sort().map((key) => queues[key]),
     routes: Object.keys(routes).sort().map((key) => routes[key]),
-    invalidRecordSummary: invalidRecords,
+    diagnostic,
     generatedAt: opts.generatedAt || Date.now()
   });
 }
@@ -438,6 +541,7 @@ module.exports = {
   aggregateDashboard,
   bucketPlan,
   queryWindow,
+  queryDateWindow,
   createdTimestamp,
   isRealBooking,
   originAllowed,

@@ -58,6 +58,7 @@ const records = {
     source: 'booking1.html',
     sourceMode: 'erp_data_center',
     status: 'cancelled',
+    cancelledAt: day28 + 3000,
     paymentStatus: 'awaiting_payment',
     pax: 1,
     price: 60,
@@ -75,6 +76,7 @@ const records = {
     status: 'refunded',
     paymentStatus: 'refunded',
     refundStatus: 'completed',
+    refundedAt: day28 + 4000,
     refundAmount: 60,
     pax: 1,
     price: 60,
@@ -110,21 +112,24 @@ const result = summary.aggregateDashboard(records, {
   range: 'daily',
   anchor,
   nowMs: day28,
-  legacyAnalytics: { '2026-07-28': { count: 3 } },
+  travelRecords: records,
+  cancelledRecords: records,
+  refundedRecords: records,
+  websiteRollups: { '2026-07-28': { visitors: 3 } },
   identitySecret: 'test-secret',
   generatedAt: 1
 });
 
 assert.strictEqual(result.timezone, 'Asia/Bangkok');
-assert.strictEqual(result.bookings.createdCount, 4, 'booking history counts real cancelled/refunded records');
-assert.strictEqual(result.bookings.travelPassengerCount, 5, 'passenger count sums pax from real bookings');
+assert.strictEqual(result.bookings.createdCount, 3, 'today booking count uses created ts for the anchor day');
+assert.strictEqual(result.bookings.travelPassengerCount, 1, 'travel passenger count uses service date, not created ts');
 assert.strictEqual(result.bookings.cancelledCount, 1);
 assert.strictEqual(result.bookings.refundedCount, 1);
-assert.strictEqual(result.finance.grossAmount, 240, 'cancelled unpaid booking is excluded from gross');
-assert.strictEqual(result.finance.fareAmount, 275);
-assert.strictEqual(result.finance.serviceFeeAmount, 25);
+assert.strictEqual(result.finance.grossAmount, 180, 'finance summary uses records created on the anchor day');
+assert.strictEqual(result.finance.fareAmount, 220);
+assert.strictEqual(result.finance.serviceFeeAmount, 20);
 assert.strictEqual(result.finance.refundAmount, 60);
-assert.strictEqual(result.finance.netAmount, 180);
+assert.strictEqual(result.finance.netAmount, 120);
 
 const todayPoint = result.bookings.points.find((point) => point.key === '2026-07-28');
 assert.strictEqual(todayPoint.bookings, 3, 'booking today/travel future counts by ts date');
@@ -139,6 +144,26 @@ assert(result.queues.some((row) => row.queueId === 'Q1' && row.passengerCount ==
 assert(result.routes.some((row) => row.routeId === 'R1' && row.bookingCount === 1));
 assert.strictEqual(result.website.visitors, 3);
 assert.strictEqual(result.website.actualUsers, 2, 'actual users dedupe verified identities only');
+assert.strictEqual(result.bookings.createdDateSource, 'ts');
+assert.strictEqual(result.bookings.travelDateSource, 'date/serviceDate');
+assert.strictEqual(result.bookings.cancellationContractStatus, 'ready');
+assert.strictEqual(result.bookings.refundContractStatus, 'ready');
+assert.strictEqual(result.diagnostic.tsQueryCount, Object.keys(records).length);
+assert.strictEqual(result.diagnostic.acceptedCount, 4);
+assert.strictEqual(result.diagnostic.rejectedCount, 2);
+assert.strictEqual(result.diagnostic.invalidRecordSummary.missing_ts, 1);
+assert.strictEqual(result.diagnostic.latestBookingShape.hasTs, true);
+assert.strictEqual(result.diagnostic.latestBookingShape.hasSource, true);
+assert.strictEqual(result.diagnostic.latestBookingShape.hasSourceMode, true);
+assert.strictEqual(result.diagnostic.latestBookingShape.hasServiceDate, true);
+assert.strictEqual(result.diagnostic.latestBookingShape.hasPax, true);
+assert.strictEqual(result.diagnostic.latestBookingShape.hasStatus, true);
+
+const unsupported = summary.aggregateDashboard({
+  BK_CANCEL_NO_TS: Object.assign({}, records.BK_CANCEL, { cancelledAt: undefined })
+}, { range: 'daily', anchor, nowMs: day28, travelRecords: {}, cancelledRecords: { BK_CANCEL_NO_TS: Object.assign({}, records.BK_CANCEL, { cancelledAt: undefined }) }, refundedRecords: {}, generatedAt: 2 });
+assert.strictEqual(unsupported.bookings.cancelledCount, 0);
+assert.strictEqual(unsupported.bookings.cancellationContractStatus, 'unsupported_missing_cancelledAt');
 
 const serialized = JSON.stringify(result);
 ['name', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity'].forEach((field) => {
@@ -159,6 +184,11 @@ assert(!adminHtml.includes('ผู้เยี่ยมชมโดยประ�
 
 const functionsIndex = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
 assert(functionsIndex.includes('orderByChild("ts")'), 'function must query bookings by ts');
+assert(functionsIndex.includes('orderByChild("date")'), 'function must query travel passengers by service date');
+assert(functionsIndex.includes('orderByChild("serviceDate")'), 'function must query travel passengers by serviceDate fallback');
+assert(functionsIndex.includes('orderByChild("cancelledAt")'), 'function must query cancellations by cancelledAt');
+assert(functionsIndex.includes('orderByChild("refundedAt")'), 'function must query refunds by refundedAt');
+assert(!functionsIndex.includes('analytics/mainWeb'), 'function must not read legacy website analytics');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 
 console.log('admin-dashboard-summary.test.js OK');
