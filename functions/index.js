@@ -112,14 +112,16 @@ exports.readAdminDashboardSummary = onRequest({
       travelServiceDateSnap,
       cancelledSnap,
       refundedSnap,
-      refundApprovedSnap
+      refundApprovedSnap,
+      fleetMasterSnap
     ] = await Promise.all([
       admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("date").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
       admin.database().ref("bookings").orderByChild("serviceDate").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
       admin.database().ref("bookings").orderByChild("cancelledAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
-      admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get()
+      admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("data/erpDataCenter/fleet").get()
     ]);
     const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
       range,
@@ -128,6 +130,7 @@ exports.readAdminDashboardSummary = onRequest({
       travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
       cancelledRecords: cancelledSnap.val() || {},
       refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
+      fleetMaster: fleetMasterSnap.val() || {},
       identitySecret: analyticsHashSecret.value()
     });
     res.set("Cache-Control", "private, max-age=30");

@@ -4,7 +4,7 @@
   var ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/readAdminDashboardSummary';
   var TIMEZONE = 'Asia/Bangkok';
   var RANGE_SIZES = { hourly: 24, daily: 30, weekly: 12, monthly: 12, yearly: 5 };
-  var PRIVATE_FIELDS = ['name', 'phone', 'lineUserId', 'bookingCode', 'ticketCode', 'slip', 'paymentEvidence', 'passengerIdentity', 'rawBooking'];
+  var PRIVATE_FIELDS = ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'ticketCode', 'slip', 'paymentEvidence', 'passengerIdentity', 'rawBooking', 'bankAccount', 'password'];
   var CACHE = {};
   var requestSeq = 0;
 
@@ -60,7 +60,9 @@
       rejectPrivateFields(row);
       var clean = {
         vehicleId: row.vehicleId || row.id || '',
+        vehicleAlias: row.vehicleAlias || row.carAlias || row.alias || row.vehicleDisplayName || '',
         driverId: row.driverId || row.driverName || '—',
+        driverDisplayName: row.driverDisplayName || row.driverPublicName || row.publicDriverName || '',
         queueId: row.queueId || '',
         routeId: row.routeId || row.id || '',
         origin: row.origin || '',
@@ -74,6 +76,9 @@
         serviceFeeAmount: money(row.serviceFeeAmount),
         refundAmount: money(row.refundAmount),
         netAmount: money(row.netAmount),
+        paymentMethod: row.paymentMethod || '',
+        approvalStatus: row.approvalStatus || row.status || 'ready',
+        signatureStatus: row.signatureStatus || '',
         status: row.status || 'ready'
       };
       clean['คิวหรือผู้ให้บริการ'] = clean.queueId || clean.routeId || 'ยังไม่ระบุ';
