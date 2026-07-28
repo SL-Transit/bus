@@ -7,9 +7,18 @@ const passengerLogic = fs.readFileSync(path.join(__dirname, '..', 'passenger-log
 const erpDataAdapter = fs.readFileSync(path.join(__dirname, '..', 'erp-data-adapter.js'), 'utf8');
 const mapDisplayCenter = fs.readFileSync(path.join(__dirname, '..', 'map-display-center.js'), 'utf8');
 const checkTicketHtml = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'utf8');
+const driverMapHtml = fs.readFileSync(path.join(__dirname, '..', 'driver-map.html'), 'utf8');
+const driverMapLogic = fs.readFileSync(path.join(__dirname, '..', 'driver-map-logic.js'), 'utf8');
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
 assert(checkTicketHtml.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
+assert(driverMapHtml.includes('driver-map-logic.js?v=20260728a'), 'Driver map must load the current ERP map logic version');
+assert(driverMapLogic.includes("MAP_VIEW_PATH = 'publishedSchedule/mapView'"), 'Driver map must read the same ERP Data Center mapView contract as Passenger');
+assert(driverMapLogic.includes('renderStops(normalizeStops(mapView.stops))'), 'Driver map must render backend-provided mapView stops');
+assert(driverMapLogic.includes('s.label || s.displayNameTh || s.nameTh'), 'Driver map stop labels must come from mapView stop data');
+assert(driverMapLogic.includes("icon: s.icon || '\\uD83D\\uDE8F'"), 'Driver map stop icons must come from mapView stop data');
+assert(driverMapLogic.includes('renderRoute(extractRoadRoute(mapView.routes))'), 'Driver map must render the ERP Map road route from mapView');
+assert(!driverMapLogic.includes("data/erpDataCenter/catalog/stops"), 'Driver map must not read raw catalog stops instead of the published mapView contract');
 
 const passengerUpdateStart = passengerLogic.indexOf('function updateAllBusesOnMap');
 const passengerUpdateEnd = passengerLogic.indexOf('function removeBusFromMap', passengerUpdateStart);

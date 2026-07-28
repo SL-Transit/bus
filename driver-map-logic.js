@@ -15,8 +15,7 @@
  *
  * Firebase paths read (all live listeners, not one-time reads, so any
  * central change takes effect immediately with zero app changes):
- *   - data/erpDataCenter/catalog/stops        (stop pins: lat/lng/name/icon/order)
- *   - publishedSchedule/mapView/routes        (real road-following route polyline)
+ *   - publishedSchedule/mapView               (ERP Data Center stop pins/icons/road route)
  *   - data/erpDataCenter/settings/driverMap   (animation/zoom/initial-view config)
  */
 (function (global) {
@@ -32,8 +31,7 @@
     appId: "1:480076551107:android:f5929194925bc19fbfe376"
   };
 
-  var STOPS_PATH = 'data/erpDataCenter/catalog/stops';
-  var ROUTES_PATH = 'publishedSchedule/mapView/routes';
+  var MAP_VIEW_PATH = 'publishedSchedule/mapView';
   var DRIVER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/driverMap';
 
   var map = null;
@@ -162,22 +160,26 @@
     });
   }
 
-  function watchStops() {
-    db.ref(STOPS_PATH).on('value', function (snap) {
-      var val = snap.val() || {};
-      var stops = Object.keys(val).map(function (key) {
-        var s = val[key] || {};
+  function normalizeStops(rawStops) {
+    if (!rawStops) return [];
+    var source = Array.isArray(rawStops)
+      ? rawStops
+      : Object.keys(rawStops).map(function (key) {
+        var s = rawStops[key] || {};
+        if (s.stopKey == null && s.key == null) s.key = key;
+        return s;
+      });
+    return source.map(function (s, index) {
+        s = s || {};
         return {
           lat: Number(s.lat),
           lng: Number(s.lng),
-          name: s.nameTh || s.name || s.stopTh || key,
-          icon: s.icon || '',
-          order: s.order == null ? 999999 : Number(s.order)
+          name: s.label || s.displayNameTh || s.nameTh || s.name || s.stopTh || s.stopKey || s.key || '',
+          icon: s.icon || '\uD83D\uDE8F',
+          order: s.displayOrder == null ? index : Number(s.displayOrder)
         };
-      }).filter(function (s) { return isFinite(s.lat) && isFinite(s.lng); });
-      stops.sort(function (a, b) { return a.order - b.order; });
-      renderStops(stops);
-    });
+      })
+      .filter(function (s) { return isFinite(s.lat) && isFinite(s.lng); });
   }
 
   function renderRoute(points) {
@@ -187,20 +189,27 @@
     }
   }
 
-  function watchRoute() {
-    db.ref(ROUTES_PATH).on('value', function (snap) {
-      var val = snap.val() || {};
-      var points = [];
-      Object.keys(val).some(function (key) {
-        var route = val[key] || {};
-        if (route.geometryType !== 'road_polyline' || !Array.isArray(route.polyline)) return false;
-        var pts = route.polyline
-          .map(function (p) { return (p && isFinite(Number(p.lat)) && isFinite(Number(p.lng))) ? [Number(p.lat), Number(p.lng)] : null; })
-          .filter(Boolean);
-        if (pts.length > 1) { points = pts; return true; } // ใช้เส้นทางแรกที่มี geometry จริง
-        return false;
-      });
-      renderRoute(points);
+  function extractRoadRoute(rawRoutes) {
+    var val = rawRoutes || {};
+    var routes = Array.isArray(val) ? val : Object.keys(val).map(function (key) { return val[key]; });
+    var points = [];
+    routes.some(function (route) {
+      route = route || {};
+      if (route.geometryType !== 'road_polyline' || !Array.isArray(route.polyline)) return false;
+      var pts = route.polyline
+        .map(function (p) { return (p && isFinite(Number(p.lat)) && isFinite(Number(p.lng))) ? [Number(p.lat), Number(p.lng)] : null; })
+        .filter(Boolean);
+      if (pts.length > 1) { points = pts; return true; } // ใช้เส้นทางแรกที่มี geometry จริง
+      return false;
+    });
+    return points;
+  }
+
+  function watchMapView() {
+    db.ref(MAP_VIEW_PATH).on('value', function (snap) {
+      var mapView = snap.val() || {};
+      renderStops(normalizeStops(mapView.stops));
+      renderRoute(extractRoadRoute(mapView.routes));
     });
   }
 
@@ -219,8 +228,7 @@
     db = app.database();
 
     initMap();
-    watchStops();
-    watchRoute();
+    watchMapView();
     watchConfig();
   }
 
