@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
@@ -8,9 +9,11 @@ admin.initializeApp();
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
+const adminDashboardSummary = require("./admin-dashboard-summary.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
+const analyticsHashSecret = defineSecret("ANALYTICS_HASH_SECRET");
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -21,6 +24,94 @@ function formatThaiDate(date) {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return match ? `${match[3]}-${match[2]}-${match[1]}` : (value || "-");
 }
+
+const adminDashboardRateState = new Map();
+
+function setCors(req, res) {
+  const origin = req.headers.origin || "";
+  if (adminDashboardSummary.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+  }
+}
+
+function checkAdminDashboardRate(origin) {
+  const key = String(origin || "no-origin");
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const max = 60;
+  const state = adminDashboardRateState.get(key) || { start: now, count: 0 };
+  if (now - state.start > windowMs) {
+    state.start = now;
+    state.count = 0;
+  }
+  state.count += 1;
+  adminDashboardRateState.set(key, state);
+  return state.count <= max;
+}
+
+function sendJson(res, status, body) {
+  const text = JSON.stringify(body);
+  if (Buffer.byteLength(text, "utf8") > 256 * 1024) {
+    res.status(413).json({ status: "error", error: "response_too_large" });
+    return;
+  }
+  res.status(status).type("application/json").send(text);
+}
+
+exports.readAdminDashboardSummary = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10,
+  secrets: [analyticsHashSecret]
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  if (!checkAdminDashboardRate(origin)) {
+    sendJson(res, 429, { status: "error", error: "rate_limited" });
+    return;
+  }
+  const range = String(req.query.range || "daily");
+  const anchor = String(req.query.anchor || "");
+  const window = adminDashboardSummary.queryWindow(range, anchor || null, Date.now());
+  if (!window) {
+    sendJson(res, 400, { status: "error", error: "invalid_range_or_anchor" });
+    return;
+  }
+  try {
+    const [bookingSnap, analyticsSnap] = await Promise.all([
+      admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("analytics/mainWeb").orderByKey().startAt(adminDashboardSummary.TIMEZONE ? "" : "").get()
+    ]);
+    const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
+      range,
+      anchor: anchor || undefined,
+      legacyAnalytics: analyticsSnap.val() || {},
+      identitySecret: analyticsHashSecret.value()
+    });
+    res.set("Cache-Control", "private, max-age=30");
+    sendJson(res, 200, summary);
+  } catch (err) {
+    console.error("readAdminDashboardSummary failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "dashboard_summary_unavailable" });
+  }
+});
 
 function bookingRouteText(booking) {
   if (booking.route) return String(booking.route);
