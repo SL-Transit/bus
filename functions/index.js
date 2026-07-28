@@ -35,7 +35,7 @@ function applyAggregateCors(req, res) {
 
 function validateAggregateOrigin(req) {
   const origin = req.get("origin") || "";
-  if (!origin) return req.get("x-sl-transit-healthcheck") === "booking-activity";
+  if (!origin) return false;
   if (ALLOWED_ADMIN_ORIGINS.has(origin)) return true;
   return process.env.FUNCTIONS_EMULATOR === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }

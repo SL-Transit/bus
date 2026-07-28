@@ -56,15 +56,13 @@ function addDays(date, days) {
 }
 
 function addMonths(date, months) {
-  const d = new Date(date.getTime());
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d;
+  const p = bangkokParts(date.getTime());
+  return new Date(Date.UTC(Number(p.year), Number(p.month) - 1 + months, Number(p.day), -7, 0, 0, 0));
 }
 
 function addYears(date, years) {
-  const d = new Date(date.getTime());
-  d.setUTCFullYear(d.getUTCFullYear() + years);
-  return d;
+  const p = bangkokParts(date.getTime());
+  return new Date(Date.UTC(Number(p.year) + years, Number(p.month) - 1, Number(p.day), -7, 0, 0, 0));
 }
 
 function startOfBangkokMonth(date) {
@@ -113,13 +111,15 @@ function bucketPlan(range, anchor, nowMs) {
   if (!anchorDate) return null;
   const points = [];
   const count = RANGE_SIZES[range];
+  const monthAnchor = range === "monthly" ? startOfBangkokMonth(anchorDate) : null;
+  const yearAnchor = range === "yearly" ? startOfBangkokYear(anchorDate) : null;
   for (let i = count - 1; i >= 0; i -= 1) {
     let d = anchorDate;
     if (range === "hourly") d = anchorDate;
     else if (range === "daily") d = addDays(anchorDate, -i);
     else if (range === "weekly") d = addDays(anchorDate, -i * 7);
-    else if (range === "monthly") d = addMonths(anchorDate, -i);
-    else if (range === "yearly") d = addYears(anchorDate, -i);
+    else if (range === "monthly") d = addMonths(monthAnchor, -i);
+    else if (range === "yearly") d = addYears(yearAnchor, -i);
     let key;
     if (range === "hourly") {
       const p = bangkokParts(d.getTime());

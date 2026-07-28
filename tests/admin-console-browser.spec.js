@@ -157,6 +157,126 @@ test('Booking hourly response with full backend key renders in graph', async ({ 
   await expect(main.locator('#booking-activity .chart-summary')).toContainText('1');
 });
 
+test('Booking empty response shows zero totals and no line', async ({ page }) => {
+  await page.route('**/readBookingActivity**', async (route) => {
+    const url = new URL(route.request().url());
+    const range = url.searchParams.get('range') || 'daily';
+    const anchor = url.searchParams.get('anchor') || '2026-07-28';
+    const points = Array.from({ length: 30 }, (_, index) => {
+      const d = new Date(`${anchor}T00:00:00+07:00`);
+      d.setDate(d.getDate() - (29 - index));
+      const key = d.toISOString().slice(0, 10);
+      return { key, label: `D${index + 1}`, bookings: 0, cancellations: 0, refunds: 0 };
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ status: 'empty', range, timezone: 'Asia/Bangkok', points, totals: { bookings: 0, cancellations: 0, refunds: 0 }, generatedAt: 1 })
+    });
+  });
+  await page.goto(pageUrl);
+  const main = await dashboardContent(page);
+  await expect(main.locator('#booking-activity .chart-summary')).toContainText('0');
+  await expect(main.locator('#booking-activity .chart-empty')).toBeVisible();
+  await expect(main.locator('#booking-activity polyline')).toHaveCount(0);
+});
+
+test('Booking error response keeps dash totals', async ({ page }) => {
+  await page.route('**/readBookingActivity**', async (route) => {
+    await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ ok: false, error: 'boom' }) });
+  });
+  await page.goto(pageUrl);
+  const main = await dashboardContent(page);
+  await expect(main.locator('#booking-activity .chart-empty')).toContainText('ไม่สามารถโหลดข้อมูลการจองได้');
+  const summary = await main.locator('#booking-activity .chart-summary').textContent();
+  expect(summary).toContain('—');
+  expect(summary).not.toContain('0');
+});
+
+test('Booking chart axis follows non-today Function points', async ({ page }) => {
+  await page.route('**/readBookingActivity**', async (route) => {
+    const url = new URL(route.request().url());
+    const anchor = url.searchParams.get('anchor') || '2026-03-31';
+    const points = Array.from({ length: 30 }, (_, index) => {
+      const d = new Date(`${anchor}T00:00:00+07:00`);
+      d.setDate(d.getDate() - (29 - index));
+      const key = d.toISOString().slice(0, 10);
+      return { key, label: index === 29 ? 'ANCHOR-AXIS' : `F${index + 1}`, bookings: index === 29 ? 1 : 0, cancellations: 0, refunds: 0 };
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        status: 'ready',
+        range: 'daily',
+        timezone: 'Asia/Bangkok',
+        points,
+        totals: { bookings: 1, cancellations: 0, refunds: 0 },
+        generatedAt: 1
+      })
+    });
+  });
+  await page.goto(pageUrl);
+  await page.locator('#serviceDate').evaluate((el) => { el.value = '2026-03-31'; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await page.locator('#booking-activity [data-booking-range="daily"]').click();
+  const main = await dashboardContent(page);
+  await expect(main.locator('#booking-activity .chart-x-labels')).toContainText('ANCHOR-AXIS');
+  await expect(main.locator('#booking-activity')).not.toContainText('28/7');
+});
+
+test('Booking refresh waits for new response before final render', async ({ page }) => {
+  let count = 0;
+  await page.route('**/readBookingActivity**', async (route) => {
+    count += 1;
+    const bookings = count >= 2 ? 2 : 0;
+    const status = bookings ? 'ready' : 'empty';
+    const points = Array.from({ length: 30 }, (_, index) => ({ key: `2026-07-${String(index + 1).padStart(2, '0')}`, label: `R${index + 1}`, bookings: index === 29 ? bookings : 0, cancellations: 0, refunds: 0 }));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        status,
+        range: 'daily',
+        timezone: 'Asia/Bangkok',
+        points,
+        totals: { bookings, cancellations: 0, refunds: 0 },
+        generatedAt: count
+      })
+    });
+  });
+  await page.goto(pageUrl);
+  await expect(page.locator('#booking-activity .chart-summary')).toContainText('0');
+  await page.locator('#refreshDashboard').click();
+  await expect(page.locator('#booking-activity .chart-summary')).toContainText('2');
+});
+
+test('Rapid booking range change ignores stale response', async ({ page }) => {
+  await page.route('**/readBookingActivity**', async (route) => {
+    const url = new URL(route.request().url());
+    const range = url.searchParams.get('range') || 'daily';
+    if (range === 'monthly') await new Promise((resolve) => setTimeout(resolve, 200));
+    const points = range === 'hourly'
+      ? Array.from({ length: 24 }, (_, hour) => ({ key: `2026-07-28T${String(hour).padStart(2, '0')}`, label: `${String(hour).padStart(2, '0')}:00`, bookings: hour === 9 ? 3 : 0, cancellations: 0, refunds: 0 }))
+      : Array.from({ length: 12 }, (_, index) => ({ key: `2026-${String(index + 1).padStart(2, '0')}`, label: `M${index + 1}`, bookings: 9, cancellations: 0, refunds: 0 }));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ status: 'ready', range, timezone: 'Asia/Bangkok', points, totals: { bookings: range === 'hourly' ? 3 : 9, cancellations: 0, refunds: 0 }, generatedAt: 1 })
+    });
+  });
+  await page.goto(pageUrl);
+  const main = await dashboardContent(page);
+  await main.locator('[data-booking-range="monthly"]').click();
+  await main.locator('[data-booking-range="hourly"]').click();
+  await expect(main.locator('[data-booking-range="hourly"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(main.locator('#booking-activity .chart-summary')).toContainText('3');
+  await expect(main.locator('#booking-activity .chart-summary')).not.toContainText('9');
+});
+
 test('Sidebar routes still work and ERP workbook remains accessible', async ({ page }) => {
   await page.getByRole('button', { name: 'จัดการข้อมูล ERP' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'workbook');

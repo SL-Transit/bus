@@ -6,6 +6,7 @@
   var RANGE_SIZES = { hourly: 24, daily: 30, weekly: 12, monthly: 12, yearly: 5 };
   var PRIVATE_FIELDS = ['name', 'phone', 'bookingCode', 'ticketCode', 'paymentEvidence', 'passengerId', 'rawBooking'];
   var CACHE = {};
+  var REQUEST_SEQ = {};
 
   function notify() {
     try { global.dispatchEvent(new CustomEvent('sltransit:booking-activity-updated')); } catch (e) { /* no-op */ }
@@ -79,6 +80,8 @@
     if (!Object.prototype.hasOwnProperty.call(RANGE_SIZES, range)) return Promise.resolve(unavailable(range, 'invalid_range'));
     var key = cacheKey({ range: range, anchor: anchor });
     if (!force && CACHE[key] && CACHE[key].status !== 'loading') return Promise.resolve(CACHE[key]);
+    var seq = (REQUEST_SEQ[key] || 0) + 1;
+    REQUEST_SEQ[key] = seq;
     CACHE[key] = loading(range);
     if (typeof fetch !== 'function') {
       CACHE[key] = unavailable(range, 'fetch_unavailable');
@@ -92,10 +95,12 @@
       if (!res.ok) throw new Error('readBookingActivity HTTP ' + res.status);
       return res.json();
     }).then(function (json) {
+      if (REQUEST_SEQ[key] !== seq) return CACHE[key];
       CACHE[key] = validateResponse(range, json);
       notify();
       return CACHE[key];
     }).catch(function (err) {
+      if (REQUEST_SEQ[key] !== seq) return CACHE[key];
       CACHE[key] = unavailable(range, err && err.message ? err.message : String(err));
       notify();
       return CACHE[key];

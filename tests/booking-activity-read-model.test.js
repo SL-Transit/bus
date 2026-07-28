@@ -69,6 +69,18 @@ assert.strictEqual(bkkBoundary.points.find((point) => point.key === today).booki
 const windowDaily = aggregate.queryWindow('daily', today);
 assert.strictEqual(windowDaily.startMs, Date.parse('2026-06-29T00:00:00+07:00'), 'daily query starts 30 Bangkok dates including anchor');
 assert.strictEqual(windowDaily.endMs, Date.parse('2026-07-28T23:59:59.999+07:00'), 'daily query ends at anchor Bangkok day');
+const midnightPlan = aggregate.bucketPlan('daily', undefined, Date.parse('2026-07-28T00:30:00+07:00'));
+assert.strictEqual(midnightPlan[midnightPlan.length - 1].key, '2026-07-28', 'Bangkok 00:30 must not shift chart date to the previous day');
+const marchMonthly = aggregate.bucketPlan('monthly', '2026-03-31');
+const mayMonthly = aggregate.bucketPlan('monthly', '2026-05-31');
+assert.strictEqual(marchMonthly.length, 12);
+assert.strictEqual(new Set(marchMonthly.map((point) => point.key)).size, 12, 'monthly keys must be unique from March 31 anchor');
+assert.strictEqual(marchMonthly.filter((point) => point.key === '2026-02').length, 1, 'February must appear exactly once from March 31 anchor');
+assert.strictEqual(mayMonthly.filter((point) => point.key === '2026-04').length, 1, 'April must appear exactly once from May 31 anchor');
+const yearly = aggregate.bucketPlan('yearly', '2028-02-29');
+assert.strictEqual(yearly.length, 5);
+assert.strictEqual(new Set(yearly.map((point) => point.key)).size, 5, 'yearly keys must be unique across leap-year anchor');
+assert.deepStrictEqual(yearly.map((point) => point.key), ['2024', '2025', '2026', '2027', '2028']);
 
 const validated = readModel.validateResponse('daily', {
   status: 'ready',
@@ -100,10 +112,14 @@ assert.throws(() => readModel.validateResponse('daily', {
 const source = require('fs').readFileSync(require('path').join(__dirname, '..', 'booking-activity-read-model.js'), 'utf8');
 assert(!/firebase\.database|\.ref\(['"]bookings['"]/.test(source), 'browser read model must not read bookings directly');
 assert(source.includes('cache: \'no-store\''), 'refresh/read must not hide new bookings behind browser cache');
+assert(source.includes('REQUEST_SEQ'), 'read model must protect cache from stale responses');
 
 const adminHtml = require('fs').readFileSync(require('path').join(__dirname, '..', 'admin-erp.html'), 'utf8');
 assert(adminHtml.includes("bookingActivityValue(model,'bookings')"), 'booking summary must use booking activity model totals');
-assert(adminHtml.includes("source.refresh({range:state.bookingChartRange"), 'Dashboard refresh must refresh booking activity source');
+assert(adminHtml.includes("model.points&&model.points.length"), 'booking chart must use Function points as the primary axis');
+assert(adminHtml.includes("empty?[{name:'จำนวนการจอง'"), 'empty booking chart must suppress line drawing while keeping zero totals');
+assert(adminHtml.includes("refreshBookingActivity().then(function(){return load()}).then(render)"), 'Dashboard refresh must wait for booking activity before load/render');
+assert(adminHtml.includes('bookingActivityRequestSeq'), 'Dashboard must ignore stale booking range responses');
 
 const functionsIndex = require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'index.js'), 'utf8');
 assert(functionsIndex.includes('exports.readBookingActivity = onRequest'), 'readBookingActivity HTTPS Function must exist');
@@ -111,6 +127,7 @@ assert(functionsIndex.includes('aggregateBookingActivity'), 'readBookingActivity
 assert(functionsIndex.includes('orderByChild("ts").startAt(window.startMs).endAt(window.endMs)'), 'Function must query by ts range');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'Function must not read the whole bookings root');
 assert(functionsIndex.includes('origin_not_allowed'), 'Function must reject invalid/no-origin production requests');
+assert(functionsIndex.includes('if (!origin) return false;'), 'Production no-origin request must be rejected');
 assert(functionsIndex.includes('FUNCTIONS_EMULATOR === "true"'), 'localhost must be emulator-only');
 assert(functionsIndex.includes('rate_limited'), 'Function must enforce rate limiting');
 assert(functionsIndex.includes('maxInstances: 10'), 'Function must cap max instances');
