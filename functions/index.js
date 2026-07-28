@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
@@ -8,9 +9,111 @@ admin.initializeApp();
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
+const bookingActivityAggregate = require("./booking-activity-aggregate.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
+const ALLOWED_ADMIN_ORIGINS = new Set([
+  "https://sl-transit.com",
+  "https://www.sl-transit.com"
+]);
+const bookingActivityRate = new Map();
+const BOOKING_ACTIVITY_RATE_WINDOW_MS = 60 * 1000;
+const BOOKING_ACTIVITY_RATE_LIMIT = 60;
+const BOOKING_ACTIVITY_RESPONSE_LIMIT_BYTES = 64 * 1024;
+
+function applyAggregateCors(req, res) {
+  const origin = req.get("origin") || "";
+  const emulatorLocalhost = process.env.FUNCTIONS_EMULATOR === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (ALLOWED_ADMIN_ORIGINS.has(origin) || emulatorLocalhost) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+}
+
+function validateAggregateOrigin(req) {
+  const origin = req.get("origin") || "";
+  if (!origin) return false;
+  if (ALLOWED_ADMIN_ORIGINS.has(origin)) return true;
+  return process.env.FUNCTIONS_EMULATOR === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
+function bookingActivityRateOk(req) {
+  const origin = req.get("origin") || "healthcheck";
+  const key = String(origin).slice(0, 120);
+  const now = Date.now();
+  const current = bookingActivityRate.get(key) || { windowStart: now, count: 0 };
+  if (now - current.windowStart >= BOOKING_ACTIVITY_RATE_WINDOW_MS) {
+    bookingActivityRate.set(key, { windowStart: now, count: 1 });
+    return true;
+  }
+  current.count += 1;
+  bookingActivityRate.set(key, current);
+  return current.count <= BOOKING_ACTIVITY_RATE_LIMIT;
+}
+
+function sendLimitedJson(res, status, body) {
+  const json = JSON.stringify(body);
+  if (Buffer.byteLength(json, "utf8") > BOOKING_ACTIVITY_RESPONSE_LIMIT_BYTES) {
+    res.status(500).json({ ok: false, error: "response_too_large" });
+    return;
+  }
+  res.status(status).type("application/json").send(json);
+}
+
+exports.readBookingActivity = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  applyAggregateCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return;
+  }
+  if (!validateAggregateOrigin(req)) {
+    res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    return;
+  }
+  if (!bookingActivityRateOk(req)) {
+    res.status(429).json({ ok: false, error: "rate_limited" });
+    return;
+  }
+  const range = String(req.query.range || "daily");
+  const anchor = req.query.anchor ? String(req.query.anchor) : undefined;
+  if (!Object.prototype.hasOwnProperty.call(bookingActivityAggregate.RANGE_SIZES, range)) {
+    res.status(400).json({ ok: false, error: "invalid_range" });
+    return;
+  }
+  const window = bookingActivityAggregate.queryWindow(range, anchor);
+  if (!window) {
+    res.status(400).json({ ok: false, error: "invalid_anchor" });
+    return;
+  }
+  try {
+    const snap = await admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get();
+    const aggregate = bookingActivityAggregate.aggregateBookingActivity(snap.val() || {}, { range, anchor });
+    res.set("Cache-Control", "private, max-age=30");
+    sendLimitedJson(res, 200, {
+      status: aggregate.status,
+      range: aggregate.range,
+      timezone: aggregate.timezone,
+      points: aggregate.points,
+      totals: aggregate.totals,
+      generatedAt: Date.now()
+    });
+  } catch (err) {
+    console.error("readBookingActivity failed", err && err.message ? err.message : String(err));
+    res.status(500).json({ ok: false, error: "booking_activity_read_failed" });
+  }
+});
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
