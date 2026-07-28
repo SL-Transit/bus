@@ -16,16 +16,18 @@ test.beforeEach(async ({ page }) => {
 
 test('Dashboard visible chart grids and remaining sections render', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('#website-analytics')).toBeVisible();
+  await expect(main.locator('.kpis .card.kpi')).toHaveCount(5);
+  await expect(main.locator('.kpis .card.kpi').nth(0)).toContainText('ผู้เข้าเยี่ยมชมเว็บไซต์');
+  await expect(main.locator('.kpis .card.kpi').nth(1)).toContainText('ผู้ใช้งานจริง');
+  await expect(main.locator('.kpis .card.kpi').nth(2)).toContainText('การจองวันนี้');
+  await expect(main.locator('.kpis .card.kpi').nth(3)).toContainText('รถที่กำลังวิ่ง');
+  await expect(main.locator('.kpis .card.kpi').nth(4)).toContainText('รายได้วันนี้');
+  await expect(main.locator('#website-analytics')).toHaveCount(0);
   await expect(main.locator('#booking-activity')).toBeVisible();
-  await expect(main.locator('#website-analytics .chart-ranges button')).toHaveCount(5);
   await expect(main.locator('#booking-activity .chart-ranges button')).toHaveCount(5);
-  await expect(main.locator('.chart-frame')).toHaveCount(2);
-  await expect(main.locator('.chart-axis-zero')).toHaveCount(2);
-  await expect(main.locator('.chart-x-labels')).toHaveCount(2);
-  await expect(main.locator('.legend-box.red')).toHaveCount(1);
-  await expect(main.locator('.legend-box.blue')).toHaveCount(1);
-  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('.chart-frame')).toHaveCount(1);
+  await expect(main.locator('.chart-axis-zero')).toHaveCount(1);
+  await expect(main.locator('.chart-x-labels')).toHaveCount(1);
   await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
   await expect(main.locator('#booking-activity .legend-line.blue')).toHaveCount(1);
   await expect(main.locator('#booking-activity .legend-line.red')).toHaveCount(1);
@@ -66,15 +68,29 @@ test('Vehicle and driver settlement section shows ERP rotation Excel table', asy
 
 test('Vehicle queue column follows selected service-date rotation', async ({ page }) => {
   const main = await dashboardContent(page);
+  const q = (n) => '\u0e04\u0e34\u0e27\u0e17\u0e35\u0e48 ' + n;
+  await page.locator('#serviceDate').evaluate((input) => {
+    input.value = '2026-07-16';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   const rows = main.locator('#vehicle-driver-excel tbody tr');
   await expect(rows.nth(0)).toContainText('car1');
-  await expect(rows.nth(0)).toContainText('คิวที่ 4');
+  await expect(rows.nth(0)).toContainText(q(1));
   await expect(rows.nth(1)).toContainText('car2');
-  await expect(rows.nth(1)).toContainText('คิวที่ 1');
+  await expect(rows.nth(1)).toContainText(q(2));
   await expect(rows.nth(2)).toContainText('car3');
-  await expect(rows.nth(2)).toContainText('คิวที่ 2');
+  await expect(rows.nth(2)).toContainText(q(3));
   await expect(rows.nth(3)).toContainText('car4');
-  await expect(rows.nth(3)).toContainText('คิวที่ 3');
+  await expect(rows.nth(3)).toContainText(q(4));
+
+  await page.locator('#serviceDate').evaluate((input) => {
+    input.value = '2026-07-19';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect(rows.nth(0)).toContainText(q(4));
+  await expect(rows.nth(1)).toContainText(q(1));
+  await expect(rows.nth(2)).toContainText(q(2));
+  await expect(rows.nth(3)).toContainText(q(3));
 });
 
 test('Dashboard removes operations-only widgets from the business canvas', async ({ page }) => {
@@ -89,20 +105,15 @@ test('Dashboard removes operations-only widgets from the business canvas', async
   await expect(page.locator('#operationsMap')).toHaveCount(0);
 });
 
-test('Analytics time range controls update selected state without inventing data', async ({ page }) => {
+test('Top KPI cards render without inventing mock values', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('[data-analytics-range="daily"]')).toHaveAttribute('aria-pressed', 'true');
-  await main.locator('[data-analytics-range="monthly"]').click();
-  await expect(main.locator('[data-analytics-range="monthly"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
+  await expect(main.locator('.kpis .card.kpi')).toHaveCount(5);
   await expect(main).not.toContainText('1,250');
   await expect(main).not.toContainText('15,000');
   await expect(main).not.toContainText('+12%');
 });
-
-test('Unavailable analytics and booking chart values are not shown as business zero', async ({ page }) => {
+test('Unavailable KPI and booking chart values are not shown as business zero', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('#website-analytics .chart-empty')).toContainText('ยังไม่มีข้อมูลสถิติ');
   await expect(main.locator('#booking-activity .chart-empty')).toContainText('ยังไม่มีข้อมูลการจอง');
   await expect(main.locator('#booking-activity')).not.toContainText('0 รายการ');
   await expect(main.locator('#booking-activity polyline')).toHaveCount(0);
@@ -197,20 +208,20 @@ test('Mobile Admin shell opens and closes sidebar drawer safely', async ({ page 
   await expect(page.locator('body')).toHaveAttribute('data-current-page', 'workbook');
 });
 
-test('Mobile chart cards stack and scroll internally without page horizontal scroll', async ({ page }) => {
+test('Mobile top KPI cards and chart cards stack without page horizontal scroll', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pageUrl);
   const layout = await page.evaluate(() => {
-    const analytics = document.querySelector('#website-analytics').getBoundingClientRect();
+    const kpis = document.querySelector('.kpis').getBoundingClientRect();
     const booking = document.querySelector('#booking-activity').getBoundingClientRect();
     const finance = document.querySelector('#finance-donuts').getBoundingClientRect();
-    const ranges = document.querySelector('#website-analytics .chart-ranges');
-    const chartScroll = document.querySelector('#website-analytics .chart-scroll');
+    const ranges = document.querySelector('#booking-activity .chart-ranges');
+    const chartScroll = document.querySelector('#booking-activity .chart-scroll');
     return {
-      analyticsTop: Math.round(analytics.top),
+      kpisTop: Math.round(kpis.top),
       bookingTop: Math.round(booking.top),
       financeTop: Math.round(finance.top),
-      analyticsWidth: Math.round(analytics.width),
+      kpisWidth: Math.round(kpis.width),
       bookingWidth: Math.round(booking.width),
       financeWidth: Math.round(finance.width),
       scrollWidth: document.documentElement.scrollWidth,
@@ -219,9 +230,9 @@ test('Mobile chart cards stack and scroll internally without page horizontal scr
       chartInternalScroll: chartScroll.scrollWidth > chartScroll.clientWidth,
     };
   });
-  expect(layout.analyticsTop).toBeLessThan(layout.bookingTop);
+  expect(layout.kpisTop).toBeLessThan(layout.bookingTop);
   expect(layout.bookingTop).toBeLessThan(layout.financeTop);
-  expect(layout.analyticsWidth).toBeGreaterThanOrEqual(360);
+  expect(layout.kpisWidth).toBeGreaterThanOrEqual(360);
   expect(layout.bookingWidth).toBeGreaterThanOrEqual(360);
   expect(layout.financeWidth).toBeGreaterThanOrEqual(360);
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
