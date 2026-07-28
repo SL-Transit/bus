@@ -16,12 +16,12 @@ test.beforeEach(async ({ page }) => {
 
 test('Dashboard visible chart grids and remaining sections render', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('.kpis .card.kpi')).toHaveCount(5);
+  await expect(main.locator('.kpis .card.kpi')).toHaveCount(4);
   await expect(main.locator('.kpis .card.kpi').nth(0)).toContainText('ผู้เข้าเยี่ยมชมเว็บไซต์');
   await expect(main.locator('.kpis .card.kpi').nth(1)).toContainText('ผู้ใช้งานจริง');
   await expect(main.locator('.kpis .card.kpi').nth(2)).toContainText('การจองวันนี้');
-  await expect(main.locator('.kpis .card.kpi').nth(3)).toContainText('รถที่กำลังวิ่ง');
-  await expect(main.locator('.kpis .card.kpi').nth(4)).toContainText('รายได้วันนี้');
+  await expect(main.locator('.kpis .card.kpi').nth(3)).toContainText('รายได้วันนี้');
+  await expect(main.locator('.kpis')).not.toContainText('รถที่กำลังวิ่ง');
   await expect(main.locator('#website-analytics')).toHaveCount(0);
   await expect(main.locator('#booking-activity')).toBeVisible();
   await expect(main.locator('#booking-activity .chart-ranges button')).toHaveCount(5);
@@ -107,7 +107,8 @@ test('Dashboard removes operations-only widgets from the business canvas', async
 
 test('Top KPI cards render without inventing mock values', async ({ page }) => {
   const main = await dashboardContent(page);
-  await expect(main.locator('.kpis .card.kpi')).toHaveCount(5);
+  await expect(main.locator('.kpis .card.kpi')).toHaveCount(4);
+  await expect(main.locator('.kpis')).not.toContainText('รถที่กำลังวิ่ง');
   await expect(main).not.toContainText('1,250');
   await expect(main).not.toContainText('15,000');
   await expect(main).not.toContainText('+12%');
