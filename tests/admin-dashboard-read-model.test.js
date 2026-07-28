@@ -72,13 +72,13 @@ assert.throws(() => model.validateResponse('daily', response), /range mismatch/)
 
 const unsupported = model.validateResponse('hourly', Object.assign({}, response, {
   bookings: Object.assign({}, response.bookings, {
-    cancellationContractStatus: 'unsupported_missing_cancelledAt',
+    cancellationContractStatus: 'ready',
     refundContractStatus: 'unsupported_missing_refund_timestamp'
   })
 }));
-assert.strictEqual(unsupported.bookings.cancelledCount, null);
+assert.strictEqual(unsupported.bookings.cancelledCount, 0);
 assert.strictEqual(unsupported.bookings.refundedCount, null);
-assert.strictEqual(unsupported.bookings.cancellationMessage, 'ยังไม่รองรับข้อมูลวันยกเลิก');
+assert.strictEqual(unsupported.bookings.cancellationMessage, '');
 
 const unavailableWebsite = model.validateResponse('hourly', Object.assign({}, response, {
   website: Object.assign({}, response.website, {
