@@ -44,6 +44,7 @@
   var lastLat = null, lastLng = null;
   var followMode = false;
   var animReq = null;
+  var pendingDriverPosition = null;
 
   // cfg มาจาก data/erpDataCenter/settings/driverMap เท่านั้น — ไม่มีค่าเริ่มต้นที่ "ตัดสินใจ" ไว้ล่วงหน้า
   // จนกว่าจะได้ค่าจริงจาก ERP, พฤติกรรมที่ยังไม่ระบุจะ fallback เป็นแบบไม่มีอนิเมชั่น/ซูมค้างตามที่ Leaflet
@@ -63,12 +64,27 @@
     });
   }
 
-  function initMap() {
-    map = L.map('map', {
+  function stopMarkersAreFixedScreenSize(mapView) {
+    var policy = mapView && mapView.displayPolicy && mapView.displayPolicy.stopMarkers;
+    return policy && policy.scaleMode === 'fixed_screen_size';
+  }
+
+  function leafletOptionsForMapView(mapView) {
+    var fixedStopMarkers = stopMarkersAreFixedScreenSize(mapView);
+    return {
       zoomControl: true,
-      zoomAnimation: false,
-      markerZoomAnimation: false,
-      fadeAnimation: false
+      zoomAnimation: !fixedStopMarkers,
+      markerZoomAnimation: !fixedStopMarkers,
+      fadeAnimation: !fixedStopMarkers
+    };
+  }
+
+  function initMap(mapView) {
+    map = L.map('map', {
+      zoomControl: leafletOptionsForMapView(mapView).zoomControl,
+      zoomAnimation: leafletOptionsForMapView(mapView).zoomAnimation,
+      markerZoomAnimation: leafletOptionsForMapView(mapView).markerZoomAnimation,
+      fadeAnimation: leafletOptionsForMapView(mapView).fadeAnimation
     }).setView([13.75, 101.4], 9); // มุมมองตั้งต้นชั่วคราว จนกว่า config/GPS จริงจะมาถึง
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -92,6 +108,7 @@
   }
 
   function applyInitialViewIfPossible() {
+    if (!map) return;
     if (!initialViewApplied && firstFix && cfg.initialCenterLat != null && cfg.initialCenterLng != null) {
       map.setView([cfg.initialCenterLat, cfg.initialCenterLng], cfg.initialZoom != null ? cfg.initialZoom : map.getZoom());
       initialViewApplied = true;
@@ -122,6 +139,10 @@
 
   // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverPosition(lat,lng)') ทุกครั้งที่มีพิกัด GPS ใหม่
   function setDriverPosition(lat, lng) {
+    if (!map) {
+      pendingDriverPosition = { lat: lat, lng: lng };
+      return;
+    }
     if (!driverMarker) {
       var icon = L.divIcon({ className: '', html: "<div class='map-user-dot'></div>", iconSize: [18, 18], iconAnchor: [9, 9] });
       driverMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 900 }).addTo(map);
@@ -213,6 +234,13 @@
   function watchMapView() {
     db.ref(MAP_VIEW_PATH).on('value', function (snap) {
       var mapView = snap.val() || {};
+      if (!map) {
+        initMap(mapView);
+        if (pendingDriverPosition) {
+          setDriverPosition(pendingDriverPosition.lat, pendingDriverPosition.lng);
+          pendingDriverPosition = null;
+        }
+      }
       renderStops(normalizeStops(mapView.stops));
       renderRoute(extractRoadRoute(mapView.routes));
     });
@@ -232,7 +260,6 @@
     catch (e) { app = global.firebase.app(); }
     db = app.database();
 
-    initMap();
     watchMapView();
     watchConfig();
   }

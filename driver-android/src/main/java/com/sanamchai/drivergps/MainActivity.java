@@ -3056,7 +3056,7 @@ public class MainActivity extends Activity {
                 updateLiveMap();
             }
         });
-        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html?v=20260728b");
+        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html?v=20260728c");
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);

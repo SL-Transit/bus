@@ -657,6 +657,7 @@ function applyPublishedScheduleMapView(mapView) {
   PASSENGER_ROUTE_DATA = {
     stations: stations,
     mapRoutes: normalizePublishedScheduleMapRoutes(mapView.routes),
+    displayPolicy: mapView.displayPolicy || null,
     source: 'publishedSchedule.mapView'
   };
   applyPassengerRouteData(PASSENGER_ROUTE_DATA);

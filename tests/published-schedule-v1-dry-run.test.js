@@ -135,6 +135,10 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
     assert(groupOneOptions.every((option) => option.destinationId !== origin.originDestinationId), `group_001 destination options must exclude selected origin for ${origin.originLabel}`);
   });
   assert(schedule.mapView && schedule.mapView.schemaVersion === 'publishedSchedule.mapView.v1.preview', 'mapView schema missing');
+  assert(schedule.mapView.displayPolicy && schedule.mapView.displayPolicy.policySource === 'erp_map_data_center', 'mapView display policy must come from ERP Map Data Center');
+  assert(schedule.mapView.displayPolicy.localRendererDecisionAllowed === false, 'map renderers must not decide stop/route behavior locally');
+  assert(schedule.mapView.displayPolicy.stopMarkers.scaleMode === 'fixed_screen_size', 'mapView must centrally define fixed screen-size stop markers');
+  assert(schedule.mapView.displayPolicy.routeGeometry.calculationAuthority === 'erp_map_data_center', 'mapView route geometry calculation must be ERP-owned');
   assert(Array.isArray(schedule.mapView.stops) && schedule.mapView.stops.length === 15, 'mapView must expose 15 corridor stops');
   assert(schedule.mapView.stops.every((stop, index) => stop.label && stop.displayOrder === index && Number.isFinite(Number(stop.lat)) && Number.isFinite(Number(stop.lng)) && stop.icon), 'mapView stops must have label/displayOrder/lat/lng/icon');
   assert.deepStrictEqual(
