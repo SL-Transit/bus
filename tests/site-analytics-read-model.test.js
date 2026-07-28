@@ -39,4 +39,16 @@ const julyBucket = monthly.points.find(p => p.key === '2026-07');
 assert.strictEqual(julyBucket.visits, 23); // 10 + 8 + 5
 assert.strictEqual(julyBucket.estimatedVisitors, 9); // 4 + 3 + 2
 
+// daySummary powers the "ผู้เข้าเยี่ยมชมเว็บไซต์" / "ผู้ใช้งานจริง" KPI cards
+model._setCacheForTest({
+  '2026-07-28': { pageViews: 12, count: 5, pageDeviceCounts: { passenger_html: 3, check_ticket_html: 1, index_html: 5 } }
+}, 'ready');
+const day = model.daySummary('2026-07-28');
+assert.strictEqual(day.hasData, true);
+assert.strictEqual(day.estimatedVisitors, 5);
+assert.strictEqual(day.realUserPageVisitors, 4); // passenger_html(3) + check_ticket_html(1), index_html excluded
+
+const missingDay = model.daySummary('2026-01-01');
+assert.strictEqual(missingDay.hasData, false);
+
 console.log('site-analytics-read-model.test.js OK');
