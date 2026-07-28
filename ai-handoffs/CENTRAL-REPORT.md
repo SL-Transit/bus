@@ -44,6 +44,35 @@ Next action:
 
 ## Current Reports
 
+## 2026-07-28 08:26 +07 (Asia/Bangkok) - Booking Logic AI (Booking1) - DONE
+
+Scope:
+- `booking1.html`, `booking1-preview-adapter.js`, `erp-calculator-center.js`
+- `assets/250.png`, `251.png`, `252.png`, `253.png` (new)
+
+Summary (multi-session owner-driven UI work, discovered unreported on this board while auditing sync status on 2026-07-28 — commits were already pushed to `main`, just never logged here):
+- **Trip card redesign (page1):** split trip cards into same-group (2-stop: origin → destination) vs transfer-group (3-stop: origin → transfer point "(จุดต่อรถ)" → destination) layouts using the existing `trip.isLeg2` signal from `booking-bridge.js` — no new business logic added. Fixed `erp-calculator-center.js#recommendedBookingTrips` so cross-group/reference-only pairs (no fixed daily schedule, single ERP `connectionOptions` entry) always still get a recommended card instead of silently losing it once their reference time of day passed. Fixed a stop-list icon mismatch (`assets/2088.png`, a single fixed 3-element bus/dot/pin image, was being stretched over 2-row cards too). Removed per-trip price display from the page1 list per owner request (price now only shown starting at the payment step).
+- **Passenger count (page2):** removed the duplicate +/- stepper (wrote to the same `state.pax` already set on page1's search form); now shown read-only in the info-card using `assets/224.png` (the dedicated info-row circle-badge passenger icon; `207.png`, tried first, had no circle background baked in). Fixed the ticket-success page's "ชื่อผู้โดยสาร" icon, which pointed at `assets/235.png` — a file that was only ever documented in a comment and never actually existed in `assets/` — switched to `assets/226.png`.
+- **Payment summary (page3):** the ค่าบริการ/fee line was conditionally hidden based on ERP `data.fees.serviceEnabled`, so the owner's target 3-line summary (ค่าตั๋วโดยสาร / ค่าบริการ / รวมยอดชำระ) never fully rendered; now always visible. Renamed "ยอดชำระ" → "รวมยอดชำระ" per owner-provided reference design.
+- **Payment method:** hidden the PromptPay/QR-scan payment card per explicit owner request ("ปิดการให้ผู้โดยสารชำระเงินผ่านการสแกน QR ไปก่อน") — only "จองหน้างาน/ชำระที่ท่ารถหรือบนรถ" and "โอนเงินผ่านบัญชีธนาคาร" remain selectable. Hidden via CSS (`display:none`), not deleted, so it can be re-enabled without rebuilding it. Confirmed no code path defaults to or restores `'promptpay'`.
+- **Ticket-success action buttons:** removed the "สำรองที่นั่งเพิ่มเติม" button — its `onclick="newBooking()"` called a function that was never defined anywhere in `booking1.html` (dead/broken code), and it duplicated the new "กลับสู่เมนูหลัก" (back to main menu, links to `index.html`) button added in its place. Wired in 4 new action-button icons the owner supplied (250=save ticket image, 251=view ticket/check-in, 252=cancel ticket, 253=back to main menu): the owner's source PNGs were flat RGB with a near-white flat background (no real alpha transparency despite how they looked in the chat preview) — chroma-keyed the background to transparent, cropped, downscaled, then recolored each badge's circle (hue-shift preserving saturation/value for gradient/anti-aliasing) to match the app's teal/red/navy scheme the old 237/238/239 icons used. `assets/239.png` (previously reused as a stand-in for "back to main menu") is unused again now that 253.png exists.
+
+Evidence:
+- Commits (chronological): `b5f04a6`, `aa5d12c`, `eef50f4`, `a8560ee`, `813b3e0`, `3cc1ccb`, `0f372bc`, `97353ef`, `ef9e823`, `f47a0fc`, `7f63c43`, `88553ee`, `c695a44` — all on `main`
+- Actions: not run from this session
+- Pages: not checked from this session
+- Tests: `tests/booking1-preview-data.test.js` and `tests/erp-calculator-center.test.js` passing after every change in this batch (`TZ=Asia/Bangkok`); full suite re-run after each merge with concurrent work from other AIs (capacity-transaction, cancel-capacity-release, admin-console) — only pre-existing, unrelated failures observed each time (confirmed via `git stash` against unmodified `main` where relevant)
+
+Safety:
+- Firebase writes: none
+- Passenger/private data touched: none
+
+Blockers:
+- None currently open for this batch.
+
+Next action:
+- None pending from this AI; flagging this report specifically so the board reflects what's already live on `main`.
+
 ## 2026-07-26 15:00 +07 - Senior UX/UI Frontend Engineer - REVIEW
 
 Scope:
