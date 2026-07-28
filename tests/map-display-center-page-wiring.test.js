@@ -16,16 +16,18 @@ const driverMain = fs.readFileSync(
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
 assert(checkTicketHtml.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
-assert(driverMapHtml.includes('driver-map-logic.js?v=20260728a'), 'Driver map must load the current ERP map logic version');
+assert(driverMapHtml.includes('driver-map-logic.js?v=20260728b'), 'Driver map must load the current ERP map logic version');
 assert(driverMapLogic.includes("MAP_VIEW_PATH = 'publishedSchedule/mapView'"), 'Driver map must read the same ERP Data Center mapView contract as Passenger');
 assert(driverMapLogic.includes('renderStops(normalizeStops(mapView.stops))'), 'Driver map must render backend-provided mapView stops');
 assert(driverMapLogic.includes('s.label || s.displayNameTh || s.nameTh'), 'Driver map stop labels must come from mapView stop data');
 assert(driverMapLogic.includes("icon: s.icon || '\\uD83D\\uDE8F'"), 'Driver map stop icons must come from mapView stop data');
 assert(driverMapLogic.includes('renderRoute(extractRoadRoute(mapView.routes))'), 'Driver map must render the ERP Map road route from mapView');
 assert(!driverMapLogic.includes("data/erpDataCenter/catalog/stops"), 'Driver map must not read raw catalog stops instead of the published mapView contract');
+assert(driverMapLogic.includes('markerZoomAnimation: false'), 'Driver map stop icons must not scale during Leaflet zoom');
+assert(driverMapLogic.includes('zoomAnimation: false'), 'Driver map must avoid zoom-pane scaling that enlarges stop icons');
 assert(driverMain.includes('ws.setCacheMode(WebSettings.LOAD_NO_CACHE)'), 'Driver app WebView must not reuse stale driver-map HTML');
 assert(driverMain.includes('driverMapWebView.clearCache(true)'), 'Driver app must clear stale driver map WebView cache');
-assert(driverMain.includes('https://sl-transit.com/driver-map.html?v=20260728a'), 'Driver app must load the current driver map HTML version');
+assert(driverMain.includes('https://sl-transit.com/driver-map.html?v=20260728b'), 'Driver app must load the current driver map HTML version');
 
 const passengerUpdateStart = passengerLogic.indexOf('function updateAllBusesOnMap');
 const passengerUpdateEnd = passengerLogic.indexOf('function removeBusFromMap', passengerUpdateStart);

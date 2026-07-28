@@ -64,7 +64,12 @@
   }
 
   function initMap() {
-    map = L.map('map', { zoomControl: true }).setView([13.75, 101.4], 9); // มุมมองตั้งต้นชั่วคราว จนกว่า config/GPS จริงจะมาถึง
+    map = L.map('map', {
+      zoomControl: true,
+      zoomAnimation: false,
+      markerZoomAnimation: false,
+      fadeAnimation: false
+    }).setView([13.75, 101.4], 9); // มุมมองตั้งต้นชั่วคราว จนกว่า config/GPS จริงจะมาถึง
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
