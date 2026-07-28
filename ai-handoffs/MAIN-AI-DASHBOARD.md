@@ -1,4 +1,89 @@
-﻿# SL-Transit Main AI Dashboard
+# SL-Transit Main AI Dashboard
+
+## 2026-07-28 LATEST OWNER DECISION - ADMIN ERP CONCEPT
+## HIGHEST CURRENT PRECEDENCE
+
+This section is the latest Owner decision for the Admin ERP concept. It is documentation-only and applies only to Admin ERP and the internal backoffice system concept. It is not an instruction to redesign Booking, Passenger, Firebase, Backend, Driver App, Check Ticket, or Cancel Ticket in this task.
+
+### Scope boundary
+
+- Admin ERP is the central control room for managing, supervising, inspecting, editing, commanding, and consolidating SL-Transit backoffice data.
+- Dashboard is only the first summary page inside Admin ERP. Dashboard is not the full Admin ERP scope.
+- Any listed modules or capabilities are examples, not a closed list. Admin ERP scope is not limited to only those examples.
+- This documentation task must not change runtime code, consumer pages, Firebase, deployment, merge state, or Screen 02 work.
+
+### Admin ERP direct-control concept
+
+Admin ERP must eventually allow authorized users to directly control specific operational and data points, including:
+
+- edit a departure/pass-through/arrival time;
+- open or close booking;
+- close booking for a specific trip only;
+- close advance booking rules;
+- change bookable seat count/capacity;
+- change assigned vehicle or driver;
+- cancel a booking on behalf of a passenger;
+- control emergency/incident operations;
+- control and test backoffice systems safely.
+
+These actions must still follow safety rules appropriate to the action: permissions, validation, audit history, versioning, review/publish where required, rollback where supported, and explicit Owner approval for production-impacting changes.
+
+### Excel role clarification
+
+Excel is a bulk import/edit tool and an initial source workbook. Excel is useful for large data changes such as:
+
+- adding route groups;
+- adding routes;
+- adding many stops;
+- adding or editing many timetable rows;
+- bulk schedule/fare/policy updates.
+
+Excel is not the only way to edit data. Excel is not a replacement for Admin ERP. Admin ERP must support point-level editing and control directly in the backoffice UI, while still supporting Excel upload/export for bulk work.
+
+### Real data Admin ERP must reach
+
+Admin ERP must ultimately access real approved data for:
+
+- bookings;
+- tickets;
+- cancellations;
+- refunds;
+- revenue;
+- service fees;
+- vehicles;
+- drivers;
+- queues;
+- trips;
+- routes;
+- statistics;
+- usage history;
+- Driver App control;
+- testing tools;
+- news/announcements;
+- permissions;
+- settings;
+- audit;
+- rollback.
+
+If an approved adapter/source is not ready, the UI must show unresolved/unavailable. Do not fill Admin ERP with screenshot values, mock values, guessed values, or legacy authority.
+
+### Dashboard statistic names
+
+Latest Owner-approved Dashboard stat names:
+
+- จำนวนผู้เยี่ยมชม (เว็บไซต์)
+- ผู้ใช้งานจริง
+
+Do not use these older labels:
+
+- จำนวนครั้งเข้าเยี่ยมชม
+- ผู้เยี่ยมชมโดยประมาณ
+
+### Relationship to earlier Admin Console direction
+
+The 2026-07-26 Admin Console direction remains valid unless this 2026-07-28 Admin ERP concept section is more specific. Where there is conflict, this 2026-07-28 section has higher precedence for Admin ERP concept decisions.
+
+
 
 ## 2026-07-26 OWNER-APPROVED ADMIN CONSOLE DIRECTION
 ## HIGHEST CURRENT PRECEDENCE
