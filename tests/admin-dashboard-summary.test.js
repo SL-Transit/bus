@@ -115,6 +115,14 @@ const result = summary.aggregateDashboard(records, {
   travelRecords: records,
   cancelledRecords: records,
   refundedRecords: records,
+  fleetMaster: {
+    vehicles: {
+      'van-1': { vehicleAlias: 'car1' }
+    },
+    drivers: {
+      'driver-1': { driverDisplayName: 'นาย ก', firstName: 'ห้ามส่งออก', phone: '0800000000' }
+    }
+  },
   websiteRollups: { '2026-07-28': { visitors: 3 } },
   identitySecret: 'test-secret',
   generatedAt: 1
@@ -139,6 +147,10 @@ const yesterdayPoint = result.bookings.points.find((point) => point.key === '202
 assert.strictEqual(yesterdayPoint.bookings, 1, 'booking yesterday/travel today stays yesterday');
 
 assert(result.vehicles.some((row) => row.vehicleId === 'van-1' && row.bookingCount === 1));
+const car1Row = result.vehicles.find((row) => row.vehicleId === 'van-1');
+assert.strictEqual(car1Row.vehicleAlias, 'car1');
+assert.strictEqual(car1Row.driverDisplayName, 'นาย ก');
+assert.strictEqual(car1Row.driverMasterStatus, 'ready');
 assert(result.vehicles.some((row) => row.vehicleId === 'ยังไม่ระบุรถ' && row.bookingCount === 2), 'unassigned vehicle records are kept');
 assert(result.queues.some((row) => row.queueId === 'Q1' && row.passengerCount === 2));
 assert(result.routes.some((row) => row.routeId === 'R1' && row.bookingCount === 1));
@@ -166,7 +178,7 @@ assert.strictEqual(unsupported.bookings.cancelledCount, 0);
 assert.strictEqual(unsupported.bookings.cancellationContractStatus, 'unsupported_missing_cancelledAt');
 
 const serialized = JSON.stringify(result);
-['name', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity'].forEach((field) => {
+['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {
   assert(!serialized.includes(`"${field}"`), `response must not expose ${field}`);
 });
 
@@ -188,6 +200,7 @@ assert(functionsIndex.includes('orderByChild("date")'), 'function must query tra
 assert(functionsIndex.includes('orderByChild("serviceDate")'), 'function must query travel passengers by serviceDate fallback');
 assert(functionsIndex.includes('orderByChild("cancelledAt")'), 'function must query cancellations by cancelledAt');
 assert(functionsIndex.includes('orderByChild("refundedAt")'), 'function must query refunds by refundedAt');
+assert(functionsIndex.includes('ref("data/erpDataCenter/fleet").get()'), 'function must read ERP fleet master for vehicle alias and public driver display names');
 assert(!functionsIndex.includes('analytics/mainWeb'), 'function must not read legacy website analytics');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 

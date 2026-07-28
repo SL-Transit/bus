@@ -40,7 +40,7 @@ const response = {
     refundAmount: 0,
     netAmount: 120
   },
-  vehicles: [{ vehicleId: 'van-1', driverId: 'driver-1', queueId: 'Q1', bookingCount: 1, passengerCount: 2, grossAmount: 120, fareAmount: 110, serviceFeeAmount: 10, refundAmount: 0, netAmount: 120 }],
+  vehicles: [{ vehicleId: 'veh_001', vehicleAlias: 'car1', driverId: 'driver-1', driverDisplayName: 'นาย ก', queueId: 'Q1', bookingCount: 1, passengerCount: 2, grossAmount: 120, fareAmount: 110, serviceFeeAmount: 10, refundAmount: 0, netAmount: 120, paymentMethod: 'bank_transfer', approvalStatus: 'pending_approval', signatureStatus: 'waiting' }],
   queues: [],
   routes: [],
   generatedAt: 1
@@ -60,8 +60,14 @@ assert.strictEqual(validated.revenue.grossPassengerPayment, 120);
 assert.strictEqual(validated.revenue.fareCollected, 110);
 assert.strictEqual(validated.revenue.platformServiceFeeRevenue, 10);
 assert.strictEqual(validated.vehicleSettlements.rows[0].bookingCount, 1);
+assert.strictEqual(validated.vehicleSettlements.rows[0].vehicleAlias, 'car1');
+assert.strictEqual(validated.vehicleSettlements.rows[0].driverDisplayName, 'นาย ก');
+assert.strictEqual(validated.vehicleSettlements.rows[0].paymentMethod, 'bank_transfer');
+assert.strictEqual(validated.vehicleSettlements.rows[0].approvalStatus, 'pending_approval');
+assert.strictEqual(validated.vehicleSettlements.rows[0].signatureStatus, 'waiting');
 
 assert.throws(() => model.validateResponse('hourly', Object.assign({}, response, { name: 'Private' })), /private field/);
+assert.throws(() => model.validateResponse('hourly', Object.assign({}, response, { vehicles: [{ vehicleId: 'car1', firstName: 'Private' }] })), /private field/);
 assert.throws(() => model.validateResponse('daily', response), /range mismatch/);
 
 const unsupported = model.validateResponse('hourly', Object.assign({}, response, {

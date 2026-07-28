@@ -22,6 +22,9 @@ const COUNTED_STATUSES = new Set([
 ]);
 const PRIVATE_FIELD_NAMES = new Set([
   "name",
+  "firstName",
+  "lastName",
+  "surname",
   "phone",
   "lineUserId",
   "bookingCode",
@@ -29,7 +32,9 @@ const PRIVATE_FIELD_NAMES = new Set([
   "slip",
   "paymentEvidence",
   "passengerIdentity",
-  "rawBooking"
+  "rawBooking",
+  "bankAccount",
+  "password"
 ]);
 const DEFAULT_SECRET = "local-test-admin-dashboard-summary-secret";
 
@@ -296,6 +301,21 @@ function routeKey(record) {
   return String(record.routeId || record.catalogRouteId || `${record.origin || "ยังไม่ระบุ"}>${record.destination || "ยังไม่ระบุ"}>${record.tripId || record.pickupTime || "ยังไม่ระบุ"}`).trim();
 }
 
+function publicText(value) {
+  return String(value || "").trim().slice(0, 80);
+}
+
+function publicDriverDisplayName(driver) {
+  const row = driver && typeof driver === "object" ? driver : {};
+  if (row.dashboardDisplayAllowed === false || row.publicDisplayAllowed === false) return "";
+  return publicText(row.driverDisplayName || row.displayName || row.displayNameTh || row.publicName || row.shortName);
+}
+
+function publicVehicleAlias(vehicle, fallback) {
+  const row = vehicle && typeof vehicle === "object" ? vehicle : {};
+  return publicText(row.vehicleAlias || row.carAlias || row.alias || row.displayCode || row.publicCode || fallback);
+}
+
 function addFinance(target, values) {
   target.grossAmount += values.grossAmount;
   target.fareAmount += values.fareAmount;
@@ -374,6 +394,9 @@ function aggregateDashboard(records, options) {
   const vehicles = {};
   const queues = {};
   const routes = {};
+  const fleetMaster = opts.fleetMaster && typeof opts.fleetMaster === "object" ? opts.fleetMaster : {};
+  const vehicleDirectory = fleetMaster.vehicles || opts.vehicleDirectory || {};
+  const driverDirectory = fleetMaster.drivers || opts.driverDirectory || {};
   const actualUsersByBucket = {};
   const actualUsersAll = {};
   const invalidRecords = {};
@@ -425,7 +448,16 @@ function aggregateDashboard(records, options) {
 
     const vKey = vehicleKey(record);
     const dKey = driverKey(record);
-    vehicles[vKey] = vehicles[vKey] || emptyGroup(vKey, { vehicleId: vKey, driverId: dKey, queueId: queueKey(record), driverName: dKey });
+    const vehicleMaster = vehicleDirectory[vKey] || {};
+    const driverMaster = driverDirectory[dKey] || {};
+    vehicles[vKey] = vehicles[vKey] || emptyGroup(vKey, {
+      vehicleId: vKey,
+      vehicleAlias: publicVehicleAlias(vehicleMaster, vKey),
+      driverId: dKey,
+      driverDisplayName: publicDriverDisplayName(driverMaster),
+      queueId: queueKey(record),
+      driverMasterStatus: driverDirectory[dKey] ? "ready" : "missing"
+    });
     vehicles[vKey].bookingCount += 1;
     vehicles[vKey].passengerCount += pax;
     if (vehicles[vKey].driverId === "—" && dKey !== "—") vehicles[vKey].driverId = dKey;
