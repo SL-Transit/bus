@@ -127,6 +127,9 @@ const rules = fs.readFileSync(path.join(__dirname, '..', 'database.rules.json'),
 
 assert(main.includes('operations/driverTicketsByServiceDate'), 'Driver app must read the central self-only ticket feed');
 assert(main.includes('loadDriverTicketsForDate(today, vehicleId'), 'Driver passenger views must read tickets for the authorized vehicle only');
+assert(main.includes('ticketFareAmount(DataSnapshot ticket)'), 'Driver report must calculate earnings from mirrored driver tickets');
+assert(main.includes('mapEarningsValue.setText(formatBaht(prefs.getFloat(KEY_TODAY_BOOKED_AMOUNT, 0f)))'), 'Driver map must show booked revenue before ticket check-in');
+assert(main.includes('heroAmount.setText(formatBaht(bookedAmount))'), 'Driver report hero must show booked revenue for today');
 assert(!main.includes('loadBookingsForDate'), 'Driver passenger views must not scan daily bookings locally');
 assert(!main.includes('bookingBelongsToVehicle(child, vehicleId)'), 'Driver passenger list must not filter all bookings on the device');
 assert(functionsIndex.includes('syncDriverTicketOnBookingWrite'), 'Functions must mirror bookings into the driver ticket feed');

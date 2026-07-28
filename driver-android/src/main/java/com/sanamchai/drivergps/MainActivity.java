@@ -1029,7 +1029,7 @@ public class MainActivity extends Activity {
         if (!hasAuthenticatedDriverIdentity()) return;
         final String vehicleId = authorizedRuntimeVehicleId();
         if (vehicleId == null) return;
-        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+        String today = serviceDateToday();
         loadDriverTicketsForDate(today, vehicleId, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 int booked = 0;
@@ -3101,7 +3101,7 @@ public class MainActivity extends Activity {
         if (mapBookedCount != null) mapBookedCount.setText(String.valueOf(prefs.getInt("today_total_pax", 0)));
         if (mapCheckedCount != null) mapCheckedCount.setText(String.valueOf(prefs.getInt("today_checked_in", 0)));
         if (mapEarningsValue != null) {
-            mapEarningsValue.setText(formatBaht(prefs.getFloat(KEY_TODAY_CHECKEDIN_AMOUNT, 0f)));
+            mapEarningsValue.setText(formatBaht(prefs.getFloat(KEY_TODAY_BOOKED_AMOUNT, 0f)));
         }
     }
 
@@ -3190,7 +3190,7 @@ public class MainActivity extends Activity {
         hero.addView(heroLabel);
 
         TextView heroAmount = new TextView(this);
-        heroAmount.setText(formatBaht(checkedInAmount));
+        heroAmount.setText(formatBaht(bookedAmount));
         heroAmount.setTextColor(Color.WHITE);
         heroAmount.setTextSize(36);
         heroAmount.setTypeface(Typeface.DEFAULT_BOLD);
