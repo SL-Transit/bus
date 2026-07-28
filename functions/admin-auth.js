@@ -39,7 +39,7 @@ async function requireAdmin(req, admin, permission) {
   }
   let decoded;
   try {
-    decoded = await admin.auth().verifyIdToken(token);
+    decoded = await admin.auth().verifyIdToken(token, true);
   } catch (e) {
     const err = new Error("invalid_token");
     err.httpStatus = 401;
@@ -66,7 +66,7 @@ async function requireAuthenticated(req, admin) {
     throw err;
   }
   try {
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await admin.auth().verifyIdToken(token, true);
     return {
       uid: decoded.uid,
       role: decoded.slTransitRole || "passenger",

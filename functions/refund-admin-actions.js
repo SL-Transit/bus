@@ -2,45 +2,70 @@
 
 const crypto = require("crypto");
 
-const CONTRACT_VERSION = "refund_admin_v1";
+const CONTRACT_VERSION = "refund_admin_v2";
 const AUDIT_PATH = "operations/refundAudit";
+const REFUND_PATH = "operations/refunds";
 const REFUND_REF_PATH = "operations/refundReferences";
+const IDEMPOTENCY_PATH = "operations/refundIdempotency";
 
 const TRANSITIONS = {
   none: new Set(["requested"]),
   requested: new Set(["under_review", "rejected"]),
   under_review: new Set(["approved", "rejected"]),
   approved: new Set(["processing", "rejected"]),
-  processing: new Set(["refunded", "failed"]),
+  processing: new Set(["refunded"]),
   refunded: new Set([]),
-  rejected: new Set([]),
-  failed: new Set(["processing", "rejected"])
+  rejected: new Set([])
 };
 
 function nowValue(admin) {
   return admin.database.ServerValue.TIMESTAMP;
 }
 
+function sha256(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
+}
+
 function hashBookingId(id) {
-  return crypto.createHash("sha256").update(String(id || "")).digest("hex");
+  return sha256(id);
 }
 
 function cleanStatus(value) {
   return String(value || "none").trim() || "none";
 }
 
+function safeKeyHash(value, name) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.length > 160) throw Object.assign(new Error(`${name}_invalid`), { httpStatus: 400 });
+  return sha256(raw);
+}
+
 function paidAmount(booking) {
-  const values = [booking && booking.paidAmount, booking && booking.price, booking && booking.total, booking && booking.totalAmount];
-  for (const value of values) {
-    const n = Number(value);
-    if (Number.isFinite(n) && n >= 0) return n;
+  if (String(booking && booking.paymentStatus || "").toLowerCase() !== "paid") {
+    throw Object.assign(new Error("missing_paid_amount_contract"), { httpStatus: 409 });
   }
-  return 0;
+  if (!Number.isFinite(Number(booking && booking.paidAt)) || Number(booking.paidAt) <= 0) {
+    throw Object.assign(new Error("missing_paid_amount_contract"), { httpStatus: 409 });
+  }
+  if (booking && booking.paymentOwnership !== "sl_transit") {
+    throw Object.assign(new Error("missing_paid_amount_contract"), { httpStatus: 409 });
+  }
+  if (booking && booking.externalPaymentRequired === true) {
+    throw Object.assign(new Error("missing_paid_amount_contract"), { httpStatus: 409 });
+  }
+  const amount = Number(booking && booking.paidAmount);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw Object.assign(new Error("missing_paid_amount_contract"), { httpStatus: 409 });
+  }
+  return amount;
 }
 
 function eligibleAmount(booking) {
-  const n = Number(booking && booking.refundEligibleAmount);
-  return Number.isFinite(n) && n >= 0 ? n : paidAmount(booking);
+  const amount = Number(booking && booking.refundEligibleAmount);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw Object.assign(new Error("missing_refund_eligibility_contract"), { httpStatus: 409 });
+  }
+  return amount;
 }
 
 function validateAmount(booking, amount) {
@@ -81,14 +106,16 @@ function assertTransition(from, to) {
   }
 }
 
-function auditEvent(action, bookingId, previousStatus, newStatus, amount, actor, idempotencyKey, result) {
-  const eventId = crypto.createHash("sha256")
-    .update([bookingId, action, idempotencyKey || "", newStatus || "", amount || 0].join("|"))
-    .digest("hex");
+function refundId(bookingId) {
+  return "refund_" + hashBookingId(bookingId).slice(0, 32);
+}
+
+function auditEvent(action, bookingId, previousStatus, newStatus, amount, actor, idempotencyKeyHash, result) {
+  const eventId = sha256([bookingId, action, idempotencyKeyHash || "", newStatus || "", amount || 0].join("|"));
   return {
     eventId,
     bookingIdHash: hashBookingId(bookingId),
-    refundId: "refund_" + hashBookingId(bookingId).slice(0, 20),
+    refundId: refundId(bookingId),
     action,
     previousStatus,
     newStatus,
@@ -96,30 +123,66 @@ function auditEvent(action, bookingId, previousStatus, newStatus, amount, actor,
     actorUid: actor && actor.uid || "",
     actorRole: actor && actor.role || "",
     serverTimestamp: null,
-    idempotencyKey: idempotencyKey || "",
+    idempotencyKeyHash: idempotencyKeyHash || "",
     result
   };
 }
 
-function publicBookingPatch(action, nextStatus, actor, body, admin, booking) {
-  const amount = body.refundAmount != null ? validateAmount(booking, body.refundAmount) : null;
+function publicMirrorPatch(action, nextStatus, body, admin, booking) {
   const patch = {
     refundStatus: nextStatus,
-    refundUpdatedByUid: actor && actor.uid || "",
-    refundUpdatedByRole: actor && actor.role || "",
     refundContractVersion: CONTRACT_VERSION
   };
-  if (amount != null) patch.refundAmount = amount;
+  if (body.refundAmount != null) patch.refundAmount = validateAmount(booking, body.refundAmount);
+  if (action === "requestRefund") patch.refundRequestedAt = nowValue(admin);
+  if (action === "approveRefund") patch.refundApprovedAt = nowValue(admin);
+  if (action === "completeRefund") patch.refundedAt = nowValue(admin);
+  return patch;
+}
+
+function privateOperationPatch(action, nextStatus, body, admin, booking, actor, idempotencyKeyHash, referenceHash) {
+  const amount = body.refundAmount != null ? validateAmount(booking, body.refundAmount) : Number(booking.refundAmount || 0);
+  if ((action === "approveRefund" || action === "completeRefund") && (!Number.isFinite(amount) || amount <= 0)) {
+    throw Object.assign(new Error("invalid_refund_amount"), { httpStatus: 400 });
+  }
+  if (action === "approveRefund" || action === "completeRefund") validateAmount(booking, amount);
+  const patch = {
+    refundStatus: nextStatus,
+    refundAmount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    refundEligibleAmount: eligibleAmount(booking),
+    refundUpdatedByUid: actor && actor.uid || "",
+    refundUpdatedByRole: actor && actor.role || "",
+    refundContractVersion: CONTRACT_VERSION,
+    idempotencyKeyHash
+  };
   if (body.refundReasonCode) patch.refundReasonCode = String(body.refundReasonCode).slice(0, 80);
   if (body.refundMethod) patch.refundMethod = String(body.refundMethod).slice(0, 80);
   if (action === "requestRefund") patch.refundRequestedAt = nowValue(admin);
   if (action === "reviewRefund") patch.refundReviewedAt = nowValue(admin);
   if (action === "approveRefund") patch.refundApprovedAt = nowValue(admin);
+  if (action === "startRefundProcessing") patch.refundProcessingStartedAt = nowValue(admin);
   if (action === "completeRefund") {
     patch.refundedAt = nowValue(admin);
-    patch.refundReference = String(body.refundReference || "").trim();
+    patch.refundReferenceHash = referenceHash;
   }
   return patch;
+}
+
+async function lockIdempotency(db, admin, idempotencyKeyHash, bookingId, action) {
+  const ref = db.ref(`${IDEMPOTENCY_PATH}/${idempotencyKeyHash}`);
+  let conflict = null;
+  const tx = await ref.transaction((current) => {
+    if (current) {
+      conflict = current;
+      return undefined;
+    }
+    return { status: "locked", bookingIdHash: hashBookingId(bookingId), action, lockedAt: nowValue(admin) };
+  });
+  if (!tx.committed) {
+    if (conflict && conflict.status === "success") return { duplicate: true, marker: conflict };
+    throw Object.assign(new Error("idempotency_key_conflict"), { httpStatus: 409 });
+  }
+  return { duplicate: false, ref };
 }
 
 async function runRefundAction(params) {
@@ -130,44 +193,65 @@ async function runRefundAction(params) {
   const nextStatus = params.nextStatus;
   const actor = params.actor || {};
   const body = params.body || {};
-  const idempotencyKey = String(params.idempotencyKey || body.idempotencyKey || "").trim();
   if (!bookingId || !/^[A-Z0-9][A-Z0-9_-]{5,}$/i.test(bookingId)) throw Object.assign(new Error("invalid_booking_id"), { httpStatus: 400 });
-  if (!idempotencyKey) throw Object.assign(new Error("idempotency_key_required"), { httpStatus: 400 });
+  const idempotencyKeyHash = safeKeyHash(params.idempotencyKey || body.idempotencyKey, "idempotency_key");
+  const idem = await lockIdempotency(db, admin, idempotencyKeyHash, bookingId, action);
+  if (idem.duplicate) return { status: "ok", idempotent: true, result: idem.marker };
 
-  const bookingRef = db.ref(`bookings/${bookingId}`);
-  const idemRef = db.ref(`operations/refundIdempotency/${idempotencyKey}`);
-  const idem = await idemRef.transaction((current) => current || { bookingId, action, lockedAt: nowValue(admin) });
-  const idemVal = idem.snapshot && idem.snapshot.val && idem.snapshot.val();
-  if (!idem.committed && idemVal && idemVal.result === "success") return { status: "ok", idempotent: true, result: idemVal };
-  if (!idem.committed && idemVal && (idemVal.bookingId !== bookingId || idemVal.action !== action)) throw Object.assign(new Error("idempotency_key_conflict"), { httpStatus: 409 });
+  try {
+    const bookingRef = db.ref(`bookings/${bookingId}`);
+    const refundRef = db.ref(`${REFUND_PATH}/${refundId(bookingId)}`);
+    const snap = await bookingRef.get();
+    const booking = snap.val() || {};
+    if (!booking || !booking.code) throw Object.assign(new Error("booking_not_found"), { httpStatus: 404 });
+    if (action === "completeRefund" && cleanStatus(booking.refundStatus) === "refunded" && booking.refundedAt) {
+      await idem.ref.update({ status: "success", idempotent: true, refundStatus: "refunded", completedAt: nowValue(admin) });
+      return { status: "ok", idempotent: true, refundStatus: "refunded" };
+    }
+    if (action === "requestRefund") assertPassengerCanRequestRefund(booking, actor);
+    if (action === "completeRefund" && !String(body.refundReference || "").trim()) {
+      throw Object.assign(new Error("refund_reference_required"), { httpStatus: 400 });
+    }
+    if (action === "approveRefund" || action === "completeRefund") {
+      const amount = body.refundAmount != null ? body.refundAmount : booking.refundAmount;
+      validateAmount(booking, amount);
+    }
+    let previousStatus = "none";
+    let privatePatch = null;
+    let mirrorPatch = null;
+    let referenceHash = null;
 
-  const snap = await bookingRef.get();
-  const booking = snap.val() || {};
-  if (action === "requestRefund") assertPassengerCanRequestRefund(booking, actor);
-  const previousStatus = cleanStatus(booking.refundStatus);
-  if (action === "completeRefund" && previousStatus === "refunded") {
-    await idemRef.update({ result: "success", idempotent: true, completedAt: nowValue(admin) });
-    return { status: "ok", idempotent: true, refundStatus: "refunded" };
+    const tx = await refundRef.transaction((current) => {
+      const op = current || { bookingIdHash: hashBookingId(bookingId), refundId: refundId(bookingId), refundStatus: cleanStatus(booking.refundStatus) };
+      previousStatus = cleanStatus(op.refundStatus);
+      assertTransition(previousStatus, nextStatus);
+      return Object.assign({}, op, { refundStatus: nextStatus, updatedAt: nowValue(admin) });
+    });
+    if (!tx.committed) throw Object.assign(new Error("refund_transition_conflict"), { httpStatus: 409 });
+    if (action === "completeRefund") {
+      referenceHash = safeKeyHash(body.refundReference, "refund_reference");
+      const refResult = await db.ref(`${REFUND_REF_PATH}/${referenceHash}`).transaction((current) => {
+        if (current && current.bookingIdHash !== hashBookingId(bookingId)) return undefined;
+        return current || { bookingIdHash: hashBookingId(bookingId), idempotencyKeyHash, createdAt: nowValue(admin) };
+      });
+      if (!refResult.committed) throw Object.assign(new Error("refund_reference_conflict"), { httpStatus: 409 });
+    }
+    privatePatch = privateOperationPatch(action, nextStatus, body, admin, booking, actor, idempotencyKeyHash, referenceHash);
+    mirrorPatch = publicMirrorPatch(action, nextStatus, body, admin, booking);
+    await refundRef.update(privatePatch);
+    await bookingRef.update(mirrorPatch);
+    const amount = privatePatch.refundAmount == null ? null : privatePatch.refundAmount;
+    const audit = auditEvent(action, bookingId, previousStatus, nextStatus, amount, actor, idempotencyKeyHash, "success");
+    audit.serverTimestamp = nowValue(admin);
+    await db.ref(`${AUDIT_PATH}/${audit.eventId}`).set(audit);
+    await idem.ref.update({ status: "success", refundStatus: nextStatus, completedAt: nowValue(admin) });
+    return { status: "ok", refundStatus: nextStatus, auditEventId: audit.eventId };
+  } catch (err) {
+    if (idem && idem.ref) {
+      await idem.ref.update({ status: err && err.httpStatus && err.httpStatus < 500 ? "failed_final" : "failed_retriable", completedAt: nowValue(admin) });
+    }
+    throw err;
   }
-  assertTransition(previousStatus, nextStatus);
-  if (action === "completeRefund" && !String(body.refundReference || "").trim()) {
-    throw Object.assign(new Error("refund_reference_required"), { httpStatus: 400 });
-  }
-  if (action === "completeRefund") {
-    const reference = String(body.refundReference).trim();
-    const refResult = await db.ref(`${REFUND_REF_PATH}/${reference}`).transaction((current) => current || { bookingId, idempotencyKey, createdAt: nowValue(admin) });
-    const refVal = refResult.snapshot && refResult.snapshot.val && refResult.snapshot.val();
-    if (!refResult.committed && refVal && refVal.bookingId !== bookingId) throw Object.assign(new Error("refund_reference_conflict"), { httpStatus: 409 });
-  }
-
-  const patch = publicBookingPatch(action, nextStatus, actor, body, admin, booking);
-  await bookingRef.update(patch);
-  const amount = patch.refundAmount == null ? Number(booking.refundAmount || 0) : patch.refundAmount;
-  const audit = auditEvent(action, bookingId, previousStatus, nextStatus, amount, actor, idempotencyKey, "success");
-  audit.serverTimestamp = nowValue(admin);
-  await db.ref(`${AUDIT_PATH}/${audit.eventId}`).set(audit);
-  await idemRef.update({ result: "success", refundStatus: nextStatus, completedAt: nowValue(admin) });
-  return { status: "ok", refundStatus: nextStatus, auditEventId: audit.eventId };
 }
 
 module.exports = {
@@ -175,6 +259,9 @@ module.exports = {
   TRANSITIONS,
   hashBookingId,
   bookingOwnerUid,
+  safeKeyHash,
+  paidAmount,
+  eligibleAmount,
   validateAmount,
   auditEvent,
   runRefundAction

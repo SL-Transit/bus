@@ -77,7 +77,8 @@ const records = {
     sourceMode: 'erp_data_center',
     status: 'refunded',
     paymentStatus: 'refunded',
-    refundStatus: 'completed',
+    refundStatus: 'refunded',
+    refundContractVersion: 'refund_admin_v2',
     refundedAt: day28 + 4000,
     refundAmount: 60,
     pax: 1,
@@ -331,7 +332,7 @@ const approvedOnlyRefund = summary.aggregateDashboard({}, {
 });
 assert.strictEqual(approvedOnlyRefund.bookings.refundContractStatus, 'ready');
 assert.strictEqual(approvedOnlyRefund.bookings.refundedCount, 0, 'approved but not refunded must not count as completed refund');
-assert.strictEqual(approvedOnlyRefund.diagnostic.invalidRefundTimestampCount, 1);
+assert.strictEqual(approvedOnlyRefund.diagnostic.invalidRefundTimestampCount, 0, 'approved but not refunded is pending, not invalid completed refund');
 
 const oldBookingRefundedToday = summary.aggregateDashboard({}, {
   range: 'daily',

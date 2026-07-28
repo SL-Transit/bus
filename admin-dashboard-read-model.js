@@ -32,7 +32,7 @@
 
   function money(value) {
     var n = Number(value);
-    return Number.isFinite(n) ? Math.max(0, n) : null;
+    return Number.isFinite(n) ? n : null;
   }
 
   function rejectPrivateFields(value) {
@@ -272,7 +272,7 @@
     return CACHE[key] || blank('loading', (params && params.range) || 'daily');
   }
 
-  var api = { load: function (_, params) { return refresh(params || {}); }, refresh: refresh, getSnapshot: getSnapshot, validateResponse: validateResponse, _tokenForDashboard: tokenForDashboard, _clearCacheForTest: function () { CACHE = {}; requestSeq = 0; sessionStartedAt = Date.now(); } };
+  var api = { load: function (_, params) { return refresh(params || {}); }, refresh: refresh, getSnapshot: getSnapshot, validateResponse: validateResponse, _tokenForDashboard: tokenForDashboard, clearCache: function () { CACHE = {}; requestSeq = 0; sessionStartedAt = Date.now(); }, _clearCacheForTest: function () { CACHE = {}; requestSeq = 0; sessionStartedAt = Date.now(); } };
   global.SLTransit = global.SLTransit || {};
   global.SLTransit.adminDashboardReadModel = api;
   global.SLTransit.screen01ReadModel = api;

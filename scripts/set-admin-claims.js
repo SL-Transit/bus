@@ -15,13 +15,16 @@ if (!admin.apps.length) {
   });
 }
 
-admin.auth().setCustomUserClaims(uid, {
-  slTransitRole: "owner",
-  slTransitPermissions: adminAuth.OWNER_PERMISSIONS
+admin.auth().getUser(uid).then((user) => {
+  const existing = Object.assign({}, user.customClaims || {});
+  const mergedPermissions = Array.from(new Set([].concat(existing.slTransitPermissions || [], adminAuth.OWNER_PERMISSIONS)));
+  return admin.auth().setCustomUserClaims(uid, Object.assign({}, existing, {
+    slTransitRole: "owner",
+    slTransitPermissions: mergedPermissions
+  }));
 }).then(() => {
   console.log("Owner custom claims updated for UID:", uid);
 }).catch((err) => {
   console.error("Failed to update owner custom claims:", err && err.message ? err.message : String(err));
   process.exit(1);
 });
-

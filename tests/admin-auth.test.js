@@ -8,8 +8,9 @@ assert.strictEqual(auth.hasPermission({ slTransitPermissions: ['adminDashboardRe
 assert.strictEqual(auth.hasPermission({ slTransitPermissions: ['adminDashboardRead'] }, 'adminDashboardRead'), true);
 
 const ownerAdmin = {
+  calls: [],
   auth() {
-    return { verifyIdToken: async () => ({ uid: 'owner-uid', slTransitRole: 'owner' }) };
+    return { verifyIdToken: async (token, checkRevoked) => { ownerAdmin.calls.push([token, checkRevoked]); return { uid: 'owner-uid', slTransitRole: 'owner' }; } };
   }
 };
 const normalAdmin = {
@@ -26,6 +27,7 @@ const badAdmin = {
 (async () => {
   const owner = await auth.requireAdmin({ headers: { authorization: 'Bearer ok' } }, ownerAdmin, 'refundApprove');
   assert.strictEqual(owner.uid, 'owner-uid');
+  assert.strictEqual(ownerAdmin.calls[0][1], true, 'admin token verification must check revoked tokens');
   await assert.rejects(() => auth.requireAdmin({ headers: {} }, ownerAdmin, 'adminDashboardRead'), (err) => err.httpStatus === 401 && err.message === 'auth_required');
   await assert.rejects(() => auth.requireAdmin({ headers: { authorization: 'Bearer bad' } }, badAdmin, 'adminDashboardRead'), (err) => err.httpStatus === 401 && err.message === 'invalid_token');
   await assert.rejects(() => auth.requireAdmin({ headers: { authorization: 'Bearer ok' } }, normalAdmin, 'refundApprove'), (err) => err.httpStatus === 403 && err.message === 'permission_denied');
@@ -33,4 +35,3 @@ const badAdmin = {
   assert.strictEqual(passenger.role, 'passenger');
   console.log('admin-auth.test.js OK');
 })();
-

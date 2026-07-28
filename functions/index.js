@@ -73,6 +73,34 @@ function sendAuthError(res, err) {
   sendJson(res, safe.status, safe.body);
 }
 
+const RATE_LIMITS = new Map();
+function rateLimitKey(req, name, actor) {
+  return [name, actor && actor.uid || "", req.headers && req.headers.origin || ""].join("|");
+}
+
+function enforceRateLimit(req, name, actor) {
+  const now = Date.now();
+  const key = rateLimitKey(req, name, actor);
+  const current = RATE_LIMITS.get(key) || { count: 0, resetAt: now + 60000 };
+  if (now > current.resetAt) {
+    current.count = 0;
+    current.resetAt = now + 60000;
+  }
+  current.count += 1;
+  RATE_LIMITS.set(key, current);
+  if (current.count > 30) {
+    const err = new Error("rate_limited");
+    err.httpStatus = 429;
+    throw err;
+  }
+}
+
+function publicError(err, fallback) {
+  const status = err && err.httpStatus || 500;
+  if (status >= 500) return fallback;
+  return err && err.message || fallback;
+}
+
 function mergeSnapshots(snaps) {
   const out = {};
   snaps.forEach((snap) => {
@@ -346,6 +374,7 @@ function refundFunction(action, permission, nextStatus) {
       const actor = permission === "authenticated" ?
         await adminAuth.requireAuthenticated(req, admin) :
         await adminAuth.requireAdmin(req, admin, permission);
+      enforceRateLimit(req, action, actor);
       const body = readJsonBody(req);
       const result = await refundActions.runRefundAction({
         admin,
@@ -362,7 +391,7 @@ function refundFunction(action, permission, nextStatus) {
         sendAuthError(res, err);
         return;
       }
-      sendJson(res, err && err.httpStatus || 500, { status: "error", error: err && err.message || "refund_action_failed" });
+      sendJson(res, err && err.httpStatus || 500, { status: "error", error: publicError(err, "refund_action_failed") });
     }
   });
 }
@@ -391,6 +420,7 @@ async function releaseAdminCancelCapacity(db, booking) {
 exports.requestRefund = refundFunction("requestRefund", "authenticated", "requested");
 exports.reviewRefund = refundFunction("reviewRefund", "refundReview", "under_review");
 exports.approveRefund = refundFunction("approveRefund", "refundApprove", "approved");
+exports.startRefundProcessing = refundFunction("startRefundProcessing", "refundComplete", "processing");
 exports.completeRefund = refundFunction("completeRefund", "refundComplete", "refunded");
 exports.rejectRefund = refundFunction("rejectRefund", "refundApprove", "rejected");
 
@@ -418,33 +448,54 @@ exports.cancelBookingAsAdmin = onRequest({
       return;
     }
     const ref = admin.database().ref(`bookings/${bookingId}`);
-    let changed = false;
-    let originalBooking = null;
+    const idempotencyKeyHash = refundActions.safeKeyHash(body.idempotencyKey, "idempotency_key");
+    const idemRef = admin.database().ref(`operations/adminCancelIdempotency/${idempotencyKeyHash}`);
+    const idem = await idemRef.transaction((current) => current ? undefined : {
+      status: "locked",
+      bookingIdHash: refundActions.hashBookingId(bookingId),
+      lockedAt: admin.database.ServerValue.TIMESTAMP
+    });
+    if (!idem.committed) {
+      const marker = idem.snapshot && idem.snapshot.val && idem.snapshot.val();
+      sendJson(res, 200, { status: "ok", result: marker && marker.status === "success" ? "idempotent_noop" : "locked", capacityRelease: { status: "idempotent_noop" } });
+      return;
+    }
+    const before = await ref.get();
+    const originalBooking = before && before.val ? before.val() : null;
+    if (!originalBooking) {
+      await idemRef.update({ status: "failed_final", completedAt: admin.database.ServerValue.TIMESTAMP });
+      sendJson(res, 404, { status: "error", error: "booking_not_found" });
+      return;
+    }
     const tx = await ref.transaction((current) => {
       if (!current || typeof current !== "object") return current;
-      originalBooking = Object.assign({}, current);
       if (String(current.status || "").toLowerCase() === "cancelled" && current.cancelledAt) return current;
-      changed = true;
       return Object.assign({}, current, {
         status: "cancelled",
         cancelledAt: admin.database.ServerValue.TIMESTAMP,
-        adminCancelledByUid: actor.uid,
-        adminCancelledByRole: actor.role,
         adminCancellationContractVersion: "admin_cancel_v1"
       });
     });
-    const auditId = refundActions.hashBookingId([bookingId, "admin_cancel", body.idempotencyKey || ""].join("|"));
+    const after = tx && tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : null;
+    const changed = !!(tx && tx.committed && after && String(originalBooking.status || "").toLowerCase() !== "cancelled");
+    const auditId = refundActions.hashBookingId([bookingId, "admin_cancel", idempotencyKeyHash].join("|"));
+    const capacityRelease = changed ? await releaseAdminCancelCapacity(admin.database(), originalBooking) : { status: "idempotent_noop" };
     await admin.database().ref(`operations/adminBookingAudit/${auditId}`).set({
       eventId: auditId,
       bookingIdHash: refundActions.hashBookingId(bookingId),
       action: "cancelBookingAsAdmin",
       actorUid: actor.uid,
       actorRole: actor.role,
-      result: changed ? "cancelled" : "idempotent_noop",
+      result: changed && capacityRelease.status === "released" ? "cancelled" : (changed ? "capacity_release_" + capacityRelease.status : "idempotent_noop"),
       serverTimestamp: admin.database.ServerValue.TIMESTAMP,
-        idempotencyKey: String(body.idempotencyKey || "")
+      idempotencyKeyHash,
+      capacityRelease
     });
-    const capacityRelease = changed ? await releaseAdminCancelCapacity(admin.database(), originalBooking) : { status: "idempotent_noop" };
+    await idemRef.update({
+      status: changed && capacityRelease.status !== "failed" ? "success" : (capacityRelease.status === "failed" ? "failed_retriable" : "success"),
+      completedAt: admin.database.ServerValue.TIMESTAMP,
+      capacityReleaseStatus: capacityRelease.status
+    });
     sendJson(res, 200, { status: "ok", result: changed ? "cancelled" : "idempotent_noop", committed: !!(tx && tx.committed), capacityRelease });
   } catch (err) {
     if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
