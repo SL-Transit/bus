@@ -44,7 +44,12 @@ for (const requiredShell of [
 assert.ok(!html.includes('focusSearch'), 'hamburger must not be wired as search focus');
 assert.ok(!html.includes('nav{display:flex;gap:6px;overflow-x:auto'), 'mobile must not use horizontal main menu');
 
-assert.ok(dashboardSource.includes('keyMetricsCards()'), 'Dashboard must render the real-data KPI card row (visitors/real users/revenue) in place of the old empty visits chart');
+assert.ok(dashboardSource.includes('keyMetricsCards()'), 'Dashboard must render the real-data KPI card row in place of the old empty visits chart');
+assert.ok(html.includes('grid kpis'), 'Dashboard KPI row must use the square card grid');
+assert.ok(html.includes('การจองวันนี้'), 'Dashboard KPI row must include today booking card');
+assert.ok(html.includes('รถที่กำลังวิ่ง'), 'Dashboard KPI row must include the running vehicle card');
+assert.ok(html.includes('dashboardData().fleet'), 'running vehicle KPI must read from the central Dashboard fleet model');
+assert.ok(html.includes('operational.activeServiceCount'), 'running vehicle KPI must use the operational active-service count');
 assert.ok(!dashboardSource.includes('analyticsChart(visits)'), 'old empty website-visits chart must no longer be called from Dashboard renderer (replaced by keyMetricsCards())');
 assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookingCount)'), 'Dashboard must render booking activity chart card');
 assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render the passenger payment donut');
