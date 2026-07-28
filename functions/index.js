@@ -10,9 +10,12 @@ const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
 const adminDashboardSummary = require("./admin-dashboard-summary.js");
+const adminAuth = require("./admin-auth.js");
+const refundActions = require("./refund-admin-actions.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
+const analyticsHashSecret = defineSecret("ANALYTICS_HASH_SECRET");
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -32,7 +35,7 @@ function setCors(req, res) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key");
   }
 }
 
@@ -58,6 +61,16 @@ function sendJson(res, status, body) {
     return;
   }
   res.status(status).type("application/json").send(text);
+}
+
+function readJsonBody(req) {
+  const body = req.body || {};
+  return typeof body === "object" && !Buffer.isBuffer(body) ? body : {};
+}
+
+function sendAuthError(res, err) {
+  const safe = adminAuth.safeAuthError(err);
+  sendJson(res, safe.status, safe.body);
 }
 
 function mergeSnapshots(snaps) {
@@ -94,7 +107,8 @@ exports.readAdminDashboardSummary = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 30,
   memory: "256MiB",
-  maxInstances: 10
+  maxInstances: 10,
+  secrets: [analyticsHashSecret]
 }, async (req, res) => {
   setCors(req, res);
   if (req.method === "OPTIONS") {
@@ -115,17 +129,12 @@ exports.readAdminDashboardSummary = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  let includePrivateRefunds = false;
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (tokenMatch) {
-    try {
-      await admin.auth().verifyIdToken(tokenMatch[1]);
-      includePrivateRefunds = true;
-    } catch (err) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
-      return;
-    }
+  let actor;
+  try {
+    actor = await adminAuth.requireAdmin(req, admin, "adminDashboardRead");
+  } catch (err) {
+    sendAuthError(res, err);
+    return;
   }
   const range = String(req.query.range || "daily");
   const anchor = String(req.query.anchor || "");
@@ -143,7 +152,6 @@ exports.readAdminDashboardSummary = onRequest({
       travelServiceDateSnap,
       cancelledSnap,
       refundedSnap,
-      refundApprovedSnap,
       fleetMasterSnap,
       serviceGroupsSnap,
       websiteAnalyticsSnap
@@ -153,7 +161,6 @@ exports.readAdminDashboardSummary = onRequest({
       admin.database().ref("bookings").orderByChild("serviceDate").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
       admin.database().ref("bookings").orderByChild("cancelledAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
-      admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("data/erpDataCenter/fleet").get(),
       admin.database().ref("data/erpDataCenter/serviceGroups").get(),
       range === "hourly"
@@ -166,10 +173,11 @@ exports.readAdminDashboardSummary = onRequest({
       nowMs: now,
       travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
       cancelledRecords: cancelledSnap.val() || {},
-      refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
-      includePrivateRefunds,
+      refundedRecords: refundedSnap.val() || {},
       fleetMaster: Object.assign({}, fleetMasterSnap.val() || {}, { serviceGroups: serviceGroupsSnap.val() || {} }),
-      websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null
+      websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null,
+      identitySecret: analyticsHashSecret.value(),
+      actor: { uid: actor.uid, role: actor.role }
     });
     res.set("Cache-Control", "private, max-age=30");
     sendJson(res, 200, summary);
@@ -204,29 +212,22 @@ exports.readAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    await admin.auth().verifyIdToken(tokenMatch[1]);
+    await adminAuth.requireAdmin(req, admin, "adminDashboardRead");
     const snap = await admin.database().ref("data/erpDataCenter").get();
     res.set("Cache-Control", "private, max-age=30");
-    res.status(200).type("application/json").send(JSON.stringify({
+    sendJson(res, 200, {
       status: "ready",
       path: "data/erpDataCenter",
       erpDataCenter: snap.val() || {},
       generatedAt: Date.now()
-    }));
+    });
   } catch (err) {
-    const message = err && err.message ? err.message : String(err);
-    if (/token|auth|credential/i.test(message)) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
       return;
     }
-    console.error("readAdminErpDataCenter failed", { message });
+    console.error("readAdminErpDataCenter failed", { message: err && err.message ? err.message : String(err) });
     sendJson(res, 500, { status: "error", error: "erp_data_center_unavailable" });
   }
 });
@@ -287,18 +288,8 @@ exports.updateAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
-    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
-    if (adminSnap.val() !== true) {
-      sendJson(res, 403, { status: "error", error: "admin_account_required" });
-      return;
-    }
+    const actor = await adminAuth.requireAdmin(req, admin, "adminDashboardRead");
     const body = parseJsonRequest(req);
     const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
     const paths = Object.keys(updates);
@@ -316,8 +307,8 @@ exports.updateAdminErpDataCenter = onRequest({
     }
     const auditKey = `admin_erp_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     patch[`data/erpDataCenter/meta/audit/${auditKey}`] = {
-      actorUid: decoded.uid,
-      actorEmail: decoded.email || "",
+      actorUid: actor.uid,
+      actorRole: actor.role,
       action: "admin_erp_update",
       updateCount: paths.length,
       paths,
@@ -326,13 +317,141 @@ exports.updateAdminErpDataCenter = onRequest({
     await admin.database().ref().update(patch);
     sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
   } catch (err) {
-    const message = err && err.message ? err.message : String(err);
-    if (/token|auth|credential/i.test(message)) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
       return;
     }
-    console.error("updateAdminErpDataCenter failed", { message });
+    console.error("updateAdminErpDataCenter failed", { message: err && err.message ? err.message : String(err) });
     sendJson(res, 500, { status: "error", error: "erp_data_center_update_failed" });
+  }
+});
+
+function refundFunction(action, permission, nextStatus) {
+  return onRequest({
+    region: "asia-southeast1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    maxInstances: 10
+  }, async (req, res) => {
+    setCors(req, res);
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+      return;
+    }
+    try {
+      const actor = permission === "authenticated" ?
+        await adminAuth.requireAuthenticated(req, admin) :
+        await adminAuth.requireAdmin(req, admin, permission);
+      const body = readJsonBody(req);
+      const result = await refundActions.runRefundAction({
+        admin,
+        action,
+        nextStatus,
+        actor,
+        bookingId: body.bookingId,
+        idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+        body
+      });
+      sendJson(res, 200, result);
+    } catch (err) {
+      if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+        sendAuthError(res, err);
+        return;
+      }
+      sendJson(res, err && err.httpStatus || 500, { status: "error", error: err && err.message || "refund_action_failed" });
+    }
+  });
+}
+
+async function releaseAdminCancelCapacity(db, booking) {
+  const capacity = booking && booking.capacity || null;
+  if (!capacity || !capacity.counterPath || !capacity.bookingCode) {
+    return { status: "skipped", reason: "missing_capacity_contract" };
+  }
+  const requestedSeats = Number(capacity.requestedSeats || booking.seats || booking.pax || 1);
+  const tx = await db.ref(capacity.counterPath).transaction((current) => {
+    if (!current || typeof current !== "object") return current;
+    const bookings = Object.assign({}, current.bookings || {});
+    if (!bookings[capacity.bookingCode]) return current;
+    delete bookings[capacity.bookingCode];
+    const nextBooked = Math.max(0, Number(current.bookedSeats || 0) - Math.max(1, requestedSeats));
+    return Object.assign({}, current, {
+      bookedSeats: nextBooked,
+      seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - nextBooked),
+      bookings
+    });
+  });
+  return { status: tx && tx.committed ? "released" : "idempotent_noop", counterPath: capacity.counterPath };
+}
+
+exports.requestRefund = refundFunction("requestRefund", "authenticated", "requested");
+exports.reviewRefund = refundFunction("reviewRefund", "refundReview", "under_review");
+exports.approveRefund = refundFunction("approveRefund", "refundApprove", "approved");
+exports.completeRefund = refundFunction("completeRefund", "refundComplete", "refunded");
+exports.rejectRefund = refundFunction("rejectRefund", "refundApprove", "rejected");
+
+exports.cancelBookingAsAdmin = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  try {
+    const actor = await adminAuth.requireAdmin(req, admin, "bookingCancel");
+    const body = readJsonBody(req);
+    const bookingId = String(body.bookingId || "").trim();
+    if (!/^[A-Z0-9][A-Z0-9_-]{5,}$/i.test(bookingId)) {
+      sendJson(res, 400, { status: "error", error: "invalid_booking_id" });
+      return;
+    }
+    const ref = admin.database().ref(`bookings/${bookingId}`);
+    let changed = false;
+    let originalBooking = null;
+    const tx = await ref.transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      originalBooking = Object.assign({}, current);
+      if (String(current.status || "").toLowerCase() === "cancelled" && current.cancelledAt) return current;
+      changed = true;
+      return Object.assign({}, current, {
+        status: "cancelled",
+        cancelledAt: admin.database.ServerValue.TIMESTAMP,
+        adminCancelledByUid: actor.uid,
+        adminCancelledByRole: actor.role,
+        adminCancellationContractVersion: "admin_cancel_v1"
+      });
+    });
+    const auditId = refundActions.hashBookingId([bookingId, "admin_cancel", body.idempotencyKey || ""].join("|"));
+    await admin.database().ref(`operations/adminBookingAudit/${auditId}`).set({
+      eventId: auditId,
+      bookingIdHash: refundActions.hashBookingId(bookingId),
+      action: "cancelBookingAsAdmin",
+      actorUid: actor.uid,
+      actorRole: actor.role,
+      result: changed ? "cancelled" : "idempotent_noop",
+      serverTimestamp: admin.database.ServerValue.TIMESTAMP,
+        idempotencyKey: String(body.idempotencyKey || "")
+    });
+    const capacityRelease = changed ? await releaseAdminCancelCapacity(admin.database(), originalBooking) : { status: "idempotent_noop" };
+    sendJson(res, 200, { status: "ok", result: changed ? "cancelled" : "idempotent_noop", committed: !!(tx && tx.committed), capacityRelease });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
+      return;
+    }
+    sendJson(res, 500, { status: "error", error: "admin_cancel_failed" });
   }
 });
 

@@ -385,7 +385,6 @@ function bookingAmounts(record) {
   const gross = moneyValue(record, ["price", "total", "totalAmount"]);
   const fare = moneyValue(record, ["fare", "fareAmount"]);
   const serviceFee = moneyValue(record, ["serviceFee", "serviceFeeAmount", "svcFee"]);
-  const refund = isRefunded(record) ? (moneyValue(record, ["refundAmount", "refundedAmount"]) || 0) : 0;
   const paid = String(record.paymentStatus || "").toLowerCase();
   const cancelledWithoutPayment = isCancelled(record) && paid !== "paid" && paid !== "refunded";
   const grossAmount = cancelledWithoutPayment ? 0 : (gross == null ? 0 : gross);
@@ -393,19 +392,20 @@ function bookingAmounts(record) {
     grossAmount,
     fareAmount: fare == null ? 0 : fare,
     serviceFeeAmount: serviceFee == null ? 0 : serviceFee,
-    refundAmount: refund,
-    netAmount: Math.max(0, grossAmount - refund)
+    refundAmount: 0,
+    netAmount: grossAmount
   };
 }
 
 function refundRow(id, record, refunded) {
   const amounts = bookingAmounts(record);
+  const refundAmount = moneyValue(record, ["refundAmount", "refundedAmount"]);
   return {
     refundedAt: refunded.ms,
     passengerName: publicPassengerName(record),
     passengerPhone: publicPassengerPhone(record),
     route: routeText(record),
-    refundAmount: amounts.refundAmount,
+    refundAmount: refundAmount == null ? amounts.refundAmount : refundAmount,
     paidAmount: amounts.grossAmount,
     status: publicText(record.refundStatus || record.paymentStatus || record.status || "refunded")
   };
@@ -483,7 +483,12 @@ function aggregateDashboard(records, options) {
     cancellationTimestampField: CANCELLATION_TIMESTAMP_FIELD,
     queriedCancellationEventCount: Object.keys(opts.cancelledRecords || {}).length,
     acceptedCancellationEventCount: 0,
-    invalidCancellationTimestampCount: 0
+    invalidCancellationTimestampCount: 0,
+    refundContractStatus: "ready",
+    refundTimestampField: "refundedAt",
+    queriedRefundEventCount: Object.keys(opts.refundedRecords || {}).length,
+    acceptedRefundEventCount: 0,
+    invalidRefundTimestampCount: 0
   };
 
   let latestTs = -1;
@@ -547,11 +552,11 @@ function aggregateDashboard(records, options) {
 
     const rKey = routeKey(record);
     routes[rKey] = routes[rKey] || emptyGroup(rKey, {
-      routeId: record.routeId || record.catalogRouteId || "ยังไม่ระบุ",
-      origin: record.origin || "ยังไม่ระบุ",
-      destination: record.destination || "ยังไม่ระบุ",
-      tripId: record.tripId || record.catalogTripId || "ยังไม่ระบุ",
-      pickupTime: record.pickupTime || record.time || "—"
+      routeId: record.routeId || record.catalogRouteId || "??????????",
+      origin: record.origin || "??????????",
+      destination: record.destination || "??????????",
+      tripId: record.tripId || record.catalogTripId || "??????????",
+      pickupTime: record.pickupTime || record.time || "?"
     });
     routes[rKey].bookingCount += 1;
     routes[rKey].passengerCount += pax;
@@ -590,9 +595,39 @@ function aggregateDashboard(records, options) {
   Object.keys(opts.refundedRecords || {}).forEach((id) => {
     const record = opts.refundedRecords[id] || {};
     const valid = isRealBooking(id, record);
-    const refunded = eventTimestamp(record, ["refundedAt", "refundApprovedAt"]);
-    if (!valid.ok || !refunded || !isRefunded(record) || !isInRange(range, opts.anchor, opts.nowMs, refunded.ms)) return;
-    if (opts.includePrivateRefunds) recentRefunds.push(refundRow(id, record, refunded));
+    const refunded = eventTimestamp(record, ["refundedAt"]);
+    if (!valid.ok || !refunded) {
+      if (isRefunded(record) || record.refundStatus) diagnostic.invalidRefundTimestampCount += 1;
+      return;
+    }
+    if (!isRefunded(record) || !isInRange(range, opts.anchor, opts.nowMs, refunded.ms)) return;
+    const key = bucketForMs(range, refunded.ms);
+    if (byKey[key]) {
+      const refundAmount = moneyValue(record, ["refundAmount", "refundedAmount"]) || 0;
+      if (bucketForMs("daily", refunded.ms) === anchorDayKey) {
+        totals.refundedCount += 1;
+        finance.refundAmount += refundAmount;
+        finance.netAmount = finance.grossAmount - finance.refundAmount;
+      }
+      const vKey = vehicleKey(record);
+      const qKey = queueKey(record);
+      const rKey = routeKey(record);
+      if (vehicles[vKey]) {
+        vehicles[vKey].refundAmount += refundAmount;
+        vehicles[vKey].netAmount = vehicles[vKey].grossAmount - vehicles[vKey].refundAmount;
+      }
+      if (queues[qKey]) {
+        queues[qKey].refundAmount += refundAmount;
+        queues[qKey].netAmount = queues[qKey].grossAmount - queues[qKey].refundAmount;
+      }
+      if (routes[rKey]) {
+        routes[rKey].refundAmount += refundAmount;
+        routes[rKey].netAmount = routes[rKey].grossAmount - routes[rKey].refundAmount;
+      }
+      byKey[key].booking.refunds += 1;
+      diagnostic.acceptedRefundEventCount += 1;
+      if (opts.includePrivateRefunds) recentRefunds.push(refundRow(id, record, refunded));
+    }
   });
 
   recentRefunds.sort((a, b) => b.refundedAt - a.refundedAt);
@@ -628,9 +663,9 @@ function aggregateDashboard(records, options) {
       createdDateSource: "ts",
       travelDateSource: "date/serviceDate",
       cancellationDateSource: CANCELLATION_TIMESTAMP_FIELD,
-      refundDateSource: null,
+      refundDateSource: "refundedAt",
       cancellationContractStatus: "ready",
-      refundContractStatus: "unsupported_missing_refund_timestamp"
+      refundContractStatus: "ready"
     }),
     refunds: {
       recent: recentRefunds.slice(0, 20),
