@@ -7,6 +7,7 @@ const rules = fs.readFileSync('database.rules.json', 'utf8');
 const adminHtml = fs.readFileSync('admin-erp.html', 'utf8');
 const readModelSource = fs.readFileSync('screen01-central-read-model.js', 'utf8');
 const coreSource = fs.readFileSync('functions/site-analytics-core.js', 'utf8');
+const bookingActivitySource = fs.readFileSync('booking-activity-read-model.js', 'utf8');
 const readModel = require('../screen01-central-read-model.js');
 
 assert(siteAnalytics.includes('navigator.webdriver'), 'automated browser runs must not be counted');
@@ -51,6 +52,7 @@ assert(coreSource.includes('PAYLOAD_FIELDS'), 'trackWebVisit must reject unknown
 assert(coreSource.includes('EVENT_TYPES') && coreSource.includes('"activity"'), 'trackWebVisit must allow only known event types');
 
 assert(functionsIndex.includes('exports.readSiteAnalytics = onRequest'), 'readSiteAnalytics HTTPS Function must exist');
+assert(functionsIndex.includes('exports.readBookingActivity = onRequest'), 'readBookingActivity HTTPS Function must exist');
 assert(functionsIndex.includes('region: "asia-southeast1"'), 'functions must use asia-southeast1');
 assert(functionsIndex.includes('req.method !== "GET"'), 'readSiteAnalytics must validate GET method');
 assert(functionsIndex.includes('siteAnalyticsCore.RANGES.has(range)'), 'readSiteAnalytics must validate range allowlist');
@@ -65,6 +67,10 @@ assert(functionsIndex.includes('exports.cleanupSiteAnalyticsPrivate = onSchedule
 assert(coreSource.includes('RETENTION_MS'), 'retention policy must be declared in contract');
 assert(!/req\.query\.path|req\.body\.path|databasePath|firebasePath/i.test(functionsIndex), 'client must not choose a database path');
 assert(functionsIndex.includes('key: point.key') && functionsIndex.includes('visits,') && functionsIndex.includes('estimatedVisitors'), 'readSiteAnalytics response must expose only chart aggregate fields');
+assert(functionsIndex.includes('bookings, cancellations, refunds') || (functionsIndex.includes('bookings: 0') && functionsIndex.includes('cancellations: 0') && functionsIndex.includes('refunds: 0')), 'readBookingActivity response must expose only aggregate booking fields');
+for (const privateBookingField of ['name', 'phone', 'bookingCode', 'ticketCode', 'paymentEvidence', 'passengerId', 'rawBooking']) {
+  assert(!new RegExp(`${privateBookingField}\\s*:`).test(functionsIndex), `readBookingActivity must not return ${privateBookingField}`);
+}
 for (const granularity of ['hourly', 'daily', 'weekly', 'monthly', 'yearly']) {
   assert(coreSource.includes(granularity), `missing ${granularity} rollup logic`);
 }
@@ -90,6 +96,12 @@ assert(readModelSource.includes('readSiteAnalytics'), 'Admin read model must use
 assert(readModelSource.includes('fetch(analyticsFetchUrl'), 'Admin read model must fetch analytics via HTTPS Function');
 assert(!/db\.ref\(paths\.webAnalytics|analytics\/webV1\/rollups\/\+|paths\.webAnalytics \+/.test(readModelSource), 'Admin read model must not read Firebase analytics paths directly');
 assert(readModelSource.includes('ANALYTICS_PRIVATE_FIELDS'), 'Admin read model must reject private fields');
+assert(!adminHtml.includes('site-analytics-read-model.js'), 'admin-erp.html must not load legacy site analytics read model');
+assert(!adminHtml.includes('siteAnalyticsReadModel'), 'Admin must not use legacy siteAnalyticsReadModel fallback');
+assert(!/db\.ref\(['"]analytics\/mainWeb|firebase\.database\(\)\.ref\(['"]analytics\/mainWeb/.test(adminHtml + readModelSource), 'Admin must not read analytics/mainWeb');
+assert(bookingActivitySource.includes('readBookingActivity'), 'booking activity model must use readBookingActivity');
+assert(!/firebase\.database|\.ref\(['"]bookings['"]|\.ref\(['"]operations\/bookings['"]/.test(bookingActivitySource), 'booking activity model must not read booking records in browser');
+assert(!/\.ref\(['"]bookings['"]|\.ref\(['"]operations\/bookings['"]/.test(adminHtml), 'admin-erp.html must not directly read booking records for stats');
 
 function analyticsResponse(range, serviceDate, points) {
   return readModel.build({

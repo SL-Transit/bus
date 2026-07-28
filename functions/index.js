@@ -559,6 +559,112 @@ exports.readSiteAnalytics = onRequest({
   res.status(200).json(payload);
 });
 
+function bookingBucketKey(range, booking) {
+  const day = String(booking.date || booking.serviceDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "";
+  if (range === "hourly") {
+    const stamp = String(booking.createdAt || booking.reservedAt || booking.updatedAt || "");
+    const hour = stamp.slice(11, 13);
+    return /^\d{2}$/.test(hour) ? `${day}T${hour}` : "";
+  }
+  if (range === "weekly") return siteAnalyticsCore.isoWeekKey(day);
+  if (range === "monthly") return day.slice(0, 7);
+  if (range === "yearly") return day.slice(0, 4);
+  return day;
+}
+
+function bookingIsCancelled(booking) {
+  const status = String(booking.status || booking.bookingStatus || "").toLowerCase();
+  return status === "cancelled" || status === "canceled";
+}
+
+function bookingIsRefunded(booking) {
+  const payment = String(booking.paymentStatus || "").toLowerCase();
+  const refund = String(booking.refundStatus || "").toLowerCase();
+  return payment === "refunded" || refund === "refunded" || refund === "approved" || refund === "completed";
+}
+
+exports.readBookingActivity = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  const origin = req.get("origin") || "";
+  const healthCheck = !origin && req.get("x-sl-transit-health-check") === "1";
+  if (origin && !isAllowedAnalyticsOrigin(origin)) {
+    res.status(403).json({ ok: false, error: "origin_not_allowed" });
+    return;
+  }
+  if (!origin && !healthCheck && process.env.FUNCTIONS_EMULATOR !== "true") {
+    res.status(403).json({ ok: false, error: "origin_required" });
+    return;
+  }
+  if (origin) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, X-SL-Transit-Health-Check");
+  res.set("Cache-Control", "private, max-age=60");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return;
+  }
+
+  const nowMs = Date.now();
+  if (!readLimitOk(`booking:${origin || "health-check"}`, nowMs)) {
+    res.status(429).json({ ok: false, error: "rate_limited" });
+    return;
+  }
+  const range = String(req.query.range || "daily").trim();
+  if (!siteAnalyticsCore.RANGES.has(range)) {
+    res.status(400).json({ ok: false, error: "invalid_range" });
+    return;
+  }
+  const anchor = req.query.anchor == null || req.query.anchor === ""
+    ? siteAnalyticsCore.currentBangkokYmd(new Date())
+    : siteAnalyticsCore.validateAnchor(req.query.anchor);
+  if (!anchor) {
+    res.status(400).json({ ok: false, error: "invalid_anchor" });
+    return;
+  }
+
+  const plan = siteAnalyticsCore.readPlan(range, anchor);
+  const byKey = {};
+  plan.points.forEach((point) => {
+    byKey[point.key] = { key: point.key, label: point.label, bookings: 0, cancellations: 0, refunds: 0 };
+  });
+  try {
+    const oldest = plan.points[0] && String(plan.points[0].key).slice(0, 10);
+    const snap = await admin.database().ref("bookings").orderByChild("date").startAt(oldest || anchor).get();
+    snap.forEach((child) => {
+      const booking = child.val() || {};
+      const key = bookingBucketKey(range, booking);
+      if (!byKey[key]) return;
+      byKey[key].bookings += 1;
+      if (bookingIsCancelled(booking)) byKey[key].cancellations += 1;
+      if (bookingIsRefunded(booking)) byKey[key].refunds += 1;
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "booking_activity_read_failed" });
+    return;
+  }
+  const points = plan.points.map((point) => byKey[point.key]);
+  const hasData = points.some((point) => point.bookings || point.cancellations || point.refunds);
+  res.status(200).json({
+    status: hasData ? "ready" : "empty",
+    range,
+    timezone: siteAnalyticsCore.TIMEZONE,
+    points,
+    generatedAt: nowMs
+  });
+});
+
 exports.cleanupSiteAnalyticsPrivate = onSchedule({
   schedule: "every 24 hours",
   timeZone: "Asia/Bangkok",
