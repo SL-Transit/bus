@@ -724,6 +724,8 @@
     var vanLocation = null;
     var TICKET_VEHICLE_MARKER_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
     var ticketVehicleMarkerCfg = { maxStepMeters: null, maxReasonableSpeedMs: null, maxPredictMs: null, maxPredictMeters: null };
+    var ticketVanMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
+    var ticketPassengerMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
     (function watchTicketVehicleMarkerConfig() {
       if (!db || typeof db.ref !== 'function') return;
       db.ref(TICKET_VEHICLE_MARKER_CONFIG_PATH).on('value', function (snapshot) {
@@ -731,6 +733,14 @@
         v = v && typeof v === 'object' ? v : {};
         Object.keys(ticketVehicleMarkerCfg).forEach(function (key) {
           ticketVehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
+        });
+        var vanCfg = v.vanMarker && typeof v.vanMarker === 'object' ? v.vanMarker : {};
+        Object.keys(ticketVanMarkerAnimCfg).forEach(function (key) {
+          ticketVanMarkerAnimCfg[key] = vanCfg[key] != null ? vanCfg[key] : null;
+        });
+        var passengerCfg = v.passengerMarker && typeof v.passengerMarker === 'object' ? v.passengerMarker : {};
+        Object.keys(ticketPassengerMarkerAnimCfg).forEach(function (key) {
+          ticketPassengerMarkerAnimCfg[key] = passengerCfg[key] != null ? passengerCfg[key] : null;
         });
       });
     })();
@@ -2260,8 +2270,8 @@
       options = options || {};
       var fromPos = markerAnimState(stateName) || toPos;
       var dist = trackingPointMeters(fromPos, toPos);
-      var minMeters = options.minMeters !== undefined ? options.minMeters : 5;
-      var maxMeters = options.maxMeters !== undefined ? options.maxMeters : 5000;
+      var minMeters = options.minMeters !== undefined ? options.minMeters : 0;
+      var maxMeters = options.maxMeters !== undefined ? options.maxMeters : Infinity;
       if (markerAnimState(frameName)) cancelAnimationFrame(markerAnimState(frameName));
       if (dist < minMeters || dist > maxMeters) {
         marker.setLngLat([toPos.lng, toPos.lat]);
@@ -2270,7 +2280,15 @@
         if (stateName === 'vanPos') renderTrackingRemainingRoute(toPos);
         return;
       }
-      var duration = Math.min(options.maxDuration || 2400, Math.max(options.minDuration || 650, dist * (options.msPerMeter || 18)));
+      var hasAnimConfig = options.maxDuration != null && options.minDuration != null && options.msPerMeter != null;
+      var duration = hasAnimConfig ? Math.min(options.maxDuration, Math.max(options.minDuration, dist * options.msPerMeter)) : 0;
+      if (!duration) {
+        marker.setLngLat([toPos.lng, toPos.lat]);
+        markerAnimState(stateName, toPos);
+        markerAnimState(frameName, null);
+        if (stateName === 'vanPos') renderTrackingRemainingRoute(toPos);
+        return;
+      }
       var started = null;
       function step(ts) {
         if (!started) started = ts;
@@ -2343,7 +2361,7 @@
         );
         if (vehiclePlan && vehiclePlan.point) location = vehiclePlan.point;
       }
-      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, { minMeters:5, maxMeters:5000, minDuration:650, maxDuration:2400, msPerMeter:18 });
+      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, ticketVanMarkerAnimCfg);
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
     }
@@ -2564,13 +2582,7 @@
           .addTo(trackingMap);
         trackingPassengerMarkerPos = position;
       } else {
-        animateTrackingMarker(trackingPassengerMarker, 'passengerPos', 'passengerFrame', position, {
-          minMeters: 3,
-          maxMeters: 600,
-          minDuration: 500,
-          maxDuration: 1800,
-          msPerMeter: 15
-        });
+        animateTrackingMarker(trackingPassengerMarker, 'passengerPos', 'passengerFrame', position, ticketPassengerMarkerAnimCfg);
       }
     }
 
