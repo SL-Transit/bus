@@ -722,6 +722,18 @@
     var trackingVehicleId = '';
     var trackingCurrentTrip = null;
     var vanLocation = null;
+    var TICKET_VEHICLE_MARKER_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
+    var ticketVehicleMarkerCfg = { maxStepMeters: null, maxReasonableSpeedMs: null, maxPredictMs: null, maxPredictMeters: null };
+    (function watchTicketVehicleMarkerConfig() {
+      if (!db || typeof db.ref !== 'function') return;
+      db.ref(TICKET_VEHICLE_MARKER_CONFIG_PATH).on('value', function (snapshot) {
+        var v = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
+        v = v && typeof v === 'object' ? v : {};
+        Object.keys(ticketVehicleMarkerCfg).forEach(function (key) {
+          ticketVehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
+        });
+      });
+    })();
     var pickupStopLocation = null;
     var transferPointLocation = null;
     var destinationLocation = null;
@@ -2327,7 +2339,7 @@
         var vehiclePlan = window.SLTransitMapDisplayCenter.planVehicleMarker(
           trackingVanMarkerPos ? { point: trackingVanMarkerPos } : null,
           Object.assign({ vehicleId: trackingVehicleId || 'booked_vehicle' }, location),
-          { maxStepMeters: 500 }
+          ticketVehicleMarkerCfg
         );
         if (vehiclePlan && vehiclePlan.point) location = vehiclePlan.point;
       }

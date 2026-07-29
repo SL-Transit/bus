@@ -62,7 +62,9 @@ assert(!passengerHtml.includes("db.ref('settings')"), 'Passenger must not read t
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
 assert(passengerLogic.includes('var point = normalizeMapPoint(latlng)'), 'Passenger bus markers must use Longdo lon/lat geometry');
-assert(passengerLogic.includes('BUS_MARKER_MOVE_MS'), 'Passenger bus markers must use smooth Longdo movement');
+assert(!passengerLogic.includes('BUS_MARKER_MOVE_MS'), 'Passenger must not keep a hardcoded bus marker animation duration');
+assert(passengerLogic.includes("PASSENGER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap'"), 'Passenger vehicle marker animation tuning must come from ERP settings, not a local constant');
+assert(passengerLogic.includes('center.prepareVehicleLayer(signals, busDisplayState, vehicleMarkerCfg)'), 'Passenger must feed ERP-sourced config into Map Display Center, not a hardcoded options object');
 assert(mapDisplayCenter.includes('displayState'), 'Map Display Center must own vehicle motion display state');
 assert(mapDisplayCenter.includes('impossible_jump_ignored'), 'Map Display Center must guard impossible GPS jumps');
 assert(mapDisplayCenter.includes('stale_signal'), 'Map Display Center must ignore stale GPS packets');

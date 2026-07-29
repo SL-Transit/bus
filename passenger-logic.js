@@ -66,6 +66,7 @@
     }
     _readyPromise = global.SLTransit.core.init(_app).then(function () {
       startLiveVehicleFeed();
+      watchVehicleMarkerConfig();
       return { app: _app, db: _db };
     });
     return _readyPromise;
@@ -158,7 +159,35 @@
   var selDest   = '';
   var allBusPositions = {};
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
-  var BUS_MARKER_MOVE_MS = 450;
+  var PASSENGER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
+  // vehicleMarkerCfg มาจาก ERP (data/erpDataCenter/settings/passengerMap) เท่านั้น — ไม่มีค่าเริ่มต้นที่
+  // "ตัดสินใจ" ไว้ล่วงหน้า จนกว่าจะได้ค่าจริงจาก ERP, map-display-center.js จะข้าม
+  // behavior ที่ยังไม่ระบุ (ไม่ warp-limit, ไม่ dead-reckoning, ไม่ animate) แทนการเดาเลขเอง
+  var vehicleMarkerCfg = {
+    maxStepMeters: null,
+    maxReasonableSpeedMs: null,
+    maxPredictMs: null,
+    maxPredictMeters: null,
+    animationMinMs: null,
+    animationMaxMs: null,
+    animationRatio: null
+  };
+  function watchVehicleMarkerConfig() {
+    var db = getDb();
+    if (!db || typeof db.ref !== 'function') return function () {};
+    var ref = db.ref(PASSENGER_MAP_CONFIG_PATH);
+    var handler = function (snapshot) {
+      var v = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
+      v = v && typeof v === 'object' ? v : {};
+      Object.keys(vehicleMarkerCfg).forEach(function (key) {
+        vehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
+      });
+    };
+    ref.on('value', handler, function (err) {
+      console.error('watchVehicleMarkerConfig failed:', err && err.message ? err.message : err);
+    });
+    return function unsubscribe() { ref.off('value', handler); };
+  }
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
   var userLocationMarker = null;
@@ -954,7 +983,7 @@ function placeBusMarkerAt(carId, latlng, options) {
   var point = normalizeMapPoint(latlng);
   if (!point) return;
   if (busMarkers[carId] && busTagMarkers[carId]) {
-    var duration = options && options.durationMs != null ? options.durationMs : BUS_MARKER_MOVE_MS;
+    var duration = options && options.durationMs != null ? options.durationMs : 0;
     if (moveLongdoMarker(busMarkers[carId], point, duration) && moveLongdoMarker(busTagMarkers[carId], point, duration)) return;
   }
 
@@ -983,7 +1012,7 @@ function updateAllBusesOnMap(buses) {
   var signals = Object.keys(buses || {}).map(function(id) {
     return Object.assign({ vehicleId: id }, buses[id] || {});
   });
-  center.prepareVehicleLayer(signals, busDisplayState, { maxStepMeters: 250 }).forEach(function(item) {
+  center.prepareVehicleLayer(signals, busDisplayState, vehicleMarkerCfg).forEach(function(item) {
     if (!item || !item.vehicle || !item.point) return;
     busDisplayState[item.vehicle.vehicleId] = item.displayState || { point: item.point };
     placeBusMarkerAt(item.vehicle.vehicleId, item.point, {
