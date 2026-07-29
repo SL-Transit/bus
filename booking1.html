@@ -940,11 +940,16 @@ body {
    เห็น "จุดกลาง" ของภาพ 2088.png ลอยขึ้นมาโดยไม่มีข้อความกำกับ */
 .trip-stops-simple .trip-stop-icon { width: 14px; height: 14px; flex: 0 0 14px; margin-right: 7px; }
 .trip-stop-row {
-  display: flex; align-items: center;
+  display: flex; align-items: center; flex-wrap: wrap;
   font-size: 12px; color: var(--dark-text); font-weight: 600;
-  min-height: 16px;
+  min-height: 16px; gap: 4px 6px;
 }
 .trip-stop-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trip-stop-row .trip-stop-time {
+  font-size: 10.5px; font-weight: 600; color: var(--teal, #1a9b8c);
+  background: var(--teal-bg, rgba(26, 155, 140, 0.09)); border-radius: 4px; padding: 1px 6px;
+  flex: 0 0 auto;
+}
 .trip-meta-col {
   display: grid; gap: 5px; flex: 0 0 auto; text-align: left;
 }
