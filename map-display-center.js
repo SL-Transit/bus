@@ -212,7 +212,7 @@
       target = projectPoint(limitedAnchor, heading, predictMeters);
     }
     var nextDisplay = target;
-    var durationMs = Math.max(0, Math.min(450, Math.max(120, dtSec * 180)));
+    var durationMs = Math.max(300, Math.min(4000, dtSec * 1000 * 0.92));
     var mode = isFinite(rawMeters) && rawMeters > maxStepMeters ? 'no_warp_smooth_limited' : 'smooth';
     return {
       status: mode,

@@ -69,7 +69,7 @@ const smooth = mapDisplay.planVehicleMarker(
 assert.strictEqual(smooth.status, 'smooth');
 assert.strictEqual(smooth.animation.mode, 'smooth');
 assert.deepStrictEqual(smooth.point, smooth.targetPoint, 'smooth motion must not lag behind the accepted target');
-assert(smooth.animation.durationMs <= 450, 'smooth motion must keep marker close to the latest GPS packet');
+assert(smooth.animation.durationMs >= 3900 && smooth.animation.durationMs <= 4000, 'smooth motion must glide for (close to) the real gap between GPS updates, not snap early and freeze');
 assert(smooth.displayState, 'smooth marker must return updated display state');
 
 const noWarp = mapDisplay.planVehicleMarker(
