@@ -13,7 +13,7 @@
         }
       },
       "finance": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
         ".write": false
       },
       "erpDataCenter": {
@@ -36,7 +36,7 @@
           ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "finance": {
-          ".read": "auth != null",
+          ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
           ".write": false
         },
         "adminAccounts": {
@@ -61,7 +61,7 @@
     },
     "operations": {
       "bookings": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
         ".write": false,
         ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
         "$bookingId": {
@@ -82,7 +82,7 @@
         }
       },
       "passengers": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
         ".write": false,
         "$passengerId": {
           ".write": false
@@ -103,8 +103,10 @@
         ".write": "auth != null"
       },
       "sosAlerts": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        "$vehicleId": {
+          ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin')"
+        }
       },
       "driverWorkByServiceDate": {
         "$serviceDate": {
@@ -183,8 +185,22 @@
       }
     },
     "admin": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+      ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'"
+    },
+    "driverLogs": {
+      ".read": false,
+      "$vehicleId": {
+        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+      }
+    },
+    "ticketLocations": {
+      ".read": false,
+      "$bookingId": {
+        ".read": true,
+        ".write": true
+      }
     },
     "passengerLiveLocations": {
       ".read": false,
