@@ -124,6 +124,21 @@
     return ti.destLabel || appState().destName || '';
   }
 
+  /* เวลาที่จุดต่อรถมาจาก ERP transferTiming.bestConnection (คำนวณผ่านนโยบายเผื่อเวลา
+     ต่อรถ min 15 / ideal 30 / max 60 นาทีใน tools/published-schedule-v1-dry-run.js
+     แล้ว) — ที่นี่แค่ format ไปแสดง ไม่คำนวณเอง ห้ามเดา/ห้ามเลือกเวลาเอง */
+  function transferTimesText(trip) {
+    var ti = trip && trip.transferInfo || {};
+    var arrive = ti.transferArrivalTime || '';
+    var depart = ti.leg2Time || ti.nextDepartureTime || '';
+    if (arrive && depart) {
+      return '\u0e16\u0e36\u0e07 ' + arrive + ' \u0e19. / \u0e15\u0e48\u0e2d\u0e23\u0e16 ' + depart + ' \u0e19.';
+    }
+    if (depart) return '\u0e15\u0e48\u0e2d\u0e23\u0e16 ' + depart + ' \u0e19.';
+    if (arrive) return '\u0e16\u0e36\u0e07 ' + arrive + ' \u0e19.';
+    return '';
+  }
+
   function routeText(trip) {
     var state = appState();
     var origin = state.originName || '\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07';
@@ -148,8 +163,12 @@
     var transfer = transferPointText(trip);
     var isTransfer = !!(trip && trip.isLeg2 && transfer);
     if (isTransfer) {
+      var transferTimeText = transferTimesText(trip);
+      var transferTimeHtml = transferTimeText
+        ? '<span class="trip-stop-time">' + esc(transferTimeText) + '</span>'
+        : '';
       var rows = '<div class="trip-stop-row"><span>' + esc(origin) + '</span></div>'
-        + '<div class="trip-stop-row"><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span></div>'
+        + '<div class="trip-stop-row"><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span>' + transferTimeHtml + '</div>'
         + '<div class="trip-stop-row"><span>' + esc(destination) + '</span></div>';
       return '<div class="trip-stops trip-stops-linked">' + rows + '</div>';
     }
