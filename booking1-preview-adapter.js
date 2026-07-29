@@ -91,11 +91,16 @@
     return trip.fareAmount != null ? trip.fareAmount + ' บาท' : '-';
   }
 
+  /* Owner request 2026-07-29: stop rendering the transfer-reference disclaimer,
+     the "ยังไม่เปิดจองผ่าน Booking1" note, and the leaked internal
+     "TODO contract: ..." dev string on trip cards. The underlying booking gate
+     (bookingEligible=false from ERP for reference-only transfer pairs) is
+     untouched — this only removes the text block, not the booking decision.
+     External-payment disclaimer kept (real payment notice, not clutter).
+     See CENTRAL-REPORT.md. */
   function tripNotes(trip) {
-    var notes = (trip.disclaimers || []).slice();
+    var notes = [];
     if (trip.externalPaymentRequired) notes.push('SL-Transit ไม่เก็บค่าโดยสารรายการนี้ ต้องชำระกับผู้ให้บริการภายนอก');
-    if (trip.referenceOnly) notes.push('ข้อมูลอ้างอิง ยังไม่เปิดจองผ่าน Booking1');
-    if (trip.fareMissing) notes.push('TODO contract: ' + trip.missingFareField);
     return notes;
   }
 
