@@ -143,18 +143,22 @@
           ".indexOn": ["count", "pageViews"],
           ".validate": "$day.matches(/^\\d{4}-\\d{2}-\\d{2}$/)",
           "count": {
+            ".read": true,
             ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
           },
           "pageViews": {
+            ".read": true,
             ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
           },
           "pageDeviceCounts": {
             "$page": {
+              ".read": true,
               ".write": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
             }
           },
           "devices": {
             "$deviceId": {
+              ".read": true,
               ".write": "$deviceId.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.hasChildren(['firstSeenAt', 'lastSeenAt', 'pageViews', 'pages']) && newData.child('firstSeenAt').isNumber() && newData.child('lastSeenAt').isNumber() && newData.child('lastSeenAt').val() >= newData.child('firstSeenAt').val() && newData.child('pageViews').isNumber() && ((!data.exists() && newData.child('pageViews').val() === 1) || (data.exists() && data.child('pageViews').isNumber() && newData.child('pageViews').val() === data.child('pageViews').val() + 1))",
               "pages": {
                 "$page": {
