@@ -186,6 +186,13 @@
       ".read": "auth != null",
       ".write": "auth != null"
     },
+    "passengerLiveLocations": {
+      ".read": false,
+      "$bookingId": {
+        ".read": true,
+        ".write": true
+      }
+    },
     "meta": {
       ".read": true,
       ".write": false

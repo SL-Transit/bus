@@ -205,6 +205,8 @@ public class MainActivity extends Activity {
     // ===== หน้าแผนที่ (Grab/Uber-style live map) =====
     private WebView driverMapWebView;
     private boolean driverMapReady = false;
+    private DatabaseReference ticketListRelayRef;
+    private ValueEventListener ticketListRelayListener;
     private TextView mapBookedCount, mapCheckedCount, mapEarningsValue;
 
     // ===== หน้ารายงาน (Grab/Uber-style: hero earnings + tab ช่วงเวลา) =====
@@ -542,6 +544,11 @@ public class MainActivity extends Activity {
             try { driverIdentityRef.removeEventListener(driverIdentityListener); } catch (Exception ignored) {}
             driverIdentityRef = null;
             driverIdentityListener = null;
+        }
+        if (ticketListRelayRef != null && ticketListRelayListener != null) {
+            try { ticketListRelayRef.removeEventListener(ticketListRelayListener); } catch (Exception ignored) {}
+            ticketListRelayRef = null;
+            ticketListRelayListener = null;
         }
     }
 
@@ -3054,14 +3061,58 @@ public class MainActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url) {
                 driverMapReady = true;
                 updateLiveMap();
+                startTicketListRelay();
             }
         });
         driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html?v=20260728d");
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);
+        startTicketListRelay();
 
         return page;
+    }
+
+    // ส่งรายชื่อตั๋ววันนี้ของรถคันนี้ (เฉพาะ bookingId/ชื่อ/สถานะ ไม่มีเบอร์โทร) เข้าไปในหน้าเว็บแผนที่
+    // เพื่อให้หน้าเว็บไปฟัง operations/passengerLiveLocations/{bookingId} เองสำหรับตั๋วที่ยังไม่ขึ้นรถ
+    // และผู้โดยสารกดยินยอมแชร์ตำแหน่งไว้ — driver-map.html ไม่มี Firebase Auth ของตัวเอง จึงอ่าน
+    // driverTicketsByServiceDate เองไม่ได้ (ต้องผ่านฝั่ง native ที่ authenticated อยู่แล้วเท่านั้น)
+    private void startTicketListRelay() {
+        if (!hasAuthenticatedDriverIdentity()) return;
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
+        if (ticketListRelayRef != null && ticketListRelayListener != null) {
+            try { ticketListRelayRef.removeEventListener(ticketListRelayListener); } catch (Exception ignored) {}
+        }
+        String today = serviceDateToday();
+        ticketListRelayRef = FirebaseDatabase.getInstance()
+                .getReference(DRIVER_TICKETS_PATH).child(today).child(vehicleId);
+        ticketListRelayListener = new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                org.json.JSONArray arr = new org.json.JSONArray();
+                for (DataSnapshot child : snap.getChildren()) {
+                    String status = String.valueOf(child.child("status").getValue());
+                    if ("cancelled".equals(status)) continue;
+                    String checkinStatus = String.valueOf(child.child("originCheckin").child("status").getValue());
+                    if ("boarded".equals(checkinStatus)) continue;
+                    try {
+                        org.json.JSONObject t = new org.json.JSONObject();
+                        t.put("bookingId", child.getKey());
+                        t.put("name", child.child("name").getValue(String.class));
+                        arr.put(t);
+                    } catch (Exception ignored) {}
+                }
+                relayTicketListToMap(arr.toString());
+            }
+            @Override public void onCancelled(DatabaseError error) {}
+        };
+        ticketListRelayRef.addValueEventListener(ticketListRelayListener);
+    }
+
+    private void relayTicketListToMap(String ticketsJson) {
+        if (driverMapWebView == null || !driverMapReady) return;
+        driverMapWebView.evaluateJavascript(
+                "window.setDriverTicketList && window.setDriverTicketList(" + ticketsJson + ");", null);
     }
 
     private LinearLayout buildMapStripStat(String label, TextView valueView) {

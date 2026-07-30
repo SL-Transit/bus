@@ -134,6 +134,8 @@
     button:disabled { opacity: .55; cursor: not-allowed; }
     .btn-full { width: 100%; }
     .btn-green { background: var(--green); }
+    .btn-outline { background: transparent; border: 2px solid var(--green); color: var(--green); }
+    .btn-outline.active { background: var(--green); color: #fff; }
     .btn-red { background: var(--red); }
     .btn-dark { background: #334155; }
     .btn-orange { background: var(--orange); }
@@ -505,6 +507,7 @@
           </div>
           <div class="tracking-actions">
             <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
+            <button id="btnShareWithDriver" class="btn-outline" type="button" onclick="toggleShareLocationWithDriver()">📍 แชร์ตำแหน่งให้คนขับ</button>
           </div>
         </div>
       </div>
@@ -726,6 +729,7 @@
     var ticketVehicleMarkerCfg = { maxStepMeters: null, maxReasonableSpeedMs: null, maxPredictMs: null, maxPredictMeters: null, catchUpAfterGapMs: null };
     var ticketVanMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
     var ticketPassengerMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
+    var shareWithDriverActive = false;
     (function watchTicketVehicleMarkerConfig() {
       if (!db || typeof db.ref !== 'function') return;
       db.ref(TICKET_VEHICLE_MARKER_CONFIG_PATH).on('value', function (snapshot) {
@@ -1590,6 +1594,7 @@
           watchId = null;
         }
         stopTrackingSubscription();
+        stopSharingLocationWithDriver();
         return;
       }
       subscribeVanLocationForTicket();
@@ -1603,6 +1608,36 @@
       if (watchId !== null || !navigator.geolocation || !currentBooking) return;
       startGPS();
     }
+
+    function stopSharingLocationWithDriver() {
+      shareWithDriverActive = false;
+      if (currentBooking) {
+        try { db.ref('passengerLiveLocations/' + currentBooking.code).remove(); } catch (e) {}
+      }
+      renderShareWithDriverButton();
+    }
+
+    function toggleShareLocationWithDriver() {
+      if (shareWithDriverActive) {
+        stopSharingLocationWithDriver();
+        return;
+      }
+      if (!currentBooking || isServiceEnded(currentBooking)) return;
+      shareWithDriverActive = true;
+      autoStartPassengerGps();
+      if (lastPosition) {
+        db.ref('passengerLiveLocations/' + currentBooking.code).set({ lat: lastPosition.lat, lng: lastPosition.lng, ts: Date.now() });
+      }
+      renderShareWithDriverButton();
+    }
+
+    function renderShareWithDriverButton() {
+      var btn = document.getElementById('btnShareWithDriver');
+      if (!btn) return;
+      btn.textContent = shareWithDriverActive ? '\u2713 \u0e01\u0e33\u0e25\u0e31\u0e07\u0e41\u0e0a\u0e23\u0e4c\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07 (\u0e41\u0e15\u0e30\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e2b\u0e22\u0e38\u0e14)' : '\ud83d\udccd \u0e41\u0e0a\u0e23\u0e4c\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e43\u0e2b\u0e49\u0e04\u0e19\u0e02\u0e31\u0e1a';
+      btn.classList.toggle('active', shareWithDriverActive);
+    }
+    window.toggleShareLocationWithDriver = toggleShareLocationWithDriver;
 
     function showTopbar(yes) {
       var el = document.querySelector('.topbar');
@@ -3173,6 +3208,9 @@
           stationaryMinutes: stationarySince ? Math.floor((Date.now() - stationarySince) / 60000) : 0,
           ts: Date.now()
         });
+        if (shareWithDriverActive) {
+          db.ref('passengerLiveLocations/' + currentBooking.code).set({ lat: next.lat, lng: next.lng, ts: Date.now() });
+        }
       }
     }
 

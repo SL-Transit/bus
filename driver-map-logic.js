@@ -157,6 +157,55 @@
     animReq = requestAnimationFrame(step);
   }
 
+  var passengerMarkers = {};
+  var pendingTicketList = null;
+
+  function watchPassengerLocation(bookingId, name) {
+    var ref = db.ref('passengerLiveLocations/' + bookingId);
+    var entry = { ref: ref, marker: null, name: name };
+    passengerMarkers[bookingId] = entry;
+    entry.handler = ref.on('value', function (snap) {
+      var v = snap.val();
+      if (!v || typeof v.lat !== 'number' || typeof v.lng !== 'number') {
+        if (entry.marker) { map.removeLayer(entry.marker); entry.marker = null; }
+        return;
+      }
+      if (!entry.marker) {
+        var icon = L.divIcon({ className: '', html: "<div class='map-passenger-dot'></div>", iconSize: [16, 16], iconAnchor: [8, 8] });
+        entry.marker = L.marker([v.lat, v.lng], { icon: icon, zIndexOffset: 800 })
+          .bindTooltip(escHtml(entry.name || 'ผู้โดยสาร'), { permanent: false, direction: 'top' })
+          .addTo(map);
+      } else {
+        entry.marker.setLatLng([v.lat, v.lng]);
+      }
+    });
+  }
+
+  function removePassengerMarker(bookingId) {
+    var entry = passengerMarkers[bookingId];
+    if (!entry) return;
+    try { entry.ref.off('value', entry.handler); } catch (e) {}
+    if (entry.marker) map.removeLayer(entry.marker);
+    delete passengerMarkers[bookingId];
+  }
+
+  // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverTicketList([...])') ทุกครั้งที่รายชื่อ
+  // ตั๋ววันนี้ของรถคันนี้เปลี่ยน (เฉพาะ bookingId/name เท่านั้น ไม่มีเบอร์โทร) เพื่อรู้ว่าควรฟัง
+  // ตำแหน่งของผู้โดยสารคนไหนบ้างจาก operations/passengerLiveLocations
+  function setDriverTicketList(tickets) {
+    if (!map) { pendingTicketList = tickets; return; }
+    tickets = Array.isArray(tickets) ? tickets : [];
+    var activeIds = {};
+    tickets.forEach(function (t) {
+      if (!t || !t.bookingId) return;
+      activeIds[t.bookingId] = true;
+      if (!passengerMarkers[t.bookingId]) watchPassengerLocation(t.bookingId, t.name);
+    });
+    Object.keys(passengerMarkers).forEach(function (id) {
+      if (!activeIds[id]) removePassengerMarker(id);
+    });
+  }
+
   // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverPosition(lat,lng)') ทุกครั้งที่มีพิกัด GPS ใหม่
   function setDriverPosition(lat, lng) {
     if (!map) {
@@ -264,6 +313,10 @@
           setDriverPosition(pendingDriverPosition.lat, pendingDriverPosition.lng);
           pendingDriverPosition = null;
         }
+        if (pendingTicketList) {
+          setDriverTicketList(pendingTicketList);
+          pendingTicketList = null;
+        }
       }
       renderStops(normalizeStops(mapView.stops), mapView);
       renderRoute(extractRoadRoute(mapView.routes));
@@ -289,6 +342,7 @@
   }
 
   global.setDriverPosition = setDriverPosition;
+  global.setDriverTicketList = setDriverTicketList;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
