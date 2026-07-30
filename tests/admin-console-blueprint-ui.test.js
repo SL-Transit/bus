@@ -84,10 +84,10 @@ assert.ok(html.includes('data-erp-tab'), 'ERP management page must support workb
 assert.ok(html.includes('Validation'), 'ERP management page must include validation side panel');
 assert.ok(html.includes('รายละเอียดแถว'), 'ERP management page must include row detail side panel');
 assert.ok(html.includes('ผลกระทบต่อระบบ (Impact)'), 'ERP management page must include impact side panel');
-for (const label of ['ป้ายเดินทาง', 'เส้นทาง', 'ราคา', 'ตารางเวลา', 'คิวรถ', 'รถ', 'คนขับ']) {
+for (const label of ['02_เส้นทาง', '03_เส้นทางและราคา', '04_รอบเวลา', '05_คิวรถและเวลา', '06_รถและคิว', '07_PaymentContact', '08_DriverVehicleGroup', '09_StaffLineConfig']) {
   assert.ok(html.includes(label), `ERP management tab missing: ${label}`);
 }
-for (const mockOnly of ['STP-0009', 'อ่อนนุช', 'Victory Monument']) {
+for (const mockOnly of ['STP-0009', 'อ่อนนุช', 'Victory Monument', '232-8-93015-6', 'สกุลเดช สุขสุเดช', 'G_001-P_001', 'TRIP-G_001']) {
   assert.ok(!html.includes(mockOnly), `ERP management page must not hard-code prototype data: ${mockOnly}`);
 }
 
