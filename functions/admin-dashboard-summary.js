@@ -1,7 +1,5 @@
 "use strict";
 
-const crypto = require("crypto");
-
 const TIMEZONE = "Asia/Bangkok";
 const RANGE_SIZES = { hourly: 24, daily: 30, weekly: 12, monthly: 12, yearly: 5 };
 const ALLOWED_RANGES = new Set(Object.keys(RANGE_SIZES));
@@ -36,7 +34,6 @@ const PRIVATE_FIELD_NAMES = new Set([
   "bankAccount",
   "password"
 ]);
-const DEFAULT_SECRET = "local-test-admin-dashboard-summary-secret";
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -261,27 +258,6 @@ function moneyValue(record, fields) {
   return null;
 }
 
-function hmacIdentity(value, secret) {
-  const text = String(value || "").trim();
-  if (!text) return "";
-  return crypto.createHmac("sha256", secret || DEFAULT_SECRET).update(text).digest("hex");
-}
-
-function normalizedPhone(phone) {
-  const digits = String(phone || "").replace(/\D/g, "");
-  if (digits.length < 8) return "";
-  return digits;
-}
-
-function actualUserHash(record, secret) {
-  const identity = record && record.passengerIdentity || {};
-  if (identity.provider === "line" && identity.lineUserId) return "line:" + hmacIdentity(identity.lineUserId, secret);
-  const phone = normalizedPhone(record && record.phone);
-  if (phone) return "phone:" + hmacIdentity(phone, secret);
-  const anon = String((record && (record.analyticsVisitorId || record.visitorId || record.deviceId)) || "").trim();
-  return anon ? "anon:" + hmacIdentity(anon, secret) : "";
-}
-
 function vehicleKey(record) {
   const a = record && record.assignment || {};
   return String(a.vehicleId || a.plannedVehicleId || record.plannedVehicleId || record.vehicleId || "ยังไม่ระบุรถ").trim();
@@ -378,7 +354,11 @@ function aggregateDashboard(records, options) {
   const pointsBase = bucketPlan(range, opts.anchor, opts.nowMs);
   if (!pointsBase) throw new Error("invalid_range_or_anchor");
   const bookingPoints = pointsBase.map((point) => Object.assign({}, point, { bookings: 0, cancellations: 0, refunds: 0 }));
-  const websitePoints = pointsBase.map((point) => Object.assign({}, point, { visitors: 0, actualUsers: 0 }));
+  const hasWebsiteRollups = opts.websiteRollups && typeof opts.websiteRollups === "object";
+  const websitePoints = pointsBase.map((point) => Object.assign({}, point, {
+    visitors: hasWebsiteRollups ? 0 : null,
+    actualUsers: hasWebsiteRollups ? 0 : null
+  }));
   const byKey = {};
   bookingPoints.forEach((point, index) => { byKey[point.key] = { booking: point, website: websitePoints[index] }; });
   const anchorDate = parseAnchor(opts.anchor, opts.nowMs);
@@ -397,8 +377,6 @@ function aggregateDashboard(records, options) {
   const fleetMaster = opts.fleetMaster && typeof opts.fleetMaster === "object" ? opts.fleetMaster : {};
   const vehicleDirectory = fleetMaster.vehicles || opts.vehicleDirectory || {};
   const driverDirectory = fleetMaster.drivers || opts.driverDirectory || {};
-  const actualUsersByBucket = {};
-  const actualUsersAll = {};
   const invalidRecords = {};
   const diagnostic = {
     tsQueryCount: Object.keys(records || {}).length,
@@ -438,13 +416,6 @@ function aggregateDashboard(records, options) {
       addFinance(finance, amounts);
     }
     bucket.booking.bookings += 1;
-
-    const actualHash = actualUserHash(record, opts.identitySecret);
-    if (actualHash) {
-      actualUsersAll[actualHash] = true;
-      actualUsersByBucket[key] = actualUsersByBucket[key] || {};
-      actualUsersByBucket[key][actualHash] = true;
-    }
 
     const vKey = vehicleKey(record);
     const dKey = driverKey(record);
@@ -522,25 +493,27 @@ function aggregateDashboard(records, options) {
     }
   });
 
-  websitePoints.forEach((point) => {
-    point.actualUsers = Object.keys(actualUsersByBucket[point.key] || {}).length;
-  });
-
-  const websiteRollups = opts.websiteRollups || {};
+  const websiteRollups = hasWebsiteRollups ? opts.websiteRollups : {};
   Object.keys(websiteRollups).forEach((key) => {
     if (!byKey[key]) return;
-    byKey[key].website.visitors += Number(websiteRollups[key] && websiteRollups[key].visitors || 0);
+    const rollup = websiteRollups[key] || {};
+    byKey[key].website.visitors += Number(rollup.visitors || 0);
+    byKey[key].website.actualUsers += Number(rollup.actualUsers || 0);
   });
 
-  const status = totals.createdCount || totals.travelPassengerCount || finance.grossAmount || bookingPoints.some((p) => p.bookings || p.cancellations || p.refunds) || websitePoints.some((p) => p.visitors || p.actualUsers) ? "ready" : "empty";
+  const websiteStatus = hasWebsiteRollups
+    ? (websitePoints.some((p) => p.visitors || p.actualUsers) ? "ready" : "empty")
+    : "unavailable";
+  const status = totals.createdCount || totals.travelPassengerCount || finance.grossAmount || bookingPoints.some((p) => p.bookings || p.cancellations || p.refunds) || websiteStatus === "ready" ? "ready" : "empty";
   return sanitizeForPrivateFields({
     status,
     timezone: TIMEZONE,
     range,
     anchor: opts.anchor || ymdFromMs(opts.nowMs || Date.now()),
     website: {
-      visitors: websitePoints.reduce((sum, p) => sum + p.visitors, 0),
-      actualUsers: Object.keys(actualUsersAll).length,
+      status: websiteStatus,
+      visitors: hasWebsiteRollups ? websitePoints.reduce((sum, p) => sum + Number(p.visitors || 0), 0) : null,
+      actualUsers: hasWebsiteRollups ? websitePoints.reduce((sum, p) => sum + Number(p.actualUsers || 0), 0) : null,
       points: websitePoints
     },
     bookings: Object.assign({}, totals, {
@@ -574,6 +547,7 @@ module.exports = {
   bucketPlan,
   queryWindow,
   queryDateWindow,
+  bucketForMs,
   createdTimestamp,
   isRealBooking,
   originAllowed,
