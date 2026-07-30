@@ -71,6 +71,8 @@ const records = {
     date: '2026-07-28',
     origin: 'BKK',
     destination: 'RYG',
+    name: 'ผู้โดยสารคืนเงิน',
+    phone: '089-000-1111',
     source: 'booking1.html',
     sourceMode: 'erp_data_center',
     status: 'refunded',
@@ -191,6 +193,23 @@ assert.strictEqual(noWebsiteSource.website.status, 'unavailable');
 assert.strictEqual(noWebsiteSource.website.visitors, null);
 assert.strictEqual(noWebsiteSource.website.actualUsers, null);
 
+assert.strictEqual(result.refunds.recent.length, 0, 'private refund rows require an authenticated admin request');
+assert.strictEqual(result.refunds.recentPrivacy, 'auth_required');
+
+const privateRefunds = summary.aggregateDashboard(records, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  refundedRecords: records,
+  includePrivateRefunds: true,
+  generatedAt: 6
+});
+assert.strictEqual(privateRefunds.refunds.recentPrivacy, 'firebase_id_token');
+assert.strictEqual(privateRefunds.refunds.recent.length, 1);
+assert.strictEqual(privateRefunds.refunds.recent[0].passengerName, 'ผู้โดยสารคืนเงิน');
+assert.strictEqual(privateRefunds.refunds.recent[0].passengerPhone, '089-000-1111');
+assert.strictEqual(privateRefunds.refunds.recent[0].refundAmount, 60);
+
 const noTodaySettlement = summary.aggregateDashboard({
   BK_YESTERDAY_ONLY: records.BK_YESTERDAY_TRAVEL_TODAY
 }, {
@@ -270,6 +289,8 @@ assert(functionsIndex.includes('orderByChild("date")'), 'function must query tra
 assert(functionsIndex.includes('orderByChild("serviceDate")'), 'function must query travel passengers by serviceDate fallback');
 assert(functionsIndex.includes('orderByChild("cancelledAt")'), 'function must query cancellations by cancelledAt');
 assert(functionsIndex.includes('orderByChild("refundedAt")'), 'function must query refunds by refundedAt');
+assert(functionsIndex.includes('verifyIdToken'), 'function must verify Firebase ID token before returning private refund rows');
+assert(functionsIndex.includes('"Content-Type, Authorization"'), 'function CORS must allow Authorization header for admin dashboard token');
 assert(functionsIndex.includes('ref("data/erpDataCenter/fleet").get()'), 'function must read ERP fleet master for vehicle alias and public driver display names');
 assert(functionsIndex.includes('ref("data/erpDataCenter/serviceGroups").get()'), 'function must read ERP service groups for queue/transfer provider display names');
 assert(functionsIndex.includes('ref("analytics/mainWeb")'), 'function must read website analytics rollups through the HTTPS summary endpoint');
