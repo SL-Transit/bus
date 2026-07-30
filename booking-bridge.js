@@ -649,6 +649,8 @@
       passengerIdentity: params.passengerIdentity || null,
       notificationPreference: params.notificationPreference || null,
       consent: params.consent || null,
+      ticketAccessTokenHash: params.ticketAccessTokenHash || '',
+      ticketAccessContractVersion: params.ticketAccessTokenHash ? 'ticket_access_v1' : '',
       status: (global.BOOKING_STATUS && global.BOOKING_STATUS.AWAITING_PAYMENT) || 'awaiting_payment',
       createdAt: new Date().toISOString(),
       assignment: assignment,

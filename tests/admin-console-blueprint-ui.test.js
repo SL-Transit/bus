@@ -1,4 +1,4 @@
-const assert = require('assert');
+﻿const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
@@ -107,3 +107,4 @@ for (const mockOnly of ['STP-0009', 'อ่อนนุช', 'Victory Monument',
 }
 
 console.log('admin-erp dashboard real aggregate contract ok');
+

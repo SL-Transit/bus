@@ -12,6 +12,7 @@ const staffNotificationCenter = require("./staff-notification-center.js");
 const adminDashboardSummary = require("./admin-dashboard-summary.js");
 const adminAuth = require("./admin-auth.js");
 const refundActions = require("./refund-admin-actions.js");
+const ticketAccess = require("./ticket-access.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -36,6 +37,16 @@ function setCors(req, res) {
     res.set("Vary", "Origin");
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key");
+  }
+}
+
+function setPassengerTicketCors(req, res) {
+  const origin = req.headers.origin || "";
+  if (ticketAccess.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key");
   }
 }
 
@@ -93,6 +104,11 @@ function enforceRateLimit(req, name, actor) {
     err.httpStatus = 429;
     throw err;
   }
+}
+
+function enforcePublicRateLimit(req, name, keyPart) {
+  const key = String(keyPart || "anonymous").slice(0, 80);
+  return enforceRateLimit(req, name, { uid: key });
 }
 
 function publicError(err, fallback) {
@@ -357,6 +373,316 @@ exports.updateAdminErpDataCenter = onRequest({
   }
 });
 
+exports.readPassengerTicket = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+    const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+    if (!code || !token) {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    enforcePublicRateLimit(req, "readPassengerTicket", ticketAccess.tokenHash(token));
+    const snap = await admin.database().ref(`bookings/${code}`).get();
+    const booking = snap && snap.val ? snap.val() : null;
+    if (!booking) {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    ticketAccess.verifyTicketAccess(booking, token);
+    sendJson(res, 200, {
+      status: "ready",
+      contractVersion: ticketAccess.CONTRACT_VERSION,
+      ticket: ticketAccess.minimalTicket(booking, code)
+    });
+  } catch (err) {
+    if (err && err.publicCode === "blocked_legacy_ticket_access_token_missing") {
+      sendJson(res, 403, { status: "blocked", error: "blocked_legacy_ticket_access_token_missing" });
+      return;
+    }
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      sendJson(res, err.httpStatus, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    console.error("readPassengerTicket failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_lookup_unavailable" });
+  }
+});
+
+exports.cancelPassengerTicket = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 20,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+    const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+    if (!code || !token) {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    enforcePublicRateLimit(req, "cancelPassengerTicket", ticketAccess.tokenHash(token));
+    const ref = admin.database().ref(`bookings/${code}`);
+    const beforeSnap = await ref.get();
+    const before = beforeSnap && beforeSnap.val ? beforeSnap.val() : null;
+    if (!before) {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    ticketAccess.verifyTicketAccess(before, token);
+    const evaluation = ticketAccess.evaluateCancellation(before, Date.now());
+    if (!evaluation.allowed && !evaluation.idempotent) {
+      sendJson(res, 409, { status: "blocked", error: evaluation.reason });
+      return;
+    }
+    if (evaluation.idempotent) {
+      sendJson(res, 200, {
+        status: "ok",
+        result: "idempotent_noop",
+        capacityRelease: { status: "idempotent_noop" },
+        ticket: ticketAccess.minimalTicket(before, code)
+      });
+      return;
+    }
+    let changed = false;
+    const tx = await ref.transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      const storedTokenHash = String(current.ticketAccessTokenHash || "");
+      if (!storedTokenHash || storedTokenHash !== ticketAccess.tokenHash(token)) return current;
+      if (String(current.status || "").toLowerCase() === "cancelled" && current.cancelledAt) return current;
+      changed = true;
+      return Object.assign({}, current, {
+        status: "cancelled",
+        cancelledAt: admin.database.ServerValue.TIMESTAMP,
+        officialStatus: "ตั๋วของคุณถูกยกเลิกแล้ว",
+        ticketActionContract: ticketAccess.CANCELLATION_CONTRACT_VERSION
+      });
+    });
+    const after = tx && tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : before;
+    const capacityRelease = changed ? await ticketAccess.releaseCapacityOnce(admin.database(), before, code) : { status: "idempotent_noop" };
+    if (changed && capacityRelease.status === "failed_retriable") {
+      const retryId = refundActions.hashBookingId([code, "passenger_cancel", ticketAccess.tokenHash(token)].join("|"));
+      await admin.database().ref(`operations/passengerCancelCapacityRetry/${retryId}`).set({
+        eventId: retryId,
+        bookingIdHash: refundActions.hashBookingId(code),
+        status: "pending",
+        capacity: before.capacity || null,
+        createdAt: admin.database.ServerValue.TIMESTAMP
+      });
+      sendJson(res, 202, {
+        status: "pending",
+        result: "cancelled_capacity_pending",
+        capacityRelease,
+        ticket: ticketAccess.minimalTicket(after, code)
+      });
+      return;
+    }
+    sendJson(res, 200, {
+      status: "ok",
+      result: changed ? "cancelled" : "idempotent_noop",
+      capacityRelease,
+      ticket: ticketAccess.minimalTicket(after, code)
+    });
+  } catch (err) {
+    if (err && err.publicCode === "blocked_legacy_ticket_access_token_missing") {
+      sendJson(res, 403, { status: "blocked", error: "blocked_legacy_ticket_access_token_missing" });
+      return;
+    }
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      sendJson(res, err.httpStatus, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    console.error("cancelPassengerTicket failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_cancel_unavailable" });
+  }
+});
+
+function cleanTicketStatePayload(action, payload) {
+  const now = admin.database.ServerValue.TIMESTAMP;
+  const input = payload && typeof payload === "object" ? payload : {};
+  if (action === "journey_arrival") {
+    const status = input.status === "arrived_transfer_point" ? "arrived_transfer_point" : "arrived_destination";
+    const source = input[status === "arrived_transfer_point" ? "arrivedTransferPoint" : "arrivedDestination"] || {};
+    const key = status === "arrived_transfer_point" ? "arrivedTransferPoint" : "arrivedDestination";
+    return {
+      status,
+      [key]: {
+        status,
+        ts: now,
+        vehicleId: String(source.vehicleId || input.vehicleId || "").slice(0, 80),
+        etaMinutes: Number.isFinite(Number(source.etaMinutes || input.etaMinutes)) ? Number(source.etaMinutes || input.etaMinutes) : null
+      }
+    };
+  }
+  if (action === "origin_arrival") {
+    return { originArrival: { passed: true, origin: String(input.origin || "").slice(0, 120), ts: now } };
+  }
+  if (action === "origin_checkin") {
+    return {
+      originCheckin: {
+        status: "boarded",
+        auto: input.auto === true,
+        origin: String(input.origin || "").slice(0, 120),
+        lat: Number.isFinite(Number(input.lat)) ? Number(input.lat) : null,
+        lng: Number.isFinite(Number(input.lng)) ? Number(input.lng) : null,
+        vehicleId: String(input.vehicleId || "").slice(0, 80),
+        queueNo: String(input.queueNo || "").slice(0, 80),
+        tripIndex: String(input.tripIndex || "").slice(0, 40),
+        ts: now
+      }
+    };
+  }
+  if (action === "origin_checkin_review") {
+    return { originCheckin: { status: "not_boarded_suspected", reason: "passenger_still_near_origin_30_minutes_after_departure", checkedAt: now } };
+  }
+  if (action === "checkin") {
+    const linePayload = input.linePayload && typeof input.linePayload === "object" ? input.linePayload : {};
+    return {
+      status: input.status === "transfer_nearby_notified" ? "transfer_nearby_notified" : "checked_in",
+      userId: String(input.userId || "").slice(0, 120),
+      isAdminTester: input.isAdminTester === true,
+      testerId: String(input.testerId || "").slice(0, 120),
+      testerRole: String(input.testerRole || "").slice(0, 80),
+      testerNotice: String(input.testerNotice || "").slice(0, 240),
+      lineEvent: String(input.lineEvent || "checkin").slice(0, 80),
+      lineMessage: String(input.lineMessage || "").slice(0, 1000),
+      linePayload: {
+        event: String(linePayload.event || input.lineEvent || "checkin").slice(0, 80),
+        notifyMode: String(linePayload.notifyMode || input.lineMessagingMode || "").slice(0, 80),
+        batchKey: String(linePayload.batchKey || input.lineMessagingBatchKey || "").slice(0, 160),
+        batchWindowMs: Number.isFinite(Number(linePayload.batchWindowMs || input.lineMessagingBatchWindowMs)) ? Number(linePayload.batchWindowMs || input.lineMessagingBatchWindowMs) : null
+      },
+      groupId: String(input.groupId || "").slice(0, 120),
+      to: String(input.to || "").slice(0, 120),
+      lineTo: String(input.lineTo || "").slice(0, 120),
+      destinationId: String(input.destinationId || "").slice(0, 120),
+      lineMessagingMode: String(input.lineMessagingMode || "").slice(0, 80),
+      lineMessagingBatchKey: String(input.lineMessagingBatchKey || "").slice(0, 160),
+      lineMessagingBatchWindowMs: Number.isFinite(Number(input.lineMessagingBatchWindowMs)) ? Number(input.lineMessagingBatchWindowMs) : null,
+      alertCenterEvent: String(input.alertCenterEvent || "").slice(0, 120),
+      alertCenterOnceKey: String(input.alertCenterOnceKey || "").slice(0, 160),
+      alertCenterRecipientRole: String(input.alertCenterRecipientRole || "").slice(0, 80),
+      lineMessagingAt: now,
+      lineMessagingStatus: input.testMode === true ? "mock_skipped" : "pending",
+      lineMessagingAttemptId: String(input.lineMessagingAttemptId || "").slice(0, 160)
+    };
+  }
+  if (action === "test_notification") {
+    return { testNotification: { status: "queued", requestedAt: now } };
+  }
+  const err = new Error("unsupported_ticket_action");
+  err.httpStatus = 400;
+  throw err;
+}
+
+exports.updatePassengerTicketState = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 20,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+    const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+    const action = String(body.action || "");
+    if (!code || !token || !action) {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    enforcePublicRateLimit(req, "updatePassengerTicketState", ticketAccess.tokenHash(token));
+    const ref = admin.database().ref(`bookings/${code}`);
+    const beforeSnap = await ref.get();
+    const before = beforeSnap && beforeSnap.val ? beforeSnap.val() : null;
+    if (!before) {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    ticketAccess.verifyTicketAccess(before, token);
+    const patch = cleanTicketStatePayload(action, body.payload || {});
+    let skipped = false;
+    const tx = await ref.transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      if (String(current.ticketAccessTokenHash || "") !== ticketAccess.tokenHash(token)) return current;
+      if (action === "checkin" && (current.status === "checked_in" || current.status === "transfer_nearby_notified") && current.isAdminTester !== true) {
+        skipped = true;
+        return current;
+      }
+      return Object.assign({}, current, patch);
+    });
+    const after = tx && tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : before;
+    sendJson(res, 200, {
+      status: "ready",
+      result: skipped ? "idempotent_noop" : "updated",
+      skipped,
+      ticket: ticketAccess.minimalTicket(after, code)
+    });
+  } catch (err) {
+    if (err && err.publicCode === "blocked_legacy_ticket_access_token_missing") {
+      sendJson(res, 403, { status: "blocked", error: "blocked_legacy_ticket_access_token_missing" });
+      return;
+    }
+    if (err && err.message === "ticket_access_denied") {
+      sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+      return;
+    }
+    const status = err && err.httpStatus ? err.httpStatus : 500;
+    sendJson(res, status, { status: "error", error: status === 500 ? "ticket_action_unavailable" : "invalid_ticket_action" });
+  }
+});
+
 function refundFunction(action, permission, nextStatus) {
   return onRequest({
     region: "asia-southeast1",
@@ -582,7 +908,7 @@ function bookingRouteText(booking) {
   if (booking.route) return String(booking.route);
   const origin = booking.origin || booking.from || "-";
   const destination = booking.destination || booking.to || "-";
-  return `${origin} โ’ ${destination}`;
+  return `${origin} → ${destination}`;
 }
 function isCheckinEvent(booking) {
   return booking.notificationOnly === true ||
@@ -595,26 +921,26 @@ function buildCheckinMessage(booking) {
   if (booking.lineMessage) return booking.lineMessage;
   if (booking.linePayload && booking.linePayload.message) return booking.linePayload.message;
   return [
-    "เธเธนเนเนเธ”เธขเธชเธฒเธฃเน€เธเนเธเธญเธดเธเนเธเธฅเนเธ–เธถเธเธเธธเธ”เธซเธกเธฒเธข",
+    "ผู้โดยสารเช็คอินใกล้ถึงจุดหมาย",
     "",
-    `เธเธทเนเธญ: ${booking.name || "-"}`,
-    `เน€เธเธญเธฃเนเนเธ—เธฃ: ${booking.phone || "-"}`,
-    `เน€เธชเนเธเธ—เธฒเธ: ${bookingRouteText(booking)}`,
-    `เธงเธฑเธเน€เธงเธฅเธฒ: ${booking.date || "-"} ${booking.time || "-"} เธ.`,
-    `เธเธณเธเธงเธ: ${booking.seats || 1}`,
-    "เนเธเธฅเนเธ–เธถเธเธเธธเธ”เธซเธกเธฒเธขเธญเธตเธ 3 เธเธฒเธ—เธต"
+    `ชื่อ: ${booking.name || "-"}`,
+    `เบอร์โทร: ${booking.phone || "-"}`,
+    `เส้นทาง: ${bookingRouteText(booking)}`,
+    `วันเวลา: ${booking.date || "-"} ${booking.time || "-"} น.`,
+    `จำนวน: ${booking.seats || 1}`,
+    "ใกล้ถึงจุดหมายอีก 3 นาที"
   ].join("\n");
 }
 
 function buildBookingMessage(booking) {
   const lines = [
-    `เธฃเธซเธฑเธช: ${booking.code || "-"}`,
-    `๐‘ค เธเธทเนเธญ: ${booking.name || "-"}    ๐“ เนเธ—เธฃ: ${booking.phone || "-"}`,
-    `๐“ เน€เธชเนเธเธ—เธฒเธ: ${bookingRouteText(booking)}`,
-    `๐—“ เธงเธฑเธเธ—เธตเน: ${formatThaiDate(booking.date)} เน€เธงเธฅเธฒ ${booking.time || "-"} เธ.`,
-    `๐ เธเธณเธเธงเธ: ${booking.seats || 1} เธเธ  ๐’ฐ เธฃเธฒเธเธฒ: ${money(booking.price)} เธเธฒเธ—`
+    `รหัส: ${booking.code || "-"}`,
+    `ชื่อ: ${booking.name || "-"}    โทร: ${booking.phone || "-"}`,
+    `เส้นทาง: ${bookingRouteText(booking)}`,
+    `วันที่: ${formatThaiDate(booking.date)} เวลา ${booking.time || "-"} น.`,
+    `จำนวน: ${booking.seats || 1} คน  ราคา: ${money(booking.price)} บาท`
   ];
-  if (booking.slip) lines.push(`๐–ผ เธชเธฅเธดเธ: ${booking.slip}`);
+  if (booking.slip) lines.push(`สลิป: ${booking.slip}`);
   return lines.join("\n");
 }
 

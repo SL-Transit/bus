@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const TIMEZONE = "Asia/Bangkok";
 const RANGE_SIZES = { hourly: 24, daily: 7, weekly: 4, monthly: 6, yearly: 5 };
@@ -556,11 +556,11 @@ function aggregateDashboard(records, options) {
 
     const rKey = routeKey(record);
     routes[rKey] = routes[rKey] || emptyGroup(rKey, {
-      routeId: record.routeId || record.catalogRouteId || "??????????",
-      origin: record.origin || "??????????",
-      destination: record.destination || "??????????",
-      tripId: record.tripId || record.catalogTripId || "??????????",
-      pickupTime: record.pickupTime || record.time || "?"
+      routeId: record.routeId || record.catalogRouteId || "ยังไม่ระบุ",
+      origin: record.origin || "ยังไม่ระบุ",
+      destination: record.destination || "ยังไม่ระบุ",
+      tripId: record.tripId || record.catalogTripId || "ยังไม่ระบุ",
+      pickupTime: record.pickupTime || record.time || "—"
     });
     routes[rKey].bookingCount += 1;
     routes[rKey].passengerCount += pax;
@@ -628,11 +628,11 @@ function aggregateDashboard(records, options) {
       vehicles[vKey] = vehicles[vKey] || emptyGroup(vKey, { vehicleId: vKey, driverId: driverKey(record), queueId: qKey, driverName: driverKey(record) });
       queues[qKey] = queues[qKey] || emptyGroup(qKey, { queueId: qKey });
       routes[rKey] = routes[rKey] || emptyGroup(rKey, {
-        routeId: record.routeId || record.catalogRouteId || "เธขเธฑเธเนเธกเนเธฃเธฐเธเธธ",
-        origin: record.origin || "เธขเธฑเธเนเธกเนเธฃเธฐเธเธธ",
-        destination: record.destination || "เธขเธฑเธเนเธกเนเธฃเธฐเธเธธ",
-        tripId: record.tripId || record.catalogTripId || "เธขเธฑเธเนเธกเนเธฃเธฐเธเธธ",
-        pickupTime: record.pickupTime || record.time || "โ€”"
+        routeId: record.routeId || record.catalogRouteId || "ยังไม่ระบุ",
+        origin: record.origin || "ยังไม่ระบุ",
+        destination: record.destination || "ยังไม่ระบุ",
+        tripId: record.tripId || record.catalogTripId || "ยังไม่ระบุ",
+        pickupTime: record.pickupTime || record.time || "—"
       });
       if (vehicles[vKey]) {
         vehicles[vKey].refundAmount += refundAmount;
@@ -721,3 +721,4 @@ module.exports = {
   originAllowed,
   PRIVATE_FIELD_NAMES
 };
+

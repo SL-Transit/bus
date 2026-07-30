@@ -2,7 +2,7 @@
   "name": "sl-transit-web",
   "private": true,
   "scripts": {
-    "test:unit": "node tests/admin-dashboard-summary.test.js && node tests/admin-dashboard-read-model.test.js && node tests/admin-console-all.test.js && node tests/ticket-action-center.test.js && node tests/admin-auth.test.js && node tests/refund-admin-actions.test.js && node tests/admin-auth-refund-source.test.js",
+    "test:unit": "node tests/text-encoding.test.js && node tests/admin-dashboard-summary.test.js && node tests/admin-dashboard-read-model.test.js && node tests/admin-console-all.test.js && node tests/ticket-action-center.test.js && node tests/ticket-data-center-secure.test.js && node tests/ticket-access-functions.test.js && node tests/admin-auth.test.js && node tests/refund-admin-actions.test.js && node tests/admin-auth-refund-source.test.js",
     "test:browser": "playwright test tests/admin-console-browser.spec.js",
     "test:rules": "firebase emulators:exec --only database \"node tests/database-rules-emulator.test.js\"",
     "test:syntax": "node -c functions/index.js && node -c functions/admin-auth.js && node -c functions/refund-admin-actions.js && node -c admin-dashboard-read-model.js && node -e \"JSON.parse(require('fs').readFileSync('database.rules.json','utf8'))\"",

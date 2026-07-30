@@ -446,8 +446,8 @@
           return;
         }
         currentBooking = normalizeBooking(found.booking, found.code);
-        currentBookingPath = found.readPath || (bookingPathForCode(found.code, currentBooking) + found.code);
-        currentTicket = { code: found.code, booking: currentBooking, readPath: currentBookingPath };
+          currentBookingPath = '';
+          currentTicket = { code: found.code, booking: currentBooking, readPath: currentBookingPath };
         setStatus('good', 'พบข้อมูลการจองแล้ว กรุณาตรวจสอบก่อนยกเลิก');
         renderBooking(currentBooking);
       }).catch(function(err) {
@@ -468,7 +468,7 @@
 
     function confirmCancel() {
       var cancellation = window.SLTransitTicketActionCenter.evaluateCancellation(currentBooking);
-      if (!currentBooking || !currentBookingPath || !cancellation.allowed) return;
+      if (!currentBooking || !cancellation.allowed) return;
       var button = document.getElementById('confirmCancelButton');
       button.disabled = true;
       button.textContent = 'กำลังยกเลิก...';

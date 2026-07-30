@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+﻿const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -94,3 +94,4 @@ test('Sidebar and mobile drawer remain usable', async ({ page }) => {
   await page.locator('#drawerOverlay').click();
   await expect(page.locator('body')).not.toHaveClass(/nav-open/);
 });
+

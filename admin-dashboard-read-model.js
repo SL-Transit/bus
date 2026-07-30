@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   'use strict';
 
   var ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/readAdminDashboardSummary';
@@ -121,7 +121,6 @@
       return clean;
     });
   }
-
   function validateRefundRows(rows) {
     return (Array.isArray(rows) ? rows : []).slice(0, 20).map(function (row) {
       rejectPrivateFields(row);
@@ -278,3 +277,4 @@
   global.SLTransit.screen01ReadModel = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : global);
+

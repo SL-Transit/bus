@@ -33,6 +33,8 @@ function booking(id) {
     pax: 1,
     price: 60,
     fareAmount: 55,
+    ticketAccessTokenHash: 'a'.repeat(64),
+    ticketAccessContractVersion: 'ticket_access_v1',
     publishedSchedule: { readyForApply: false }
   };
 }
@@ -49,13 +51,22 @@ function booking(id) {
     const ownerDb = testEnv.authenticatedContext('owner-1', { slTransitRole: 'owner' }).database();
 
     await assertSucceeds(anonDb.ref('bookings/BKTEST01').set(booking('BKTEST01')));
-    await assertSucceeds(anonDb.ref('bookings/BKTEST01').update({
+    await assertFails(anonDb.ref('bookings/BKTEST01').get());
+    await assertFails(anonDb.ref('bookings/BKTEST01').update({
       status: 'cancelled',
       cancelledAt: 1785363600000,
       officialStatus: 'cancelled',
       ticketActionContract: 'ticket_action_center_cancel_v1'
     }));
     await assertFails(userDb.ref('bookings/BKTEST01').update({ refundStatus: 'refunded' }));
+    await assertFails(userDb.ref('bookings/BKTEST01').update({
+      status: 'cancelled',
+      refundAmount: 60,
+      refundRequestedAt: 1785363600000,
+      refundContractVersion: 'refund_contract_v1',
+      refundedAt: 1785363600000,
+      adminCancelledByUid: 'owner-1'
+    }));
     await assertFails(userDb.ref('bookings/BKTEST01').update({ refundedAt: 1785363600000 }));
     await assertFails(userDb.ref('bookings/BKTEST01').update({ adminCancelledByUid: 'owner-1' }));
     await assertFails(anonDb.ref('operations/refunds/refund_1').get());

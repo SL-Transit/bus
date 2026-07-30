@@ -50,9 +50,23 @@ function mockDb(initial) {
   assert.strictEqual(cancelled.reason, 'already_cancelled');
 
   const db = mockDb();
+  const originalFetch = global.fetch;
+  let lastFetch = null;
+  global.fetch = async (url, options) => {
+    lastFetch = { url, options };
+    return {
+      ok: true,
+      json: async () => ({
+        status: 'ok',
+        capacityRelease: { status: 'skipped', reason: 'missing_capacity_contract' },
+        ticket: Object.assign({}, futureBooking, { code: 'BK1234567890', status: 'cancelled', cancelledAt: 1785363600000 })
+      })
+    };
+  };
   const result = await TicketActionCenter.cancelTicket({
     db,
     firebase: { database: { ServerValue: { TIMESTAMP: '__SERVER_TIME__' } } },
+    accessToken: 'secure_ticket_token_12345678901234567890',
     ticket: {
       code: 'BK1234567890',
       readPath: 'bookings/BK1234567890',
@@ -60,11 +74,11 @@ function mockDb(initial) {
     },
     nowMs
   });
-  assert.strictEqual(result.bookingPath, 'bookings/BK1234567890');
+  assert.strictEqual(result.bookingPath, '');
   assert.strictEqual(result.patch.status, 'cancelled');
-  assert.strictEqual(result.patch.cancelledAt, '__SERVER_TIME__');
-  assert.strictEqual(db.writes.length, 1);
-  assert.strictEqual(db.writes[0].path, 'bookings/BK1234567890');
+  assert.strictEqual(result.patch.cancelledAt, 1785363600000);
+  assert.strictEqual(db.writes.length, 0, 'browser cancellation must not write bookings directly');
+  assert(lastFetch && String(lastFetch.url).includes('cancelPassengerTicket'), 'cancel must call backend Function');
   assert.strictEqual(result.capacityRelease.status, 'skipped');
   assert.strictEqual(result.capacityRelease.reason, 'missing_capacity_contract');
 
@@ -80,20 +94,17 @@ function mockDb(initial) {
       }
     }
   });
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      status: 'ok',
+      capacityRelease: { status: 'released' },
+      ticket: Object.assign({}, futureBooking, { code: 'BK1234567890', status: 'cancelled', cancelledAt: 1785363600001 })
+    })
+  });
   const capacityResult = await TicketActionCenter.cancelTicket({
     db: capacityDb,
-    bookingBridge: {
-      releaseBookingCapacity(dbArg, contract) {
-        return dbArg.ref(contract.counterPath).transaction(function(current) {
-          const bookings = current.bookings || {};
-          delete bookings[contract.bookingCode];
-          current.bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - Number(contract.requestedSeats || 1));
-          current.seatsAvailable = Math.max(0, Number(current.capacityLimit || 3) - current.bookedSeats);
-          current.bookings = bookings;
-          return current;
-        });
-      }
-    },
+    accessToken: 'secure_ticket_token_12345678901234567890',
     ticket: {
       code: 'BK1234567890',
       readPath: 'bookings/BK1234567890',
@@ -108,13 +119,14 @@ function mockDb(initial) {
     nowMs
   });
   assert.strictEqual(capacityResult.capacityRelease.status, 'released');
-  assert.strictEqual(capacityDb.store[capacityPath].bookedSeats, 0, 'cancel release must restore booked seats');
-  assert.strictEqual(capacityDb.store[capacityPath].seatsAvailable, 3, 'cancel release must restore available seats');
-  assert.strictEqual(Object.prototype.hasOwnProperty.call(capacityDb.store[capacityPath].bookings, 'BK1234567890'), false, 'cancel release must remove booking from capacity counter');
+  assert.strictEqual(capacityDb.store[capacityPath].bookedSeats, 2, 'browser must not release capacity directly');
+  assert.strictEqual(capacityDb.store[capacityPath].seatsAvailable, 1, 'browser must not mutate capacity directly');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(capacityDb.store[capacityPath].bookings, 'BK1234567890'), true, 'backend owns capacity release');
 
   await assert.rejects(
     () => TicketActionCenter.cancelTicket({
       db: mockDb(),
+      accessToken: 'secure_ticket_token_12345678901234567890',
       ticket: {
         code: 'BK1234567890',
         readPath: 'bookings/BK1234567890',
@@ -124,6 +136,20 @@ function mockDb(initial) {
     }),
     /TICKET_CANCELLATION_BLOCKED:too_close_to_departure/
   );
+
+  await assert.rejects(
+    () => TicketActionCenter.cancelTicket({
+      db: mockDb(),
+      ticket: {
+        code: 'BK1234567890',
+        booking: futureBooking
+      },
+      nowMs
+    }),
+    /TICKET_ACCESS_TOKEN_REQUIRED/
+  );
+
+  global.fetch = originalFetch;
 
   console.log('ticket action center ok');
 })();

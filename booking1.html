@@ -2539,8 +2539,41 @@ function renderTrips() {
 }
 
 /* ---------- QR CODE HELPERS ---------- */
-function getTicketQrText(code) {
-  return 'https://sl-transit.com/track_trip.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
+function generateTicketAccessToken() {
+  var bytes = new Uint8Array(32);
+  (window.crypto || window.msCrypto).getRandomValues(bytes);
+  var binary = Array.prototype.map.call(bytes, function(b) { return String.fromCharCode(b); }).join('');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function sha256Hex(value) {
+  var bytes = new TextEncoder().encode(String(value || ''));
+  return crypto.subtle.digest('SHA-256', bytes).then(function(hash) {
+    return Array.prototype.map.call(new Uint8Array(hash), function(b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+  });
+}
+
+function rememberTicketAccess(code, token) {
+  try {
+    sessionStorage.setItem('slt_ticket_access_' + String(code || '').trim().toUpperCase(), token);
+  } catch (err) {}
+}
+
+function getTicketAccessToken(code) {
+  try {
+    return sessionStorage.getItem('slt_ticket_access_' + String(code || '').trim().toUpperCase()) || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function getTicketQrText(code, token) {
+  var rawToken = token || getTicketAccessToken(code);
+  var url = 'https://sl-transit.com/track_trip.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
+  if (rawToken) url += '&ticketToken=' + encodeURIComponent(rawToken);
+  return url;
 }
 
 function renderQr(targetId, text, size) {
@@ -2718,7 +2751,7 @@ function _dateThaiShort() {
 }
 
 /* ยืนยันชำระเงิน → หน้า 4 ตั๋ว */
-function goToTicket() {
+async function goToTicket() {
   var nameEl = document.getElementById('inp-name');
   var phoneEl = document.getElementById('inp-phone');
   var nameVal = nameEl ? nameEl.value.trim() : state.name;
@@ -2735,6 +2768,9 @@ function goToTicket() {
   if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
   if (!currentPayMethod) selectPayMethod('onsite');
   state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
+  var ticketAccessToken = generateTicketAccessToken();
+  var ticketAccessTokenHash = await sha256Hex(ticketAccessToken);
+  rememberTicketAccess(state.bookingCode, ticketAccessToken);
 
   /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
   var assignmentPlan = window.SLTransitBookingAssignmentCenter
@@ -2767,7 +2803,8 @@ function goToTicket() {
     fare:          state._totalFare,
     payMethod:     currentPayMethod || '',
     slipUploaded:  currentPayMethod === 'onsite' ? false : !!state.slipFile,
-    assignment:    assignmentContract
+    assignment:    assignmentContract,
+    ticketAccessTokenHash: ticketAccessTokenHash
   });
   /* bookingSnap.catalogVersion ← ถูก embed โดย bridge อัตโนมัติ */
   console.log('[Booking] snapshot ready:', bookingSnap.bookingCode, 'catalogVersion:', bookingSnap.catalogVersion);
@@ -2793,7 +2830,7 @@ function goToTicket() {
 
   showPage(4);
   setTimeout(function() {
-    renderQr('ticketQrCode', getTicketQrText(state.bookingCode), 160);
+    renderQr('ticketQrCode', getTicketQrText(state.bookingCode, ticketAccessToken), 160);
   }, 100);
 }
 
