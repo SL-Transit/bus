@@ -30,7 +30,7 @@ function mockDb(initial) {
 (async function run() {
   assert.strictEqual(TicketActionCenter.contractVersion, 'ticket_action_center_cancel_v1');
 
-  const nowMs = Date.parse('2026-07-22T08:00:00+07:00');
+  const nowMs = new Date('2026-07-22T08:00:00').getTime();
   const futureBooking = {
     code: 'BK1234567890',
     date: '2026-07-22',
