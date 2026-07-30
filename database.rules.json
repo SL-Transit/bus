@@ -42,7 +42,7 @@
         "adminAccounts": {
           ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           "$uid": {
-            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+            ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || (!root.child('data/erpDataCenter/adminAccounts').exists() && auth.uid === $uid))"
           }
         }
       },
