@@ -136,6 +136,36 @@
         ".write": "auth != null || (!data.exists() && newData.child('code').val() === $bookingId && newData.child('bookingCode').val() === $bookingId && newData.child('source').val() === 'booking1.html' && newData.child('sourceMode').val() === 'erp_data_center' && newData.child('status').val() === 'awaiting_payment' && ((newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false) || (newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true) || (newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite')) && newData.child('paymentOwnership').val() === 'sl_transit' && newData.child('externalPaymentRequired').val() === false && newData.child('testMode').val() === false && newData.child('mockPayment').val() === false && newData.child('name').isString() && newData.child('phone').isString() && newData.child('date').isString() && newData.child('time').isString() && newData.child('origin').isString() && newData.child('destination').isString() && newData.child('pax').isNumber() && newData.child('pax').val() >= 1 && newData.child('pax').val() <= 10 && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('fareAmount').isNumber() && newData.child('fareAmount').val() >= 0 && newData.child('publishedSchedule').child('readyForApply').val() === false)"
       }
     },
+    "analytics": {
+      "mainWeb": {
+        ".read": false,
+        "$day": {
+          ".indexOn": ["count", "pageViews"],
+          ".validate": "$day.matches(/^\\d{4}-\\d{2}-\\d{2}$/)",
+          "count": {
+            ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+          },
+          "pageViews": {
+            ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+          },
+          "pageDeviceCounts": {
+            "$page": {
+              ".write": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+            }
+          },
+          "devices": {
+            "$deviceId": {
+              ".write": "$deviceId.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.hasChildren(['firstSeenAt', 'lastSeenAt', 'pageViews', 'pages']) && newData.child('firstSeenAt').isNumber() && newData.child('lastSeenAt').isNumber() && newData.child('lastSeenAt').val() >= newData.child('firstSeenAt').val() && newData.child('pageViews').isNumber() && ((!data.exists() && newData.child('pageViews').val() === 1) || (data.exists() && data.child('pageViews').isNumber() && newData.child('pageViews').val() === data.child('pageViews').val() + 1))",
+              "pages": {
+                "$page": {
+                  ".validate": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && newData.val() >= 1 && (!data.exists() || newData.val() === data.val() + 1)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "driverCommands": {
       "$vehicleId": {
         "command": {
