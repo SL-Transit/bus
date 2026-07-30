@@ -31,8 +31,9 @@ assert.ok(!dashboardSource.includes('sourceStatusPanel(d)'), 'Dashboard must not
 assert.ok(!dashboardSource.includes('id="source-status"'), 'Dashboard must remove source status panel from Screen 01');
 assert.ok(html.includes('function settlementCell(row,h)'), 'Dashboard settlement tables must preserve zero values');
 assert.ok(html.includes('value===0||value?value'), 'Dashboard settlement tables must not render 0 as unavailable');
-assert.ok(html.includes('data-label'), 'Dashboard settlement tables must expose mobile row labels');
-assert.ok(html.includes('settlement-responsive'), 'Dashboard settlement tables must use mobile-friendly responsive styling');
+assert.ok(html.includes('settlement-responsive'), 'Dashboard settlement tables must keep the standard responsive table wrapper');
+assert.ok(!html.includes('.settlement-table thead{display:none}'), 'Dashboard settlement tables must stay Excel-like on mobile');
+assert.ok(!html.includes('.settlement-table,.settlement-table tbody,.settlement-table tr,.settlement-table td{display:block'), 'Dashboard settlement tables must not become mobile cards');
 assert.ok(html.includes('ผู้โดยสาร'), 'Refund table must include passenger name column');
 assert.ok(html.includes('เบอร์โทร'), 'Refund table must include passenger phone column');
 assert.ok(html.includes('จำนวนเงินคืน'), 'Refund table must include refund amount column');
