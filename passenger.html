@@ -768,6 +768,27 @@ function focusCurrentUserPosition() {
   requestPassengerUserLocation({ showErrors: true, setBusy: true });
 }
 
+var _userLocationWatchHandle = null;
+
+function startPassengerUserLocationWatch() {
+  if (_userLocationWatchHandle) return;
+  if (!window.SLTransitUserLocation || typeof window.SLTransitUserLocation.watchCurrentUser !== 'function') return;
+  _userLocationWatchHandle = window.SLTransitUserLocation.watchCurrentUser({
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 5000,
+    mapAdapter: {
+      updateUserLocation: function(point) {
+        point = { lat: point.lat, lon: point.lon };
+        if (typeof SLPassengerLogic.map.updateUserLocationPoint === 'function') {
+          SLPassengerLogic.map.updateUserLocationPoint(point);
+        }
+      }
+    },
+    onError: function() { /* silent: keep last known dot in place, don't interrupt the page with repeat errors */ }
+  });
+}
+
 function requestPassengerUserLocation(options) {
   options = options || {};
   if (!window.SLTransitUserLocation || typeof window.SLTransitUserLocation.focusCurrentUser !== 'function') {
@@ -794,6 +815,7 @@ function requestPassengerUserLocation(options) {
       setLocationConsentVisible(false);
       selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
       updateBottomSheetSummary();
+      startPassengerUserLocationWatch();
     },
     onError: function(result) {
       if (!options.showErrors) return;

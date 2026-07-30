@@ -80,6 +80,18 @@ const noConfigYet = mapDisplay.planVehicleMarker(
 assert.strictEqual(noConfigYet.animation.durationMs, 0, 'with no ERP config supplied, duration must be 0 (no animation), never a guessed default');
 assert.strictEqual(noConfigYet.animation.maxStepMeters, null, 'with no ERP config supplied, maxStepMeters must stay null, not fall back to a hardcoded number');
 
+// Long real-world gap (e.g. tab was backgrounded for a while): bus moved far, but this is a
+// legitimate slow-speed displacement, not an impossible jump. Without catchUpAfterGapMs the
+// maxStepMeters limit would force it to creep back into sync over many update cycles; with it,
+// the marker should glide straight to the true position in one smooth animation.
+const afterBackgroundGap = mapDisplay.planVehicleMarker(
+  first.displayState,
+  { vehicleId: 'veh_001', lat: 13.7, lng: 101.15, gpsTs: 400000, speedKmh: 20 },
+  { maxStepMeters: 250, maxReasonableSpeedMs: 45, animationMinMs: 300, animationMaxMs: 5000, animationRatio: 0.92, catchUpAfterGapMs: 15000 }
+);
+assert.strictEqual(afterBackgroundGap.status, 'smooth', 'a long real gap must catch up in one glide, not creep as no_warp_smooth_limited');
+assert.deepStrictEqual(afterBackgroundGap.point, afterBackgroundGap.targetPoint, 'catch-up motion must not lag behind the true position after a long gap');
+
 
 const noWarp = mapDisplay.planVehicleMarker(
   first.displayState,

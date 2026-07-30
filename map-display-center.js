@@ -174,6 +174,7 @@
     var animationMinMs = num(options.animationMinMs, null);
     var animationMaxMs = num(options.animationMaxMs, null);
     var animationRatio = num(options.animationRatio, null);
+    var catchUpAfterGapMs = num(options.catchUpAfterGapMs, null);
 
     var anchor = normalizePoint(previous.anchor) || normalizePoint(previous.point);
     var display = normalizePoint(previous.display) || normalizePoint(previous.point) || anchor;
@@ -201,8 +202,9 @@
       };
     }
 
+    var isLongGap = catchUpAfterGapMs != null && (dtSec * 1000) > catchUpAfterGapMs;
     var limitedAnchor = nextPoint;
-    var wasLimited = maxStepMeters != null && isFinite(rawMeters) && rawMeters > maxStepMeters;
+    var wasLimited = !isLongGap && maxStepMeters != null && isFinite(rawMeters) && rawMeters > maxStepMeters;
     if (wasLimited) {
       var ratio = Math.max(0, Math.min(1, maxStepMeters / rawMeters));
       limitedAnchor = {

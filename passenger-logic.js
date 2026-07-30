@@ -170,7 +170,8 @@
     maxPredictMeters: null,
     animationMinMs: null,
     animationMaxMs: null,
-    animationRatio: null
+    animationRatio: null,
+    catchUpAfterGapMs: null
   };
   function watchVehicleMarkerConfig() {
     var db = getDb();
@@ -314,6 +315,13 @@ function showUserLocationMarker(point) {
     console.warn('Passenger user location marker failed:', e2 && e2.message ? e2.message : e2);
     return false;
   }
+}
+
+function updateUserLocationPoint(point) {
+  var normalized = normalizeMapPoint(point);
+  if (!normalized) return false;
+  userLocationPoint = { lat: normalized.lat, lon: normalized.lon };
+  return showUserLocationMarker(userLocationPoint);
 }
 
 function focusUserLocation(point) {
@@ -1090,6 +1098,7 @@ function removeBusFromMap(carId) {
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,
     focusUserLocation: focusUserLocation,
+    updateUserLocationPoint: updateUserLocationPoint,
     focusOrigin: focusSelectedOrigin,
 
     forceFocusOrigin: forceFocusSelectedOriginAfterMapReady,
