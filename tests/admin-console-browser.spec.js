@@ -30,13 +30,13 @@ test('Dashboard Screen 01 keeps aggregate charts and privacy-safe labels', async
 
 test('Range changes reload Dashboard aggregate without stale UI crash', async ({ page }) => {
   const main = page.locator('#page');
-  await expect(main.locator('[data-analytics-range="daily"]')).toHaveAttribute('aria-pressed', 'true');
-  await main.locator('[data-analytics-range="monthly"]').click();
-  await expect(main.locator('[data-analytics-range="monthly"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(main.locator('[data-booking-range="monthly"]')).toHaveAttribute('aria-pressed', 'true');
-  await main.locator('[data-booking-range="hourly"]').click();
-  await expect(main.locator('[data-booking-range="hourly"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(main.locator('[data-analytics-range="hourly"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(main.locator('[data-analytics-range]')).toHaveValue('daily');
+  await main.locator('[data-analytics-range]').selectOption('monthly');
+  await expect(main.locator('[data-analytics-range]')).toHaveValue('monthly');
+  await expect(main.locator('[data-booking-range]')).toHaveValue('monthly');
+  await main.locator('[data-booking-range]').selectOption('hourly');
+  await expect(main.locator('[data-booking-range]')).toHaveValue('hourly');
+  await expect(main.locator('[data-analytics-range]')).toHaveValue('hourly');
   await expect(main.locator('#website-analytics')).toBeVisible();
   await expect(main.locator('#booking-activity')).toBeVisible();
 });
