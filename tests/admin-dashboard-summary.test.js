@@ -208,6 +208,33 @@ assert.strictEqual(noTodaySettlement.vehicles.length, 0, 'vehicle settlement tab
 assert.strictEqual(noTodaySettlement.queues.length, 0, 'queue settlement table must not show historical bookings as today revenue');
 assert.strictEqual(noTodaySettlement.finance.grossAmount, 0, 'today finance remains zero when no booking was created today');
 
+const fleetOnly = summary.aggregateDashboard({}, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  travelRecords: {},
+  cancelledRecords: {},
+  refundedRecords: {},
+  fleetMaster: {
+    assignmentRules: {
+      rotation_rule_v1: {
+        vehicleIds: ['veh_001', 'veh_002', 'veh_003', 'veh_004'],
+        queueIds: ['queue_001', 'queue_002', 'queue_003', 'queue_004']
+      }
+    },
+    vehicles: {
+      veh_001: { runtimeVehicleId: 'car1', legacyAliases: ['car1'] },
+      veh_002: { runtimeVehicleId: 'car2', legacyAliases: ['car2'] },
+      veh_003: { runtimeVehicleId: 'car3', legacyAliases: ['car3'] },
+      veh_004: { runtimeVehicleId: 'car4', legacyAliases: ['car4'] }
+    }
+  },
+  generatedAt: 5
+});
+assert.deepStrictEqual(fleetOnly.vehicles.map((row) => row.vehicleAlias), ['car1', 'car2', 'car3', 'car4']);
+assert(fleetOnly.vehicles.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'fleet master rows must not create fake revenue');
+assert(fleetOnly.vehicles.every((row) => row.queueId), 'fleet master rows include the rotation queue for the selected day');
+
 const serialized = JSON.stringify(result);
 ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {
   assert(!serialized.includes(`"${field}"`), `response must not expose ${field}`);
