@@ -133,6 +133,7 @@ exports.readAdminDashboardSummary = onRequest({
       refundedSnap,
       refundApprovedSnap,
       fleetMasterSnap,
+      serviceGroupsSnap,
       websiteAnalyticsSnap
     ] = await Promise.all([
       admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
@@ -142,6 +143,7 @@ exports.readAdminDashboardSummary = onRequest({
       admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("data/erpDataCenter/fleet").get(),
+      admin.database().ref("data/erpDataCenter/serviceGroups").get(),
       range === "hourly"
         ? Promise.resolve(null)
         : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get()
@@ -153,7 +155,7 @@ exports.readAdminDashboardSummary = onRequest({
       travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
       cancelledRecords: cancelledSnap.val() || {},
       refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
-      fleetMaster: fleetMasterSnap.val() || {},
+      fleetMaster: Object.assign({}, fleetMasterSnap.val() || {}, { serviceGroups: serviceGroupsSnap.val() || {} }),
       websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null
     });
     res.set("Cache-Control", "private, max-age=30");

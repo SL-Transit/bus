@@ -227,6 +227,13 @@ const fleetOnly = summary.aggregateDashboard({}, {
       veh_002: { runtimeVehicleId: 'car2', legacyAliases: ['car2'] },
       veh_003: { runtimeVehicleId: 'car3', legacyAliases: ['car3'] },
       veh_004: { runtimeVehicleId: 'car4', legacyAliases: ['car4'] }
+    },
+    serviceGroups: {
+      group_001: { displayNameTh: 'ท่ารถสนามชัยเขต-หนองคอก-คลองหาด', routeScopeTh: 'สนามชัยเขต-หนองคอก-คลองหาด', status: 'active' },
+      group_002: { displayNameTh: 'กลุ่มหมอชิต-เอกมัย-BTS', status: 'active' },
+      group_003: { displayNameTh: 'กลุ่มพัทยา-ระยอง-มีนบุรี', status: 'active' },
+      group_004: { displayNameTh: 'กลุ่มรังสิต', status: 'active' },
+      group_005: { displayNameTh: 'กลุ่มรถไฟ', paymentMode: 'external_pay', status: 'active' }
     }
   },
   generatedAt: 5
@@ -234,8 +241,8 @@ const fleetOnly = summary.aggregateDashboard({}, {
 assert.deepStrictEqual(fleetOnly.vehicles.map((row) => row.vehicleAlias), ['car1', 'car2', 'car3', 'car4']);
 assert(fleetOnly.vehicles.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'fleet master rows must not create fake revenue');
 assert(fleetOnly.vehicles.every((row) => row.queueId), 'fleet master rows include the rotation queue for the selected day');
-assert.deepStrictEqual(fleetOnly.queues.map((row) => row.queueId), ['queue_001', 'queue_002', 'queue_003', 'queue_004']);
-assert(fleetOnly.queues.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'queue master rows must not create fake revenue');
+assert.deepStrictEqual(fleetOnly.queues.map((row) => row.queueDisplayName), ['ท่ารถสนามชัยเขต-หนองคอก-คลองหาด', 'กลุ่มหมอชิต-เอกมัย-BTS', 'กลุ่มพัทยา-ระยอง-มีนบุรี', 'กลุ่มรังสิต', 'กลุ่มรถไฟ']);
+assert(fleetOnly.queues.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'service group rows must not create fake revenue');
 
 const serialized = JSON.stringify(result);
 ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {
@@ -264,6 +271,7 @@ assert(functionsIndex.includes('orderByChild("serviceDate")'), 'function must qu
 assert(functionsIndex.includes('orderByChild("cancelledAt")'), 'function must query cancellations by cancelledAt');
 assert(functionsIndex.includes('orderByChild("refundedAt")'), 'function must query refunds by refundedAt');
 assert(functionsIndex.includes('ref("data/erpDataCenter/fleet").get()'), 'function must read ERP fleet master for vehicle alias and public driver display names');
+assert(functionsIndex.includes('ref("data/erpDataCenter/serviceGroups").get()'), 'function must read ERP service groups for queue/transfer provider display names');
 assert(functionsIndex.includes('ref("analytics/mainWeb")'), 'function must read website analytics rollups through the HTTPS summary endpoint');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 
