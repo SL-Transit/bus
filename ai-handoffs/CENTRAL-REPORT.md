@@ -14,6 +14,16 @@ Every report must include:
 - Firebase/passenger-data safety statement
 - blockers and next recommended action
 
+## 2026-07-29 12:04 +07 - Firebase database.rules.json LIVE DEPLOY CONFIRMED (correction)
+
+**Correction to the 2026-07-29 record of commit `1414fe3` ("Fix Firebase rules: close public bookings PII leak, prevent GPS spoofing on liveVehicles")**: that commit only changed the file inside this GitHub repo. It was **not actually live on the Firebase project** until today. Root cause: there is no CI/CD step that deploys `database.rules.json` to Firebase (checked `.github/workflows/` — only `deploy-pages.yml` for GitHub Pages and `build-driver-apk.yml` exist; neither touches Realtime Database rules). Firebase rules must be manually pasted into Firebase Console → Realtime Database → Rules → Publish, or deployed via `firebase deploy --only database` with the Firebase CLI — committing to `main` alone does nothing to the live rules.
+
+Impact while undeployed: confirmed via owner-provided screenshot of the live Rules tab that (a) `bookings` (root path) had `.read: true`, meaning anyone with no login could enumerate/dump the entire bookings collection (name/phone/trip details for every passenger), and (b) `operations/liveVehicles/$vehicleId.write` had no `runtimeVehicleId` ownership check, meaning any authenticated driver account could overwrite the live GPS position of any vehicle, not just their own.
+
+Owner pasted the repo's `database.rules.json` content into Firebase Console and clicked Publish today (2026-07-29 ~12:04 +07). Confirmed via screenshot: `liveVehicles.$vehicleId.write` now includes the `root.child('data/driverIdentityCenter/accounts/...')` ownership check, and root `bookings.read` is `false` with `$bookingId.read: true`. **This fix is now actually live**, not just committed.
+
+**Process note for all AI agents**: `database.rules.json` (and any other Firebase project config — Realtime Database rules, Storage rules, Cloud Functions, Firebase Auth settings) is **not deployed by pushing to GitHub**. Any future change to this file must be flagged to the owner as "needs manual publish in Firebase Console" (or CLI deploy) — do not mark security-sensitive Firebase rules work as DONE/resolved in this board until the owner confirms it was actually published live, not just merged.
+
 ## 2026-07-29 09:33 +07 - Booking Logic AI (Booking1) - REVIEW
 
 Scope:

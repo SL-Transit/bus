@@ -62,3 +62,6 @@ A pushed change is not complete until the AI reports:
 - test evidence
 - safety statement
 - next action
+
+## Firebase Project Config Is NOT Deployed By Git Push
+`database.rules.json`, Firebase Storage rules, Firebase Auth settings (sign-in providers, users), and Cloud Functions config live on the Firebase project itself — pushing to GitHub only changes the copy inside this repo. There is no CI/CD step that syncs `database.rules.json` to Firebase (confirmed: only `deploy-pages.yml` and `build-driver-apk.yml` exist under `.github/workflows/`). Any change to these files, especially security-sensitive rules, must be flagged to the owner as "needs manual publish in Firebase Console (Realtime Database → Rules → Publish)" or CLI deploy (`firebase deploy --only database`). Do not mark security-rules work `DONE` in this board until the owner confirms the live Firebase Console rules were actually published, not just that the repo file was merged. See `CENTRAL-REPORT.md` 2026-07-29 12:04 entry for the incident this rule is based on.
