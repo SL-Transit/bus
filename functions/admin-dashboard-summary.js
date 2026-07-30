@@ -1,7 +1,7 @@
 "use strict";
 
 const TIMEZONE = "Asia/Bangkok";
-const RANGE_SIZES = { hourly: 24, daily: 30, weekly: 12, monthly: 12, yearly: 5 };
+const RANGE_SIZES = { hourly: 24, daily: 7, weekly: 4, monthly: 6, yearly: 5 };
 const ALLOWED_RANGES = new Set(Object.keys(RANGE_SIZES));
 const ALLOWED_ORIGINS = new Set(["https://sl-transit.com", "https://www.sl-transit.com"]);
 const ALLOWED_BOOKING_SOURCES = new Set(["booking1.html"]);
@@ -149,10 +149,10 @@ function queryWindow(range, anchor, nowMs) {
   if (!anchorDate || !ALLOWED_RANGES.has(range)) return null;
   let start = anchorDate;
   let end = addDays(anchorDate, 1).getTime() - 1;
-  if (range === "daily") start = addDays(anchorDate, -29);
-  else if (range === "weekly") start = addDays(anchorDate, -83);
+  if (range === "daily") start = addDays(anchorDate, -6);
+  else if (range === "weekly") start = addDays(anchorDate, -27);
   else if (range === "monthly") {
-    start = addMonths(startOfBangkokMonth(anchorDate), -11);
+    start = addMonths(startOfBangkokMonth(anchorDate), -5);
     end = addMonths(startOfBangkokMonth(anchorDate), 1).getTime() - 1;
   } else if (range === "yearly") {
     start = addYears(startOfBangkokYear(anchorDate), -4);
