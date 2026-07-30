@@ -56,7 +56,7 @@
     .dash-title p{font-size:14px;color:#667085}
     .dash-refresh{background:#f8fafc;border:1px solid #e4eaf2;border-radius:999px;padding:6px 8px 6px 14px}
     .dash-refresh button{background:#fff;color:#182536;border:1px solid #d8e2ec;border-radius:10px;font-weight:800;min-height:36px;padding:0 14px;box-shadow:0 2px 8px rgba(15,23,42,.04)}
-    .kpis{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:14px;margin:0 0 16px}
+    .kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px;margin:0 0 16px}
     .card.kpi{position:relative;overflow:hidden;background:#fff;border:1px solid #e1e8f1;border-radius:14px;box-shadow:0 12px 28px rgba(15,35,58,.07);padding:16px;min-height:126px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
     .card.kpi:before{content:"";position:absolute;inset:auto 0 0;height:3px;background:linear-gradient(90deg,#2368d8,#18a8b6);opacity:.9}
     .card.kpi:hover{transform:translateY(-2px);box-shadow:0 18px 36px rgba(15,35,58,.1);border-color:#cbd8e7}
@@ -359,10 +359,7 @@
       var passengerCard=(bookings.status==='ready'||bookings.status==='empty')
         ? kpiCard('teal','\uD83D\uDC65','จำนวนผู้โดยสาร',(bookings.travelPassengerCount||0).toLocaleString('th-TH')+' คน',noData)
         : kpiCard('teal','\uD83D\uDC65','จำนวนผู้โดยสาร','—',noData);
-      var revenueCard=(revenue.status==='ready'||revenue.status==='empty')
-        ? kpiCard('orange','\u0E3F','ยอดจากรายการที่สร้างวันนี้',(revenue.netAmount||revenue.amount||0).toLocaleString('th-TH')+' บาท',noData)
-        : kpiCard('orange','\u0E3F','ยอดจากรายการที่สร้างวันนี้','—',noData);
-      return '<div class="grid kpis">'+visitorsCard+realUsersCard+bookingCard+passengerCard+revenueCard+'</div>';
+      return '<div class="grid kpis">'+visitorsCard+realUsersCard+bookingCard+passengerCard+'</div>';
     }
     function analyticsChart(visits){var model=analyticsModel(visits), labels=(model.points&&model.points.length?model.points:bucketLabels(state.analyticsRange)), points=labels.map(function(p){return {key:p.key,label:p.label||p.key,visitors:p.visitors==null?null:Math.max(0,Math.round(Number(p.visitors)||0)),actualUsers:p.actualUsers==null?null:Math.max(0,Math.round(Number(p.actualUsers)||0))}}), series=[{name:'จำนวนผู้เยี่ยมชม (เว็บไซต์)',color:'#e5484d',values:points.map(function(p){return p.visitors})},{name:'ผู้ใช้งานจริง',color:'#2368d8',values:points.map(function(p){return p.actualUsers})}];return '<section class="panel chart-card" id="website-analytics"><div class="body"><div class="chart-head"><div class="chart-title"><h3>สถิติการเข้าใช้งานเว็บไซต์</h3></div>'+analyticsRangeTabs()+'</div><div class="chart-legend" aria-label="คำอธิบายสีกราฟ"><span><i class="legend-box red"></i>จำนวนผู้เยี่ยมชม (เว็บไซต์)</span><span><i class="legend-box blue"></i>ผู้ใช้งานจริง</span></div><div aria-label="กราฟสถิติการเข้าใช้งานเว็บไซต์">'+chartGrid(points,series,analyticsStatusText(model),'bar')+'</div><table class="sr-only"><caption>สรุปสถิติการเข้าใช้งานเว็บไซต์</caption><thead><tr><th>ช่วงเวลา</th><th>จำนวนผู้เยี่ยมชม (เว็บไซต์)</th><th>ผู้ใช้งานจริง</th></tr></thead><tbody>'+points.map(function(p){return '<tr><td>'+esc(p.label)+'</td><td>'+esc(p.visitors==null?'—':p.visitors)+'</td><td>'+esc(p.actualUsers==null?'—':p.actualUsers)+'</td></tr>'}).join('')+'</tbody></table></div></section>'}
     function bookingActivityModel(bookings,refunds){var fallback={status:'empty',range:state.bookingChartRange,points:[]};if(bookings&&(bookings.status==='ready'||bookings.status==='empty')&&Array.isArray(bookings.points))return Object.assign(fallback,{status:bookings.status,points:bookings.points});if(bookings&&bookings.status==='error')return {status:'error',range:state.bookingChartRange,points:[]};return fallback}
