@@ -6,6 +6,7 @@
   var PATHS = {
     erpDataCenter: 'data/erpDataCenter',
     settings: 'data/erpDataCenter/settings',
+    adminAccounts: 'data/erpDataCenter/adminAccounts',
     destinations: 'data/erpDataCenter/destinations',
     stops: 'data/erpDataCenter/stops',
     boardingPoints: 'data/erpDataCenter/boardingPoints',

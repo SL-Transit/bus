@@ -19,11 +19,11 @@
       "erpDataCenter": {
         "catalog": {
           ".read": true,
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "fleet": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           "vehicles": {
             ".read": true
           },
@@ -33,11 +33,17 @@
         },
         "settings": {
           ".read": true,
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "finance": {
           ".read": "auth != null",
           ".write": false
+        },
+        "adminAccounts": {
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          "$uid": {
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          }
         }
       },
       "driverIdentityCenter": {
