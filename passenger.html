@@ -583,7 +583,8 @@ body { background:#edf6f8; }
 .bottom-sheet .status-card,
 .bottom-sheet .next-bus { margin-bottom:10px; }
 .bottom-sheet .sec-label { margin-top:2px; }
-.map-bus-icon, .map-bus-label { cursor:pointer; }
+.map-bus-icon, .map-bus-label { cursor:pointer; transition:opacity .4s ease, filter .4s ease; }
+.map-bus-icon.is-stale, .map-bus-label.is-stale { opacity:.45; filter:grayscale(70%); }
 @media (min-width:720px) {
   .bottom-sheet {
     left:50%;

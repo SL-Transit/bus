@@ -171,7 +171,11 @@
     animationMinMs: null,
     animationMaxMs: null,
     animationRatio: null,
-    catchUpAfterGapMs: null
+    catchUpAfterGapMs: null,
+    staleAfterMs: null,
+    removeAfterMs: null,
+    wakeCommandAfterMs: null,
+    wakeCommandCooldownMs: null
   };
   function watchVehicleMarkerConfig() {
     var db = getDb();
@@ -1003,14 +1007,41 @@ function placeBusMarkerAt(carId, latlng, options) {
   busMarkers[carId] = new longdo.Marker(point, {
     title: 'Vehicle ' + label,
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-    icon: { html: '<div class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + '</div>', offset: { x: 20, y: 20 } }
+    icon: { html: '<div id="bus-icon-' + safeCarId + '" class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + '</div>', offset: { x: 20, y: 20 } }
   });
   mapObj.Overlays.add(busMarkers[carId]);
   busTagMarkers[carId] = new longdo.Marker(point, {
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-    icon: { html: '<div class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + label + '</div>', offset: { x: 10, y: -20 } }
+    icon: { html: '<div id="bus-tag-' + safeCarId + '" class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + label + '</div>', offset: { x: 10, y: -20 } }
   });
   mapObj.Overlays.add(busTagMarkers[carId]);
+}
+
+function setBusMarkerStale(carId, isStale) {
+  var safeCarId = String(carId);
+  [ 'bus-icon-', 'bus-tag-' ].forEach(function(prefix) {
+    try {
+      var el = document.getElementById(prefix + safeCarId);
+      if (el) el.classList.toggle('is-stale', !!isStale);
+    } catch (e) {}
+  });
+}
+
+var _lastWakeCommandAttempt = {};
+
+function maybeSendWakeCommand(vehicleId, ageMs) {
+  var cfg = vehicleMarkerCfg;
+  if (cfg.wakeCommandAfterMs == null || ageMs <= cfg.wakeCommandAfterMs) return;
+  var cooldownMs = cfg.wakeCommandCooldownMs != null ? cfg.wakeCommandCooldownMs : 120000;
+  var now = Date.now();
+  var last = _lastWakeCommandAttempt[vehicleId] || 0;
+  if (now - last < cooldownMs) return;
+  _lastWakeCommandAttempt[vehicleId] = now;
+  var db = getDb();
+  if (!db || typeof db.ref !== 'function') return;
+  try {
+    db.ref('driverCommands/' + vehicleId + '/command').set('forceGpsRestart').catch(function() {});
+  } catch (e) {}
 }
 function updateAllBusesOnMap(buses) {
   allBusPositions = buses || {};
@@ -1022,10 +1053,21 @@ function updateAllBusesOnMap(buses) {
   });
   center.prepareVehicleLayer(signals, busDisplayState, vehicleMarkerCfg).forEach(function(item) {
     if (!item || !item.vehicle || !item.point) return;
-    busDisplayState[item.vehicle.vehicleId] = item.displayState || { point: item.point };
-    placeBusMarkerAt(item.vehicle.vehicleId, item.point, {
+    var vehicleId = item.vehicle.vehicleId;
+    var lastGpsTs = item.displayState && item.displayState.lastGpsTs;
+    var ageMs = lastGpsTs ? (Date.now() - lastGpsTs) : 0;
+    if (vehicleMarkerCfg.removeAfterMs != null && ageMs > vehicleMarkerCfg.removeAfterMs) {
+      delete busDisplayState[vehicleId];
+      removeBusFromMap(vehicleId);
+      return;
+    }
+    busDisplayState[vehicleId] = item.displayState || { point: item.point };
+    placeBusMarkerAt(vehicleId, item.point, {
       durationMs: item.animation && item.animation.durationMs
     });
+    var isStale = vehicleMarkerCfg.staleAfterMs != null && ageMs > vehicleMarkerCfg.staleAfterMs;
+    setBusMarkerStale(vehicleId, isStale);
+    if (isStale) maybeSendWakeCommand(vehicleId, ageMs);
   });
   Object.keys(busDisplayState).forEach(function(id) {
     if (!buses[id]) {
