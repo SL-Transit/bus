@@ -207,6 +207,8 @@ public class MainActivity extends Activity {
     private boolean driverMapReady = false;
     private DatabaseReference ticketListRelayRef;
     private ValueEventListener ticketListRelayListener;
+    private final java.util.Map<String, ValueEventListener> passengerLocationListeners = new java.util.HashMap<>();
+    private final java.util.Map<String, DatabaseReference> passengerLocationRefs = new java.util.HashMap<>();
     private TextView mapBookedCount, mapCheckedCount, mapEarningsValue;
 
     // ===== หน้ารายงาน (Grab/Uber-style: hero earnings + tab ช่วงเวลา) =====
@@ -549,6 +551,13 @@ public class MainActivity extends Activity {
             try { ticketListRelayRef.removeEventListener(ticketListRelayListener); } catch (Exception ignored) {}
             ticketListRelayRef = null;
             ticketListRelayListener = null;
+        }
+        for (String bookingId : new java.util.ArrayList<>(passengerLocationRefs.keySet())) {
+            DatabaseReference ref = passengerLocationRefs.remove(bookingId);
+            ValueEventListener listener = passengerLocationListeners.remove(bookingId);
+            if (ref != null && listener != null) {
+                try { ref.removeEventListener(listener); } catch (Exception ignored) {}
+            }
         }
     }
 
@@ -3090,11 +3099,13 @@ public class MainActivity extends Activity {
         ticketListRelayListener = new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 org.json.JSONArray arr = new org.json.JSONArray();
+                java.util.Set<String> activeIds = new java.util.HashSet<>();
                 for (DataSnapshot child : snap.getChildren()) {
                     String status = String.valueOf(child.child("status").getValue());
                     if ("cancelled".equals(status)) continue;
                     String checkinStatus = String.valueOf(child.child("originCheckin").child("status").getValue());
                     if ("boarded".equals(checkinStatus)) continue;
+                    activeIds.add(child.getKey());
                     try {
                         org.json.JSONObject t = new org.json.JSONObject();
                         t.put("bookingId", child.getKey());
@@ -3103,10 +3114,59 @@ public class MainActivity extends Activity {
                     } catch (Exception ignored) {}
                 }
                 relayTicketListToMap(arr.toString());
+                syncPassengerLocationListeners(activeIds);
             }
             @Override public void onCancelled(DatabaseError error) {}
         };
         ticketListRelayRef.addValueEventListener(ticketListRelayListener);
+    }
+
+    // เปิด/ปิด listener ของ operations/passengerLiveLocations/{bookingId} ให้ตรงกับตั๋วที่ยัง active
+    // อยู่ในเที่ยวนี้เท่านั้น — ฝั่ง native เป็นผู้อ่าน Firebase เอง (ผ่านสิทธิ์ auth+เจ้าของรถที่ rules
+    // เช็คอยู่แล้ว) แล้วส่งพิกัดที่ผ่านการตรวจสอบสิทธิ์แล้วเข้าเว็บ ไม่ให้เว็บอ่าน Firebase ตรงๆ เอง
+    private void syncPassengerLocationListeners(java.util.Set<String> activeIds) {
+        for (String bookingId : new java.util.ArrayList<>(passengerLocationListeners.keySet())) {
+            if (!activeIds.contains(bookingId)) {
+                DatabaseReference ref = passengerLocationRefs.remove(bookingId);
+                ValueEventListener listener = passengerLocationListeners.remove(bookingId);
+                if (ref != null && listener != null) {
+                    try { ref.removeEventListener(listener); } catch (Exception ignored) {}
+                }
+                relayRemovePassengerLocation(bookingId);
+            }
+        }
+        for (final String bookingId : activeIds) {
+            if (passengerLocationListeners.containsKey(bookingId)) continue;
+            DatabaseReference ref = FirebaseDatabase.getInstance()
+                    .getReference("passengerLiveLocations").child(bookingId);
+            ValueEventListener listener = new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot snap) {
+                    Object latObj = snap.child("lat").getValue();
+                    Object lngObj = snap.child("lng").getValue();
+                    if (!(latObj instanceof Number) || !(lngObj instanceof Number)) {
+                        relayRemovePassengerLocation(bookingId);
+                        return;
+                    }
+                    relayPassengerLocation(bookingId, ((Number) latObj).doubleValue(), ((Number) lngObj).doubleValue());
+                }
+                @Override public void onCancelled(DatabaseError error) {}
+            };
+            ref.addValueEventListener(listener);
+            passengerLocationRefs.put(bookingId, ref);
+            passengerLocationListeners.put(bookingId, listener);
+        }
+    }
+
+    private void relayPassengerLocation(String bookingId, double lat, double lng) {
+        if (driverMapWebView == null || !driverMapReady) return;
+        driverMapWebView.evaluateJavascript(
+                "window.setPassengerLocation && window.setPassengerLocation(" + org.json.JSONObject.quote(bookingId) + "," + lat + "," + lng + ");", null);
+    }
+
+    private void relayRemovePassengerLocation(String bookingId) {
+        if (driverMapWebView == null || !driverMapReady) return;
+        driverMapWebView.evaluateJavascript(
+                "window.removePassengerLocation && window.removePassengerLocation(" + org.json.JSONObject.quote(bookingId) + ");", null);
     }
 
     private void relayTicketListToMap(String ticketsJson) {

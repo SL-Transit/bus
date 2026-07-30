@@ -189,7 +189,7 @@
     "passengerLiveLocations": {
       ".read": false,
       "$bookingId": {
-        ".read": true,
+        ".read": "auth != null && (root.child('bookings/' + $bookingId + '/assignment/contractVersion').val() === 'booking_assignment_v1' ? root.child('bookings/' + $bookingId + '/assignment/plannedVehicleId').val() : root.child('bookings/' + $bookingId + '/plannedVehicleId').val()) === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val()",
         ".write": true
       }
     },

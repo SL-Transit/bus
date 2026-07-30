@@ -159,39 +159,51 @@
 
   var passengerMarkers = {};
   var pendingTicketList = null;
+  var pendingPassengerLocations = [];
 
-  function watchPassengerLocation(bookingId, name) {
-    var ref = db.ref('passengerLiveLocations/' + bookingId);
-    var entry = { ref: ref, marker: null, name: name };
-    passengerMarkers[bookingId] = entry;
-    entry.handler = ref.on('value', function (snap) {
-      var v = snap.val();
-      if (!v || typeof v.lat !== 'number' || typeof v.lng !== 'number') {
-        if (entry.marker) { map.removeLayer(entry.marker); entry.marker = null; }
-        return;
-      }
-      if (!entry.marker) {
-        var icon = L.divIcon({ className: '', html: "<div class='map-passenger-dot'></div>", iconSize: [16, 16], iconAnchor: [8, 8] });
-        entry.marker = L.marker([v.lat, v.lng], { icon: icon, zIndexOffset: 800 })
-          .bindTooltip(escHtml(entry.name || 'ผู้โดยสาร'), { permanent: false, direction: 'top' })
-          .addTo(map);
-      } else {
-        entry.marker.setLatLng([v.lat, v.lng]);
-      }
-    });
+  function ensurePassengerMarker(bookingId, name) {
+    var entry = passengerMarkers[bookingId];
+    if (!entry) {
+      entry = { marker: null, name: name };
+      passengerMarkers[bookingId] = entry;
+    } else if (name) {
+      entry.name = name;
+    }
+    return entry;
   }
 
   function removePassengerMarker(bookingId) {
     var entry = passengerMarkers[bookingId];
     if (!entry) return;
-    try { entry.ref.off('value', entry.handler); } catch (e) {}
     if (entry.marker) map.removeLayer(entry.marker);
     delete passengerMarkers[bookingId];
   }
 
+  // เรียกจากแอพ Android ผ่าน evaluateJavascript('setPassengerLocation("BK123", lat, lng)') เท่านั้น —
+  // หน้าเว็บนี้ไม่มี Firebase Auth ของตัวเอง จึงไม่มีทางบังคับกฎ "คนขับที่ถูกมอบหมายเท่านั้นถึงจะอ่านได้"
+  // เอง ฝั่ง native (ที่ authenticated และผ่านการเช็คสิทธิ์ตาม Firebase rules อยู่แล้ว) เป็นผู้อ่าน
+  // Firebase แทนและส่งพิกัดที่ผ่านการตรวจสอบแล้วเข้ามาเท่านั้น
+  function setPassengerLocation(bookingId, lat, lng) {
+    if (!map) { pendingPassengerLocations.push({ bookingId: bookingId, lat: lat, lng: lng }); return; }
+    var entry = ensurePassengerMarker(bookingId);
+    if (!entry.marker) {
+      var icon = L.divIcon({ className: '', html: "<div class='map-passenger-dot'></div>", iconSize: [16, 16], iconAnchor: [8, 8] });
+      entry.marker = L.marker([lat, lng], { icon: icon, zIndexOffset: 800 })
+        .bindTooltip(escHtml(entry.name || 'ผู้โดยสาร'), { permanent: false, direction: 'top' })
+        .addTo(map);
+    } else {
+      entry.marker.setLatLng([lat, lng]);
+    }
+  }
+
+  // เรียกจากแอพ Android เมื่อผู้โดยสารปิดการแชร์ หรือไม่ใช่ตั๋วที่ active แล้ว
+  function removePassengerLocation(bookingId) {
+    removePassengerMarker(bookingId);
+  }
+
   // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverTicketList([...])') ทุกครั้งที่รายชื่อ
-  // ตั๋ววันนี้ของรถคันนี้เปลี่ยน (เฉพาะ bookingId/name เท่านั้น ไม่มีเบอร์โทร) เพื่อรู้ว่าควรฟัง
-  // ตำแหน่งของผู้โดยสารคนไหนบ้างจาก operations/passengerLiveLocations
+  // ตั๋ววันนี้ของรถคันนี้เปลี่ยน (เฉพาะ bookingId/name เท่านั้น ไม่มีเบอร์โทร) — ใช้แค่เพื่อล้างหมุด
+  // ของตั๋วที่ไม่ active แล้ว (ขึ้นรถ/ยกเลิก) ตำแหน่งจริงมาจาก setPassengerLocation เท่านั้น
   function setDriverTicketList(tickets) {
     if (!map) { pendingTicketList = tickets; return; }
     tickets = Array.isArray(tickets) ? tickets : [];
@@ -199,7 +211,7 @@
     tickets.forEach(function (t) {
       if (!t || !t.bookingId) return;
       activeIds[t.bookingId] = true;
-      if (!passengerMarkers[t.bookingId]) watchPassengerLocation(t.bookingId, t.name);
+      ensurePassengerMarker(t.bookingId, t.name);
     });
     Object.keys(passengerMarkers).forEach(function (id) {
       if (!activeIds[id]) removePassengerMarker(id);
@@ -317,6 +329,10 @@
           setDriverTicketList(pendingTicketList);
           pendingTicketList = null;
         }
+        if (pendingPassengerLocations.length) {
+          pendingPassengerLocations.forEach(function (p) { setPassengerLocation(p.bookingId, p.lat, p.lng); });
+          pendingPassengerLocations = [];
+        }
       }
       renderStops(normalizeStops(mapView.stops), mapView);
       renderRoute(extractRoadRoute(mapView.routes));
@@ -343,6 +359,8 @@
 
   global.setDriverPosition = setDriverPosition;
   global.setDriverTicketList = setDriverTicketList;
+  global.setPassengerLocation = setPassengerLocation;
+  global.removePassengerLocation = removePassengerLocation;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
