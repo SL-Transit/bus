@@ -103,6 +103,95 @@
     .data-state{border-radius:10px;background:#f9fbfd;border-color:#d7e0ea;color:#52616f}
     @media(max-width:1180px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}.platform-command-grid,.platform-detail-grid,.platform-lower-grid{grid-template-columns:1fr!important}.platform-lower-grid #queue-settlements,.platform-lower-grid #refunds-section,.platform-lower-grid #source-status{grid-column:auto;grid-row:auto}}
     @media(max-width:760px){.content{padding:12px;background:linear-gradient(180deg,#f3f7fb 0,#f7f9fc 100%)}.dash-title{display:block;padding:16px;border-radius:14px;margin-bottom:12px}.dash-title h2{font-size:21px;line-height:1.18}.dash-title p{font-size:12px;line-height:1.45}.dash-refresh{display:flex;width:100%;justify-content:space-between;margin-top:12px;border-radius:12px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px;overflow:visible;padding:0;margin-bottom:12px}.card.kpi{min-height:118px;padding:13px 12px;border-radius:13px}.kpi .label{font-size:12px;min-height:34px}.kpi .big{font-size:26px;min-height:30px;flex-wrap:wrap}.kpi .value-unit{font-size:12px}.kpi .trend{font-size:11px;line-height:1.25;margin-top:9px;white-space:normal}.platform-command-grid,.platform-detail-grid,.platform-lower-grid{gap:12px;margin-bottom:12px}.chart-card{min-height:0}.chart-card .body,.body{padding:14px}.chart-head{display:block}.chart-title h3,.finance-donut h3,.ph{font-size:17px}.chart-ranges{margin-top:12px;overflow-x:auto;white-space:nowrap}.chart-frame{height:280px}.chart-inner{min-width:720px}.donut-layout{grid-template-columns:1fr;gap:14px}.donut-wrap,.donut-svg{width:168px;height:168px}.donut-center{inset:34px}.donut-legend-row{font-size:12px}.business-table{font-size:11.5px;min-width:820px}.business-table th{height:36px}.business-table td{height:38px}.table-responsive{max-width:100%;overflow-x:auto}.panel,.finance-donut{border-radius:13px}.ph{padding:14px}}
+    /* Owner reference layout pass */
+    @media(min-width:1024px){
+      .app{grid-template-columns:176px minmax(0,1fr);background:#eef3f8}
+      body.nav-collapsed .app{grid-template-columns:72px minmax(0,1fr)}
+      .side{background:#061f3d;border-right:0;box-shadow:6px 0 22px rgba(5,25,48,.12)}
+      .brand{height:72px;padding:18px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+      .brand-logo{width:36px;height:36px;border-radius:10px}
+      .brand-text strong{font-size:14px;letter-spacing:.2px}
+      .brand-text span{font-size:10px;letter-spacing:.7px;color:#b9c8d8}
+      .nav{padding:12px 10px}
+      .navgroup{padding:14px 8px 7px;font-size:10px;letter-spacing:.35px;color:#78a0c6}
+      .nav button{height:40px;border-radius:8px;padding:0 10px;font-size:13px;font-weight:800;color:#d8e7f7}
+      .nav button.active{background:#1565c9;color:#fff;box-shadow:0 8px 18px rgba(21,101,201,.32)}
+      .nav button.active:before{content:"";width:3px;height:22px;background:#7dd3fc;border-radius:999px;position:absolute;left:0}
+      .top{height:64px;background:#fff;color:#233247;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 0 rgba(15,23,42,.03);padding:0 22px}
+      .hamb{background:#fff;color:#0b315a;border:1px solid #d8e2ee;border-radius:9px;box-shadow:0 2px 8px rgba(15,23,42,.04)}
+      .searchbox{height:36px;max-width:420px;min-width:320px;background:#fff;color:#52616f;border:1px solid #d8e2ee;border-radius:8px;padding:0 12px}
+      .searchbox input{color:#172033}
+      .searchbox input::placeholder{color:#7b8794}
+      .searchbox kbd{background:#f1f5f9;border:1px solid #dfe7f0;color:#52616f}
+      .top-meta{color:#52616f;gap:18px}
+      .top-date{background:#fff;border:1px solid #d8e2ee;color:#172033;border-radius:8px}
+      .top-date input{color:#172033}
+      .top-date input::-webkit-calendar-picker-indicator{filter:none}
+      .top-icon{background:#fff;border:1px solid #d8e2ee;color:#172033}
+      .top-user{color:#172033}
+      .content{padding:18px 22px 28px;background:#f4f7fb}
+      .dash-title{padding:0;margin:0 0 18px;background:transparent;border:0;box-shadow:none;border-radius:0}
+      .dash-title h2{font-size:25px;line-height:1.15}
+      .dash-title p{font-size:13px;margin-top:4px}
+      .dash-refresh{background:transparent;border:0;padding:0;border-radius:0}
+      .dash-refresh button{min-height:34px;border-radius:8px}
+      .kpis{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px;margin-bottom:16px}
+      .card.kpi{min-height:112px;border-radius:8px;padding:16px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 4px 14px rgba(15,35,58,.055)}
+      .card.kpi:before{display:none}
+      .kpi .ico{width:30px;height:30px;border-radius:7px;font-size:14px}
+      .kpi .label{font-size:12px;min-height:22px;color:#42526b}
+      .kpi .big{font-size:27px;min-height:32px;margin-top:10px}
+      .kpi .value-unit{font-size:13px}
+      .kpi .trend{background:transparent;color:#16a36a;padding:0;margin-top:8px;font-size:11px}
+      .platform-command-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px;margin-bottom:14px}
+      .panel,.finance-donut{border-radius:8px;border-color:#e1e7ef;box-shadow:0 4px 14px rgba(15,35,58,.05)}
+      .chart-card{min-height:350px}
+      .chart-card .body{padding:16px}
+      .chart-head{border-bottom:0;padding-bottom:0;margin-bottom:12px}
+      .chart-title h3,.finance-donut h3,.ph{font-size:16px}
+      .chart-summary,.data-state{font-size:11.5px}
+      .chart-ranges button{min-height:31px;border-radius:7px;padding:0 12px;background:#fff}
+      .chart-ranges button.on{background:#1565c9}
+      .chart-frame{height:230px;background:repeating-linear-gradient(to bottom,#fff 0,#fff 44px,#edf2f7 45px)}
+      .chart-inner{min-width:680px}
+      .platform-detail-grid{grid-template-columns:minmax(310px,.36fr) minmax(0,.64fr);gap:14px;margin-bottom:14px}
+      .platform-lower-grid{gap:14px}
+      .ph{padding:14px 16px}
+      .body{padding:14px 16px}
+      .business-table th{height:36px}
+      .business-table td{height:38px}
+    }
+    @media(max-width:760px){
+      .top{height:58px;display:flex;background:#061f3d;color:#fff;padding:0 12px}
+      .top-left{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;width:100%;height:58px;align-items:center}
+      .hamb{float:none;grid-column:1;grid-row:1;width:42px;height:42px;border-radius:9px;background:#092745;border:1px solid rgba(255,255,255,.16);color:#fff}
+      .searchbox{grid-column:3;grid-row:1;width:42px;min-width:42px;height:42px;border:0;background:transparent;padding:0;justify-content:center}
+      .searchbox:before{content:"⌕";font-size:24px;color:#fff}
+      .searchbox input,.searchbox kbd{display:none}
+      .top-copy{display:flex;grid-column:2;grid-row:1;text-align:center;color:#fff;align-items:center;justify-content:center;min-width:0;height:58px;overflow:hidden}
+      .top-copy h1,#title{display:block!important;margin:0!important;font-size:14px!important;line-height:1.2!important;color:#fff!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .top-copy p{display:none}
+      .content{padding:12px;background:#f4f7fb}
+      .dash-title{padding:10px 2px;margin-bottom:10px;background:transparent;border:0;box-shadow:none}
+      .dash-title h2{font-size:0}
+      .dash-title p{display:none}
+      .dash-refresh{background:transparent;border:0;padding:0;margin-top:0;justify-content:space-between}
+      .dash-refresh span{font-size:11px;color:#667085}
+      .dash-refresh button{min-height:32px;border-radius:7px;padding:0 12px}
+      .kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px;margin-bottom:12px}
+      .card.kpi{min-height:96px;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(15,35,58,.055)}
+      .card.kpi:before{display:none}
+      .kpi .ico{display:grid;width:24px;height:24px;border-radius:6px;font-size:12px}
+      .kpi .label{font-size:11px;line-height:1.25;min-height:28px}
+      .kpi .big{font-size:22px;line-height:1.1;min-height:26px;margin-top:6px}
+      .kpi .value-unit{font-size:11px}
+      .kpi .trend{font-size:10.5px;background:transparent;padding:0;margin-top:6px}
+      .platform-command-grid,.platform-detail-grid,.platform-lower-grid{gap:10px;margin-bottom:10px}
+      .chart-card .body,.body{padding:12px}
+      .chart-title h3,.finance-donut h3,.ph{font-size:15px}
+      .chart-frame{height:210px}
+      .chart-inner{min-width:610px}
+    }
   </style>
 </head>
 <body data-admin-screen="dashboard-screen01">
@@ -359,7 +448,11 @@
       var passengerCard=(bookings.status==='ready'||bookings.status==='empty')
         ? kpiCard('teal','\uD83D\uDC65','จำนวนผู้โดยสาร',(bookings.travelPassengerCount||0).toLocaleString('th-TH')+' คน',noData)
         : kpiCard('teal','\uD83D\uDC65','จำนวนผู้โดยสาร','—',noData);
-      return '<div class="grid kpis">'+visitorsCard+realUsersCard+bookingCard+passengerCard+'</div>';
+      var passengerGross=revenue.grossPassengerPayment!=null?revenue.grossPassengerPayment:revenue.amount;
+      var paymentCard=(revenue.status==='ready'||revenue.status==='empty')
+        ? kpiCard('blue','\uD83D\uDCB3','ยอดรับจากผู้โดยสาร (วันนี้)',bahtValue(revenue,passengerGross),noData)
+        : kpiCard('blue','\uD83D\uDCB3','ยอดรับจากผู้โดยสาร (วันนี้)','—',noData);
+      return '<div class="grid kpis">'+visitorsCard+realUsersCard+bookingCard+passengerCard+paymentCard+'</div>';
     }
     function analyticsChart(visits){var model=analyticsModel(visits), labels=(model.points&&model.points.length?model.points:bucketLabels(state.analyticsRange)), points=labels.map(function(p){return {key:p.key,label:p.label||p.key,visitors:p.visitors==null?null:Math.max(0,Math.round(Number(p.visitors)||0)),actualUsers:p.actualUsers==null?null:Math.max(0,Math.round(Number(p.actualUsers)||0))}}), series=[{name:'จำนวนผู้เยี่ยมชม (เว็บไซต์)',color:'#e5484d',values:points.map(function(p){return p.visitors})},{name:'ผู้ใช้งานจริง',color:'#2368d8',values:points.map(function(p){return p.actualUsers})}];return '<section class="panel chart-card" id="website-analytics"><div class="body"><div class="chart-head"><div class="chart-title"><h3>สถิติการเข้าใช้งานเว็บไซต์</h3></div>'+analyticsRangeTabs()+'</div><div class="chart-legend" aria-label="คำอธิบายสีกราฟ"><span><i class="legend-box red"></i>จำนวนผู้เยี่ยมชม (เว็บไซต์)</span><span><i class="legend-box blue"></i>ผู้ใช้งานจริง</span></div><div aria-label="กราฟสถิติการเข้าใช้งานเว็บไซต์">'+chartGrid(points,series,analyticsStatusText(model),'bar')+'</div><table class="sr-only"><caption>สรุปสถิติการเข้าใช้งานเว็บไซต์</caption><thead><tr><th>ช่วงเวลา</th><th>จำนวนผู้เยี่ยมชม (เว็บไซต์)</th><th>ผู้ใช้งานจริง</th></tr></thead><tbody>'+points.map(function(p){return '<tr><td>'+esc(p.label)+'</td><td>'+esc(p.visitors==null?'—':p.visitors)+'</td><td>'+esc(p.actualUsers==null?'—':p.actualUsers)+'</td></tr>'}).join('')+'</tbody></table></div></section>'}
     function bookingActivityModel(bookings,refunds){var fallback={status:'empty',range:state.bookingChartRange,points:[]};if(bookings&&(bookings.status==='ready'||bookings.status==='empty')&&Array.isArray(bookings.points))return Object.assign(fallback,{status:bookings.status,points:bookings.points});if(bookings&&bookings.status==='error')return {status:'error',range:state.bookingChartRange,points:[]};return fallback}
