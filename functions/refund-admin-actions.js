@@ -173,6 +173,9 @@ async function lockIdempotency(db, admin, idempotencyKeyHash, bookingId, action)
   let conflict = null;
   const tx = await ref.transaction((current) => {
     if (current) {
+      if (current.status === "failed_retriable" && current.bookingIdHash === hashBookingId(bookingId) && current.action === action) {
+        return { status: "locked", bookingIdHash: hashBookingId(bookingId), action, lockedAt: nowValue(admin), retriedAt: nowValue(admin) };
+      }
       conflict = current;
       return undefined;
     }
@@ -180,6 +183,7 @@ async function lockIdempotency(db, admin, idempotencyKeyHash, bookingId, action)
   });
   if (!tx.committed) {
     if (conflict && conflict.status === "success") return { duplicate: true, marker: conflict };
+    if (conflict && conflict.status === "failed_final") throw Object.assign(new Error("idempotency_failed_final"), { httpStatus: 409 });
     throw Object.assign(new Error("idempotency_key_conflict"), { httpStatus: 409 });
   }
   return { duplicate: false, ref };
@@ -221,13 +225,6 @@ async function runRefundAction(params) {
     let mirrorPatch = null;
     let referenceHash = null;
 
-    const tx = await refundRef.transaction((current) => {
-      const op = current || { bookingIdHash: hashBookingId(bookingId), refundId: refundId(bookingId), refundStatus: cleanStatus(booking.refundStatus) };
-      previousStatus = cleanStatus(op.refundStatus);
-      assertTransition(previousStatus, nextStatus);
-      return Object.assign({}, op, { refundStatus: nextStatus, updatedAt: nowValue(admin) });
-    });
-    if (!tx.committed) throw Object.assign(new Error("refund_transition_conflict"), { httpStatus: 409 });
     if (action === "completeRefund") {
       referenceHash = safeKeyHash(body.refundReference, "refund_reference");
       const refResult = await db.ref(`${REFUND_REF_PATH}/${referenceHash}`).transaction((current) => {
@@ -238,13 +235,24 @@ async function runRefundAction(params) {
     }
     privatePatch = privateOperationPatch(action, nextStatus, body, admin, booking, actor, idempotencyKeyHash, referenceHash);
     mirrorPatch = publicMirrorPatch(action, nextStatus, body, admin, booking);
-    await refundRef.update(privatePatch);
-    await bookingRef.update(mirrorPatch);
+    const tx = await refundRef.transaction((current) => {
+      const op = current || { bookingIdInternal: bookingId, bookingIdHash: hashBookingId(bookingId), refundId: refundId(bookingId), refundStatus: cleanStatus(booking.refundStatus) };
+      previousStatus = cleanStatus(op.refundStatus);
+      assertTransition(previousStatus, nextStatus);
+      return Object.assign({}, op, privatePatch, { refundStatus: nextStatus, version: Number(op.version || 0) + 1, updatedAt: nowValue(admin) });
+    });
+    if (!tx.committed) throw Object.assign(new Error("refund_transition_conflict"), { httpStatus: 409 });
     const amount = privatePatch.refundAmount == null ? null : privatePatch.refundAmount;
     const audit = auditEvent(action, bookingId, previousStatus, nextStatus, amount, actor, idempotencyKeyHash, "success");
     audit.serverTimestamp = nowValue(admin);
-    await db.ref(`${AUDIT_PATH}/${audit.eventId}`).set(audit);
-    await idem.ref.update({ status: "success", refundStatus: nextStatus, completedAt: nowValue(admin) });
+    const updates = {};
+    Object.keys(mirrorPatch).forEach((key) => { updates[`bookings/${bookingId}/${key}`] = mirrorPatch[key]; });
+    updates[`${AUDIT_PATH}/${audit.eventId}`] = audit;
+    updates[`${IDEMPOTENCY_PATH}/${idempotencyKeyHash}/status`] = "success";
+    updates[`${IDEMPOTENCY_PATH}/${idempotencyKeyHash}/refundStatus`] = nextStatus;
+    updates[`${IDEMPOTENCY_PATH}/${idempotencyKeyHash}/completedAt`] = nowValue(admin);
+    if (referenceHash) updates[`${REFUND_REF_PATH}/${referenceHash}/status`] = "success";
+    await db.ref().update(updates);
     return { status: "ok", refundStatus: nextStatus, auditEventId: audit.eventId };
   } catch (err) {
     if (idem && idem.ref) {

@@ -485,7 +485,7 @@ function aggregateDashboard(records, options) {
     invalidCancellationTimestampCount: 0,
     refundContractStatus: "ready",
     refundTimestampField: "refundedAt",
-    queriedRefundEventCount: Object.keys(opts.refundedRecords || {}).length,
+    queriedRefundEventCount: Object.keys(opts.refundOperations || opts.refundedRecords || {}).length,
     requestedRefundCount: 0,
     underReviewRefundCount: 0,
     approvedPendingRefundCount: 0,
@@ -596,8 +596,10 @@ function aggregateDashboard(records, options) {
     }
   });
 
-  Object.keys(opts.refundedRecords || {}).forEach((id) => {
-    const record = opts.refundedRecords[id] || {};
+  Object.keys(opts.refundOperations || opts.refundedRecords || {}).forEach((id) => {
+    const op = (opts.refundOperations || opts.refundedRecords || {})[id] || {};
+    const bookingId = op.bookingIdInternal || op.bookingId || op.bookingCode || id;
+    const record = (opts.refundedRecords && opts.refundedRecords[bookingId]) || op;
     const refundStatus = String(record.refundStatus || "").toLowerCase();
     if (refundStatus === "requested") diagnostic.requestedRefundCount += 1;
     if (refundStatus === "under_review") diagnostic.underReviewRefundCount += 1;

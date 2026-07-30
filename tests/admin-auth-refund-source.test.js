@@ -6,6 +6,7 @@ const root = path.join(__dirname, '..');
 const index = fs.readFileSync(path.join(root, 'functions', 'index.js'), 'utf8');
 const adminReadModel = fs.readFileSync(path.join(root, 'admin-dashboard-read-model.js'), 'utf8');
 const adminHtml = fs.readFileSync(path.join(root, 'admin-erp.html'), 'utf8');
+const webConfig = fs.readFileSync(path.join(root, 'firebase-web-config.js'), 'utf8');
 const rulesProposal = fs.readFileSync(path.join(root, 'docs', 'review', 'admin-auth-refund-rules-proposal.md'), 'utf8');
 const refundActions = fs.readFileSync(path.join(root, 'functions', 'refund-admin-actions.js'), 'utf8');
 
@@ -15,10 +16,17 @@ assert(index.includes('exports.approveRefund'), 'approveRefund Function must be 
 assert(index.includes('exports.completeRefund'), 'completeRefund Function must be exported');
 assert(index.includes('exports.startRefundProcessing'), 'startRefundProcessing Function must be exported');
 assert(index.includes('exports.cancelBookingAsAdmin'), 'admin cancellation Function must be exported');
+assert(index.includes('exports.retryAdminCancelCapacityRelease'), 'admin cancellation capacity retry Function must be exported');
 assert(index.includes('releaseAdminCancelCapacity'), 'admin cancellation must release capacity through backend path');
 assert(index.includes('operations/refundAudit') || fs.readFileSync(path.join(root, 'functions', 'refund-admin-actions.js'), 'utf8').includes('operations/refundAudit'), 'refund audit path must exist');
 
 assert(adminHtml.includes('firebase-auth-compat.js'), 'Admin page must load Firebase Auth compat SDK');
+assert(adminHtml.includes('firebase-web-config.js'), 'Admin page must load Firebase Web Config before Auth');
+assert(adminHtml.includes('ยังไม่ได้ตั้งค่าระบบเข้าสู่ระบบ'), 'Admin must show login config missing state');
+assert(!adminHtml.includes("location.protocol==='file:'"), 'Production Admin code must not use file protocol auth bypass');
+assert(adminHtml.includes('__SL_TRANSIT_ADMIN_AUTH_TEST__'), 'Admin auth test bypass must require explicit test flag');
+assert(!webConfig.includes('service_account'), 'Web config must not contain service account material');
+assert(!webConfig.includes('private_key'), 'Web config must not contain private key material');
 assert(adminReadModel.includes('getIdToken'), 'Admin read model must get Firebase ID token');
 assert(adminReadModel.includes('Authorization'), 'Admin read model must send Authorization header');
 assert(adminReadModel.includes('SESSION_TIMEOUT_MS = 30 * 60 * 1000'), 'Admin read model must enforce 30 minute session timeout');
@@ -29,6 +37,7 @@ assert(adminHtml.includes('sessionStorage'), 'Admin page must persist idle timeo
 assert(!adminHtml.includes("db.ref('bookings').update"), 'Admin browser must not update bookings directly');
 assert(!adminHtml.includes('refundStatus') || !adminHtml.includes('.update({ refundStatus'), 'Admin browser must not write refund state directly');
 assert(refundActions.includes('operations/refunds'), 'Refund operation details must move to operations/refunds');
+assert(index.includes('operations/refunds'), 'Dashboard Function must read refund lifecycle from operations/refunds');
 assert(refundActions.includes('idempotencyKeyHash'), 'Refund audit/idempotency must store hashed idempotency key');
 assert(!refundActions.includes('idempotencyKey: idempotencyKey'), 'Refund audit must not store raw idempotency key');
 assert(!refundActions.includes('refundReference ='), 'Public booking patch must not store raw refund reference');

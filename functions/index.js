@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+﻿const admin = require("firebase-admin");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -182,7 +182,8 @@ exports.readAdminDashboardSummary = onRequest({
       refundedSnap,
       fleetMasterSnap,
       serviceGroupsSnap,
-      websiteAnalyticsSnap
+      websiteAnalyticsSnap,
+      refundOpsSnap
     ] = await Promise.all([
       admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("date").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
@@ -193,7 +194,8 @@ exports.readAdminDashboardSummary = onRequest({
       admin.database().ref("data/erpDataCenter/serviceGroups").get(),
       range === "hourly"
         ? Promise.resolve(null)
-        : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get()
+        : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
+      admin.database().ref("operations/refunds").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get()
     ]);
     const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
       range,
@@ -204,6 +206,7 @@ exports.readAdminDashboardSummary = onRequest({
       refundedRecords: refundedSnap.val() || {},
       fleetMaster: Object.assign({}, fleetMasterSnap.val() || {}, { serviceGroups: serviceGroupsSnap.val() || {} }),
       websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null,
+      refundOperations: refundOpsSnap.val() || {},
       identitySecret: analyticsHashSecret.value(),
       actor: { uid: actor.uid, role: actor.role }
     });
@@ -370,7 +373,7 @@ function refundFunction(action, permission, nextStatus) {
       sendJson(res, 405, { status: "error", error: "method_not_allowed" });
       return;
     }
-    try {
+  try {
       const actor = permission === "authenticated" ?
         await adminAuth.requireAuthenticated(req, admin) :
         await adminAuth.requireAdmin(req, admin, permission);
@@ -402,19 +405,25 @@ async function releaseAdminCancelCapacity(db, booking) {
     return { status: "skipped", reason: "missing_capacity_contract" };
   }
   const requestedSeats = Number(capacity.requestedSeats || booking.seats || booking.pax || 1);
-  const tx = await db.ref(capacity.counterPath).transaction((current) => {
-    if (!current || typeof current !== "object") return current;
-    const bookings = Object.assign({}, current.bookings || {});
-    if (!bookings[capacity.bookingCode]) return current;
-    delete bookings[capacity.bookingCode];
-    const nextBooked = Math.max(0, Number(current.bookedSeats || 0) - Math.max(1, requestedSeats));
-    return Object.assign({}, current, {
-      bookedSeats: nextBooked,
-      seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - nextBooked),
-      bookings
+  let hadBooking = false;
+  try {
+    const tx = await db.ref(capacity.counterPath).transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      const bookings = Object.assign({}, current.bookings || {});
+      if (!bookings[capacity.bookingCode]) return current;
+      hadBooking = true;
+      delete bookings[capacity.bookingCode];
+      const nextBooked = Math.max(0, Number(current.bookedSeats || 0) - Math.max(1, requestedSeats));
+      return Object.assign({}, current, {
+        bookedSeats: nextBooked,
+        seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - nextBooked),
+        bookings
+      });
     });
-  });
-  return { status: tx && tx.committed ? "released" : "idempotent_noop", counterPath: capacity.counterPath };
+    return { status: tx && tx.committed && hadBooking ? "released" : "idempotent_noop", counterPath: capacity.counterPath };
+  } catch (err) {
+    return { status: "failed_retriable", counterPath: capacity.counterPath };
+  }
 }
 
 exports.requestRefund = refundFunction("requestRefund", "authenticated", "requested");
@@ -439,8 +448,9 @@ exports.cancelBookingAsAdmin = onRequest({
     sendJson(res, 405, { status: "error", error: "method_not_allowed" });
     return;
   }
-  try {
+    try {
     const actor = await adminAuth.requireAdmin(req, admin, "bookingCancel");
+    enforceRateLimit(req, "cancelBookingAsAdmin", actor);
     const body = readJsonBody(req);
     const bookingId = String(body.bookingId || "").trim();
     if (!/^[A-Z0-9][A-Z0-9_-]{5,}$/i.test(bookingId)) {
@@ -453,7 +463,8 @@ exports.cancelBookingAsAdmin = onRequest({
     const idem = await idemRef.transaction((current) => current ? undefined : {
       status: "locked",
       bookingIdHash: refundActions.hashBookingId(bookingId),
-      lockedAt: admin.database.ServerValue.TIMESTAMP
+      lockedAt: admin.database.ServerValue.TIMESTAMP,
+      lockedAtMs: Date.now()
     });
     if (!idem.committed) {
       const marker = idem.snapshot && idem.snapshot.val && idem.snapshot.val();
@@ -480,6 +491,15 @@ exports.cancelBookingAsAdmin = onRequest({
     const changed = !!(tx && tx.committed && after && String(originalBooking.status || "").toLowerCase() !== "cancelled");
     const auditId = refundActions.hashBookingId([bookingId, "admin_cancel", idempotencyKeyHash].join("|"));
     const capacityRelease = changed ? await releaseAdminCancelCapacity(admin.database(), originalBooking) : { status: "idempotent_noop" };
+    if (changed && capacityRelease.status === "failed_retriable") {
+      await admin.database().ref(`operations/adminCancelCapacityRetry/${auditId}`).set({
+        eventId: auditId,
+        bookingIdHash: refundActions.hashBookingId(bookingId),
+        status: "pending",
+        capacity: originalBooking.capacity || null,
+        createdAt: admin.database.ServerValue.TIMESTAMP
+      });
+    }
     await admin.database().ref(`operations/adminBookingAudit/${auditId}`).set({
       eventId: auditId,
       bookingIdHash: refundActions.hashBookingId(bookingId),
@@ -492,7 +512,7 @@ exports.cancelBookingAsAdmin = onRequest({
       capacityRelease
     });
     await idemRef.update({
-      status: changed && capacityRelease.status !== "failed" ? "success" : (capacityRelease.status === "failed" ? "failed_retriable" : "success"),
+      status: changed && capacityRelease.status === "failed_retriable" ? "failed_retriable" : "success",
       completedAt: admin.database.ServerValue.TIMESTAMP,
       capacityReleaseStatus: capacityRelease.status
     });
@@ -506,11 +526,63 @@ exports.cancelBookingAsAdmin = onRequest({
   }
 });
 
+exports.retryAdminCancelCapacityRelease = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  try {
+    const actor = await adminAuth.requireAdmin(req, admin, "bookingCancel");
+    enforceRateLimit(req, "retryAdminCancelCapacityRelease", actor);
+    const body = readJsonBody(req);
+    const eventId = String(body.eventId || "").trim();
+    if (!/^[a-f0-9]{64}$/i.test(eventId)) {
+      sendJson(res, 400, { status: "error", error: "invalid_event_id" });
+      return;
+    }
+    const retryRef = admin.database().ref(`operations/adminCancelCapacityRetry/${eventId}`);
+    const snap = await retryRef.get();
+    const retry = snap && snap.val ? snap.val() : null;
+    if (!retry || !retry.capacity) {
+      sendJson(res, 404, { status: "error", error: "retry_not_found" });
+      return;
+    }
+    if (retry.status === "released") {
+      sendJson(res, 200, { status: "ok", capacityRelease: { status: "idempotent_noop" } });
+      return;
+    }
+    const result = await releaseAdminCancelCapacity(admin.database(), { capacity: retry.capacity, pax: retry.capacity.requestedSeats });
+    await retryRef.update({
+      status: result.status === "released" ? "released" : (result.status === "failed_retriable" ? "failed_retriable" : "idempotent_noop"),
+      updatedAt: admin.database.ServerValue.TIMESTAMP,
+      actorUid: actor.uid,
+      actorRole: actor.role
+    });
+    sendJson(res, 200, { status: "ok", capacityRelease: result });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
+      return;
+    }
+    sendJson(res, 500, { status: "error", error: "capacity_retry_failed" });
+  }
+});
+
 function bookingRouteText(booking) {
   if (booking.route) return String(booking.route);
   const origin = booking.origin || booking.from || "-";
   const destination = booking.destination || booking.to || "-";
-  return `${origin} → ${destination}`;
+  return `${origin} โ’ ${destination}`;
 }
 function isCheckinEvent(booking) {
   return booking.notificationOnly === true ||
@@ -523,26 +595,26 @@ function buildCheckinMessage(booking) {
   if (booking.lineMessage) return booking.lineMessage;
   if (booking.linePayload && booking.linePayload.message) return booking.linePayload.message;
   return [
-    "ผู้โดยสารเช็คอินใกล้ถึงจุดหมาย",
+    "เธเธนเนเนเธ”เธขเธชเธฒเธฃเน€เธเนเธเธญเธดเธเนเธเธฅเนเธ–เธถเธเธเธธเธ”เธซเธกเธฒเธข",
     "",
-    `ชื่อ: ${booking.name || "-"}`,
-    `เบอร์โทร: ${booking.phone || "-"}`,
-    `เส้นทาง: ${bookingRouteText(booking)}`,
-    `วันเวลา: ${booking.date || "-"} ${booking.time || "-"} น.`,
-    `จำนวน: ${booking.seats || 1}`,
-    "ใกล้ถึงจุดหมายอีก 3 นาที"
+    `เธเธทเนเธญ: ${booking.name || "-"}`,
+    `เน€เธเธญเธฃเนเนเธ—เธฃ: ${booking.phone || "-"}`,
+    `เน€เธชเนเธเธ—เธฒเธ: ${bookingRouteText(booking)}`,
+    `เธงเธฑเธเน€เธงเธฅเธฒ: ${booking.date || "-"} ${booking.time || "-"} เธ.`,
+    `เธเธณเธเธงเธ: ${booking.seats || 1}`,
+    "เนเธเธฅเนเธ–เธถเธเธเธธเธ”เธซเธกเธฒเธขเธญเธตเธ 3 เธเธฒเธ—เธต"
   ].join("\n");
 }
 
 function buildBookingMessage(booking) {
   const lines = [
-    `รหัส: ${booking.code || "-"}`,
-    `👤 ชื่อ: ${booking.name || "-"}    📞 โทร: ${booking.phone || "-"}`,
-    `📍 เส้นทาง: ${bookingRouteText(booking)}`,
-    `🗓 วันที่: ${formatThaiDate(booking.date)} เวลา ${booking.time || "-"} น.`,
-    `🚌 จำนวน: ${booking.seats || 1} คน  💰 ราคา: ${money(booking.price)} บาท`
+    `เธฃเธซเธฑเธช: ${booking.code || "-"}`,
+    `๐‘ค เธเธทเนเธญ: ${booking.name || "-"}    ๐“ เนเธ—เธฃ: ${booking.phone || "-"}`,
+    `๐“ เน€เธชเนเธเธ—เธฒเธ: ${bookingRouteText(booking)}`,
+    `๐—“ เธงเธฑเธเธ—เธตเน: ${formatThaiDate(booking.date)} เน€เธงเธฅเธฒ ${booking.time || "-"} เธ.`,
+    `๐ เธเธณเธเธงเธ: ${booking.seats || 1} เธเธ  ๐’ฐ เธฃเธฒเธเธฒ: ${money(booking.price)} เธเธฒเธ—`
   ];
-  if (booking.slip) lines.push(`🖼 สลิป: ${booking.slip}`);
+  if (booking.slip) lines.push(`๐–ผ เธชเธฅเธดเธ: ${booking.slip}`);
   return lines.join("\n");
 }
 

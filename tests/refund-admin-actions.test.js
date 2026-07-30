@@ -11,6 +11,15 @@ function mockAdmin(initial) {
       },
       async update(patch) {
         writes.push({ path, op: 'update', patch });
+        if (!path) {
+          Object.keys(patch).forEach((key) => {
+            const parts = key.split('/');
+            const leaf = parts.pop();
+            const parentPath = parts.join('/');
+            store[parentPath] = Object.assign({}, store[parentPath] || {}, { [leaf]: patch[key] });
+          });
+          return;
+        }
         store[path] = Object.assign({}, store[path] || {}, patch);
       },
       async set(value) {
