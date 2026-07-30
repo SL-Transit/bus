@@ -179,6 +179,58 @@ exports.readAdminDashboardSummary = onRequest({
   }
 });
 
+exports.readAdminErpDataCenter = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "512MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  if (!checkAdminDashboardRate(origin)) {
+    sendJson(res, 429, { status: "error", error: "rate_limited" });
+    return;
+  }
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    sendJson(res, 401, { status: "error", error: "admin_token_required" });
+    return;
+  }
+  try {
+    await admin.auth().verifyIdToken(tokenMatch[1]);
+    const snap = await admin.database().ref("data/erpDataCenter").get();
+    res.set("Cache-Control", "private, max-age=30");
+    res.status(200).type("application/json").send(JSON.stringify({
+      status: "ready",
+      path: "data/erpDataCenter",
+      erpDataCenter: snap.val() || {},
+      generatedAt: Date.now()
+    }));
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (/token|auth|credential/i.test(message)) {
+      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+      return;
+    }
+    console.error("readAdminErpDataCenter failed", { message });
+    sendJson(res, 500, { status: "error", error: "erp_data_center_unavailable" });
+  }
+});
+
 function bookingRouteText(booking) {
   if (booking.route) return String(booking.route);
   const origin = booking.origin || booking.from || "-";

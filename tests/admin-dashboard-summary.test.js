@@ -293,6 +293,9 @@ assert(functionsIndex.includes('verifyIdToken'), 'function must verify Firebase 
 assert(functionsIndex.includes('"Content-Type, Authorization"'), 'function CORS must allow Authorization header for admin dashboard token');
 assert(functionsIndex.includes('ref("data/erpDataCenter/fleet").get()'), 'function must read ERP fleet master for vehicle alias and public driver display names');
 assert(functionsIndex.includes('ref("data/erpDataCenter/serviceGroups").get()'), 'function must read ERP service groups for queue/transfer provider display names');
+assert(functionsIndex.includes('exports.readAdminErpDataCenter'), 'functions must expose an authenticated ERP Data Center read endpoint for admin workbook tables');
+assert(functionsIndex.includes('ref("data/erpDataCenter").get()'), 'ERP Data Center endpoint must read the Firebase ERP source of truth');
+assert(functionsIndex.includes('admin_token_required'), 'ERP Data Center endpoint must require a Firebase ID token');
 assert(functionsIndex.includes('ref("analytics/mainWeb")'), 'function must read website analytics rollups through the HTTPS summary endpoint');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 
