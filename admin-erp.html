@@ -135,7 +135,7 @@
       .dash-title p{font-size:13px;margin-top:4px}
       .dash-refresh{background:transparent;border:0;padding:0;border-radius:0}
       .dash-refresh button{min-height:34px;border-radius:8px}
-      .kpis{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px;margin-bottom:16px}
+      .kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px;margin-bottom:16px}
       .card.kpi{min-height:112px;border-radius:8px;padding:16px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 4px 14px rgba(15,35,58,.055)}
       .card.kpi:before{display:none}
       .kpi .ico{width:30px;height:30px;border-radius:7px;font-size:14px}
@@ -445,14 +445,11 @@
       var bookingCard=(bookings.status==='ready'||bookings.status==='empty')
         ? kpiCard('green','\uD83D\uDCC5','จำนวนการจอง',(bookings.createdCount||0).toLocaleString('th-TH')+' รายการ',noData)
         : kpiCard('green','\uD83D\uDCC5','จำนวนการจอง','—',noData);
-      var passengerCard=(bookings.status==='ready'||bookings.status==='empty')
-        ? kpiCard('teal','\uD83D\uDC65','จำนวนผู้โดยสาร',(bookings.travelPassengerCount||0).toLocaleString('th-TH')+' คน',noData)
-        : kpiCard('teal','\uD83D\uDC65','จำนวนผู้โดยสาร','—',noData);
       var passengerGross=revenue.grossPassengerPayment!=null?revenue.grossPassengerPayment:revenue.amount;
-      var paymentCard=(revenue.status==='ready'||revenue.status==='empty')
-        ? kpiCard('blue','\uD83D\uDCB3','ยอดรับจากผู้โดยสาร (วันนี้)',bahtValue(revenue,passengerGross),noData)
-        : kpiCard('blue','\uD83D\uDCB3','ยอดรับจากผู้โดยสาร (วันนี้)','—',noData);
-      return '<div class="grid kpis">'+visitorsCard+realUsersCard+bookingCard+passengerCard+paymentCard+'</div>';
+      var revenueCard=(revenue.status==='ready'||revenue.status==='empty')
+        ? kpiCard('blue','\uD83D\uDCB3','รายได้วันนี้',bahtValue(revenue,passengerGross),noData)
+        : kpiCard('blue','\uD83D\uDCB3','รายได้วันนี้','—',noData);
+      return '<div class="grid kpis">'+visitorsCard+realUsersCard+bookingCard+revenueCard+'</div>';
     }
     function analyticsChart(visits){var model=analyticsModel(visits), labels=(model.points&&model.points.length?model.points:bucketLabels(state.analyticsRange)), points=labels.map(function(p){return {key:p.key,label:p.label||p.key,visitors:p.visitors==null?null:Math.max(0,Math.round(Number(p.visitors)||0)),actualUsers:p.actualUsers==null?null:Math.max(0,Math.round(Number(p.actualUsers)||0))}}), series=[{name:'จำนวนผู้เยี่ยมชม (เว็บไซต์)',color:'#e5484d',values:points.map(function(p){return p.visitors})},{name:'ผู้ใช้งานจริง',color:'#2368d8',values:points.map(function(p){return p.actualUsers})}];return '<section class="panel chart-card" id="website-analytics"><div class="body"><div class="chart-head"><div class="chart-title"><h3>สถิติการเข้าใช้งานเว็บไซต์</h3></div>'+analyticsRangeTabs()+'</div><div class="chart-legend" aria-label="คำอธิบายสีกราฟ"><span><i class="legend-box red"></i>จำนวนผู้เยี่ยมชม (เว็บไซต์)</span><span><i class="legend-box blue"></i>ผู้ใช้งานจริง</span></div><div aria-label="กราฟสถิติการเข้าใช้งานเว็บไซต์">'+chartGrid(points,series,analyticsStatusText(model),'bar')+'</div><table class="sr-only"><caption>สรุปสถิติการเข้าใช้งานเว็บไซต์</caption><thead><tr><th>ช่วงเวลา</th><th>จำนวนผู้เยี่ยมชม (เว็บไซต์)</th><th>ผู้ใช้งานจริง</th></tr></thead><tbody>'+points.map(function(p){return '<tr><td>'+esc(p.label)+'</td><td>'+esc(p.visitors==null?'—':p.visitors)+'</td><td>'+esc(p.actualUsers==null?'—':p.actualUsers)+'</td></tr>'}).join('')+'</tbody></table></div></section>'}
     function bookingActivityModel(bookings,refunds){var fallback={status:'empty',range:state.bookingChartRange,points:[]};if(bookings&&(bookings.status==='ready'||bookings.status==='empty')&&Array.isArray(bookings.points))return Object.assign(fallback,{status:bookings.status,points:bookings.points});if(bookings&&bookings.status==='error')return {status:'error',range:state.bookingChartRange,points:[]};return fallback}
