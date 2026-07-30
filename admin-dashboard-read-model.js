@@ -3,7 +3,7 @@
 
   var ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/readAdminDashboardSummary';
   var TIMEZONE = 'Asia/Bangkok';
-  var RANGE_SIZES = { hourly: 24, daily: 30, weekly: 12, monthly: 12, yearly: 5 };
+  var RANGE_SIZES = { hourly: 24, daily: 7, weekly: 4, monthly: 6, yearly: 5 };
   var PRIVATE_FIELDS = ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'ticketCode', 'slip', 'paymentEvidence', 'passengerIdentity', 'rawBooking', 'bankAccount', 'password'];
   var CACHE = {};
   var requestSeq = 0;

@@ -240,9 +240,12 @@ const serialized = JSON.stringify(result);
   assert(!serialized.includes(`"${field}"`), `response must not expose ${field}`);
 });
 
+assert.strictEqual(summary.bucketPlan('hourly', '2026-03-31', day28).length, 24);
+assert.strictEqual(summary.bucketPlan('daily', '2026-03-31', day28).length, 7);
+assert.strictEqual(summary.bucketPlan('weekly', '2026-03-31', day28).length, 4);
 const monthly = summary.bucketPlan('monthly', '2026-03-31', day28);
-assert.strictEqual(monthly.length, 12);
-assert.strictEqual(new Set(monthly.map((point) => point.key)).size, 12);
+assert.strictEqual(monthly.length, 6);
+assert.strictEqual(new Set(monthly.map((point) => point.key)).size, 6);
 assert(monthly.some((point) => point.key === '2026-02'), 'February bucket must exist once');
 
 const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
