@@ -296,6 +296,9 @@ assert(functionsIndex.includes('ref("data/erpDataCenter/serviceGroups").get()'),
 assert(functionsIndex.includes('exports.readAdminErpDataCenter'), 'functions must expose an authenticated ERP Data Center read endpoint for admin workbook tables');
 assert(functionsIndex.includes('ref("data/erpDataCenter").get()'), 'ERP Data Center endpoint must read the Firebase ERP source of truth');
 assert(functionsIndex.includes('admin_token_required'), 'ERP Data Center endpoint must require a Firebase ID token');
+assert(functionsIndex.includes('exports.updateAdminErpDataCenter'), 'functions must expose an authenticated ERP Data Center update endpoint for admin workbook edits');
+assert(functionsIndex.includes('data/erpDataCenter/adminAccounts/${decoded.uid}'), 'ERP Data Center update endpoint must require an admin account');
+assert(functionsIndex.includes('allowedErpUpdatePath'), 'ERP Data Center update endpoint must restrict writable paths');
 assert(functionsIndex.includes('ref("analytics/mainWeb")'), 'function must read website analytics rollups through the HTTPS summary endpoint');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 

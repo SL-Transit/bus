@@ -231,6 +231,109 @@ exports.readAdminErpDataCenter = onRequest({
   }
 });
 
+function parseJsonRequest(req) {
+  if (req.body && typeof req.body === "object") return req.body;
+  if (!req.rawBody) return {};
+  try {
+    return JSON.parse(req.rawBody.toString("utf8") || "{}");
+  } catch (err) {
+    return {};
+  }
+}
+
+function scalarErpValue(value) {
+  return value === null || ["string", "number", "boolean"].indexOf(typeof value) !== -1;
+}
+
+function allowedErpUpdatePath(path) {
+  const value = String(path || "");
+  if (value.length > 220 || value.indexOf("..") !== -1 || value.indexOf("//") !== -1) return false;
+  return [
+    /^data\/erpDataCenter\/stops\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/serviceGroups\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/fares\/[^/]+\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/scheduleOffers\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/stopTimes\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/fleet\/vehicles\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/paymentOwnership\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/fleet\/assignmentRules\/[^/]+\/[^/]+$/
+  ].some((pattern) => pattern.test(value));
+}
+
+exports.updateAdminErpDataCenter = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  if (!checkAdminDashboardRate(origin)) {
+    sendJson(res, 429, { status: "error", error: "rate_limited" });
+    return;
+  }
+  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    sendJson(res, 401, { status: "error", error: "admin_token_required" });
+    return;
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
+    if (adminSnap.val() !== true) {
+      sendJson(res, 403, { status: "error", error: "admin_account_required" });
+      return;
+    }
+    const body = parseJsonRequest(req);
+    const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
+    const paths = Object.keys(updates);
+    if (!paths.length || paths.length > 50) {
+      sendJson(res, 400, { status: "error", error: "invalid_update_count" });
+      return;
+    }
+    const patch = {};
+    for (const path of paths) {
+      if (!allowedErpUpdatePath(path) || !scalarErpValue(updates[path])) {
+        sendJson(res, 400, { status: "error", error: "invalid_erp_update_path" });
+        return;
+      }
+      patch[path] = updates[path];
+    }
+    const auditKey = `admin_erp_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    patch[`data/erpDataCenter/meta/audit/${auditKey}`] = {
+      actorUid: decoded.uid,
+      actorEmail: decoded.email || "",
+      action: "admin_erp_update",
+      updateCount: paths.length,
+      paths,
+      createdAt: Date.now()
+    };
+    await admin.database().ref().update(patch);
+    sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (/token|auth|credential/i.test(message)) {
+      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+      return;
+    }
+    console.error("updateAdminErpDataCenter failed", { message });
+    sendJson(res, 500, { status: "error", error: "erp_data_center_update_failed" });
+  }
+});
+
 function bookingRouteText(booking) {
   if (booking.route) return String(booking.route);
   const origin = booking.origin || booking.from || "-";
