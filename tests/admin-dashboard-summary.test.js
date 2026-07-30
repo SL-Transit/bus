@@ -234,6 +234,8 @@ const fleetOnly = summary.aggregateDashboard({}, {
 assert.deepStrictEqual(fleetOnly.vehicles.map((row) => row.vehicleAlias), ['car1', 'car2', 'car3', 'car4']);
 assert(fleetOnly.vehicles.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'fleet master rows must not create fake revenue');
 assert(fleetOnly.vehicles.every((row) => row.queueId), 'fleet master rows include the rotation queue for the selected day');
+assert.deepStrictEqual(fleetOnly.queues.map((row) => row.queueId), ['queue_001', 'queue_002', 'queue_003', 'queue_004']);
+assert(fleetOnly.queues.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'queue master rows must not create fake revenue');
 
 const serialized = JSON.stringify(result);
 ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {

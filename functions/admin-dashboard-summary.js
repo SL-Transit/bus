@@ -329,6 +329,27 @@ function seedVehicleMasterRows(target, fleetMaster, anchorDayKey) {
   });
 }
 
+function seedQueueMasterRows(target, fleetMaster) {
+  const master = fleetMaster && typeof fleetMaster === "object" ? fleetMaster : {};
+  const queueDirectory = master.queues || {};
+  const rotationRule = master.assignmentRules && master.assignmentRules.rotation_rule_v1;
+  const rotationQueueIds = Array.isArray(rotationRule && rotationRule.queueIds) ? rotationRule.queueIds : [];
+  const queueIds = Array.from(new Set(rotationQueueIds.concat(Object.keys(queueDirectory || {}))));
+  queueIds.forEach((queueId) => {
+    if (!queueId || target[queueId]) return;
+    const queueMaster = queueDirectory[queueId] || {};
+    target[queueId] = emptyGroup(queueId, {
+      queueId,
+      queueDisplayName: publicText(queueMaster.queueDisplayName || queueMaster.displayName || queueMaster.name || queueMaster.alias || queueId),
+      providerId: publicText(queueMaster.providerId || ""),
+      routeId: publicText(queueMaster.routeId || queueMaster.serviceRouteId || ""),
+      origin: publicText(queueMaster.origin || queueMaster.originName || ""),
+      destination: publicText(queueMaster.destination || queueMaster.destinationName || ""),
+      status: "ready"
+    });
+  });
+}
+
 function addFinance(target, values) {
   target.grossAmount += values.grossAmount;
   target.fareAmount += values.fareAmount;
@@ -533,6 +554,7 @@ function aggregateDashboard(records, options) {
   });
 
   seedVehicleMasterRows(vehicles, fleetMaster, anchorDayKey);
+  seedQueueMasterRows(queues, fleetMaster);
 
   const websiteRollups = hasWebsiteRollups ? opts.websiteRollups : {};
   Object.keys(websiteRollups).forEach((key) => {
