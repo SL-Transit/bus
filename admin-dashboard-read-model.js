@@ -69,6 +69,10 @@
         driverId: row.driverId || row.driverName || '—',
         driverDisplayName: row.driverDisplayName || row.driverPublicName || row.publicDriverName || '',
         queueId: row.queueId || '',
+        queueDisplayName: row.queueDisplayName || row.serviceGroupName || '',
+        serviceGroupId: row.serviceGroupId || '',
+        serviceGroupName: row.serviceGroupName || row.queueDisplayName || '',
+        routeScopeTh: row.routeScopeTh || '',
         routeId: row.routeId || row.id || '',
         origin: row.origin || '',
         destination: row.destination || '',
@@ -86,8 +90,8 @@
         signatureStatus: row.signatureStatus || '',
         status: row.status || 'ready'
       };
-      clean['คิวหรือผู้ให้บริการ'] = clean.queueId || clean.routeId || 'ยังไม่ระบุ';
-      clean['เส้นทางช่วงต่อ'] = [clean.origin, clean.destination].filter(Boolean).join(' - ') || clean.tripId || '—';
+      clean['คิวหรือผู้ให้บริการ'] = clean.queueDisplayName || clean.serviceGroupName || clean.queueId || clean.routeId || 'ยังไม่ระบุ';
+      clean['เส้นทางช่วงต่อ'] = clean.routeScopeTh || [clean.origin, clean.destination].filter(Boolean).join(' - ') || clean.tripId || '—';
       clean['จำนวนรายการ'] = clean.bookingCount;
       clean['ค่าโดยสาร'] = clean.fareAmount == null ? '—' : clean.fareAmount.toLocaleString('th-TH');
       clean['ยอดปรับจากคืนเงิน'] = clean.refundAmount == null ? '—' : clean.refundAmount.toLocaleString('th-TH');

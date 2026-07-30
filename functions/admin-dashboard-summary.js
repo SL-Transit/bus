@@ -277,6 +277,10 @@ function routeKey(record) {
   return String(record.routeId || record.catalogRouteId || `${record.origin || "ยังไม่ระบุ"}>${record.destination || "ยังไม่ระบุ"}>${record.tripId || record.pickupTime || "ยังไม่ระบุ"}`).trim();
 }
 
+function serviceGroupKey(record) {
+  return String(record.serviceGroupId || record.routeGroupId || record.groupId || (record.route && record.route.serviceGroupId) || queueKey(record)).trim();
+}
+
 function publicText(value) {
   return String(value || "").trim().slice(0, 80);
 }
@@ -329,24 +333,28 @@ function seedVehicleMasterRows(target, fleetMaster, anchorDayKey) {
   });
 }
 
-function seedQueueMasterRows(target, fleetMaster) {
+function serviceGroupDisplay(group, fallback) {
+  const row = group && typeof group === "object" ? group : {};
+  return publicText(row.displayNameTh || row.nameTh || row.routeScopeTh || row.serviceGroupId || fallback);
+}
+
+function seedQueueGroupRows(target, fleetMaster) {
   const master = fleetMaster && typeof fleetMaster === "object" ? fleetMaster : {};
-  const queueDirectory = master.queues || {};
-  const rotationRule = master.assignmentRules && master.assignmentRules.rotation_rule_v1;
-  const rotationQueueIds = Array.isArray(rotationRule && rotationRule.queueIds) ? rotationRule.queueIds : [];
-  const queueIds = Array.from(new Set(rotationQueueIds.concat(Object.keys(queueDirectory || {}))));
-  queueIds.forEach((queueId) => {
-    if (!queueId || target[queueId]) return;
-    const queueMaster = queueDirectory[queueId] || {};
-    target[queueId] = emptyGroup(queueId, {
-      queueId,
-      queueDisplayName: publicText(queueMaster.queueDisplayName || queueMaster.displayName || queueMaster.name || queueMaster.alias || queueId),
-      providerId: publicText(queueMaster.providerId || ""),
-      routeId: publicText(queueMaster.routeId || queueMaster.serviceRouteId || ""),
-      origin: publicText(queueMaster.origin || queueMaster.originName || ""),
-      destination: publicText(queueMaster.destination || queueMaster.destinationName || ""),
+  const serviceGroups = master.serviceGroups || {};
+  Object.keys(serviceGroups || {}).sort().forEach((groupId) => {
+    const group = serviceGroups[groupId] || {};
+    if (group.status && group.status !== "active") return;
+    if (!groupId) return;
+    const display = serviceGroupDisplay(group, groupId);
+    target[groupId] = target[groupId] || emptyGroup(groupId, {
+      queueId: groupId,
+      serviceGroupId: groupId,
       status: "ready"
     });
+    target[groupId].queueDisplayName = target[groupId].queueDisplayName || display;
+    target[groupId].serviceGroupName = target[groupId].serviceGroupName || display;
+    target[groupId].routeScopeTh = target[groupId].routeScopeTh || publicText(group.routeScopeTh || group.displayNameTh || group.nameTh || "");
+    target[groupId].paymentMode = target[groupId].paymentMode || publicText(group.paymentMode || "");
   });
 }
 
@@ -494,8 +502,8 @@ function aggregateDashboard(records, options) {
     if (vehicles[vKey].driverId === "—" && dKey !== "—") vehicles[vKey].driverId = dKey;
     addFinance(vehicles[vKey], amounts);
 
-    const qKey = queueKey(record);
-    queues[qKey] = queues[qKey] || emptyGroup(qKey, { queueId: qKey });
+    const qKey = serviceGroupKey(record);
+    queues[qKey] = queues[qKey] || emptyGroup(qKey, { queueId: qKey, serviceGroupId: qKey });
     queues[qKey].bookingCount += 1;
     queues[qKey].passengerCount += pax;
     addFinance(queues[qKey], amounts);
@@ -554,7 +562,7 @@ function aggregateDashboard(records, options) {
   });
 
   seedVehicleMasterRows(vehicles, fleetMaster, anchorDayKey);
-  seedQueueMasterRows(queues, fleetMaster);
+  seedQueueGroupRows(queues, fleetMaster);
 
   const websiteRollups = hasWebsiteRollups ? opts.websiteRollups : {};
   Object.keys(websiteRollups).forEach((key) => {
