@@ -191,6 +191,23 @@ assert.strictEqual(noWebsiteSource.website.status, 'unavailable');
 assert.strictEqual(noWebsiteSource.website.visitors, null);
 assert.strictEqual(noWebsiteSource.website.actualUsers, null);
 
+const noTodaySettlement = summary.aggregateDashboard({
+  BK_YESTERDAY_ONLY: records.BK_YESTERDAY_TRAVEL_TODAY
+}, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  travelRecords: {},
+  cancelledRecords: {},
+  refundedRecords: {},
+  generatedAt: 4
+});
+assert.strictEqual(noTodaySettlement.bookings.createdCount, 0, 'no booking created on anchor day');
+assert(noTodaySettlement.bookings.points.some((point) => point.key === '2026-07-27' && point.bookings === 1), 'chart may still show historical range data');
+assert.strictEqual(noTodaySettlement.vehicles.length, 0, 'vehicle settlement table must not show historical bookings as today revenue');
+assert.strictEqual(noTodaySettlement.queues.length, 0, 'queue settlement table must not show historical bookings as today revenue');
+assert.strictEqual(noTodaySettlement.finance.grossAmount, 0, 'today finance remains zero when no booking was created today');
+
 const serialized = JSON.stringify(result);
 ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {
   assert(!serialized.includes(`"${field}"`), `response must not expose ${field}`);

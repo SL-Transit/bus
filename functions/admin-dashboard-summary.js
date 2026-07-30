@@ -411,11 +411,13 @@ function aggregateDashboard(records, options) {
     if (!bucket) return;
     const pax = Number(record.pax || record.seats || 0) || 0;
     const amounts = bookingAmounts(record);
-    if (bucketForMs("daily", created.ms) === anchorDayKey) {
+    const createdOnAnchorDay = bucketForMs("daily", created.ms) === anchorDayKey;
+    if (createdOnAnchorDay) {
       totals.createdCount += 1;
       addFinance(finance, amounts);
     }
     bucket.booking.bookings += 1;
+    if (!createdOnAnchorDay) return;
 
     const vKey = vehicleKey(record);
     const dKey = driverKey(record);
