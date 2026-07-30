@@ -78,7 +78,9 @@ assert.ok(!dashboardSource.includes('analytics/mainWeb'), 'Dashboard UI must not
 assert.ok(!dashboardSource.includes('bookings/'), 'Dashboard UI must not read raw bookings');
 
 assert.ok(html.includes('ERP_WORKBOOK_TABS'), 'ERP management page must define workbook-style entity tabs');
-assert.ok(html.includes("db.ref('data/erpDataCenter')"), 'ERP management page must read real ERP Data Center data');
+assert.ok(html.includes('readAdminErpDataCenter'), 'ERP management page must read ERP Data Center through the HTTPS admin endpoint');
+assert.ok(html.includes("Authorization:'Bearer '+token"), 'ERP management page must pass a Firebase ID token to the ERP Data Center endpoint');
+assert.ok(!html.includes("db.ref('data/erpDataCenter').once('value')"), 'ERP management page must not read the blocked RTDB parent path directly');
 assert.ok(html.includes('id="erp-workbook-grid"'), 'ERP management page must render an Excel-like grid');
 assert.ok(html.includes('data-erp-tab'), 'ERP management page must support workbook tabs');
 assert.ok(html.includes('Validation'), 'ERP management page must include validation side panel');
