@@ -77,4 +77,18 @@ assert.ok(html.includes('ต้องมี Admin Authentication ก่อนเ
 assert.ok(!dashboardSource.includes('analytics/mainWeb'), 'Dashboard UI must not read legacy analytics path');
 assert.ok(!dashboardSource.includes('bookings/'), 'Dashboard UI must not read raw bookings');
 
+assert.ok(html.includes('ERP_WORKBOOK_TABS'), 'ERP management page must define workbook-style entity tabs');
+assert.ok(html.includes("db.ref('data/erpDataCenter')"), 'ERP management page must read real ERP Data Center data');
+assert.ok(html.includes('id="erp-workbook-grid"'), 'ERP management page must render an Excel-like grid');
+assert.ok(html.includes('data-erp-tab'), 'ERP management page must support workbook tabs');
+assert.ok(html.includes('Validation'), 'ERP management page must include validation side panel');
+assert.ok(html.includes('รายละเอียดแถว'), 'ERP management page must include row detail side panel');
+assert.ok(html.includes('ผลกระทบต่อระบบ (Impact)'), 'ERP management page must include impact side panel');
+for (const label of ['ป้ายเดินทาง', 'เส้นทาง', 'ราคา', 'ตารางเวลา', 'คิวรถ', 'รถ', 'คนขับ']) {
+  assert.ok(html.includes(label), `ERP management tab missing: ${label}`);
+}
+for (const mockOnly of ['STP-0009', 'อ่อนนุช', 'Victory Monument']) {
+  assert.ok(!html.includes(mockOnly), `ERP management page must not hard-code prototype data: ${mockOnly}`);
+}
+
 console.log('admin-erp dashboard real aggregate contract ok');
