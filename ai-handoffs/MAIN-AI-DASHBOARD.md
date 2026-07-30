@@ -1,5 +1,17 @@
 ﻿# SL-Transit Main AI Dashboard
 
+## 2026-07-29 09:45 +07 - OWNER EXCEPTION TO SCREEN 02 LOCK (ERP data workbook + admin login)
+## LATEST OWNER DECISION — SUPERSEDES THE 2026-07-26 SECTION BELOW, ON THIS POINT ONLY
+
+Owner directly instructed (chat, not GitHub) to start rebuilding the "จัดการข้อมูล ERP" page in `admin-erp.html` into a live, editable, Excel-style workbook (tabs: ป้ายต้นทาง/เส้นทาง/ราคา/ตารางเวลา/คิว/รถ/คนขับ) with Draft→Review→Publish, validation, and impact-analysis panels — starting with the ตารางเวลา (schedule/service-calendar) tab first, plus an admin login screen, in parallel with Screen 01 Dashboard, which is still not approved.
+
+This is a **deliberate, explicit owner exception** to the "Do not start Screen 02 until Screen 01 is approved" rule above. It does not cancel that rule for any other work — Screen 01 Dashboard completion is still required before any *other* Screen 02 work starts. Consumer pages (Booking1, Passenger, Check Ticket, Driver App, Cancel Ticket) remain off-limits under this exception; nothing in this workstream touches them.
+
+Work done so far under this exception:
+- `admin-erp.html`: real Firebase config wired in (was placeholder `TODO_FROM_FIREBASE_CONSOLE`); confirmed `data/erpDataCenter/catalog` is publicly readable per `database.rules.json` (writes require `auth != null`).
+- `admin-erp.html`: added a login screen (Firebase Auth email/password), adapted visually from the legacy `admin.html` login UI, restyled to match the current admin-erp theme. App shell is hidden until authenticated (`body.authed` gate). Firebase writes to `erpDataCenter/*` still require the admin to actually sign in with a real Firebase Auth account (none created yet — owner needs to add staff accounts in Firebase Console).
+- Next: build the ตารางเวลา (schedule/service-calendar) tab, starting with adding a `serviceDays` field concept to `erp-schema.js` (none of the schema currently models day-of-week variation — confirmed by code search, zero hits for dayOfWeek/serviceDays/calendar anywhere in `erp-schema.js`, `schedule-engine.js`, or `tools/published-schedule-v1-dry-run.js`).
+
 ## 2026-07-26 OWNER-APPROVED ADMIN CONSOLE DIRECTION
 ## HIGHEST CURRENT PRECEDENCE
 
