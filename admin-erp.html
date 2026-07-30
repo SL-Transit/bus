@@ -28,6 +28,11 @@
     .row{display:grid;grid-template-columns:168px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eef1f4}.row:last-child{border-bottom:0}.row strong{overflow-wrap:anywhere}.row span{color:var(--muted);overflow-wrap:anywhere}
     .workflow{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px}.step{border:1px solid var(--line);border-radius:8px;background:#fff;padding:12px}.step b{display:block;font-size:15px}.step small{display:block;color:var(--muted);margin:4px 0 8px}.step .pill{width:max-content}
     #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(180deg,var(--nav),#0d3a63);padding:16px}
+    #authChecking{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(180deg,var(--nav),#0d3a63)}
+    #authChecking .spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.28);border-top-color:#fff;border-radius:50%;animation:sltspin .8s linear infinite}
+    @keyframes sltspin{to{transform:rotate(360deg)}}
+    body:not(.auth-checked) #loginScreen{display:none}
+    body.auth-checked #authChecking{display:none}
     .lcard{background:#fff;border-radius:12px;padding:36px 28px;width:100%;max-width:340px;box-shadow:var(--shadow)}
     .lbrand{text-align:center;margin-bottom:26px}.lbrand .b1{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:.2px}.lbrand .b1 span{color:var(--nav2)}.lbrand .b2{color:var(--muted);font-size:12px;margin-top:3px}
     .lf{margin-bottom:14px}.lf label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
@@ -47,6 +52,7 @@
   </style>
 </head>
 <body data-admin-screen="dashboard-screen01">
+  <div id="authChecking"><div class="spin" aria-label="กำลังตรวจสอบการเข้าสู่ระบบ"></div></div>
   <div id="loginScreen">
     <div class="lcard">
       <div class="lbrand"><div class="b1">S.L. <span>Transit</span></div><div class="b2">Admin Console — เข้าสู่ระบบเจ้าหน้าที่</div></div>
@@ -452,7 +458,7 @@
     function doLogin(){var auth=initFirebaseAuth();if(!auth){$('loginError').textContent='ยังไม่ได้ตั้งค่า Firebase ในไฟล์นี้';return}if(_loginLock){$('loginError').textContent='ลองผิดหลายครั้ง กรุณารอ 1 นาที';return}var email=($('lEmail').value||'').trim(),pass=$('lPass').value||'';if(!email||!pass){$('loginError').textContent='กรุณากรอกอีเมลและรหัสผ่านให้ครบ';return}$('loginError').textContent='';var btn=$('loginBtn');if(btn)btn.disabled=true;auth.signInWithEmailAndPassword(email,pass).catch(function(){_loginAttempts++;if(_loginAttempts>=5){_loginLock=true;setTimeout(function(){_loginLock=false;_loginAttempts=0},60000)}$('loginError').textContent='อีเมลหรือรหัสผ่านไม่ถูกต้อง ('+_loginAttempts+'/5)'}).then(function(){if(btn)btn.disabled=false})}
     function doLogout(){var auth=initFirebaseAuth();if(auth)auth.signOut()}
     (function bindLoginForm(){var em=$('lEmail'),pw=$('lPass');[em,pw].forEach(function(el){if(el)el.addEventListener('keydown',function(ev){if(ev.key==='Enter')doLogin()})})})();
-    (function bootstrapAuth(){var auth=initFirebaseAuth();if(!auth){document.body.classList.add('authed');load();return}auth.onAuthStateChanged(function(user){var profileBtn=$('userProfileButton');if(user){document.body.classList.add('authed');if(profileBtn){profileBtn.disabled=false;profileBtn.onclick=doLogout;profileBtn.setAttribute('aria-label','ออกจากระบบ ('+(user.email||'')+')');var label=profileBtn.querySelector('span:last-child');if(label)label.textContent=user.email||'ผู้ดูแลระบบ'}recordAudit('login','เข้าสู่ระบบ: '+(user.email||'ไม่ทราบอีเมล'));load()}else{document.body.classList.remove('authed');if(profileBtn)profileBtn.disabled=true;state.loading=false;state.dashboardLoading=false}})})();
+    (function bootstrapAuth(){var auth=initFirebaseAuth();if(!auth){document.body.classList.add('authed','auth-checked');load();return}auth.onAuthStateChanged(function(user){var profileBtn=$('userProfileButton');if(user){document.body.classList.add('authed');if(profileBtn){profileBtn.disabled=false;profileBtn.onclick=doLogout;profileBtn.setAttribute('aria-label','ออกจากระบบ ('+(user.email||'')+')');var label=profileBtn.querySelector('span:last-child');if(label)label.textContent=user.email||'ผู้ดูแลระบบ'}recordAudit('login','เข้าสู่ระบบ: '+(user.email||'ไม่ทราบอีเมล'));load()}else{document.body.classList.remove('authed');if(profileBtn)profileBtn.disabled=true;state.loading=false;state.dashboardLoading=false}document.body.classList.add('auth-checked')})})();
   </script>
 </body>
 </html>
