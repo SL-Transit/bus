@@ -470,6 +470,14 @@
         var stopKey = valueOrEmpty(stopTime).stopKey;
         if (stopKey && !hasRecord(stops, stopKey)) addReferenceIssue(issues, PATHS.catalogTrips + '/' + key + '/stopTimes/' + index, 'stopKey', PATHS.catalogStops, stopKey);
       });
+      if (trip.serviceDays !== undefined) {
+        var validDayCodes = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+        var days = Array.isArray(trip.serviceDays) ? trip.serviceDays : null;
+        var invalidDays = days ? days.filter(function(d) { return validDayCodes.indexOf(d) < 0; }) : null;
+        if (!days || !days.length || invalidDays.length) {
+          addValidationIssue(issues, PATHS.catalogTrips + '/' + key, 'serviceDays', 'invalid-service-days', trip.serviceDays);
+        }
+      }
     });
 
     Object.keys(fares).forEach(function(originKey) {
