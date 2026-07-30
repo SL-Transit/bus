@@ -26,6 +26,16 @@ assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookin
 assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render passenger payment donut');
 assert.ok(dashboardSource.includes('vehicleDriverExcelTable(vehicleSettlements)'), 'Dashboard must render vehicle/driver aggregate table');
 assert.ok(dashboardSource.includes('settlementTable'), 'Dashboard must render queue aggregate table');
+assert.ok(dashboardSource.includes('refundTable(refunds)'), 'Dashboard must render latest refund passenger table');
+assert.ok(!dashboardSource.includes('sourceStatusPanel(d)'), 'Dashboard must not render source status panel');
+assert.ok(!dashboardSource.includes('id="source-status"'), 'Dashboard must remove source status panel from Screen 01');
+assert.ok(html.includes('function settlementCell(row,h)'), 'Dashboard settlement tables must preserve zero values');
+assert.ok(html.includes('value===0||value?value'), 'Dashboard settlement tables must not render 0 as unavailable');
+assert.ok(html.includes('data-label'), 'Dashboard settlement tables must expose mobile row labels');
+assert.ok(html.includes('settlement-responsive'), 'Dashboard settlement tables must use mobile-friendly responsive styling');
+assert.ok(html.includes('ผู้โดยสาร'), 'Refund table must include passenger name column');
+assert.ok(html.includes('เบอร์โทร'), 'Refund table must include passenger phone column');
+assert.ok(html.includes('จำนวนเงินคืน'), 'Refund table must include refund amount column');
 
 for (const label of [
   'จำนวนผู้เยี่ยมชม (เว็บไซต์)',

@@ -285,6 +285,20 @@ function publicText(value) {
   return String(value || "").trim().slice(0, 80);
 }
 
+function publicPassengerName(record) {
+  return publicText((record && (record.passengerName || record.displayName || record.name)) || "");
+}
+
+function publicPassengerPhone(record) {
+  return publicText((record && (record.passengerPhone || record.phone || record.tel || record.mobile)) || "");
+}
+
+function routeText(record) {
+  const direct = publicText(record && (record.routeName || record.route));
+  if (direct) return direct;
+  return [record && record.origin, record && record.destination].map(publicText).filter(Boolean).join(" - ");
+}
+
 function publicDriverDisplayName(driver) {
   const row = driver && typeof driver === "object" ? driver : {};
   if (row.dashboardDisplayAllowed === false || row.publicDisplayAllowed === false) return "";
@@ -383,6 +397,19 @@ function bookingAmounts(record) {
   };
 }
 
+function refundRow(id, record, refunded) {
+  const amounts = bookingAmounts(record);
+  return {
+    refundedAt: refunded.ms,
+    passengerName: publicPassengerName(record),
+    passengerPhone: publicPassengerPhone(record),
+    route: routeText(record),
+    refundAmount: amounts.refundAmount,
+    paidAmount: amounts.grossAmount,
+    status: publicText(record.refundStatus || record.paymentStatus || record.status || "refunded")
+  };
+}
+
 function emptyGroup(id, extra) {
   return Object.assign({
     id,
@@ -440,6 +467,7 @@ function aggregateDashboard(records, options) {
   const vehicles = {};
   const queues = {};
   const routes = {};
+  const recentRefunds = [];
   const fleetMaster = opts.fleetMaster && typeof opts.fleetMaster === "object" ? opts.fleetMaster : {};
   const vehicleDirectory = fleetMaster.vehicles || opts.vehicleDirectory || {};
   const driverDirectory = fleetMaster.drivers || opts.driverDirectory || {};
@@ -558,8 +586,11 @@ function aggregateDashboard(records, options) {
     if (byKey[key]) {
       if (bucketForMs("daily", refunded.ms) === anchorDayKey) totals.refundedCount += 1;
       byKey[key].booking.refunds += 1;
+      if (opts.includePrivateRefunds) recentRefunds.push(refundRow(id, record, refunded));
     }
   });
+
+  recentRefunds.sort((a, b) => b.refundedAt - a.refundedAt);
 
   seedVehicleMasterRows(vehicles, fleetMaster, anchorDayKey);
   seedQueueGroupRows(queues, fleetMaster);
@@ -596,6 +627,10 @@ function aggregateDashboard(records, options) {
       cancellationContractStatus: cancellationTimestampSupported ? "ready" : "unsupported_missing_cancelledAt",
       refundContractStatus: refundTimestampSupported ? "ready" : "unsupported_missing_refund_timestamp"
     }),
+    refunds: {
+      recent: recentRefunds.slice(0, 20),
+      recentPrivacy: opts.includePrivateRefunds ? "firebase_id_token" : "auth_required"
+    },
     finance,
     vehicles: Object.keys(vehicles).sort().map((key) => vehicles[key]),
     queues: Object.keys(queues).sort().map((key) => queues[key]),

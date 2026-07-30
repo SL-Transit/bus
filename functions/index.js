@@ -32,7 +32,7 @@ function setCors(req, res) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }
 }
 
@@ -115,6 +115,18 @@ exports.readAdminDashboardSummary = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
+  let includePrivateRefunds = false;
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (tokenMatch) {
+    try {
+      await admin.auth().verifyIdToken(tokenMatch[1]);
+      includePrivateRefunds = true;
+    } catch (err) {
+      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+      return;
+    }
+  }
   const range = String(req.query.range || "daily");
   const anchor = String(req.query.anchor || "");
   const now = Date.now();
@@ -155,6 +167,7 @@ exports.readAdminDashboardSummary = onRequest({
       travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
       cancelledRecords: cancelledSnap.val() || {},
       refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
+      includePrivateRefunds,
       fleetMaster: Object.assign({}, fleetMasterSnap.val() || {}, { serviceGroups: serviceGroupsSnap.val() || {} }),
       websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null
     });

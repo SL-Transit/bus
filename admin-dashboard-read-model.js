@@ -103,6 +103,28 @@
     });
   }
 
+  function validateRefundRows(rows) {
+    return (Array.isArray(rows) ? rows : []).slice(0, 20).map(function (row) {
+      rejectPrivateFields(row);
+      return {
+        refundedAt: Number(row.refundedAt) || 0,
+        passengerName: String(row.passengerName || ''),
+        passengerPhone: String(row.passengerPhone || ''),
+        route: String(row.route || ''),
+        refundAmount: money(row.refundAmount),
+        paidAmount: money(row.paidAmount),
+        status: String(row.status || 'refunded'),
+        'ผู้โดยสาร': row.passengerName || '—',
+        'เบอร์โทร': row.passengerPhone || '—',
+        'จำนวนเงินคืน': money(row.refundAmount) == null ? '—' : money(row.refundAmount).toLocaleString('th-TH'),
+        'ยอดที่ชำระ': money(row.paidAmount) == null ? '—' : money(row.paidAmount).toLocaleString('th-TH'),
+        'เส้นทาง': row.route || '—',
+        'สถานะ': row.status || 'refunded',
+        'วันที่คืนเงิน': row.refundedAt ? new Date(Number(row.refundedAt)).toLocaleString('th-TH', { timeZone: TIMEZONE }) : '—'
+      };
+    });
+  }
+
   function validateResponse(range, response) {
     if (!response || typeof response !== 'object') throw new Error('invalid response');
     rejectPrivateFields(response);
@@ -138,7 +160,7 @@
         count: nonNegativeInt(response.bookings.createdCount),
         points: response.bookings.points.map(function (point) { return validatePoint(point, 'bookings'); })
       },
-      refunds: { status: response.bookings.refundContractStatus === 'ready' ? response.status : 'unsupported', count: response.bookings.refundContractStatus === 'ready' ? nonNegativeInt(response.bookings.refundedCount) : null, pendingCount: response.bookings.refundContractStatus === 'ready' ? nonNegativeInt(response.bookings.refundedCount) : null, refundedAmount: money(response.finance && response.finance.refundAmount), message: response.bookings.refundContractStatus === 'ready' ? '' : 'contract วันคืนเงินยังไม่ครบ' },
+      refunds: { status: response.bookings.refundContractStatus === 'ready' ? response.status : 'unsupported', count: response.bookings.refundContractStatus === 'ready' ? nonNegativeInt(response.bookings.refundedCount) : null, pendingCount: response.bookings.refundContractStatus === 'ready' ? nonNegativeInt(response.bookings.refundedCount) : null, refundedAmount: money(response.finance && response.finance.refundAmount), recent: validateRefundRows(response.refunds && response.refunds.recent), privacy: response.refunds && response.refunds.recentPrivacy || 'auth_required', message: response.bookings.refundContractStatus === 'ready' ? '' : 'contract วันคืนเงินยังไม่ครบ' },
       revenue: Object.assign({
         status: response.status,
         amount: money(response.finance && response.finance.netAmount),
@@ -164,7 +186,7 @@
       range: range || 'daily',
       visits: { status: status || 'loading', range: range || 'daily', points: [], visitors: null, actualUsers: null },
       bookings: { status: status || 'loading', points: [], createdCount: null, travelPassengerCount: null, cancelledCount: null, refundedCount: null, count: null },
-      refunds: { status: status || 'loading', count: null, pendingCount: null },
+      refunds: { status: status || 'loading', count: null, pendingCount: null, recent: [] },
       revenue: { status: status || 'loading', grossAmount: null, fareAmount: null, serviceFeeAmount: null, refundAmount: null, netAmount: null },
       vehicleSettlements: { status: status || 'loading', rows: [] },
       queueSettlements: { status: status || 'loading', rows: [] },
@@ -182,10 +204,19 @@
     if (!RANGE_SIZES[range]) return Promise.resolve(blank('error', range, 'invalid_range'));
     var seq = ++requestSeq;
     if (typeof fetch !== 'function') return Promise.resolve(blank('error', range, 'fetch_unavailable'));
-    return fetch(ENDPOINT + '?range=' + encodeURIComponent(range) + '&anchor=' + encodeURIComponent(anchor), {
-      method: 'GET',
-      credentials: 'omit',
-      cache: 'no-store'
+    var tokenPromise = Promise.resolve(params.idToken || '');
+    try {
+      var auth = global.firebase && global.firebase.auth && global.firebase.auth();
+      if (!params.idToken && auth && auth.currentUser && auth.currentUser.getIdToken) tokenPromise = auth.currentUser.getIdToken(false);
+    } catch (e) { /* no-op */ }
+    return tokenPromise.then(function (token) {
+      var headers = token ? { Authorization: 'Bearer ' + token } : {};
+      return fetch(ENDPOINT + '?range=' + encodeURIComponent(range) + '&anchor=' + encodeURIComponent(anchor), {
+        method: 'GET',
+        credentials: 'omit',
+        cache: 'no-store',
+        headers: headers
+      });
     }).then(function (res) {
       if (!res.ok) throw new Error('readAdminDashboardSummary HTTP ' + res.status);
       return res.json();
