@@ -23,6 +23,11 @@
     return Math.max(0, Math.round(Number(value) || 0));
   }
 
+  function nullableNonNegativeInt(value) {
+    if (value === null || value === undefined || value === '') return null;
+    return nonNegativeInt(value);
+  }
+
   function money(value) {
     var n = Number(value);
     return Number.isFinite(n) ? Math.max(0, n) : null;
@@ -42,8 +47,8 @@
       return {
         key: String(point.key || ''),
         label: String(point.label || point.key || ''),
-        visitors: nonNegativeInt(point.visitors),
-        actualUsers: nonNegativeInt(point.actualUsers)
+        visitors: nullableNonNegativeInt(point.visitors),
+        actualUsers: nullableNonNegativeInt(point.actualUsers)
       };
     }
     return {
@@ -108,10 +113,10 @@
       anchor: response.anchor || '',
       timezone: TIMEZONE,
       visits: {
-        status: response.status,
+        status: response.website.status || response.status,
         range: range,
-        visitors: nonNegativeInt(response.website.visitors),
-        actualUsers: nonNegativeInt(response.website.actualUsers),
+        visitors: nullableNonNegativeInt(response.website.visitors),
+        actualUsers: nullableNonNegativeInt(response.website.actualUsers),
         points: response.website.points.map(function (point) { return validatePoint(point, 'website'); })
       },
       bookings: {

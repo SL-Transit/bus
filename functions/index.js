@@ -13,7 +13,6 @@ const adminDashboardSummary = require("./admin-dashboard-summary.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
-const analyticsHashSecret = defineSecret("ANALYTICS_HASH_SECRET");
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -70,12 +69,32 @@ function mergeSnapshots(snaps) {
   return out;
 }
 
+function dayMs(dayKey) {
+  const match = String(dayKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), -7, 0, 0, 0);
+}
+
+function mergeWebsiteAnalytics(days, range) {
+  if (range === "hourly") return null;
+  const out = {};
+  Object.keys(days || {}).forEach((dayKey) => {
+    const ms = dayMs(dayKey);
+    if (ms == null) return;
+    const bucketKey = adminDashboardSummary.bucketForMs(range, ms);
+    const rec = days[dayKey] || {};
+    out[bucketKey] = out[bucketKey] || { visitors: 0, actualUsers: 0 };
+    out[bucketKey].visitors += Number(rec.pageViews || 0);
+    out[bucketKey].actualUsers += Number(rec.count || 0);
+  });
+  return out;
+}
+
 exports.readAdminDashboardSummary = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 30,
   memory: "256MiB",
-  maxInstances: 10,
-  secrets: [analyticsHashSecret]
+  maxInstances: 10
 }, async (req, res) => {
   setCors(req, res);
   if (req.method === "OPTIONS") {
@@ -113,7 +132,8 @@ exports.readAdminDashboardSummary = onRequest({
       cancelledSnap,
       refundedSnap,
       refundApprovedSnap,
-      fleetMasterSnap
+      fleetMasterSnap,
+      websiteAnalyticsSnap
     ] = await Promise.all([
       admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("date").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
@@ -121,7 +141,10 @@ exports.readAdminDashboardSummary = onRequest({
       admin.database().ref("bookings").orderByChild("cancelledAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get(),
-      admin.database().ref("data/erpDataCenter/fleet").get()
+      admin.database().ref("data/erpDataCenter/fleet").get(),
+      range === "hourly"
+        ? Promise.resolve(null)
+        : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get()
     ]);
     const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
       range,
@@ -131,7 +154,7 @@ exports.readAdminDashboardSummary = onRequest({
       cancelledRecords: cancelledSnap.val() || {},
       refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
       fleetMaster: fleetMasterSnap.val() || {},
-      identitySecret: analyticsHashSecret.value()
+      websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null
     });
     res.set("Cache-Control", "private, max-age=30");
     sendJson(res, 200, summary);

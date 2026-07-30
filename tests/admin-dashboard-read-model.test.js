@@ -80,4 +80,17 @@ assert.strictEqual(unsupported.bookings.cancelledCount, null);
 assert.strictEqual(unsupported.bookings.refundedCount, null);
 assert.strictEqual(unsupported.bookings.cancellationMessage, 'ยังไม่รองรับข้อมูลวันยกเลิก');
 
+const unavailableWebsite = model.validateResponse('hourly', Object.assign({}, response, {
+  website: Object.assign({}, response.website, {
+    status: 'unavailable',
+    visitors: null,
+    actualUsers: null,
+    points: response.website.points.map((point) => Object.assign({}, point, { visitors: null, actualUsers: null }))
+  })
+}));
+assert.strictEqual(unavailableWebsite.visits.status, 'unavailable');
+assert.strictEqual(unavailableWebsite.visits.visitors, null);
+assert.strictEqual(unavailableWebsite.visits.actualUsers, null);
+assert.strictEqual(unavailableWebsite.visits.points[9].visitors, null);
+
 console.log('admin-dashboard-read-model.test.js OK');

@@ -123,7 +123,7 @@ const result = summary.aggregateDashboard(records, {
       'driver-1': { driverDisplayName: 'นาย ก', firstName: 'ห้ามส่งออก', phone: '0800000000' }
     }
   },
-  websiteRollups: { '2026-07-28': { visitors: 3 } },
+  websiteRollups: { '2026-07-28': { visitors: 3, actualUsers: 2 } },
   identitySecret: 'test-secret',
   generatedAt: 1
 });
@@ -155,7 +155,8 @@ assert(result.vehicles.some((row) => row.vehicleId === 'ยังไม่ระ
 assert(result.queues.some((row) => row.queueId === 'Q1' && row.passengerCount === 2));
 assert(result.routes.some((row) => row.routeId === 'R1' && row.bookingCount === 1));
 assert.strictEqual(result.website.visitors, 3);
-assert.strictEqual(result.website.actualUsers, 2, 'actual users dedupe verified identities only');
+assert.strictEqual(result.website.actualUsers, 2, 'actual users come from website analytics rollups');
+assert.strictEqual(result.website.status, 'ready');
 assert.strictEqual(result.bookings.createdDateSource, 'ts');
 assert.strictEqual(result.bookings.travelDateSource, 'date/serviceDate');
 assert.strictEqual(result.bookings.cancellationContractStatus, 'ready');
@@ -176,6 +177,19 @@ const unsupported = summary.aggregateDashboard({
 }, { range: 'daily', anchor, nowMs: day28, travelRecords: {}, cancelledRecords: { BK_CANCEL_NO_TS: Object.assign({}, records.BK_CANCEL, { cancelledAt: undefined }) }, refundedRecords: {}, generatedAt: 2 });
 assert.strictEqual(unsupported.bookings.cancelledCount, 0);
 assert.strictEqual(unsupported.bookings.cancellationContractStatus, 'unsupported_missing_cancelledAt');
+
+const noWebsiteSource = summary.aggregateDashboard(records, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  travelRecords: records,
+  cancelledRecords: records,
+  refundedRecords: records,
+  generatedAt: 3
+});
+assert.strictEqual(noWebsiteSource.website.status, 'unavailable');
+assert.strictEqual(noWebsiteSource.website.visitors, null);
+assert.strictEqual(noWebsiteSource.website.actualUsers, null);
 
 const serialized = JSON.stringify(result);
 ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {
@@ -201,7 +215,7 @@ assert(functionsIndex.includes('orderByChild("serviceDate")'), 'function must qu
 assert(functionsIndex.includes('orderByChild("cancelledAt")'), 'function must query cancellations by cancelledAt');
 assert(functionsIndex.includes('orderByChild("refundedAt")'), 'function must query refunds by refundedAt');
 assert(functionsIndex.includes('ref("data/erpDataCenter/fleet").get()'), 'function must read ERP fleet master for vehicle alias and public driver display names');
-assert(!functionsIndex.includes('analytics/mainWeb'), 'function must not read legacy website analytics');
+assert(functionsIndex.includes('ref("analytics/mainWeb")'), 'function must read website analytics rollups through the HTTPS summary endpoint');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 
 console.log('admin-dashboard-summary.test.js OK');
