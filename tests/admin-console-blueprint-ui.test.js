@@ -79,7 +79,12 @@ assert.ok(!dashboardSource.includes('bookings/'), 'Dashboard UI must not read ra
 
 assert.ok(html.includes('ERP_WORKBOOK_TABS'), 'ERP management page must define workbook-style entity tabs');
 assert.ok(html.includes('readAdminErpDataCenter'), 'ERP management page must read ERP Data Center through the HTTPS admin endpoint');
+assert.ok(html.includes('updateAdminErpDataCenter'), 'ERP management page must save ERP Data Center edits through the HTTPS admin endpoint');
 assert.ok(html.includes("Authorization:'Bearer '+token"), 'ERP management page must pass a Firebase ID token to the ERP Data Center endpoint');
+assert.ok(html.includes('id="erpEditToggle"'), 'ERP management page must require an explicit edit button before cell edits');
+assert.ok(html.includes('id="erpSaveDraft"'), 'ERP management page must expose a save button for ERP edits');
+assert.ok(html.includes('contenteditable="true" data-erp-cell="1"'), 'ERP management page must render editable cells only in edit mode');
+assert.ok(html.includes('data-erp-page'), 'ERP management page pagination must be clickable');
 assert.ok(!html.includes("db.ref('data/erpDataCenter').once('value')"), 'ERP management page must not read the blocked RTDB parent path directly');
 assert.ok(html.includes('id="erp-workbook-grid"'), 'ERP management page must render an Excel-like grid');
 assert.ok(html.includes('data-erp-tab'), 'ERP management page must support workbook tabs');
