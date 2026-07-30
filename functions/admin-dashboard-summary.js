@@ -289,7 +289,44 @@ function publicDriverDisplayName(driver) {
 
 function publicVehicleAlias(vehicle, fallback) {
   const row = vehicle && typeof vehicle === "object" ? vehicle : {};
-  return publicText(row.vehicleAlias || row.carAlias || row.alias || row.displayCode || row.publicCode || fallback);
+  return publicText(row.vehicleAlias || row.carAlias || row.alias || row.runtimeVehicleId || (Array.isArray(row.legacyAliases) && row.legacyAliases[0]) || row.displayCode || row.publicCode || fallback);
+}
+
+function serviceDateOrdinal(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return Math.floor(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000);
+}
+
+function rotationQueueIdForVehicle(rule, vehicleId, anchorDayKey) {
+  const vehicles = Array.isArray(rule && rule.vehicleIds) ? rule.vehicleIds : [];
+  const queues = Array.isArray(rule && rule.queueIds) ? rule.queueIds : [];
+  const vehicleIndex = vehicles.indexOf(vehicleId);
+  if (vehicleIndex < 0 || !queues.length) return "";
+  const base = serviceDateOrdinal("2026-07-16");
+  const target = serviceDateOrdinal(anchorDayKey);
+  const offset = base == null || target == null ? 0 : target - base;
+  return queues[(((vehicleIndex + offset) % queues.length) + queues.length) % queues.length] || "";
+}
+
+function seedVehicleMasterRows(target, fleetMaster, anchorDayKey) {
+  const master = fleetMaster && typeof fleetMaster === "object" ? fleetMaster : {};
+  const vehicleDirectory = master.vehicles || {};
+  const rotationRule = master.assignmentRules && master.assignmentRules.rotation_rule_v1;
+  const vehicleIds = Array.isArray(rotationRule && rotationRule.vehicleIds) ? rotationRule.vehicleIds : [];
+  vehicleIds.forEach((vehicleId) => {
+    if (target[vehicleId]) return;
+    const vehicleMaster = vehicleDirectory[vehicleId] || {};
+    target[vehicleId] = emptyGroup(vehicleId, {
+      vehicleId,
+      vehicleAlias: publicVehicleAlias(vehicleMaster, vehicleId),
+      driverId: "—",
+      driverDisplayName: "",
+      queueId: rotationQueueIdForVehicle(rotationRule, vehicleId, anchorDayKey) || "",
+      driverMasterStatus: "missing",
+      status: "ready"
+    });
+  });
 }
 
 function addFinance(target, values) {
@@ -494,6 +531,8 @@ function aggregateDashboard(records, options) {
       byKey[key].booking.refunds += 1;
     }
   });
+
+  seedVehicleMasterRows(vehicles, fleetMaster, anchorDayKey);
 
   const websiteRollups = hasWebsiteRollups ? opts.websiteRollups : {};
   Object.keys(websiteRollups).forEach((key) => {
