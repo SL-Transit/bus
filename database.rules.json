@@ -13,7 +13,7 @@
         }
       },
       "finance": {
-        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false
       },
       "erpDataCenter": {
@@ -36,7 +36,7 @@
           ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "finance": {
-          ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           ".write": false
         },
         "adminAccounts": {
@@ -61,7 +61,7 @@
     },
     "operations": {
       "bookings": {
-        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false,
         ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
         "$bookingId": {
@@ -82,7 +82,7 @@
         }
       },
       "passengers": {
-        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false,
         "$passengerId": {
           ".write": false
@@ -103,9 +103,9 @@
         ".write": "auth != null"
       },
       "sosAlerts": {
-        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         "$vehicleId": {
-          ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin')"
+          ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true)"
         }
       },
       "driverWorkByServiceDate": {
@@ -185,13 +185,13 @@
       }
     },
     "admin": {
-      ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
-      ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'"
+      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
     },
     "driverLogs": {
       ".read": false,
       "$vehicleId": {
-        ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'admin'",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
       }
     },
