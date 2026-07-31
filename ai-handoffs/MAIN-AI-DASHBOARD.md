@@ -1,5 +1,13 @@
 ﻿# SL-Transit Main AI Dashboard
 
+## 2026-07-31 (RESOLVED) - Unified admin-tracking rules published live
+
+Update to the section below: the two-admin-path issue was fixed in commit `120c9f3` ("Unify the two duplicate admin-check mechanisms into one source of truth") — standardized on `data/erpDataCenter/adminAccounts`. Owner confirmed the unified rules were pasted into Firebase Console and published live (2026-07-31). `operations/bookings`, `operations/passengers`, `data/finance`, `data/erpDataCenter/finance`, `admin`, `sosAlerts` now correctly require `erpDataCenter/adminAccounts/{uid} === true`, and the owner's existing admin account (`sakundech.non@gmail.com`) already satisfies this — no data access was lost. The unpublished-rules warning below no longer applies; kept for history.
+
+## 2026-07-29 (evening) - RESOLVED: unified admin rules published live (owner-confirmed)
+
+Update to the section below: owner confirmed (chat) they pasted the unified `database.rules.json` (post `120c9f3` admin-path-unification) into Firebase Console and clicked Publish. Verified content match between what the owner pasted back and the repo file via exact JSON equality check (not just visual comparison) — identical, only whitespace/formatting differed. **Live and confirmed, not just committed.** `data/erpDataCenter/adminAccounts` is now the single source of truth for admin status across the whole ruleset (bookings, passengers, finance x2, admin, sosAlerts read+write, driverLogs). The leftover `driverIdentityCenter/accounts/{uid}/role` field the owner set earlier is unused/harmless.
+
 ## 2026-07-29 (evening) - UNPUBLISHED database.rules.json: two admin-tracking paths need unifying before publish
 
 **RESOLVED 2026-07-31 (this session) — see CENTRAL-REPORT.md 2026-07-31 entry for full detail.** The two paths were unified onto `erpDataCenter/adminAccounts` (commit `120c9f3`), owner published the unified rules, and confirmed (via screenshot) `erpDataCenter/adminAccounts/{uid}: true` set via `admin-bootstrap.html` for the owner's account. `driverIdentityCenter/accounts/{uid}/role` is no longer checked anywhere — leave it alone, it's inert leftover data. Nothing further to do here; the rest of this note is kept for history only.
