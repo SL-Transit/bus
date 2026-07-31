@@ -2,6 +2,8 @@
 
 ## 2026-07-29 (evening) - UNPUBLISHED database.rules.json: two admin-tracking paths need unifying before publish
 
+**RESOLVED 2026-07-31 (this session) — see CENTRAL-REPORT.md 2026-07-31 entry for full detail.** The two paths were unified onto `erpDataCenter/adminAccounts` (commit `120c9f3`), owner published the unified rules, and confirmed (via screenshot) `erpDataCenter/adminAccounts/{uid}: true` set via `admin-bootstrap.html` for the owner's account. `driverIdentityCenter/accounts/{uid}/role` is no longer checked anywhere — leave it alone, it's inert leftover data. Nothing further to do here; the rest of this note is kept for history only.
+
 Commit `053e887` ("Add role-based scoping for admin-only data") added a `role === 'admin'` check on `data/driverIdentityCenter/accounts/$uid/role` for reading `operations/bookings`, `operations/passengers`, `data/finance`, `data/erpDataCenter/finance`, `admin`, `sosAlerts`. **Not yet published to live Firebase** (per the standing rule above — commits to this repo never auto-publish Firebase rules).
 
 This is a *second, separate* admin-tracking path from `data/erpDataCenter/adminAccounts/$uid` (added earlier same day, commits `18549b7`/`f15883e`, already live-published, used to gate ERP catalog/fleet/settings writes and bootstrapped via `admin-bootstrap.html`). The owner's first admin account (`sakundech.non@gmail.com`, UID `reWl8JCfJsSIXwJ5AKppZUCqwym1`) is currently only in `adminAccounts`, NOT in `driverIdentityCenter/accounts/{uid}/role`. `driverIdentityCenter/accounts/$uid` is `.write:false` for all clients (by design — role must be set via Firebase Console or Admin SDK, no client bootstrap possible), so there's no page-based bootstrap fix like `admin-bootstrap.html` for this one.
