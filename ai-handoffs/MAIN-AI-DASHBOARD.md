@@ -1,5 +1,15 @@
 ﻿# SL-Transit Main AI Dashboard
 
+## 2026-07-29 (evening) - UNPUBLISHED database.rules.json: two admin-tracking paths need unifying before publish
+
+Commit `053e887` ("Add role-based scoping for admin-only data") added a `role === 'admin'` check on `data/driverIdentityCenter/accounts/$uid/role` for reading `operations/bookings`, `operations/passengers`, `data/finance`, `data/erpDataCenter/finance`, `admin`, `sosAlerts`. **Not yet published to live Firebase** (per the standing rule above — commits to this repo never auto-publish Firebase rules).
+
+This is a *second, separate* admin-tracking path from `data/erpDataCenter/adminAccounts/$uid` (added earlier same day, commits `18549b7`/`f15883e`, already live-published, used to gate ERP catalog/fleet/settings writes and bootstrapped via `admin-bootstrap.html`). The owner's first admin account (`sakundech.non@gmail.com`, UID `reWl8JCfJsSIXwJ5AKppZUCqwym1`) is currently only in `adminAccounts`, NOT in `driverIdentityCenter/accounts/{uid}/role`. `driverIdentityCenter/accounts/$uid` is `.write:false` for all clients (by design — role must be set via Firebase Console or Admin SDK, no client bootstrap possible), so there's no page-based bootstrap fix like `admin-bootstrap.html` for this one.
+
+**Do not publish `053e887`'s rules until this is resolved** — publishing now would make `operations/bookings`/`passengers`/`finance`/`admin`/`sosAlerts` unreadable by everyone, since nobody has `role: 'admin'` set yet.
+
+Owner is currently working on unifying these two admin paths into one. Any AI picking up this repo: check with the owner / re-read this section before touching `database.rules.json` admin-role logic or telling the owner to publish rules, to avoid duplicate/conflicting fixes.
+
 ## 2026-07-29 09:45 +07 - OWNER EXCEPTION TO SCREEN 02 LOCK (ERP data workbook + admin login)
 ## LATEST OWNER DECISION — SUPERSEDES THE 2026-07-26 SECTION BELOW, ON THIS POINT ONLY
 
