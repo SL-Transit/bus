@@ -92,9 +92,15 @@
   function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
   function nowTimeStr(){ var d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
   function genTestCode(){
-    // TB + 6 digits, matches the /^TB\d{6}$/ pattern this codebase already treats as test data
-    var n = Math.floor(100000 + Math.random() * 900000);
-    return 'TB' + n;
+    // BK + timestamp digits + random digits, matching this codebase's real booking-code shape
+    // (booking-bridge.js's genCode()) so every part of the app treats it as a normal bookings/
+    // record with no special-cased path routing \u2014 unlike TB-prefixed codes, which
+    // ticket-data-center.js's bookingPathForCode() always looks up under testBookings/
+    // regardless of where the record actually lives. testMode:true is the real "this is
+    // test data" marker, not the code prefix.
+    var ts = String(Date.now()).slice(-8);
+    var rand = pad(Math.floor(Math.random() * 100));
+    return 'BK' + ts + rand;
   }
 
   $('pdate').value = todayStr();
