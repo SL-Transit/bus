@@ -7,6 +7,7 @@
 <link rel="apple-touch-icon" sizes="192x192" href="assets/app-icon-192.png?v=20260621a">
 <meta name="theme-color" content="#0b1d3a">
   <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ติดตามรถของฉัน – S.L.Transit</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
@@ -1102,8 +1103,16 @@
     }
     function ticketAccessTokenFor(code) {
       var normalized = normalizeLookup(String(code || ''));
-      var params = new URLSearchParams(location.search || '');
-      return params.get('ticketToken') || params.get('accessToken') || sessionStorage.getItem('slt_ticket_access_' + normalized) || '';
+      try {
+        var hashParams = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+        var token = hashParams.get('ticketToken') || hashParams.get('accessToken') || '';
+        if (token) {
+          sessionStorage.setItem('slt_ticket_access_' + normalized, token);
+          history.replaceState(null, '', location.pathname + location.search);
+          return token;
+        }
+      } catch (err) {}
+      return sessionStorage.getItem('slt_ticket_access_' + normalized) || '';
     }
     function postTicketAction(action, payload) {
       if (!currentBooking || !currentBooking.code) return Promise.reject(new Error('TICKET_NOT_LOADED'));
@@ -1243,10 +1252,9 @@
     function rememberLastTicket(code) {
       if (!code) return;
       try {
-        var tokenParams = new URLSearchParams(location.search || '');
         sessionStorage.setItem(LAST_TICKET_STORAGE_KEY, JSON.stringify({
           code: code,
-          ticketToken: tokenParams.get('ticketToken') || tokenParams.get('accessToken') || sessionStorage.getItem('slt_ticket_access_' + String(code).toUpperCase()) || '',
+          ticketToken: sessionStorage.getItem('slt_ticket_access_' + String(code).toUpperCase()) || '',
           testMode: TEST_MODE === true,
           savedAt: Date.now()
         }));

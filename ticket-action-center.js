@@ -135,9 +135,15 @@
     var token = clean(params.accessToken || params.ticketAccessToken || ticket.accessToken || ticket.ticketAccessToken);
     if (token) return token;
     try {
-      var urlParams = new URLSearchParams((root.location && root.location.search) || '');
+      var urlParams = new URLSearchParams(((root.location && root.location.hash) || '').replace(/^#/, ''));
       token = clean(urlParams.get('ticketToken') || urlParams.get('accessToken'));
-      if (token) return token;
+      if (token) {
+        if (root.sessionStorage) root.sessionStorage.setItem('slt_ticket_access_' + code, token);
+        if (root.history && root.location) {
+          root.history.replaceState(null, '', root.location.pathname + root.location.search);
+        }
+        return token;
+      }
     } catch (err) {}
     try {
       return clean(root.sessionStorage && root.sessionStorage.getItem('slt_ticket_access_' + code));

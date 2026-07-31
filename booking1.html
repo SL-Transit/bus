@@ -2572,7 +2572,7 @@ function getTicketAccessToken(code) {
 function getTicketQrText(code, token) {
   var rawToken = token || getTicketAccessToken(code);
   var url = 'https://sl-transit.com/track_trip.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
-  if (rawToken) url += '&ticketToken=' + encodeURIComponent(rawToken);
+  if (rawToken) url += '#ticketToken=' + encodeURIComponent(rawToken);
   return url;
 }
 

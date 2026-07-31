@@ -35,15 +35,22 @@
 
   function ticketAccessTokenForCode(code, options) {
     options = options || {};
+    var normalized = clean(code).toUpperCase();
     var token = clean(options.accessToken || options.ticketAccessToken);
     if (token) return token;
     try {
-      var params = new URLSearchParams((root.location && root.location.search) || '');
-      token = clean(params.get('ticketToken') || params.get('accessToken'));
-      if (token) return token;
+      var hashParams = new URLSearchParams(((root.location && root.location.hash) || '').replace(/^#/, ''));
+      token = clean(hashParams.get('ticketToken') || hashParams.get('accessToken'));
+      if (token) {
+        if (root.sessionStorage) root.sessionStorage.setItem('slt_ticket_access_' + normalized, token);
+        if (root.history && root.location) {
+          root.history.replaceState(null, '', root.location.pathname + root.location.search);
+        }
+        return token;
+      }
     } catch (err) {}
     try {
-      return clean(root.sessionStorage && root.sessionStorage.getItem('slt_ticket_access_' + clean(code).toUpperCase()));
+      return clean(root.sessionStorage && root.sessionStorage.getItem('slt_ticket_access_' + normalized));
     } catch (err) {
       return '';
     }

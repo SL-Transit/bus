@@ -4,7 +4,8 @@ const TicketDataCenter = require('../ticket-data-center');
 (async function run() {
   const originalFetch = global.fetch;
   let fetchBody = null;
-  global.location = { search: '?code=BK1234567&ticketToken=secure_ticket_token_12345678901234567890' };
+  global.location = { pathname: '/track_trip.html', search: '?code=BK1234567', hash: '#ticketToken=secure_ticket_token_12345678901234567890' };
+  global.history = { cleanedUrl: '', replaceState(_state, _title, url) { this.cleanedUrl = url; } };
   global.sessionStorage = {
     store: {},
     getItem(key) { return this.store[key] || ''; },
@@ -32,11 +33,13 @@ const TicketDataCenter = require('../ticket-data-center');
   const found = await TicketDataCenter.findTicket(null, 'BK1234567');
   assert.strictEqual(fetchBody.bookingCode, 'BK1234567');
   assert.strictEqual(fetchBody.accessToken, 'secure_ticket_token_12345678901234567890');
+  assert.strictEqual(global.history.cleanedUrl, '/track_trip.html?code=BK1234567');
   assert.strictEqual(found.lookupType, 'secure_token');
   assert.strictEqual(found.readPath, '');
   assert.strictEqual(found.booking.code, 'BK1234567');
 
   delete global.location;
+  delete global.history;
   delete global.sessionStorage;
   await assert.rejects(
     () => TicketDataCenter.findTicket(null, 'BK1234567'),

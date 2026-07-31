@@ -81,7 +81,7 @@ test('Range changes reload Dashboard aggregate without stale UI crash', async ({
 test('Sidebar and mobile drawer remain usable', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto(pageUrl);
-  await expect(page.locator('.nav button[data-page]')).toHaveCount(9);
+  await expect(page.locator('.nav button[data-page]')).toHaveCount(10);
   await page.locator('#toggleSidebar').click();
   await expect(page.locator('body')).toHaveClass(/nav-collapsed/);
   await page.locator('#toggleSidebar').click();
