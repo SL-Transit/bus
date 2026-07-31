@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SL-Transit — สร้างตั๋วทดสอบ</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  :root{--nav:#061d36;--nav2:#0d58b5;--ink:#101828;--muted:#667085;--line:#e4e7ec;--good:#12b76a;--bad:#d92d20}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:linear-gradient(180deg,var(--nav),#0d3a63);min-height:100vh;padding:16px;display:flex;align-items:flex-start;justify-content:center}
+  .card{background:#fff;border-radius:12px;padding:28px 24px;width:100%;max-width:420px;box-shadow:0 8px 30px rgba(0,0,0,.25);margin-top:24px}
+  h1{font-size:18px;margin:0 0 4px;color:var(--ink)}
+  .sub{color:var(--muted);font-size:12.5px;margin:0 0 18px;line-height:1.5}
+  label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+  label:first-of-type{margin-top:0}
+  input{width:100%;border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:14px;outline:none}
+  input:focus{border-color:var(--nav2);box-shadow:0 0 0 3px rgba(13,88,181,.12)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  button{width:100%;border:none;border-radius:6px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;min-height:42px;margin-top:20px}
+  #loginBtn{background:var(--nav2);color:#fff}
+  #createBtn{background:var(--good);color:#fff}
+  button:disabled{background:#9db4cc;cursor:not-allowed}
+  #msg{font-size:12.5px;text-align:center;min-height:18px;margin-top:10px}
+  #msg.err{color:var(--bad)}
+  #msg.ok{color:var(--good);font-weight:600}
+  .step{display:none}
+  .step.active{display:block}
+  .resultbox{background:#f2f4f7;border-radius:8px;padding:14px;font-size:13px;color:var(--ink);margin-top:14px;word-break:break-all;display:none}
+  .resultbox a{color:var(--nav2);font-weight:700}
+  .note{background:#fffaeb;border:1px solid #fedf89;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#7a4b00;margin-top:16px;text-align:center}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>สร้างตั๋วทดสอบ (Test Booking)</h1>
+    <p class="sub">สำหรับทดสอบฟีเจอร์ต่างๆ (เช่น แชร์ตำแหน่งผู้โดยสารให้คนขับ) โดยไม่ต้องรอลูกค้าจองจริง — เขียนเป็น <code>testMode: true</code> แยกจากตั๋วลูกค้าจริงชัดเจน ต้อง login ด้วยบัญชี admin ก่อน</p>
+
+    <div id="step1" class="step active">
+      <label>อีเมล admin</label>
+      <input id="email" type="email" autocomplete="email" placeholder="admin@example.com">
+      <label>รหัสผ่าน</label>
+      <input id="pass" type="password" autocomplete="current-password" placeholder="••••••••">
+      <button id="loginBtn" type="button">เข้าสู่ระบบ</button>
+    </div>
+
+    <div id="step2" class="step">
+      <label>รหัสรถ (vehicleId) — ต้องตรงกับที่คนขับผูกไว้จริง เช่น car1</label>
+      <input id="vehicleId" type="text" placeholder="car1">
+      <label>ชื่อผู้โดยสาร (ทดสอบ)</label>
+      <input id="pname" type="text" value="ผู้โดยสารทดสอบ">
+      <div class="row2">
+        <div><label>วันที่เดินทาง</label><input id="pdate" type="date"></div>
+        <div><label>เวลา</label><input id="ptime" type="time"></div>
+      </div>
+      <div class="row2">
+        <div><label>ต้นทาง</label><input id="porigin" type="text" value="สนามชัยเขต"></div>
+        <div><label>ปลายทาง</label><input id="pdest" type="text" value="แปดริ้ว"></div>
+      </div>
+      <div class="row2">
+        <div><label>จำนวนที่นั่ง</label><input id="ppax" type="number" min="1" max="10" value="1"></div>
+        <div><label>ราคา (บาท)</label><input id="pprice" type="number" min="0" value="55"></div>
+      </div>
+      <button id="createBtn" type="button">สร้างตั๋วทดสอบ</button>
+      <div class="resultbox" id="resultBox"></div>
+    </div>
+
+    <div id="msg"></div>
+    <div class="note">⚠️ ตั๋วนี้เขียนไปที่ <code>bookings/</code> จริง (ไม่ใช่ <code>testBookings/</code>) เพื่อให้ระบบ sync อัตโนมัติไปยังรายชื่อตั๋วของคนขับได้ถูกต้อง แต่ทำเครื่องหมาย <code>testMode: true</code> ไว้ชัดเจน ลบออกได้ทุกเมื่อจากหน้า Admin Console หรือ Firebase Console</div>
+  </div>
+
+<script>
+  var FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyCuWN1RhTSnKjbg5vliTEXa8HtgY7j2spM',
+    authDomain: 'sl-transit-9464e.firebaseapp.com',
+    databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
+    projectId: 'sl-transit-9464e',
+    storageBucket: 'sl-transit-9464e.firebasestorage.app',
+    messagingSenderId: '480076551107',
+    appId: '1:480076551107:web:0548531ec69327a2bfe376'
+  };
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  var auth = firebase.auth();
+  var db = firebase.database();
+
+  function $(id){ return document.getElementById(id); }
+  function setMsg(text, cls){ var m=$('msg'); m.textContent=text||''; m.className=cls||''; }
+  function showStep(n){ $('step1').classList.toggle('active', n===1); $('step2').classList.toggle('active', n===2); }
+  function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function nowTimeStr(){ var d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+  function genTestCode(){
+    // TB + 6 digits, matches the /^TB\d{6}$/ pattern this codebase already treats as test data
+    var n = Math.floor(100000 + Math.random() * 900000);
+    return 'TB' + n;
+  }
+
+  $('pdate').value = todayStr();
+  $('ptime').value = nowTimeStr();
+
+  $('loginBtn').addEventListener('click', function(){
+    var email=($('email').value||'').trim(), pass=$('pass').value||'';
+    if(!email || !pass){ setMsg('กรุณากรอกอีเมลและรหัสผ่านให้ครบ','err'); return; }
+    setMsg('','');
+    $('loginBtn').disabled = true;
+    auth.signInWithEmailAndPassword(email, pass).then(function(){
+      showStep(2);
+    }).catch(function(err){
+      setMsg('เข้าสู่ระบบไม่สำเร็จ: ' + (err && err.message ? err.message : 'ลองใหม่อีกครั้ง'), 'err');
+    }).then(function(){
+      $('loginBtn').disabled = false;
+    });
+  });
+
+  $('createBtn').addEventListener('click', function(){
+    var user = auth.currentUser;
+    if(!user){ setMsg('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่','err'); showStep(1); return; }
+    var vehicleId = ($('vehicleId').value||'').trim();
+    if(!vehicleId){ setMsg('กรุณาใส่รหัสรถ (vehicleId)','err'); return; }
+    var code = genTestCode();
+    var date = $('pdate').value || todayStr();
+    var time = $('ptime').value || nowTimeStr();
+    var pax = Math.max(1, Math.min(10, Number($('ppax').value) || 1));
+    var price = Math.max(0, Number($('pprice').value) || 0);
+    var booking = {
+      code: code,
+      bookingCode: code,
+      testMode: true,
+      mockPayment: true,
+      source: 'test-booking-tool.html',
+      name: ($('pname').value||'ผู้โดยสารทดสอบ').trim(),
+      phone: '0000000000',
+      date: date,
+      serviceDate: date,
+      time: time,
+      origin: ($('porigin').value||'').trim(),
+      destination: ($('pdest').value||'').trim(),
+      pax: pax,
+      seats: pax,
+      price: price,
+      fareAmount: price,
+      status: 'confirmed',
+      paymentStatus: 'paid',
+      plannedVehicleId: vehicleId,
+      vehicleId: vehicleId,
+      ts: Date.now(),
+      createdBy: user.email || user.uid
+    };
+    $('createBtn').disabled = true;
+    setMsg('กำลังสร้าง...', '');
+    db.ref('bookings/' + code).set(booking).then(function(){
+      $('resultBox').style.display = 'block';
+      $('resultBox').innerHTML = 'สร้างสำเร็จ ✅<br>รหัสตั๋ว: <b>' + code + '</b><br>' +
+        'เปิดหน้าติดตามตั๋วนี้ได้ที่: <br><a href="check_ticket.html?code=' + code + '" target="_blank">check_ticket.html?code=' + code + '</a>';
+      setMsg('สร้างตั๋วทดสอบสำเร็จแล้ว ระบบจะ sync เข้ารายชื่อตั๋วของคนขับรถ ' + vehicleId + ' อัตโนมัติภายในไม่กี่วินาที', 'ok');
+    }).catch(function(err){
+      setMsg('สร้างไม่สำเร็จ: ' + (err && err.message ? err.message : 'ลองใหม่อีกครั้ง'), 'err');
+    }).then(function(){
+      $('createBtn').disabled = false;
+    });
+  });
+</script>
+</body>
+</html>
