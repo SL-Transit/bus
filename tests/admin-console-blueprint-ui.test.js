@@ -85,6 +85,9 @@ assert.ok(html.includes('id="erpEditToggle"'), 'ERP management page must require
 assert.ok(html.includes('id="erpSaveDraft"'), 'ERP management page must expose a save button for ERP edits');
 assert.ok(html.includes('contenteditable="true" data-erp-cell="1"'), 'ERP management page must render editable cells only in edit mode');
 assert.ok(html.includes('data-erp-page'), 'ERP management page pagination must be clickable');
+assert.ok(html.includes('data-erp-move'), 'ERP management page must support guarded row order controls');
+assert.ok(html.includes("closest('[data-erp-cell],[data-erp-move]')"), 'ERP row selection must not steal focus from editable cells or row move buttons');
+assert.ok(html.includes('function moveErpRow'), 'ERP management page must draft row order changes before saving');
 assert.ok(!html.includes("db.ref('data/erpDataCenter').once('value')"), 'ERP management page must not read the blocked RTDB parent path directly');
 assert.ok(html.includes('id="erp-workbook-grid"'), 'ERP management page must render an Excel-like grid');
 assert.ok(html.includes('data-erp-tab'), 'ERP management page must support workbook tabs');
