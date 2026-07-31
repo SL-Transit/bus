@@ -14,6 +14,20 @@ Every report must include:
 - Firebase/passenger-data safety statement
 - blockers and next recommended action
 
+## 2026-07-31 +07 - Passenger/Driver-Map AI (this session) - DONE, needs manual Firebase publish
+
+Scope: `database.rules.json` only.
+
+**Found and fixed a coordination gap**: two independent, uncoordinated "is this user an admin" checks had accumulated in `database.rules.json` from two separate work threads (this session's role-based scoping work on `bookings`/`passengers`/`finance`/`admin`/`sosAlerts`/`driverLogs`, vs. the Admin-ERP-Console thread's `erpDataCenter/adminAccounts` + `admin-bootstrap.html`). Neither thread was aware of the other's mechanism. Owner caught this while testing and asked for a permanent fix rather than living with "set admin status in two places."
+
+**Resolution (commit `49a30ee`)**: standardized on `data/erpDataCenter/adminAccounts/{uid} === true` as the single source of truth for admin authorization everywhere in the rules file. Rationale: it already has a tested self-service bootstrap page (`admin-bootstrap.html`) with a safe "first admin only, while table is empty" clause, and it lives under `erpDataCenter` which is this codebase's established convention for centralized ERP data. All 9 rule locations that previously checked `data/driverIdentityCenter/accounts/{uid}/role === 'admin'` now check `erpDataCenter/adminAccounts/{uid}` instead. No app/HTML code changes were needed — `admin-bootstrap.html` already wrote to the winning field.
+
+**If your work references `driverIdentityCenter/accounts/{uid}/role`** for admin/authorization purposes anywhere (rules, JS, docs), please update it to check `erpDataCenter/adminAccounts/{uid} === true` instead, or flag here if there's a reason the two shouldn't have been merged.
+
+**Not yet live**: per the 2026-07-29 process note above, this rules change needs a manual Firebase Console → Realtime Database → Rules → Publish (or `firebase deploy --only database`) before it takes effect. Owner has been given the full updated file and is expected to publish it along with the rest of this session's accumulated rules changes (`driverCommands`, `passengerLiveLocations`, role-based scoping) in one pass.
+
+Please treat `data/erpDataCenter/adminAccounts` as the canonical admin table going forward — do not reintroduce a second admin flag elsewhere without checking this board first.
+
 ## 2026-07-29 12:04 +07 - Firebase database.rules.json LIVE DEPLOY CONFIRMED (correction)
 
 **Correction to the 2026-07-29 record of commit `1414fe3` ("Fix Firebase rules: close public bookings PII leak, prevent GPS spoofing on liveVehicles")**: that commit only changed the file inside this GitHub repo. It was **not actually live on the Firebase project** until today. Root cause: there is no CI/CD step that deploys `database.rules.json` to Firebase (checked `.github/workflows/` — only `deploy-pages.yml` for GitHub Pages and `build-driver-apk.yml` exist; neither touches Realtime Database rules). Firebase rules must be manually pasted into Firebase Console → Realtime Database → Rules → Publish, or deployed via `firebase deploy --only database` with the Firebase CLI — committing to `main` alone does nothing to the live rules.
