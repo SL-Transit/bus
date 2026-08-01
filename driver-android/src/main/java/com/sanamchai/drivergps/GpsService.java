@@ -512,6 +512,7 @@ public class GpsService extends Service implements SensorEventListener {
                     .setAutoCancel(true)
                     .build();
             nm.notify(9901, n);
+            MainActivity.appendPersistedNotification(prefs, "⚠️ GPS หายนาน " + (gpsAgoSec / 60) + " นาที\nระบบพยายามกู้คืนแล้ว กรุณาตรวจสอบสัญญาณ GPS");
         } catch (Exception ignored) {}
     }
 
@@ -893,6 +894,7 @@ public class GpsService extends Service implements SensorEventListener {
                     .setDefaults(android.app.Notification.DEFAULT_ALL)
                     .build();
             nm.notify((int) System.currentTimeMillis(), n);
+            MainActivity.appendPersistedNotification(prefs, title + "\n" + body);
         }
     }
 

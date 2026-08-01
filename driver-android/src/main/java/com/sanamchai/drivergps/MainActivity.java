@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
     static final String KEY_BATTERY_PROMPTED  = "battery_prompted";
     static final String KEY_LAST_RESTART      = "last_restart";
     static final String KEY_RESTART_COUNT     = "restart_count";
+    static final String KEY_INAPP_NOTIF_LOG   = "inapp_notif_log";
     static final String KEY_LAST_GPS_AT       = "last_gps_at";
     static final String KEY_LAST_SENT_AT      = "last_sent_at";
     static final String KEY_WAKELOCK_HELD         = "diag_wakelock_held";
@@ -257,6 +258,7 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        loadPersistedNotifications();
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
         if (!ensureFirebaseApp()) {
             forceStopGpsForIdentityGate();
@@ -880,6 +882,35 @@ public class MainActivity extends Activity {
         if (notifMessages.size() > 20) notifMessages.remove(notifMessages.size() - 1);
         unreadNotifCount++;
         updateNotifBubble();
+        appendPersistedNotification(prefs, message);
+    }
+
+    // เขียนแจ้งเตือนลง SharedPreferences ด้วย (ไม่ใช่แค่ list ในหน่วยความจำ) เพื่อให้ GpsService
+    // (ที่รันแยกจาก Activity และไม่มี notifMessages ของตัวเอง) เขียนแจ้งเตือนเข้ามาที่นี่ได้ด้วย —
+    // ตัวนี้คือจุดเชื่อมที่ทำให้แจ้งเตือนแบบ Android (จองตั๋วใหม่ ฯลฯ) โผล่ในหน้า "แจ้งเตือน"
+    // ของแอพด้วย ไม่ใช่แค่เด้งแล้วหายไปตอนปัดทิ้ง
+    static void appendPersistedNotification(SharedPreferences prefs, String message) {
+        if (prefs == null || message == null) return;
+        try {
+            String raw = prefs.getString(KEY_INAPP_NOTIF_LOG, "[]");
+            org.json.JSONArray existing = new org.json.JSONArray(raw);
+            org.json.JSONArray next = new org.json.JSONArray();
+            next.put(message);
+            for (int i = 0; i < existing.length() && next.length() < 20; i++) {
+                String m = existing.optString(i, "");
+                if (!message.equals(m)) next.put(m);
+            }
+            prefs.edit().putString(KEY_INAPP_NOTIF_LOG, next.toString()).apply();
+        } catch (Exception ignored) {}
+    }
+
+    private void loadPersistedNotifications() {
+        if (prefs == null) return;
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray(prefs.getString(KEY_INAPP_NOTIF_LOG, "[]"));
+            notifMessages.clear();
+            for (int i = 0; i < arr.length(); i++) notifMessages.add(arr.optString(i, ""));
+        } catch (Exception ignored) {}
     }
 
     private void updateNotifBubble() {
@@ -3576,6 +3607,7 @@ public class MainActivity extends Activity {
             notifMessages.clear();
             unreadNotifCount = 0;
             updateNotifBubble();
+            if (prefs != null) prefs.edit().remove(KEY_INAPP_NOTIF_LOG).apply();
             buildNotifContent(root);
         });
         headerRow.addView(clearBtn);
