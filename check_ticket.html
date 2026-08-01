@@ -725,6 +725,7 @@
     var trackingVehicleId = '';
     var trackingCurrentTrip = null;
     var vanLocation = null;
+    var trackingVanDisplayState = null;
     var TICKET_VEHICLE_MARKER_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
     var ticketVehicleMarkerCfg = { maxStepMeters: null, maxReasonableSpeedMs: null, maxPredictMs: null, maxPredictMeters: null, catchUpAfterGapMs: null };
     var ticketVanMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
@@ -1714,6 +1715,7 @@
       trackingVanAnimFrame = null;
       trackingPassengerAnimFrame = null;
       trackingVanMarkerPos = null;
+      trackingVanDisplayState = null;
       trackingPassengerMarkerPos = null;
     }
 
@@ -2380,22 +2382,25 @@
       location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
       if (vanLocation && vanLocation.heartbeatOnly === true) {
-        if (!trackingVanMarker) { renderVanMarker(location); trackingVanMarkerPos = location; }
+        if (!trackingVanMarker) { renderVanMarker(location); trackingVanMarkerPos = location; trackingVanDisplayState = null; }
         return;
       }
       if (!trackingVanMarker) {
         renderVanMarker(location);
         trackingVanMarkerPos = location;
+        trackingVanDisplayState = null;
         return;
       }
       if (window.SLTransitMapDisplayCenter && typeof window.SLTransitMapDisplayCenter.planVehicleMarker === 'function') {
         var vehiclePlan = window.SLTransitMapDisplayCenter.planVehicleMarker(
-          trackingVanMarkerPos ? { point: trackingVanMarkerPos } : null,
+          trackingVanDisplayState,
           Object.assign({ vehicleId: trackingVehicleId || 'booked_vehicle' }, location),
           ticketVehicleMarkerCfg
         );
         if (vehiclePlan && vehiclePlan.point) location = vehiclePlan.point;
+        if (vehiclePlan && vehiclePlan.displayState) trackingVanDisplayState = vehiclePlan.displayState;
       }
+      trackingVanMarkerPos = location;
       animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, ticketVanMarkerAnimCfg);
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
