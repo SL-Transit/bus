@@ -17,6 +17,20 @@
         ".write": false
       },
       "erpDataCenter": {
+        "workbookSource": {
+          "manifest": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          },
+          "routeFareRows": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          },
+          "scheduleRows": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          }
+        },
         "catalog": {
           ".read": true,
           ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"

@@ -29,6 +29,7 @@
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
+<script src="erp-workbook-booking-source.js?v=20260801a"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -871,12 +872,14 @@
         updateTicketTransferPointLocation();
         return Promise.resolve(null);
       }
-      return db.ref('publishedSchedule/firebaseKeyEncoding').once('value').then(function(encodingSnap) {
-        TICKET_DATA_CENTER.firebaseKeyEncoding = encodingSnap.val() || {};
-        var storageKey = resolveTicketPairStorageKey(pairKey);
-        return db.ref('publishedSchedule').child('pairs').child(storageKey).once('value');
-      }).then(function(pairSnap) {
-        TICKET_DATA_CENTER.pair = pairSnap.val() || null;
+      var sourceRef = db.ref('data/erpDataCenter/workbookSource');
+      return Promise.all([
+        sourceRef.child('manifest').once('value'),
+        sourceRef.child('routeFareRows').once('value'),
+        sourceRef.child('scheduleRows').once('value')
+      ]).then(function(parts) {
+        var index = SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, parts[0].val() || {});
+        TICKET_DATA_CENTER.pair = index.selectedRoute(booking.origin || booking.from, booking.destination || booking.to);
         TICKET_DATA_CENTER.pairKey = pairKey;
         updateTicketTransferPointLocation();
         if (currentBooking === booking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
@@ -885,7 +888,7 @@
         TICKET_DATA_CENTER.pair = null;
         TICKET_DATA_CENTER.pairKey = pairKey;
         updateTicketTransferPointLocation();
-        console.error('Ticket publishedSchedule pair load failed:', error && error.message ? error.message : error);
+        console.error('Ticket workbook route load failed:', error && error.message ? error.message : error);
         return null;
       });
     }

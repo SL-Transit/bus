@@ -253,6 +253,8 @@ function allowedErpUpdatePath(path) {
     /^data\/erpDataCenter\/serviceGroups\/[^/]+\/[^/]+$/,
     /^data\/erpDataCenter\/fares\/[^/]+\/[^/]+\/[^/]+$/,
     /^data\/erpDataCenter\/scheduleOffers\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/workbookSource\/routeFareRows\/fare_[0-9]{4}\/[^/]+$/,
+    /^data\/erpDataCenter\/workbookSource\/scheduleRows\/schedule_[0-9]{4}\/[^/]+$/,
     /^data\/erpDataCenter\/stopTimes\/[^/]+\/[^/]+$/,
     /^data\/erpDataCenter\/fleet\/vehicles\/[^/]+\/[^/]+$/,
     /^data\/erpDataCenter\/paymentOwnership\/[^/]+\/[^/]+$/,

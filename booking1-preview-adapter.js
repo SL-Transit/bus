@@ -850,7 +850,7 @@
         resumePendingLineLogin();
       }).catch(function(err) {
         console.error('[Booking1PreviewAdapter] load trips failed', err);
-        container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบ /publishedSchedule/pairs/{pairKey}</span></div>';
+        container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบข้อมูลรอบเวลาใน ERP Data Center</span></div>';
       });
     };
 

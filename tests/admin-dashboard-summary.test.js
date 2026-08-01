@@ -299,6 +299,8 @@ assert(functionsIndex.includes('admin_token_required'), 'ERP Data Center endpoin
 assert(functionsIndex.includes('exports.updateAdminErpDataCenter'), 'functions must expose an authenticated ERP Data Center update endpoint for admin workbook edits');
 assert(functionsIndex.includes('data/erpDataCenter/adminAccounts/${decoded.uid}'), 'ERP Data Center update endpoint must require an admin account');
 assert(functionsIndex.includes('allowedErpUpdatePath'), 'ERP Data Center update endpoint must restrict writable paths');
+assert(functionsIndex.includes('workbookSource\\/routeFareRows\\/fare_'), 'ERP update guard must allow canonical workbook fare row fields');
+assert(functionsIndex.includes('workbookSource\\/scheduleRows\\/schedule_'), 'ERP update guard must allow canonical workbook schedule row fields');
 assert(functionsIndex.includes('ref("analytics/mainWeb")'), 'function must read website analytics rollups through the HTTPS summary endpoint');
 assert(!functionsIndex.includes('ref("bookings").get()'), 'function must not read full booking root');
 

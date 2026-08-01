@@ -5,6 +5,11 @@
 
   var PATHS = {
     erpDataCenter: 'data/erpDataCenter',
+    workbookSource: 'data/erpDataCenter/workbookSource',
+    workbookRouteFareRows: 'data/erpDataCenter/workbookSource/routeFareRows',
+    workbookScheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows',
+    workbookSourceManifest: 'data/erpDataCenter/workbookSource/manifest',
+    workbookSourceReconciliation: 'data/erpDataCenter/workbookSource/reconciliation',
     settings: 'data/erpDataCenter/settings',
     adminAccounts: 'data/erpDataCenter/adminAccounts',
     destinations: 'data/erpDataCenter/destinations',
@@ -100,6 +105,10 @@
     'data/erpDataCenter/fleet/vehicleLoginIndex',
     'data/erpDataCenter/finance/transactions',
     'data/erpDataCenter/providerRegistry'
+    ,'data/erpDataCenter/workbookSource/routeFareRows'
+    ,'data/erpDataCenter/workbookSource/scheduleRows'
+    ,'data/erpDataCenter/workbookSource/manifest'
+    ,'data/erpDataCenter/workbookSource/reconciliation'
   ];
 
   var LEGACY_SOURCE_PATHS = ['data/settings', 'data/catalog', 'data/fleet', 'data/finance', 'publishedCatalog', 'routeData', 'settings/routes'];

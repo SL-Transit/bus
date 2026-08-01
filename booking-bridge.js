@@ -1,6 +1,6 @@
 /**
  * booking-bridge.js
- * Booking1 page adapter for /publishedSchedule.
+ * Booking1 page adapter for ERP workbook source rows.
  *
  * This file intentionally consumes the ERP published schedule contract. It does not read
  * routeData, publishedCatalog, settings/routes, or local static fare tables as
@@ -9,7 +9,7 @@
 (function(global) {
   'use strict';
 
-  var PREVIEW_BASE_PATH = 'publishedSchedule';
+  var WORKBOOK_SOURCE_PATH = 'data/erpDataCenter/workbookSource';
   var DEFAULT_TRIP_CAPACITY = 3;
   var AvailabilityCenter = global.SLTransitBookingAvailabilityCenter;
   var FareDecisionCenter = global.SLTransitFareDecisionCenter;
@@ -40,6 +40,7 @@
   var _pairLoadStatus = {};
   var _lastFareContractStatus = null;
   var _lastLoadedPair = null;
+  var _workbookIndex = null;
 
   function _asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -130,46 +131,36 @@
 
   function init(db) {
     _db = db;
-    var baseRef = db.ref(PREVIEW_BASE_PATH);
+    var baseRef = db.ref(WORKBOOK_SOURCE_PATH);
     return Promise.all([
-      baseRef.child('schemaVersion').once('value'),
-      baseRef.child('generatedAt').once('value'),
-      baseRef.child('sourceCommitSha').once('value'),
-      baseRef.child('dryRun').once('value'),
-      baseRef.child('writesEnabled').once('value'),
-      baseRef.child('readyForReview').once('value'),
-      baseRef.child('readyForApply').once('value'),
-      baseRef.child('publicationStatus').once('value'),
-      baseRef.child('productionReady').once('value'),
-      baseRef.child('originOptions').once('value'),
-      baseRef.child('destinationOptionsByOrigin').once('value'),
-      baseRef.child('paymentContact').once('value'),
-      baseRef.child('firebaseKeyEncoding').once('value'),
-      baseRef.child('validation').once('value'),
-      baseRef.child('bookingPolicy').once('value')
+      baseRef.child('manifest').once('value'),
+      baseRef.child('routeFareRows').once('value'),
+      baseRef.child('scheduleRows').once('value')
     ]).then(function(parts) {
+      if (!global.SLTransitWorkbookBookingSource) throw new Error('workbook_booking_source_missing');
+      var manifest = parts[0].val() || {};
+      _workbookIndex = global.SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, manifest);
       _preview = {
-        schemaVersion: parts[0].val() || '',
-        generatedAt: parts[1].val() || '',
-        sourceCommitSha: parts[2].val() || '',
-        dryRun: parts[3].val() === true,
-        writesEnabled: parts[4].val() === true,
-        readyForReview: parts[5].val() === true,
-        readyForApply: parts[6].val() === true,
-        publicationStatus: parts[7].val() || '',
-        productionReady: parts[8].val() === true,
-        originOptions: _normalizeOrigins(parts[9].val() || []),
-        destinationOptionsByOrigin: {},
-        paymentContact: parts[11].val() || null,
-        firebaseKeyEncoding: parts[12].val() || {},
-        validation: parts[13].val() || null,
-        bookingPolicy: parts[14].val() || {}
+        schemaVersion: manifest.schemaVersion || 'erp.workbook-source.v1',
+        generatedAt: manifest.generatedAt || '',
+        sourceCommitSha: manifest.sourceCommitSha || '',
+        dryRun: manifest.dryRun !== false,
+        writesEnabled: manifest.writesEnabled === true,
+        readyForReview: manifest.readyForReview === true,
+        readyForApply: manifest.readyForApply === true,
+        publicationStatus: manifest.publicationStatus || 'workbook_source',
+        productionReady: manifest.productionReady === true,
+        originOptions: _normalizeOrigins(_workbookIndex.originOptions),
+        destinationOptionsByOrigin: _workbookIndex.destinationOptionsByOrigin,
+        paymentContact: manifest.paymentContact || null,
+        firebaseKeyEncoding: {},
+        validation: manifest.validation || null,
+        bookingPolicy: manifest.bookingPolicy || {}
       };
-      _preview.destinationOptionsByOrigin = _normalizeDestinationOptions(parts[10].val() || {});
       _markReady();
       return _preview;
     }).catch(function(err) {
-      console.error('[BookingBridge] publishedSchedule load failed:', err);
+      console.error('[BookingBridge] ERP workbook source load failed:', err);
       _preview.originOptions = [];
       _preview.destinationOptionsByOrigin = {};
       _preview.bookingPolicy = {};
@@ -546,7 +537,7 @@
       });
     }
     _lastFareContractStatus = trips.some(function(trip) { return trip.fareMissing; })
-        ? { status: 'missing_fare', missingField: 'publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount' }
+        ? { status: 'missing_fare', missingField: 'data/erpDataCenter/workbookSource/routeFareRows/{rowId}.amount' }
       : { status: 'ready' };
     if (global.SLTransitCalculatorCenter && typeof global.SLTransitCalculatorCenter.recommendedBookingTrips === 'function') {
       return global.SLTransitCalculatorCenter.recommendedBookingTrips({
@@ -559,25 +550,19 @@
 
   function loadPair(originLabel, destLabel) {
     var option = _selectedDestinationOption(originLabel, destLabel);
-    if (!option || !option.pairKey) {
+    if (!option || !_workbookIndex) {
       _pairLoadStatus[originLabel + '\0' + destLabel] = 'missing';
       return Promise.resolve(null);
     }
-    var storageKey = option.storageKey || _resolvePairStorageKey(option.pairKey);
-    if (!storageKey) return Promise.resolve(null);
+    var storageKey = option.routeFareRowId || originLabel + '\0' + destLabel;
     if (_pairCache[storageKey]) return Promise.resolve(_pairCache[storageKey]);
-    return _db.ref(PREVIEW_BASE_PATH).child('pairs').child(storageKey).once('value').then(function(snap) {
-      var pair = snap.val();
-      if (!pair) {
-        _pairLoadStatus[originLabel + '\0' + destLabel] = 'missing';
-        return null;
-      }
-      pair.__storageKey = storageKey;
-      _pairCache[storageKey] = pair;
-      _lastLoadedPair = pair;
-      _pairLoadStatus[originLabel + '\0' + destLabel] = 'loaded';
-      return pair;
-    });
+    var pair = _workbookIndex.selectedRoute(originLabel, destLabel);
+    if (!pair) return Promise.resolve(null);
+    pair.__storageKey = storageKey;
+    _pairCache[storageKey] = pair;
+    _lastLoadedPair = pair;
+    _pairLoadStatus[originLabel + '\0' + destLabel] = 'loaded';
+    return Promise.resolve(pair);
   }
 
   function loadAvailableTrips(originLabel, destLabel, serviceDate) {
@@ -591,7 +576,7 @@
   function getAvailableTrips(originLabel, destLabel, serviceDate) {
     var option = _selectedDestinationOption(originLabel, destLabel);
     if (!option) return [];
-    var storageKey = option.storageKey || _resolvePairStorageKey(option.pairKey);
+    var storageKey = option.routeFareRowId || originLabel + '\0' + destLabel;
     var pair = storageKey && _pairCache[storageKey];
     return pair ? _pairToTrips(pair, option, serviceDate) : [];
   }

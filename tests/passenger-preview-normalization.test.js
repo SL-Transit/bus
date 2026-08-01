@@ -443,13 +443,11 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   assert(!logicSource.includes("operations/liveVehicles"), 'Passenger logic must not read operations/liveVehicles directly');
   assert(!logicSource.includes("db.ref('routeData')"), 'Passenger logic must not fallback-read legacy routeData');
   assert(!logicSource.includes('legacyRouteData'), 'Passenger logic must not derive route/map data from legacy catalog adapters');
-  assert(html.includes("db.ref('publishedSchedule')"), 'Passenger must read active publishedSchedule');
-  assert(!/db\.ref\(['"]publishedSchedule['"]\)\.on\s*\(/.test(html), 'Passenger must not subscribe to full publishedSchedule on initial load');
-  assert(!/db\.ref\(['"]publishedSchedule['"]\)\.once\s*\(/.test(html), 'Passenger must not once-read full publishedSchedule on initial load');
-  assert(html.includes(".child('originOptions')"), 'Passenger must read originOptions as lightweight initial data');
-  assert(html.includes(".child('destinationOptionsByOrigin')"), 'Passenger must read destinationOptionsByOrigin as lightweight initial data');
-  assert(html.includes(".child('mapView')"), 'Passenger must read mapView as lightweight initial data');
-  assert(html.includes(".child('pairs').child(storageKey)"), 'Passenger must lazy-load only the selected pair key');
+  assert(html.includes("db.ref('data/erpDataCenter/workbookSource')"), 'Passenger must read ERP workbook source');
+  assert(html.includes(".child('routeFareRows')"), 'Passenger must read canonical fare rows');
+  assert(html.includes(".child('scheduleRows')"), 'Passenger must read canonical timetable rows');
+  assert(html.includes('SLTransitWorkbookBookingSource.build'), 'Passenger must project selected routes from workbook rows');
+  assert(!html.includes(".child('pairs').child(storageKey)"), 'Passenger must not read the retired pair projection');
   assert(!html.includes(".child('excludedPreviewPairs')"), 'Passenger visible UI must not read excludedPreviewPairs');
   assert(html.includes('opt.value = o; opt.textContent = o;'), 'origin dropdown value must be the exact ERP originOptions label');
   const selectStopStart = html.indexOf('window.selectPassengerStop');

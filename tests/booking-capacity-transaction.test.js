@@ -4,6 +4,7 @@ const path = require('path');
 const vm = require('vm');
 
 const bridgeSource = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
+const workbookSource = fs.readFileSync(path.join(__dirname, '..', 'erp-workbook-booking-source.js'), 'utf8');
 const context = {
   console,
   Date,
@@ -35,6 +36,7 @@ context.SLTransitFareDecisionCenter = {
   decideFare: () => ({ status: 'ready', fareAmount: 55, serviceFeeAmount: 0 })
 };
 vm.createContext(context);
+vm.runInContext(workbookSource, context);
 vm.runInContext(bridgeSource, context);
 
 function mockDb(initial) {
@@ -103,34 +105,17 @@ function mockDb(initial) {
   assert.strictEqual(db.store[contract.counterPath].seatsAvailable, 3, 'release must restore seats available');
 
   const previewStore = {
-    'publishedSchedule/schemaVersion': 'test',
-    'publishedSchedule/generatedAt': '2026-07-22T00:00:00Z',
-    'publishedSchedule/sourceCommitSha': 'test',
-    'publishedSchedule/dryRun': false,
-    'publishedSchedule/writesEnabled': true,
-    'publishedSchedule/readyForReview': true,
-    'publishedSchedule/readyForApply': true,
-    'publishedSchedule/publicationStatus': 'active',
-    'publishedSchedule/productionReady': true,
-    'publishedSchedule/originOptions': [{ label: 'A' }],
-    'publishedSchedule/destinationOptionsByOrigin': {
-      A: [{ label: 'B', pairKey: 'pair_ab', storageKey: 'pair_ab' }]
+    'data/erpDataCenter/workbookSource/manifest': {
+      schemaVersion: 'test', writesEnabled: true, readyForReview: true,
+      readyForApply: true, productionReady: true, publicationStatus: 'active'
     },
-    'publishedSchedule/paymentContact': null,
-    'publishedSchedule/firebaseKeyEncoding': {},
-    'publishedSchedule/validation': null,
-    'publishedSchedule/bookingPolicy': {},
-    'publishedSchedule/pairs/pair_ab': {
-      pairId: 'pair_ab',
-      canonicalPairKey: 'pair_ab',
-      originLabel: 'A',
-      destinationLabel: 'B',
-      fareAmount: 55,
-      segments: [{
-        times: [{ time: '09:00', fareAmount: 55 }]
-      }]
+    'data/erpDataCenter/workbookSource/routeFareRows': {
+      fare_0002: { sourceRowId: 'fare_0002', routeId: 'route_ab', fromStopKey: 'a', fromNameTh: 'A', toStopKey: 'b', toNameTh: 'B', amount: 55, status: true, displayOrder: 1 }
     },
-    'operations/bookingCapacityByServiceDate/2026-07-22/2026-07-22__pair_ab__09:00': {
+    'data/erpDataCenter/workbookSource/scheduleRows': {
+      schedule_0002: { sourceRowId: 'schedule_0002', scheduleOfferId: 'trip_ab_0900', routeId: 'route_ab', originNameTh: 'A', destinationNameTh: 'B', departureTime: '09:00', bookingEnabled: true, capacity: 3 }
+    },
+    'operations/bookingCapacityByServiceDate/2026-07-22/2026-07-22__fare_0002__09:00': {
       contractVersion: 'booking_capacity_v1',
       capacityLimit: 3,
       bookedSeats: 2,
@@ -147,8 +132,8 @@ function mockDb(initial) {
   assert.strictEqual(trips[0].availabilityDecision.seatsAvailable, 1, 'Booking must receive remaining seats from the central capacity counter');
   assert.strictEqual(trips[0].selectionAllowed, true, 'one remaining seat must still be selectable');
 
-  previewStore['operations/bookingCapacityByServiceDate/2026-07-22/2026-07-22__pair_ab__09:00'].bookedSeats = 3;
-  previewStore['operations/bookingCapacityByServiceDate/2026-07-22/2026-07-22__pair_ab__09:00'].seatsAvailable = 0;
+  previewStore['operations/bookingCapacityByServiceDate/2026-07-22/2026-07-22__fare_0002__09:00'].bookedSeats = 3;
+  previewStore['operations/bookingCapacityByServiceDate/2026-07-22/2026-07-22__fare_0002__09:00'].seatsAvailable = 0;
   const fullTrips = await bridge.loadAvailableTrips('A', 'B', '2026-07-22');
   assert.strictEqual(fullTrips[0].availabilityDecision.seatsAvailable, 0, 'full counter must report zero remaining seats');
   assert.strictEqual(fullTrips[0].selectionAllowed, false, 'full counter must block selecting the trip');
