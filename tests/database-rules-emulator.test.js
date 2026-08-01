@@ -52,7 +52,10 @@ function booking(id) {
     const staffDb = testEnv.authenticatedContext('staff-1', { slTransitRole: 'staff' }).database();
     const driverDb = testEnv.authenticatedContext('driver-1').database();
 
-    await assertSucceeds(anonDb.ref('bookings/BKTEST01').set(booking('BKTEST01')));
+    await assertFails(anonDb.ref('bookings/BKTEST01').set(booking('BKTEST01')));
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref('bookings/BKTEST01').set(booking('BKTEST01'));
+    });
     await assertFails(anonDb.ref('bookings/BKTEST01').get());
     await assertFails(anonDb.ref('bookings/BKTEST01').update({
       status: 'cancelled',

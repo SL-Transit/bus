@@ -22,7 +22,7 @@ assert(index.includes('operations/refundAudit') || fs.readFileSync(path.join(roo
 
 assert(adminHtml.includes('firebase-auth-compat.js'), 'Admin page must load Firebase Auth compat SDK');
 assert(adminHtml.includes('firebase-web-config.js'), 'Admin page must load Firebase Web Config before Auth');
-assert(adminHtml.includes('ยังไม่ได้ตั้งค่าระบบเข้าสู่ระบบ'), 'Admin must show login config missing state');
+assert(adminHtml.includes('\\u0e22\\u0e31\\u0e07\\u0e44\\u0e21\\u0e48\\u0e44\\u0e14\\u0e49\\u0e15\\u0e31\\u0e49\\u0e07\\u0e04\\u0e48\\u0e32\\u0e23\\u0e30\\u0e1a\\u0e1a'), 'Admin must show login config missing state');
 assert(!adminHtml.includes("location.protocol==='file:'"), 'Production Admin code must not use file protocol auth bypass');
 assert(adminHtml.includes('__SL_TRANSIT_ADMIN_AUTH_TEST__'), 'Admin auth test bypass must require explicit test flag');
 assert(!webConfig.includes('service_account'), 'Web config must not contain service account material');

@@ -1,4 +1,5 @@
-﻿const admin = require("firebase-admin");
+const admin = require("firebase-admin");
+const crypto = require("crypto");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -14,6 +15,7 @@ const adminAuth = require("./admin-auth.js");
 // Admin endpoints call adminAuth.requireAdmin(), which uses Firebase Admin verifyIdToken(token, true).
 const refundActions = require("./refund-admin-actions.js");
 const ticketAccess = require("./ticket-access.js");
+const passengerBooking = require("./passenger-booking.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -397,6 +399,48 @@ exports.updateAdminErpDataCenter = onRequest({
     }
     console.error("updateAdminErpDataCenter failed", { message: err && err.message ? err.message : String(err) });
     sendJson(res, 500, { status: "error", error: "erp_data_center_update_failed" });
+  }
+});
+
+exports.createPassengerBooking = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const idem = String(req.headers["idempotency-key"] || body.idempotencyKey || "").trim();
+    await enforcePublicRateLimit(req, "createPassengerBooking", refundActions.hashBookingId(idem || JSON.stringify(body).slice(0, 256)));
+    const result = await passengerBooking.createPassengerBooking(admin, body, idem);
+    sendJson(res, 200, result);
+  } catch (err) {
+    const status = err && err.httpStatus && err.httpStatus < 500 ? err.httpStatus : 500;
+    if (status === 429) {
+      sendJson(res, 429, { status: "error", error: "rate_limited" });
+      return;
+    }
+    if (status < 500) {
+      sendJson(res, status, { status: "blocked", error: "booking_creation_unavailable" });
+      return;
+    }
+    console.error("createPassengerBooking failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "booking_creation_unavailable" });
   }
 });
 
@@ -898,6 +942,89 @@ exports.retryAdminCancelCapacityRelease = onRequest({
       return;
     }
     sendJson(res, 500, { status: "error", error: "capacity_retry_failed" });
+  }
+});
+
+async function processCapacityRetryRecord(queueName, eventId, retry, workerId) {
+  const now = Date.now();
+  if (!retry || retry.status === "released" || retry.status === "failed_final") return { status: "skipped" };
+  if (Number(retry.nextRetryAtMs || 0) > now) return { status: "retry_wait" };
+  const retryRef = admin.database().ref(`operations/${queueName}/${eventId}`);
+  let leased = false;
+  const leaseUntilMs = now + 2 * 60000;
+  const tx = await retryRef.transaction((current) => {
+    if (!current || current.status === "released" || current.status === "failed_final") return current;
+    if (Number(current.leaseUntilMs || 0) > now && current.leaseOwner !== workerId) return current;
+    leased = true;
+    return Object.assign({}, current, {
+      status: "leased",
+      leaseOwner: workerId,
+      leaseUntilMs,
+      attemptCount: Number(current.attemptCount || 0) + 1,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+  });
+  if (!leased || !tx || !tx.committed) return { status: "lease_skipped" };
+  const current = tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : retry;
+  const bookingId = ticketAccess.normalizeCode(current.bookingId);
+  const bookingSnap = bookingId ? await admin.database().ref(`bookings/${bookingId}`).get() : null;
+  const booking = bookingSnap && bookingSnap.val ? bookingSnap.val() : null;
+  if (!booking) {
+    await retryRef.update({
+      status: "failed_final",
+      safeErrorCategory: "booking_not_found",
+      leaseUntilMs: 0,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+    return { status: "failed_final" };
+  }
+  const result = await ticketAccess.releaseCapacityOnce(admin.database(), booking, bookingId);
+  const attempts = Number(current.attemptCount || 0);
+  const nextStatus = result.status === "released" || result.status === "idempotent_noop"
+    ? "released"
+    : (attempts >= 5 ? "failed_final" : "retry_wait");
+  const nextRetryAtMs = nextStatus === "retry_wait" ? now + Math.min(60 * 60000, Math.pow(2, attempts) * 60000) : 0;
+  await retryRef.update({
+    status: nextStatus,
+    capacityReleaseStatus: result.status,
+    safeErrorCategory: result.reason || result.status,
+    nextRetryAtMs,
+    leaseUntilMs: 0,
+    leaseOwner: "",
+    updatedAt: admin.database.ServerValue.TIMESTAMP
+  });
+  await admin.database().ref(`operations/capacityRecoveryAudit/${eventId}_${now}`).set({
+    eventId,
+    queueName,
+    bookingIdHash: refundActions.hashBookingId(bookingId),
+    result: nextStatus,
+    capacityReleaseStatus: result.status,
+    attemptCount: attempts,
+    createdAt: admin.database.ServerValue.TIMESTAMP
+  });
+  return { status: nextStatus };
+}
+
+exports.processCapacityRecoveryQueue = onSchedule({
+  schedule: "every 5 minutes",
+  region: "asia-southeast1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 1
+}, async () => {
+  const workerId = `capacity-worker-${Date.now()}`;
+  const queues = ["passengerCancelCapacityRetry", "adminCancelCapacityRetry"];
+  for (const queueName of queues) {
+    const snap = await admin.database().ref(`operations/${queueName}`).orderByChild("status").equalTo("pending").limitToFirst(25).get();
+    const pending = snap && snap.val ? snap.val() : {};
+    for (const eventId of Object.keys(pending || {})) {
+      await processCapacityRetryRecord(queueName, eventId, pending[eventId], workerId);
+    }
+    const waitingSnap = await admin.database().ref(`operations/${queueName}`).orderByChild("status").equalTo("retry_wait").limitToFirst(25).get();
+    const waiting = waitingSnap && waitingSnap.val ? waitingSnap.val() : {};
+    for (const eventId of Object.keys(waiting || {})) {
+      await processCapacityRetryRecord(queueName, eventId, waiting[eventId], workerId);
+    }
   }
 });
 

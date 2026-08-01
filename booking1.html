@@ -2751,6 +2751,39 @@ function _dateThaiShort() {
 }
 
 /* ยืนยันชำระเงิน → หน้า 4 ตั๋ว */
+function bookingFunctionUrl(name) {
+  return 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/' + name;
+}
+
+function bookingIdempotencyKey(snapshot, tokenHash) {
+  return [
+    'booking_v1',
+    tokenHash,
+    snapshot.serviceDate || '',
+    snapshot.pickupTime || '',
+    snapshot.originStopKey || '',
+    snapshot.destStopKey || '',
+    snapshot.pax || ''
+  ].join('_').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 160);
+}
+
+async function createPassengerBookingSecure(snapshot, tokenHash) {
+  var response = await fetch(bookingFunctionUrl('createPassengerBooking'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': bookingIdempotencyKey(snapshot, tokenHash)
+    },
+    body: JSON.stringify({ booking: snapshot })
+  });
+  var data = {};
+  try { data = await response.json(); } catch (err) { data = {}; }
+  if (!response.ok || data.status !== 'ready' || !data.booking || !(data.booking.bookingCode || data.booking.code)) {
+    throw new Error('booking_creation_unavailable');
+  }
+  return data.booking;
+}
+
 async function goToTicket() {
   var nameEl = document.getElementById('inp-name');
   var phoneEl = document.getElementById('inp-phone');
@@ -2767,10 +2800,8 @@ async function goToTicket() {
   }
   if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
   if (!currentPayMethod) selectPayMethod('onsite');
-  state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
   var ticketAccessToken = generateTicketAccessToken();
   var ticketAccessTokenHash = await sha256Hex(ticketAccessToken);
-  rememberTicketAccess(state.bookingCode, ticketAccessToken);
 
   /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
   var assignmentPlan = window.SLTransitBookingAssignmentCenter
@@ -2788,7 +2819,7 @@ async function goToTicket() {
   }
   var assignmentContract = assignmentPlan.assignment;
   var bookingSnap = SLBookingBridge.buildBookingSnapshot({
-    bookingCode:   state.bookingCode,
+    bookingCode:   '',
     name:          state.name,
     phone:         state.phone,
     pax:           state.pax,
@@ -2806,6 +2837,10 @@ async function goToTicket() {
     assignment:    assignmentContract,
     ticketAccessTokenHash: ticketAccessTokenHash
   });
+  var createdBooking = await createPassengerBookingSecure(bookingSnap, ticketAccessTokenHash);
+  state.bookingCode = createdBooking.bookingCode || createdBooking.code;
+  bookingSnap.bookingCode = state.bookingCode;
+  rememberTicketAccess(state.bookingCode, ticketAccessToken);
   /* bookingSnap.catalogVersion ← ถูก embed โดย bridge อัตโนมัติ */
   console.log('[Booking] snapshot ready:', bookingSnap.bookingCode, 'catalogVersion:', bookingSnap.catalogVersion);
 
