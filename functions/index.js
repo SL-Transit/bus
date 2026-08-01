@@ -139,6 +139,23 @@ async function enforcePublicRateLimit(req, name, keyPart) {
   }
 }
 
+function privacySafeNetworkKey(req) {
+  const headers = req.headers || {};
+  const forwarded = String(headers["x-forwarded-for"] || headers["fastly-client-ip"] || headers["cf-connecting-ip"] || req.ip || "").split(",")[0].trim();
+  return refundActions.hashBookingId(forwarded || "network-unavailable");
+}
+
+function publicTripVelocityKey(body) {
+  const row = body && (body.booking || body.snapshot || body) || {};
+  const key = [
+    row.serviceDate || row.date || "",
+    row.pickupTime || row.time || "",
+    row.originStopKey || row.originKey || "",
+    row.destStopKey || row.destKey || ""
+  ].map((value) => String(value || "").trim()).join("|");
+  return refundActions.hashBookingId(key || "trip-unavailable");
+}
+
 function publicError(err, fallback) {
   const status = err && err.httpStatus || 500;
   if (status >= 500) return fallback;
@@ -426,7 +443,10 @@ exports.createPassengerBooking = onRequest({
   try {
     const body = readJsonBody(req);
     const idem = String(req.headers["idempotency-key"] || body.idempotencyKey || "").trim();
-    await enforcePublicRateLimit(req, "createPassengerBooking", refundActions.hashBookingId(idem || JSON.stringify(body).slice(0, 256)));
+    await enforcePublicRateLimit(req, "createPassengerBookingGlobal", "all");
+    await enforcePublicRateLimit(req, "createPassengerBookingNetwork", privacySafeNetworkKey(req));
+    await enforcePublicRateLimit(req, "createPassengerBookingTrip", publicTripVelocityKey(body));
+    await enforcePublicRateLimit(req, "createPassengerBookingToken", refundActions.hashBookingId((body && (body.ticketAccessTokenHash || body.booking && body.booking.ticketAccessTokenHash || body.snapshot && body.snapshot.ticketAccessTokenHash)) || idem || "missing-token"));
     const result = await passengerBooking.createPassengerBooking(admin, body, idem);
     sendJson(res, 200, result);
   } catch (err) {
@@ -497,6 +517,131 @@ exports.readPassengerTicket = onRequest({
     }
     console.error("readPassengerTicket failed", { message: err && err.message ? err.message : String(err) });
     sendJson(res, 500, { status: "error", error: "ticket_lookup_unavailable" });
+  }
+});
+
+async function loadOwnedTicket(body) {
+  const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+  const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+  if (!code || !token) return null;
+  const snap = await admin.database().ref(`bookings/${code}`).get();
+  const booking = snap && snap.val ? snap.val() : null;
+  if (!booking) return null;
+  ticketAccess.verifyTicketAccess(booking, token);
+  return { code, token, booking };
+}
+
+exports.rotatePassengerTicketToken = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const nextHash = String(body.nextTicketAccessTokenHash || "").trim();
+    if (!/^[a-f0-9]{64}$/i.test(nextHash)) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    const owned = await loadOwnedTicket(body);
+    if (!owned) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "rotatePassengerTicketToken", ticketAccess.tokenHash(owned.token));
+    const previousHash = String(owned.booking.ticketAccessTokenHash || "");
+    const nextVersion = Number(owned.booking.ticketAccessTokenVersion || 1) + 1;
+    const nowMs = Date.now();
+    await admin.database().ref(`bookings/${owned.code}`).update({
+      ticketAccessTokenHash: nextHash,
+      ticketAccessTokenVersion: nextVersion,
+      ticketAccessTokenIssuedAt: admin.database.ServerValue.TIMESTAMP,
+      ticketAccessTokenIssuedAtMs: nowMs,
+      ticketAccessTokenExpiresAt: nowMs + (1000 * 60 * 60 * 24 * 90),
+      ticketAccessTokenRevokedAt: null,
+      ticketAccessTokenRevokedReason: "",
+      ticketAccessTokenRotation: {
+        currentVersion: nextVersion,
+        previousHash: previousHash,
+        rotatedAt: admin.database.ServerValue.TIMESTAMP,
+        reason: "passenger_rotation"
+      }
+    });
+    sendJson(res, 200, { status: "ready", ticketAccessTokenVersion: nextVersion });
+  } catch (err) {
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      if (err.httpStatus === 429) return sendJson(res, 429, { status: "error", error: "rate_limited" });
+      sendTicketAccessDenied(res);
+      return;
+    }
+    console.error("rotatePassengerTicketToken failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_token_rotation_unavailable" });
+  }
+});
+
+exports.revokePassengerTicketToken = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const owned = await loadOwnedTicket(body);
+    if (!owned) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "revokePassengerTicketToken", ticketAccess.tokenHash(owned.token));
+    await admin.database().ref(`bookings/${owned.code}`).update({
+      ticketAccessTokenRevokedAt: admin.database.ServerValue.TIMESTAMP,
+      ticketAccessTokenRevokedReason: "passenger_requested",
+      ticketAccessTokenRotation: Object.assign({}, owned.booking.ticketAccessTokenRotation || {}, {
+        revokedVersion: Number(owned.booking.ticketAccessTokenVersion || 1),
+        revokedAt: admin.database.ServerValue.TIMESTAMP,
+        reason: "passenger_requested"
+      })
+    });
+    sendJson(res, 200, { status: "ready" });
+  } catch (err) {
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      if (err.httpStatus === 429) return sendJson(res, 429, { status: "error", error: "rate_limited" });
+      sendTicketAccessDenied(res);
+      return;
+    }
+    console.error("revokePassengerTicketToken failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_token_revoke_unavailable" });
   }
 });
 

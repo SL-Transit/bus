@@ -87,6 +87,22 @@ function booking(id) {
     await assertFails(userDb.ref('passengerLiveLocations/BKTEST01').set({ lat: 13.7, lng: 100.5 }));
     const capacityPath = 'operations/bookingCapacityByServiceDate/2026-07-30/2026-07-30__R1__09_00';
     const capacityPayload = { contractVersion: 'booking_capacity_v1', capacityLimit: 10, bookedSeats: 1, seatsAvailable: 9 };
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.database().ref(capacityPath).set(Object.assign({}, capacityPayload, {
+        bookings: { BKTEST01: { seats: 1, status: 'reserved', reservedAt: 1785363600000 } }
+      }));
+      await ctx.database().ref('operations/publicBookingCapacityByServiceDate/2026-07-30/2026-07-30__R1__09_00').set({
+        seatsAvailable: 9,
+        capacityStatus: 'available',
+        bookingStatus: 'open',
+        unavailable: false
+      });
+    });
+    await assertFails(anonDb.ref(capacityPath).get());
+    await assertFails(userDb.ref(capacityPath).get());
+    await assertSucceeds(anonDb.ref('operations/publicBookingCapacityByServiceDate/2026-07-30/2026-07-30__R1__09_00').get());
+    const publicCapacity = (await anonDb.ref('operations/publicBookingCapacityByServiceDate/2026-07-30/2026-07-30__R1__09_00').get()).val();
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(publicCapacity, 'bookings'), false);
     await assertFails(anonDb.ref(capacityPath).set(capacityPayload));
     await assertFails(userDb.ref(capacityPath).set(capacityPayload));
     await assertFails(ownerDb.ref(capacityPath).set(capacityPayload));

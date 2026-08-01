@@ -18,7 +18,13 @@ assert(helper.includes('bookingCode()'), 'Backend creation must generate the can
 assert(helper.includes('idemRef.transaction'), 'Backend creation must claim idempotency with an RTDB transaction');
 assert(helper.includes('ticketAccessTokenHash'), 'Backend creation must store ticket token hash');
 assert(helper.includes('ticketAccessTokenExpiresAt'), 'Backend creation must store token expiry');
+assert(helper.includes('verifyReservedCapacity'), 'Booking recovery must verify a matching capacity reservation before writing a booking');
+assert(helper.includes('publicBookingCapacityByServiceDate'), 'Backend must maintain a separate public capacity aggregate');
 assert(!helper.includes('counterPath'), 'Backend creation must not accept or store client-selected capacity counterPath');
+assert(!helper.includes('body.routeId'), 'Browser must not select internal routeId');
+assert(!helper.includes('body.tripId'), 'Browser must not select internal tripId');
+assert(!helper.includes('body.pairKey'), 'Browser must not select internal pairKey');
+assert(!helper.includes('body.assignment'), 'Browser must not select vehicle or queue assignment');
 assert(!helper.includes('req.body.price'), 'Backend creation must not trust client price');
 assert(!helper.includes('req.body.fare'), 'Backend creation must not trust client fare');
 assert(!helper.includes('|| 3'), 'Backend creation must not fall back to default capacity 3');
@@ -68,5 +74,7 @@ assert(booking1.includes('rememberTicketAccess(state.bookingCode, ticketAccessTo
 assert.strictEqual(rules.rules.bookings['.read'], false, '/bookings public read must be disabled');
 assert.strictEqual(rules.rules.bookings['.write'], false, '/bookings public write must be disabled');
 assert.strictEqual(rules.rules.bookings.$bookingId['.write'], false, 'browser must not create or update canonical bookings directly');
+assert.strictEqual(rules.rules.operations.bookingCapacityByServiceDate.$serviceDate.$capacityKey['.read'], false, 'canonical capacity counters must not be publicly readable');
+assert.strictEqual(rules.rules.operations.publicBookingCapacityByServiceDate.$serviceDate.$capacityKey['.read'], true, 'public capacity aggregate must be readable');
 
 console.log('passenger booking backend contract ok');

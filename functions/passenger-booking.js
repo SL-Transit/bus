@@ -34,7 +34,6 @@ function normalizeSnapshot(input) {
   const pax = Number(body.pax || body.seats || 0);
   const serviceDate = clean(body.serviceDate || body.date);
   const pickupTime = clean(body.pickupTime || body.time).slice(0, 5);
-  const assignment = body.assignment && typeof body.assignment === "object" ? body.assignment : {};
   const ticketAccessTokenHash = clean(body.ticketAccessTokenHash);
   if (!validDate(serviceDate)) throw publicError("invalid_service_date", 400);
   if (!validTime(pickupTime)) throw publicError("invalid_pickup_time", 400);
@@ -46,17 +45,16 @@ function normalizeSnapshot(input) {
     pax,
     originStopKey: safeKey(body.originStopKey || body.originKey, 80),
     destStopKey: safeKey(body.destStopKey || body.destKey, 80),
-    origin: clean(body.origin || body.originName).slice(0, 160),
-    destination: clean(body.destination || body.destName).slice(0, 160),
-    route: clean(body.route).slice(0, 200),
-    routeId: safeKey(body.routeId || body.pairId || body.pairKey, 120),
-    tripId: safeKey(body.tripId || assignment.tripId || body.pairKey, 120),
-    pairKey: safeKey(body.pairKey || body.routeId || body.tripId, 120),
+    origin: "",
+    destination: "",
+    route: "",
+    routeId: "",
+    tripId: "",
+    pairKey: "",
     pickupTime,
     serviceDate,
     paymentMode: clean(body.paymentMode || body.payMethod || "onsite"),
     slipUploaded: body.slipUploaded === true,
-    assignment,
     ticketAccessTokenHash,
     passengerIdentity: body.passengerIdentity && typeof body.passengerIdentity === "object" ? body.passengerIdentity : null,
     consent: body.consent && typeof body.consent === "object" ? body.consent : null
@@ -75,10 +73,6 @@ function publishedReady(schedule) {
 
 function findPair(schedule, snap) {
   const pairs = schedule && schedule.pairs || {};
-  const candidates = [snap.pairKey, snap.routeId, snap.tripId].filter(Boolean);
-  for (const key of candidates) {
-    if (pairs[key]) return { key, pair: pairs[key] };
-  }
   for (const key of Object.keys(pairs)) {
     const pair = pairs[key] || {};
     if ((pair.originStopKey === snap.originStopKey || pair.fromStopKey === snap.originStopKey || pair.originKey === snap.originStopKey) &&
@@ -180,8 +174,13 @@ function capacityContract(pairKey, pair, timeEntry, snap, code) {
   };
 }
 
+function publicCapacityPath(contract) {
+  return contract.path.replace("operations/bookingCapacityByServiceDate/", "operations/publicBookingCapacityByServiceDate/");
+}
+
 async function reserveCapacity(db, contract, nowServerValue) {
   let reserved = false;
+  let publicAggregate = null;
   const tx = await db.ref(contract.path).transaction((current) => {
     const row = current && typeof current === "object" ? current : {};
     const bookings = Object.assign({}, row.bookings || {});
@@ -195,6 +194,13 @@ async function reserveCapacity(db, contract, nowServerValue) {
       reservedAt: nowServerValue
     };
     reserved = true;
+    publicAggregate = {
+      seatsAvailable: Math.max(0, limit - bookedSeats - contract.requestedSeats),
+      capacityStatus: bookedSeats + contract.requestedSeats >= limit ? "full" : "available",
+      bookingStatus: bookedSeats + contract.requestedSeats >= limit ? "closed" : "open",
+      unavailable: false,
+      updatedAt: nowServerValue
+    };
     return Object.assign({}, row, {
       contractVersion: "booking_capacity_v1",
       capacityLimit: limit,
@@ -204,6 +210,7 @@ async function reserveCapacity(db, contract, nowServerValue) {
     });
   });
   if (!tx || !tx.committed) throw publicError("capacity_full", 409);
+  if (publicAggregate) await db.ref(publicCapacityPath(contract)).set(publicAggregate);
   return reserved ? "reserved" : "idempotent_noop";
 }
 
@@ -228,8 +235,8 @@ function bookingRecord(code, snap, fare, capacity, nowServerValue, nowMs) {
     serviceDate: snap.serviceDate,
     time: snap.pickupTime,
     pickupTime: snap.pickupTime,
-    origin: snap.origin || snap.originStopKey,
-    destination: snap.destination || snap.destStopKey,
+    origin: capacity.originLabel || snap.originStopKey,
+    destination: capacity.destinationLabel || snap.destStopKey,
     originStopKey: snap.originStopKey,
     destStopKey: snap.destStopKey,
     route: capacity.routeLabel || "",
@@ -293,12 +300,16 @@ async function createPassengerBooking(admin, request, idempotencyKey) {
   const idemRef = db.ref(`operations/passengerBookingIdempotency/${idemKey}`);
   const requestHash = hash(JSON.stringify({
     tokenHash: snap.ticketAccessTokenHash,
+    normalizedNameHash: hash(snap.name.toLowerCase()),
+    normalizedPhoneHash: hash(snap.phone.replace(/\D+/g, "")),
+    consentVersion: snap.consent && clean(snap.consent.version),
     serviceDate: snap.serviceDate,
     pickupTime: snap.pickupTime,
     originStopKey: snap.originStopKey,
     destStopKey: snap.destStopKey,
     pax: snap.pax,
-    paymentMode: snap.paymentMode
+    paymentMode: snap.paymentMode,
+    slipUploaded: snap.slipUploaded
   }));
   let claimed = false;
   let claimConflict = false;
@@ -409,6 +420,17 @@ async function processBookingCreationRecovery(admin, operationId, workerId) {
   }
   const existing = (await db.ref(`bookings/${code}`).get()).val();
   if (!existing && (op.status === "capacity_reserved" || op.status === "booking_commit_pending" || op.status === "recovery_required")) {
+    const reservation = await verifyReservedCapacity(db, op);
+    if (reservation.status !== "matched") {
+      await opRef.update({
+        status: "failed_final",
+        safeErrorCategory: reservation.status,
+        leaseOwner: "",
+        leaseUntilMs: 0,
+        updatedAt: admin.database.ServerValue.TIMESTAMP
+      });
+      return { status: "failed_final", reason: reservation.status };
+    }
     await db.ref().update({
       [`bookings/${code}`]: draft,
       [`operations/bookings/${code}`]: {
@@ -443,24 +465,54 @@ async function processBookingCreationRecovery(admin, operationId, workerId) {
   return { status: "failed_final" };
 }
 
+async function verifyReservedCapacity(db, op) {
+  const path = clean(op && op.capacityPath);
+  const code = clean(op && op.capacityBookingCode || op && op.bookingCode);
+  const requestedSeats = Math.max(1, Number(op && op.requestedSeats || 0));
+  const draft = op && op.bookingRecordDraft || {};
+  if (!/^operations\/bookingCapacityByServiceDate\/\d{4}-\d{2}-\d{2}\/[A-Za-z0-9_-]+$/.test(path)) return { status: "invalid_capacity_path" };
+  if (!code || !requestedSeats) return { status: "invalid_capacity_reservation_contract" };
+  const parts = path.split("/");
+  const serviceDate = parts[2];
+  const capacityKey = parts[3];
+  if (serviceDate !== clean(draft.serviceDate || draft.date)) return { status: "capacity_service_date_mismatch" };
+  if (capacityKey !== clean(draft.capacity && draft.capacity.capacityKey)) return { status: "capacity_key_mismatch" };
+  if (code !== clean(draft.code || draft.bookingCode)) return { status: "capacity_booking_code_mismatch" };
+  const row = (await db.ref(path).get()).val();
+  const marker = row && row.bookings && row.bookings[code];
+  if (!marker) return { status: "capacity_reservation_missing" };
+  if (clean(marker.status) !== "reserved") return { status: "capacity_reservation_state_mismatch" };
+  if (Number(marker.seats) !== requestedSeats || Number(marker.seats) !== Number(draft.pax || draft.seats)) return { status: "capacity_seat_mismatch" };
+  return { status: "matched" };
+}
+
 async function releaseReservedCapacity(db, op) {
   const path = clean(op && op.capacityPath);
   const code = clean(op && op.capacityBookingCode || op && op.bookingCode);
   const requestedSeats = Math.max(1, Number(op && op.requestedSeats || 1));
   if (!/^operations\/bookingCapacityByServiceDate\/\d{4}-\d{2}-\d{2}\/[A-Za-z0-9_-]+$/.test(path) || !code) return { status: "skipped" };
   let removed = false;
+  let publicAggregate = null;
   await db.ref(path).transaction((current) => {
     if (!current || typeof current !== "object" || !current.bookings || !current.bookings[code]) return current;
     const bookings = Object.assign({}, current.bookings || {});
     delete bookings[code];
     removed = true;
     const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - requestedSeats);
+    const seatsAvailable = Math.max(0, Number(current.capacityLimit || 0) - bookedSeats);
+    publicAggregate = {
+      seatsAvailable,
+      capacityStatus: seatsAvailable <= 0 ? "full" : "available",
+      bookingStatus: seatsAvailable <= 0 ? "closed" : "open",
+      unavailable: false
+    };
     return Object.assign({}, current, {
       bookings,
       bookedSeats,
-      seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats)
+      seatsAvailable
     });
   });
+  if (publicAggregate) await db.ref(path.replace("operations/bookingCapacityByServiceDate/", "operations/publicBookingCapacityByServiceDate/")).update(publicAggregate);
   return { status: removed ? "released" : "idempotent_noop" };
 }
 
@@ -477,6 +529,8 @@ function deriveAssignment(pairKey, pair, timeEntry) {
     routeId: safeKey(pair.routeId || pair.pairId || pairKey, 120),
     tripId: safeKey(timeEntry.tripId || timeEntry.catalogTripId || pair.tripId || pairKey, 120),
     routeLabel: clean(pair.route || pair.routeName || `${pair.originLabel || ""} - ${pair.destinationLabel || ""}`).slice(0, 200),
+    originLabel: clean(pair.originLabel || pair.originName || pair.originStopKey || pair.fromStopKey).slice(0, 160),
+    destinationLabel: clean(pair.destinationLabel || pair.destName || pair.destStopKey || pair.toStopKey).slice(0, 160),
     assignmentSource: clean(timeEntry.assignmentSource || assignment.assignmentSource || "publishedSchedule")
   };
 }
@@ -511,6 +565,7 @@ module.exports = {
   TOKEN_TTL_MS,
   createPassengerBooking,
   processBookingCreationRecovery,
+  verifyReservedCapacity,
   normalizeSnapshot,
   capacityContract,
   fareDecision,

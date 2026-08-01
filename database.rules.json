@@ -85,12 +85,33 @@
       "bookingCapacityByServiceDate": {
         "$serviceDate": {
           "$capacityKey": {
-            ".read": true,
+            ".read": false,
             ".write": false,
             "bookings": {
               "$bookingId": {
                 ".validate": "newData.hasChildren(['seats', 'status', 'reservedAt']) && newData.child('seats').isNumber() && newData.child('seats').val() >= 1 && newData.child('seats').val() <= 10 && newData.child('status').val() === 'reserved'"
               }
+            }
+          }
+        }
+      },
+      "publicBookingCapacityByServiceDate": {
+        "$serviceDate": {
+          "$capacityKey": {
+            ".read": true,
+            ".write": false,
+            ".validate": "newData.hasChildren(['seatsAvailable', 'capacityStatus', 'bookingStatus', 'unavailable']) && !newData.hasChild('bookings') && !newData.hasChild('bookingIds') && !newData.hasChild('bookingCodes') && !newData.hasChild('reservationMarkers') && !newData.hasChild('counterPath')",
+            "seatsAvailable": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "capacityStatus": {
+              ".validate": "newData.isString() && (newData.val() === 'available' || newData.val() === 'limited' || newData.val() === 'full' || newData.val() === 'unavailable')"
+            },
+            "bookingStatus": {
+              ".validate": "newData.isString() && (newData.val() === 'open' || newData.val() === 'closed' || newData.val() === 'unavailable')"
+            },
+            "unavailable": {
+              ".validate": "newData.isBoolean()"
             }
           }
         }
