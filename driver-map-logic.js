@@ -161,15 +161,26 @@
   var pendingTicketList = null;
   var pendingPassengerLocations = [];
 
-  function ensurePassengerMarker(bookingId, name) {
+  function ensurePassengerMarker(bookingId, name, phone) {
     var entry = passengerMarkers[bookingId];
     if (!entry) {
-      entry = { marker: null, name: name };
+      entry = { marker: null, name: name, phone: phone };
       passengerMarkers[bookingId] = entry;
-    } else if (name) {
-      entry.name = name;
+    } else {
+      if (name) entry.name = name;
+      if (phone) entry.phone = phone;
     }
+    if (entry.marker) refreshPassengerPopup(entry);
     return entry;
+  }
+
+  function refreshPassengerPopup(entry) {
+    var name = escHtml(entry.name || 'ผู้โดยสาร');
+    var phoneDigits = String(entry.phone || '').replace(/[^0-9+]/g, '');
+    var phoneHtml = phoneDigits
+      ? '<a href="tel:' + phoneDigits + '" class="map-passenger-call">📞 ' + escHtml(entry.phone) + '</a>'
+      : '<span class="map-passenger-call map-passenger-call--none">ไม่มีเบอร์โทร</span>';
+    entry.marker.bindPopup('<div class="map-passenger-popup"><b>' + name + '</b><br>' + phoneHtml + '</div>');
   }
 
   function removePassengerMarker(bookingId) {
@@ -187,10 +198,9 @@
     if (!map) { pendingPassengerLocations.push({ bookingId: bookingId, lat: lat, lng: lng }); return; }
     var entry = ensurePassengerMarker(bookingId);
     if (!entry.marker) {
-      var icon = L.divIcon({ className: '', html: "<div class='map-passenger-dot'></div>", iconSize: [16, 16], iconAnchor: [8, 8] });
-      entry.marker = L.marker([lat, lng], { icon: icon, zIndexOffset: 800 })
-        .bindTooltip(escHtml(entry.name || 'ผู้โดยสาร'), { permanent: false, direction: 'top' })
-        .addTo(map);
+      var icon = L.divIcon({ className: '', html: "<div class='map-passenger-dot'>👤</div>", iconSize: [30, 30], iconAnchor: [15, 15] });
+      entry.marker = L.marker([lat, lng], { icon: icon, zIndexOffset: 800 }).addTo(map);
+      refreshPassengerPopup(entry);
     } else {
       entry.marker.setLatLng([lat, lng]);
     }
@@ -202,8 +212,10 @@
   }
 
   // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverTicketList([...])') ทุกครั้งที่รายชื่อ
-  // ตั๋ววันนี้ของรถคันนี้เปลี่ยน (เฉพาะ bookingId/name เท่านั้น ไม่มีเบอร์โทร) — ใช้แค่เพื่อล้างหมุด
-  // ของตั๋วที่ไม่ active แล้ว (ขึ้นรถ/ยกเลิก) ตำแหน่งจริงมาจาก setPassengerLocation เท่านั้น
+  // ตั๋ววันนี้ของรถคันนี้เปลี่ยน (bookingId/name/phone) — คนขับคนนี้ผ่านการตรวจสิทธิ์ว่าเป็นผู้ได้รับ
+  // มอบหมาย booking นี้แล้วเท่านั้นถึงจะเห็นเบอร์โทร (ดู MainActivity.startTicketListRelay) — ใช้เพื่อ
+  // ตั้งชื่อ/เบอร์บนหมุด และล้างหมุดของตั๋วที่ไม่ active แล้ว (ขึ้นรถ/ยกเลิก) ตำแหน่งจริงมาจาก
+  // setPassengerLocation เท่านั้น
   function setDriverTicketList(tickets) {
     if (!map) { pendingTicketList = tickets; return; }
     tickets = Array.isArray(tickets) ? tickets : [];
@@ -211,7 +223,7 @@
     tickets.forEach(function (t) {
       if (!t || !t.bookingId) return;
       activeIds[t.bookingId] = true;
-      ensurePassengerMarker(t.bookingId, t.name);
+      ensurePassengerMarker(t.bookingId, t.name, t.phone);
     });
     Object.keys(passengerMarkers).forEach(function (id) {
       if (!activeIds[id]) removePassengerMarker(id);
@@ -225,7 +237,7 @@
       return;
     }
     if (!driverMarker) {
-      var icon = L.divIcon({ className: '', html: "<div class='map-user-dot'></div>", iconSize: [18, 18], iconAnchor: [9, 9] });
+      var icon = L.divIcon({ className: '', html: "<div class='map-bus-icon'><img src='assets/passenger-bus-icon.png' alt=''></div>", iconSize: [40, 40], iconAnchor: [20, 20] });
       driverMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 900 }).addTo(map);
       lastLat = lat; lastLng = lng;
     } else if (lastLat !== lat || lastLng !== lng) {
