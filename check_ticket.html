@@ -224,6 +224,7 @@
     body.tracking-active .tracking-page {
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       min-height: 0;
       border: 0;
       border-radius: 0;
@@ -309,7 +310,7 @@
       z-index: 3;
       width: min(92%, 560px);
       min-height: auto;
-      max-height: min(58%, 430px);
+      max-height: min(64%, 520px);
       overflow: auto;
       background:
         linear-gradient(135deg, rgba(11,29,58,.98), rgba(18,58,99,.96) 68%, rgba(0,167,181,.92));
@@ -447,10 +448,10 @@
       #qrCode { margin: 0 auto; }
       .ticket-head { align-items: flex-start; flex-direction: column; }
       .schedule-time-box { border-left: 0; border-top: 4px solid var(--blue); }
-      .tracking-page { height: 100vh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
+      .tracking-page { height: 100vh; height: 100dvh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
       .tracking-map { inset: 0; }
       .tracking-person { grid-template-columns: 1fr; }
-      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 56%; padding: 12px 14px calc(28px + env(safe-area-inset-bottom)); }
+      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 64%; padding: 12px 14px calc(28px + env(safe-area-inset-bottom)); }
       button, .btn { width: 100%; white-space: normal; }
       .tracking-cancel, .tracking-locate { width: auto; white-space: nowrap; }
     }
