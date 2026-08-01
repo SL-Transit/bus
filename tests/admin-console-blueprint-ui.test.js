@@ -26,7 +26,7 @@ assert.ok(dashboardSource.includes('bookingActivityChart(bookings,refunds,bookin
 assert.ok(dashboardSource.includes('financeDonuts(revenue,refunds,passengerGross,providerFare,platformFee)'), 'Dashboard must render passenger payment donut');
 assert.ok(dashboardSource.includes('vehicleDriverExcelTable(vehicleSettlements)'), 'Dashboard must render vehicle/driver aggregate table');
 assert.ok(dashboardSource.includes('settlementTable'), 'Dashboard must render queue aggregate table');
-assert.ok(dashboardSource.includes('refundTable(refunds)'), 'Dashboard must render latest refund passenger table');
+assert.ok(dashboardSource.includes('refundTable(refunds)'), 'Dashboard must render latest refund table without passenger PII');
 assert.ok(!dashboardSource.includes('sourceStatusPanel(d)'), 'Dashboard must not render source status panel');
 assert.ok(!dashboardSource.includes('id="source-status"'), 'Dashboard must remove source status panel from Screen 01');
 assert.ok(html.includes('function settlementCell(row,h)'), 'Dashboard settlement tables must preserve zero values');
@@ -34,15 +34,16 @@ assert.ok(html.includes('value===0||value?value'), 'Dashboard settlement tables 
 assert.ok(html.includes('settlement-responsive'), 'Dashboard settlement tables must keep the standard responsive table wrapper');
 assert.ok(!html.includes('.settlement-table thead{display:none}'), 'Dashboard settlement tables must stay Excel-like on mobile');
 assert.ok(!html.includes('.settlement-table,.settlement-table tbody,.settlement-table tr,.settlement-table td{display:block'), 'Dashboard settlement tables must not become mobile cards');
-assert.ok(html.includes('ผู้โดยสาร'), 'Refund table must include passenger name column');
-assert.ok(html.includes('เบอร์โทร'), 'Refund table must include passenger phone column');
+assert.ok(html.includes('อ้างอิง'), 'Refund table must include privacy-safe reference column');
 assert.ok(html.includes('จำนวนเงินคืน'), 'Refund table must include refund amount column');
+assert.ok(!dashboardSource.includes("'ผู้โดยสาร'"), 'Refund table must not include passenger name column');
+assert.ok(!dashboardSource.includes("'เบอร์โทร'"), 'Refund table must not include passenger phone column');
 
 for (const label of [
   'จำนวนผู้เยี่ยมชม (เว็บไซต์)',
   'ผู้ใช้งานจริง',
   'จำนวนการจอง',
-  '\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49',
+  'ยอดจากรายการที่สร้างวันนี้',
   'ยอดรับจากผู้โดยสาร',
   'ค่าโดยสารผู้ให้บริการ',
   'ค่าบริการแพลตฟอร์ม',
@@ -55,6 +56,9 @@ for (const label of [
 }
 
 for (const forbidden of [
+  'รายได้วันนี้',
+  'รายได้สุทธิวันนี้',
+  'ยอดรับเงินจริงวันนี้',
   'จำนวนครั้งเข้าเยี่ยมชม',
   'ผู้เยี่ยมชมโดยประมาณ',
   "rate:'55 บาท/คน'",
