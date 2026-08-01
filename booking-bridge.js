@@ -10,7 +10,7 @@
   'use strict';
 
   var WORKBOOK_SOURCE_PATH = 'data/erpDataCenter/workbookSource';
-  var DEFAULT_TRIP_CAPACITY = 3;
+  var DEFAULT_TRIP_CAPACITY = null;
   var AvailabilityCenter = global.SLTransitBookingAvailabilityCenter;
   var FareDecisionCenter = global.SLTransitFareDecisionCenter;
   if ((!AvailabilityCenter || !FareDecisionCenter) && typeof require === 'function') {
@@ -41,6 +41,7 @@
   var _lastFareContractStatus = null;
   var _lastLoadedPair = null;
   var _workbookIndex = null;
+  var _bookingControls = {};
 
   function _asArray(value) {
     return Array.isArray(value) ? value : [];
@@ -113,7 +114,8 @@
     return Promise.all([
       baseRef.child('manifest').once('value'),
       baseRef.child('routeFareRows').once('value'),
-      baseRef.child('scheduleRows').once('value')
+      baseRef.child('scheduleRows').once('value'),
+      db.ref('publishedBookingControls/current/controls').once('value').catch(function() { return { val: function() { return {}; } }; })
     ]).then(function(parts) {
       if (!global.SLTransitWorkbookBookingSource) throw new Error('workbook_booking_source_missing');
       var manifest = parts[0].val() || {};
@@ -135,6 +137,7 @@
         validation: manifest.validation || null,
         bookingPolicy: manifest.bookingPolicy || {}
       };
+      _bookingControls = parts[3] && parts[3].val && parts[3].val() || {};
       _markReady();
       return _preview;
     }).catch(function(err) {
@@ -247,8 +250,7 @@
     if (isFinite(tripLimit) && tripLimit > 0) limits.push(Math.floor(tripLimit));
     if (isFinite(decisionLimit) && decisionLimit > 0) limits.push(Math.floor(decisionLimit));
     if (isFinite(policyLimit) && policyLimit > 0) limits.push(Math.floor(policyLimit));
-    limits.push(DEFAULT_TRIP_CAPACITY);
-    return Math.min.apply(Math, limits);
+    return limits.length ? Math.min.apply(Math, limits) : null;
   }
 
   function firebaseSafeKey(value) {
@@ -286,6 +288,7 @@
       capacityLimit: capacityLimit,
       requestedSeats: requestedSeats,
       counterPath: 'operations/bookingCapacityByServiceDate/' + firebaseSafeKey(serviceDate) + '/' + capacityKey,
+      publicAggregatePath: 'operations/publicBookingCapacityByServiceDate/' + firebaseSafeKey(serviceDate) + '/' + capacityKey,
       status: capacityLimit > 0 ? 'ready' : 'missing_capacity'
     };
   }
@@ -295,7 +298,8 @@
     if (!contract || contract.status !== 'ready' || !contract.counterPath) return Promise.reject(new Error('BOOKING_CAPACITY_CONTRACT_NOT_READY'));
     var bookingCode = firebaseSafeKey(contract.bookingCode);
     var requestedSeats = Math.max(1, Number(contract.requestedSeats || 1));
-    var capacityLimit = Math.max(1, Number(contract.capacityLimit || DEFAULT_TRIP_CAPACITY));
+    var capacityLimit = Number(contract.capacityLimit);
+    if (!isFinite(capacityLimit) || capacityLimit < 1) return Promise.reject(new Error('BOOKING_CAPACITY_CONTRACT_NOT_READY'));
     var ref = db.ref(contract.counterPath);
     return ref.transaction(function(current) {
       current = current || {};
@@ -338,7 +342,7 @@
       var bookings = current.bookings || {};
       delete bookings[bookingCode];
       current.bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - requestedSeats);
-      current.seatsAvailable = Math.max(0, Number(current.capacityLimit || DEFAULT_TRIP_CAPACITY) - current.bookedSeats);
+      current.seatsAvailable = Math.max(0, Number(current.capacityLimit || 0) - current.bookedSeats);
       current.bookings = bookings;
       current.updatedAt = (global.firebase && global.firebase.database && global.firebase.database.ServerValue && global.firebase.database.ServerValue.TIMESTAMP) || Date.now();
       return current;
@@ -349,12 +353,57 @@
     if (!db || typeof db.ref !== 'function' || !contract || !contract.counterPath) {
       return Promise.resolve(null);
     }
-    return db.ref(contract.counterPath).once('value').then(function(snap) {
+    var publicPath = contract.publicAggregatePath || String(contract.counterPath || '').replace('operations/bookingCapacityByServiceDate/', 'operations/publicBookingCapacityByServiceDate/');
+    return db.ref(publicPath).once('value').then(function(snap) {
       return snap && snap.exists && snap.exists() ? snap.val() : null;
     }).catch(function(err) {
-      console.warn('[BookingBridge] capacity counter read failed:', contract.counterPath, err);
+      console.warn('[BookingBridge] capacity aggregate read failed:', publicPath, err);
       return null;
     });
+  }
+
+  function _controlApplies(control, trip) {
+    if (!control || control.workflowState !== 'published') return false;
+    var now = Date.now();
+    var start = Number(control.effectiveStartMs || 0);
+    var end = Number(control.effectiveEndMs || control.expiryMs || 0);
+    if (start && now < start) return false;
+    if (end && now > end) return false;
+    var scope = control.scope || {};
+    var serviceDate = String(trip.serviceDate || '');
+    var time = String(trip.pickupTime || trip.time || '').slice(0, 5);
+    if (scope.serviceDate && scope.serviceDate !== serviceDate) return false;
+    if (scope.startDate && serviceDate && serviceDate < scope.startDate) return false;
+    if (scope.endDate && serviceDate && serviceDate > scope.endDate) return false;
+    if (scope.departureTime && scope.departureTime !== time) return false;
+    if (scope.routeId && scope.routeId !== String(trip.routeId || trip.catalogRouteId || trip.pairKey || '')) return false;
+    if (scope.tripId && scope.tripId !== String(trip.tripId || trip.catalogTripId || '')) return false;
+    if (scope.boardingStopId && scope.boardingStopId !== String(trip.originStopKey || trip.originKey || '')) return false;
+    if (scope.destinationStopId && scope.destinationStopId !== String(trip.destStopKey || trip.destinationStopKey || trip.destinationId || '')) return false;
+    return true;
+  }
+
+  function _applyBookingControls(trip) {
+    var controls = Object.keys(_bookingControls || {}).map(function(key) { return _bookingControls[key]; }).filter(function(control) {
+      return _controlApplies(control, trip);
+    });
+    controls.sort(function(a, b) { return Number(b.updatedAtMs || 0) - Number(a.updatedAtMs || 0); });
+    var control = controls[0];
+    if (!control || control.currentState === 'open') return trip;
+    trip.bookingEligible = false;
+    trip.bookingAllowed = false;
+    trip.selectionAllowed = false;
+    trip.disabledReason = control.currentState || 'temporarily_closed';
+    trip.displayDisabledReasonTh = control.customerMessageTh || 'เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว';
+    trip.availabilityDecision = Object.assign({}, trip.availabilityDecision || {}, {
+      status: 'unavailable',
+      bookingEligible: false,
+      selectionAllowed: false,
+      reasonCode: control.currentState || 'temporarily_closed',
+      displayReasonTh: trip.displayDisabledReasonTh,
+      bookingControlId: control.controlId
+    });
+    return trip;
   }
 
   function applyRuntimeCapacityToTrip(trip, counter) {
@@ -368,16 +417,16 @@
       tripKey: trip.tripId || trip.catalogTripId || '',
       routeKey: trip.routeId || trip.catalogRouteId || ''
     });
-    var capacityLimit = Number((counter && counter.capacityLimit) || capacityContract.capacityLimit || DEFAULT_TRIP_CAPACITY);
-    var bookedSeats = Math.max(0, Number(counter && counter.bookedSeats || 0));
+    var seatsAvailable = counter && counter.seatsAvailable != null ? Number(counter.seatsAvailable) : null;
+    var capacityLimit = Number(capacityContract.capacityLimit);
+    var bookedSeats = seatsAvailable != null && isFinite(capacityLimit) ? Math.max(0, capacityLimit - seatsAvailable) : 0;
     var runtimeCapacity = {
       contractVersion: 'booking_capacity_runtime_read_v1',
-      source: 'booking_capacity_center',
-      counterPath: capacityContract.counterPath,
+      source: 'public_booking_capacity_aggregate',
       capacityKey: capacityContract.capacityKey,
-      capacity: capacityLimit,
+      capacity: isFinite(capacityLimit) && capacityLimit > 0 ? capacityLimit : 0,
       bookedSeats: bookedSeats,
-      seatsAvailable: Math.max(0, capacityLimit - bookedSeats)
+      seatsAvailable: seatsAvailable != null && isFinite(seatsAvailable) ? Math.max(0, seatsAvailable) : null
     };
     var availabilityDecision = AvailabilityCenter && typeof AvailabilityCenter.decideBookingAvailability === 'function'
       ? AvailabilityCenter.decideBookingAvailability({
@@ -398,7 +447,7 @@
     trip.bookingAllowed = trip.bookingEligible === true && fareMissing === false;
     trip.disabledReason = fareMissing ? 'missing_fare' : (trip.availabilityDecision && trip.availabilityDecision.reasonCode);
     trip.displayDisabledReasonTh = trip.availabilityDecision && trip.availabilityDecision.displayReasonTh || '';
-    return trip;
+    return _applyBookingControls(trip);
   }
 
   function attachRuntimeCapacity(trips) {
@@ -444,7 +493,7 @@
     var isExternal = availabilityDecision.status === 'external_reference';
     var fareMissing = fareContract.status === 'NEEDS_CONTRACT_FIELD';
     var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
-    return {
+    return _applyBookingControls({
       pickupTime: time,
       label: _timeLabel(timeEntry),
       queueNo: '',
@@ -490,7 +539,7 @@
         scheduleOnly: true,
         liveTrackingAvailable: false
       }
-    };
+    });
   }
 
   function _pairToTrips(pair, option, serviceDate) {
