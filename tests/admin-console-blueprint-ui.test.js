@@ -1,4 +1,4 @@
-const assert = require('assert');
+﻿const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
@@ -42,8 +42,8 @@ for (const label of [
   'จำนวนผู้เยี่ยมชม (เว็บไซต์)',
   'ผู้ใช้งานจริง',
   'จำนวนการจอง',
-  '\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49',
-  'ยอดรับจากผู้โดยสาร',
+  'จำนวนผู้โดยสาร',
+  'ยอดจากรายการที่สร้างวันนี้',
   'ค่าโดยสารผู้ให้บริการ',
   'ค่าบริการแพลตฟอร์ม',
   'ยอดคืนเงิน',
@@ -57,6 +57,9 @@ for (const label of [
 for (const forbidden of [
   'จำนวนครั้งเข้าเยี่ยมชม',
   'ผู้เยี่ยมชมโดยประมาณ',
+  'รายได้วันนี้',
+  'รายได้สุทธิวันนี้',
+  'ยอดรับเงินจริงวันนี้',
   "rate:'55 บาท/คน'",
   "rate:'5 บาท/การจอง'",
   'money-overview',
@@ -104,3 +107,4 @@ for (const mockOnly of ['STP-0009', 'อ่อนนุช', 'Victory Monument',
 }
 
 console.log('admin-erp dashboard real aggregate contract ok');
+

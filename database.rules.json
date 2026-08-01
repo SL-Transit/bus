@@ -3,11 +3,11 @@
     "data": {
       "catalog": {
         ".read": true,
-        ".write": "auth != null"
+        ".write": "auth != null && auth.token.slTransitRole === 'owner'"
       },
       "fleet": {
         ".read": "auth != null",
-        ".write": "auth != null",
+        ".write": "auth != null && auth.token.slTransitRole === 'owner'",
         "vehicles": {
           ".read": true
         }
@@ -33,11 +33,11 @@
         },
         "catalog": {
           ".read": true,
-          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          ".write": "auth != null && auth.token.slTransitRole === 'owner'"
         },
         "fleet": {
           ".read": "auth != null",
-          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          ".write": "auth != null && auth.token.slTransitRole === 'owner'",
           "vehicles": {
             ".read": true
           },
@@ -47,16 +47,16 @@
         },
         "settings": {
           ".read": true,
-          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          ".write": "auth != null && auth.token.slTransitRole === 'owner'"
         },
         "finance": {
           ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           ".write": false
         },
         "adminAccounts": {
-          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          ".read": "auth != null && auth.token.slTransitRole === 'owner'",
           "$uid": {
-            ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || (!root.child('data/erpDataCenter/adminAccounts').exists() && auth.uid === $uid))"
+            ".write": false
           }
         }
       },
@@ -70,7 +70,7 @@
       },
       "settings": {
         ".read": true,
-        ".write": "auth != null"
+        ".write": "auth != null && auth.token.slTransitRole === 'owner'"
       }
     },
     "operations": {
@@ -79,18 +79,39 @@
         ".write": false,
         ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
         "$bookingId": {
-          ".write": "auth != null"
+          ".write": false
         }
       },
       "bookingCapacityByServiceDate": {
         "$serviceDate": {
           "$capacityKey": {
-            ".read": true,
-            ".write": "auth != null || (newData.child('contractVersion').val() === 'booking_capacity_v1' && newData.child('capacityLimit').isNumber() && newData.child('capacityLimit').val() >= 1 && newData.child('capacityLimit').val() <= 10 && newData.child('bookedSeats').isNumber() && newData.child('bookedSeats').val() >= 0 && newData.child('bookedSeats').val() <= newData.child('capacityLimit').val() && newData.child('seatsAvailable').isNumber() && newData.child('seatsAvailable').val() >= 0)",
+            ".read": false,
+            ".write": false,
             "bookings": {
               "$bookingId": {
                 ".validate": "newData.hasChildren(['seats', 'status', 'reservedAt']) && newData.child('seats').isNumber() && newData.child('seats').val() >= 1 && newData.child('seats').val() <= 10 && newData.child('status').val() === 'reserved'"
               }
+            }
+          }
+        }
+      },
+      "publicBookingCapacityByServiceDate": {
+        "$serviceDate": {
+          "$capacityKey": {
+            ".read": true,
+            ".write": false,
+            ".validate": "newData.hasChildren(['seatsAvailable', 'capacityStatus', 'bookingStatus', 'unavailable']) && !newData.hasChild('bookings') && !newData.hasChild('bookingIds') && !newData.hasChild('bookingCodes') && !newData.hasChild('reservationMarkers') && !newData.hasChild('counterPath')",
+            "seatsAvailable": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "capacityStatus": {
+              ".validate": "newData.isString() && (newData.val() === 'available' || newData.val() === 'limited' || newData.val() === 'full' || newData.val() === 'unavailable')"
+            },
+            "bookingStatus": {
+              ".validate": "newData.isString() && (newData.val() === 'open' || newData.val() === 'closed' || newData.val() === 'unavailable')"
+            },
+            "unavailable": {
+              ".validate": "newData.isBoolean()"
             }
           }
         }
@@ -110,11 +131,11 @@
       },
       "ticketLocations": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": false
       },
       "driverLogs": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/role').val() === 'driver'"
       },
       "sosAlerts": {
         ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
@@ -137,19 +158,49 @@
             ".write": false
           }
         }
+      },
+      "refunds": {
+        ".read": "auth != null && auth.token.slTransitRole === 'owner'",
+        ".write": false,
+        ".indexOn": ["refundStatus", "refundedAt", "refundRequestedAt", "refundReviewedAt", "refundApprovedAt", "refundProcessingStartedAt"]
+      },
+      "refundAudit": {
+        ".read": "auth != null && auth.token.slTransitRole === 'owner'",
+        ".write": false
+      },
+      "refundIdempotency": {
+        ".read": false,
+        ".write": false
+      },
+      "refundReferences": {
+        ".read": false,
+        ".write": false
+      },
+      "adminBookingAudit": {
+        ".read": "auth != null && auth.token.slTransitRole === 'owner'",
+        ".write": false
       }
     },
     "publishedSchedule": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.slTransitRole === 'owner'"
     },
     "bookings": {
       ".read": false,
       ".write": false,
       ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
       "$bookingId": {
-        ".read": true,
-        ".write": "auth != null || (!data.exists() && newData.child('code').val() === $bookingId && newData.child('bookingCode').val() === $bookingId && newData.child('source').val() === 'booking1.html' && newData.child('sourceMode').val() === 'erp_data_center' && newData.child('status').val() === 'awaiting_payment' && ((newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false) || (newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true) || (newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite')) && newData.child('paymentOwnership').val() === 'sl_transit' && newData.child('externalPaymentRequired').val() === false && newData.child('testMode').val() === false && newData.child('mockPayment').val() === false && newData.child('name').isString() && newData.child('phone').isString() && newData.child('date').isString() && newData.child('time').isString() && newData.child('origin').isString() && newData.child('destination').isString() && newData.child('pax').isNumber() && newData.child('pax').val() >= 1 && newData.child('pax').val() <= 10 && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('fareAmount').isNumber() && newData.child('fareAmount').val() >= 0 && newData.child('publishedSchedule').child('readyForApply').val() === false)"
+        ".write": false,
+        "refundStatus": { ".write": false },
+        "refundRequestedAt": { ".write": false },
+        "refundApprovedAt": { ".write": false },
+        "refundedAt": { ".write": false },
+        "refundAmount": { ".write": false },
+        "refundReference": { ".write": false },
+        "refundUpdatedByUid": { ".write": false },
+        "refundUpdatedByRole": { ".write": false },
+        "adminCancelledByUid": { ".write": false },
+        "adminCancelledByRole": { ".write": false }
       }
     },
     "analytics": {
@@ -190,17 +241,17 @@
       "$vehicleId": {
         "command": {
           ".read": "auth != null",
-          ".write": "newData.val() === 'forceGpsRestart' || newData.val() === null || auth != null"
+          ".write": "auth != null && auth.token.slTransitRole === 'owner' && (newData.val() === 'forceGpsRestart' || newData.val() === null)"
         },
         "lastResponse": {
           ".read": "auth != null",
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
         }
       }
     },
     "admin": {
-      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
-      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+      ".read": "auth != null && auth.token.slTransitRole === 'owner'",
+      ".write": "auth != null && auth.token.slTransitRole === 'owner'"
     },
     "driverLogs": {
       ".read": false,
@@ -213,14 +264,14 @@
       ".read": false,
       "$bookingId": {
         ".read": true,
-        ".write": true
+        ".write": false
       }
     },
     "passengerLiveLocations": {
       ".read": false,
       "$bookingId": {
         ".read": "auth != null && root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val()",
-        ".write": true
+        ".write": false
       }
     },
     "meta": {
@@ -229,3 +280,4 @@
     }
   }
 }
+

@@ -3,11 +3,13 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
+const webConfig = fs.readFileSync(path.join(__dirname, '..', 'firebase-web-config.js'), 'utf8');
 const legacyAdmin = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
 const compatibilityAdmin = fs.readFileSync(path.join(__dirname, '..', 'admin-console.html'), 'utf8');
 
-assert.ok(html.includes("projectId: 'sl-transit-9464e'"));
-assert.ok(html.includes("databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app'"));
+assert.ok(html.includes('firebase-web-config.js'));
+assert.ok(webConfig.includes("projectId: 'sl-transit-9464e'"));
+assert.ok(webConfig.includes("databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app'"));
 assert.ok(html.includes("var PRIMARY_PUBLISHED_SCHEDULE_PATH = 'publishedSchedule';"));
 assert.ok(html.includes("var PREVIEW_PUBLISHED_SCHEDULE_PATH = 'preview/publishedSchedule';"));
 assert.ok(html.includes("var PUBLISHED_SCHEDULE_PATH = PRIMARY_PUBLISHED_SCHEDULE_PATH;"));

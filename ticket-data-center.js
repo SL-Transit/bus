@@ -1,10 +1,10 @@
 (function(root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    module.exports = factory(typeof globalThis !== 'undefined' ? globalThis : {});
   } else {
-    root.SLTransitTicketDataCenter = factory();
+    root.SLTransitTicketDataCenter = factory(root);
   }
-})(typeof self !== 'undefined' ? self : this, function() {
+})(typeof self !== 'undefined' ? self : this, function(root) {
   'use strict';
 
   function clean(value) {
@@ -27,6 +27,33 @@
     options = options || {};
     if (options.testMode) return options.testBookingsPath || 'testBookings/';
     return (/^TB\d{6}$/i.test(clean(code)) || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
+  }
+
+  function defaultFunctionUrl(name) {
+    return 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/' + name;
+  }
+
+  function ticketAccessTokenForCode(code, options) {
+    options = options || {};
+    var normalized = clean(code).toUpperCase();
+    var token = clean(options.accessToken || options.ticketAccessToken);
+    if (token) return token;
+    try {
+      var hashParams = new URLSearchParams(((root.location && root.location.hash) || '').replace(/^#/, ''));
+      token = clean(hashParams.get('ticketToken') || hashParams.get('accessToken'));
+      if (token) {
+        if (root.sessionStorage) root.sessionStorage.setItem('slt_ticket_access_' + normalized, token);
+        if (root.history && root.location) {
+          root.history.replaceState(null, '', root.location.pathname + root.location.search);
+        }
+        return token;
+      }
+    } catch (err) {}
+    try {
+      return clean(root.sessionStorage && root.sessionStorage.getItem('slt_ticket_access_' + normalized));
+    } catch (err) {
+      return '';
+    }
   }
 
   function defaultSortValue(booking) {
@@ -69,7 +96,6 @@
   function findTicket(db, lookupValue, options) {
     options = options || {};
     var value = clean(lookupValue);
-    if (!db || typeof db.ref !== 'function') return Promise.reject(new Error('TICKET_DATA_CENTER_DB_REQUIRED'));
     if (!value) return Promise.resolve(null);
 
     if (isTicketCode(value)) {
@@ -77,39 +103,37 @@
       if (options.testMode && /^BK\d{6,10}$/i.test(code) && options.blockProductionCodeInTestMode !== false) {
         return Promise.reject(new Error('TEST_MODE_PRODUCTION_CODE'));
       }
-      var path = bookingPathForCode(code, options);
-      return db.ref(path + code).once('value').then(function(snap) {
-        return snap && snap.exists && snap.exists()
-          ? normalizeResult(code, snap.val(), { readPath: path + code, lookupType: 'code' })
-          : null;
+      var token = ticketAccessTokenForCode(code, options);
+      if (!token) {
+        var missingToken = new Error('TICKET_ACCESS_TOKEN_REQUIRED');
+        missingToken.code = 'TICKET_ACCESS_TOKEN_REQUIRED';
+        return Promise.reject(missingToken);
+      }
+      var endpoint = clean(options.readEndpoint || options.ticketReadEndpoint || defaultFunctionUrl('readPassengerTicket'));
+      return fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingCode: code, accessToken: token })
+      }).then(function(response) {
+        return response.json().catch(function() { return {}; }).then(function(body) {
+          if (!response.ok || !body || body.status !== 'ready' || !body.ticket) {
+            var denied = new Error((body && body.error) || 'TICKET_ACCESS_DENIED');
+            denied.code = (body && body.error) || 'TICKET_ACCESS_DENIED';
+            throw denied;
+          }
+          return normalizeResult(code, body.ticket, {
+            readPath: '',
+            lookupType: 'secure_token',
+            matchCount: 1
+          });
+        });
       });
     }
 
     if (isPhone(value)) {
-      var phone = cleanPhone(value);
-      var rootPath = options.testMode ? clean(options.testBookingsRoot || options.testBookingsPath || 'testBookings').replace(/\/$/, '') : 'bookings';
-      return db.ref(rootPath).orderByChild('phone').equalTo(phone).once('value').then(function(snap) {
-        if (!snap || !snap.exists || !snap.exists()) return null;
-        var matches = [];
-        snap.forEach(function(child) {
-          var booking = child.val() || {};
-          if (options.excludeNotificationOnly !== false && booking.notificationOnly) return;
-          if (typeof options.excludeBooking === 'function' && options.excludeBooking(booking, child.key)) return;
-          if (cleanPhone(booking.phone) === phone) {
-            matches.push({ code: child.key, booking: booking });
-          }
-        });
-        matches.sort(function(a, b) {
-          var sortValue = typeof options.sortValue === 'function' ? options.sortValue : defaultSortValue;
-          return sortValue(b.booking) - sortValue(a.booking);
-        });
-        if (!matches[0]) return null;
-        return normalizeResult(matches[0].code, matches[0].booking, {
-          readPath: rootPath + '/' + matches[0].code,
-          lookupType: 'phone',
-          matchCount: matches.length
-        });
-      });
+      var phoneLookupBlocked = new Error('TICKET_PHONE_LOOKUP_REQUIRES_SECURE_TOKEN');
+      phoneLookupBlocked.code = 'TICKET_PHONE_LOOKUP_REQUIRES_SECURE_TOKEN';
+      return Promise.reject(phoneLookupBlocked);
     }
 
     return Promise.resolve(null);

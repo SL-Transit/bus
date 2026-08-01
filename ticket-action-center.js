@@ -124,6 +124,34 @@
     });
   }
 
+  function defaultFunctionUrl(name) {
+    return 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/' + name;
+  }
+
+  function accessTokenForTicket(ticket, params) {
+    params = params || {};
+    ticket = ticket || {};
+    var code = clean(ticket.code || (ticket.booking && ticket.booking.code)).toUpperCase();
+    var token = clean(params.accessToken || params.ticketAccessToken || ticket.accessToken || ticket.ticketAccessToken);
+    if (token) return token;
+    try {
+      var urlParams = new URLSearchParams(((root.location && root.location.hash) || '').replace(/^#/, ''));
+      token = clean(urlParams.get('ticketToken') || urlParams.get('accessToken'));
+      if (token) {
+        if (root.sessionStorage) root.sessionStorage.setItem('slt_ticket_access_' + code, token);
+        if (root.history && root.location) {
+          root.history.replaceState(null, '', root.location.pathname + root.location.search);
+        }
+        return token;
+      }
+    } catch (err) {}
+    try {
+      return clean(root.sessionStorage && root.sessionStorage.getItem('slt_ticket_access_' + code));
+    } catch (err) {
+      return '';
+    }
+  }
+
   function cancelTicket(params) {
     params = params || {};
     var db = params.db;
@@ -135,30 +163,33 @@
       blocked.evaluation = evaluation;
       return Promise.reject(blocked);
     }
-    if (!db || typeof db.ref !== 'function') {
-      return Promise.reject(new Error('TICKET_ACTION_CENTER_DB_REQUIRED'));
+    var code = clean(ticket.code || (booking && booking.code)).toUpperCase();
+    var token = accessTokenForTicket(ticket, params);
+    if (!code || !token) {
+      return Promise.reject(new Error('TICKET_ACCESS_TOKEN_REQUIRED'));
     }
-    var path = bookingPathFromTicket(ticket);
-    if (!path) {
-      return Promise.reject(new Error('TICKET_ACTION_CENTER_PATH_REQUIRED'));
-    }
-    var firebaseNamespace = params.firebase;
-    var serverTimestamp = firebaseNamespace &&
-      firebaseNamespace.database &&
-      firebaseNamespace.database.ServerValue &&
-      firebaseNamespace.database.ServerValue.TIMESTAMP;
-    var patch = cancellationPatch(serverTimestamp);
-    return db.ref(path).update(patch).then(function() {
-      return releaseCapacity(params, Object.assign({}, ticket, { booking: booking })).then(function(capacityRelease) {
+    var endpoint = clean(params.cancelEndpoint || params.ticketCancelEndpoint || defaultFunctionUrl('cancelPassengerTicket'));
+    return fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingCode: code, accessToken: token })
+    }).then(function(response) {
+      return response.json().catch(function() { return {}; }).then(function(body) {
+        if (!response.ok || !body || (body.status !== 'ok' && body.status !== 'pending')) {
+          var denied = new Error((body && body.error) || 'TICKET_CANCELLATION_BACKEND_FAILED');
+          denied.response = body;
+          throw denied;
+        }
+        var patch = cancellationPatch(body.ticket && body.ticket.cancelledAt || Date.now());
         return {
           contractVersion: CONTRACT_VERSION,
           source: 'ticket-action-center',
           action: 'cancel_ticket',
           allowed: true,
-          bookingPath: path,
+          bookingPath: '',
           patch: patch,
-          capacityRelease: capacityRelease,
-          booking: Object.assign({}, booking || {}, patch)
+          capacityRelease: body.capacityRelease || null,
+          booking: Object.assign({}, booking || {}, body.ticket || {}, patch)
         };
       });
     });

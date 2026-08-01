@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
 <script src="site-runtime.js?v=20260621a" data-sl-runtime></script>
@@ -7,6 +7,7 @@
 <link rel="apple-touch-icon" sizes="192x192" href="assets/app-icon-192.png?v=20260621a">
 <meta name="theme-color" content="#0b1d3a">
   <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ติดตามรถของฉัน – S.L.Transit</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
@@ -1097,6 +1098,45 @@
       if (TEST_MODE) return TEST_PATHS.bookings;
       return (/^TB\d{6}$/.test(code || '') || (booking && booking.testMode)) ? 'testBookings/' : 'bookings/';
     }
+    function ticketActionEndpoint(name) {
+      return 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/' + name;
+    }
+    function ticketAccessTokenFor(code) {
+      var normalized = normalizeLookup(String(code || ''));
+      try {
+        var hashParams = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+        var token = hashParams.get('ticketToken') || hashParams.get('accessToken') || '';
+        if (token) {
+          sessionStorage.setItem('slt_ticket_access_' + normalized, token);
+          history.replaceState(null, '', location.pathname + location.search);
+          return token;
+        }
+      } catch (err) {}
+      return sessionStorage.getItem('slt_ticket_access_' + normalized) || '';
+    }
+    function postTicketAction(action, payload) {
+      if (!currentBooking || !currentBooking.code) return Promise.reject(new Error('TICKET_NOT_LOADED'));
+      var token = ticketAccessTokenFor(currentBooking.code);
+      if (!token) return Promise.reject(new Error('TICKET_ACCESS_TOKEN_REQUIRED'));
+      return fetch(ticketActionEndpoint('updatePassengerTicketState'), {
+        method: 'POST',
+        credentials: 'omit',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: currentBooking.code,
+          ticketAccessToken: token,
+          action: action,
+          payload: payload || {}
+        })
+      }).then(function(res) {
+        if (!res.ok) throw new Error('TICKET_ACTION_FAILED');
+        return res.json();
+      }).then(function(result) {
+        if (result && result.ticket) currentBooking = normalizeBooking(result.ticket, currentBooking.code);
+        return result;
+      });
+    }
     function buildAdminDestinationSchedules(routes) {
         var list = [];
         ADMIN_TRIP_BY_ID = {};
@@ -1214,6 +1254,7 @@
       try {
         sessionStorage.setItem(LAST_TICKET_STORAGE_KEY, JSON.stringify({
           code: code,
+          ticketToken: sessionStorage.getItem('slt_ticket_access_' + String(code).toUpperCase()) || '',
           testMode: TEST_MODE === true,
           savedAt: Date.now()
         }));
@@ -1226,6 +1267,7 @@
         if (!raw) return '';
         var saved = JSON.parse(raw);
         if (!saved || !saved.code || saved.testMode !== (TEST_MODE === true)) return '';
+        if (saved.ticketToken) sessionStorage.setItem('slt_ticket_access_' + String(saved.code).toUpperCase(), saved.ticketToken);
         return normalizeLookup(saved.code);
       } catch (err) {
         return '';
@@ -1323,22 +1365,26 @@
     }
 
     function startBookingListener(code) {
-      var ref = db.ref(bookingPathForCode(code, currentBooking) + code);
-      ref.off();
-      ref.on('value', function(snap) {
-        if (snap.exists() && currentCode === code) {
-          currentBooking = normalizeBooking(snap.val(), code);
+      if (window.__ticketRefreshTimer) clearInterval(window.__ticketRefreshTimer);
+      function refreshTicket() {
+        return window.SLTransitTicketDataCenter.findTicket(db, code, {
+          testMode: TEST_MODE,
+          testBookingsPath: TEST_PATHS.bookings
+        }).then(function(found) {
+          if (!found || currentCode !== code) return;
+          currentBooking = normalizeBooking(found.booking, code);
           ensureTicketDataCenterForBooking(currentBooking);
           if (isCancelledBooking(currentBooking)) {
             clearRememberedTicket();
             showCancelledDonePopup();
             return;
           }
-          loadCatalogForBooking(currentBooking).then(function() {
+          return loadCatalogForBooking(currentBooking).then(function() {
             if (currentCode === code) renderBooking();
           });
-        }
-      });
+        }).catch(function() {});
+      }
+      window.__ticketRefreshTimer = setInterval(refreshTicket, 30000);
     }
 
     function renderBooking() {
@@ -1704,6 +1750,10 @@
     }
 
     function stopTrackingSubscription() {
+      if (window.__ticketRefreshTimer) {
+        clearInterval(window.__ticketRefreshTimer);
+        window.__ticketRefreshTimer = null;
+      }
       if (trackingLiveVehiclesRef) trackingLiveVehiclesRef.off();
       if (trackingAssignmentsRef) trackingAssignmentsRef.off();
       trackingLiveVehiclesRef = null;
@@ -2906,7 +2956,7 @@
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
-      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code).update(update).catch(function(){});
+      postTicketAction('journey_arrival', update).catch(function(){});
     }
 
     function calculateTransferOrDestinationEta() {
@@ -3052,10 +3102,10 @@
       if (arrived && !originAutoCheckinDone) maybeAutoOriginCheckin();
       if (arrived && !isOriginBoarded() && !originArrivalNoticeShown) {
         originArrivalNoticeShown = true;
-        db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originArrival').update({
+        postTicketAction('origin_arrival', {
           passed: true,
           origin: pickupStopLocation.name,
-          ts: firebase.database.ServerValue.TIMESTAMP
+          ts: Date.now()
         }).catch(function(){});
       } else if (arrived && isOriginBoarded() && !originArrivalDismissed) {
         setTimeout(function() {
@@ -3096,7 +3146,7 @@
       if (!passengerAtPickup) return;
       originAutoCheckinDone = true;
       originCheckinAnchor = { lat: lastPosition.lat, lng: lastPosition.lng, ts: Date.now() };
-      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originCheckin').update({
+      postTicketAction('origin_checkin', {
         status: 'boarded',
         auto: true,
         origin: pickupStopLocation.name,
@@ -3105,7 +3155,7 @@
         vehicleId: trackingVehicleId || '',
         queueNo: trackingCurrentTrip ? trackingCurrentTrip.queueNo : '',
         tripIndex: trackingCurrentTrip ? trackingCurrentTrip.tripIndex : '',
-        ts: firebase.database.ServerValue.TIMESTAMP
+        ts: Date.now()
       }).catch(function(){});
     }
 
@@ -3115,10 +3165,10 @@
       if (!dep || Date.now() - dep.getTime() < 30 * 60000) return;
       var movedKm = distanceKm(lastPosition.lat, lastPosition.lng, pickupStopLocation.lat, pickupStopLocation.lng);
       if (movedKm > 3) return;
-      db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code + '/originCheckin').update({
+      postTicketAction('origin_checkin_review', {
         status: 'not_boarded_suspected',
         reason: 'passenger_still_near_origin_30_minutes_after_departure',
-        checkedAt: firebase.database.ServerValue.TIMESTAMP
+        checkedAt: Date.now()
       }).catch(function(){});
       originAutoCheckinDone = false;
     }
@@ -3648,13 +3698,19 @@
         showCancelledDonePopup();
         return;
       }
-      updateBookingAndNotify({
-        status: 'cancelled',
-        cancelledAt: Date.now(),
-        officialStatus: 'ตั๋วของคุณถูกยกเลิกแล้ว'
-      }, 'cancel_ticket', 'ยกเลิกตั๋วสำเร็จ แจ้งท่าปลายทางแล้ว')
-        .then(showCancelledDonePopup)
-        .catch(function(){});
+      window.SLTransitTicketActionCenter.cancelTicket({
+        ticket: { code: currentBooking && currentBooking.code, booking: currentBooking }
+      }).then(function(result) {
+        currentBooking = normalizeBooking(result.booking || Object.assign({}, currentBooking, { status: 'cancelled' }), currentBooking.code);
+        setStatus('lookupStatus', result && result.capacityRelease && result.capacityRelease.status === 'failed_retriable' ? 'warn' : 'good',
+          result && result.capacityRelease && result.capacityRelease.status === 'failed_retriable'
+            ? 'ยกเลิกตั๋วแล้ว กำลังรอระบบคืนที่นั่ง'
+            : 'ยกเลิกตั๋วสำเร็จ');
+        showCancelledDonePopup();
+      }).catch(function(err){
+        console.error(err);
+        setStatus('lookupStatus', 'bad', 'ยกเลิกตั๋วไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      });
     }
 
     function showCancelledDonePopup() {
@@ -3816,27 +3872,13 @@
         lineMessagingAttemptId: linePayload.lineMessagingAttemptId
       });
 
-      var ref = db.ref(bookingPathForCode(currentBooking.code, currentBooking) + currentBooking.code);
-      var alertAlreadySent = false;
-      return ref.transaction(function(existing) {
-        alertAlreadySent = false;
-        if (!existing) return;
-        alertAlreadySent = alertPlan ? !shouldSendCheckTicketAlertOnce(alertPlan, existing) : false;
-        if (alertAlreadySent) return;
-        if (eventName === 'checkin' && (existing.status === 'checked_in' || existing.status === 'transfer_nearby_notified') && !isAdminTesterBooking(existing)) return;
-        return Object.assign({}, existing, payload);
-      }).then(function(result) {
-        if (!result.committed) {
-          if (alertAlreadySent) {
-            setStatus('lookupStatus', 'good', 'แจ้งเตือนเหตุการณ์นี้ไปแล้ว ระบบจึงไม่ส่งซ้ำ');
-            return { success: true, skipped: true, reason: 'alert_already_sent' };
-          }
-          setStatus('lookupStatus', 'warn', 'ตั๋วนี้เช็คอินแล้ว ไม่สามารถเช็คอินซ้ำได้');
-          return Promise.reject(new Error('DUPLICATE_CHECKIN'));
+      return postTicketAction('checkin', payload).then(function(result) {
+        if (result && result.skipped) {
+          setStatus('lookupStatus', 'good', 'แจ้งเตือนเหตุการณ์นี้ไปแล้ว ระบบจึงไม่ส่งซ้ำ');
+          return { success: true, skipped: true, reason: result.reason || 'alert_already_sent' };
         }
-        currentBooking = normalizeBooking(result.snapshot.val(), currentBooking.code);
-        return sendLineMessage(linePayload, payload, eventName).then(function(result){
-          setStatus('lookupStatus', 'good', result && result.mock ? 'TEST MODE: บันทึกสำเร็จ Mock LINE สำเร็จ' : successText);
+        return sendLineMessage(linePayload, payload, eventName).then(function(lineResult){
+          setStatus('lookupStatus', 'good', lineResult && lineResult.mock ? 'TEST MODE: บันทึกสำเร็จ Mock LINE สำเร็จ' : successText);
         });
       })
         .catch(function(err) {
@@ -3957,7 +3999,7 @@
         checkin: updatePayload.checkin || {},
       };
       trigger.ts = firebase.database.ServerValue.TIMESTAMP;
-      return db.ref((TEST_MODE ? TEST_PATHS.notifications : 'bookings/') + triggerCode).set(trigger);
+      return postTicketAction('test_notification', trigger);
     }
 
     function buildLineMessage(data) {
@@ -4168,3 +4210,4 @@
   </script>
 </body>
 </html>
+

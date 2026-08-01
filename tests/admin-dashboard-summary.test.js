@@ -77,7 +77,8 @@ const records = {
     sourceMode: 'erp_data_center',
     status: 'refunded',
     paymentStatus: 'refunded',
-    refundStatus: 'completed',
+    refundStatus: 'refunded',
+    refundContractVersion: 'refund_admin_v2',
     refundedAt: day28 + 4000,
     refundAmount: 60,
     pax: 1,
@@ -134,7 +135,7 @@ assert.strictEqual(result.timezone, 'Asia/Bangkok');
 assert.strictEqual(result.bookings.createdCount, 3, 'today booking count uses created ts for the anchor day');
 assert.strictEqual(result.bookings.travelPassengerCount, 1, 'travel passenger count uses service date, not created ts');
 assert.strictEqual(result.bookings.cancelledCount, 1);
-assert.strictEqual(result.bookings.refundedCount, 0, 'refund event count remains disabled until a secure refund writer exists');
+assert.strictEqual(result.bookings.refundedCount, 1, 'refund event count uses refundedAt after secure writer exists');
 assert.strictEqual(result.finance.grossAmount, 180, 'finance summary uses records created on the anchor day');
 assert.strictEqual(result.finance.fareAmount, 220);
 assert.strictEqual(result.finance.serviceFeeAmount, 20);
@@ -144,7 +145,7 @@ assert.strictEqual(result.finance.netAmount, 120);
 const todayPoint = result.bookings.points.find((point) => point.key === '2026-07-28');
 assert.strictEqual(todayPoint.bookings, 3, 'booking today/travel future counts by ts date');
 assert.strictEqual(todayPoint.cancellations, 1);
-assert.strictEqual(todayPoint.refunds, 0);
+assert.strictEqual(todayPoint.refunds, 1);
 const yesterdayPoint = result.bookings.points.find((point) => point.key === '2026-07-27');
 assert.strictEqual(yesterdayPoint.bookings, 1, 'booking yesterday/travel today stays yesterday');
 
@@ -163,7 +164,13 @@ assert.strictEqual(result.bookings.createdDateSource, 'ts');
 assert.strictEqual(result.bookings.travelDateSource, 'date/serviceDate');
 assert.strictEqual(result.bookings.cancellationContractStatus, 'ready');
 assert.strictEqual(result.bookings.cancellationDateSource, 'cancelledAt');
-assert.strictEqual(result.bookings.refundContractStatus, 'unsupported_missing_refund_timestamp');
+assert.strictEqual(result.bookings.refundContractStatus, 'ready');
+assert.strictEqual(result.bookings.refundDateSource, 'refundedAt');
+assert.strictEqual(result.diagnostic.refundContractStatus, 'ready');
+assert.strictEqual(result.diagnostic.refundTimestampField, 'refundedAt');
+assert.strictEqual(result.diagnostic.queriedRefundEventCount, Object.keys(records).length);
+assert.strictEqual(result.diagnostic.acceptedRefundEventCount, 1);
+assert.strictEqual(result.diagnostic.invalidRefundTimestampCount, 0);
 assert.strictEqual(result.diagnostic.tsQueryCount, Object.keys(records).length);
 assert.strictEqual(result.diagnostic.acceptedCount, 4);
 assert.strictEqual(result.diagnostic.rejectedCount, 2);
@@ -305,6 +312,49 @@ assert(fleetOnly.vehicles.every((row) => row.queueId), 'fleet master rows includ
 assert.deepStrictEqual(fleetOnly.queues.map((row) => row.queueDisplayName), ['ท่ารถสนามชัยเขต-หนองคอก-คลองหาด', 'กลุ่มหมอชิต-เอกมัย-BTS', 'กลุ่มพัทยา-ระยอง-มีนบุรี', 'กลุ่มรังสิต', 'กลุ่มรถไฟ']);
 assert(fleetOnly.queues.every((row) => row.bookingCount === 0 && row.fareAmount === 0 && row.netAmount === 0), 'service group rows must not create fake revenue');
 
+const approvedOnlyRefund = summary.aggregateDashboard({}, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  travelRecords: {},
+  cancelledRecords: {},
+  refundedRecords: {
+    BK_APPROVED_ONLY: Object.assign({}, records.BK_REFUND, {
+      code: 'BK_APPROVED_ONLY',
+      status: 'awaiting_payment',
+      paymentStatus: 'paid',
+      refundStatus: 'approved',
+      refundedAt: undefined,
+      refundApprovedAt: day28 + 5000
+    })
+  },
+  generatedAt: 6
+});
+assert.strictEqual(approvedOnlyRefund.bookings.refundContractStatus, 'ready');
+assert.strictEqual(approvedOnlyRefund.bookings.refundedCount, 0, 'approved but not refunded must not count as completed refund');
+assert.strictEqual(approvedOnlyRefund.diagnostic.invalidRefundTimestampCount, 0, 'approved but not refunded is pending, not invalid completed refund');
+
+const oldBookingRefundedToday = summary.aggregateDashboard({}, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  travelRecords: {},
+  cancelledRecords: {},
+  refundedRecords: {
+    BK_OLD_REFUNDED_TODAY: Object.assign({}, records.BK_REFUND, {
+      code: 'BK_OLD_REFUNDED_TODAY',
+      ts: day27,
+      refundedAt: day28 + 6000,
+      refundAmount: 60
+    })
+  },
+  generatedAt: 7
+});
+assert.strictEqual(oldBookingRefundedToday.bookings.createdCount, 0);
+assert.strictEqual(oldBookingRefundedToday.bookings.refundedCount, 1, 'old booking refunded today must count as refund today');
+assert.strictEqual(oldBookingRefundedToday.finance.refundAmount, 60);
+assert.strictEqual(oldBookingRefundedToday.bookings.points.find((point) => point.key === '2026-07-28').refunds, 1);
+
 const serialized = JSON.stringify(result);
 ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'rawBooking', 'passengerIdentity', 'bankAccount', 'password'].forEach((field) => {
   assert(!serialized.includes(`"${field}"`), `response must not expose ${field}`);
@@ -339,7 +389,7 @@ assert(functionsIndex.includes('exports.readAdminErpDataCenter'), 'functions mus
 assert(functionsIndex.includes('ref("data/erpDataCenter").get()'), 'ERP Data Center endpoint must read the Firebase ERP source of truth');
 assert(functionsIndex.includes('admin_token_required'), 'ERP Data Center endpoint must require a Firebase ID token');
 assert(functionsIndex.includes('exports.updateAdminErpDataCenter'), 'functions must expose an authenticated ERP Data Center update endpoint for admin workbook edits');
-assert(functionsIndex.includes('data/erpDataCenter/adminAccounts/${decoded.uid}'), 'ERP Data Center update endpoint must require an admin account');
+assert(functionsIndex.includes('adminAuth.requireAdmin(req, admin, "bookingManage")'), 'ERP Data Center update endpoint must require a custom-claim admin permission');
 assert(functionsIndex.includes('allowedErpUpdatePath'), 'ERP Data Center update endpoint must restrict writable paths');
 assert(functionsIndex.includes('workbookSource\\/routeFareRows\\/fare_'), 'ERP update guard must allow canonical workbook fare row fields');
 assert(functionsIndex.includes('workbookSource\\/scheduleRows\\/schedule_'), 'ERP update guard must allow canonical workbook schedule row fields');

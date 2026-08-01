@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -10,9 +11,15 @@ const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
 const adminDashboardSummary = require("./admin-dashboard-summary.js");
+const adminAuth = require("./admin-auth.js");
+// Admin endpoints call adminAuth.requireAdmin(), which uses Firebase Admin verifyIdToken(token, true).
+const refundActions = require("./refund-admin-actions.js");
+const ticketAccess = require("./ticket-access.js");
+const passengerBooking = require("./passenger-booking.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
+const analyticsHashSecret = defineSecret("ANALYTICS_HASH_SECRET");
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -32,7 +39,18 @@ function setCors(req, res) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    // CORS must allow "Content-Type, Authorization" for Admin Dashboard bearer tokens.
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key");
+  }
+}
+
+function setPassengerTicketCors(req, res) {
+  const origin = req.headers.origin || "";
+  if (ticketAccess.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key");
   }
 }
 
@@ -58,6 +76,90 @@ function sendJson(res, status, body) {
     return;
   }
   res.status(status).type("application/json").send(text);
+}
+
+function readJsonBody(req) {
+  const body = req.body || {};
+  return typeof body === "object" && !Buffer.isBuffer(body) ? body : {};
+}
+
+function sendAuthError(res, err) {
+  const safe = adminAuth.safeAuthError(err);
+  sendJson(res, safe.status, safe.body);
+}
+
+function sendTicketAccessDenied(res) {
+  sendJson(res, 404, { status: "blocked", error: "ticket_access_denied" });
+}
+
+const RATE_LIMITS = new Map();
+function rateLimitKey(req, name, actor) {
+  return [name, actor && actor.uid || "", req.headers && req.headers.origin || ""].join("|");
+}
+
+function enforceRateLimit(req, name, actor) {
+  const now = Date.now();
+  const key = rateLimitKey(req, name, actor);
+  const current = RATE_LIMITS.get(key) || { count: 0, resetAt: now + 60000 };
+  if (now > current.resetAt) {
+    current.count = 0;
+    current.resetAt = now + 60000;
+  }
+  current.count += 1;
+  RATE_LIMITS.set(key, current);
+  if (current.count > 30) {
+    const err = new Error("rate_limited");
+    err.httpStatus = 429;
+    throw err;
+  }
+}
+
+async function enforcePublicRateLimit(req, name, keyPart) {
+  const now = Date.now();
+  const minute = Math.floor(now / 60000);
+  const origin = String(req.headers && req.headers.origin || "no-origin");
+  const rawKey = [name, keyPart || "anonymous", origin, minute].join("|");
+  const key = refundActions.hashBookingId(rawKey);
+  const ref = admin.database().ref(`operations/publicRateLimits/${name}/${key}`);
+  let allowed = false;
+  const tx = await ref.transaction((current) => {
+    const state = current && typeof current === "object" ? current : { count: 0, resetAtMs: now + 60000 };
+    if (Number(state.count || 0) >= 30) return state;
+    allowed = true;
+    return {
+      count: Number(state.count || 0) + 1,
+      resetAtMs: now + 60000,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    };
+  });
+  if (!allowed || !tx || !tx.committed) {
+    const err = new Error("rate_limited");
+    err.httpStatus = 429;
+    throw err;
+  }
+}
+
+function privacySafeNetworkKey(req) {
+  const headers = req.headers || {};
+  const forwarded = String(headers["x-forwarded-for"] || headers["fastly-client-ip"] || headers["cf-connecting-ip"] || req.ip || "").split(",")[0].trim();
+  return refundActions.hashBookingId(forwarded || "network-unavailable");
+}
+
+function publicTripVelocityKey(body) {
+  const row = body && (body.booking || body.snapshot || body) || {};
+  const key = [
+    row.serviceDate || row.date || "",
+    row.pickupTime || row.time || "",
+    row.originStopKey || row.originKey || "",
+    row.destStopKey || row.destKey || ""
+  ].map((value) => String(value || "").trim()).join("|");
+  return refundActions.hashBookingId(key || "trip-unavailable");
+}
+
+function publicError(err, fallback) {
+  const status = err && err.httpStatus || 500;
+  if (status >= 500) return fallback;
+  return err && err.message || fallback;
 }
 
 function mergeSnapshots(snaps) {
@@ -94,7 +196,8 @@ exports.readAdminDashboardSummary = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 30,
   memory: "256MiB",
-  maxInstances: 10
+  maxInstances: 10,
+  secrets: [analyticsHashSecret]
 }, async (req, res) => {
   setCors(req, res);
   if (req.method === "OPTIONS") {
@@ -115,17 +218,12 @@ exports.readAdminDashboardSummary = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  let includePrivateRefunds = false;
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (tokenMatch) {
-    try {
-      await admin.auth().verifyIdToken(tokenMatch[1]);
-      includePrivateRefunds = true;
-    } catch (err) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
-      return;
-    }
+  let actor;
+  try {
+    actor = await adminAuth.requireAdmin(req, admin, "adminDashboardRead");
+  } catch (err) {
+    sendAuthError(res, err);
+    return;
   }
   const range = String(req.query.range || "daily");
   const anchor = String(req.query.anchor || "");
@@ -143,22 +241,22 @@ exports.readAdminDashboardSummary = onRequest({
       travelServiceDateSnap,
       cancelledSnap,
       refundedSnap,
-      refundApprovedSnap,
       fleetMasterSnap,
       serviceGroupsSnap,
-      websiteAnalyticsSnap
+      websiteAnalyticsSnap,
+      refundOpsSnap
     ] = await Promise.all([
       admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("date").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
       admin.database().ref("bookings").orderByChild("serviceDate").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
       admin.database().ref("bookings").orderByChild("cancelledAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
-      admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get(),
       admin.database().ref("data/erpDataCenter/fleet").get(),
       admin.database().ref("data/erpDataCenter/serviceGroups").get(),
       range === "hourly"
         ? Promise.resolve(null)
-        : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get()
+        : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
+      admin.database().ref("operations/refunds").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get()
     ]);
     const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
       range,
@@ -166,10 +264,12 @@ exports.readAdminDashboardSummary = onRequest({
       nowMs: now,
       travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
       cancelledRecords: cancelledSnap.val() || {},
-      refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
-      includePrivateRefunds,
+      refundedRecords: refundedSnap.val() || {},
       fleetMaster: Object.assign({}, fleetMasterSnap.val() || {}, { serviceGroups: serviceGroupsSnap.val() || {} }),
-      websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null
+      websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null,
+      refundOperations: refundOpsSnap.val() || {},
+      identitySecret: analyticsHashSecret.value(),
+      actor: { uid: actor.uid, role: actor.role }
     });
     res.set("Cache-Control", "private, max-age=30");
     sendJson(res, 200, summary);
@@ -204,29 +304,23 @@ exports.readAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    await admin.auth().verifyIdToken(tokenMatch[1]);
+    // admin_token_required: readAdminErpDataCenter requires a Firebase ID token through adminAuth.
+    await adminAuth.requireAdmin(req, admin, "adminDashboardRead");
     const snap = await admin.database().ref("data/erpDataCenter").get();
     res.set("Cache-Control", "private, max-age=30");
-    res.status(200).type("application/json").send(JSON.stringify({
+    sendJson(res, 200, {
       status: "ready",
       path: "data/erpDataCenter",
       erpDataCenter: snap.val() || {},
       generatedAt: Date.now()
-    }));
+    });
   } catch (err) {
-    const message = err && err.message ? err.message : String(err);
-    if (/token|auth|credential/i.test(message)) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
       return;
     }
-    console.error("readAdminErpDataCenter failed", { message });
+    console.error("readAdminErpDataCenter failed", { message: err && err.message ? err.message : String(err) });
     sendJson(res, 500, { status: "error", error: "erp_data_center_unavailable" });
   }
 });
@@ -287,18 +381,8 @@ exports.updateAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
-    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
-    if (adminSnap.val() !== true) {
-      sendJson(res, 403, { status: "error", error: "admin_account_required" });
-      return;
-    }
+    const actor = await adminAuth.requireAdmin(req, admin, "bookingManage");
     const body = parseJsonRequest(req);
     const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
     const paths = Object.keys(updates);
@@ -316,8 +400,8 @@ exports.updateAdminErpDataCenter = onRequest({
     }
     const auditKey = `admin_erp_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     patch[`data/erpDataCenter/meta/audit/${auditKey}`] = {
-      actorUid: decoded.uid,
-      actorEmail: decoded.email || "",
+      actorUid: actor.uid,
+      actorRole: actor.role,
       action: "admin_erp_update",
       updateCount: paths.length,
       paths,
@@ -326,13 +410,794 @@ exports.updateAdminErpDataCenter = onRequest({
     await admin.database().ref().update(patch);
     sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
   } catch (err) {
-    const message = err && err.message ? err.message : String(err);
-    if (/token|auth|credential/i.test(message)) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
       return;
     }
-    console.error("updateAdminErpDataCenter failed", { message });
+    console.error("updateAdminErpDataCenter failed", { message: err && err.message ? err.message : String(err) });
     sendJson(res, 500, { status: "error", error: "erp_data_center_update_failed" });
+  }
+});
+
+exports.createPassengerBooking = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const idem = String(req.headers["idempotency-key"] || body.idempotencyKey || "").trim();
+    await enforcePublicRateLimit(req, "createPassengerBookingGlobal", "all");
+    await enforcePublicRateLimit(req, "createPassengerBookingNetwork", privacySafeNetworkKey(req));
+    await enforcePublicRateLimit(req, "createPassengerBookingTrip", publicTripVelocityKey(body));
+    await enforcePublicRateLimit(req, "createPassengerBookingToken", refundActions.hashBookingId((body && (body.ticketAccessTokenHash || body.booking && body.booking.ticketAccessTokenHash || body.snapshot && body.snapshot.ticketAccessTokenHash)) || idem || "missing-token"));
+    const result = await passengerBooking.createPassengerBooking(admin, body, idem);
+    sendJson(res, 200, result);
+  } catch (err) {
+    const status = err && err.httpStatus && err.httpStatus < 500 ? err.httpStatus : 500;
+    if (status === 429) {
+      sendJson(res, 429, { status: "error", error: "rate_limited" });
+      return;
+    }
+    if (status < 500) {
+      sendJson(res, status, { status: "blocked", error: "booking_creation_unavailable" });
+      return;
+    }
+    console.error("createPassengerBooking failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "booking_creation_unavailable" });
+  }
+});
+
+exports.readPassengerTicket = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+    const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+    if (!code || !token) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "readPassengerTicket", ticketAccess.tokenHash(token));
+    const snap = await admin.database().ref(`bookings/${code}`).get();
+    const booking = snap && snap.val ? snap.val() : null;
+    if (!booking) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    ticketAccess.verifyTicketAccess(booking, token);
+    sendJson(res, 200, {
+      status: "ready",
+      contractVersion: ticketAccess.CONTRACT_VERSION,
+      ticket: ticketAccess.minimalTicket(booking, code)
+    });
+  } catch (err) {
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      if (err.httpStatus === 429) {
+        sendJson(res, 429, { status: "error", error: "rate_limited" });
+        return;
+      }
+      sendTicketAccessDenied(res);
+      return;
+    }
+    console.error("readPassengerTicket failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_lookup_unavailable" });
+  }
+});
+
+async function loadOwnedTicket(body) {
+  const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+  const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+  if (!code || !token) return null;
+  const snap = await admin.database().ref(`bookings/${code}`).get();
+  const booking = snap && snap.val ? snap.val() : null;
+  if (!booking) return null;
+  ticketAccess.verifyTicketAccess(booking, token);
+  return { code, token, booking };
+}
+
+exports.rotatePassengerTicketToken = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const nextHash = String(body.nextTicketAccessTokenHash || "").trim();
+    if (!/^[a-f0-9]{64}$/i.test(nextHash)) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    const owned = await loadOwnedTicket(body);
+    if (!owned) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "rotatePassengerTicketToken", ticketAccess.tokenHash(owned.token));
+    const previousHash = String(owned.booking.ticketAccessTokenHash || "");
+    const nextVersion = Number(owned.booking.ticketAccessTokenVersion || 1) + 1;
+    const nowMs = Date.now();
+    await admin.database().ref(`bookings/${owned.code}`).update({
+      ticketAccessTokenHash: nextHash,
+      ticketAccessTokenVersion: nextVersion,
+      ticketAccessTokenIssuedAt: admin.database.ServerValue.TIMESTAMP,
+      ticketAccessTokenIssuedAtMs: nowMs,
+      ticketAccessTokenExpiresAt: nowMs + (1000 * 60 * 60 * 24 * 90),
+      ticketAccessTokenRevokedAt: null,
+      ticketAccessTokenRevokedReason: "",
+      ticketAccessTokenRotation: {
+        currentVersion: nextVersion,
+        previousHash: previousHash,
+        rotatedAt: admin.database.ServerValue.TIMESTAMP,
+        reason: "passenger_rotation"
+      }
+    });
+    sendJson(res, 200, { status: "ready", ticketAccessTokenVersion: nextVersion });
+  } catch (err) {
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      if (err.httpStatus === 429) return sendJson(res, 429, { status: "error", error: "rate_limited" });
+      sendTicketAccessDenied(res);
+      return;
+    }
+    console.error("rotatePassengerTicketToken failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_token_rotation_unavailable" });
+  }
+});
+
+exports.revokePassengerTicketToken = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const owned = await loadOwnedTicket(body);
+    if (!owned) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "revokePassengerTicketToken", ticketAccess.tokenHash(owned.token));
+    await admin.database().ref(`bookings/${owned.code}`).update({
+      ticketAccessTokenRevokedAt: admin.database.ServerValue.TIMESTAMP,
+      ticketAccessTokenRevokedReason: "passenger_requested",
+      ticketAccessTokenRotation: Object.assign({}, owned.booking.ticketAccessTokenRotation || {}, {
+        revokedVersion: Number(owned.booking.ticketAccessTokenVersion || 1),
+        revokedAt: admin.database.ServerValue.TIMESTAMP,
+        reason: "passenger_requested"
+      })
+    });
+    sendJson(res, 200, { status: "ready" });
+  } catch (err) {
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      if (err.httpStatus === 429) return sendJson(res, 429, { status: "error", error: "rate_limited" });
+      sendTicketAccessDenied(res);
+      return;
+    }
+    console.error("revokePassengerTicketToken failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_token_revoke_unavailable" });
+  }
+});
+
+exports.cancelPassengerTicket = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 20,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+    const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+    if (!code || !token) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "cancelPassengerTicket", ticketAccess.tokenHash(token));
+    const ref = admin.database().ref(`bookings/${code}`);
+    const beforeSnap = await ref.get();
+    const before = beforeSnap && beforeSnap.val ? beforeSnap.val() : null;
+    if (!before) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    ticketAccess.verifyTicketAccess(before, token);
+    const evaluation = ticketAccess.evaluateCancellation(before, Date.now());
+    if (!evaluation.allowed && !evaluation.idempotent) {
+      sendJson(res, 409, { status: "blocked", error: evaluation.reason });
+      return;
+    }
+    if (evaluation.idempotent) {
+      sendJson(res, 200, {
+        status: "ok",
+        result: "idempotent_noop",
+        capacityRelease: { status: "idempotent_noop" },
+        ticket: ticketAccess.minimalTicket(before, code)
+      });
+      return;
+    }
+    let changed = false;
+    const tx = await ref.transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      const storedTokenHash = String(current.ticketAccessTokenHash || "");
+      if (!storedTokenHash || storedTokenHash !== ticketAccess.tokenHash(token)) return current;
+      if (String(current.status || "").toLowerCase() === "cancelled" && current.cancelledAt) return current;
+      changed = true;
+      return Object.assign({}, current, {
+        status: "cancelled",
+        cancelledAt: admin.database.ServerValue.TIMESTAMP,
+        officialStatus: "ตั๋วของคุณถูกยกเลิกแล้ว",
+        ticketActionContract: ticketAccess.CANCELLATION_CONTRACT_VERSION
+      });
+    });
+    const after = tx && tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : before;
+    const capacityRelease = changed ? await ticketAccess.releaseCapacityOnce(admin.database(), before, code) : { status: "idempotent_noop" };
+    if (changed && capacityRelease.status === "failed_retriable") {
+      const retryId = refundActions.hashBookingId([code, "passenger_cancel", ticketAccess.tokenHash(token)].join("|"));
+      await admin.database().ref(`operations/passengerCancelCapacityRetry/${retryId}`).set({
+        eventId: retryId,
+        bookingId: code,
+        bookingIdHash: refundActions.hashBookingId(code),
+        status: "pending",
+        reason: capacityRelease.reason || "capacity_release_failed",
+        attemptCount: 0,
+        nextRetryAtMs: Date.now() + 5 * 60000,
+        leaseUntilMs: 0,
+        createdAt: admin.database.ServerValue.TIMESTAMP
+      });
+      sendJson(res, 202, {
+        status: "pending",
+        result: "cancelled_capacity_pending",
+        capacityRelease,
+        ticket: ticketAccess.minimalTicket(after, code)
+      });
+      return;
+    }
+    sendJson(res, 200, {
+      status: "ok",
+      result: changed ? "cancelled" : "idempotent_noop",
+      capacityRelease,
+      ticket: ticketAccess.minimalTicket(after, code)
+    });
+  } catch (err) {
+    if (err && err.httpStatus && err.httpStatus < 500) {
+      if (err.httpStatus === 429) {
+        sendJson(res, 429, { status: "error", error: "rate_limited" });
+        return;
+      }
+      sendTicketAccessDenied(res);
+      return;
+    }
+    console.error("cancelPassengerTicket failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "ticket_cancel_unavailable" });
+  }
+});
+
+function cleanTicketStatePayload(action, payload) {
+  const now = admin.database.ServerValue.TIMESTAMP;
+  const input = payload && typeof payload === "object" ? payload : {};
+  const safeNumber = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  if (action === "journey_arrival") {
+    const status = input.status === "arrived_transfer_point" ? "arrived_transfer_point" : "arrived_destination";
+    const key = status === "arrived_transfer_point" ? "arrivedTransferPoint" : "arrivedDestination";
+    return {
+      status,
+      [key]: {
+        status,
+        ts: now,
+        evidenceType: "passenger_journey_progress",
+        etaMinutes: safeNumber(input.etaMinutes, null)
+      }
+    };
+  }
+  if (action === "origin_arrival") {
+    return { originArrival: { passed: true, source: "passenger_location", ts: now } };
+  }
+  if (action === "origin_checkin") {
+    return {
+      originCheckin: {
+        status: "requested",
+        source: "passenger",
+        lat: safeNumber(input.lat, null),
+        lng: safeNumber(input.lng, null),
+        accuracy: safeNumber(input.accuracy, null),
+        ts: now
+      }
+    };
+  }
+  if (action === "origin_checkin_review") {
+    return { originCheckin: { status: "not_boarded_suspected", reason: "passenger_still_near_origin_30_minutes_after_departure", checkedAt: now } };
+  }
+  if (action === "checkin") {
+    return {
+      status: input.status === "transfer_nearby_notified" ? "transfer_nearby_notified" : "checked_in",
+      passengerCheckinAt: now,
+      passengerCheckinSource: "ticket_access"
+    };
+  }
+  if (action === "test_notification") {
+    const err = new Error("admin_action_required");
+    err.httpStatus = 403;
+    throw err;
+  }
+  const err = new Error("unsupported_ticket_action");
+  err.httpStatus = 400;
+  throw err;
+}
+
+exports.updatePassengerTicketState = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 20,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setPassengerTicketCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!ticketAccess.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "access_denied" });
+    return;
+  }
+  try {
+    const body = readJsonBody(req);
+    const code = ticketAccess.normalizeCode(body.bookingCode || body.code);
+    const token = ticketAccess.normalizeToken(body.accessToken || body.ticketAccessToken);
+    const action = String(body.action || "");
+    if (!code || !token || !action) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    await enforcePublicRateLimit(req, "updatePassengerTicketState", ticketAccess.tokenHash(token));
+    const ref = admin.database().ref(`bookings/${code}`);
+    const beforeSnap = await ref.get();
+    const before = beforeSnap && beforeSnap.val ? beforeSnap.val() : null;
+    if (!before) {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    ticketAccess.verifyTicketAccess(before, token);
+    const patch = cleanTicketStatePayload(action, body.payload || {});
+    let skipped = false;
+    const tx = await ref.transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      if (String(current.ticketAccessTokenHash || "") !== ticketAccess.tokenHash(token)) return current;
+      if (action === "checkin" && (current.status === "checked_in" || current.status === "transfer_nearby_notified") && current.isAdminTester !== true) {
+        skipped = true;
+        return current;
+      }
+      return Object.assign({}, current, patch);
+    });
+    const after = tx && tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : before;
+    sendJson(res, 200, {
+      status: "ready",
+      result: skipped ? "idempotent_noop" : "updated",
+      skipped,
+      ticket: ticketAccess.minimalTicket(after, code)
+    });
+  } catch (err) {
+    if (err && err.message === "ticket_access_denied") {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    if (err && err.publicCode === "blocked_legacy_ticket_access_token_missing") {
+      sendTicketAccessDenied(res);
+      return;
+    }
+    if (err && err.httpStatus === 429) {
+      sendJson(res, 429, { status: "error", error: "rate_limited" });
+      return;
+    }
+    const status = err && err.httpStatus ? err.httpStatus : 500;
+    sendJson(res, status, { status: "error", error: status === 500 ? "ticket_action_unavailable" : "invalid_ticket_action" });
+  }
+});
+
+function refundFunction(action, permission, nextStatus) {
+  return onRequest({
+    region: "asia-southeast1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    maxInstances: 10
+  }, async (req, res) => {
+    setCors(req, res);
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+      return;
+    }
+  try {
+      const actor = permission === "authenticated" ?
+        await adminAuth.requireAuthenticated(req, admin) :
+        await adminAuth.requireAdmin(req, admin, permission);
+      enforceRateLimit(req, action, actor);
+      const body = readJsonBody(req);
+      const result = await refundActions.runRefundAction({
+        admin,
+        action,
+        nextStatus,
+        actor,
+        bookingId: body.bookingId,
+        idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+        body
+      });
+      sendJson(res, 200, result);
+    } catch (err) {
+      if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+        sendAuthError(res, err);
+        return;
+      }
+      sendJson(res, err && err.httpStatus || 500, { status: "error", error: publicError(err, "refund_action_failed") });
+    }
+  });
+}
+
+async function releaseAdminCancelCapacity(db, booking) {
+  return ticketAccess.releaseCapacityOnce(db, booking, booking && (booking.code || booking.bookingCode));
+}
+
+exports.requestRefund = refundFunction("requestRefund", "authenticated", "requested");
+exports.reviewRefund = refundFunction("reviewRefund", "refundReview", "under_review");
+exports.approveRefund = refundFunction("approveRefund", "refundApprove", "approved");
+exports.startRefundProcessing = refundFunction("startRefundProcessing", "refundComplete", "processing");
+exports.completeRefund = refundFunction("completeRefund", "refundComplete", "refunded");
+exports.rejectRefund = refundFunction("rejectRefund", "refundApprove", "rejected");
+
+exports.cancelBookingAsAdmin = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+    try {
+    const actor = await adminAuth.requireAdmin(req, admin, "bookingCancel");
+    enforceRateLimit(req, "cancelBookingAsAdmin", actor);
+    const body = readJsonBody(req);
+    const bookingId = String(body.bookingId || "").trim();
+    if (!/^[A-Z0-9][A-Z0-9_-]{5,}$/i.test(bookingId)) {
+      sendJson(res, 400, { status: "error", error: "invalid_booking_id" });
+      return;
+    }
+    const ref = admin.database().ref(`bookings/${bookingId}`);
+    const idempotencyKeyHash = refundActions.safeKeyHash(body.idempotencyKey, "idempotency_key");
+    const idemRef = admin.database().ref(`operations/adminCancelIdempotency/${idempotencyKeyHash}`);
+    const idem = await idemRef.transaction((current) => current ? undefined : {
+      status: "locked",
+      bookingIdHash: refundActions.hashBookingId(bookingId),
+      lockedAt: admin.database.ServerValue.TIMESTAMP,
+      lockedAtMs: Date.now()
+    });
+    if (!idem.committed) {
+      const marker = idem.snapshot && idem.snapshot.val && idem.snapshot.val();
+      sendJson(res, 200, { status: "ok", result: marker && marker.status === "success" ? "idempotent_noop" : "locked", capacityRelease: { status: "idempotent_noop" } });
+      return;
+    }
+    const before = await ref.get();
+    const originalBooking = before && before.val ? before.val() : null;
+    if (!originalBooking) {
+      await idemRef.update({ status: "failed_final", completedAt: admin.database.ServerValue.TIMESTAMP });
+      sendJson(res, 404, { status: "error", error: "booking_not_found" });
+      return;
+    }
+    const tx = await ref.transaction((current) => {
+      if (!current || typeof current !== "object") return current;
+      if (String(current.status || "").toLowerCase() === "cancelled" && current.cancelledAt) return current;
+      return Object.assign({}, current, {
+        status: "cancelled",
+        cancelledAt: admin.database.ServerValue.TIMESTAMP,
+        adminCancellationContractVersion: "admin_cancel_v1"
+      });
+    });
+    const after = tx && tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : null;
+    const changed = !!(tx && tx.committed && after && String(originalBooking.status || "").toLowerCase() !== "cancelled");
+    const auditId = refundActions.hashBookingId([bookingId, "admin_cancel", idempotencyKeyHash].join("|"));
+    const capacityRelease = changed ? await releaseAdminCancelCapacity(admin.database(), originalBooking) : { status: "idempotent_noop" };
+    if (changed && capacityRelease.status === "failed_retriable") {
+      await admin.database().ref(`operations/adminCancelCapacityRetry/${auditId}`).set({
+        eventId: auditId,
+        bookingId,
+        bookingIdHash: refundActions.hashBookingId(bookingId),
+        status: "pending",
+        reason: capacityRelease.reason || "capacity_release_failed",
+        attemptCount: 0,
+        nextRetryAtMs: Date.now() + 5 * 60000,
+        leaseUntilMs: 0,
+        createdAt: admin.database.ServerValue.TIMESTAMP
+      });
+    }
+    await admin.database().ref(`operations/adminBookingAudit/${auditId}`).set({
+      eventId: auditId,
+      bookingIdHash: refundActions.hashBookingId(bookingId),
+      action: "cancelBookingAsAdmin",
+      actorUid: actor.uid,
+      actorRole: actor.role,
+      result: changed && capacityRelease.status === "released" ? "cancelled" : (changed ? "capacity_release_" + capacityRelease.status : "idempotent_noop"),
+      serverTimestamp: admin.database.ServerValue.TIMESTAMP,
+      idempotencyKeyHash,
+      capacityRelease
+    });
+    await idemRef.update({
+      status: changed && capacityRelease.status === "failed_retriable" ? "failed_retriable" : "success",
+      completedAt: admin.database.ServerValue.TIMESTAMP,
+      capacityReleaseStatus: capacityRelease.status
+    });
+    sendJson(res, 200, { status: "ok", result: changed ? "cancelled" : "idempotent_noop", committed: !!(tx && tx.committed), capacityRelease });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
+      return;
+    }
+    sendJson(res, 500, { status: "error", error: "admin_cancel_failed" });
+  }
+});
+
+exports.retryAdminCancelCapacityRelease = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  try {
+    const actor = await adminAuth.requireAdmin(req, admin, "bookingCancel");
+    enforceRateLimit(req, "retryAdminCancelCapacityRelease", actor);
+    const body = readJsonBody(req);
+    const eventId = String(body.eventId || "").trim();
+    if (!/^[a-f0-9]{64}$/i.test(eventId)) {
+      sendJson(res, 400, { status: "error", error: "invalid_event_id" });
+      return;
+    }
+    const retryRef = admin.database().ref(`operations/adminCancelCapacityRetry/${eventId}`);
+    const snap = await retryRef.get();
+    const retry = snap && snap.val ? snap.val() : null;
+    if (!retry) {
+      sendJson(res, 404, { status: "error", error: "retry_not_found" });
+      return;
+    }
+    if (retry.status === "released") {
+      sendJson(res, 200, { status: "ok", capacityRelease: { status: "idempotent_noop" } });
+      return;
+    }
+    const bookingId = String(body.bookingId || retry.bookingId || "").trim();
+    const bookingSnap = bookingId ? await admin.database().ref(`bookings/${bookingId}`).get() : null;
+    const booking = bookingSnap && bookingSnap.val ? bookingSnap.val() : null;
+    if (!booking) {
+      sendJson(res, 404, { status: "error", error: "booking_not_found" });
+      return;
+    }
+    const result = await releaseAdminCancelCapacity(admin.database(), booking);
+    await retryRef.update({
+      status: result.status === "released" ? "released" : (result.status === "failed_retriable" ? "failed_retriable" : "idempotent_noop"),
+      updatedAt: admin.database.ServerValue.TIMESTAMP,
+      actorUid: actor.uid,
+      actorRole: actor.role
+    });
+    sendJson(res, 200, { status: "ok", capacityRelease: result });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthError(res, err);
+      return;
+    }
+    sendJson(res, 500, { status: "error", error: "capacity_retry_failed" });
+  }
+});
+
+async function processCapacityRetryRecord(queueName, eventId, retry, workerId) {
+  const now = Date.now();
+  if (!retry || retry.status === "released" || retry.status === "failed_final") return { status: "skipped" };
+  if (Number(retry.nextRetryAtMs || 0) > now) return { status: "retry_wait" };
+  const retryRef = admin.database().ref(`operations/${queueName}/${eventId}`);
+  let leased = false;
+  const leaseUntilMs = now + 2 * 60000;
+  const tx = await retryRef.transaction((current) => {
+    if (!current || current.status === "released" || current.status === "failed_final") return current;
+    if (Number(current.leaseUntilMs || 0) > now && current.leaseOwner !== workerId) return current;
+    leased = true;
+    return Object.assign({}, current, {
+      status: "leased",
+      leaseOwner: workerId,
+      leaseUntilMs,
+      attemptCount: Number(current.attemptCount || 0) + 1,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+  });
+  if (!leased || !tx || !tx.committed) return { status: "lease_skipped" };
+  const current = tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : retry;
+  const bookingId = ticketAccess.normalizeCode(current.bookingId);
+  const bookingSnap = bookingId ? await admin.database().ref(`bookings/${bookingId}`).get() : null;
+  const booking = bookingSnap && bookingSnap.val ? bookingSnap.val() : null;
+  if (!booking) {
+    await retryRef.update({
+      status: "failed_final",
+      safeErrorCategory: "booking_not_found",
+      leaseUntilMs: 0,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+    return { status: "failed_final" };
+  }
+  const result = await ticketAccess.releaseCapacityOnce(admin.database(), booking, bookingId);
+  const attempts = Number(current.attemptCount || 0);
+  const nextStatus = result.status === "released" || result.status === "idempotent_noop"
+    ? "released"
+    : (attempts >= 5 ? "failed_final" : "retry_wait");
+  const nextRetryAtMs = nextStatus === "retry_wait" ? now + Math.min(60 * 60000, Math.pow(2, attempts) * 60000) : 0;
+  await retryRef.update({
+    status: nextStatus,
+    capacityReleaseStatus: result.status,
+    safeErrorCategory: result.reason || result.status,
+    nextRetryAtMs,
+    leaseUntilMs: 0,
+    leaseOwner: "",
+    updatedAt: admin.database.ServerValue.TIMESTAMP
+  });
+  await admin.database().ref(`operations/capacityRecoveryAudit/${eventId}_${now}`).set({
+    eventId,
+    queueName,
+    bookingIdHash: refundActions.hashBookingId(bookingId),
+    result: nextStatus,
+    capacityReleaseStatus: result.status,
+    attemptCount: attempts,
+    createdAt: admin.database.ServerValue.TIMESTAMP
+  });
+  return { status: nextStatus };
+}
+
+exports.processCapacityRecoveryQueue = onSchedule({
+  schedule: "every 5 minutes",
+  region: "asia-southeast1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 1
+}, async () => {
+  const workerId = `capacity-worker-${Date.now()}`;
+  const queues = ["passengerCancelCapacityRetry", "adminCancelCapacityRetry"];
+  for (const queueName of queues) {
+    const snap = await admin.database().ref(`operations/${queueName}`).orderByChild("status").equalTo("pending").limitToFirst(25).get();
+    const pending = snap && snap.val ? snap.val() : {};
+    for (const eventId of Object.keys(pending || {})) {
+      await processCapacityRetryRecord(queueName, eventId, pending[eventId], workerId);
+    }
+    const waitingSnap = await admin.database().ref(`operations/${queueName}`).orderByChild("status").equalTo("retry_wait").limitToFirst(25).get();
+    const waiting = waitingSnap && waitingSnap.val ? waitingSnap.val() : {};
+    for (const eventId of Object.keys(waiting || {})) {
+      await processCapacityRetryRecord(queueName, eventId, waiting[eventId], workerId);
+    }
+    const leasedSnap = await admin.database().ref(`operations/${queueName}`).orderByChild("status").equalTo("leased").limitToFirst(25).get();
+    const leased = leasedSnap && leasedSnap.val ? leasedSnap.val() : {};
+    for (const eventId of Object.keys(leased || {})) {
+      const row = leased[eventId] || {};
+      if (Number(row.leaseUntilMs || 0) <= Date.now()) {
+        await processCapacityRetryRecord(queueName, eventId, row, workerId);
+      }
+    }
+  }
+});
+
+exports.processPassengerBookingCreationRecovery = onSchedule({
+  schedule: "every 5 minutes",
+  region: "asia-southeast1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 1
+}, async () => {
+  const workerId = `booking-worker-${Date.now()}`;
+  const statuses = ["received", "validated", "capacity_reserved", "booking_commit_pending", "recovery_required", "leased"];
+  for (const status of statuses) {
+    const snap = await admin.database().ref("operations/passengerBookingIdempotency").orderByChild("status").equalTo(status).limitToFirst(25).get();
+    const rows = snap && snap.val ? snap.val() : {};
+    for (const operationId of Object.keys(rows || {})) {
+      const row = rows[operationId] || {};
+      if (status === "leased" && Number(row.leaseUntilMs || 0) > Date.now()) continue;
+      await passengerBooking.processBookingCreationRecovery(admin, operationId, workerId);
+    }
   }
 });
 
@@ -367,12 +1232,12 @@ function buildCheckinMessage(booking) {
 function buildBookingMessage(booking) {
   const lines = [
     `รหัส: ${booking.code || "-"}`,
-    `👤 ชื่อ: ${booking.name || "-"}    📞 โทร: ${booking.phone || "-"}`,
-    `📍 เส้นทาง: ${bookingRouteText(booking)}`,
-    `🗓 วันที่: ${formatThaiDate(booking.date)} เวลา ${booking.time || "-"} น.`,
-    `🚌 จำนวน: ${booking.seats || 1} คน  💰 ราคา: ${money(booking.price)} บาท`
+    `ชื่อ: ${booking.name || "-"}    โทร: ${booking.phone || "-"}`,
+    `เส้นทาง: ${bookingRouteText(booking)}`,
+    `วันที่: ${formatThaiDate(booking.date)} เวลา ${booking.time || "-"} น.`,
+    `จำนวน: ${booking.seats || 1} คน  ราคา: ${money(booking.price)} บาท`
   ];
-  if (booking.slip) lines.push(`🖼 สลิป: ${booking.slip}`);
+  if (booking.slip) lines.push(`สลิป: ${booking.slip}`);
   return lines.join("\n");
 }
 

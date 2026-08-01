@@ -165,14 +165,9 @@ assert(!adapter.includes('selected.bookingAllowed'), 'Booking1 adapter page navi
 assert(adapter.includes('selected.fareMissing'), 'Booking1 adapter must block/report missing fare contract');
 assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter must block external-pay fare collection');
 assert(bridge.includes('liveTrackingAvailable: false'), 'Booking1 bridge must keep schedule-only/no-live-tracking state internally');
-assert(adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Booking1 adapter must create real legacy bookings/{code} records');
-assert(rules.includes("newData.child('source').val() === 'booking1.html'"), 'Firebase rules must allow validated Booking1 public legacy booking creates');
-assert(rules.includes("newData.child('sourceMode').val() === 'erp_data_center'"), 'Booking1 booking writes must stay ERP Data Center scoped in Firebase rules');
-assert(rules.includes("newData.child('publishedSchedule').child('readyForApply').val() === false"), 'Booking1 public booking rule must preserve preview publishedSchedule marker validation');
-assert(rules.includes("newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true"), 'Booking1 public booking rule must allow uploaded-slip payment status');
-assert(rules.includes("newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false"), 'Booking1 public booking rule must keep non-slip bookings awaiting payment');
-assert(rules.includes("newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite'"), 'Booking1 public booking rule must allow validated pay-on-site bookings');
-assert(databaseRules.bookings['$bookingId']['.write'].includes("source').val() === 'booking1.html'"), 'Booking1 public create rule must be on legacy top-level bookings/{code}');
+assert(adapter.includes("createPassengerBookingSecure(bookingSnap, ticketAccessTokenHash)"), 'Booking1 adapter must create bookings through the trusted backend endpoint');
+assert(!adapter.includes("db.ref('bookings/' + booking.code).set(booking)"), 'Booking1 adapter must not write canonical bookings directly');
+assert.strictEqual(databaseRules.bookings['$bookingId']['.write'], false, 'Booking1 public create rule must be disabled after backend creation is available');
 assert.strictEqual(databaseRules.operations.bookings['$bookingId']['.write'], 'auth != null', 'operations/bookings must remain auth-only');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
 assert(adapter.includes("snapshot.payMethod === 'onsite' ? 'pay_on_site'"), 'Booking1 adapter must map onsite bookings to pay_on_site payment status');

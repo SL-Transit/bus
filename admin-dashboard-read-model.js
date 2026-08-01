@@ -1,4 +1,4 @@
-(function (global) {
+﻿(function (global) {
   'use strict';
 
   var ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/readAdminDashboardSummary';
@@ -7,6 +7,8 @@
   var PRIVATE_FIELDS = ['name', 'firstName', 'lastName', 'surname', 'phone', 'lineUserId', 'bookingCode', 'ticketCode', 'slip', 'paymentEvidence', 'passengerIdentity', 'rawBooking', 'bankAccount', 'password'];
   var CACHE = {};
   var requestSeq = 0;
+  var SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+  var sessionStartedAt = Date.now();
 
   function todayBangkok() {
     var parts = new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
@@ -30,7 +32,7 @@
 
   function money(value) {
     var n = Number(value);
-    return Number.isFinite(n) ? Math.max(0, n) : null;
+    return Number.isFinite(n) ? n : null;
   }
 
   function rejectPrivateFields(value) {
@@ -38,6 +40,23 @@
     PRIVATE_FIELDS.forEach(function (field) {
       if (text.indexOf('"' + field + '"') >= 0) throw new Error('private field in dashboard response');
     });
+  }
+
+  function authUser() {
+    return global.firebase && global.firebase.auth && global.firebase.auth().currentUser;
+  }
+
+  function tokenForDashboard(forceRefresh) {
+    if (Date.now() - sessionStartedAt > SESSION_TIMEOUT_MS) {
+      var user = authUser();
+      if (user && typeof global.firebase.auth().signOut === 'function') {
+        try { global.firebase.auth().signOut(); } catch (e) { /* no-op */ }
+      }
+      return Promise.reject(new Error('auth_session_timeout'));
+    }
+    var user = authUser();
+    if (!user || typeof user.getIdToken !== 'function') return Promise.reject(new Error('auth_required'));
+    return user.getIdToken(!!forceRefresh);
   }
 
   function validatePoint(point, type) {
@@ -102,7 +121,6 @@
       return clean;
     });
   }
-
   function validateRefundRows(rows) {
     return (Array.isArray(rows) ? rows : []).slice(0, 20).map(function (row) {
       rejectPrivateFields(row);
@@ -204,21 +222,32 @@
     if (!RANGE_SIZES[range]) return Promise.resolve(blank('error', range, 'invalid_range'));
     var seq = ++requestSeq;
     if (typeof fetch !== 'function') return Promise.resolve(blank('error', range, 'fetch_unavailable'));
-    var tokenPromise = Promise.resolve(params.idToken || '');
-    try {
-      var auth = global.firebase && global.firebase.auth && global.firebase.auth();
-      if (!params.idToken && auth && auth.currentUser && auth.currentUser.getIdToken) tokenPromise = auth.currentUser.getIdToken(false);
-    } catch (e) { /* no-op */ }
-    return tokenPromise.then(function (token) {
-      var headers = token ? { Authorization: 'Bearer ' + token } : {};
+    return tokenForDashboard(false).then(function (token) {
       return fetch(ENDPOINT + '?range=' + encodeURIComponent(range) + '&anchor=' + encodeURIComponent(anchor), {
-        method: 'GET',
-        credentials: 'omit',
-        cache: 'no-store',
-        headers: headers
+      method: 'GET',
+      credentials: 'omit',
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer ' + token }
+      }).then(function (res) {
+        if (res.status === 401) {
+          return tokenForDashboard(true).then(function (freshToken) {
+            return fetch(ENDPOINT + '?range=' + encodeURIComponent(range) + '&anchor=' + encodeURIComponent(anchor), {
+              method: 'GET',
+              credentials: 'omit',
+              cache: 'no-store',
+              headers: { Authorization: 'Bearer ' + freshToken }
+            });
+          });
+        }
+        return res;
       });
     }).then(function (res) {
-      if (!res.ok) throw new Error('readAdminDashboardSummary HTTP ' + res.status);
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('auth_required');
+        if (res.status === 403) throw new Error('permission_denied');
+        throw new Error('readAdminDashboardSummary HTTP ' + res.status);
+      }
+      sessionStartedAt = Date.now();
       return res.json();
     }).then(function (json) {
       if (seq !== requestSeq) return CACHE[cacheKey({ range: range, anchor: anchor })] || blank('loading', range);
@@ -228,7 +257,9 @@
       return model;
     }).catch(function (err) {
       if (seq !== requestSeq) return CACHE[cacheKey({ range: range, anchor: anchor })] || blank('loading', range);
-      var model = blank('error', range, err && err.message ? err.message : String(err));
+      var message = err && err.message ? err.message : String(err);
+      var status = message === 'auth_required' || message === 'auth_session_timeout' ? 'auth_required' : (message === 'permission_denied' ? 'permission_denied' : 'error');
+      var model = blank(status, range, message);
       CACHE[cacheKey({ range: range, anchor: anchor })] = model;
       try { global.dispatchEvent(new CustomEvent('sltransit:admin-dashboard-updated')); } catch (e) { /* no-op */ }
       return model;
@@ -240,9 +271,10 @@
     return CACHE[key] || blank('loading', (params && params.range) || 'daily');
   }
 
-  var api = { load: function (_, params) { return refresh(params || {}); }, refresh: refresh, getSnapshot: getSnapshot, validateResponse: validateResponse, _clearCacheForTest: function () { CACHE = {}; requestSeq = 0; } };
+  var api = { load: function (_, params) { return refresh(params || {}); }, refresh: refresh, getSnapshot: getSnapshot, validateResponse: validateResponse, _tokenForDashboard: tokenForDashboard, clearCache: function () { CACHE = {}; requestSeq = 0; sessionStartedAt = Date.now(); }, _clearCacheForTest: function () { CACHE = {}; requestSeq = 0; sessionStartedAt = Date.now(); } };
   global.SLTransit = global.SLTransit || {};
   global.SLTransit.adminDashboardReadModel = api;
   global.SLTransit.screen01ReadModel = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : global);
+

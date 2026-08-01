@@ -93,4 +93,23 @@ assert.strictEqual(unavailableWebsite.visits.visitors, null);
 assert.strictEqual(unavailableWebsite.visits.actualUsers, null);
 assert.strictEqual(unavailableWebsite.visits.points[9].visitors, null);
 
-console.log('admin-dashboard-read-model.test.js OK');
+(async () => {
+  model._clearCacheForTest();
+  global.firebase = { auth: () => ({ currentUser: null }) };
+  const unauth = await model.refresh({ range: 'hourly', anchor: '2026-07-28' });
+  assert.strictEqual(unauth.status, 'auth_required');
+
+  let authorizationHeader = '';
+  global.firebase = { auth: () => ({ currentUser: { getIdToken: async () => 'ID_TOKEN_FOR_TEST' } }) };
+  global.fetch = async (url, options) => {
+    authorizationHeader = options.headers.Authorization;
+    return { ok: true, status: 200, json: async () => response };
+  };
+  const authed = await model.refresh({ range: 'hourly', anchor: '2026-07-28' });
+  assert.strictEqual(authorizationHeader, 'Bearer ID_TOKEN_FOR_TEST');
+  assert.strictEqual(authed.status, 'ready');
+  delete global.fetch;
+  delete global.firebase;
+
+  console.log('admin-dashboard-read-model.test.js OK');
+})();
