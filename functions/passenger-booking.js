@@ -105,15 +105,52 @@ function findTime(pair, snap) {
 }
 
 function fareDecision(pair, timeEntry, snap) {
-  const fare = firstNumber(timeEntry.fareAmount, pair.fareAmount);
-  const serviceFee = firstNumber(timeEntry.serviceFeeAmount, pair.serviceFeeAmount, 0);
-  if (fare == null) throw publicError("missing_fare_contract", 409);
-  if (serviceFee == null) throw publicError("missing_service_fee_contract", 409);
+  const legs = legSnapshots(pair, timeEntry);
+  if (!legs.length) throw publicError("missing_fare_contract", 409);
+  const serviceFee = firstNumber(timeEntry.serviceFeeAmount, pair.serviceFeeAmount);
+  if (serviceFee == null) throw publicError("missing_platform_fee_contract", 409);
+  const providerFareTotal = legs.reduce((sum, leg) => sum + (leg.fareAmount * snap.pax), 0);
   return {
-    fareAmount: fare,
-    serviceFeeAmount: serviceFee,
-    price: (fare + serviceFee) * snap.pax
+    calculatorContractVersion: "erp_calculator_booking_total_v1",
+    legSnapshots: legs,
+    providerFareTotal,
+    platformServiceFeeTotal: serviceFee,
+    passengerGrossPayment: providerFareTotal + serviceFee
   };
+}
+
+function legSnapshots(pair, timeEntry) {
+  const segments = Array.isArray(pair.segments) ? pair.segments : [];
+  const legs = [];
+  if (segments.length) {
+    segments.forEach((segment, index) => {
+      const segmentTimes = Array.isArray(segment.times) ? segment.times : [];
+      const matchingTime = segmentTimes.find((entry) => clean(entry.time || entry.pickupTime).slice(0, 5) === clean(timeEntry.time || timeEntry.pickupTime).slice(0, 5)) || {};
+      const fareAmount = firstNumber(matchingTime.fareAmount, segment.fareAmount);
+      if (fareAmount != null) {
+        legs.push({
+          legIndex: index + 1,
+          from: clean(segment.from || segment.origin || segment.fromStopKey),
+          to: clean(segment.to || segment.destination || segment.toStopKey),
+          time: clean(matchingTime.time || segment.time || timeEntry.time || timeEntry.pickupTime).slice(0, 5),
+          fareAmount
+        });
+      }
+    });
+  }
+  if (!legs.length) {
+    const fareAmount = firstNumber(timeEntry.fareAmount, pair.fareAmount);
+    if (fareAmount != null) {
+      legs.push({
+        legIndex: 1,
+        from: clean(pair.originLabel || pair.originStopKey || pair.fromStopKey),
+        to: clean(pair.destinationLabel || pair.destStopKey || pair.toStopKey),
+        time: clean(timeEntry.time || timeEntry.pickupTime).slice(0, 5),
+        fareAmount
+      });
+    }
+  }
+  return legs;
 }
 
 function firstNumber() {
@@ -129,7 +166,8 @@ function capacityContract(pairKey, pair, timeEntry, snap, code) {
   const routeKey = safeKey(pair.capacityKey || pairKey || snap.tripId || snap.routeId, 120);
   if (!routeKey || !timeKey) throw publicError("invalid_capacity_contract", 409);
   const capacityKey = `${snap.serviceDate}__${routeKey}__${timeKey}`;
-  const capacityLimit = Math.max(1, Number(timeEntry.capacity || pair.capacity || pair.maxSeats || 3));
+  const capacityLimit = firstNumber(timeEntry.capacity, timeEntry.capacityLimit, pair.capacity, pair.capacityLimit, pair.maxSeats);
+  if (!capacityLimit || capacityLimit < 1) throw publicError("missing_capacity_contract", 409);
   return {
     contractVersion: "booking_capacity_v1",
     bookingCode: code,
@@ -194,24 +232,30 @@ function bookingRecord(code, snap, fare, capacity, nowServerValue, nowMs) {
     destination: snap.destination || snap.destStopKey,
     originStopKey: snap.originStopKey,
     destStopKey: snap.destStopKey,
-    route: snap.route,
-    routeId: snap.routeId || capacity.pairKey,
-    tripId: snap.tripId || capacity.pairKey,
+    route: capacity.routeLabel || "",
+    routeId: capacity.routeId || capacity.pairKey,
+    tripId: capacity.tripId || capacity.pairKey,
     pax: snap.pax,
     seats: snap.pax,
-    price: fare.price,
-    fareAmount: fare.fareAmount * snap.pax,
-    fare: fare.fareAmount,
-    serviceFeeAmount: fare.serviceFeeAmount * snap.pax,
-    serviceFee: fare.serviceFeeAmount,
-    queueNo: clean(snap.assignment.queueNo || snap.assignment.queueId),
-    plannedVehicleId: clean(snap.assignment.plannedVehicleId || snap.assignment.vehicleId),
-    vehicleId: clean(snap.assignment.vehicleId || snap.assignment.plannedVehicleId),
+    price: fare.passengerGrossPayment,
+    passengerGrossPayment: fare.passengerGrossPayment,
+    fareAmount: fare.providerFareTotal,
+    providerFareTotal: fare.providerFareTotal,
+    serviceFeeAmount: fare.platformServiceFeeTotal,
+    platformServiceFeeTotal: fare.platformServiceFeeTotal,
+    fareContractVersion: fare.calculatorContractVersion,
+    legFareSnapshots: fare.legSnapshots,
+    fare: fare.legSnapshots[0] ? fare.legSnapshots[0].fareAmount : null,
+    serviceFee: fare.platformServiceFeeTotal,
+    queueNo: capacity.queueNo,
+    plannedVehicleId: capacity.plannedVehicleId,
+    vehicleId: capacity.vehicleId,
     assignment: {
-      queueId: clean(snap.assignment.queueId || snap.assignment.queueNo),
-      queueNo: clean(snap.assignment.queueNo || snap.assignment.queueId),
-      plannedVehicleId: clean(snap.assignment.plannedVehicleId || snap.assignment.vehicleId),
-      vehicleId: clean(snap.assignment.vehicleId || snap.assignment.plannedVehicleId)
+      queueId: capacity.queueId,
+      queueNo: capacity.queueNo,
+      plannedVehicleId: capacity.plannedVehicleId,
+      vehicleId: capacity.vehicleId,
+      assignmentSource: capacity.assignmentSource
     },
     capacity: {
       contractVersion: capacity.contractVersion,
@@ -247,28 +291,74 @@ async function createPassengerBooking(admin, request, idempotencyKey) {
   }));
   const idemKey = hash(idem);
   const idemRef = db.ref(`operations/passengerBookingIdempotency/${idemKey}`);
-  const existing = (await idemRef.get()).val();
-  if (existing && existing.status === "success" && existing.bookingCode) {
-    const existingBooking = (await db.ref(`bookings/${existing.bookingCode}`).get()).val();
-    return { status: "ready", result: "idempotent_replay", booking: minimalReceipt(existingBooking, existing.bookingCode) };
+  const requestHash = hash(JSON.stringify({
+    tokenHash: snap.ticketAccessTokenHash,
+    serviceDate: snap.serviceDate,
+    pickupTime: snap.pickupTime,
+    originStopKey: snap.originStopKey,
+    destStopKey: snap.destStopKey,
+    pax: snap.pax,
+    paymentMode: snap.paymentMode
+  }));
+  let claimed = false;
+  let claimConflict = false;
+  const claimTx = await idemRef.transaction((current) => {
+    if (current && typeof current === "object") {
+      if (current.requestHash !== requestHash || current.ticketAccessTokenHash !== snap.ticketAccessTokenHash) {
+        claimConflict = true;
+      }
+      return current;
+    }
+    claimed = true;
+    const code = bookingCode();
+    return {
+      status: "received",
+      bookingCode: code,
+      requestHash,
+      ticketAccessTokenHash: snap.ticketAccessTokenHash,
+      leaseOwner: "",
+      leaseUntilMs: 0,
+      attemptCount: 0,
+      createdAt: admin.database.ServerValue.TIMESTAMP,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    };
+  });
+  const op = claimTx && claimTx.snapshot && claimTx.snapshot.val ? claimTx.snapshot.val() : null;
+  if (!op || claimConflict) throw publicError("idempotency_conflict", 409);
+  if (op.status === "committed" && op.bookingCode) {
+    const existingBooking = (await db.ref(`bookings/${op.bookingCode}`).get()).val();
+    return { status: "ready", result: "idempotent_replay", booking: minimalReceipt(existingBooking, op.bookingCode) };
   }
+  const code = op.bookingCode;
   const schedule = (await db.ref("publishedSchedule").get()).val() || {};
   if (!publishedReady(schedule)) throw publicError("published_schedule_not_ready", 409);
   const pairInfo = findPair(schedule, snap);
   const timeEntry = findTime(pairInfo.pair, snap);
   const fare = fareDecision(pairInfo.pair, timeEntry, snap);
-  const code = bookingCode();
   const nowMs = Date.now();
   const nowServerValue = admin.database.ServerValue.TIMESTAMP;
   const capacity = capacityContract(pairInfo.key, pairInfo.pair, timeEntry, snap, code);
-  await idemRef.set({
-    status: "locked",
-    bookingCode: code,
-    createdAt: nowServerValue,
+  Object.assign(capacity, deriveAssignment(pairInfo.key, pairInfo.pair, timeEntry));
+  const record = bookingRecord(code, snap, fare, capacity, nowServerValue, nowMs);
+  await idemRef.update({
+    status: "validated",
+    validatedScheduleHash: hash(JSON.stringify({ pairKey: pairInfo.key, time: clean(timeEntry.time || timeEntry.pickupTime), fare, capacity })),
+    capacityPathHash: hash(capacity.path),
+    capacityPath: capacity.path,
+    capacityBookingCode: code,
+    requestedSeats: capacity.requestedSeats,
+    bookingRecordDraft: record,
     updatedAt: nowServerValue
   });
   await reserveCapacity(db, capacity, nowServerValue);
-  const record = bookingRecord(code, snap, fare, capacity, nowServerValue, nowMs);
+  await idemRef.update({
+    status: "capacity_reserved",
+    updatedAt: nowServerValue
+  });
+  await idemRef.update({
+    status: "booking_commit_pending",
+    updatedAt: nowServerValue
+  });
   await db.ref().update({
     [`bookings/${code}`]: record,
     [`operations/bookings/${code}`]: {
@@ -279,10 +369,116 @@ async function createPassengerBooking(admin, request, idempotencyKey) {
       ts: nowServerValue,
       source: "createPassengerBooking"
     },
-    [`operations/passengerBookingIdempotency/${idemKey}/status`]: "success",
+    [`operations/passengerBookingIdempotency/${idemKey}/status`]: "committed",
     [`operations/passengerBookingIdempotency/${idemKey}/updatedAt`]: nowServerValue
   });
-  return { status: "ready", result: "created", booking: minimalReceipt(record, code) };
+  return { status: "ready", result: claimed ? "created" : "idempotent_completed", booking: minimalReceipt(record, code) };
+}
+
+async function processBookingCreationRecovery(admin, operationId, workerId) {
+  const db = admin.database();
+  const opRef = db.ref(`operations/passengerBookingIdempotency/${operationId}`);
+  const now = Date.now();
+  let leased = false;
+  const leaseUntilMs = now + 2 * 60000;
+  const tx = await opRef.transaction((current) => {
+    if (!current || current.status === "committed" || current.status === "failed_final") return current;
+    if (Number(current.leaseUntilMs || 0) > now && current.leaseOwner !== workerId) return current;
+    leased = true;
+    return Object.assign({}, current, {
+      status: current.status === "received" ? "recovery_required" : current.status,
+      leaseOwner: workerId,
+      leaseUntilMs,
+      attemptCount: Number(current.attemptCount || 0) + 1,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+  });
+  if (!leased || !tx || !tx.committed) return { status: "lease_skipped" };
+  const op = tx.snapshot && tx.snapshot.val ? tx.snapshot.val() : null;
+  const code = clean(op && op.bookingCode);
+  const draft = op && op.bookingRecordDraft;
+  if (!code || !draft) {
+    await opRef.update({
+      status: "failed_final",
+      safeErrorCategory: "missing_booking_draft",
+      leaseOwner: "",
+      leaseUntilMs: 0,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+    return { status: "failed_final" };
+  }
+  const existing = (await db.ref(`bookings/${code}`).get()).val();
+  if (!existing && (op.status === "capacity_reserved" || op.status === "booking_commit_pending" || op.status === "recovery_required")) {
+    await db.ref().update({
+      [`bookings/${code}`]: draft,
+      [`operations/bookings/${code}`]: {
+        code,
+        bookingCode: code,
+        status: draft.status,
+        serviceDate: draft.serviceDate,
+        ts: admin.database.ServerValue.TIMESTAMP,
+        source: "createPassengerBookingRecovery"
+      }
+    });
+  }
+  const after = (await db.ref(`bookings/${code}`).get()).val();
+  if (after) {
+    await opRef.update({
+      status: "committed",
+      leaseOwner: "",
+      leaseUntilMs: 0,
+      recoveryResult: "booking_committed",
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    });
+    return { status: "committed" };
+  }
+  await releaseReservedCapacity(db, op);
+  await opRef.update({
+    status: "failed_final",
+    safeErrorCategory: "booking_recovery_failed_capacity_released",
+    leaseOwner: "",
+    leaseUntilMs: 0,
+    updatedAt: admin.database.ServerValue.TIMESTAMP
+  });
+  return { status: "failed_final" };
+}
+
+async function releaseReservedCapacity(db, op) {
+  const path = clean(op && op.capacityPath);
+  const code = clean(op && op.capacityBookingCode || op && op.bookingCode);
+  const requestedSeats = Math.max(1, Number(op && op.requestedSeats || 1));
+  if (!/^operations\/bookingCapacityByServiceDate\/\d{4}-\d{2}-\d{2}\/[A-Za-z0-9_-]+$/.test(path) || !code) return { status: "skipped" };
+  let removed = false;
+  await db.ref(path).transaction((current) => {
+    if (!current || typeof current !== "object" || !current.bookings || !current.bookings[code]) return current;
+    const bookings = Object.assign({}, current.bookings || {});
+    delete bookings[code];
+    removed = true;
+    const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - requestedSeats);
+    return Object.assign({}, current, {
+      bookings,
+      bookedSeats,
+      seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats)
+    });
+  });
+  return { status: removed ? "released" : "idempotent_noop" };
+}
+
+function deriveAssignment(pairKey, pair, timeEntry) {
+  const assignment = timeEntry.assignment || pair.assignment || {};
+  const queueId = clean(timeEntry.queueId || timeEntry.queueNo || assignment.queueId || assignment.queueNo);
+  const vehicleId = clean(timeEntry.vehicleId || timeEntry.plannedVehicleId || assignment.vehicleId || assignment.plannedVehicleId);
+  if (!queueId || !vehicleId) throw publicError("missing_assignment_contract", 409);
+  return {
+    queueId,
+    queueNo: clean(timeEntry.queueNo || assignment.queueNo || queueId),
+    vehicleId,
+    plannedVehicleId: clean(timeEntry.plannedVehicleId || assignment.plannedVehicleId || vehicleId),
+    routeId: safeKey(pair.routeId || pair.pairId || pairKey, 120),
+    tripId: safeKey(timeEntry.tripId || timeEntry.catalogTripId || pair.tripId || pairKey, 120),
+    routeLabel: clean(pair.route || pair.routeName || `${pair.originLabel || ""} - ${pair.destinationLabel || ""}`).slice(0, 200),
+    assignmentSource: clean(timeEntry.assignmentSource || assignment.assignmentSource || "publishedSchedule")
+  };
 }
 
 function minimalReceipt(record, code) {
@@ -314,7 +510,10 @@ module.exports = {
   CONTRACT_VERSION,
   TOKEN_TTL_MS,
   createPassengerBooking,
+  processBookingCreationRecovery,
   normalizeSnapshot,
   capacityContract,
+  fareDecision,
+  legSnapshots,
   minimalReceipt
 };

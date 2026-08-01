@@ -1025,6 +1025,34 @@ exports.processCapacityRecoveryQueue = onSchedule({
     for (const eventId of Object.keys(waiting || {})) {
       await processCapacityRetryRecord(queueName, eventId, waiting[eventId], workerId);
     }
+    const leasedSnap = await admin.database().ref(`operations/${queueName}`).orderByChild("status").equalTo("leased").limitToFirst(25).get();
+    const leased = leasedSnap && leasedSnap.val ? leasedSnap.val() : {};
+    for (const eventId of Object.keys(leased || {})) {
+      const row = leased[eventId] || {};
+      if (Number(row.leaseUntilMs || 0) <= Date.now()) {
+        await processCapacityRetryRecord(queueName, eventId, row, workerId);
+      }
+    }
+  }
+});
+
+exports.processPassengerBookingCreationRecovery = onSchedule({
+  schedule: "every 5 minutes",
+  region: "asia-southeast1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+  maxInstances: 1
+}, async () => {
+  const workerId = `booking-worker-${Date.now()}`;
+  const statuses = ["received", "validated", "capacity_reserved", "booking_commit_pending", "recovery_required", "leased"];
+  for (const status of statuses) {
+    const snap = await admin.database().ref("operations/passengerBookingIdempotency").orderByChild("status").equalTo(status).limitToFirst(25).get();
+    const rows = snap && snap.val ? snap.val() : {};
+    for (const operationId of Object.keys(rows || {})) {
+      const row = rows[operationId] || {};
+      if (status === "leased" && Number(row.leaseUntilMs || 0) > Date.now()) continue;
+      await passengerBooking.processBookingCreationRecovery(admin, operationId, workerId);
+    }
   }
 });
 

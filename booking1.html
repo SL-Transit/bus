@@ -2293,7 +2293,9 @@ var state = {
   transferInfo:     null,
   passengerIdentity: null,
   notificationPreference: null,
-  consent:          null
+  consent:          null,
+  pendingBookingRequest: null,
+  bookingSubmitting: false
 };
 
 /* ---------- HELPERS (time) ---------- */
@@ -2758,6 +2760,7 @@ function bookingFunctionUrl(name) {
 function bookingIdempotencyKey(snapshot, tokenHash) {
   return [
     'booking_v1',
+    state.pendingBookingRequest && state.pendingBookingRequest.requestId || '',
     tokenHash,
     snapshot.serviceDate || '',
     snapshot.pickupTime || '',
@@ -2785,6 +2788,11 @@ async function createPassengerBookingSecure(snapshot, tokenHash) {
 }
 
 async function goToTicket() {
+  if (state.bookingSubmitting) return;
+  var confirmBtn = document.getElementById('btnConfirm');
+  state.bookingSubmitting = true;
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23...'; }
+  try {
   var nameEl = document.getElementById('inp-name');
   var phoneEl = document.getElementById('inp-phone');
   var nameVal = nameEl ? nameEl.value.trim() : state.name;
@@ -2800,8 +2808,16 @@ async function goToTicket() {
   }
   if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
   if (!currentPayMethod) selectPayMethod('onsite');
-  var ticketAccessToken = generateTicketAccessToken();
-  var ticketAccessTokenHash = await sha256Hex(ticketAccessToken);
+  if (!state.pendingBookingRequest) {
+    var newTicketAccessToken = generateTicketAccessToken();
+    state.pendingBookingRequest = {
+      requestId: 'booking_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+      ticketAccessToken: newTicketAccessToken,
+      ticketAccessTokenHash: await sha256Hex(newTicketAccessToken)
+    };
+  }
+  var ticketAccessToken = state.pendingBookingRequest.ticketAccessToken;
+  var ticketAccessTokenHash = state.pendingBookingRequest.ticketAccessTokenHash;
 
   /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
   var assignmentPlan = window.SLTransitBookingAssignmentCenter
@@ -2867,6 +2883,13 @@ async function goToTicket() {
   setTimeout(function() {
     renderQr('ticketQrCode', getTicketQrText(state.bookingCode, ticketAccessToken), 160);
   }, 100);
+  state.pendingBookingRequest = null;
+  } catch (err) {
+    alert('\u0e22\u0e31\u0e07\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e25\u0e2d\u0e07\u0e01\u0e14\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07');
+  } finally {
+    state.bookingSubmitting = false;
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19'; }
+  }
 }
 
 /* ---------- PAYMENT METHOD ---------- */

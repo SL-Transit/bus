@@ -85,6 +85,12 @@ function booking(id) {
     await assertFails(staffDb.ref('publishedSchedule/current').set({ ready: true }));
     await assertFails(anonDb.ref('ticketLocations/BKTEST01').set({ lat: 13.7, lng: 100.5 }));
     await assertFails(userDb.ref('passengerLiveLocations/BKTEST01').set({ lat: 13.7, lng: 100.5 }));
+    const capacityPath = 'operations/bookingCapacityByServiceDate/2026-07-30/2026-07-30__R1__09_00';
+    const capacityPayload = { contractVersion: 'booking_capacity_v1', capacityLimit: 10, bookedSeats: 1, seatsAvailable: 9 };
+    await assertFails(anonDb.ref(capacityPath).set(capacityPayload));
+    await assertFails(userDb.ref(capacityPath).set(capacityPayload));
+    await assertFails(ownerDb.ref(capacityPath).set(capacityPayload));
+    await assertFails(driverDb.ref(capacityPath).set(capacityPayload));
 
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await ctx.database().ref('data/driverIdentityCenter/accounts/driver-1').set({ role: 'driver', runtimeVehicleId: 'V1' });
