@@ -49,6 +49,7 @@
       destinationOptionsByOrigin[fare.fromNameTh].push({
         key: fare.toNameTh,
         label: fare.toNameTh,
+        nameTh: fare.toNameTh,
         destinationLabel: fare.toNameTh,
         originDestinationId: fare.fromStopKey || fare.fromNameTh,
         destinationId: fare.toStopKey || fare.toNameTh,

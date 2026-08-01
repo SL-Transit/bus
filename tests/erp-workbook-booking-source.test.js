@@ -23,6 +23,9 @@ const expectedTimes = Object.values(candidate.scheduleRows).filter((row) => (
 ));
 assert.strictEqual(route.segments[0].times.length, expectedTimes.length);
 assert.strictEqual(index.selectedRouteByRowId(fare.sourceRowId).pairId, fare.sourceRowId);
+const destinationOption = index.destinationOptionsByOrigin[fare.fromNameTh].find((option) => option.routeFareRowId === fare.sourceRowId);
+assert(destinationOption, 'fare route must produce a destination option');
+assert.strictEqual(destinationOption.nameTh, fare.toNameTh, 'Booking picker must receive the destination display name');
 
 const projectedTimes = [];
 for (const origin of index.originOptions) {
