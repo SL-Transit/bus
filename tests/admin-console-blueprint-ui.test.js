@@ -94,7 +94,7 @@ assert.ok(html.includes('data-erp-tab'), 'ERP management page must support workb
 assert.ok(html.includes('Validation'), 'ERP management page must include validation side panel');
 assert.ok(html.includes('รายละเอียดแถว'), 'ERP management page must include row detail side panel');
 assert.ok(html.includes('ผลกระทบต่อระบบ (Impact)'), 'ERP management page must include impact side panel');
-for (const label of ['01_ข้อมูลป้ายต้นทาง', '02_เส้นทาง', '03_เส้นทางและราคา', '04_รอบเวลา', '05_คิวรถและเวลา', '06_รถและคิว', '07_PaymentContact', '08_DriverVehicleGroup']) {
+for (const label of ['ป้ายต้นทาง', 'เส้นทาง', 'ราคา', 'ตารางเวลา', 'คิว', 'รถ', 'ข้อมูลติดต่อชำระเงิน', 'คนขับ']) {
   assert.ok(html.includes(label), `ERP management tab missing: ${label}`);
 }
 assert.ok(!html.includes("path:'data/notificationCenter"), 'ERP workbook tabs must not read outside ERP Data Center');
