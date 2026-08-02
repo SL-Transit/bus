@@ -17,9 +17,7 @@ public class BootReceiver extends BroadcastReceiver {
                 || "com.htc.intent.action.QUICKBOOT_POWERON".equals(action)
                 || "com.coloros.action.startservice".equals(action);
 
-        boolean isRestart = GpsService.ACTION_RESTART.equals(action);
-
-        if (!isBoot && !isRestart) return;
+        if (!isBoot) return;
 
         SharedPreferences prefs = context.getSharedPreferences(
                 MainActivity.PREFS, Context.MODE_PRIVATE);

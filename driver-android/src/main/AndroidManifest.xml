@@ -34,8 +34,16 @@
     <!-- ===== Install APK (สำหรับระบบอัพเดทแอพอัตโนมัติ) ===== -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- สิทธิ์ระดับ signature สำหรับสัญญาณ restart ภายในแอพเท่านั้น — แอพอื่นในเครื่อง
+         ขอสิทธิ์นี้ไม่ได้ (ต้อง sign ด้วย key เดียวกับแอพนี้เท่านั้น) กันไม่ให้แอพอื่นสั่ง
+         restart service ปลอมได้ -->
+    <permission
+        android:name="com.sanamchai.drivergps.PERMISSION_RESTART"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.sanamchai.drivergps.PERMISSION_RESTART" />
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@drawable/app_cover"
         android:label="GPS Transit"
         android:roundIcon="@drawable/app_cover"
@@ -82,6 +90,17 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.coloros.action.startservice" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Restart Receiver — รับสัญญาณ restart จากตัวแอพเองเท่านั้น ป้องกันด้วย signature
+             permission แยกออกจาก BootReceiver เพราะ BootReceiver ต้อง exported เสมอสำหรับ
+             BOOT_COMPLETED ซึ่งไม่มีทางเช็คสิทธิ์ผู้ส่งได้ -->
+        <receiver
+            android:name=".RestartReceiver"
+            android:exported="true"
+            android:permission="com.sanamchai.drivergps.PERMISSION_RESTART">
+            <intent-filter>
                 <action android:name="com.sanamchai.drivergps.RESTART" />
             </intent-filter>
         </receiver>

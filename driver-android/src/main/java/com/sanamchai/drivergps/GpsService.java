@@ -48,7 +48,6 @@ import java.util.Map;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkRequest;
 
 public class GpsService extends Service implements SensorEventListener {
     static final String ACTION_START = "com.sanamchai.drivergps.START";
@@ -516,34 +515,48 @@ public class GpsService extends Service implements SensorEventListener {
         } catch (Exception ignored) {}
     }
 
+    private boolean lastNetworkValidated = false;
+
     private void registerNetworkCallback() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             if (cm == null) return;
             unregisterNetworkCallback();
+            lastNetworkValidated = false;
             networkCallback = new ConnectivityManager.NetworkCallback() {
                 @Override public void onAvailable(Network network) {
-                    handler.post(() -> {
-                        if (!running) return;
-                        Log.d(TAG, "NetworkCallback: เน็ตกลับมา — force reconnect Firebase");
-                        try {
-                            FirebaseDatabase.getInstance().goOffline();
-                            FirebaseDatabase.getInstance().goOnline();
-                        } catch (Exception ignored) {}
-                        lastLocationSentAt = System.currentTimeMillis();
-                    });
+                    Log.d(TAG, "NetworkCallback: default network available (รอ validated ก่อนค่อย reconnect)");
+                }
+                @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
+                    boolean validatedNow = capabilities != null
+                            && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                            && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+                    // สนใจเฉพาะ "ตอนเปลี่ยนจากไม่ validated เป็น validated" เท่านั้น กัน trigger รัวๆ
+                    // ทุกครั้งที่ capabilities เปลี่ยนแบบเล็กน้อยที่ไม่เกี่ยวกับการมีเน็ตใช้จริงหรือไม่
+                    if (validatedNow && !lastNetworkValidated) {
+                        lastNetworkValidated = true;
+                        handler.post(() -> {
+                            if (!running) return;
+                            Log.d(TAG, "NetworkCallback: เน็ตกลับมาใช้งานได้จริงแล้ว (validated) — force reconnect Firebase");
+                            try {
+                                FirebaseDatabase.getInstance().goOffline();
+                                FirebaseDatabase.getInstance().goOnline();
+                            } catch (Exception ignored) {}
+                            lastLocationSentAt = System.currentTimeMillis();
+                        });
+                    } else if (!validatedNow) {
+                        lastNetworkValidated = false;
+                    }
                 }
                 @Override public void onLost(Network network) {
+                    lastNetworkValidated = false;
                     handler.post(() -> {
                         if (!running) return;
                         Log.w(TAG, "NetworkCallback: เน็ตหาย");
                     });
                 }
             };
-            NetworkRequest req = new NetworkRequest.Builder()
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                    .build();
-            cm.registerNetworkCallback(req, networkCallback);
+            cm.registerDefaultNetworkCallback(networkCallback);
         } catch (Exception e) {
             Log.e(TAG, "registerNetworkCallback failed: " + e.getMessage());
         }
@@ -1072,7 +1085,7 @@ public class GpsService extends Service implements SensorEventListener {
         try {
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
-            Intent intent = new Intent(context, BootReceiver.class);
+            Intent intent = new Intent(context, RestartReceiver.class);
             intent.setAction(ACTION_RESTART);
             PendingIntent pi = PendingIntent.getBroadcast(context, 99, intent,
                     Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
@@ -1085,7 +1098,7 @@ public class GpsService extends Service implements SensorEventListener {
     public static void cancelHealthCheck(Context context) {
         try {
             AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-            Intent intent = new Intent(context, BootReceiver.class); intent.setAction(ACTION_RESTART);
+            Intent intent = new Intent(context, RestartReceiver.class); intent.setAction(ACTION_RESTART);
             PendingIntent pi = PendingIntent.getBroadcast(context, 99, intent,
                     Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT);
             if (am != null) am.cancel(pi); pi.cancel();
