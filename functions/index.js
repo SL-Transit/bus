@@ -8,6 +8,7 @@ admin.initializeApp();
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
+const notificationCenter = require("./notification-center.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -223,98 +224,97 @@ async function sendLineForBooking(ref, code, booking) {
   }
 }
 
-exports.sendLineOnBooking = onValueCreated({
-  ref: "/bookings/{code}",
-  instance: "sl-transit-9464e-default-rtdb",
-  region: "asia-southeast1",
-  secrets: [lineToken],
-  timeoutSeconds: 60,
-  memory: "256MiB",
-  maxInstances: 20
-}, async (event) => {
-  const booking = event.data.val() || {};
+function safeJobId(code, eventType, recipientType, recipientId) {
+  return notificationCenter.safeJobId(code, eventType, recipientType, recipientId);
+}
+
+function stableRetryKey(jobId) {
+  const crypto = require("crypto");
+  return notificationCenter.retryKey(jobId);
+}
+
+async function enqueueNotification(db, { code, eventType, recipientType, recipientId, lineTo, text, testMode, mockOnly }) {
+  const jobId = safeJobId(code, eventType, recipientType, recipientId);
+  const job = { bookingCode: code, eventType, recipient: { type: recipientType, id: recipientId, lineTo: lineTo || "" }, text: text || "", retryKey: stableRetryKey(jobId), createdAt: admin.database.ServerValue.TIMESTAMP, testMode: testMode === true, mockOnly: mockOnly === true };
+  await db.ref(`operations/notificationJobs/${jobId}`).transaction((current) => current || job);
+  return jobId;
+}
+
+async function createBookingJobs(code, booking) {
+  const db = admin.database();
+  const jobs = [];
+  const passenger = passengerLineUserId(booking);
+  if (passenger && (booking.notificationPreference || {}).lineTicket === true) {
+    jobs.push(enqueueNotification(db, { code, eventType: "booking_created", recipientType: "passenger", recipientId: passenger, lineTo: passenger, text: buildBookingMessage(booking), testMode: booking.testMode, mockOnly: booking.mockOnly }));
+  }
+  const staffConfig = await staffNotificationCenter.readStaffLineTargetsConfig(db);
+  const alerts = staffNotificationCenter.bookingCreatedStaffAlerts({ booking, staffConfig });
+  const uniqueAlerts = notificationCenter.dedupeRecipients(alerts.map((alert) => ({ ...alert, type: alert.recipientRole, lineTo: alert.lineTo })));
+  for (const alert of uniqueAlerts) jobs.push(enqueueNotification(db, { code, eventType: "booking_created", recipientType: alert.type, recipientId: alert.lineTo, lineTo: alert.lineTo, text: staffNotificationCenter.staffBookingMessage(alert, booking), testMode: booking.testMode, mockOnly: booking.mockOnly }));
+  return Promise.all(jobs);
+}
+
+exports.handleBookingCreated = onValueCreated({ ref: "/bookings/{code}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken, staffLineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, retry: false }, async (event) => {
+  let booking = event.data.val() || {};
   const code = event.params.code || booking.code || "";
-  await sendLineForBooking(event.data.ref, code, booking);
-});
-
-exports.sendStaffLineOnBooking = onValueWritten({
-  ref: "/bookings/{code}",
-  instance: "sl-transit-9464e-default-rtdb",
-  region: "asia-southeast1",
-  secrets: [staffLineToken],
-  timeoutSeconds: 60,
-  memory: "256MiB",
-  maxInstances: 20
-}, async (event) => {
-  if (!event.data.after.exists()) return;
-  const booking = event.data.after.val() || {};
-  const code = event.params.code || booking.code || "";
-  await sendStaffLineForBooking(event.data.after.ref, code, booking);
-});
-
-exports.sendLineOnPaymentVerified = onValueUpdated({
-  ref: "/bookings/{code}",
-  instance: "sl-transit-9464e-default-rtdb",
-  region: "asia-southeast1",
-  secrets: [lineToken],
-  timeoutSeconds: 60,
-  memory: "256MiB",
-  maxInstances: 20
-}, async (event) => {
-  const before = event.data.before.val() || {};
-  const after = event.data.after.val() || {};
-  const code = event.params.code || after.code || "";
-
-  if (!isTransferSlipBooking(after)) return;
-  if (before.paymentStatus === "payment_verified") return;
-  if (after.paymentStatus !== "payment_verified") return;
-  await sendLineForBooking(event.data.after.ref, code, after);
-});
-
-exports.syncDriverTicketOnBookingWrite = onValueWritten({
-  ref: "/bookings/{code}",
-  instance: "sl-transit-9464e-default-rtdb",
-  region: "asia-southeast1",
-  timeoutSeconds: 60,
-  memory: "256MiB",
-  maxInstances: 20
-}, async (event) => {
-  const code = event.params.code || "";
-  const before = event.data.before.exists() ? (event.data.before.val() || {}) : null;
-  const rawAfter = event.data.after.exists() ? (event.data.after.val() || {}) : null;
-  let after = rawAfter;
-  if (rawAfter && !driverTicketCenter.plannedVehicleId(rawAfter)) {
-    const serviceDate = driverTicketCenter.serviceDate(rawAfter);
+  if (!driverTicketCenter.plannedVehicleId(booking)) {
+    const serviceDate = driverTicketCenter.serviceDate(booking);
     if (serviceDate) {
       const [workSnap, groupStopsSnap] = await Promise.all([
         admin.database().ref(`operations/driverWorkByServiceDate/${serviceDate}`).get(),
         admin.database().ref("data/erpDataCenter/groupStops").get()
       ]);
-      after = driverTicketCenter.enrichBookingFromDriverWork(
-        rawAfter,
-        workSnap.val() || {},
-        groupStopsSnap.val() || {}
-      );
+      booking = driverTicketCenter.enrichBookingFromDriverWork(booking, workSnap.val() || {}, groupStopsSnap.val() || {});
     }
   }
-  const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, before, after);
-  if (rawAfter && after !== rawAfter && driverTicketCenter.plannedVehicleId(after)) {
-    updates[`bookings/${code}/assignment`] = after.assignment;
-    updates[`bookings/${code}/assignmentSource`] = after.assignmentSource;
-    updates[`bookings/${code}/plannedVehicleId`] = after.plannedVehicleId;
-    updates[`bookings/${code}/vehicleId`] = after.vehicleId;
-    updates[`bookings/${code}/queueNo`] = after.queueNo;
-    updates[`bookings/${code}/routeId`] = after.routeId || "";
-    updates[`bookings/${code}/tripId`] = after.tripId || "";
-    updates[`bookings/${code}/catalogRouteId`] = after.catalogRouteId || "";
-    updates[`bookings/${code}/catalogTripId`] = after.catalogTripId || "";
-    updates[`bookings/${code}/scheduleOnly`] = false;
-    updates[`bookings/${code}/noLiveTracking`] = false;
-    updates[`bookings/${code}/driverTicketSyncStatus`] = "assigned_from_driver_work";
-    updates[`bookings/${code}/driverTicketSyncedAt`] = admin.database.ServerValue.TIMESTAMP;
+  const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, null, booking);
+  if (Object.keys(updates).length) await admin.database().ref().update(updates);
+  await createBookingJobs(code, booking);
+});
+
+exports.handlePaymentStatusChanged = onValueUpdated({ ref: "/bookings/{code}/paymentStatus", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, retry: false }, async (event) => {
+  if (event.data.before.val() === "payment_verified" || event.data.after.val() !== "payment_verified") return;
+  const snap = await admin.database().ref(`bookings/${event.params.code}`).get();
+  const booking = snap.val() || {};
+  const to = passengerLineUserId(booking);
+  if (to && (booking.notificationPreference || {}).lineTicket === true) await enqueueNotification(admin.database(), { code: event.params.code, eventType: "payment_verified", recipientType: "passenger", recipientId: to, lineTo: to, text: buildBookingMessage(booking), testMode: booking.testMode, mockOnly: booking.mockOnly });
+});
+
+exports.handleAssignmentChanged = onValueWritten({ ref: "/bookings/{code}/assignment", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, retry: false }, async (event) => {
+  const before = event.data.before.val() || {}; const after = event.data.after.val() || {};
+  if (JSON.stringify(before) === JSON.stringify(after)) return;
+  const bookingSnap = await admin.database().ref(`bookings/${event.params.code}`).get(); const booking = bookingSnap.val() || {};
+  const configSnap = await admin.database().ref("data/notificationCenter/staffLineTargets").get();
+  const recipients = notificationCenter.lookupAssignmentRecipients(after, configSnap.val() || {});
+  await Promise.all(recipients.map((recipient) => enqueueNotification(admin.database(), { code: event.params.code, eventType: "assignment_changed", recipientType: recipient.type, recipientId: recipient.lineTo, lineTo: recipient.lineTo, text: `การจอง ${event.params.code} ได้รับการจัดรถแล้ว`, testMode: booking.testMode, mockOnly: booking.mockOnly })));
+});
+
+exports.handleCheckinCreated = onValueCreated({ ref: "/operations/bookingEvents/{code}/checkin/{eventId}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, retry: false }, async (event) => {
+  const value = event.data.val() || {}; const code = event.params.code; const to = value.lineUserId || "";
+  if (to) await enqueueNotification(admin.database(), { code, eventType: "checkin", recipientType: "passenger", recipientId: to, lineTo: to, text: buildCheckinMessage(value), testMode: value.testMode, mockOnly: value.mockOnly });
+});
+
+exports.processNotificationJob = onValueCreated({ ref: "/operations/notificationJobs/{jobId}", instance: "sl-transit-9464e-default-rtdb", secrets: [lineToken, staffLineToken], region: "asia-southeast1", timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, retry: false }, async (event) => {
+  const jobId = event.params.jobId; const job = event.data.val() || {}; const db = admin.database(); const dispatchRef = db.ref(`operations/notificationDispatch/${jobId}`);
+  const claim = await dispatchRef.transaction((current) => { const decision = notificationCenter.claimDecision(current, Date.now()); if (!decision.claim) return; return { ...(current || {}), status: "processing", attempts: decision.attempts, createdAt: (current && current.createdAt) || admin.database.ServerValue.TIMESTAMP, processingStartedAt: Date.now(), retryKey: job.retryKey, recipient: job.recipient, eventType: job.eventType, bookingCode: job.bookingCode }; });
+  if (!claim.committed) return;
+  if (job.testMode === true || job.mockOnly === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: admin.database.ServerValue.TIMESTAMP }); return; }
+    const token = notificationCenter.tokenKind(job.recipient?.type) === "staff" ? staffLineToken.value() : lineToken.value();
+  let lastError = "";
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const delay = notificationCenter.retryDelayMs(attempt);
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      const response = await fetch("https://api.line.me/v2/bot/message/push", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "X-Line-Retry-Key": job.retryKey }, body: JSON.stringify({ to: job.recipient.lineTo, messages: [{ type: "text", text: job.text }] }) });
+      if (!response.ok) throw new Error(`LINE ${response.status}`);
+      await dispatchRef.update({ status: "sent", attempts: attempt, sentAt: admin.database.ServerValue.TIMESTAMP });
+      return;
+    } catch (error) {
+      lastError = String(error.message || error).slice(0, 80);
+      await dispatchRef.update({ attempts: attempt, lastErrorCode: lastError });
+    }
   }
-  if (!Object.keys(updates).length) return;
-  await admin.database().ref().update(updates);
+  await dispatchRef.update({ status: "failed", failedAt: admin.database.ServerValue.TIMESTAMP, lastErrorCode: lastError });
 });
 
 exports.prepareNextDayDriverWork = onSchedule({

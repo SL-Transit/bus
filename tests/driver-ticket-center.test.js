@@ -129,7 +129,7 @@ assert(main.includes('operations/driverTicketsByServiceDate'), 'Driver app must 
 assert(main.includes('loadDriverTicketsForDate(today, vehicleId'), 'Driver passenger views must read tickets for the authorized vehicle only');
 assert(!main.includes('loadBookingsForDate'), 'Driver passenger views must not scan daily bookings locally');
 assert(!main.includes('bookingBelongsToVehicle(child, vehicleId)'), 'Driver passenger list must not filter all bookings on the device');
-assert(functionsIndex.includes('syncDriverTicketOnBookingWrite'), 'Functions must mirror bookings into the driver ticket feed');
+assert(functionsIndex.includes('handleBookingCreated'), 'Booking creation must mirror bookings into the driver ticket feed');
 assert(functionsIndex.includes('buildDriverTicketMirrorUpdate'), 'Functions must use the Driver Ticket Center contract');
 assert(functionsIndex.includes('enrichBookingFromDriverWork'), 'Functions must assign schedule-only bookings from central driver work before mirroring');
 assert(functionsIndex.includes('data/erpDataCenter/groupStops'), 'Driver assignment enrichment must read ERP Data Center group stop aliases');
