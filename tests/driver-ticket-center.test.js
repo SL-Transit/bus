@@ -116,6 +116,9 @@ assert.strictEqual(enriched.queueNo, 4);
 assert.strictEqual(enriched.scheduleOnly, false);
 assert.strictEqual(enriched.assignment.assignmentSource, 'driver_work_by_service_date');
 assert.strictEqual(center.driverTicketPath('BK7991918149', enriched), 'operations/driverTicketsByServiceDate/2026-07-19/car1/BK7991918149');
+const scheduledUpdates = center.buildScheduledAssignmentUpdate('BK7991918149', scheduleOnlyBooking, workByVehicle, groupStops);
+assert(scheduledUpdates['bookings/BK7991918149/assignment'], 'scheduled reconciliation must persist assignment');
+assert.strictEqual(scheduledUpdates['bookings/BK7991918149/plannedVehicleId'], 'car1');
 
 const noAliasMatch = center.enrichBookingFromDriverWork(scheduleOnlyBooking, workByVehicle, {});
 assert.strictEqual(noAliasMatch.plannedVehicleId, undefined, 'alias-only destination must not match without ERP Data Center aliases');

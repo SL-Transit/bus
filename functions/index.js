@@ -284,9 +284,15 @@ exports.handleAssignmentChanged = onValueWritten({ ref: "/bookings/{code}/assign
   const before = event.data.before.val() || {}; const after = event.data.after.val() || {};
   if (JSON.stringify(before) === JSON.stringify(after)) return;
   const bookingSnap = await admin.database().ref(`bookings/${event.params.code}`).get(); const booking = bookingSnap.val() || {};
+  const mirrorUpdates = driverTicketCenter.buildDriverTicketMirrorUpdate(
+    event.params.code,
+    Object.assign({}, booking, { assignment: before }),
+    Object.assign({}, booking, { assignment: after })
+  );
+  if (Object.keys(mirrorUpdates).length) await admin.database().ref().update(mirrorUpdates);
   const configSnap = await admin.database().ref("data/notificationCenter/staffLineTargets").get();
   const recipients = notificationCenter.lookupAssignmentRecipients(after, configSnap.val() || {});
-  await Promise.all(recipients.map((recipient) => enqueueNotification(admin.database(), { code: event.params.code, eventType: "assignment_changed", recipientType: recipient.type, recipientId: recipient.lineTo, lineTo: recipient.lineTo, text: `การจอง ${event.params.code} ได้รับการจัดรถแล้ว`, testMode: booking.testMode, mockOnly: booking.mockOnly })));
+  await Promise.all(recipients.map((recipient) => enqueueNotification(admin.database(), { code: event.params.code, eventType: "assignment_changed", recipientType: recipient.type, recipientId: recipient.lineTo, lineTo: recipient.lineTo, text: staffNotificationCenter.staffBookingMessage({ recipientRole: recipient.type, lineTo: recipient.lineTo }, booking), testMode: booking.testMode, mockOnly: booking.mockOnly })));
 });
 
 exports.handleCheckinCreated = onValueCreated({ ref: "/operations/bookingEvents/{code}/checkin/{eventId}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
@@ -333,12 +339,16 @@ exports.prepareNextDayDriverWork = onSchedule({
     erpSnap,
     dailyAssignmentsSnap,
     manualOverridesSnap,
-    configSnap
+    configSnap,
+    bookingsSnap,
+    groupStopsSnap
   ] = await Promise.all([
     db.ref("data/erpDataCenter").get(),
     db.ref(`operations/driverDailyAssignments/${serviceDate}`).get(),
     db.ref(`operations/driverManualOverrides/${serviceDate}`).get(),
-    db.ref("operations/driverWorkGenerationConfig").get()
+    db.ref("operations/driverWorkGenerationConfig").get(),
+    db.ref("bookings").get(),
+    db.ref("data/erpDataCenter/groupStops").get()
   ]);
 
   const plan = driverWorkAutoCenter.buildUpdates({
@@ -349,6 +359,19 @@ exports.prepareNextDayDriverWork = onSchedule({
     manualOverrides: manualOverridesSnap.val() || {},
     rotationConfig: (configSnap.val() || {}).rotation,
     generatedAt: admin.database.ServerValue.TIMESTAMP
+  });
+
+  const generatedBookings = bookingsSnap.val() || {};
+  Object.entries(generatedBookings).forEach(([code, booking]) => {
+    const value = booking || {};
+    if (String(value.date || value.serviceDate || "") !== serviceDate) return;
+    if (value.cancelled === true || value.status === "cancelled") return;
+    Object.assign(plan.updates, driverTicketCenter.buildScheduledAssignmentUpdate(
+      code,
+      value,
+      plan.result.contractsByRuntimeVehicleId || {},
+      groupStopsSnap.val() || {}
+    ));
   });
 
   await db.ref().update(plan.updates);

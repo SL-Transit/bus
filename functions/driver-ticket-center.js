@@ -226,6 +226,25 @@ function enrichBookingFromDriverWork(booking, workByVehicle, groupStops) {
   });
 }
 
+function buildScheduledAssignmentUpdate(code, booking, workByVehicle, groupStops) {
+  const enriched = enrichBookingFromDriverWork(booking, workByVehicle, groupStops);
+  if (!enriched || !plannedVehicleId(enriched) || plannedVehicleId(booking)) return {};
+  const assignment = enriched.assignment;
+  return {
+    [`bookings/${bookingCode(code, booking)}/assignment`]: assignment,
+    [`bookings/${bookingCode(code, booking)}/assignmentSource`]: enriched.assignmentSource,
+    [`bookings/${bookingCode(code, booking)}/plannedVehicleId`]: enriched.plannedVehicleId,
+    [`bookings/${bookingCode(code, booking)}/vehicleId`]: enriched.vehicleId,
+    [`bookings/${bookingCode(code, booking)}/queueNo`]: enriched.queueNo,
+    [`bookings/${bookingCode(code, booking)}/routeId`]: enriched.routeId,
+    [`bookings/${bookingCode(code, booking)}/tripId`]: enriched.tripId,
+    [`bookings/${bookingCode(code, booking)}/catalogRouteId`]: enriched.catalogRouteId,
+    [`bookings/${bookingCode(code, booking)}/catalogTripId`]: enriched.catalogTripId,
+    [`bookings/${bookingCode(code, booking)}/scheduleOnly`]: false,
+    [`bookings/${bookingCode(code, booking)}/noLiveTracking`]: false
+  };
+}
+
 module.exports = {
   plannedVehicleId,
   serviceDate,
@@ -234,6 +253,7 @@ module.exports = {
   buildDriverTicketMirrorUpdate,
   shouldPublishDriverTicket,
   enrichBookingFromDriverWork,
+  buildScheduledAssignmentUpdate,
   findTripMatch,
   normalizeGroupStops
 };
