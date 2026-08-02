@@ -25,6 +25,7 @@ assert(source.includes('ref: "/bookings/{code}/assignment"'));
 assert(source.includes('ref: "/operations/bookingEvents/{code}/checkin/{eventId}"'));
 assert(source.includes("maxInstances: 1"));
 assert(source.includes("minInstances: 0"));
+assert((source.match(/concurrency: 1/g) || []).length >= 5);
 const processor = source.slice(source.indexOf("exports.processNotificationJob"));
 assert(!processor.includes("bookings/${code}/lineMessaging"), "processor must not write booking notification status");
 assert(!processor.includes("bookings/${code}/staffLineMessaging"), "processor must not write booking staff status");
