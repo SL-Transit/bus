@@ -227,7 +227,13 @@ exports.prepareNextDayDriverWork = onSchedule({
     generatedAt: admin.database.ServerValue.TIMESTAMP
   });
 
-  const bookingIndex = bookingIndexSnap.val() || {};
+  let bookingIndex = bookingIndexSnap.val() || {};
+  // Migration fallback: query only the target service date, never the full
+  // bookings tree. New bookings use the compact date index above.
+  if (!Object.keys(bookingIndex).length) {
+    const legacySnap = await db.ref("bookings").orderByChild("serviceDate").equalTo(serviceDate).get();
+    bookingIndex = Object.fromEntries(Object.keys(legacySnap.val() || {}).map((code) => [code, { bookingCode: code }]));
+  }
   const bookingEntries = await Promise.all(Object.keys(bookingIndex).map(async (code) => [code, (await db.ref(`bookings/${code}`).get()).val() || {}]));
   bookingEntries.forEach(([code, value]) => {
     if (String(value.date || value.serviceDate || "") !== serviceDate) return;

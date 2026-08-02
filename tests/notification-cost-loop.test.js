@@ -28,6 +28,7 @@ assert(centerSource.includes('status: "permanent_failed"'));
 assert(source.includes('allowAutomatedAssignmentNotifications'));
 assert(source.includes('bookingsByServiceDate/${serviceDate}'));
 assert(!source.includes('db.ref("bookings").get()'), "scheduled reconciliation must not scan the bookings root");
+assert(source.includes('orderByChild("serviceDate").equalTo(serviceDate)'), "legacy fallback must query only the canonical service date");
 assert(source.includes('ref: "/bookings/{code}/paymentStatus"'));
 assert(source.includes('ref: "/bookings/{code}/assignment"'));
 assert(source.includes('ref: "/operations/bookingEvents/{code}/checkin/{eventId}"'));
