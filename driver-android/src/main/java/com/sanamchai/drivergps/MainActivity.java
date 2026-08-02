@@ -617,6 +617,10 @@ public class MainActivity extends Activity {
                 String previousRuntimeVehicleId = prefs.getString(KEY_VEHICLE_ID, null);
                 boolean vehicleChanged = previousRuntimeVehicleId != null
                         && !previousRuntimeVehicleId.equals(runtimeVehicleId);
+                try {
+                    com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                            .addOnSuccessListener(DriverFcmService::registerTokenForCurrentVehicle);
+                } catch (Exception ignored) {}
                 prefs.edit()
                         .putString(KEY_DRIVER_UID, uid)
                         .putString(KEY_DRIVER_ID, driverId == null ? "" : driverId)

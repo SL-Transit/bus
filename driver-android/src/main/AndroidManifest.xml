@@ -67,6 +67,15 @@
             android:foregroundServiceType="location"
             android:stopWithTask="false" />
 
+        <!-- FCM — รับสัญญาณปลุกแอพกรณีถูก Android ฆ่าโปรเซสทิ้ง -->
+        <service
+            android:name=".DriverFcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- FileProvider — สำหรับเปิดไฟล์ APK ที่ดาวน์โหลดมาเพื่อติดตั้ง -->
         <provider
             android:name="androidx.core.content.FileProvider"

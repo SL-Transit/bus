@@ -216,6 +216,12 @@
         ".write": true
       }
     },
+    "fcmTokensByVehicle": {
+      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      "$vehicleId": {
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+      }
+    },
     "passengerLiveLocations": {
       ".read": false,
       "$bookingId": {

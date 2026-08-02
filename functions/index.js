@@ -631,6 +631,37 @@ exports.syncDriverTicketOnBookingWrite = onValueWritten({
   await admin.database().ref().update(updates);
 });
 
+exports.sendFcmWakeOnDriverCommand = onValueWritten({
+  ref: "/driverCommands/{vehicleId}/command",
+  instance: "sl-transit-9464e-default-rtdb",
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "128MiB",
+  maxInstances: 10
+}, async (event) => {
+  const vehicleId = event.params.vehicleId || "";
+  const command = event.data.after.exists() ? event.data.after.val() : null;
+  if (command !== "forceGpsRestart" || !vehicleId) return;
+
+  const tokenSnap = await admin.database().ref(`fcmTokensByVehicle/${vehicleId}`).get();
+  const token = tokenSnap.val();
+  if (!token) return; // ยังไม่มี token ของรถคันนี้ (แอพเวอร์ชันเก่ายังไม่รองรับ FCM) — ข้าม ไม่ error
+
+  try {
+    await admin.messaging().send({
+      token,
+      data: { type: "wake_gps", vehicleId },
+      android: { priority: "high" }
+    });
+  } catch (err) {
+    // token อาจหมดอายุ/ถูกถอนแอพไปแล้ว — ลบทิ้งกันค้างเป็นขยะ ไม่ต้อง throw ให้ retry
+    if (err && (err.code === "messaging/registration-token-not-registered"
+        || err.code === "messaging/invalid-registration-token")) {
+      await admin.database().ref(`fcmTokensByVehicle/${vehicleId}`).remove();
+    }
+  }
+});
+
 exports.prepareNextDayDriverWork = onSchedule({
   schedule: "45 23 * * *",
   timeZone: "Asia/Bangkok",
