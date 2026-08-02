@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const source = fs.readFileSync(path.join(__dirname, "../functions/index.js"), "utf8");
+const centerSource = fs.readFileSync(path.join(__dirname, "../functions/notification-center.js"), "utf8");
 
 for (const name of ["handleBookingCreated", "handlePaymentStatusChanged", "handleAssignmentChanged", "handleCheckinCreated", "processNotificationJob"]) {
   assert(source.includes(`exports.${name}`), `${name} export is required`);
@@ -20,6 +21,13 @@ assert(source.includes('attempt <= 3'));
 assert(source.includes('"X-Line-Retry-Key"'));
 assert(source.includes("notificationCenter.tokenKind"));
 assert(source.includes("notificationCenter.lookupAssignmentRecipients"));
+assert(source.includes('channelKind: resolvedChannel'));
+assert(source.includes('tokenKind: resolvedToken'));
+assert(source.includes('classifyLineResponse(response.status)'));
+assert(centerSource.includes('status: "permanent_failed"'));
+assert(source.includes('allowAutomatedAssignmentNotifications'));
+assert(source.includes('bookingsByServiceDate/${serviceDate}'));
+assert(!source.includes('db.ref("bookings").get()'), "scheduled reconciliation must not scan the bookings root");
 assert(source.includes('ref: "/bookings/{code}/paymentStatus"'));
 assert(source.includes('ref: "/bookings/{code}/assignment"'));
 assert(source.includes('ref: "/operations/bookingEvents/{code}/checkin/{eventId}"'));

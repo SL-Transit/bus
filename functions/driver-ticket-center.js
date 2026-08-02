@@ -233,6 +233,7 @@ function buildScheduledAssignmentUpdate(code, booking, workByVehicle, groupStops
   return {
     [`bookings/${bookingCode(code, booking)}/assignment`]: assignment,
     [`bookings/${bookingCode(code, booking)}/assignmentSource`]: enriched.assignmentSource,
+    [`bookings/${bookingCode(code, booking)}/suppressAssignmentNotification`]: true,
     [`bookings/${bookingCode(code, booking)}/plannedVehicleId`]: enriched.plannedVehicleId,
     [`bookings/${bookingCode(code, booking)}/vehicleId`]: enriched.vehicleId,
     [`bookings/${bookingCode(code, booking)}/queueNo`]: enriched.queueNo,
