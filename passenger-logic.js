@@ -105,16 +105,6 @@
 /* ────────────────────────────────────────────────────────────
      SETTINGS — data/settings
   ──────────────────────────────────────────────────────────── */
-  function watchSettings(callback) {
-    var db = getDb();
-    if (!db || typeof callback !== 'function') return function () {};
-    var ref = db.ref('data/settings');
-    ref.on('value', callback, function (err) {
-      console.error('watchSettings failed:', err && err.message ? err.message : err);
-    });
-    return function unsubscribe() { ref.off('value', callback); };
-  }
-
   function applyLiveVehicleSnapshot(snapshot) {
     var raw = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : snapshot;
     var vehicles = retainLastVehiclePoints(raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {});
@@ -1161,7 +1151,6 @@ function removeBusFromMap(carId) {
     init: init,
     getApp: getApp,
     getDb: getDb,
-    watchSettings: watchSettings,
     BUS_ICON_SRC: BUS_ICON_SRC,
     on: on,
     off: off,

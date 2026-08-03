@@ -437,6 +437,9 @@ assert(scheduleUpdatedCount === 2, 'scheduleUpdated must fire after option-backe
   const html = fs.readFileSync(path.join(__dirname, '..', 'passenger.html'), 'utf8');
   const logicSource = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
   assert(!html.includes("db.ref('routeData')"), 'Passenger must not read legacy routeData');
+  assert(!html.includes("db.ref('data/settings')"), 'Passenger must not read legacy data/settings');
+  assert(!html.includes('schedule-engine.js'), 'Passenger must not load legacy schedule engine');
+  assert(!html.includes('catalog-engine.js'), 'Passenger must not load legacy catalog engine');
   assert(!html.includes("db.ref('publishedCatalog')"), 'Passenger must not read legacy publishedCatalog');
   assert(!html.includes("db.ref('bus')"), 'Passenger must not read legacy bus vehicle feed');
   assert(!html.includes("db.ref('liveVehicles')"), 'Passenger must not read legacy liveVehicles feed');
