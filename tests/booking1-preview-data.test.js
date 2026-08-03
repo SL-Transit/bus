@@ -58,12 +58,13 @@ assert(!booking1.includes('booking-pos.js'), 'Booking1 must not load booking POS
 assert(!booking1.includes('booking-capacity.js'), 'Booking1 must not load booking capacity runtime reads');
 assert(!booking1.includes('catalog-engine.js'), 'Booking1 must not load legacy catalog engine');
 assert(!booking1.includes('schedule-engine.js'), 'Booking1 must not load legacy schedule engine');
-assert(!booking1.includes('firebase-auth-compat.js'), 'Booking1 must not initialize Firebase Auth');
+assert(booking1.includes('firebase-auth-compat.js'), 'Booking1 must initialize Firebase Auth for owner binding');
 assert(!booking1.includes('firebase-storage-compat.js'), 'Booking1 must not initialize Firebase Storage');
 assert(!booking1.includes("ref('announcements')"), 'Booking1 must not read direct announcements outside ERP contract');
 assert(!booking1.includes("ref('settings')"), 'Booking1 must not read direct settings outside ERP contract');
 assert(!booking1.includes("ref('bookings')"), 'Booking1 must not read direct bookings');
-assert(!booking1.includes('signInAnonymously'), 'Booking1 must not sign in anonymously');
+assert(booking1.includes('signInAnonymously'), 'Booking1 must establish an authenticated guest session');
+assert(booking1.includes('annSafeImageUrl'), 'Booking1 announcement images must be URL validated before CSS insertion');
 assert(!booking1.includes('SLBookingCapacity'), 'Booking1 must not reference booking capacity runtime');
 assert(!booking1.includes('SLBookingPOS'), 'Booking1 must not reference booking POS runtime');
 assert(!booking1.includes('POS'), 'Booking1 must not keep POS layer references');

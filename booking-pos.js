@@ -260,7 +260,7 @@
     });
   }
 
-  function uploadSlipToStorage(storage, file, bookingCode) {
+  function uploadSlipToStorage(storage, file, bookingCode, ownerUid) {
     return new Promise(function(resolve, reject) {
       if (!file) { resolve(''); return; }
       var bar  = document.getElementById('uploadProgressBar');
@@ -268,7 +268,10 @@
       if (prog) prog.style.display = 'block';
       var safeCode = String(bookingCode || '').replace(/[^A-Za-z0-9_-]/g, '');
       var path = 'slips/' + safeCode + '/' + Date.now() + '.jpg';
-      var task = storage.ref().child(path).put(file, { contentType: 'image/jpeg' });
+      var task = storage.ref().child(path).put(file, {
+        contentType: 'image/jpeg',
+        customMetadata: { ownerUid: String(ownerUid || '') }
+      });
       task.on('state_changed',
         function(snap) { if (bar && snap.totalBytes) bar.style.width = Math.round(snap.bytesTransferred / snap.totalBytes * 100) + '%'; },
         function(err)  { console.error('[POS] storage upload failed', err); reject(new Error('STORAGE_UPLOAD_FAILED')); },
@@ -431,8 +434,11 @@
         /* Step 4: upload slip */
         if (btn) btn.textContent = 'โณ เธเธณเธฅเธฑเธเธญเธฑเธเนเธซเธฅเธ”เธชเธฅเธดเธ...';
         var code = generateBookingId();
+        var ownerUid = global.firebase && global.firebase.auth && global.firebase.auth().currentUser
+          ? global.firebase.auth().currentUser.uid
+          : '';
         var uploadPromise = (_slipFileObj && !global.TEST_MODE && global.PAYMENT_MODE === 'transfer')
-          ? uploadSlipToStorage(storage, _slipFileObj, code)
+          ? uploadSlipToStorage(storage, _slipFileObj, code, ownerUid)
           : Promise.resolve('');
 
         return uploadPromise.then(function(slipUrl) {
@@ -631,9 +637,7 @@
     var code = _lastBooking && _lastBooking.code || '';
     if (!code) { alert('เนเธกเนเธเธเธฃเธซเธฑเธชเธ•เธฑเนเธง'); return; }
     try { sessionStorage.setItem('latestBooking', JSON.stringify(_lastBooking)); } catch(e){}
-    var phone = sanitizePhone((global.state && global.state.phone) || '');
     window.location.href = 'check_ticket.html?code=' + encodeURIComponent(code)
-      + '&phone=' + encodeURIComponent(phone)
       + '&v=' + Date.now();
   }
 

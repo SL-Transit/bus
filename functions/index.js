@@ -36,7 +36,7 @@ function setCors(req, res) {
   if (adminDashboardSummary.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
-    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }
 }
@@ -63,6 +63,24 @@ function sendJson(res, status, body) {
     return;
   }
   res.status(status).type("application/json").send(text);
+}
+
+async function requireAdminToken(req) {
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    const error = new Error("admin_token_required");
+    error.statusCode = 401;
+    throw error;
+  }
+  const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+  const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
+  if (adminSnap.val() !== true && decoded.admin !== true && decoded.role !== "admin") {
+    const error = new Error("admin_account_required");
+    error.statusCode = 403;
+    throw error;
+  }
+  return decoded;
 }
 
 function mergeSnapshots(snaps) {
@@ -121,16 +139,12 @@ exports.readAdminDashboardSummary = onRequest({
     return;
   }
   let includePrivateRefunds = false;
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (tokenMatch) {
-    try {
-      await admin.auth().verifyIdToken(tokenMatch[1]);
-      includePrivateRefunds = true;
-    } catch (err) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
-      return;
-    }
+  try {
+    await requireAdminToken(req);
+    includePrivateRefunds = true;
+  } catch (err) {
+    sendJson(res, err.statusCode || 401, { status: "error", error: err.statusCode === 403 ? "admin_account_required" : "invalid_admin_token" });
+    return;
   }
   const range = String(req.query.range || "daily");
   const anchor = String(req.query.anchor || "");
@@ -209,14 +223,8 @@ exports.readAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    await admin.auth().verifyIdToken(tokenMatch[1]);
+    await requireAdminToken(req);
     const snap = await admin.database().ref("data/erpDataCenter").get();
     res.set("Cache-Control", "private, max-age=30");
     res.status(200).type("application/json").send(JSON.stringify({
@@ -227,6 +235,10 @@ exports.readAdminErpDataCenter = onRequest({
     }));
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
+    if (err && err.statusCode) {
+      sendJson(res, err.statusCode, { status: "error", error: err.statusCode === 403 ? "admin_account_required" : "invalid_admin_token" });
+      return;
+    }
     if (/token|auth|credential/i.test(message)) {
       sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
       return;
@@ -298,12 +310,7 @@ exports.updateAdminErpDataCenter = onRequest({
     return;
   }
   try {
-    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
-    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
-    if (adminSnap.val() !== true) {
-      sendJson(res, 403, { status: "error", error: "admin_account_required" });
-      return;
-    }
+    const decoded = await requireAdminToken(req);
     const body = parseJsonRequest(req);
     const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
     const paths = Object.keys(updates);
@@ -322,7 +329,6 @@ exports.updateAdminErpDataCenter = onRequest({
     const auditKey = `admin_erp_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     patch[`data/erpDataCenter/meta/audit/${auditKey}`] = {
       actorUid: decoded.uid,
-      actorEmail: decoded.email || "",
       action: "admin_erp_update",
       updateCount: paths.length,
       paths,
@@ -332,6 +338,10 @@ exports.updateAdminErpDataCenter = onRequest({
     sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
+    if (err && err.statusCode) {
+      sendJson(res, err.statusCode, { status: "error", error: err.statusCode === 403 ? "admin_account_required" : "invalid_admin_token" });
+      return;
+    }
     if (/token|auth|credential/i.test(message)) {
       sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
       return;
