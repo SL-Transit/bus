@@ -217,22 +217,34 @@ function waitLeaflet(){
 }
 
 function renderStopMarkers(){
-  if(!mapReady||!mapObj) return;
+  if(!mapReady||!mapObj||!stopsReady) return;
   /* ลบ markers เก่า */
   _stopMarkers.forEach(function(m){ mapObj.removeLayer(m); });
   _stopMarkers = [];
 
   STOPS.forEach(function(s){
     if(!s.lat||!s.lng) return;
-    var isTerminal = s.terminal;
+    var safeName = escHtml(s.name||'');
+    var safeIcon = escHtml(s.icon||'\u{1F68F}');
     var icon = L.divIcon({
       className: '',
-      html: '<div class="map-stop-dot'+(isTerminal?' terminal':'')+'" title="'+s.name+'"></div>',
-      iconSize: [16,16], iconAnchor: [8,8]
+      html: '<div class="map-stop-icon" title="'+safeName+'">'+safeIcon+'</div>',
+      iconSize: [34,34], iconAnchor: [17,17]
     });
-    var m = L.marker([s.lat,s.lng],{icon:icon,title:s.name});
-    m.addTo(mapObj);
-    _stopMarkers.push(m);
+    var marker = L.marker([s.lat,s.lng],{icon:icon,title:s.name,zIndexOffset:10});
+    marker.on('click', function(){ selectStop(s,0,false); });
+    marker.addTo(mapObj);
+    _stopMarkers.push(marker);
+
+    var label = L.divIcon({
+      className: '',
+      html: '<div class="map-stop-label">'+safeName+'</div>',
+      iconSize: [0,0], iconAnchor: [-10,10]
+    });
+    var labelMarker = L.marker([s.lat,s.lng],{icon:label,title:s.name,zIndexOffset:10});
+    labelMarker.on('click', function(){ selectStop(s,0,false); });
+    labelMarker.addTo(mapObj);
+    _stopMarkers.push(labelMarker);
   });
 }
 
@@ -354,7 +366,18 @@ function selectStop(stop,distKmVal,outOfZone){
 function getCatalogRoutesForStop(stop){
   /* ปิดไว้ก่อน — รอ catalog format ตรงกับ logic 5 ตัวเลือก
      เมื่อ ERP พร้อม ค่อยเปิด block ด้านล่าง */
-  return null;
+  if(!stop||!_canonicalFareRows) return null;
+  var seen={};
+  return Object.keys(_canonicalFareRows).map(function(id){
+    var row=_canonicalFareRows[id]||{};
+    var fromKey=row.fromStopKey||row.originStopKey||'';
+    var fromName=row.fromNameTh||row.originNameTh||'';
+    if(fromKey!==stop.key&&fromName!==stop.name) return null;
+    var destination=row.toNameTh||row.destinationNameTh||row.toStopKey||row.destinationStopKey||'';
+    if(!destination||seen[destination]) return null;
+    seen[destination]=true;
+    return {dest:(stop.name||fromName)+' - '+destination,tag:'ERP',routeId:row.routeId||'',sourceRowId:row.sourceRowId||id};
+  }).filter(Boolean).sort(function(a,b){return String(a.dest).localeCompare(String(b.dest));});
 
   /* --- (reserved for future ERP integration) ---
   if(!_catalog||!window.SLTransitERP) return null;
@@ -364,8 +387,11 @@ function getCatalogRoutesForStop(stop){
 function renderRouteList(stop){
   var list=document.getElementById('route-list');
   if(!list) return;
+  if(!stopsReady||!_canonicalFareRows){
+    list.innerHTML='<div class="routes-empty">กำลังโหลดข้อมูลเส้นทางจาก ERP Data Center...</div>';
+    return;
+  }
   var routes=getCatalogRoutesForStop(stop);
-  if(!routes||!routes.length) routes=getFallbackRoutesForStop(stop);
   if(!routes||!routes.length) routes=[];
   if(!routes.length){
     list.innerHTML='<div class="routes-empty"><div class="empty-icon">🔎</div>ไม่พบเส้นทางในระบบ<br><small>กรุณารอข้อมูลโหลด หรือเลือกป้ายใหม่</small></div>';
@@ -415,13 +441,8 @@ var _gpsSettled=false;
    ป้องกัน pendingPos ค้างรอตลอดไป */
 setTimeout(function(){
   if(!stopsReady){
-    stopsReady=true;
-    if(pendingPos){
-      var res=findNearest(pendingPos);
-      pendingPos=null;
-      if(res.stop) selectStop(res.stop,res.dist,res.outOfZone);
-    }
-    if(mapReady) renderStopMarkers();
+    pendingPos=null;
+    setNearestError('ไม่สามารถโหลดข้อมูลป้ายจาก ERP Data Center ได้');
   }
 },3000);
 
@@ -518,16 +539,17 @@ window.locateUser=function(){
   });
 };
 
-/* FIREBASE - load stops and routes */
-if(typeof firebase!=="undefined"){
-firebase.initializeApp({
-  apiKey:"AIzaSyCzzJWvYLmm84anAnVKVTPTHeaUxT3X-pw",
-  authDomain:"bus-booking-1d68c.firebaseapp.com",
-  databaseURL:"https://bus-booking-1d68c-default-rtdb.firebaseio.com",
-  projectId:"bus-booking-1d68c",storageBucket:"bus-booking-1d68c.firebasestorage.app",
-  messagingSenderId:"481251007816",appId:"1:481251007816:web:d8554178d954e7de16e77d"
-});
-}
+/* FIREBASE - canonical ERP Data Center source */
+var INDEX_FIREBASE_CONFIG={
+  apiKey:'AIzaSyCkIm74ysuQ9Y2tFP9VkrGNvGg0a_LqeGg',
+  authDomain:'sl-transit-9464e.firebaseapp.com',
+  databaseURL:'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId:'sl-transit-9464e',
+  storageBucket:'sl-transit-9464e.firebasestorage.app',
+  messagingSenderId:'480076551107',
+  appId:'1:480076551107:android:f5929194925bc19fbfe376'
+};
+if(typeof firebase!=="undefined" && !firebase.apps.length) firebase.initializeApp(INDEX_FIREBASE_CONFIG);
 var db=firebase.database();
 
 /* ══════════════════════════════════════════
@@ -535,6 +557,9 @@ var db=firebase.database();
    โหลดครั้งเดียว → ใช้ทั่วหน้า
 ══════════════════════════════════════════ */
 var _catalog = null; /* เก็บ catalog ที่โหลดแล้ว */
+
+var _canonicalFareRows = null;
+var _canonicalMapView = null;
 
 function loadCatalog(){
   if(!window.SLTransitCatalog || typeof SLTransitCatalog.loadPublished !== 'function') return;
@@ -550,20 +575,33 @@ function loadCatalog(){
 }
 
 
-db.ref('routeData/stops').once('value').then(function(snap){
-  var val=snap.val();
+Promise.all([
+  db.ref('data/erpDataCenter/stops').once('value'),
+  db.ref('data/erpDataCenter/workbookSource/routeFareRows').once('value'),
+  db.ref('publishedSchedule/mapView').once('value')
+]).then(function(snaps){
+  var val=snaps[0].val();
+  _canonicalFareRows=snaps[1].val()||{};
+  _canonicalMapView=snaps[2].val()||{};
+  var mapStops=Array.isArray(_canonicalMapView.stops)?_canonicalMapView.stops:[];
   if(val){
     var fbStops=Object.keys(val).map(function(k){
       var s=val[k];
+      var mapStop=mapStops.filter(function(item){return item&&(item.stopKey===k||item.groupStopId===s.groupStopId);})[0]||{};
       return {
-        name:s.stopNameTh||s.name||k,
+        key:k,
+        stopKey:k,
+        name:s.displayNameTh||s.nameTh||s.name||k,
         lat:Number(s.lat),lng:Number(s.lng||s.lon),
-        terminal:s.stopType==='terminal'||!!s.terminal,
+        icon:s.icon||mapStop.icon||'\u{1F68F}',
+        order:Number(s.workbookOrder||s.order||999999),
+        terminal:s.stopType==='terminal'||s.classification==='terminal'||!!s.terminal,
         routes:Array.isArray(s.routes)?s.routes:null
       };
     }).filter(function(s){return s.lat&&s.lng;});
 
-    if(fbStops.length>=3){
+    if(fbStops.length){
+      fbStops.sort(function(a,b){return a.order-b.order||String(a.name).localeCompare(String(b.name));});
       STOPS.splice(0,STOPS.length);
       fbStops.forEach(function(s){STOPS.push(s);});
       /* re-render map markers ถ้าแผนที่พร้อมแล้ว */
@@ -581,8 +619,10 @@ db.ref('routeData/stops').once('value').then(function(snap){
   }
 
 }).catch(function(){
-  /* Firebase โหลดไม่ได้ — ใช้ STOPS พิกัดที่ฝังไว้ (ตำแหน่งป้าย) */
+  /* Firebase โหลดไม่ได้ — ไม่แสดงข้อมูลป้ายฝังเก่าเพื่อป้องกันข้อมูลคลาดเคลื่อน */
   stopsReady=true;
+  _canonicalFareRows={};
+  STOPS.splice(0,STOPS.length);
   if(mapReady) renderStopMarkers();
   if(pendingPos){
     var res=findNearest(pendingPos);
@@ -760,7 +800,6 @@ function loadAnnouncements(){
 function _startup(){
   setNearestLoading();
   loadAnnouncements();
-  loadCatalog();
   waitLeaflet();
   tryGPS();
 }

@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="assets/map-marker-styles.css?v=20260803a">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="catalog-engine.js?v=20260627catalog2"></script>
 <script src="erp-engine.js?v=20260627erp4"></script>
@@ -594,25 +595,9 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
   .site-footer-nav{justify-content:center}
 }
 
-/* ═══════════════════════════════════════════
-   MAP CUSTOM OVERLAYS
-═══════════════════════════════════════════ */
-.map-stop-dot{
-  width:14px;height:14px;border-radius:50%;
-  background:var(--teal);border:2.5px solid #fff;
-  box-shadow:0 2px 8px rgba(0,0,0,0.25);
-  cursor:pointer;transition:transform 0.15s;
-}
-.map-stop-dot:hover,.map-stop-dot.active{transform:scale(1.4);background:var(--amber)}
-.map-stop-dot.terminal{width:18px;height:18px;background:var(--navy)}
-.map-stop-label{
-  background:rgba(11,29,58,0.85);color:#fff;
-  border-radius:0 0 18px 18px;
-  box-shadow:0 12px 30px rgba(11,29,58,0.16);
-  font-family:'Sarabun',sans-serif;font-size:11px;font-weight:700;
-  padding:3px 8px;border-radius:6px;white-space:nowrap;cursor:pointer;
-  backdrop-filter:blur(4px);box-shadow:0 2px 8px rgba(0,0,0,0.20);
-}
+/* MAP CUSTOM OVERLAYS
+   Stop icon and label styling is shared with Passenger via
+   assets/map-marker-styles.css. */
 .map-user-dot{
   width:18px;height:18px;border-radius:50%;
   background:#2563eb;border:3px solid #fff;
@@ -869,7 +854,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--navy);min
 </div>
 
 <script src="user-location-center.js?v=20260716a"></script>
-<script src="index-logic.js?v=20260716a"></script>
+<script src="index-logic.js?v=20260803index1"></script>
 <script>
 /* ── UX: bottom-bar หยุดก่อน footer ──
    แก้ไข UX/UI ได้ที่นี่โดยไม่กระทบ logic
