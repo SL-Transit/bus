@@ -148,8 +148,9 @@
       ".write": false,
       ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
       "$bookingId": {
-        ".read": true,
-        ".write": "auth != null || (!data.exists() && newData.child('code').val() === $bookingId && newData.child('bookingCode').val() === $bookingId && newData.child('source').val() === 'booking1.html' && newData.child('sourceMode').val() === 'erp_data_center' && newData.child('status').val() === 'awaiting_payment' && ((newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false) || (newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true) || (newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite')) && newData.child('paymentOwnership').val() === 'sl_transit' && newData.child('externalPaymentRequired').val() === false && newData.child('testMode').val() === false && newData.child('mockPayment').val() === false && newData.child('name').isString() && newData.child('phone').isString() && newData.child('date').isString() && newData.child('time').isString() && newData.child('origin').isString() && newData.child('destination').isString() && newData.child('pax').isNumber() && newData.child('pax').val() >= 1 && newData.child('pax').val() <= 10 && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('fareAmount').isNumber() && newData.child('fareAmount').val() >= 0 && newData.child('publishedSchedule').child('readyForApply').val() === false)"
+        ".read": "auth != null",
+        ".write": "auth != null || (!data.exists() && newData.child('code').val() === $bookingId && newData.child('bookingCode').val() === $bookingId && newData.child('source').val() === 'booking1.html' && newData.child('sourceMode').val() === 'erp_data_center' && newData.child('status').val() === 'awaiting_payment' && ((newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false) || (newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true) || (newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite')) && newData.child('paymentOwnership').val() === 'sl_transit' && newData.child('externalPaymentRequired').val() === false && newData.child('testMode').val() === false && newData.child('mockPayment').val() === false && newData.child('name').isString() && newData.child('phone').isString() && newData.child('date').isString() && newData.child('time').isString() && newData.child('origin').isString() && newData.child('destination').isString() && newData.child('pax').isNumber() && newData.child('pax').val() >= 1 && newData.child('pax').val() <= 10 && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('fareAmount').isNumber() && newData.child('fareAmount').val() >= 0 && newData.child('publishedSchedule').child('readyForApply').val() === false)",
+        ".validate": "newData.child('name').val().length <= 120 && newData.child('phone').val().matches(/^0[689][0-9]{8}$/) && newData.child('date').val().matches(/^\\d{4}-\\d{2}-\\d{2}$/) && newData.child('time').val().matches(/^\\d{2}:\\d{2}$/) && newData.child('price').val() >= 0 && newData.child('fareAmount').val() >= 0"
       }
     },
     "analytics": {
@@ -212,8 +213,9 @@
     "ticketLocations": {
       ".read": false,
       "$bookingId": {
-        ".read": true,
-        ".write": true
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
       }
     },
     "fcmTokensByVehicle": {
@@ -226,7 +228,8 @@
       ".read": false,
       "$bookingId": {
         ".read": "auth != null && root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val()",
-        ".write": true
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
       }
     },
     "meta": {
