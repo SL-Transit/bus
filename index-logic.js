@@ -411,7 +411,9 @@ function getCatalogRoutesForStop(stop){
     };
   }
 
-  var main=groups.group_001&&groups.group_001.destinations||[];
+  var main=(groups.group_001&&groups.group_001.destinations||[]).filter(function(name){
+    return INDEX_RECOMMENDED_MAIN_STOPS[name] && name!==stop.name;
+  });
   var originOrder=Number(stop.order||stopOrder(stop.name));
   var mainRow1=[],mainRow2=[];
   main.forEach(function(name){
@@ -427,6 +429,8 @@ function getCatalogRoutesForStop(stop){
     }
   });
 
+  mainRow1=mainRow1.slice(0,2);
+  mainRow2=mainRow2.slice(0,3);
   var bangkok=(groups.group_002&&groups.group_002.destinations||[]).concat(groups.group_004&&groups.group_004.destinations||[]);
   var rows=[
     makeMainRow(mainRow1,'group_001_forward'),
@@ -639,6 +643,14 @@ var INDEX_SERVICE_GROUP_LABELS = {
   group_003: 'ชลบุรี / พัทยา / ระยอง',
   group_004: 'รังสิต',
   group_005: 'รถไฟ'
+};
+var INDEX_RECOMMENDED_MAIN_STOPS = {
+  'พนมสารคาม': true,
+  'สนามชัยเขต': true,
+  'ท่าตะเกียบ': true,
+  'หนองคอก': true,
+  'วังน้ำเย็น': true,
+  'คลองหาด': true
 };
 
 function readIndexValue(ref, timeoutMs){
