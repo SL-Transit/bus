@@ -381,21 +381,50 @@ function getCatalogRoutesForStop(stop){
     if(row.routeId&&groups[groupId].routeIds.indexOf(row.routeId)===-1) groups[groupId].routeIds.push(row.routeId);
     groups[groupId].order=Math.min(groups[groupId].order,Number(row.displayOrder||999999));
   });
-  return Object.keys(groups).map(function(groupId){
-    var group=groups[groupId];
+  function groupLabel(groupId, fallback){
     var record=_canonicalServiceGroups&&(_canonicalServiceGroups[groupId]||{});
-    var label=record.displayNameTh||record.nameTh||record.label||record.name||INDEX_SERVICE_GROUP_LABELS[groupId]||groupId;
+    return record.displayNameTh||record.nameTh||record.label||record.name||fallback||INDEX_SERVICE_GROUP_LABELS[groupId]||groupId;
+  }
+  function stopOrder(name){
+    for(var i=0;i<STOPS.length;i++) if(STOPS[i]&&STOPS[i].name===name) return Number(STOPS[i].order||i+1);
+    return 999999;
+  }
+  function makeRow(label, destinations, groupId){
     return {
       dest:(stop.name||'')+' - '+label,
-      sub:group.destinations.join(' / '),
+      sub:destinations.join(' / '),
       tag:'คิว',
       groupId:groupId,
-      routeId:group.routeIds[0]||'',
-      destinations:group.destinations
+      routeId:groups[groupId]&&groups[groupId].routeIds[0]||'',
+      destinations:destinations
     };
-  }).sort(function(a,b){
-    return (groups[a.groupId].order-groups[b.groupId].order)||String(a.dest).localeCompare(String(b.dest));
+  }
+
+  var main=groups.group_001&&groups.group_001.destinations||[];
+  var originOrder=Number(stop.order||stopOrder(stop.name));
+  var mainRow1=[],mainRow2=[];
+  main.forEach(function(name){
+    var order=stopOrder(name);
+    if(originOrder===1){
+      (order===2||order===3?mainRow1:mainRow2).push(name);
+    } else if(originOrder===15){
+      (order===7||order===8?mainRow1:mainRow2).push(name);
+    } else if(originOrder>=12){
+      (order>originOrder?mainRow1:mainRow2).push(name);
+    } else {
+      (order<originOrder?mainRow1:mainRow2).push(name);
+    }
   });
+
+  var bangkok=(groups.group_002&&groups.group_002.destinations||[]).concat(groups.group_004&&groups.group_004.destinations||[]);
+  var rows=[
+    makeRow(groupLabel('group_001','เส้นทางหลัก ฝั่งที่ 1'),mainRow1,'group_001_forward'),
+    makeRow(groupLabel('group_001','เส้นทางหลัก ฝั่งที่ 2'),mainRow2,'group_001_reverse'),
+    makeRow('เอกมัย / หมอชิต / รังสิต',bangkok,'group_002'),
+    makeRow(groupLabel('group_003','ชลบุรี / พัทยา / ระยอง'),groups.group_003&&groups.group_003.destinations||[],'group_003'),
+    makeRow(groupLabel('group_005','รถไฟ'),groups.group_005&&groups.group_005.destinations||[],'group_005')
+  ];
+  return rows;
 
   /* --- (reserved for future ERP integration) ---
   if(!_catalog||!window.SLTransitERP) return null;
