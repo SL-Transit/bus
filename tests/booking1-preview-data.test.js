@@ -37,9 +37,10 @@ function pageAncestors(html) {
 assert(bridge.includes("var WORKBOOK_SOURCE_PATH = 'data/erpDataCenter/workbookSource'"), 'Booking1 bridge must use ERP workbook source');
 assert(bridge.includes(".child('routeFareRows').once('value')"), 'Booking1 must read the canonical 244 fare rows');
 assert(bridge.includes(".child('scheduleRows').once('value')"), 'Booking1 must read the canonical 881 timetable rows');
+assert(bridge.includes("db.ref('data/erpDataCenter/serviceGroups').once('value')"), 'Booking1 must read canonical service groups');
 assert(bridge.includes('SLTransitWorkbookBookingSource.build'), 'Booking1 must project selections from canonical workbook rows');
 assert(!bridge.includes("child('pairs')"), 'Booking1 must not read the retired 508-pair projection');
-assert(booking1.includes('erp-workbook-booking-source.js?v=20260801a'), 'Booking1 must load the workbook booking source');
+assert(booking1.includes('erp-workbook-booking-source.js?v=20260803group1'), 'Booking1 must load the workbook booking source');
 assert(!bridge.includes("db.ref('routeData')"), 'Booking1 bridge must not read legacy routeData');
 assert(!bridge.includes('SLTransitCatalog.loadPublished'), 'Booking1 bridge must not load legacy publishedCatalog');
 assert(!bridge.includes('LEG2_DEST'), 'Booking1 bridge must not use static leg2 destination/fare table');

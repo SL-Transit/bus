@@ -5,7 +5,9 @@ const source = require('../erp-workbook-booking-source.js');
 
 const candidatePath = path.join(__dirname, '..', 'outputs', 'erp-workbook-source-review-20260801', 'sl-transit-erp-workbook-source-candidate.json');
 const candidate = JSON.parse(fs.readFileSync(candidatePath, 'utf8')).payload;
-const index = source.build(candidate.routeFareRows, candidate.scheduleRows, candidate.manifest);
+const index = source.build(candidate.routeFareRows, candidate.scheduleRows, candidate.manifest, {
+  group_001: { displayNameTh: 'เส้นทางหลัก', sortOrder: 1 }
+});
 
 assert.strictEqual(index.routeFareRowCount, 244);
 assert.strictEqual(index.scheduleRowCount, 881);
@@ -26,6 +28,8 @@ assert.strictEqual(index.selectedRouteByRowId(fare.sourceRowId).pairId, fare.sou
 const destinationOption = index.destinationOptionsByOrigin[fare.fromNameTh].find((option) => option.routeFareRowId === fare.sourceRowId);
 assert(destinationOption, 'fare route must produce a destination option');
 assert.strictEqual(destinationOption.nameTh, fare.toNameTh, 'Booking picker must receive the destination display name');
+assert(destinationOption.serviceGroupId, 'Booking picker must receive service group identity');
+assert(destinationOption.group, 'Booking picker must receive a visible service group label');
 
 const projectedTimes = [];
 for (const origin of index.originOptions) {
