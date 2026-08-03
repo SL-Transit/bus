@@ -1843,8 +1843,6 @@ body {
         <div class="consent-sub">กรุณาเลื่อนอ่านจนครบก่อนกดยืนยัน</div>
       </div>
       <div class="consent-body" id="consentBody" onscroll="onConsentScroll()">
-        <div id="consentPaymentSummary" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.7;color:#14532d;"></div>
-        <p class="consent-canonical-link" style="margin:0 0 10px;font-size:12px;color:var(--gray-text);">เอกสารฉบับเต็ม: <a href="info.html#policy" target="_blank" rel="noopener">เปิดนโยบายและเงื่อนไขทั้งหมดใน info.html</a></p>
         <div id="consentLoading" style="text-align:center;padding:20px;color:var(--gray-text);font-size:13px;">⏳ กำลังโหลดข้อความนโยบาย...</div>
         <div id="consentPolicyContent" style="display:none;"></div>
         <!-- fallback hardcode (แสดงถ้า Firebase ไม่ได้ตั้งค่า consentPolicy) -->
@@ -2188,7 +2186,6 @@ var BOOKING1_PAYMENT_FALLBACK = {
   phone: '082-9860032',
   description: 'กรุณาโอนเงินไปยังบัญชีด้านล่าง จากนั้นถ่ายภาพหลักฐานการโอนเงินและแนบในช่องที่กำหนด'
 };
-var BOOKING1_PAYMENT_CONTACT = Object.assign({}, BOOKING1_PAYMENT_FALLBACK);
 
 var BOOKING_ANN = { items: [], cur: 0, timer: null, dur: 5000, paused: false };
 var BOOKING_ANN_TYPE_COLOR = {
@@ -2861,7 +2858,6 @@ function selectPayMethod(method) {
       ? 'เมื่อยืนยันแล้ว หลักฐานการโอนเงินและข้อมูลการเดินทางจะถูกส่งให้เจ้าหน้าที่ทันที'
       : 'จองหน้างานสำเร็จแล้วชำระเงินกับเจ้าหน้าที่ที่ท่ารถหรือบนรถ';
   }
-  if (document.getElementById('consentOverlay') && document.getElementById('consentOverlay').classList.contains('show')) renderConsentPaymentSummary();
 }
 
 function onSlipSelectBooking1(input) {
@@ -2922,25 +2918,6 @@ function loadBooking1LongPolicy() {
   return BOOKING1_LONG_POLICY_PROMISE;
 }
 
-function renderConsentPaymentSummary() {
-  var el = document.getElementById('consentPaymentSummary');
-  if (!el) return;
-  var method = currentPayMethod || 'onsite';
-  var total = typeof getBookingTotal === 'function' ? getBookingTotal(state.pax || 1) : null;
-  var amount = total && total.status === 'ready' ? (total.total + ' บาท') : 'ตามยอดรวมที่แสดงในหน้าชำระเงิน';
-  var lines = ['รายละเอียดการชำระเงินของรายการนี้', 'ยอดที่ต้องชำระ: ' + amount];
-  if (method === 'onsite') {
-    lines.push('วิธี: จองหน้างาน — ชำระกับเจ้าหน้าที่ที่ท่ารถหรือบนรถ', 'ไม่ต้องโอนเงินและไม่ต้องแนบสลิป');
-  } else if (method === 'bank') {
-    lines.push('วิธี: โอนเงินผ่านบัญชีธนาคาร', 'ธนาคาร: ' + (BOOKING1_PAYMENT_CONTACT.bankName || '-'), 'เลขบัญชี: ' + (BOOKING1_PAYMENT_CONTACT.accountNo || '-'), 'ชื่อบัญชี: ' + (BOOKING1_PAYMENT_CONTACT.accountName || '-'), 'หลังโอนให้แนบสลิปในช่องที่กำหนด');
-  } else {
-    lines.push('วิธี: PromptPay / QR Payment', 'ชำระตามยอดรวม แล้วแนบหลักฐานตามที่ระบบกำหนด');
-  }
-  el.textContent = lines.join('\n');
-  el.style.whiteSpace = 'pre-line';
-  el.style.display = 'block';
-}
-
 function openConsentPopup(e) {
   if (e) e.preventDefault();
   var overlay = document.getElementById('consentOverlay');
@@ -2951,7 +2928,6 @@ function openConsentPopup(e) {
   var consentCheck = document.getElementById('consentCheck');
   if (consentCheck) consentCheck.checked = false;
   document.getElementById('consentScrollHint').style.display = 'block';
-  renderConsentPaymentSummary();
 
   /* Always prefer the canonical full policy from info.html; Firebase/embedded text is fallback only. */
   var policyEl   = document.getElementById('consentPolicyContent');
@@ -3175,7 +3151,6 @@ function closeTicketSavePopup() {
 function _applySettings(data) {
   data = data || {};
   data.payment = Object.assign({}, BOOKING1_PAYMENT_FALLBACK, data.payment || {});
-  BOOKING1_PAYMENT_CONTACT = Object.assign({}, data.payment);
   var set = function(id, v) { var e = document.getElementById(id); if (e && v != null) e.textContent = v; };
   set('paymentBankName',    data.payment && data.payment.bankName);
   set('paymentAccountNo',   data.payment && data.payment.accountNo);
