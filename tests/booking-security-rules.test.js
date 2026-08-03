@@ -23,6 +23,9 @@ assert.match(rules.operations.bookingCapacityByServiceDate['$serviceDate']['$cap
 assert.match(rules.ticketLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'ticket location payload must be bounded and timestamped');
 assert.match(rules.passengerLiveLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'shared location payload must be bounded and timestamped');
 assert.match(rules.data.settings['.write'], /adminAccounts/, 'settings writes must be admin-only');
+assert.strictEqual(rules.data.settings['.read'], false, 'ERP settings parent must not expose all settings publicly');
+assert.strictEqual(rules.settings['.read'], false, 'top-level settings parent must not expose vehicle settings publicly');
+assert.match(rules.settings.vehicles['$vehicleId']['.read'], /runtimeVehicleId/, 'vehicle settings must be driver/admin-scoped');
 assert.match(rules.data.fleet['.write'], /adminAccounts/, 'fleet writes must be admin-only');
 assert.strictEqual(rules.operations.bookings['$bookingId']['.write'], "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true", 'operational booking mirror writes must be admin-only');
 assert.strictEqual(rules.operations.driverLogs['.write'], false, 'driver log parent must not be broadly writable');

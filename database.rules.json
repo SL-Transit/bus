@@ -40,8 +40,17 @@
           ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "settings": {
-          ".read": true,
-          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          ".read": false,
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          "passengerMap": {
+            ".read": true
+          },
+          "driverMap": {
+            ".read": true
+          },
+          "nearestStopMap": {
+            ".read": true
+          }
         },
         "finance": {
           ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
@@ -63,8 +72,22 @@
         }
       },
       "settings": {
-        ".read": true,
-        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        ".read": false,
+        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        "queueRotation": {
+          ".read": true
+        },
+        "appUpdate": {
+          ".read": "auth != null"
+        },
+        "testMode": {
+          ".read": "auth != null"
+        },
+        "vehicles": {
+          "$vehicleId": {
+            ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"
+          }
+        }
       }
     },
     "operations": {
@@ -138,6 +161,24 @@
             ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId",
             ".write": false
           }
+        }
+      }
+    },
+    "settings": {
+      ".read": false,
+      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      "queueRotation": {
+        ".read": true
+      },
+      "appUpdate": {
+        ".read": "auth != null"
+      },
+      "testMode": {
+        ".read": "auth != null"
+      },
+      "vehicles": {
+        "$vehicleId": {
+          ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"
         }
       }
     },
