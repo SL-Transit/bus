@@ -424,6 +424,10 @@ function getCatalogRoutesForStop(stop){
     makeRow(groupLabel('group_003','ชลบุรี / พัทยา / ระยอง'),groups.group_003&&groups.group_003.destinations||[],'group_003'),
     makeRow(groupLabel('group_005','รถไฟ'),groups.group_005&&groups.group_005.destinations||[],'group_005')
   ];
+  ['group_001','group_002','group_003','group_004','group_005'].forEach(function(groupId){ delete groups[groupId]; });
+  Object.keys(groups).sort(function(a,b){ return groups[a].order-groups[b].order||String(a).localeCompare(String(b)); }).forEach(function(groupId){
+    rows.push(makeRow(groupLabel(groupId,groupId),groups[groupId].destinations,groupId));
+  });
   return rows;
 
   /* --- (reserved for future ERP integration) ---
