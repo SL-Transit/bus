@@ -399,6 +399,17 @@ function getCatalogRoutesForStop(stop){
       destinations:destinations
     };
   }
+  function makeMainRow(destinations, groupId){
+    var first=destinations[0]||'';
+    return {
+      dest:(stop.name||'')+(first?' - '+first:''),
+      sub:destinations.slice(1).join(' / '),
+      tag:'คิว',
+      groupId:groupId,
+      routeId:groups.group_001&&groups.group_001.routeIds[0]||'',
+      destinations:destinations
+    };
+  }
 
   var main=groups.group_001&&groups.group_001.destinations||[];
   var originOrder=Number(stop.order||stopOrder(stop.name));
@@ -418,8 +429,8 @@ function getCatalogRoutesForStop(stop){
 
   var bangkok=(groups.group_002&&groups.group_002.destinations||[]).concat(groups.group_004&&groups.group_004.destinations||[]);
   var rows=[
-    makeRow(groupLabel('group_001','เส้นทางหลัก ฝั่งที่ 1'),mainRow1,'group_001_forward'),
-    makeRow(groupLabel('group_001','เส้นทางหลัก ฝั่งที่ 2'),mainRow2,'group_001_reverse'),
+    makeMainRow(mainRow1,'group_001_forward'),
+    makeMainRow(mainRow2,'group_001_reverse'),
     makeRow('เอกมัย / หมอชิต / รังสิต',bangkok,'group_002'),
     makeRow(groupLabel('group_003','ชลบุรี / พัทยา / ระยอง'),groups.group_003&&groups.group_003.destinations||[],'group_003'),
     makeRow(groupLabel('group_005','รถไฟ'),groups.group_005&&groups.group_005.destinations||[],'group_005')
