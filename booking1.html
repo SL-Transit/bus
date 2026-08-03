@@ -2102,6 +2102,36 @@ body {
      ============================================================ -->
 <script>
 var global = window;
+
+/* LINE In-App Browser guard. Booking requires a top-level browser for the
+   Firebase/LIFF/payment flow; keep the old explicit hand-off behavior. */
+(function initLineBrowserGuard() {
+  function isLineInAppBrowser() {
+    return /Line\/([\d.]+)/i.test(navigator.userAgent || '');
+  }
+  function detectLineBrowser() {
+    if (!isLineInAppBrowser()) return;
+    if (window.location.search.indexOf('ext=1') !== -1) return;
+    var overlay = document.getElementById('lineBrowserOverlay');
+    if (overlay) overlay.classList.add('show');
+  }
+  function tryOpenExternal() {
+    var url = window.location.href;
+    if (url.indexOf('ext=1') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'ext=1';
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      window.location.href = 'googlechrome://' + url.replace(/^https?:\/\//, '');
+      setTimeout(function () { window.location.href = url; }, 1500);
+    } else {
+      window.location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+      setTimeout(function () { window.location.href = url; }, 1500);
+    }
+  }
+  global.isLineInAppBrowser = isLineInAppBrowser;
+  global.tryOpenExternal = tryOpenExternal;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', detectLineBrowser);
+  else detectLineBrowser();
+}());
 /* ============================================================
    FIREBASE INIT + ERP BRIDGE
    ============================================================ */
