@@ -411,6 +411,41 @@ exports.readAdminOperationalState = onRequest({
   }
 });
 
+exports.checkBookingControl = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "GET") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) { sendJson(res, 403, { status: "error", error: "origin_not_allowed" }); return; }
+  if (!checkAdminDashboardRate(origin)) { sendJson(res, 429, { status: "error", error: "rate_limited" }); return; }
+  try {
+    const q = req.query || {};
+    const ctx = {
+      serviceDate: String(q.serviceDate || "").trim(),
+      serviceGroupId: String(q.serviceGroupId || "").trim(),
+      routeId: String(q.routeId || "").trim(),
+      directionId: String(q.directionId || "").trim(),
+      tripId: String(q.tripId || "").trim(),
+      departureTime: String(q.departureTime || "").trim(),
+      boardingStopId: String(q.boardingStopId || "").trim(),
+      destinationStopId: String(q.destinationStopId || "").trim()
+    };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ctx.serviceDate)) { sendJson(res, 400, { status: "error", error: "invalid_service_date" }); return; }
+    const snap = await admin.database().ref("publishedBookingControls/current/controls").get();
+    const decision = adminOperationalCenter.evaluateControls(snap.val() || {}, ctx, Date.now());
+    sendJson(res, 200, { status: "ready", bookingOpen: decision.bookingOpen, state: decision.state, customerMessageTh: decision.customerMessageTh, controlId: decision.controlId || null });
+  } catch (err) {
+    console.error("checkBookingControl failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "booking_control_unavailable" });
+  }
+});
+
 exports.publishBookingControl = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 30,

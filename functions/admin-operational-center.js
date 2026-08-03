@@ -38,6 +38,32 @@ const CUSTOMER_MESSAGES = {
   destination_stop: "ป้ายปลายทางนี้ไม่เปิดรับการสำรองในเที่ยวดังกล่าว",
   open: "เปิดรับการสำรองที่นั่ง"
 };
+/* legacy text below is intentionally shadowed by the UTF-8 contract above */
+/*
+  temporarily_closed: "เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว",
+  full: "เที่ยวนี้เต็มแล้ว",
+  cancelled: "เที่ยวนี้ถูกยกเลิก",
+  delayed: "เที่ยวนี้ล่าช้า",
+  vehicle_changed: "เที่ยวนี้มีการเปลี่ยนรถ",
+  scheduled_closure: "เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว",
+  not_yet_open: "ยังไม่เปิดรับการสำรองที่นั่ง",
+  boarding_stop: "ป้ายนี้ไม่เปิดรับการสำรองในเที่ยวดังกล่าว",
+  destination_stop: "ป้ายปลายทางนี้ไม่เปิดรับการสำรองในเที่ยวดังกล่าว",
+  open: "เปิดรับการสำรองที่นั่ง"
+*/
+
+Object.assign(CUSTOMER_MESSAGES, {
+  temporarily_closed: "เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว",
+  full: "เที่ยวนี้เต็มแล้ว",
+  cancelled: "เที่ยวนี้ถูกยกเลิก",
+  delayed: "เที่ยวนี้ล่าช้า",
+  vehicle_changed: "เที่ยวนี้มีการเปลี่ยนรถ",
+  scheduled_closure: "เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว",
+  not_yet_open: "ยังไม่เปิดรับการสำรองที่นั่ง",
+  boarding_stop: "ป้ายนี้ไม่เปิดรับการสำรองในเที่ยวดังกล่าว",
+  destination_stop: "ป้ายปลายทางนี้ไม่เปิดรับการสำรองในเที่ยวดังกล่าว",
+  open: "เปิดรับการสำรองที่นั่ง"
+});
 
 function clean(value) {
   return String(value == null ? "" : value).trim();
