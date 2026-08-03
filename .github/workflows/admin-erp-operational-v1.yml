@@ -36,6 +36,7 @@ jobs:
         shell: bash
         run: java -version 2>&1 | tee java-version.txt && grep -q '21\.' java-version.txt
       - run: npm ci
+      - run: npm ci --prefix functions
       - run: npx playwright install --with-deps chromium
       - name: Run emulator, unit and rules tests
         run: npx firebase emulators:exec --project demo-sl-transit "npm run test:emulators"
