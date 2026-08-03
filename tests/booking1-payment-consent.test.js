@@ -13,4 +13,5 @@ assert(source.includes('function onConsentCheckChange()'), 'Consent checkbox mus
 assert(source.includes("fetch('info.html'"), 'Consent dialog must load the canonical long policy');
 assert(source.includes("querySelector('#policy')"), 'Consent dialog must load the canonical policy section');
 assert(source.includes('Always prefer the canonical full policy'), 'Canonical full policy must take precedence over short settings text');
+assert(source.includes('href="info.html#policy"'), 'Consent popup must expose the canonical info.html policy document');
 console.log('booking1 payment consent contract ok');
