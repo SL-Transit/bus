@@ -2885,8 +2885,8 @@ function loadBooking1LongPolicy() {
   var loadingEl = document.getElementById('consentLoading');
   var fallbackEl = document.getElementById('consentFallback');
   if (!policyEl) return Promise.resolve(false);
-  if (policyEl.innerHTML.trim()) return Promise.resolve(true);
   if (BOOKING1_LONG_POLICY_PROMISE) return BOOKING1_LONG_POLICY_PROMISE;
+  var existingPolicyHtml = policyEl.innerHTML.trim();
   if (loadingEl) loadingEl.style.display = 'block';
   if (fallbackEl) fallbackEl.style.display = 'none';
   BOOKING1_LONG_POLICY_PROMISE = fetch('info.html', { credentials: 'same-origin' })
@@ -2904,7 +2904,13 @@ function loadBooking1LongPolicy() {
     .catch(function(error) {
       console.warn('[Booking1] long policy load failed; using fallback policy', error);
       if (loadingEl) loadingEl.style.display = 'none';
-      if (fallbackEl) fallbackEl.style.display = 'block';
+      if (existingPolicyHtml) {
+        policyEl.innerHTML = existingPolicyHtml;
+        policyEl.style.display = 'block';
+        if (fallbackEl) fallbackEl.style.display = 'none';
+      } else if (fallbackEl) {
+        fallbackEl.style.display = 'block';
+      }
       onConsentCheckChange();
       return false;
     });
@@ -2942,21 +2948,14 @@ function openConsentPopup(e) {
   document.getElementById('consentScrollHint').style.display = 'block';
   renderConsentPaymentSummary();
 
-  /* Firebase policy, then the canonical long policy from info.html, then fallback */
+  /* Always prefer the canonical full policy from info.html; Firebase/embedded text is fallback only. */
   var policyEl   = document.getElementById('consentPolicyContent');
   var loadingEl  = document.getElementById('consentLoading');
   var fallbackEl = document.getElementById('consentFallback');
-  var hasFirebase = policyEl && policyEl.innerHTML.trim().length > 0;
-  if (hasFirebase) {
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (policyEl) policyEl.style.display = 'block';
-    if (fallbackEl) fallbackEl.style.display = 'none';
-  } else {
-    if (loadingEl) loadingEl.style.display = 'block';
-    if (policyEl) policyEl.style.display = 'none';
-    if (fallbackEl) fallbackEl.style.display = 'none';
-    loadBooking1LongPolicy();
-  }
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (policyEl) policyEl.style.display = 'none';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  loadBooking1LongPolicy();
 }
 
 function closeConsentPopup() {
