@@ -31,8 +31,8 @@ assert.strictEqual(rules.operations.bookings['$bookingId']['.write'], "auth != n
 assert.strictEqual(rules.operations.driverLogs['.write'], false, 'driver log parent must not be broadly writable');
 assert.match(rules.bookings['$bookingId']['.read'], /ownerUid/, 'booking reads must be owner-scoped');
 assert.match(rules.bookings['$bookingId']['.write'], /adminAccounts/, 'booking updates must not be available to every authenticated user');
-assert.match(rules.bookings['$bookingId']['.write'], /!data\.exists\(\)/, 'public booking path must be create-only');
-assert.match(rules.bookings['$bookingId']['.write'], /newData\.child\('ownerUid'\)\.val\(\) === auth\.uid/, 'booking creation must bind to the authenticated owner');
+assert.doesNotMatch(rules.bookings['$bookingId']['.write'], /!data\.exists\(\)/, 'browser must not have a direct create path');
+assert.doesNotMatch(rules.bookings['$bookingId']['.write'], /ownerUid/, 'booking writes must not trust browser ownership claims');
 assert.match(booking1, /firebase-auth-compat\.js/, 'Booking1 must load Firebase Auth');
 assert.match(booking1, /signInAnonymously/, 'Booking1 must establish an authenticated guest session');
 assert.match(bookingAdapter, /booking\.ownerUid = currentUser\.uid/, 'Booking1 must bind the created booking to the current auth UID');

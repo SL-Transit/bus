@@ -168,6 +168,84 @@ exports.reserveBookingCapacity = onRequest({
   }
 });
 
+function cleanBookingText(value, maxLength) {
+  const text = String(value == null ? "" : value).trim();
+  return text.length <= maxLength ? text : text.slice(0, maxLength);
+}
+
+function findPublishedPair(schedule, booking) {
+  const pairs = schedule && schedule.pairs || {};
+  const wanted = [booking.pairKey, booking.pairId, booking.canonicalPairKey].filter(Boolean).map(String);
+  for (const [key, pair] of Object.entries(pairs)) {
+    const candidates = [key, pair && pair.pairKey, pair && pair.pairId, pair && pair.canonicalPairKey, pair && pair.compatibilityPairKey].filter(Boolean).map(String);
+    if (wanted.some((value) => candidates.includes(value))) return pair;
+  }
+  return null;
+}
+
+exports.createBooking = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  try {
+    const decoded = await requireUserToken(req);
+    const body = parseJsonRequest(req);
+    const input = body.booking && typeof body.booking === "object" ? body.booking : {};
+    const code = cleanBookingText(input.code || input.bookingCode, 80);
+    const pax = Number(input.pax == null ? input.seats : input.pax);
+    const date = cleanBookingText(input.date || input.serviceDate, 10);
+    const phone = cleanBookingText(input.phone, 20);
+    if (!validCapacityPart(code, 80) || !Number.isInteger(pax) || pax < 1 || pax > 10 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^0[689]\d{8}$/.test(phone)) {
+      sendJson(res, 400, { status: "error", error: "invalid_booking_request" });
+      return;
+    }
+    const scheduleSnap = await admin.database().ref("publishedSchedule").get();
+    const schedule = scheduleSnap.val() || {};
+    if (schedule.readyForApply !== false) {
+      sendJson(res, 409, { status: "error", error: "published_schedule_not_ready" });
+      return;
+    }
+    const pair = findPublishedPair(schedule, input);
+    const serverFare = Number(pair && pair.fareAmount);
+    const serverFee = Number(pair && pair.fareContract && pair.fareContract.serviceFeeAmount || pair && pair.serviceFeeAmount || 0);
+    const expectedTotal = (serverFare + serverFee) * pax;
+    if (!pair || !Number.isFinite(serverFare) || serverFare < 0 || !Number.isFinite(serverFee) || serverFee < 0 || Number(input.fareAmount) !== serverFare || Number(input.price) !== expectedTotal || Number(input.fare) !== expectedTotal) {
+      sendJson(res, 409, { status: "error", error: "authoritative_price_mismatch" });
+      return;
+    }
+    const paymentMode = input.paymentMode === "onsite" ? "onsite" : "transfer";
+    const paymentStatus = paymentMode === "onsite" ? "pay_on_site" : (input.slipUploaded === true ? "slip_uploaded" : "awaiting_payment");
+    const booking = {
+      code, bookingCode: code, ownerUid: decoded.uid, source: "booking1.html", sourceMode: "erp_data_center",
+      name: cleanBookingText(input.name, 120), phone, pax, seats: pax, date, serviceDate: date,
+      time: cleanBookingText(input.time || input.pickupTime, 20), pickupTime: cleanBookingText(input.pickupTime || input.time, 20),
+      origin: cleanBookingText(input.origin, 120), destination: cleanBookingText(input.destination, 120),
+      originKey: cleanBookingText(input.originKey, 120), destKey: cleanBookingText(input.destKey, 120),
+      pairKey: cleanBookingText(input.pairKey, 160), pairId: cleanBookingText(input.pairId, 160), canonicalPairKey: cleanBookingText(input.canonicalPairKey, 160),
+      fare: expectedTotal, price: expectedTotal, fareAmount: serverFare, fareContract: pair.fareContract || null,
+      paymentMode, paymentStatus, slipUploaded: paymentStatus === "slip_uploaded", paymentOwnership: "sl_transit",
+      externalPaymentRequired: false, testMode: false, mockPayment: false, status: "awaiting_payment",
+      passengerIdentity: input.passengerIdentity || null, notificationPreference: input.notificationPreference || null,
+      consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
+      publishedSchedule: { readyForApply: false, schemaVersion: schedule.schemaVersion || "" }, createdAt: admin.database.ServerValue.TIMESTAMP
+    };
+    const bookingRef = admin.database().ref(`bookings/${code}`);
+    const result = await bookingRef.transaction((current) => current || booking);
+    if (!result.committed) {
+      sendJson(res, 409, { status: "error", error: "booking_already_exists" });
+      return;
+    }
+    sendJson(res, 201, { status: "ok", booking: result.snapshot.val() });
+  } catch (error) {
+    sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "booking_create_failed" });
+  }
+});
+
 function mergeSnapshots(snaps) {
   const out = {};
   snaps.forEach((snap) => {

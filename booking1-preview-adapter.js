@@ -1026,7 +1026,10 @@
       if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึกการจอง...'; }
       global.SLBookingBridge.reserveBookingCapacity(db, capacityContract).then(function(reservation) {
         booking.capacity = reservation;
-        return db.ref('bookings/' + booking.code).set(booking).catch(function(err) {
+        return global.SLBookingBridge.createBooking(booking).then(function(serverBooking) {
+          booking = serverBooking || booking;
+          return booking;
+        }).catch(function(err) {
           return global.SLBookingBridge.releaseBookingCapacity(db, capacityContract).then(function() { throw err; });
         });
       }).then(function() {

@@ -334,6 +334,24 @@
     });
   }
 
+  function createBooking(booking) {
+    var auth = global.firebase && global.firebase.auth ? global.firebase.auth() : null;
+    var user = auth && auth.currentUser;
+    if (!user || typeof user.getIdToken !== 'function') return Promise.reject(new Error('BOOKING_AUTH_REQUIRED'));
+    return user.getIdToken().then(function(token) {
+      return fetch('https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/createBooking', {
+        method: 'POST', credentials: 'omit', cache: 'no-store',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking: booking })
+      });
+    }).then(function(response) {
+      return response.json().catch(function() { return {}; }).then(function(body) {
+        if (!response.ok) throw body;
+        return body.booking || body;
+      });
+    });
+  }
+
   function readBookingCapacityCounter(db, contract) {
     if (!db || typeof db.ref !== 'function' || !contract || !contract.counterPath) {
       return Promise.resolve(null);
@@ -647,6 +665,7 @@
     attachRuntimeCapacity: attachRuntimeCapacity,
     reserveBookingCapacity: reserveBookingCapacity,
     releaseBookingCapacity: releaseBookingCapacity,
+    createBooking: createBooking,
     buildBookingSnapshot: buildBookingSnapshot,
     getTransferBufferAsync: getTransferBufferAsync,
     get _catalog() { return null; },
