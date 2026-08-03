@@ -2753,6 +2753,34 @@ function _dateThaiShort() {
 
 /* ยืนยันชำระเงิน → หน้า 4 ตั๋ว */
 function goToTicket() {
+  var endpoint = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/checkBookingControl';
+  var params = new URLSearchParams({
+    serviceDate: _serviceDateISO(),
+    routeId: String((state.selectedTrip && (state.selectedTrip.routeId || state.selectedTrip.routeKey)) || ''),
+    tripId: String((state.selectedTrip && (state.selectedTrip.tripId || state.selectedTrip.tripKey)) || ''),
+    departureTime: String(state.tripTime || ''),
+    boardingStopId: String(state.originKey || ''),
+    destinationStopId: String(state.destKey || '')
+  });
+  var button = document.getElementById('btnConfirm');
+  if (button) { button.disabled = true; button.textContent = 'กำลังตรวจสอบเที่ยว...'; }
+  fetch(endpoint + '?' + params.toString(), { method: 'GET', credentials: 'omit', cache: 'no-store' })
+    .then(function(response) { return response.json().then(function(body) { return { ok: response.ok, body: body }; }); })
+    .then(function(result) {
+      if (!result.ok || !result.body || result.body.status !== 'ready') throw new Error('booking_control_unavailable');
+      if (result.body.bookingOpen !== true) {
+        alert(result.body.customerMessageTh || 'เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว');
+        throw new Error('booking_closed');
+      }
+      goToTicketAfterControl();
+    })
+    .catch(function(error) {
+      if (!error || error.message !== 'booking_closed') alert('ไม่สามารถตรวจสอบสถานะการจองได้ กรุณาลองใหม่');
+      if (button) { button.disabled = false; button.textContent = 'ยืนยันการชำระเงิน ›'; }
+    });
+}
+
+function goToTicketAfterControl() {
   var nameEl = document.getElementById('inp-name');
   var phoneEl = document.getElementById('inp-phone');
   var nameVal = nameEl ? nameEl.value.trim() : state.name;

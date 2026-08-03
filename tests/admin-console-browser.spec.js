@@ -1,8 +1,30 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
+const http = require('http');
+const fs = require('fs');
 
 const repoRoot = path.resolve(__dirname, '..');
-const pageUrl = 'file:///' + path.join(repoRoot, 'admin-erp.html').replace(/\\/g, '/');
+let server;
+let pageUrl;
+
+test.beforeAll(async () => {
+  server = http.createServer((req, res) => {
+    const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    const filePath = path.join(repoRoot, urlPath === '/' ? 'admin-erp.html' : urlPath.replace(/^\/+/, ''));
+    if (!filePath.startsWith(repoRoot) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      res.writeHead(404).end('not found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': filePath.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8' });
+    res.end(fs.readFileSync(filePath));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  pageUrl = `http://127.0.0.1:${server.address().port}/admin-erp.html?adminTestBypass=owner`;
+});
+
+test.afterAll(async () => {
+  if (server) await new Promise((resolve) => server.close(resolve));
+});
 
 test.beforeEach(async ({ page }) => {
   await page.goto(pageUrl);
@@ -56,4 +78,11 @@ test('Sidebar and mobile drawer remain usable', async ({ page }) => {
   await expect(page.locator('body')).toHaveClass(/nav-open/);
   await page.locator('#drawerOverlay').click();
   await expect(page.locator('body')).not.toHaveClass(/nav-open/);
+});
+
+test('Operational booking control UI is reachable on approved modules', async ({ page }) => {
+  await page.locator('[data-page="today"]').click();
+  await expect(page.locator('#page')).toContainText('ควบคุมการเปิดจอง');
+  await expect(page.locator('#controlScopeType')).toBeVisible();
+  await expect(page.locator('#publishCloseNow')).toBeVisible();
 });

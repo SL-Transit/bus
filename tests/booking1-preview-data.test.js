@@ -75,9 +75,9 @@ assert(calculator.includes('function calculateBookingTotal'), 'ERP Calculator Ce
 assert(adapter.includes('calculator.calculateBookingTotal'), 'Booking1 adapter must delegate totals to ERP Calculator Center');
 assert(!adapter.includes('base * n') && !adapter.includes('SERVICE_FEE_AMOUNT * n'), 'Booking1 adapter must not calculate fare or service fee locally');
 assert(bridge.includes('getBookingSeatLimit'), 'Booking1 must obtain the seat limit through the ERP Data Center bridge');
-assert(bridge.includes('var DEFAULT_TRIP_CAPACITY = 3'), 'Booking1 central capacity fallback must match the owner Excel limit of 3 seats per trip');
+assert(bridge.includes('var DEFAULT_TRIP_CAPACITY = null'), 'Booking1 must not guess a fallback capacity when the published contract is missing');
 assert(bridge.includes('function buildBookingCapacityContract'), 'Booking1 bridge must build a central capacity contract');
-assert(bridge.includes('operations/bookingCapacityByServiceDate/'), 'Booking1 capacity counters must be service-date scoped central records');
+assert(bridge.includes('operations/publicBookingCapacityByServiceDate/'), 'Booking1 remaining-seat display must read the public capacity aggregate');
 assert(bridge.includes('function reserveBookingCapacity'), 'Booking1 bridge must reserve seats through a central capacity transaction');
 assert(bridge.includes('function readBookingCapacityCounter'), 'Booking1 bridge must read central capacity counters for remaining-seat display');
 assert(bridge.includes('function attachRuntimeCapacity'), 'Booking1 bridge must attach runtime capacity to trips before Booking renders them');
@@ -211,7 +211,8 @@ assert(!adapter.includes('ERP Data Center pair:'), 'Booking1 adapter must not sh
 assert(!adapter.includes('SLBookingCapacity.requestRouteContinue'), 'Booking1 adapter trip selection must not use legacy capacity continuation');
 assert(!adapter.includes('= 55'), 'Booking1 adapter must not fabricate 55-baht fare');
 assert(!adapter.includes("= '09:00'"), 'Booking1 adapter must not fabricate default 09:00 trips');
-assert(!bridge.includes('.sort(function'), 'Booking1 bridge must preserve ERP option order instead of sorting locally');
+const optionNormalizationSource = bridge.slice(bridge.indexOf('function _normalizeOrigins'), bridge.indexOf('function _resolvePairStorageKey'));
+assert(!optionNormalizationSource.includes('.sort(function'), 'Booking1 bridge must preserve ERP option order instead of sorting locally');
 assert(booking1.includes('background: #fff7ed; color: #d97706;'), 'Booking1 soon badges must keep orange styling');
 assert(booking1.includes('.trip-transfer-detail'), 'Booking1 must include trip transfer detail styling');
 

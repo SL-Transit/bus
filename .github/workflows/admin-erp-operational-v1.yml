@@ -1,0 +1,44 @@
+name: Admin ERP Operational V1
+
+on:
+  pull_request:
+    paths:
+      - 'admin-erp.html'
+      - 'booking1.html'
+      - 'booking-bridge.js'
+      - 'functions/**'
+      - 'database.rules.json'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin-erp-operational-v1.yml'
+  push:
+    branches: [feat/admin-erp-operational-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  emulator-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify Java 21
+        shell: bash
+        run: java -version 2>&1 | tee java-version.txt && grep -q '21\.' java-version.txt
+      - run: npm ci
+      - run: npm ci --prefix functions
+      - run: npx playwright install --with-deps chromium
+      - name: Run emulator, unit and rules tests
+        run: npx firebase emulators:exec --project demo-sl-transit "npm run test:emulators"
+      - name: Run Admin browser tests
+        run: npm run test:browser

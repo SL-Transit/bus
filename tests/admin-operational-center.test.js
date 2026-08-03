@@ -1,0 +1,33 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const center = require('../functions/admin-operational-center.js');
+
+const actor = { uid: 'owner-1', role: 'owner' };
+const now = Date.parse('2026-07-30T09:00:00+07:00');
+const close = center.normalizeControl({ scope: { type: 'system' }, state: 'temporarily_closed', reason: 'weather', effectiveStartMs: now - 1000, effectiveEndMs: now + 3600000 }, actor, null, now);
+assert.strictEqual(close.workflowState, 'published');
+assert.strictEqual(center.evaluateControls({ [close.controlId]: close }, { serviceDate: '2026-07-30', tripId: 'trip_0900', departureTime: '09:00' }, now).bookingOpen, false);
+assert.strictEqual(center.evaluateControls({ [close.controlId]: close }, { serviceDate: '2026-07-30', tripId: 'trip_0900', departureTime: '09:00' }, now).customerMessageTh, 'เที่ยวนี้ปิดรับการสำรองที่นั่งชั่วคราว');
+const reopen = center.normalizeControl({ scope: { type: 'trip', tripId: 'trip_0900' }, state: 'open', effectiveStartMs: now - 500 }, actor, null, now + 1);
+assert.strictEqual(center.evaluateControls({ [close.controlId]: close, [reopen.controlId]: reopen }, { serviceDate: '2026-07-30', tripId: 'trip_0900', departureTime: '09:00' }, now).bookingOpen, true);
+const future = center.normalizeControl({ scope: { type: 'departure_time', departureTime: '12:00' }, state: 'scheduled_closure', effectiveStartMs: now + 3600000 }, actor, null, now);
+assert.strictEqual(center.evaluateControls({ [future.controlId]: future }, { serviceDate: '2026-07-30', departureTime: '12:00' }, now).bookingOpen, true);
+assert.strictEqual(center.summarizeControls({ [future.controlId]: future }, now).future, 1);
+
+const index = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+assert(index.includes('exports.readAdminOperationalState'));
+assert(index.includes('exports.publishBookingControl'));
+assert(index.includes('exports.rollbackBookingControl'));
+assert(index.includes('exports.checkBookingControl'));
+assert(index.includes('verifyIdToken(tokenMatch[1], true)'));
+const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
+const navSource = html.slice(html.indexOf('<nav class="nav"'), html.indexOf('</nav>', html.indexOf('<nav class="nav"')));
+assert(html.includes('ADMIN_OPERATIONAL_STATE_ENDPOINT'));
+assert(html.includes('ADMIN_BOOKING_CONTROL_ENDPOINT'));
+assert(html.includes('adminTestBypass') && html.includes('localhost'));
+assert(!navSource.includes('data-page="schedule"'));
+const booking1 = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'utf8');
+assert(booking1.includes('checkBookingControl'));
+assert(booking1.includes('customerMessageTh'));
+console.log('admin-operational-center.test.js OK');

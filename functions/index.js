@@ -11,6 +11,7 @@ const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
 const notificationCenter = require("./notification-center.js");
 const adminDashboardSummary = require("./admin-dashboard-summary.js");
+const adminOperationalCenter = require("./admin-operational-center.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -36,7 +37,7 @@ function setCors(req, res) {
   if (adminDashboardSummary.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
-    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }
 }
@@ -63,6 +64,30 @@ function sendJson(res, status, body) {
     return;
   }
   res.status(status).type("application/json").send(text);
+}
+
+async function requireOwner(req) {
+  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    const err = new Error("admin_token_required");
+    err.httpStatus = 401;
+    throw err;
+  }
+  const decoded = await admin.auth().verifyIdToken(tokenMatch[1], true);
+  if (!decoded || decoded.slTransitRole !== "owner") {
+    const err = new Error("owner_role_required");
+    err.httpStatus = 403;
+    throw err;
+  }
+  return { uid: decoded.uid, email: decoded.email || "", role: "owner", claims: decoded };
+}
+
+function sendAuthFailure(res, err) {
+  const status = err && err.httpStatus || 401;
+  sendJson(res, status === 403 ? 403 : 401, {
+    status: "error",
+    error: status === 403 ? "owner_role_required" : "admin_token_required"
+  });
 }
 
 function mergeSnapshots(snaps) {
@@ -120,18 +145,14 @@ exports.readAdminDashboardSummary = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  let includePrivateRefunds = false;
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (tokenMatch) {
-    try {
-      await admin.auth().verifyIdToken(tokenMatch[1]);
-      includePrivateRefunds = true;
-    } catch (err) {
-      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
-      return;
-    }
+  let actor;
+  try {
+    actor = await requireOwner(req);
+  } catch (err) {
+    sendAuthFailure(res, err);
+    return;
   }
+  const includePrivateRefunds = true;
   const range = String(req.query.range || "daily");
   const anchor = String(req.query.anchor || "");
   const now = Date.now();
@@ -209,14 +230,8 @@ exports.readAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const authHeader = String(req.headers.authorization || "");
-  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    await admin.auth().verifyIdToken(tokenMatch[1]);
+    await requireOwner(req);
     const snap = await admin.database().ref("data/erpDataCenter").get();
     res.set("Cache-Control", "private, max-age=30");
     res.status(200).type("application/json").send(JSON.stringify({
@@ -292,18 +307,8 @@ exports.updateAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
-  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
-  if (!tokenMatch) {
-    sendJson(res, 401, { status: "error", error: "admin_token_required" });
-    return;
-  }
   try {
-    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
-    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
-    if (adminSnap.val() !== true) {
-      sendJson(res, 403, { status: "error", error: "admin_account_required" });
-      return;
-    }
+    const decoded = await requireOwner(req);
     const body = parseJsonRequest(req);
     const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
     const paths = Object.keys(updates);
@@ -338,6 +343,240 @@ exports.updateAdminErpDataCenter = onRequest({
     }
     console.error("updateAdminErpDataCenter failed", { message });
     sendJson(res, 500, { status: "error", error: "erp_data_center_update_failed" });
+  }
+});
+
+exports.readAdminOperationalState = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  try {
+    await requireOwner(req);
+    const [controlsSnap, auditSnap, scheduleSnap] = await Promise.all([
+      admin.database().ref("publishedBookingControls/current/controls").get(),
+      admin.database().ref("adminAudit/bookingControls").limitToLast(30).get(),
+      admin.database().ref("publishedSchedule").get()
+    ]);
+    const controls = controlsSnap.val() || {};
+    sendJson(res, 200, {
+      status: "ready",
+      timezone: "Asia/Bangkok",
+      workflow: {
+        publishedVersion: (scheduleSnap.val() || {}).sourceCommitSha || "published",
+        draftVersion: "draft",
+        steps: ["Draft", "Validate", "Review", "Publish"]
+      },
+      bookingControls: {
+        status: "ready",
+        controls,
+        summary: adminOperationalCenter.summarizeControls(controls, Date.now()),
+        history: auditSnap.val() || {}
+      },
+      modules: {
+        operationsToday: "ready",
+        bookings: "read_only",
+        ticketsAndRefunds: "read_only",
+        erpDataManagement: "ready",
+        alerts: "ready",
+        announcements: "ready",
+        permissions: "read_only",
+        settings: "ready"
+      },
+      generatedAt: Date.now()
+    });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthFailure(res, err);
+      return;
+    }
+    console.error("readAdminOperationalState failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "admin_operational_state_unavailable" });
+  }
+});
+
+exports.checkBookingControl = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "GET") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) { sendJson(res, 403, { status: "error", error: "origin_not_allowed" }); return; }
+  if (!checkAdminDashboardRate(origin)) { sendJson(res, 429, { status: "error", error: "rate_limited" }); return; }
+  try {
+    const q = req.query || {};
+    const ctx = {
+      serviceDate: String(q.serviceDate || "").trim(),
+      serviceGroupId: String(q.serviceGroupId || "").trim(),
+      routeId: String(q.routeId || "").trim(),
+      directionId: String(q.directionId || "").trim(),
+      tripId: String(q.tripId || "").trim(),
+      departureTime: String(q.departureTime || "").trim(),
+      boardingStopId: String(q.boardingStopId || "").trim(),
+      destinationStopId: String(q.destinationStopId || "").trim()
+    };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ctx.serviceDate)) { sendJson(res, 400, { status: "error", error: "invalid_service_date" }); return; }
+    const snap = await admin.database().ref("publishedBookingControls/current/controls").get();
+    const decision = adminOperationalCenter.evaluateControls(snap.val() || {}, ctx, Date.now());
+    sendJson(res, 200, { status: "ready", bookingOpen: decision.bookingOpen, state: decision.state, customerMessageTh: decision.customerMessageTh, controlId: decision.controlId || null });
+  } catch (err) {
+    console.error("checkBookingControl failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "booking_control_unavailable" });
+  }
+});
+
+exports.publishBookingControl = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  try {
+    const actor = await requireOwner(req);
+    const body = parseJsonRequest(req);
+    const controlId = String(body.controlId || "").trim();
+    const previousSnap = controlId ? await admin.database().ref(`publishedBookingControls/current/controls/${controlId}`).get() : null;
+    const previous = previousSnap && previousSnap.val ? previousSnap.val() : null;
+    const now = Date.now();
+    const control = adminOperationalCenter.normalizeControl(Object.assign({}, body, { workflowState: "published" }), actor, previous, now);
+    const audit = {
+      actorUid: actor.uid,
+      actorRole: actor.role,
+      action: previous ? "booking_control_update" : "booking_control_create",
+      scope: control.scope,
+      oldValue: previous || null,
+      newValue: control,
+      reason: control.reason,
+      requestTimeMs: now,
+      effectiveTimeMs: control.effectiveStartMs,
+      version: control.version,
+      result: "published",
+      rollbackReference: control.auditReference
+    };
+    await admin.database().ref().update({
+      [`publishedBookingControls/current/controls/${control.controlId}`]: control,
+      [`adminAudit/bookingControls/${control.auditReference}`]: audit,
+      "publishedBookingControls/current/updatedAtMs": now,
+      "publishedBookingControls/current/version": control.version
+    });
+    sendJson(res, 200, { status: "ready", control, auditReference: control.auditReference });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthFailure(res, err);
+      return;
+    }
+    const status = err && err.httpStatus && err.httpStatus < 500 ? err.httpStatus : 500;
+    if (status < 500) {
+      sendJson(res, status, { status: "blocked", error: err.message || "invalid_booking_control" });
+      return;
+    }
+    console.error("publishBookingControl failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "booking_control_publish_failed" });
+  }
+});
+
+exports.rollbackBookingControl = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  try {
+    const actor = await requireOwner(req);
+    const body = parseJsonRequest(req);
+    const controlId = String(body.controlId || "").trim();
+    if (!/^[A-Za-z0-9_-]{3,160}$/.test(controlId)) {
+      sendJson(res, 400, { status: "blocked", error: "invalid_control_id" });
+      return;
+    }
+    const ref = admin.database().ref(`publishedBookingControls/current/controls/${controlId}`);
+    const snap = await ref.get();
+    const previous = snap.val();
+    if (!previous) {
+      sendJson(res, 404, { status: "blocked", error: "control_not_found" });
+      return;
+    }
+    const now = Date.now();
+    const rolled = adminOperationalCenter.normalizeControl({
+      controlId,
+      scope: previous.scope,
+      state: "open",
+      reason: String(body.reason || "rollback_latest_change"),
+      internalNote: "rollback from " + previous.currentState,
+      customerMessageTh: "เปิดรับการสำรองที่นั่ง",
+      effectiveStartMs: now,
+      rollbackOf: previous.auditReference
+    }, actor, previous, now);
+    await admin.database().ref().update({
+      [`publishedBookingControls/current/controls/${controlId}`]: rolled,
+      [`adminAudit/bookingControls/${rolled.auditReference}`]: {
+        actorUid: actor.uid,
+        actorRole: actor.role,
+        action: "booking_control_rollback",
+        scope: rolled.scope,
+        oldValue: previous,
+        newValue: rolled,
+        reason: rolled.reason,
+        requestTimeMs: now,
+        effectiveTimeMs: now,
+        version: rolled.version,
+        result: "published",
+        rollbackReference: previous.auditReference
+      }
+    });
+    sendJson(res, 200, { status: "ready", control: rolled, auditReference: rolled.auditReference });
+  } catch (err) {
+    if (err && (err.httpStatus === 401 || err.httpStatus === 403)) {
+      sendAuthFailure(res, err);
+      return;
+    }
+    console.error("rollbackBookingControl failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "booking_control_rollback_failed" });
   }
 });
 
