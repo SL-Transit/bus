@@ -3101,6 +3101,12 @@ public class MainActivity extends Activity {
         WebSettings ws = driverMapWebView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
+        ws.setAllowFileAccess(false);
+        ws.setAllowContentAccess(false);
+        ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ws.setSafeBrowsingEnabled(true);
+        }
         ws.setCacheMode(WebSettings.LOAD_NO_CACHE);
         driverMapWebView.clearCache(true);
         driverMapWebView.setWebViewClient(new WebViewClient() {
