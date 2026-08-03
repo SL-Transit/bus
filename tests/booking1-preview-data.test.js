@@ -173,7 +173,7 @@ assert(rules.includes("newData.child('paymentStatus').val() === 'slip_uploaded' 
 assert(rules.includes("newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false"), 'Booking1 public booking rule must keep non-slip bookings awaiting payment');
 assert(rules.includes("newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite'"), 'Booking1 public booking rule must allow validated pay-on-site bookings');
 assert(databaseRules.bookings['$bookingId']['.write'].includes("source').val() === 'booking1.html'"), 'Booking1 public create rule must be on legacy top-level bookings/{code}');
-assert.strictEqual(databaseRules.operations.bookings['$bookingId']['.write'], 'auth != null', 'operations/bookings must remain auth-only');
+assert.match(databaseRules.operations.bookings['$bookingId']['.write'], /adminAccounts/, 'operations/bookings writes must be admin-only');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');
 assert(adapter.includes("snapshot.payMethod === 'onsite' ? 'pay_on_site'"), 'Booking1 adapter must map onsite bookings to pay_on_site payment status');
 assert(adapter.includes('function withoutUndefined'), 'Booking1 adapter must remove undefined fields before Firebase writes');

@@ -7,7 +7,7 @@
       },
       "fleet": {
         ".read": "auth != null",
-        ".write": "auth != null",
+        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         "vehicles": {
           ".read": true
         }
@@ -70,7 +70,7 @@
       },
       "settings": {
         ".read": true,
-        ".write": "auth != null"
+        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
       }
     },
     "operations": {
@@ -79,7 +79,7 @@
         ".write": false,
         ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
         "$bookingId": {
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         }
       },
       "bookingCapacityByServiceDate": {
@@ -108,13 +108,20 @@
           ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
         }
       },
-      "ticketLocations": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      },
-      "driverLogs": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+    "ticketLocations": {
+      ".read": "auth != null",
+      ".write": false,
+      "$bookingId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
+      }
+    },
+    "driverLogs": {
+      ".read": "auth != null",
+      ".write": false,
+      "$vehicleId": {
+        ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true)"
+      }
       },
       "sosAlerts": {
         ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
