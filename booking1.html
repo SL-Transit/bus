@@ -1863,7 +1863,7 @@ body {
         </div><!-- end consentFallback -->
       </div><!-- end consentBody -->
       <div class="consent-footer">
-        <div class="consent-scroll-hint" id="consentScrollHint">⬇ เลื่อนอ่านจนสุดก่อนกดยืนยัน</div>
+        <button type="button" class="consent-scroll-hint" id="consentScrollHint" onclick="scrollConsentToBottom()" style="border:0;background:transparent;width:100%;cursor:pointer;text-decoration:underline;">⬇ แตะเพื่อเลื่อนอ่านจนสุดก่อนกดยืนยัน</button>
         <label class="consent-check-label" style="display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:13px;line-height:1.5;">
           <input type="checkbox" id="consentCheck" onchange="onConsentCheckChange()" style="margin-top:3px;accent-color:#0f766e;">
           <span>ข้าพเจ้าอ่านและยอมรับนโยบายและเงื่อนไขการใช้บริการทั้งหมด</span>
@@ -2958,6 +2958,17 @@ function onConsentScroll() {
   onConsentCheckChange();
 }
 
+function scrollConsentToBottom() {
+  var body = document.getElementById('consentBody');
+  if (!body) return;
+  if (typeof body.scrollTo === 'function') {
+    body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+  } else {
+    body.scrollTop = body.scrollHeight;
+  }
+  setTimeout(onConsentCheckChange, 450);
+}
+
 function acceptConsent() {
   var consentCheck = document.getElementById('consentCheck');
   if (!consentCheck || !consentCheck.checked) return;
@@ -2973,8 +2984,7 @@ function acceptConsent() {
   // อัปเดต UI
   document.getElementById('consentStatusBar').style.display = 'block';
   var btn = document.getElementById('consentTriggerBtn');
-  btn.textContent = '✅ อ่านและยอมรับข้อตกลงแล้ว';
-  btn.classList.add('accepted');
+  if (btn) { btn.style.display = 'none'; btn.classList.add('accepted'); }
 }
 
 function goToPage1() { showPage(1); renderTrips(); }
@@ -3024,7 +3034,7 @@ function resetBookingState() {
   var cBar = document.getElementById('consentStatusBar');
   var cBtn = document.getElementById('consentTriggerBtn');
   if (cBar) cBar.style.display = 'none';
-  if (cBtn) { cBtn.textContent = 'อ่านและยอมรับข้อตกลงการใช้บริการ'; cBtn.classList.remove('accepted'); }
+  if (cBtn) { cBtn.style.display = ''; cBtn.textContent = 'อ่านและยอมรับข้อตกลงการใช้บริการ'; cBtn.classList.remove('accepted'); }
 
   /* รีเซ็ต payment */
   if (typeof selectPayMethod === 'function') selectPayMethod('onsite');
