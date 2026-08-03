@@ -429,14 +429,14 @@ function getCatalogRoutesForStop(stop){
     mainRow1=endpointRows[0].filter(function(name){return main.indexOf(name)!==-1;});
     mainRow2=endpointRows[1].filter(function(name){return main.indexOf(name)!==-1;});
   } else {
-    main.forEach(function(name){
+    var endpointOne=main.filter(function(name){return stopOrder(name)===1;})[0]||'ฉะเชิงเทรา (แปดริ้ว)';
+    var endpointFifteen=main.filter(function(name){return stopOrder(name)===15;})[0]||'คลองหาด';
+    var middleRecommendations=main.filter(function(name){
       var order=stopOrder(name);
-      if(originOrder>=12){
-        (order>originOrder?mainRow1:mainRow2).push(name);
-      } else {
-        (order<originOrder?mainRow1:mainRow2).push(name);
-      }
+      return order!==1&&order!==15;
     });
+    mainRow1=[endpointOne].concat(middleRecommendations.slice(0,1));
+    mainRow2=middleRecommendations.slice(1,3).concat([endpointFifteen]);
   }
 
   mainRow1=mainRow1.slice(0,2);
