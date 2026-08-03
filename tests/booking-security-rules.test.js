@@ -19,7 +19,7 @@ assert.match(rules.driverCommands['$vehicleId'].lastResponse['.read'], /runtimeV
 assert.strictEqual(rules.operations.ticketLocations['.read'], false, 'operational ticket locations parent must not be broadly readable');
 assert.match(rules.driverCommands['$vehicleId'].command['.read'], /runtimeVehicleId/, 'driver commands must be vehicle-scoped');
 assert.doesNotMatch(rules.operations.bookingCapacityByServiceDate['$serviceDate']['$capacityKey']['.write'], /auth != null \|\|/, 'capacity writes must not allow unauthenticated bypass');
-assert.match(rules.operations.bookingCapacityByServiceDate['$serviceDate']['$capacityKey']['.write'], /seatsAvailable.*capacityLimit.*bookedSeats/, 'capacity writes must preserve the seat arithmetic');
+assert.match(rules.operations.bookingCapacityByServiceDate['$serviceDate']['$capacityKey']['.write'], /adminAccounts/, 'capacity counter writes must be backend/admin-only');
 assert.match(rules.ticketLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'ticket location payload must be bounded and timestamped');
 assert.match(rules.passengerLiveLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'shared location payload must be bounded and timestamped');
 assert.match(rules.data.settings['.write'], /adminAccounts/, 'settings writes must be admin-only');

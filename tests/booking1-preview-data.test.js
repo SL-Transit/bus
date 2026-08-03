@@ -83,7 +83,7 @@ assert(bridge.includes('function reserveBookingCapacity'), 'Booking1 bridge must
 assert(bridge.includes('function readBookingCapacityCounter'), 'Booking1 bridge must read central capacity counters for remaining-seat display');
 assert(bridge.includes('function attachRuntimeCapacity'), 'Booking1 bridge must attach runtime capacity to trips before Booking renders them');
 assert(bridge.includes('return attachRuntimeCapacity(_pairToTrips(pair, option, serviceDate))'), 'Booking1 async trip loading must enrich trips with central remaining seats');
-assert(bridge.includes('.transaction(function(current)'), 'Booking1 capacity reservation must use a Firebase transaction');
+assert(bridge.includes('cloudfunctions.net/reserveBookingCapacity'), 'Booking1 capacity reservation must use the backend endpoint');
 assert(adapter.includes('buildBookingCapacityContract'), 'Booking1 adapter must build a capacity contract before saving a booking');
 assert(adapter.includes('reserveBookingCapacity(db, capacityContract).then'), 'Booking1 adapter must reserve capacity before writing a booking');
 assert(adapter.includes('releaseBookingCapacity(db, capacityContract)'), 'Booking1 adapter must roll back capacity when booking write fails');

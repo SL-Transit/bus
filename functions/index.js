@@ -83,6 +83,91 @@ async function requireAdminToken(req) {
   return decoded;
 }
 
+async function requireUserToken(req) {
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    const error = new Error("user_token_required");
+    error.statusCode = 401;
+    throw error;
+  }
+  return admin.auth().verifyIdToken(tokenMatch[1]);
+}
+
+function validCapacityPart(value, maxLength) {
+  const text = String(value || "");
+  return text.length > 0 && text.length <= maxLength && /^[A-Za-z0-9_-]+$/.test(text);
+}
+
+function capacityCounterPath(serviceDate, capacityKey) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(serviceDate || "")) || !validCapacityPart(capacityKey, 240)) return null;
+  return `operations/bookingCapacityByServiceDate/${serviceDate}/${capacityKey}`;
+}
+
+exports.reserveBookingCapacity = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  try {
+    const decoded = await requireUserToken(req);
+    const body = parseJsonRequest(req);
+    const action = body.action || "reserve";
+    const path = capacityCounterPath(body.serviceDate, body.capacityKey);
+    const bookingCode = String(body.bookingCode || "");
+    const requestedSeats = Number(body.requestedSeats);
+    if (!path || !validCapacityPart(bookingCode, 80) || !Number.isInteger(requestedSeats) || requestedSeats < 1 || requestedSeats > 10) {
+      sendJson(res, 400, { status: "error", error: "invalid_capacity_request" });
+      return;
+    }
+    const ref = admin.database().ref(path);
+    if (action === "release") {
+      const result = await ref.transaction((current) => {
+        if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
+        const existing = current.bookings[bookingCode];
+        if (existing.ownerUid !== decoded.uid) return current;
+        const bookings = { ...current.bookings };
+        delete bookings[bookingCode];
+        const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - Number(existing.seats || requestedSeats));
+        return { ...current, bookedSeats, seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats), bookings, updatedAt: admin.database.ServerValue.TIMESTAMP };
+      });
+      sendJson(res, 200, { status: "ok", action: "release", committed: result.committed === true });
+      return;
+    }
+    const result = await ref.transaction((current) => {
+      if (!current || !Number.isInteger(Number(current.capacityLimit)) || Number(current.capacityLimit) < 1 || Number(current.capacityLimit) > 10) return;
+      const bookings = current.bookings || {};
+      const existing = bookings[bookingCode];
+      if (existing) return existing.ownerUid === decoded.uid ? current : undefined;
+      const bookedSeats = Math.max(0, Number(current.bookedSeats || 0));
+      const capacityLimit = Number(current.capacityLimit);
+      if (bookedSeats + requestedSeats > capacityLimit) return;
+      return {
+        ...current,
+        contractVersion: "booking_capacity_v1",
+        bookedSeats: bookedSeats + requestedSeats,
+        seatsAvailable: capacityLimit - bookedSeats - requestedSeats,
+        bookings: { ...bookings, [bookingCode]: { ownerUid: decoded.uid, seats: requestedSeats, status: "reserved", reservedAt: admin.database.ServerValue.TIMESTAMP } },
+        updatedAt: admin.database.ServerValue.TIMESTAMP
+      };
+    });
+    if (!result.committed) {
+      const snapshot = await ref.get();
+      const existing = snapshot.child(`bookings/${bookingCode}`).val();
+      sendJson(res, existing && existing.ownerUid === decoded.uid ? 200 : 409, { status: "error", error: existing ? "capacity_already_reserved" : "capacity_full_or_not_ready" });
+      return;
+    }
+    const value = result.snapshot.val() || {};
+    sendJson(res, 200, { status: "ok", action: "reserve", committed: true, capacityLimit: value.capacityLimit, bookedSeats: value.bookedSeats, seatsAvailable: value.seatsAvailable });
+  } catch (error) {
+    sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "capacity_request_failed" });
+  }
+});
+
 function mergeSnapshots(snaps) {
   const out = {};
   snaps.forEach((snap) => {
