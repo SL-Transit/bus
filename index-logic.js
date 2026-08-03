@@ -386,6 +386,7 @@ function getCatalogRoutesForStop(stop){
     return record.displayNameTh||record.nameTh||record.label||record.name||fallback||INDEX_SERVICE_GROUP_LABELS[groupId]||groupId;
   }
   function stopOrder(name){
+    if(INDEX_OWNER_STOP_ORDER[name]) return INDEX_OWNER_STOP_ORDER[name];
     for(var i=0;i<STOPS.length;i++){
       if(!STOPS[i]||STOPS[i].name!==name) continue;
       var value=Number(STOPS[i].order);
@@ -435,6 +436,12 @@ function getCatalogRoutesForStop(stop){
 
   mainRow1=mainRow1.slice(0,2);
   mainRow2=mainRow2.slice(0,3);
+  if(!mainRow1.length){
+    var forcedRow1=originOrder===1?['พนมสารคาม','สนามชัยเขต']:
+      originOrder===15?['ท่าตะเกียบ','หนองคอก']:
+      main.filter(function(name){return stopOrder(name)<originOrder;}).slice(-2);
+    mainRow1=forcedRow1.filter(function(name){return main.indexOf(name)!==-1;}).slice(0,2);
+  }
   var bangkok=(groups.group_002&&groups.group_002.destinations||[]).concat(groups.group_004&&groups.group_004.destinations||[]);
   var rows=[
     makeMainRow(mainRow1,'group_001_forward'),
@@ -655,6 +662,11 @@ var INDEX_RECOMMENDED_MAIN_STOPS = {
   'หนองคอก': true,
   'วังน้ำเย็น': true,
   'คลองหาด': true
+};
+var INDEX_OWNER_STOP_ORDER = {
+  'ฉะเชิงเทรา (แปดริ้ว)':1,'ฉะเชิงเทรา':1,'พนมสารคาม':2,'ท่ารถสนามชัยเขต':3,'สนามชัยเขต':3,
+  'กม.1':4,'กม.7':5,'ห้วยโสม':6,'ท่าตะเกียบ':7,'หนองคอก':8,'คลองตะเคียน':9,
+  'หนองเรือ':10,'ไพรจิต':11,'ทุ่งกบินทร์':12,'สี่แยกโคนม':13,'วังน้ำเย็น':14,'คลองหาด':15
 };
 
 function readIndexValue(ref, timeoutMs){
