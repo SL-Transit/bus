@@ -386,7 +386,11 @@ function getCatalogRoutesForStop(stop){
     return record.displayNameTh||record.nameTh||record.label||record.name||fallback||INDEX_SERVICE_GROUP_LABELS[groupId]||groupId;
   }
   function stopOrder(name){
-    for(var i=0;i<STOPS.length;i++) if(STOPS[i]&&STOPS[i].name===name) return Number(STOPS[i].order||i+1);
+    for(var i=0;i<STOPS.length;i++){
+      if(!STOPS[i]||STOPS[i].name!==name) continue;
+      var value=Number(STOPS[i].order);
+      return isFinite(value)&&value>0&&value<1000?value:i+1;
+    }
     return 999999;
   }
   function makeRow(label, destinations, groupId){
@@ -414,7 +418,7 @@ function getCatalogRoutesForStop(stop){
   var main=(groups.group_001&&groups.group_001.destinations||[]).filter(function(name){
     return INDEX_RECOMMENDED_MAIN_STOPS[name] && name!==stop.name;
   });
-  var originOrder=Number(stop.order||stopOrder(stop.name));
+  var originOrder=stopOrder(stop.name);
   var mainRow1=[],mainRow2=[];
   main.forEach(function(name){
     var order=stopOrder(name);
@@ -468,7 +472,7 @@ function renderRouteList(stop){
       '<div class="route-bus-icon"><img src="assets/icon-bus-pin-teal.png" width="28" height="28" style="object-fit:contain" alt=""></div>'+
       '<div style="flex:1;min-width:0">'+
         '<div class="route-name">'+escHtml(r.dest||r.name||'')+'</div>'+
-        (r.sub?'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+escHtml(r.sub)+'</div>':'')+
+         (r.sub?'<div style="font-size:11px;color:var(--navy);font-weight:600;margin-top:2px">'+escHtml(r.sub)+'</div>':'')+
       '</div>'+
       '<div class="route-cta">เลือกเที่ยว ›</div>'+
     '</a>';
