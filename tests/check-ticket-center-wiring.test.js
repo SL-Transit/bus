@@ -9,8 +9,11 @@ assert(html.includes('erp-calculator-center.js'), 'Check Ticket must load ERP Ca
 assert(html.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
 assert(html.includes('erp-alert-center.js'), 'Check Ticket must load ERP Alert Center');
 assert(html.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read stop/map data from publishedSchedule mapView');
-assert(html.includes("db.ref('publishedSchedule').child('pairs').child(storageKey).once('value')"), 'Check Ticket must lazy-read its exact timetable pair from ERP Data Center');
-assert(html.includes("db.ref('publishedSchedule/firebaseKeyEncoding').once('value')"), 'Check Ticket must resolve only ERP-provided pair keys');
+assert(html.includes('TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null'), 'Check Ticket must consume ERP Map display policy from mapView');
+assert(html.includes('TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers.scaleMode'), 'Check Ticket stop marker behavior must follow ERP Map display policy');
+assert(html.includes("db.ref('data/erpDataCenter/workbookSource')"), 'Check Ticket must read canonical ERP workbook rows');
+assert(html.includes('SLTransitWorkbookBookingSource.build'), 'Check Ticket must project the booked route from fare and timetable rows');
+assert(!html.includes("child('pairs').child(storageKey)"), 'Check Ticket must not read the retired pair projection');
 assert(html.includes("db.ref('operations/liveVehicles')"), 'Check Ticket must read live vehicle data from operations/liveVehicles');
 assert(html.includes('normalizeTicketErpMapRoutes'), 'Check Ticket must normalize ERP Map route geometry');
 assert(html.includes('buildTrackingErpMapRouteCoords'), 'Check Ticket must build tracking route lines from ERP Map');

@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
     static final String KEY_BATTERY_PROMPTED  = "battery_prompted";
     static final String KEY_LAST_RESTART      = "last_restart";
     static final String KEY_RESTART_COUNT     = "restart_count";
+    static final String KEY_INAPP_NOTIF_LOG   = "inapp_notif_log";
     static final String KEY_LAST_GPS_AT       = "last_gps_at";
     static final String KEY_LAST_SENT_AT      = "last_sent_at";
     static final String KEY_WAKELOCK_HELD         = "diag_wakelock_held";
@@ -205,6 +206,10 @@ public class MainActivity extends Activity {
     // ===== หน้าแผนที่ (Grab/Uber-style live map) =====
     private WebView driverMapWebView;
     private boolean driverMapReady = false;
+    private DatabaseReference ticketListRelayRef;
+    private ValueEventListener ticketListRelayListener;
+    private final java.util.Map<String, ValueEventListener> passengerLocationListeners = new java.util.HashMap<>();
+    private final java.util.Map<String, DatabaseReference> passengerLocationRefs = new java.util.HashMap<>();
     private TextView mapBookedCount, mapCheckedCount, mapEarningsValue;
 
     // ===== หน้ารายงาน (Grab/Uber-style: hero earnings + tab ช่วงเวลา) =====
@@ -252,7 +257,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        loadPersistedNotifications();
         serviceAvailable = !"unavailable".equals(prefs.getString(KEY_SERVICE_STATUS, "available"));
         if (!ensureFirebaseApp()) {
             forceStopGpsForIdentityGate();
@@ -543,6 +551,18 @@ public class MainActivity extends Activity {
             driverIdentityRef = null;
             driverIdentityListener = null;
         }
+        if (ticketListRelayRef != null && ticketListRelayListener != null) {
+            try { ticketListRelayRef.removeEventListener(ticketListRelayListener); } catch (Exception ignored) {}
+            ticketListRelayRef = null;
+            ticketListRelayListener = null;
+        }
+        for (String bookingId : new java.util.ArrayList<>(passengerLocationRefs.keySet())) {
+            DatabaseReference ref = passengerLocationRefs.remove(bookingId);
+            ValueEventListener listener = passengerLocationListeners.remove(bookingId);
+            if (ref != null && listener != null) {
+                try { ref.removeEventListener(listener); } catch (Exception ignored) {}
+            }
+        }
     }
 
     private void reportVersionToFirebase() {
@@ -597,6 +617,10 @@ public class MainActivity extends Activity {
                 String previousRuntimeVehicleId = prefs.getString(KEY_VEHICLE_ID, null);
                 boolean vehicleChanged = previousRuntimeVehicleId != null
                         && !previousRuntimeVehicleId.equals(runtimeVehicleId);
+                try {
+                    com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                            .addOnSuccessListener(DriverFcmService::registerTokenForCurrentVehicle);
+                } catch (Exception ignored) {}
                 prefs.edit()
                         .putString(KEY_DRIVER_UID, uid)
                         .putString(KEY_DRIVER_ID, driverId == null ? "" : driverId)
@@ -864,6 +888,35 @@ public class MainActivity extends Activity {
         if (notifMessages.size() > 20) notifMessages.remove(notifMessages.size() - 1);
         unreadNotifCount++;
         updateNotifBubble();
+        appendPersistedNotification(prefs, message);
+    }
+
+    // เขียนแจ้งเตือนลง SharedPreferences ด้วย (ไม่ใช่แค่ list ในหน่วยความจำ) เพื่อให้ GpsService
+    // (ที่รันแยกจาก Activity และไม่มี notifMessages ของตัวเอง) เขียนแจ้งเตือนเข้ามาที่นี่ได้ด้วย —
+    // ตัวนี้คือจุดเชื่อมที่ทำให้แจ้งเตือนแบบ Android (จองตั๋วใหม่ ฯลฯ) โผล่ในหน้า "แจ้งเตือน"
+    // ของแอพด้วย ไม่ใช่แค่เด้งแล้วหายไปตอนปัดทิ้ง
+    static void appendPersistedNotification(SharedPreferences prefs, String message) {
+        if (prefs == null || message == null) return;
+        try {
+            String raw = prefs.getString(KEY_INAPP_NOTIF_LOG, "[]");
+            org.json.JSONArray existing = new org.json.JSONArray(raw);
+            org.json.JSONArray next = new org.json.JSONArray();
+            next.put(message);
+            for (int i = 0; i < existing.length() && next.length() < 20; i++) {
+                String m = existing.optString(i, "");
+                if (!message.equals(m)) next.put(m);
+            }
+            prefs.edit().putString(KEY_INAPP_NOTIF_LOG, next.toString()).apply();
+        } catch (Exception ignored) {}
+    }
+
+    private void loadPersistedNotifications() {
+        if (prefs == null) return;
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray(prefs.getString(KEY_INAPP_NOTIF_LOG, "[]"));
+            notifMessages.clear();
+            for (int i = 0; i < arr.length(); i++) notifMessages.add(arr.optString(i, ""));
+        } catch (Exception ignored) {}
     }
 
     private void updateNotifBubble() {
@@ -1029,7 +1082,7 @@ public class MainActivity extends Activity {
         if (!hasAuthenticatedDriverIdentity()) return;
         final String vehicleId = authorizedRuntimeVehicleId();
         if (vehicleId == null) return;
-        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+        String today = serviceDateToday();
         loadDriverTicketsForDate(today, vehicleId, new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snap) {
                 int booked = 0;
@@ -3048,18 +3101,116 @@ public class MainActivity extends Activity {
         WebSettings ws = driverMapWebView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
+        ws.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        driverMapWebView.clearCache(true);
         driverMapWebView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 driverMapReady = true;
                 updateLiveMap();
+                startTicketListRelay();
             }
         });
-        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html");
+        driverMapWebView.loadUrl("https://sl-transit.com/driver-map.html?v=20260728d");
         LinearLayout.LayoutParams mapLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
         page.addView(driverMapWebView, mapLp);
+        startTicketListRelay();
 
         return page;
+    }
+
+    // ส่งรายชื่อตั๋ววันนี้ของรถคันนี้ (เฉพาะ bookingId/ชื่อ/สถานะ ไม่มีเบอร์โทร) เข้าไปในหน้าเว็บแผนที่
+    // เพื่อให้หน้าเว็บไปฟัง operations/passengerLiveLocations/{bookingId} เองสำหรับตั๋วที่ยังไม่ขึ้นรถ
+    // และผู้โดยสารกดยินยอมแชร์ตำแหน่งไว้ — driver-map.html ไม่มี Firebase Auth ของตัวเอง จึงอ่าน
+    // driverTicketsByServiceDate เองไม่ได้ (ต้องผ่านฝั่ง native ที่ authenticated อยู่แล้วเท่านั้น)
+    private void startTicketListRelay() {
+        if (!hasAuthenticatedDriverIdentity()) return;
+        String vehicleId = authorizedRuntimeVehicleId();
+        if (vehicleId == null) return;
+        if (ticketListRelayRef != null && ticketListRelayListener != null) {
+            try { ticketListRelayRef.removeEventListener(ticketListRelayListener); } catch (Exception ignored) {}
+        }
+        String today = serviceDateToday();
+        ticketListRelayRef = FirebaseDatabase.getInstance()
+                .getReference(DRIVER_TICKETS_PATH).child(today).child(vehicleId);
+        ticketListRelayListener = new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                org.json.JSONArray arr = new org.json.JSONArray();
+                java.util.Set<String> activeIds = new java.util.HashSet<>();
+                for (DataSnapshot child : snap.getChildren()) {
+                    String status = String.valueOf(child.child("status").getValue());
+                    if ("cancelled".equals(status)) continue;
+                    String checkinStatus = String.valueOf(child.child("originCheckin").child("status").getValue());
+                    if ("boarded".equals(checkinStatus)) continue;
+                    activeIds.add(child.getKey());
+                    try {
+                        org.json.JSONObject t = new org.json.JSONObject();
+                        t.put("bookingId", child.getKey());
+                        t.put("name", child.child("name").getValue(String.class));
+                        t.put("phone", child.child("phone").getValue(String.class));
+                        arr.put(t);
+                    } catch (Exception ignored) {}
+                }
+                relayTicketListToMap(arr.toString());
+                syncPassengerLocationListeners(activeIds);
+            }
+            @Override public void onCancelled(DatabaseError error) {}
+        };
+        ticketListRelayRef.addValueEventListener(ticketListRelayListener);
+    }
+
+    // เปิด/ปิด listener ของ operations/passengerLiveLocations/{bookingId} ให้ตรงกับตั๋วที่ยัง active
+    // อยู่ในเที่ยวนี้เท่านั้น — ฝั่ง native เป็นผู้อ่าน Firebase เอง (ผ่านสิทธิ์ auth+เจ้าของรถที่ rules
+    // เช็คอยู่แล้ว) แล้วส่งพิกัดที่ผ่านการตรวจสอบสิทธิ์แล้วเข้าเว็บ ไม่ให้เว็บอ่าน Firebase ตรงๆ เอง
+    private void syncPassengerLocationListeners(java.util.Set<String> activeIds) {
+        for (String bookingId : new java.util.ArrayList<>(passengerLocationListeners.keySet())) {
+            if (!activeIds.contains(bookingId)) {
+                DatabaseReference ref = passengerLocationRefs.remove(bookingId);
+                ValueEventListener listener = passengerLocationListeners.remove(bookingId);
+                if (ref != null && listener != null) {
+                    try { ref.removeEventListener(listener); } catch (Exception ignored) {}
+                }
+                relayRemovePassengerLocation(bookingId);
+            }
+        }
+        for (final String bookingId : activeIds) {
+            if (passengerLocationListeners.containsKey(bookingId)) continue;
+            DatabaseReference ref = FirebaseDatabase.getInstance()
+                    .getReference("passengerLiveLocations").child(bookingId);
+            ValueEventListener listener = new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot snap) {
+                    Object latObj = snap.child("lat").getValue();
+                    Object lngObj = snap.child("lng").getValue();
+                    if (!(latObj instanceof Number) || !(lngObj instanceof Number)) {
+                        relayRemovePassengerLocation(bookingId);
+                        return;
+                    }
+                    relayPassengerLocation(bookingId, ((Number) latObj).doubleValue(), ((Number) lngObj).doubleValue());
+                }
+                @Override public void onCancelled(DatabaseError error) {}
+            };
+            ref.addValueEventListener(listener);
+            passengerLocationRefs.put(bookingId, ref);
+            passengerLocationListeners.put(bookingId, listener);
+        }
+    }
+
+    private void relayPassengerLocation(String bookingId, double lat, double lng) {
+        if (driverMapWebView == null || !driverMapReady) return;
+        driverMapWebView.evaluateJavascript(
+                "window.setPassengerLocation && window.setPassengerLocation(" + org.json.JSONObject.quote(bookingId) + "," + lat + "," + lng + ");", null);
+    }
+
+    private void relayRemovePassengerLocation(String bookingId) {
+        if (driverMapWebView == null || !driverMapReady) return;
+        driverMapWebView.evaluateJavascript(
+                "window.removePassengerLocation && window.removePassengerLocation(" + org.json.JSONObject.quote(bookingId) + ");", null);
+    }
+
+    private void relayTicketListToMap(String ticketsJson) {
+        if (driverMapWebView == null || !driverMapReady) return;
+        driverMapWebView.evaluateJavascript(
+                "window.setDriverTicketList && window.setDriverTicketList(" + ticketsJson + ");", null);
     }
 
     private LinearLayout buildMapStripStat(String label, TextView valueView) {
@@ -3101,7 +3252,7 @@ public class MainActivity extends Activity {
         if (mapBookedCount != null) mapBookedCount.setText(String.valueOf(prefs.getInt("today_total_pax", 0)));
         if (mapCheckedCount != null) mapCheckedCount.setText(String.valueOf(prefs.getInt("today_checked_in", 0)));
         if (mapEarningsValue != null) {
-            mapEarningsValue.setText(formatBaht(prefs.getFloat(KEY_TODAY_CHECKEDIN_AMOUNT, 0f)));
+            mapEarningsValue.setText(formatBaht(prefs.getFloat(KEY_TODAY_BOOKED_AMOUNT, 0f)));
         }
     }
 
@@ -3190,7 +3341,7 @@ public class MainActivity extends Activity {
         hero.addView(heroLabel);
 
         TextView heroAmount = new TextView(this);
-        heroAmount.setText(formatBaht(checkedInAmount));
+        heroAmount.setText(formatBaht(bookedAmount));
         heroAmount.setTextColor(Color.WHITE);
         heroAmount.setTextSize(36);
         heroAmount.setTypeface(Typeface.DEFAULT_BOLD);
@@ -3462,6 +3613,7 @@ public class MainActivity extends Activity {
             notifMessages.clear();
             unreadNotifCount = 0;
             updateNotifBubble();
+            if (prefs != null) prefs.edit().remove(KEY_INAPP_NOTIF_LOG).apply();
             buildNotifContent(root);
         });
         headerRow.addView(clearBtn);

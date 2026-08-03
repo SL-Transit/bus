@@ -15,8 +15,7 @@
  *
  * Firebase paths read (all live listeners, not one-time reads, so any
  * central change takes effect immediately with zero app changes):
- *   - data/erpDataCenter/catalog/stops        (stop pins: lat/lng/name/icon/order)
- *   - publishedSchedule/mapView/routes        (real road-following route polyline)
+ *   - publishedSchedule/mapView               (ERP Data Center stop pins/icons/road route)
  *   - data/erpDataCenter/settings/driverMap   (animation/zoom/initial-view config)
  */
 (function (global) {
@@ -32,8 +31,7 @@
     appId: "1:480076551107:android:f5929194925bc19fbfe376"
   };
 
-  var STOPS_PATH = 'data/erpDataCenter/catalog/stops';
-  var ROUTES_PATH = 'publishedSchedule/mapView/routes';
+  var MAP_VIEW_PATH = 'publishedSchedule/mapView';
   var DRIVER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/driverMap';
 
   var map = null;
@@ -46,6 +44,7 @@
   var lastLat = null, lastLng = null;
   var followMode = false;
   var animReq = null;
+  var pendingDriverPosition = null;
 
   // cfg มาจาก data/erpDataCenter/settings/driverMap เท่านั้น — ไม่มีค่าเริ่มต้นที่ "ตัดสินใจ" ไว้ล่วงหน้า
   // จนกว่าจะได้ค่าจริงจาก ERP, พฤติกรรมที่ยังไม่ระบุจะ fallback เป็นแบบไม่มีอนิเมชั่น/ซูมค้างตามที่ Leaflet
@@ -65,8 +64,48 @@
     });
   }
 
-  function initMap() {
-    map = L.map('map', { zoomControl: true }).setView([13.75, 101.4], 9); // มุมมองตั้งต้นชั่วคราว จนกว่า config/GPS จริงจะมาถึง
+  function stopMarkersAreFixedScreenSize(mapView) {
+    var policy = mapView && mapView.displayPolicy && mapView.displayPolicy.stopMarkers;
+    return policy && policy.scaleMode === 'fixed_screen_size';
+  }
+
+  function stopMarkerPolicy(mapView) {
+    return mapView && mapView.displayPolicy && mapView.displayPolicy.stopMarkers || {};
+  }
+
+  function policyNumber(value, fallback) {
+    var n = Number(value);
+    return isFinite(n) && n > 0 ? n : fallback;
+  }
+
+  function applyStopMarkerDisplayPolicy(mapView) {
+    var policy = stopMarkerPolicy(mapView);
+    var root = document.documentElement || document.body;
+    if (!root || !root.style) return;
+    root.style.setProperty('--erp-map-stop-icon-size', policyNumber(policy.iconSizePx, 34) + 'px');
+    root.style.setProperty('--erp-map-stop-icon-font-size', policyNumber(policy.iconFontSizePx, 18) + 'px');
+    root.style.setProperty('--erp-map-stop-label-font-size', policyNumber(policy.labelFontSizePx, 11) + 'px');
+    if (root.dataset) root.dataset.erpMapStopScaleMode = policy.scaleMode || '';
+  }
+
+  function leafletOptionsForMapView(mapView) {
+    var fixedStopMarkers = stopMarkersAreFixedScreenSize(mapView);
+    return {
+      zoomControl: true,
+      zoomAnimation: !fixedStopMarkers,
+      markerZoomAnimation: !fixedStopMarkers,
+      fadeAnimation: !fixedStopMarkers
+    };
+  }
+
+  function initMap(mapView) {
+    applyStopMarkerDisplayPolicy(mapView);
+    map = L.map('map', {
+      zoomControl: leafletOptionsForMapView(mapView).zoomControl,
+      zoomAnimation: leafletOptionsForMapView(mapView).zoomAnimation,
+      markerZoomAnimation: leafletOptionsForMapView(mapView).markerZoomAnimation,
+      fadeAnimation: leafletOptionsForMapView(mapView).fadeAnimation
+    }).setView([13.75, 101.4], 9); // มุมมองตั้งต้นชั่วคราว จนกว่า config/GPS จริงจะมาถึง
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
@@ -89,6 +128,7 @@
   }
 
   function applyInitialViewIfPossible() {
+    if (!map) return;
     if (!initialViewApplied && firstFix && cfg.initialCenterLat != null && cfg.initialCenterLng != null) {
       map.setView([cfg.initialCenterLat, cfg.initialCenterLng], cfg.initialZoom != null ? cfg.initialZoom : map.getZoom());
       initialViewApplied = true;
@@ -117,10 +157,87 @@
     animReq = requestAnimationFrame(step);
   }
 
+  var passengerMarkers = {};
+  var pendingTicketList = null;
+  var pendingPassengerLocations = [];
+
+  function ensurePassengerMarker(bookingId, name, phone) {
+    var entry = passengerMarkers[bookingId];
+    if (!entry) {
+      entry = { marker: null, name: name, phone: phone };
+      passengerMarkers[bookingId] = entry;
+    } else {
+      if (name) entry.name = name;
+      if (phone) entry.phone = phone;
+    }
+    if (entry.marker) refreshPassengerPopup(entry);
+    return entry;
+  }
+
+  function refreshPassengerPopup(entry) {
+    var name = escHtml(entry.name || 'ผู้โดยสาร');
+    var phoneDigits = String(entry.phone || '').replace(/[^0-9+]/g, '');
+    var phoneHtml = phoneDigits
+      ? '<a href="tel:' + phoneDigits + '" class="map-passenger-call">📞 ' + escHtml(entry.phone) + '</a>'
+      : '<span class="map-passenger-call map-passenger-call--none">ไม่มีเบอร์โทร</span>';
+    entry.marker.bindPopup('<div class="map-passenger-popup"><b>' + name + '</b><br>' + phoneHtml + '</div>');
+  }
+
+  function removePassengerMarker(bookingId) {
+    var entry = passengerMarkers[bookingId];
+    if (!entry) return;
+    if (entry.marker) map.removeLayer(entry.marker);
+    delete passengerMarkers[bookingId];
+  }
+
+  // เรียกจากแอพ Android ผ่าน evaluateJavascript('setPassengerLocation("BK123", lat, lng)') เท่านั้น —
+  // หน้าเว็บนี้ไม่มี Firebase Auth ของตัวเอง จึงไม่มีทางบังคับกฎ "คนขับที่ถูกมอบหมายเท่านั้นถึงจะอ่านได้"
+  // เอง ฝั่ง native (ที่ authenticated และผ่านการเช็คสิทธิ์ตาม Firebase rules อยู่แล้ว) เป็นผู้อ่าน
+  // Firebase แทนและส่งพิกัดที่ผ่านการตรวจสอบแล้วเข้ามาเท่านั้น
+  function setPassengerLocation(bookingId, lat, lng) {
+    if (!map) { pendingPassengerLocations.push({ bookingId: bookingId, lat: lat, lng: lng }); return; }
+    var entry = ensurePassengerMarker(bookingId);
+    if (!entry.marker) {
+      var icon = L.divIcon({ className: '', html: "<div class='map-passenger-dot'>👤</div>", iconSize: [30, 30], iconAnchor: [15, 15] });
+      entry.marker = L.marker([lat, lng], { icon: icon, zIndexOffset: 800 }).addTo(map);
+      refreshPassengerPopup(entry);
+    } else {
+      entry.marker.setLatLng([lat, lng]);
+    }
+  }
+
+  // เรียกจากแอพ Android เมื่อผู้โดยสารปิดการแชร์ หรือไม่ใช่ตั๋วที่ active แล้ว
+  function removePassengerLocation(bookingId) {
+    removePassengerMarker(bookingId);
+  }
+
+  // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverTicketList([...])') ทุกครั้งที่รายชื่อ
+  // ตั๋ววันนี้ของรถคันนี้เปลี่ยน (bookingId/name/phone) — คนขับคนนี้ผ่านการตรวจสิทธิ์ว่าเป็นผู้ได้รับ
+  // มอบหมาย booking นี้แล้วเท่านั้นถึงจะเห็นเบอร์โทร (ดู MainActivity.startTicketListRelay) — ใช้เพื่อ
+  // ตั้งชื่อ/เบอร์บนหมุด และล้างหมุดของตั๋วที่ไม่ active แล้ว (ขึ้นรถ/ยกเลิก) ตำแหน่งจริงมาจาก
+  // setPassengerLocation เท่านั้น
+  function setDriverTicketList(tickets) {
+    if (!map) { pendingTicketList = tickets; return; }
+    tickets = Array.isArray(tickets) ? tickets : [];
+    var activeIds = {};
+    tickets.forEach(function (t) {
+      if (!t || !t.bookingId) return;
+      activeIds[t.bookingId] = true;
+      ensurePassengerMarker(t.bookingId, t.name, t.phone);
+    });
+    Object.keys(passengerMarkers).forEach(function (id) {
+      if (!activeIds[id]) removePassengerMarker(id);
+    });
+  }
+
   // เรียกจากแอพ Android ผ่าน evaluateJavascript('setDriverPosition(lat,lng)') ทุกครั้งที่มีพิกัด GPS ใหม่
   function setDriverPosition(lat, lng) {
+    if (!map) {
+      pendingDriverPosition = { lat: lat, lng: lng };
+      return;
+    }
     if (!driverMarker) {
-      var icon = L.divIcon({ className: '', html: "<div class='map-user-dot'></div>", iconSize: [18, 18], iconAnchor: [9, 9] });
+      var icon = L.divIcon({ className: '', html: "<div class='map-bus-icon'><img src='assets/passenger-bus-icon.png' alt=''></div>", iconSize: [40, 40], iconAnchor: [20, 20] });
       driverMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 900 }).addTo(map);
       lastLat = lat; lastLng = lng;
     } else if (lastLat !== lat || lastLng !== lng) {
@@ -140,14 +257,17 @@
     }
   }
 
-  function renderStops(stops) {
+  function renderStops(stops, mapView) {
+    var policy = stopMarkerPolicy(mapView);
+    var iconSizePx = policyNumber(policy.iconSizePx, 34);
+    var labelAnchorY = iconSizePx + 10;
     stopMarkers.forEach(function (m) { map.removeLayer(m); });
     stopMarkers = [];
     stops.forEach(function (s) {
       var iconDiv = L.divIcon({
         className: '',
         html: "<div class='map-stop-icon'>" + escHtml(s.icon || '\uD83D\uDE8F') + "</div>",
-        iconSize: [34, 34], iconAnchor: [17, 17]
+        iconSize: [iconSizePx, iconSizePx], iconAnchor: [iconSizePx / 2, iconSizePx / 2]
       });
       var iconM = L.marker([s.lat, s.lng], { icon: iconDiv, title: s.name || '' }).addTo(map);
       stopMarkers.push(iconM);
@@ -155,29 +275,33 @@
       var labelDiv = L.divIcon({
         className: '',
         html: "<div class='map-stop-label'>" + escHtml(s.name) + "</div>",
-        iconSize: null, iconAnchor: [-6, 44]
+        iconSize: null, iconAnchor: [-6, labelAnchorY]
       });
       var labelM = L.marker([s.lat, s.lng], { icon: labelDiv, interactive: false }).addTo(map);
       stopMarkers.push(labelM);
     });
   }
 
-  function watchStops() {
-    db.ref(STOPS_PATH).on('value', function (snap) {
-      var val = snap.val() || {};
-      var stops = Object.keys(val).map(function (key) {
-        var s = val[key] || {};
+  function normalizeStops(rawStops) {
+    if (!rawStops) return [];
+    var source = Array.isArray(rawStops)
+      ? rawStops
+      : Object.keys(rawStops).map(function (key) {
+        var s = rawStops[key] || {};
+        if (s.stopKey == null && s.key == null) s.key = key;
+        return s;
+      });
+    return source.map(function (s, index) {
+        s = s || {};
         return {
           lat: Number(s.lat),
           lng: Number(s.lng),
-          name: s.nameTh || s.name || s.stopTh || key,
-          icon: s.icon || '',
-          order: s.order == null ? 999999 : Number(s.order)
+          name: s.label || s.displayNameTh || s.nameTh || s.name || s.stopTh || s.stopKey || s.key || '',
+          icon: s.icon || '\uD83D\uDE8F',
+          order: s.displayOrder == null ? index : Number(s.displayOrder)
         };
-      }).filter(function (s) { return isFinite(s.lat) && isFinite(s.lng); });
-      stops.sort(function (a, b) { return a.order - b.order; });
-      renderStops(stops);
-    });
+      })
+      .filter(function (s) { return isFinite(s.lat) && isFinite(s.lng); });
   }
 
   function renderRoute(points) {
@@ -187,20 +311,43 @@
     }
   }
 
-  function watchRoute() {
-    db.ref(ROUTES_PATH).on('value', function (snap) {
-      var val = snap.val() || {};
-      var points = [];
-      Object.keys(val).some(function (key) {
-        var route = val[key] || {};
-        if (route.geometryType !== 'road_polyline' || !Array.isArray(route.polyline)) return false;
-        var pts = route.polyline
-          .map(function (p) { return (p && isFinite(Number(p.lat)) && isFinite(Number(p.lng))) ? [Number(p.lat), Number(p.lng)] : null; })
-          .filter(Boolean);
-        if (pts.length > 1) { points = pts; return true; } // ใช้เส้นทางแรกที่มี geometry จริง
-        return false;
-      });
-      renderRoute(points);
+  function extractRoadRoute(rawRoutes) {
+    var val = rawRoutes || {};
+    var routes = Array.isArray(val) ? val : Object.keys(val).map(function (key) { return val[key]; });
+    var points = [];
+    routes.some(function (route) {
+      route = route || {};
+      if (route.geometryType !== 'road_polyline' || !Array.isArray(route.polyline)) return false;
+      var pts = route.polyline
+        .map(function (p) { return (p && isFinite(Number(p.lat)) && isFinite(Number(p.lng))) ? [Number(p.lat), Number(p.lng)] : null; })
+        .filter(Boolean);
+      if (pts.length > 1) { points = pts; return true; } // ใช้เส้นทางแรกที่มี geometry จริง
+      return false;
+    });
+    return points;
+  }
+
+  function watchMapView() {
+    db.ref(MAP_VIEW_PATH).on('value', function (snap) {
+      var mapView = snap.val() || {};
+      applyStopMarkerDisplayPolicy(mapView);
+      if (!map) {
+        initMap(mapView);
+        if (pendingDriverPosition) {
+          setDriverPosition(pendingDriverPosition.lat, pendingDriverPosition.lng);
+          pendingDriverPosition = null;
+        }
+        if (pendingTicketList) {
+          setDriverTicketList(pendingTicketList);
+          pendingTicketList = null;
+        }
+        if (pendingPassengerLocations.length) {
+          pendingPassengerLocations.forEach(function (p) { setPassengerLocation(p.bookingId, p.lat, p.lng); });
+          pendingPassengerLocations = [];
+        }
+      }
+      renderStops(normalizeStops(mapView.stops), mapView);
+      renderRoute(extractRoadRoute(mapView.routes));
     });
   }
 
@@ -218,13 +365,14 @@
     catch (e) { app = global.firebase.app(); }
     db = app.database();
 
-    initMap();
-    watchStops();
-    watchRoute();
+    watchMapView();
     watchConfig();
   }
 
   global.setDriverPosition = setDriverPosition;
+  global.setDriverTicketList = setDriverTicketList;
+  global.setPassengerLocation = setPassengerLocation;
+  global.removePassengerLocation = removePassengerLocation;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

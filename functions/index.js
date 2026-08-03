@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
@@ -9,6 +10,7 @@ const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
 const notificationCenter = require("./notification-center.js");
+const adminDashboardSummary = require("./admin-dashboard-summary.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -26,6 +28,318 @@ function formatThaiDate(date) {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return match ? `${match[3]}-${match[2]}-${match[1]}` : (value || "-");
 }
+
+const adminDashboardRateState = new Map();
+
+function setCors(req, res) {
+  const origin = req.headers.origin || "";
+  if (adminDashboardSummary.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+}
+
+function checkAdminDashboardRate(origin) {
+  const key = String(origin || "no-origin");
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const max = 60;
+  const state = adminDashboardRateState.get(key) || { start: now, count: 0 };
+  if (now - state.start > windowMs) {
+    state.start = now;
+    state.count = 0;
+  }
+  state.count += 1;
+  adminDashboardRateState.set(key, state);
+  return state.count <= max;
+}
+
+function sendJson(res, status, body) {
+  const text = JSON.stringify(body);
+  if (Buffer.byteLength(text, "utf8") > 256 * 1024) {
+    res.status(413).json({ status: "error", error: "response_too_large" });
+    return;
+  }
+  res.status(status).type("application/json").send(text);
+}
+
+function mergeSnapshots(snaps) {
+  const out = {};
+  snaps.forEach((snap) => {
+    const val = snap && snap.val && snap.val() || {};
+    Object.keys(val || {}).forEach((key) => { out[key] = val[key]; });
+  });
+  return out;
+}
+
+function dayMs(dayKey) {
+  const match = String(dayKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), -7, 0, 0, 0);
+}
+
+function mergeWebsiteAnalytics(days, range) {
+  if (range === "hourly") return null;
+  const out = {};
+  Object.keys(days || {}).forEach((dayKey) => {
+    const ms = dayMs(dayKey);
+    if (ms == null) return;
+    const bucketKey = adminDashboardSummary.bucketForMs(range, ms);
+    const rec = days[dayKey] || {};
+    out[bucketKey] = out[bucketKey] || { visitors: 0, actualUsers: 0 };
+    out[bucketKey].visitors += Number(rec.pageViews || 0);
+    out[bucketKey].actualUsers += Number(rec.count || 0);
+  });
+  return out;
+}
+
+exports.readAdminDashboardSummary = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  if (!checkAdminDashboardRate(origin)) {
+    sendJson(res, 429, { status: "error", error: "rate_limited" });
+    return;
+  }
+  let includePrivateRefunds = false;
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (tokenMatch) {
+    try {
+      await admin.auth().verifyIdToken(tokenMatch[1]);
+      includePrivateRefunds = true;
+    } catch (err) {
+      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+      return;
+    }
+  }
+  const range = String(req.query.range || "daily");
+  const anchor = String(req.query.anchor || "");
+  const now = Date.now();
+  const window = adminDashboardSummary.queryWindow(range, anchor || null, now);
+  const dateWindow = adminDashboardSummary.queryDateWindow(range, anchor || null, now);
+  if (!window) {
+    sendJson(res, 400, { status: "error", error: "invalid_range_or_anchor" });
+    return;
+  }
+  try {
+    const [
+      bookingSnap,
+      travelDateSnap,
+      travelServiceDateSnap,
+      cancelledSnap,
+      refundedSnap,
+      refundApprovedSnap,
+      fleetMasterSnap,
+      serviceGroupsSnap,
+      websiteAnalyticsSnap
+    ] = await Promise.all([
+      admin.database().ref("bookings").orderByChild("ts").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("bookings").orderByChild("date").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
+      admin.database().ref("bookings").orderByChild("serviceDate").startAt(dateWindow.startDate).endAt(dateWindow.endDate).get(),
+      admin.database().ref("bookings").orderByChild("cancelledAt").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("bookings").orderByChild("refundedAt").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("bookings").orderByChild("refundApprovedAt").startAt(window.startMs).endAt(window.endMs).get(),
+      admin.database().ref("data/erpDataCenter/fleet").get(),
+      admin.database().ref("data/erpDataCenter/serviceGroups").get(),
+      range === "hourly"
+        ? Promise.resolve(null)
+        : admin.database().ref("analytics/mainWeb").orderByKey().startAt(dateWindow.startDate).endAt(dateWindow.endDate).get()
+    ]);
+    const summary = adminDashboardSummary.aggregateDashboard(bookingSnap.val() || {}, {
+      range,
+      anchor: anchor || undefined,
+      nowMs: now,
+      travelRecords: mergeSnapshots([travelDateSnap, travelServiceDateSnap]),
+      cancelledRecords: cancelledSnap.val() || {},
+      refundedRecords: mergeSnapshots([refundedSnap, refundApprovedSnap]),
+      includePrivateRefunds,
+      fleetMaster: Object.assign({}, fleetMasterSnap.val() || {}, { serviceGroups: serviceGroupsSnap.val() || {} }),
+      websiteRollups: websiteAnalyticsSnap ? mergeWebsiteAnalytics(websiteAnalyticsSnap.val() || {}, range) : null
+    });
+    res.set("Cache-Control", "private, max-age=30");
+    sendJson(res, 200, summary);
+  } catch (err) {
+    console.error("readAdminDashboardSummary failed", { message: err && err.message ? err.message : String(err) });
+    sendJson(res, 500, { status: "error", error: "dashboard_summary_unavailable" });
+  }
+});
+
+exports.readAdminErpDataCenter = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "512MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  if (!checkAdminDashboardRate(origin)) {
+    sendJson(res, 429, { status: "error", error: "rate_limited" });
+    return;
+  }
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    sendJson(res, 401, { status: "error", error: "admin_token_required" });
+    return;
+  }
+  try {
+    await admin.auth().verifyIdToken(tokenMatch[1]);
+    const snap = await admin.database().ref("data/erpDataCenter").get();
+    res.set("Cache-Control", "private, max-age=30");
+    res.status(200).type("application/json").send(JSON.stringify({
+      status: "ready",
+      path: "data/erpDataCenter",
+      erpDataCenter: snap.val() || {},
+      generatedAt: Date.now()
+    }));
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (/token|auth|credential/i.test(message)) {
+      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+      return;
+    }
+    console.error("readAdminErpDataCenter failed", { message });
+    sendJson(res, 500, { status: "error", error: "erp_data_center_unavailable" });
+  }
+});
+
+function parseJsonRequest(req) {
+  if (req.body && typeof req.body === "object") return req.body;
+  if (!req.rawBody) return {};
+  try {
+    return JSON.parse(req.rawBody.toString("utf8") || "{}");
+  } catch (err) {
+    return {};
+  }
+}
+
+function scalarErpValue(value) {
+  return value === null || ["string", "number", "boolean"].indexOf(typeof value) !== -1;
+}
+
+function allowedErpUpdatePath(path) {
+  const value = String(path || "");
+  if (value.length > 220 || value.indexOf("..") !== -1 || value.indexOf("//") !== -1) return false;
+  return [
+    /^data\/erpDataCenter\/stops\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/serviceGroups\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/fares\/[^/]+\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/scheduleOffers\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/workbookSource\/routeFareRows\/fare_[0-9]{4}\/[^/]+$/,
+    /^data\/erpDataCenter\/workbookSource\/scheduleRows\/schedule_[0-9]{4}\/[^/]+$/,
+    /^data\/erpDataCenter\/stopTimes\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/fleet\/vehicles\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/paymentOwnership\/[^/]+\/[^/]+$/,
+    /^data\/erpDataCenter\/fleet\/assignmentRules\/[^/]+\/[^/]+$/
+  ].some((pattern) => pattern.test(value));
+}
+
+exports.updateAdminErpDataCenter = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    sendJson(res, 405, { status: "error", error: "method_not_allowed" });
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const emulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!adminDashboardSummary.originAllowed(origin, emulator)) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" });
+    return;
+  }
+  if (!checkAdminDashboardRate(origin)) {
+    sendJson(res, 429, { status: "error", error: "rate_limited" });
+    return;
+  }
+  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    sendJson(res, 401, { status: "error", error: "admin_token_required" });
+    return;
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
+    if (adminSnap.val() !== true) {
+      sendJson(res, 403, { status: "error", error: "admin_account_required" });
+      return;
+    }
+    const body = parseJsonRequest(req);
+    const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
+    const paths = Object.keys(updates);
+    if (!paths.length || paths.length > 50) {
+      sendJson(res, 400, { status: "error", error: "invalid_update_count" });
+      return;
+    }
+    const patch = {};
+    for (const path of paths) {
+      if (!allowedErpUpdatePath(path) || !scalarErpValue(updates[path])) {
+        sendJson(res, 400, { status: "error", error: "invalid_erp_update_path" });
+        return;
+      }
+      patch[path] = updates[path];
+    }
+    const auditKey = `admin_erp_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    patch[`data/erpDataCenter/meta/audit/${auditKey}`] = {
+      actorUid: decoded.uid,
+      actorEmail: decoded.email || "",
+      action: "admin_erp_update",
+      updateCount: paths.length,
+      paths,
+      createdAt: Date.now()
+    };
+    await admin.database().ref().update(patch);
+    sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (/token|auth|credential/i.test(message)) {
+      sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
+      return;
+    }
+    console.error("updateAdminErpDataCenter failed", { message });
+    sendJson(res, 500, { status: "error", error: "erp_data_center_update_failed" });
+  }
+});
 
 function bookingRouteText(booking) {
   if (booking.route) return String(booking.route);
@@ -186,6 +500,37 @@ exports.processNotificationJob = onValueCreated({ ref: "/operations/notification
     if (!classification.retry) { await dispatchRef.update({ status: classification.status, attempts: 1, failedAt: admin.database.ServerValue.TIMESTAMP, httpStatus: response.status, errorCode: `line_${response.status}` }); return; }
     if (attempt >= 3) { await dispatchRef.update({ status: "failed", attempts: attempt, failedAt: admin.database.ServerValue.TIMESTAMP, httpStatus: response.status, errorCode: `line_${response.status}` }); return; }
     attempt += 1; await dispatchRef.update({ attempts: attempt, httpStatus: response.status, errorCode: `line_${response.status}` });
+  }
+});
+
+exports.sendFcmWakeOnDriverCommand = onValueWritten({
+  ref: "/driverCommands/{vehicleId}/command",
+  instance: "sl-transit-9464e-default-rtdb",
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "128MiB",
+  maxInstances: 10
+}, async (event) => {
+  const vehicleId = event.params.vehicleId || "";
+  const command = event.data.after.exists() ? event.data.after.val() : null;
+  if (command !== "forceGpsRestart" || !vehicleId) return;
+
+  const tokenSnap = await admin.database().ref(`fcmTokensByVehicle/${vehicleId}`).get();
+  const token = tokenSnap.val();
+  if (!token) return; // ยังไม่มี token ของรถคันนี้ (แอพเวอร์ชันเก่ายังไม่รองรับ FCM) — ข้าม ไม่ error
+
+  try {
+    await admin.messaging().send({
+      token,
+      data: { type: "wake_gps", vehicleId },
+      android: { priority: "high" }
+    });
+  } catch (err) {
+    // token อาจหมดอายุ/ถูกถอนแอพไปแล้ว — ลบทิ้งกันค้างเป็นขยะ ไม่ต้อง throw ให้ retry
+    if (err && (err.code === "messaging/registration-token-not-registered"
+        || err.code === "messaging/invalid-registration-token")) {
+      await admin.database().ref(`fcmTokensByVehicle/${vehicleId}`).remove();
+    }
   }
 });
 

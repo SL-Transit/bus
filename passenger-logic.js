@@ -66,6 +66,7 @@
     }
     _readyPromise = global.SLTransit.core.init(_app).then(function () {
       startLiveVehicleFeed();
+      watchVehicleMarkerConfig();
       return { app: _app, db: _db };
     });
     return _readyPromise;
@@ -158,7 +159,40 @@
   var selDest   = '';
   var allBusPositions = {};
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
-  var BUS_MARKER_MOVE_MS = 450;
+  var PASSENGER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
+  // vehicleMarkerCfg มาจาก ERP (data/erpDataCenter/settings/passengerMap) เท่านั้น — ไม่มีค่าเริ่มต้นที่
+  // "ตัดสินใจ" ไว้ล่วงหน้า จนกว่าจะได้ค่าจริงจาก ERP, map-display-center.js จะข้าม
+  // behavior ที่ยังไม่ระบุ (ไม่ warp-limit, ไม่ dead-reckoning, ไม่ animate) แทนการเดาเลขเอง
+  var vehicleMarkerCfg = {
+    maxStepMeters: null,
+    maxReasonableSpeedMs: null,
+    maxPredictMs: null,
+    maxPredictMeters: null,
+    animationMinMs: null,
+    animationMaxMs: null,
+    animationRatio: null,
+    catchUpAfterGapMs: null,
+    staleAfterMs: null,
+    removeAfterMs: null,
+    wakeCommandAfterMs: null,
+    wakeCommandCooldownMs: null
+  };
+  function watchVehicleMarkerConfig() {
+    var db = getDb();
+    if (!db || typeof db.ref !== 'function') return function () {};
+    var ref = db.ref(PASSENGER_MAP_CONFIG_PATH);
+    var handler = function (snapshot) {
+      var v = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
+      v = v && typeof v === 'object' ? v : {};
+      Object.keys(vehicleMarkerCfg).forEach(function (key) {
+        vehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
+      });
+    };
+    ref.on('value', handler, function (err) {
+      console.error('watchVehicleMarkerConfig failed:', err && err.message ? err.message : err);
+    });
+    return function unsubscribe() { ref.off('value', handler); };
+  }
   var viewDir = 'go';
   var mapObj = null, busMarkers = {}, busTagMarkers = {}, routeLine = null, mapReady = false;
   var userLocationMarker = null;
@@ -285,6 +319,13 @@ function showUserLocationMarker(point) {
     console.warn('Passenger user location marker failed:', e2 && e2.message ? e2.message : e2);
     return false;
   }
+}
+
+function updateUserLocationPoint(point) {
+  var normalized = normalizeMapPoint(point);
+  if (!normalized) return false;
+  userLocationPoint = { lat: normalized.lat, lon: normalized.lon };
+  return showUserLocationMarker(userLocationPoint);
 }
 
 function focusUserLocation(point) {
@@ -657,9 +698,29 @@ function applyPublishedScheduleMapView(mapView) {
   PASSENGER_ROUTE_DATA = {
     stations: stations,
     mapRoutes: normalizePublishedScheduleMapRoutes(mapView.routes),
+    displayPolicy: mapView.displayPolicy || null,
     source: 'publishedSchedule.mapView'
   };
   applyPassengerRouteData(PASSENGER_ROUTE_DATA);
+}
+
+function passengerStopMarkerPolicy() {
+  return PASSENGER_ROUTE_DATA && PASSENGER_ROUTE_DATA.displayPolicy && PASSENGER_ROUTE_DATA.displayPolicy.stopMarkers || {};
+}
+
+function passengerPolicyNumber(value, fallback) {
+  var n = Number(value);
+  return isFinite(n) && n > 0 ? n : fallback;
+}
+
+function applyPassengerStopMarkerDisplayPolicy() {
+  var policy = passengerStopMarkerPolicy();
+  var root = document.documentElement || document.body;
+  if (!root || !root.style) return;
+  root.style.setProperty('--erp-map-stop-icon-size', passengerPolicyNumber(policy.iconSizePx, 34) + 'px');
+  root.style.setProperty('--erp-map-stop-icon-font-size', passengerPolicyNumber(policy.iconFontSizePx, 18) + 'px');
+  root.style.setProperty('--erp-map-stop-label-font-size', passengerPolicyNumber(policy.labelFontSizePx, 11) + 'px');
+  if (root.dataset) root.dataset.erpMapStopScaleMode = policy.scaleMode || '';
 }
 
 function applyPassengerRouteData(data) {
@@ -850,6 +911,10 @@ function clearStationMarkers() {
 
 function renderStationMarkers(routeData, skipEnsure) {
   if (!mapReady || !mapObj || !routeData || !Array.isArray(routeData.stations)) return;
+  applyPassengerStopMarkerDisplayPolicy();
+  var markerPolicy = passengerStopMarkerPolicy();
+  var iconSizePx = passengerPolicyNumber(markerPolicy.iconSizePx, 34);
+  var iconAnchor = iconSizePx / 2;
   clearStationMarkers();
   routeData.stations.forEach(function(s, i) {
     var point = normalizeMapPoint(s);
@@ -857,7 +922,7 @@ function renderStationMarkers(routeData, skipEnsure) {
     var safeName = String(s.name || '').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     var safeIcon = String(s.icon || '🚏').replace(/[&<>"']/g, function(ch) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); });
     try {
-      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: 17, y: 17 } } });
+      var marker = new longdo.Marker(point, { weight: longdo.OverlayWeight && longdo.OverlayWeight.Top, icon: { html: '<div class="map-stop-icon" onclick="window.selectPassengerStop(' + i + ')">' + safeIcon + '</div>', offset: { x: iconAnchor, y: iconAnchor } } });
       mapObj.Overlays.add(marker); stationMarkerOverlays.push(marker);
     } catch(e) { console.warn('Stop marker error:', e); }
     try {
@@ -930,7 +995,7 @@ function placeBusMarkerAt(carId, latlng, options) {
   var point = normalizeMapPoint(latlng);
   if (!point) return;
   if (busMarkers[carId] && busTagMarkers[carId]) {
-    var duration = options && options.durationMs != null ? options.durationMs : BUS_MARKER_MOVE_MS;
+    var duration = options && options.durationMs != null ? options.durationMs : 0;
     if (moveLongdoMarker(busMarkers[carId], point, duration) && moveLongdoMarker(busTagMarkers[carId], point, duration)) return;
   }
 
@@ -942,14 +1007,41 @@ function placeBusMarkerAt(carId, latlng, options) {
   busMarkers[carId] = new longdo.Marker(point, {
     title: 'Vehicle ' + label,
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-    icon: { html: '<div class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + '</div>', offset: { x: 20, y: 20 } }
+    icon: { html: '<div id="bus-icon-' + safeCarId + '" class="map-bus-icon" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + '</div>', offset: { x: 20, y: 20 } }
   });
   mapObj.Overlays.add(busMarkers[carId]);
   busTagMarkers[carId] = new longdo.Marker(point, {
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-    icon: { html: '<div class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + label + '</div>', offset: { x: 10, y: -20 } }
+    icon: { html: '<div id="bus-tag-' + safeCarId + '" class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + label + '</div>', offset: { x: 10, y: -20 } }
   });
   mapObj.Overlays.add(busTagMarkers[carId]);
+}
+
+function setBusMarkerStale(carId, isStale) {
+  var safeCarId = String(carId);
+  [ 'bus-icon-', 'bus-tag-' ].forEach(function(prefix) {
+    try {
+      var el = document.getElementById(prefix + safeCarId);
+      if (el) el.classList.toggle('is-stale', !!isStale);
+    } catch (e) {}
+  });
+}
+
+var _lastWakeCommandAttempt = {};
+
+function maybeSendWakeCommand(vehicleId, ageMs) {
+  var cfg = vehicleMarkerCfg;
+  if (cfg.wakeCommandAfterMs == null || ageMs <= cfg.wakeCommandAfterMs) return;
+  var cooldownMs = cfg.wakeCommandCooldownMs != null ? cfg.wakeCommandCooldownMs : 120000;
+  var now = Date.now();
+  var last = _lastWakeCommandAttempt[vehicleId] || 0;
+  if (now - last < cooldownMs) return;
+  _lastWakeCommandAttempt[vehicleId] = now;
+  var db = getDb();
+  if (!db || typeof db.ref !== 'function') return;
+  try {
+    db.ref('driverCommands/' + vehicleId + '/command').set('forceGpsRestart').catch(function() {});
+  } catch (e) {}
 }
 function updateAllBusesOnMap(buses) {
   allBusPositions = buses || {};
@@ -959,12 +1051,23 @@ function updateAllBusesOnMap(buses) {
   var signals = Object.keys(buses || {}).map(function(id) {
     return Object.assign({ vehicleId: id }, buses[id] || {});
   });
-  center.prepareVehicleLayer(signals, busDisplayState, { maxStepMeters: 250 }).forEach(function(item) {
+  center.prepareVehicleLayer(signals, busDisplayState, vehicleMarkerCfg).forEach(function(item) {
     if (!item || !item.vehicle || !item.point) return;
-    busDisplayState[item.vehicle.vehicleId] = item.displayState || { point: item.point };
-    placeBusMarkerAt(item.vehicle.vehicleId, item.point, {
+    var vehicleId = item.vehicle.vehicleId;
+    var lastGpsTs = item.displayState && item.displayState.lastGpsTs;
+    var ageMs = lastGpsTs ? (Date.now() - lastGpsTs) : 0;
+    if (vehicleMarkerCfg.removeAfterMs != null && ageMs > vehicleMarkerCfg.removeAfterMs) {
+      delete busDisplayState[vehicleId];
+      removeBusFromMap(vehicleId);
+      return;
+    }
+    busDisplayState[vehicleId] = item.displayState || { point: item.point };
+    placeBusMarkerAt(vehicleId, item.point, {
       durationMs: item.animation && item.animation.durationMs
     });
+    var isStale = vehicleMarkerCfg.staleAfterMs != null && ageMs > vehicleMarkerCfg.staleAfterMs;
+    setBusMarkerStale(vehicleId, isStale);
+    if (isStale) maybeSendWakeCommand(vehicleId, ageMs);
   });
   Object.keys(busDisplayState).forEach(function(id) {
     if (!buses[id]) {
@@ -1037,6 +1140,7 @@ function removeBusFromMap(carId) {
     updateVehicles: updateAllBusesOnMap,
     focusPoint: focusMap,
     focusUserLocation: focusUserLocation,
+    updateUserLocationPoint: updateUserLocationPoint,
     focusOrigin: focusSelectedOrigin,
 
     forceFocusOrigin: forceFocusSelectedOriginAfterMapReady,

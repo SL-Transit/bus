@@ -71,10 +71,52 @@
     });
   }
 
+  function watchCurrentUser(options) {
+    options = options || {};
+    var api = global.navigator && global.navigator.geolocation &&
+      typeof global.navigator.geolocation.watchPosition === 'function'
+      ? global.navigator.geolocation
+      : null;
+    if (!api) {
+      if (typeof options.onError === 'function') {
+        options.onError({ ok: false, reason: 'unsupported', point: null, error: null });
+      }
+      return { stop: function() {} };
+    }
+    var watchId = api.watchPosition(function(position) {
+      var point = normalizePoint(position);
+      if (!point) {
+        if (typeof options.onError === 'function') {
+          options.onError({ ok: false, reason: 'invalid_position', point: null, error: null, raw: position || null });
+        }
+        return;
+      }
+      var adapter = options.mapAdapter || {};
+      if (typeof adapter.updateUserLocation === 'function') {
+        adapter.updateUserLocation(point, options);
+      } else if (typeof adapter.focusUserLocation === 'function') {
+        adapter.focusUserLocation(point, options);
+      }
+      if (typeof options.onUpdate === 'function') {
+        options.onUpdate(point, { ok: true, reason: 'ok', point: point, raw: position || null });
+      }
+    }, function(error) {
+      if (typeof options.onError === 'function') {
+        options.onError({ ok: false, reason: 'error', point: null, error: error || null });
+      }
+    }, geolocationOptions(options));
+    return {
+      stop: function() {
+        try { api.clearWatch(watchId); } catch (e) {}
+      }
+    };
+  }
+
   global.SLTransitUserLocation = {
     normalizePoint: normalizePoint,
     requestCurrentPosition: requestCurrentPosition,
-    focusCurrentUser: focusCurrentUser
+    focusCurrentUser: focusCurrentUser,
+    watchCurrentUser: watchCurrentUser
   };
 
   if (typeof module !== 'undefined' && module.exports) {

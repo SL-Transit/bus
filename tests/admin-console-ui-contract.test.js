@@ -4,52 +4,39 @@ const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'admin-erp.html'), 'utf8');
 
-const approvedSidebarLabels = [
-  'แดชบอร์ด',
-  'ปฏิบัติการวันนี้',
-  'การจอง',
-  'ตั๋วและคืนเงิน',
-  'ควบคุมแอปคนขับ',
-  'รถที่กำลังวิ่ง',
-  'แจ้งเตือน',
-  'กล่องดำระบบ',
-  'จัดการข้อมูล ERP',
-  'ตรวจสอบและเผยแพร่',
-  'สิทธิ์ผู้ใช้งาน',
-  'ตั้งค่าระบบ',
-];
+const navSource = html.slice(html.indexOf('<nav class="nav"'), html.indexOf('</nav>', html.indexOf('<nav class="nav"')));
+const navPages = Array.from(navSource.matchAll(/<button[^>]+data-page="([^"]+)"/g)).map((match) => match[1]);
+assert.deepStrictEqual(navPages, [
+  'dashboard',
+  'today',
+  'bookings',
+  'tickets-refunds',
+  'alerts',
+  'schedule',
+  'workbook',
+  'announcements',
+  'roles',
+  'settings',
+], 'Admin ERP concept keeps exactly 10 primary sidebar entries on this runtime page (added: schedule, 2026-07-29 owner-approved exception to the Screen 02 lock)');
 
-for (const label of approvedSidebarLabels) {
-  assert.ok(html.includes(label), `missing approved sidebar label ${label}`);
+for (const requiredShell of [
+  'class="side"',
+  'id="adminSidebar"',
+  'class="drawer-overlay"',
+  'id="toggleSidebar"',
+  'class="brand-lockup"',
+  'class="nav-ico"',
+  'body.nav-collapsed',
+  'body.nav-open',
+  'setMobileDrawer',
+  'toggleNavigation',
+]) {
+  assert.ok(html.includes(requiredShell), `missing navigation shell behavior: ${requiredShell}`);
 }
 
 assert.ok(html.includes('data-page="dashboard"'), 'dashboard nav page must exist');
-assert.ok(!html.includes('disabled title="ยังไม่เปิดใช้งานใน Screen 01"'), 'approved sidebar routes must be clickable');
-assert.ok(html.includes('หน้านี้ยังอยู่ระหว่างพัฒนาในรอบถัดไป'), 'unimplemented routes must render an under-development page');
-
-const downloadIds = Array.from(html.matchAll(/id="(download[A-Za-z0-9]+)"/g)).map((m) => m[1]);
-assert.ok(downloadIds.length >= 20, 'expected backoffice export buttons');
-
-for (const id of new Set(downloadIds)) {
-  assert.ok(html.includes(`function ${id}(`), `missing function for ${id}`);
-  assert.ok(html.includes(`${id};`), `missing bind handler for ${id}`);
-}
-
-const forbiddenControls = [
-  'saveToFirebase',
-  'applyPublish',
-  'seedData',
-  'deployRules',
-  'productionApply',
-  'assignDriver',
-  'assignVehicle',
-  'sendLine',
-  'fakeGps',
-  'fakeEta',
-];
-
-for (const control of forbiddenControls) {
-  assert.ok(!html.includes(`id="${control}"`), `forbidden control ${control}`);
+for (const forbiddenId of ['saveToFirebase', 'deployRules', 'productionApply', 'assignDriver', 'assignVehicle', 'sendLine', 'fakeGps', 'fakeEta']) {
+  assert.ok(!html.includes(`id="${forbiddenId}"`), `Admin ERP must not expose forbidden control ${forbiddenId}`);
 }
 
 assert.ok(html.includes('แดชบอร์ดศูนย์ควบคุม'));

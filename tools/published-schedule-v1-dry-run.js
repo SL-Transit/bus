@@ -257,6 +257,23 @@ function buildMapView(erp) {
     gps: false,
     eta: false,
     liveVehicleMarkers: false,
+    displayPolicy: {
+      policySource: 'erp_map_data_center',
+      localRendererDecisionAllowed: false,
+      stopMarkers: {
+        scaleMode: 'fixed_screen_size',
+        iconSizePx: 34,
+        iconFontSizePx: 18,
+        labelMode: 'always_visible',
+        labelFontSizePx: 11,
+        iconSource: 'publishedSchedule/mapView/stops/{index}/icon',
+        labelSource: 'publishedSchedule/mapView/stops/{index}/label'
+      },
+      routeGeometry: {
+        source: 'publishedSchedule/mapView/routes',
+        calculationAuthority: 'erp_map_data_center'
+      }
+    },
     stops,
     routes: [
       {
@@ -989,6 +1006,18 @@ function validatePublishedSchedule(publishedSchedule) {
   }
   if (mapView.schemaVersion !== 'publishedSchedule.mapView.v1.preview' || mapView.referenceOnly !== true || mapView.operationalProof !== false) {
     block('map-view-policy-invalid', 'publishedSchedule/mapView');
+  }
+  const displayPolicy = mapView.displayPolicy || {};
+  const stopMarkerPolicy = displayPolicy.stopMarkers || {};
+  const routeGeometryPolicy = displayPolicy.routeGeometry || {};
+  if (displayPolicy.policySource !== 'erp_map_data_center' || displayPolicy.localRendererDecisionAllowed !== false) {
+    block('map-view-display-policy-authority-invalid', 'publishedSchedule/mapView/displayPolicy');
+  }
+  if (stopMarkerPolicy.scaleMode !== 'fixed_screen_size' || stopMarkerPolicy.iconSizePx !== 34 || stopMarkerPolicy.iconFontSizePx !== 18 || stopMarkerPolicy.labelFontSizePx !== 11 || stopMarkerPolicy.iconSource !== 'publishedSchedule/mapView/stops/{index}/icon' || stopMarkerPolicy.labelSource !== 'publishedSchedule/mapView/stops/{index}/label') {
+    block('map-view-stop-marker-policy-invalid', 'publishedSchedule/mapView/displayPolicy/stopMarkers');
+  }
+  if (routeGeometryPolicy.source !== 'publishedSchedule/mapView/routes' || routeGeometryPolicy.calculationAuthority !== 'erp_map_data_center') {
+    block('map-view-route-geometry-policy-invalid', 'publishedSchedule/mapView/displayPolicy/routeGeometry');
   }
   if (mapStops.length !== (publishedSchedule.counts && publishedSchedule.counts.origins)) {
     block('map-view-stop-count-mismatch', 'publishedSchedule/mapView/stops', { expected: publishedSchedule.counts && publishedSchedule.counts.origins, actual: mapStops.length });

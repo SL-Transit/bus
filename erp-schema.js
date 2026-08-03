@@ -5,7 +5,13 @@
 
   var PATHS = {
     erpDataCenter: 'data/erpDataCenter',
+    workbookSource: 'data/erpDataCenter/workbookSource',
+    workbookRouteFareRows: 'data/erpDataCenter/workbookSource/routeFareRows',
+    workbookScheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows',
+    workbookSourceManifest: 'data/erpDataCenter/workbookSource/manifest',
+    workbookSourceReconciliation: 'data/erpDataCenter/workbookSource/reconciliation',
     settings: 'data/erpDataCenter/settings',
+    adminAccounts: 'data/erpDataCenter/adminAccounts',
     destinations: 'data/erpDataCenter/destinations',
     stops: 'data/erpDataCenter/stops',
     boardingPoints: 'data/erpDataCenter/boardingPoints',
@@ -99,6 +105,10 @@
     'data/erpDataCenter/fleet/vehicleLoginIndex',
     'data/erpDataCenter/finance/transactions',
     'data/erpDataCenter/providerRegistry'
+    ,'data/erpDataCenter/workbookSource/routeFareRows'
+    ,'data/erpDataCenter/workbookSource/scheduleRows'
+    ,'data/erpDataCenter/workbookSource/manifest'
+    ,'data/erpDataCenter/workbookSource/reconciliation'
   ];
 
   var LEGACY_SOURCE_PATHS = ['data/settings', 'data/catalog', 'data/fleet', 'data/finance', 'publishedCatalog', 'routeData', 'settings/routes'];
@@ -469,6 +479,14 @@
         var stopKey = valueOrEmpty(stopTime).stopKey;
         if (stopKey && !hasRecord(stops, stopKey)) addReferenceIssue(issues, PATHS.catalogTrips + '/' + key + '/stopTimes/' + index, 'stopKey', PATHS.catalogStops, stopKey);
       });
+      if (trip.serviceDays !== undefined) {
+        var validDayCodes = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+        var days = Array.isArray(trip.serviceDays) ? trip.serviceDays : null;
+        var invalidDays = days ? days.filter(function(d) { return validDayCodes.indexOf(d) < 0; }) : null;
+        if (!days || !days.length || invalidDays.length) {
+          addValidationIssue(issues, PATHS.catalogTrips + '/' + key, 'serviceDays', 'invalid-service-days', trip.serviceDays);
+        }
+      }
     });
 
     Object.keys(fares).forEach(function(originKey) {

@@ -64,13 +64,34 @@ assert(first.displayState, 'first vehicle marker must return display state');
 const smooth = mapDisplay.planVehicleMarker(
   first.displayState,
   { vehicleId: 'veh_001', lat: 13.693, lng: 101.055, gpsTs: 105000, speedKmh: 30 },
-  { maxStepMeters: 250 }
+  { maxStepMeters: 250, animationMinMs: 300, animationMaxMs: 4000, animationRatio: 0.92 }
 );
 assert.strictEqual(smooth.status, 'smooth');
 assert.strictEqual(smooth.animation.mode, 'smooth');
 assert.deepStrictEqual(smooth.point, smooth.targetPoint, 'smooth motion must not lag behind the accepted target');
-assert(smooth.animation.durationMs <= 450, 'smooth motion must keep marker close to the latest GPS packet');
-assert(smooth.displayState, 'smooth marker must return updated display state');
+assert(smooth.animation.durationMs >= 3900 && smooth.animation.durationMs <= 4000, 'smooth motion must glide for (close to) the real gap between GPS updates, not snap early and freeze');
+assert.strictEqual(smooth.displayState && true, true, 'smooth marker must return updated display state');
+
+const noConfigYet = mapDisplay.planVehicleMarker(
+  first.displayState,
+  { vehicleId: 'veh_001', lat: 13.693, lng: 101.055, gpsTs: 105000, speedKmh: 30 },
+  {}
+);
+assert.strictEqual(noConfigYet.animation.durationMs, 0, 'with no ERP config supplied, duration must be 0 (no animation), never a guessed default');
+assert.strictEqual(noConfigYet.animation.maxStepMeters, null, 'with no ERP config supplied, maxStepMeters must stay null, not fall back to a hardcoded number');
+
+// Long real-world gap (e.g. tab was backgrounded for a while): bus moved far, but this is a
+// legitimate slow-speed displacement, not an impossible jump. Without catchUpAfterGapMs the
+// maxStepMeters limit would force it to creep back into sync over many update cycles; with it,
+// the marker should glide straight to the true position in one smooth animation.
+const afterBackgroundGap = mapDisplay.planVehicleMarker(
+  first.displayState,
+  { vehicleId: 'veh_001', lat: 13.7, lng: 101.15, gpsTs: 400000, speedKmh: 20 },
+  { maxStepMeters: 250, maxReasonableSpeedMs: 45, animationMinMs: 300, animationMaxMs: 5000, animationRatio: 0.92, catchUpAfterGapMs: 15000 }
+);
+assert.strictEqual(afterBackgroundGap.status, 'smooth', 'a long real gap must catch up in one glide, not creep as no_warp_smooth_limited');
+assert.deepStrictEqual(afterBackgroundGap.point, afterBackgroundGap.targetPoint, 'catch-up motion must not lag behind the true position after a long gap');
+
 
 const noWarp = mapDisplay.planVehicleMarker(
   first.displayState,
@@ -92,7 +113,7 @@ assert.strictEqual(stale.status, 'stale_signal');
 const impossibleJump = mapDisplay.planVehicleMarker(
   first.displayState,
   { vehicleId: 'veh_001', lat: 14.2, lng: 101.8, gpsTs: 101000, speedKmh: 0 },
-  { maxStepMeters: 100 }
+  { maxStepMeters: 100, maxReasonableSpeedMs: 45 }
 );
 assert.strictEqual(impossibleJump.status, 'impossible_jump_ignored');
 

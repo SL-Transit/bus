@@ -50,6 +50,7 @@
     temporaryClosures: {},
     serviceFees: {},
     settlementRecipients: {},
+    workbookSource: { routeFareRows: {}, scheduleRows: {}, manifest: {}, reconciliation: {} },
     meta: { versions: {}, audit: {} }
   };
   var _settings = {};
@@ -193,6 +194,7 @@
         temporaryClosures: {},
         serviceFees: {},
         settlementRecipients: {},
+        workbookSource: { routeFareRows: {}, scheduleRows: {}, manifest: {}, reconciliation: {} },
         meta: { versions: {}, audit: {} }
       }, root);
       if (!Object.keys(valueOrEmpty(_master.stops)).length) _master.stops = valueOrEmpty(_catalog.stops);
@@ -222,6 +224,18 @@
 
   function getStops() {
     return Promise.resolve(valuesSortedByOrder(_catalog.stops));
+  }
+
+  function getWorkbookSource() {
+    return Promise.resolve(valueOrEmpty(_master.workbookSource));
+  }
+
+  function getWorkbookRouteFareRows() {
+    return Promise.resolve(valuesWithId(valueOrEmpty(_master.workbookSource).routeFareRows, 'sourceRowId'));
+  }
+
+  function getWorkbookScheduleRows() {
+    return Promise.resolve(valuesWithId(valueOrEmpty(_master.workbookSource).scheduleRows, 'sourceRowId'));
   }
 
   function getStop(stopKey) {
@@ -595,6 +609,9 @@
     refreshCatalog: refreshCatalog,
     refreshMasterData: refreshMasterData,
     getStops: getStops,
+    getWorkbookSource: getWorkbookSource,
+    getWorkbookRouteFareRows: getWorkbookRouteFareRows,
+    getWorkbookScheduleRows: getWorkbookScheduleRows,
     getStop: getStop,
     getRoute: getRoute,
     getRoutes: getRoutes,

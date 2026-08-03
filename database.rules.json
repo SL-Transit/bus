@@ -13,17 +13,31 @@
         }
       },
       "finance": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false
       },
       "erpDataCenter": {
+        "workbookSource": {
+          "manifest": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          },
+          "routeFareRows": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          },
+          "scheduleRows": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          }
+        },
         "catalog": {
           ".read": true,
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "fleet": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           "vehicles": {
             ".read": true
           },
@@ -33,11 +47,17 @@
         },
         "settings": {
           ".read": true,
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
         },
         "finance": {
-          ".read": "auth != null",
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           ".write": false
+        },
+        "adminAccounts": {
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          "$uid": {
+            ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || (!root.child('data/erpDataCenter/adminAccounts').exists() && auth.uid === $uid))"
+          }
         }
       },
       "driverIdentityCenter": {
@@ -55,9 +75,9 @@
     },
     "operations": {
       "bookings": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false,
-        ".indexOn": ["date", "originKey", "destKey", "status"],
+        ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
         "$bookingId": {
           ".write": "auth != null"
         }
@@ -76,7 +96,7 @@
         }
       },
       "passengers": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false,
         "$passengerId": {
           ".write": false
@@ -85,7 +105,7 @@
       "liveVehicles": {
         ".read": true,
         "$vehicleId": {
-          ".write": "auth != null"
+          ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
         }
       },
       "ticketLocations": {
@@ -97,8 +117,10 @@
         ".write": "auth != null"
       },
       "sosAlerts": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        "$vehicleId": {
+          ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true)"
+        }
       },
       "driverWorkByServiceDate": {
         "$serviceDate": {
@@ -122,16 +144,90 @@
       ".write": "auth != null"
     },
     "bookings": {
-      ".read": true,
+      ".read": false,
       ".write": false,
-      ".indexOn": ["date", "originKey", "destKey", "status"],
+      ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
       "$bookingId": {
+        ".read": true,
         ".write": "auth != null || (!data.exists() && newData.child('code').val() === $bookingId && newData.child('bookingCode').val() === $bookingId && newData.child('source').val() === 'booking1.html' && newData.child('sourceMode').val() === 'erp_data_center' && newData.child('status').val() === 'awaiting_payment' && ((newData.child('paymentStatus').val() === 'awaiting_payment' && newData.child('slipUploaded').val() === false) || (newData.child('paymentStatus').val() === 'slip_uploaded' && newData.child('slipUploaded').val() === true) || (newData.child('paymentStatus').val() === 'pay_on_site' && newData.child('slipUploaded').val() === false && newData.child('paymentMode').val() === 'onsite')) && newData.child('paymentOwnership').val() === 'sl_transit' && newData.child('externalPaymentRequired').val() === false && newData.child('testMode').val() === false && newData.child('mockPayment').val() === false && newData.child('name').isString() && newData.child('phone').isString() && newData.child('date').isString() && newData.child('time').isString() && newData.child('origin').isString() && newData.child('destination').isString() && newData.child('pax').isNumber() && newData.child('pax').val() >= 1 && newData.child('pax').val() <= 10 && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('fareAmount').isNumber() && newData.child('fareAmount').val() >= 0 && newData.child('publishedSchedule').child('readyForApply').val() === false)"
       }
     },
+    "analytics": {
+      "mainWeb": {
+        ".read": false,
+        "$day": {
+          ".indexOn": ["count", "pageViews"],
+          ".validate": "$day.matches(/^\\d{4}-\\d{2}-\\d{2}$/)",
+          "count": {
+            ".read": true,
+            ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+          },
+          "pageViews": {
+            ".read": true,
+            ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+          },
+          "pageDeviceCounts": {
+            "$page": {
+              ".read": true,
+              ".write": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+            }
+          },
+          "devices": {
+            "$deviceId": {
+              ".read": true,
+              ".write": "$deviceId.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.hasChildren(['firstSeenAt', 'lastSeenAt', 'pageViews', 'pages']) && newData.child('firstSeenAt').isNumber() && newData.child('lastSeenAt').isNumber() && newData.child('lastSeenAt').val() >= newData.child('firstSeenAt').val() && newData.child('pageViews').isNumber() && ((!data.exists() && newData.child('pageViews').val() === 1) || (data.exists() && data.child('pageViews').isNumber() && newData.child('pageViews').val() === data.child('pageViews').val() + 1))",
+              "pages": {
+                "$page": {
+                  ".validate": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && newData.val() >= 1 && (!data.exists() || newData.val() === data.val() + 1)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "driverCommands": {
+      "$vehicleId": {
+        "command": {
+          ".read": "auth != null",
+          ".write": "newData.val() === 'forceGpsRestart' || newData.val() === null || auth != null"
+        },
+        "lastResponse": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
     "admin": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+    },
+    "driverLogs": {
+      ".read": false,
+      "$vehicleId": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+      }
+    },
+    "ticketLocations": {
+      ".read": false,
+      "$bookingId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "fcmTokensByVehicle": {
+      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      "$vehicleId": {
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+      }
+    },
+    "passengerLiveLocations": {
+      ".read": false,
+      "$bookingId": {
+        ".read": "auth != null && root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val()",
+        ".write": true
+      }
     },
     "meta": {
       ".read": true,

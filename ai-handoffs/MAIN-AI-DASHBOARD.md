@@ -85,6 +85,38 @@ The 2026-07-26 Admin Console direction remains valid unless this 2026-07-28 Admi
 
 
 
+## 2026-07-31 (RESOLVED) - Unified admin-tracking rules published live
+
+Update to the section below: the two-admin-path issue was fixed in commit `120c9f3` ("Unify the two duplicate admin-check mechanisms into one source of truth") — standardized on `data/erpDataCenter/adminAccounts`. Owner confirmed the unified rules were pasted into Firebase Console and published live (2026-07-31). `operations/bookings`, `operations/passengers`, `data/finance`, `data/erpDataCenter/finance`, `admin`, `sosAlerts` now correctly require `erpDataCenter/adminAccounts/{uid} === true`, and the owner's existing admin account (`sakundech.non@gmail.com`) already satisfies this — no data access was lost. The unpublished-rules warning below no longer applies; kept for history.
+
+## 2026-07-29 (evening) - RESOLVED: unified admin rules published live (owner-confirmed)
+
+Update to the section below: owner confirmed (chat) they pasted the unified `database.rules.json` (post `120c9f3` admin-path-unification) into Firebase Console and clicked Publish. Verified content match between what the owner pasted back and the repo file via exact JSON equality check (not just visual comparison) — identical, only whitespace/formatting differed. **Live and confirmed, not just committed.** `data/erpDataCenter/adminAccounts` is now the single source of truth for admin status across the whole ruleset (bookings, passengers, finance x2, admin, sosAlerts read+write, driverLogs). The leftover `driverIdentityCenter/accounts/{uid}/role` field the owner set earlier is unused/harmless.
+
+## 2026-07-29 (evening) - UNPUBLISHED database.rules.json: two admin-tracking paths need unifying before publish
+
+**RESOLVED 2026-07-31 (this session) — see CENTRAL-REPORT.md 2026-07-31 entry for full detail.** The two paths were unified onto `erpDataCenter/adminAccounts` (commit `120c9f3`), owner published the unified rules, and confirmed (via screenshot) `erpDataCenter/adminAccounts/{uid}: true` set via `admin-bootstrap.html` for the owner's account. `driverIdentityCenter/accounts/{uid}/role` is no longer checked anywhere — leave it alone, it's inert leftover data. Nothing further to do here; the rest of this note is kept for history only.
+
+Commit `053e887` ("Add role-based scoping for admin-only data") added a `role === 'admin'` check on `data/driverIdentityCenter/accounts/$uid/role` for reading `operations/bookings`, `operations/passengers`, `data/finance`, `data/erpDataCenter/finance`, `admin`, `sosAlerts`. **Not yet published to live Firebase** (per the standing rule above — commits to this repo never auto-publish Firebase rules).
+
+This is a *second, separate* admin-tracking path from `data/erpDataCenter/adminAccounts/$uid` (added earlier same day, commits `18549b7`/`f15883e`, already live-published, used to gate ERP catalog/fleet/settings writes and bootstrapped via `admin-bootstrap.html`). The owner's first admin account (`sakundech.non@gmail.com`, UID `reWl8JCfJsSIXwJ5AKppZUCqwym1`) is currently only in `adminAccounts`, NOT in `driverIdentityCenter/accounts/{uid}/role`. `driverIdentityCenter/accounts/$uid` is `.write:false` for all clients (by design — role must be set via Firebase Console or Admin SDK, no client bootstrap possible), so there's no page-based bootstrap fix like `admin-bootstrap.html` for this one.
+
+**Do not publish `053e887`'s rules until this is resolved** — publishing now would make `operations/bookings`/`passengers`/`finance`/`admin`/`sosAlerts` unreadable by everyone, since nobody has `role: 'admin'` set yet.
+
+Owner is currently working on unifying these two admin paths into one. Any AI picking up this repo: check with the owner / re-read this section before touching `database.rules.json` admin-role logic or telling the owner to publish rules, to avoid duplicate/conflicting fixes.
+
+## 2026-07-29 09:45 +07 - OWNER EXCEPTION TO SCREEN 02 LOCK (ERP data workbook + admin login)
+## LATEST OWNER DECISION — SUPERSEDES THE 2026-07-26 SECTION BELOW, ON THIS POINT ONLY
+
+Owner directly instructed (chat, not GitHub) to start rebuilding the "จัดการข้อมูล ERP" page in `admin-erp.html` into a live, editable, Excel-style workbook (tabs: ป้ายต้นทาง/เส้นทาง/ราคา/ตารางเวลา/คิว/รถ/คนขับ) with Draft→Review→Publish, validation, and impact-analysis panels — starting with the ตารางเวลา (schedule/service-calendar) tab first, plus an admin login screen, in parallel with Screen 01 Dashboard, which is still not approved.
+
+This is a **deliberate, explicit owner exception** to the "Do not start Screen 02 until Screen 01 is approved" rule above. It does not cancel that rule for any other work — Screen 01 Dashboard completion is still required before any *other* Screen 02 work starts. Consumer pages (Booking1, Passenger, Check Ticket, Driver App, Cancel Ticket) remain off-limits under this exception; nothing in this workstream touches them.
+
+Work done so far under this exception:
+- `admin-erp.html`: real Firebase config wired in (was placeholder `TODO_FROM_FIREBASE_CONSOLE`); confirmed `data/erpDataCenter/catalog` is publicly readable per `database.rules.json` (writes require `auth != null`).
+- `admin-erp.html`: added a login screen (Firebase Auth email/password), adapted visually from the legacy `admin.html` login UI, restyled to match the current admin-erp theme. App shell is hidden until authenticated (`body.authed` gate). Firebase writes to `erpDataCenter/*` still require the admin to actually sign in with a real Firebase Auth account (none created yet — owner needs to add staff accounts in Firebase Console).
+- Next: build the ตารางเวลา (schedule/service-calendar) tab, starting with adding a `serviceDays` field concept to `erp-schema.js` (none of the schema currently models day-of-week variation — confirmed by code search, zero hits for dayOfWeek/serviceDays/calendar anywhere in `erp-schema.js`, `schedule-engine.js`, or `tools/published-schedule-v1-dry-run.js`).
+
 ## 2026-07-26 OWNER-APPROVED ADMIN CONSOLE DIRECTION
 ## HIGHEST CURRENT PRECEDENCE
 

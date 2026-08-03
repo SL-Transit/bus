@@ -34,14 +34,12 @@ function pageAncestors(html) {
   return pages;
 }
 
-assert(bridge.includes("var PREVIEW_BASE_PATH = 'publishedSchedule'"), 'Booking1 bridge must use publishedSchedule');
-assert(bridge.includes(".child('originOptions').once('value')"), 'Booking1 must read originOptions as lightweight initial data');
-assert(bridge.includes(".child('destinationOptionsByOrigin').once('value')"), 'Booking1 must read destinationOptionsByOrigin as lightweight initial data');
-assert(bridge.includes(".child('paymentContact').once('value')"), 'Booking1 must read payment contact from publishedSchedule paymentContact');
-assert(bridge.includes(".child('bookingPolicy').once('value')"), 'Booking1 must read seat/service-fee policy from ERP Data Center');
-assert(bridge.includes(".child('pairs').child(storageKey).once('value')"), 'Booking1 must lazy-load only the selected pair');
-assert(!/db\.ref\(['"]publishedSchedule['"]\)\.once\s*\(/.test(bridge + booking1), 'Booking1 must not once-read full publishedSchedule');
-assert(!/db\.ref\(['"]publishedSchedule['"]\)\.on\s*\(/.test(bridge + booking1), 'Booking1 must not subscribe to full publishedSchedule');
+assert(bridge.includes("var WORKBOOK_SOURCE_PATH = 'data/erpDataCenter/workbookSource'"), 'Booking1 bridge must use ERP workbook source');
+assert(bridge.includes(".child('routeFareRows').once('value')"), 'Booking1 must read the canonical 244 fare rows');
+assert(bridge.includes(".child('scheduleRows').once('value')"), 'Booking1 must read the canonical 881 timetable rows');
+assert(bridge.includes('SLTransitWorkbookBookingSource.build'), 'Booking1 must project selections from canonical workbook rows');
+assert(!bridge.includes("child('pairs')"), 'Booking1 must not read the retired 508-pair projection');
+assert(booking1.includes('erp-workbook-booking-source.js?v=20260801a'), 'Booking1 must load the workbook booking source');
 assert(!bridge.includes("db.ref('routeData')"), 'Booking1 bridge must not read legacy routeData');
 assert(!bridge.includes('SLTransitCatalog.loadPublished'), 'Booking1 bridge must not load legacy publishedCatalog');
 assert(!bridge.includes('LEG2_DEST'), 'Booking1 bridge must not use static leg2 destination/fare table');

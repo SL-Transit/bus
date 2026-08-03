@@ -6,10 +6,41 @@ const passengerHtml = fs.readFileSync(path.join(__dirname, '..', 'passenger.html
 const passengerLogic = fs.readFileSync(path.join(__dirname, '..', 'passenger-logic.js'), 'utf8');
 const erpDataAdapter = fs.readFileSync(path.join(__dirname, '..', 'erp-data-adapter.js'), 'utf8');
 const mapDisplayCenter = fs.readFileSync(path.join(__dirname, '..', 'map-display-center.js'), 'utf8');
+const mapMarkerStyles = fs.readFileSync(path.join(__dirname, '..', 'assets', 'map-marker-styles.css'), 'utf8');
 const checkTicketHtml = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'utf8');
+const driverMapHtml = fs.readFileSync(path.join(__dirname, '..', 'driver-map.html'), 'utf8');
+const driverMapLogic = fs.readFileSync(path.join(__dirname, '..', 'driver-map-logic.js'), 'utf8');
+const driverMain = fs.readFileSync(
+  path.join(__dirname, '..', 'driver-android', 'src', 'main', 'java', 'com', 'sanamchai', 'drivergps', 'MainActivity.java'),
+  'utf8'
+);
 
 assert(passengerHtml.includes('map-display-center.js'), 'Passenger must load Map Display Center');
 assert(checkTicketHtml.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
+assert(checkTicketHtml.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read the same ERP mapView contract as Driver and Passenger');
+assert(checkTicketHtml.includes('TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null'), 'Check Ticket must consume the same ERP mapView display policy');
+assert(checkTicketHtml.includes('TICKET_ERP_MAP_ROUTES = normalizeTicketErpMapRoutes(mapView.routes)'), 'Check Ticket must consume the same ERP mapView route geometry');
+assert(passengerHtml.includes('assets/map-marker-styles.css?v=20260728d'), 'Passenger must load the current shared ERP map marker styles');
+assert(driverMapHtml.includes('assets/map-marker-styles.css?v=20260728d'), 'Driver map must load the current shared ERP map marker styles');
+assert(driverMapHtml.includes('driver-map-logic.js?v=20260728d'), 'Driver map must load the current ERP map logic version');
+assert(mapMarkerStyles.includes('var(--erp-map-stop-icon-size, 34px) !important'), 'Shared stop marker CSS must lock ERP icon screen size');
+assert(driverMapLogic.includes("MAP_VIEW_PATH = 'publishedSchedule/mapView'"), 'Driver map must read the same ERP Data Center mapView contract as Passenger');
+assert(driverMapLogic.includes('renderStops(normalizeStops(mapView.stops), mapView)'), 'Driver map must render backend-provided mapView stops');
+assert(driverMapLogic.includes('s.label || s.displayNameTh || s.nameTh'), 'Driver map stop labels must come from mapView stop data');
+assert(driverMapLogic.includes("icon: s.icon || '\\uD83D\\uDE8F'"), 'Driver map stop icons must come from mapView stop data');
+assert(driverMapLogic.includes('renderRoute(extractRoadRoute(mapView.routes))'), 'Driver map must render the ERP Map road route from mapView');
+assert(!driverMapLogic.includes("data/erpDataCenter/catalog/stops"), 'Driver map must not read raw catalog stops instead of the published mapView contract');
+assert(driverMapLogic.includes('stopMarkersAreFixedScreenSize(mapView)'), 'Driver map stop icon scale behavior must come from ERP mapView display policy');
+assert(driverMapLogic.includes("policy.scaleMode === 'fixed_screen_size'"), 'Driver map must follow the ERP stop marker scale policy');
+assert(driverMapLogic.includes("root.style.setProperty('--erp-map-stop-icon-size'"), 'Driver map must apply ERP stop icon size to shared CSS');
+assert(driverMapLogic.includes('policyNumber(policy.iconSizePx, 34)'), 'Driver map icon size must come from ERP mapView policy');
+assert(!driverMapLogic.includes('markerZoomAnimation: false'), 'Driver map must not hard-code stop marker zoom behavior locally');
+assert(passengerLogic.includes('displayPolicy: mapView.displayPolicy || null'), 'Passenger must consume the same ERP mapView display policy');
+assert(passengerLogic.includes('applyPassengerStopMarkerDisplayPolicy()'), 'Passenger must apply the ERP stop marker display policy before rendering stops');
+assert(passengerLogic.includes('passengerPolicyNumber(markerPolicy.iconSizePx, 34)'), 'Passenger icon size must come from ERP mapView policy');
+assert(driverMain.includes('ws.setCacheMode(WebSettings.LOAD_NO_CACHE)'), 'Driver app WebView must not reuse stale driver-map HTML');
+assert(driverMain.includes('driverMapWebView.clearCache(true)'), 'Driver app must clear stale driver map WebView cache');
+assert(driverMain.includes('https://sl-transit.com/driver-map.html?v=20260728d'), 'Driver app must load the current driver map HTML version');
 
 const passengerUpdateStart = passengerLogic.indexOf('function updateAllBusesOnMap');
 const passengerUpdateEnd = passengerLogic.indexOf('function removeBusFromMap', passengerUpdateStart);
@@ -31,7 +62,9 @@ assert(!passengerHtml.includes("db.ref('settings')"), 'Passenger must not read t
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');
 assert(passengerLogic.includes('var point = normalizeMapPoint(latlng)'), 'Passenger bus markers must use Longdo lon/lat geometry');
-assert(passengerLogic.includes('BUS_MARKER_MOVE_MS'), 'Passenger bus markers must use smooth Longdo movement');
+assert(!passengerLogic.includes('BUS_MARKER_MOVE_MS'), 'Passenger must not keep a hardcoded bus marker animation duration');
+assert(passengerLogic.includes("PASSENGER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap'"), 'Passenger vehicle marker animation tuning must come from ERP settings, not a local constant');
+assert(passengerLogic.includes('center.prepareVehicleLayer(signals, busDisplayState, vehicleMarkerCfg)'), 'Passenger must feed ERP-sourced config into Map Display Center, not a hardcoded options object');
 assert(mapDisplayCenter.includes('displayState'), 'Map Display Center must own vehicle motion display state');
 assert(mapDisplayCenter.includes('impossible_jump_ignored'), 'Map Display Center must guard impossible GPS jumps');
 assert(mapDisplayCenter.includes('stale_signal'), 'Map Display Center must ignore stale GPS packets');

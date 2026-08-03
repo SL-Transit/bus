@@ -261,28 +261,47 @@ function highlightStop(stop){
   if(userPos){
     fitToUserAndStop([userPos.lat,userPos.lng],[stop.lat,stop.lng]);
   } else {
-    focusMap({lat:stop.lat,lng:stop.lng}, 13, true);
+    focusMap({lat:stop.lat,lng:stop.lng}, null, true);
   }
 }
+
+var nearestStopMapCfg = { focusAnimationDurationSec: null, defaultZoom: null, userLocationZoom: null, fitBoundsMaxZoom: null, fitBoundsPaddingPx: null };
+(function watchNearestStopMapConfig(){
+  try {
+    if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
+    db.ref('data/erpDataCenter/settings/nearestStopMap').on('value', function(snap){
+      var v = snap && typeof snap.val === 'function' ? snap.val() : null;
+      v = v && typeof v === 'object' ? v : {};
+      Object.keys(nearestStopMapCfg).forEach(function(key){
+        nearestStopMapCfg[key] = v[key] != null ? v[key] : null;
+      });
+    });
+  } catch (e) {}
+})();
 
 function focusMap(point, zoomLevel, animate){
   if(!mapObj||!point) return;
   var latlng = [point.lat, point.lng||point.lon];
-  if(animate){
-    mapObj.flyTo(latlng, zoomLevel||13, {duration:0.8});
+  var zoom = zoomLevel != null ? zoomLevel : nearestStopMapCfg.defaultZoom;
+  if(zoom == null) return; // ยังไม่ได้ค่าจาก ERP — ไม่เดาเลขซูมเอง
+  if(animate && nearestStopMapCfg.focusAnimationDurationSec != null){
+    mapObj.flyTo(latlng, zoom, {duration:nearestStopMapCfg.focusAnimationDurationSec});
   } else {
-    mapObj.setView(latlng, zoomLevel||13);
+    mapObj.setView(latlng, zoom);
   }
 }
 
 /* ── ข้อ 3: zoom ให้เห็นทั้งผู้ใช้และป้ายที่ใกล้ที่สุด ── */
 function fitToUserAndStop(userLatLng, stopLatLng){
   if(!mapObj) return;
+  var pad = nearestStopMapCfg.fitBoundsPaddingPx;
+  var maxZoom = nearestStopMapCfg.fitBoundsMaxZoom;
+  if(pad == null || maxZoom == null){ focusMap({lat:userLatLng[0],lng:userLatLng[1]}, null, true); return; }
   try{
     var bounds = L.latLngBounds([userLatLng, stopLatLng]);
-    mapObj.fitBounds(bounds, {padding:[60,60], maxZoom:15, animate:true});
+    mapObj.fitBounds(bounds, {padding:[pad,pad], maxZoom:maxZoom, animate:true});
   }catch(e){
-    mapObj.flyTo(userLatLng, 14, {duration:0.8});
+    focusMap({lat:userLatLng[0],lng:userLatLng[1]}, null, true);
   }
 }
 
@@ -376,7 +395,7 @@ function onPositionResolved(lat,lng,source){
     if(selectedStop){
       fitToUserAndStop([lat,lng],[selectedStop.lat,selectedStop.lng]);
     } else {
-      focusMap({lat:lat,lng:lng}, 14, true);
+      focusMap({lat:lat,lng:lng}, nearestStopMapCfg.userLocationZoom, true);
     }
   }
 
@@ -494,7 +513,7 @@ window.locateUser=function(){
     _gpsSettled=true;
     var lat=result.point.lat, lng=result.point.lng;
     placeUserMarker({lat:lat,lng:lng});
-    focusMap({lat:lat,lng:lng}, 14, true, true);
+    focusMap({lat:lat,lng:lng}, nearestStopMapCfg.userLocationZoom, true, true);
     onPositionResolved(lat,lng,'gps');
   });
 };

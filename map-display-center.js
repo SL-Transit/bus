@@ -165,7 +165,17 @@
         displayState: { point: nextPoint, display: nextPoint, anchor: nextPoint, lastGpsTs: gpsTs, speedMs: 0, heading: next.heading }
       };
     }
-    var maxStepMeters = num(options.maxStepMeters, 250);
+    // ค่าทั้งหมดด้านล่างมาจาก options (ERP settings) เท่านั้น — ไม่มีค่าเริ่มต้นที่ "เดา" ไว้ล่วงหน้า
+    // ถ้ายังไม่ได้รับค่าจาก ERP, พฤติกรรมที่เกี่ยวข้องจะถูกปิด/ข้าม ไม่ใช่ใช้ตัวเลขที่คิดเอาเอง
+    var maxStepMeters = num(options.maxStepMeters, null);
+    var maxReasonableSpeedMs = num(options.maxReasonableSpeedMs, null);
+    var maxPredictMs = num(options.maxPredictMs, null);
+    var maxPredictMeters = num(options.maxPredictMeters, null);
+    var animationMinMs = num(options.animationMinMs, null);
+    var animationMaxMs = num(options.animationMaxMs, null);
+    var animationRatio = num(options.animationRatio, null);
+    var catchUpAfterGapMs = num(options.catchUpAfterGapMs, null);
+
     var anchor = normalizePoint(previous.anchor) || normalizePoint(previous.point);
     var display = normalizePoint(previous.display) || normalizePoint(previous.point) || anchor;
     var lastGpsTs = num(previous.lastGpsTs, 0);
@@ -181,8 +191,7 @@
     var rawMeters = distanceMeters(anchor, nextPoint);
     var dtSec = lastGpsTs && gpsTs > lastGpsTs ? Math.max((gpsTs - lastGpsTs) / 1000, 0.001) : 0.12;
     var impliedSpeedMs = isFinite(rawMeters) && dtSec > 0 ? rawMeters / dtSec : 0;
-    var maxReasonableSpeedMs = num(options.maxReasonableSpeedMs, 45);
-    if (impliedSpeedMs > maxReasonableSpeedMs) {
+    if (maxReasonableSpeedMs != null && impliedSpeedMs > maxReasonableSpeedMs) {
       return {
         status: 'impossible_jump_ignored',
         point: display,
@@ -193,8 +202,10 @@
       };
     }
 
+    var isLongGap = catchUpAfterGapMs != null && (dtSec * 1000) > catchUpAfterGapMs;
     var limitedAnchor = nextPoint;
-    if (isFinite(rawMeters) && rawMeters > maxStepMeters) {
+    var wasLimited = !isLongGap && maxStepMeters != null && isFinite(rawMeters) && rawMeters > maxStepMeters;
+    if (wasLimited) {
       var ratio = Math.max(0, Math.min(1, maxStepMeters / rawMeters));
       limitedAnchor = {
         lat: anchor.lat + (nextPoint.lat - anchor.lat) * ratio,
@@ -207,13 +218,16 @@
     var heading = isFinite(num(next.heading, NaN)) ? next.heading : bearingBetween(anchor, limitedAnchor);
     var ageMs = Math.max(0, Date.now() - gpsTs);
     var target = limitedAnchor;
-    if (speedMs > 0.4 && isFinite(heading) && ageMs <= num(options.maxPredictMs, 10000)) {
-      var predictMeters = Math.min(speedMs * (ageMs / 1000), num(options.maxPredictMeters, 300));
+    if (maxPredictMs != null && maxPredictMeters != null && speedMs > 0.4 && isFinite(heading) && ageMs <= maxPredictMs) {
+      var predictMeters = Math.min(speedMs * (ageMs / 1000), maxPredictMeters);
       target = projectPoint(limitedAnchor, heading, predictMeters);
     }
     var nextDisplay = target;
-    var durationMs = Math.max(0, Math.min(450, Math.max(120, dtSec * 180)));
-    var mode = isFinite(rawMeters) && rawMeters > maxStepMeters ? 'no_warp_smooth_limited' : 'smooth';
+    var durationMs = 0;
+    if (animationMinMs != null && animationMaxMs != null && animationRatio != null) {
+      durationMs = Math.max(animationMinMs, Math.min(animationMaxMs, dtSec * 1000 * animationRatio));
+    }
+    var mode = wasLimited ? 'no_warp_smooth_limited' : 'smooth';
     return {
       status: mode,
       point: nextDisplay,

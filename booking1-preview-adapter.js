@@ -91,11 +91,16 @@
     return trip.fareAmount != null ? trip.fareAmount + ' บาท' : '-';
   }
 
+  /* Owner request 2026-07-29: stop rendering the transfer-reference disclaimer,
+     the "ยังไม่เปิดจองผ่าน Booking1" note, and the leaked internal
+     "TODO contract: ..." dev string on trip cards. The underlying booking gate
+     (bookingEligible=false from ERP for reference-only transfer pairs) is
+     untouched — this only removes the text block, not the booking decision.
+     External-payment disclaimer kept (real payment notice, not clutter).
+     See CENTRAL-REPORT.md. */
   function tripNotes(trip) {
-    var notes = (trip.disclaimers || []).slice();
+    var notes = [];
     if (trip.externalPaymentRequired) notes.push('SL-Transit ไม่เก็บค่าโดยสารรายการนี้ ต้องชำระกับผู้ให้บริการภายนอก');
-    if (trip.referenceOnly) notes.push('ข้อมูลอ้างอิง ยังไม่เปิดจองผ่าน Booking1');
-    if (trip.fareMissing) notes.push('TODO contract: ' + trip.missingFareField);
     return notes;
   }
 
@@ -124,6 +129,21 @@
     return ti.destLabel || appState().destName || '';
   }
 
+  /* เวลาที่จุดต่อรถมาจาก ERP transferTiming.bestConnection (คำนวณผ่านนโยบายเผื่อเวลา
+     ต่อรถ min 15 / ideal 30 / max 60 นาทีใน tools/published-schedule-v1-dry-run.js
+     แล้ว) — ที่นี่แค่ format ไปแสดง ไม่คำนวณเอง ห้ามเดา/ห้ามเลือกเวลาเอง */
+  function transferTimesText(trip) {
+    var ti = trip && trip.transferInfo || {};
+    var arrive = ti.transferArrivalTime || '';
+    var depart = ti.leg2Time || ti.nextDepartureTime || '';
+    if (arrive && depart) {
+      return '\u0e16\u0e36\u0e07 ' + arrive + ' \u0e19. / \u0e15\u0e48\u0e2d\u0e23\u0e16 ' + depart + ' \u0e19.';
+    }
+    if (depart) return '\u0e15\u0e48\u0e2d\u0e23\u0e16 ' + depart + ' \u0e19.';
+    if (arrive) return '\u0e16\u0e36\u0e07 ' + arrive + ' \u0e19.';
+    return '';
+  }
+
   function routeText(trip) {
     var state = appState();
     var origin = state.originName || '\u0e15\u0e49\u0e19\u0e17\u0e32\u0e07';
@@ -148,8 +168,12 @@
     var transfer = transferPointText(trip);
     var isTransfer = !!(trip && trip.isLeg2 && transfer);
     if (isTransfer) {
+      var transferTimeText = transferTimesText(trip);
+      var transferTimeHtml = transferTimeText
+        ? '<span class="trip-stop-time">' + esc(transferTimeText) + '</span>'
+        : '';
       var rows = '<div class="trip-stop-row"><span>' + esc(origin) + '</span></div>'
-        + '<div class="trip-stop-row"><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span></div>'
+        + '<div class="trip-stop-row"><span>' + esc(transfer) + ' (\u0e08\u0e38\u0e14\u0e15\u0e48\u0e2d\u0e23\u0e16)</span>' + transferTimeHtml + '</div>'
         + '<div class="trip-stop-row"><span>' + esc(destination) + '</span></div>';
       return '<div class="trip-stops trip-stops-linked">' + rows + '</div>';
     }
@@ -826,7 +850,7 @@
         resumePendingLineLogin();
       }).catch(function(err) {
         console.error('[Booking1PreviewAdapter] load trips failed', err);
-        container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบ /publishedSchedule/pairs/{pairKey}</span></div>';
+        container.innerHTML = '<div class="no-trips-msg"><img class="icon-img" src="assets/214.png" alt="error" style="width:54px;height:54px;margin:0 auto 10px;"><strong>โหลดข้อมูลเที่ยวไม่สำเร็จ</strong><span>ตรวจสอบข้อมูลรอบเวลาใน ERP Data Center</span></div>';
       });
     };
 

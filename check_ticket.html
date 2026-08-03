@@ -29,6 +29,7 @@
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
 <script src="schedule-engine.js?v=20260627central3"></script>
+<script src="erp-workbook-booking-source.js?v=20260801a"></script>
   <style>
     :root {
       --navy: #0B1D3A;
@@ -134,6 +135,8 @@
     button:disabled { opacity: .55; cursor: not-allowed; }
     .btn-full { width: 100%; }
     .btn-green { background: var(--green); }
+    .btn-outline { background: transparent; border: 2px solid var(--green); color: var(--green); }
+    .btn-outline.active { background: var(--green); color: #fff; }
     .btn-red { background: var(--red); }
     .btn-dark { background: #334155; }
     .btn-orange { background: var(--orange); }
@@ -222,6 +225,7 @@
     body.tracking-active .tracking-page {
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       min-height: 0;
       border: 0;
       border-radius: 0;
@@ -307,7 +311,7 @@
       z-index: 3;
       width: min(92%, 560px);
       min-height: auto;
-      max-height: min(58%, 430px);
+      max-height: min(64%, 520px);
       overflow: auto;
       background:
         linear-gradient(135deg, rgba(11,29,58,.98), rgba(18,58,99,.96) 68%, rgba(0,167,181,.92));
@@ -445,10 +449,10 @@
       #qrCode { margin: 0 auto; }
       .ticket-head { align-items: flex-start; flex-direction: column; }
       .schedule-time-box { border-left: 0; border-top: 4px solid var(--blue); }
-      .tracking-page { height: 100vh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
+      .tracking-page { height: 100vh; height: 100dvh; min-height: 620px; border-radius: 0; border-left: 0; border-right: 0; }
       .tracking-map { inset: 0; }
       .tracking-person { grid-template-columns: 1fr; }
-      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 56%; padding: 12px 14px calc(28px + env(safe-area-inset-bottom)); }
+      .tracking-bottom-sheet { width: calc(100% - 24px); max-height: 64%; padding: 12px 14px calc(28px + env(safe-area-inset-bottom)); }
       button, .btn { width: 100%; white-space: normal; }
       .tracking-cancel, .tracking-locate { width: auto; white-space: nowrap; }
     }
@@ -505,6 +509,7 @@
           </div>
           <div class="tracking-actions">
             <button id="trackingCheckinButton" class="btn-green" type="button" onclick="checkIn()" disabled>เช็คอินถึงจุดต่อรถ</button>
+            <button id="btnShareWithDriver" class="btn-outline" type="button" onclick="toggleShareLocationWithDriver()">📍 แชร์ตำแหน่งให้คนขับ</button>
           </div>
         </div>
       </div>
@@ -674,6 +679,7 @@
     var TICKET_CATALOG_ROUTES_APPLIED = false;
     var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
     var TICKET_ERP_MAP_ROUTES = [];
+    var TICKET_ERP_MAP_DISPLAY_POLICY = null;
     var MAIN_ROUTE_STOPS_FROM_CATALOG = [];
     function ticketStopSortValue(label, fallback) {
       if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
@@ -721,6 +727,30 @@
     var trackingVehicleId = '';
     var trackingCurrentTrip = null;
     var vanLocation = null;
+    var trackingVanDisplayState = null;
+    var TICKET_VEHICLE_MARKER_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
+    var ticketVehicleMarkerCfg = { maxStepMeters: null, maxReasonableSpeedMs: null, maxPredictMs: null, maxPredictMeters: null, catchUpAfterGapMs: null };
+    var ticketVanMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
+    var ticketPassengerMarkerAnimCfg = { minMeters: null, maxMeters: null, minDuration: null, maxDuration: null, msPerMeter: null };
+    var shareWithDriverActive = false;
+    (function watchTicketVehicleMarkerConfig() {
+      if (!db || typeof db.ref !== 'function') return;
+      db.ref(TICKET_VEHICLE_MARKER_CONFIG_PATH).on('value', function (snapshot) {
+        var v = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
+        v = v && typeof v === 'object' ? v : {};
+        Object.keys(ticketVehicleMarkerCfg).forEach(function (key) {
+          ticketVehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
+        });
+        var vanCfg = v.vanMarker && typeof v.vanMarker === 'object' ? v.vanMarker : {};
+        Object.keys(ticketVanMarkerAnimCfg).forEach(function (key) {
+          ticketVanMarkerAnimCfg[key] = vanCfg[key] != null ? vanCfg[key] : null;
+        });
+        var passengerCfg = v.passengerMarker && typeof v.passengerMarker === 'object' ? v.passengerMarker : {};
+        Object.keys(ticketPassengerMarkerAnimCfg).forEach(function (key) {
+          ticketPassengerMarkerAnimCfg[key] = passengerCfg[key] != null ? passengerCfg[key] : null;
+        });
+      });
+    })();
     var pickupStopLocation = null;
     var transferPointLocation = null;
     var destinationLocation = null;
@@ -842,12 +872,14 @@
         updateTicketTransferPointLocation();
         return Promise.resolve(null);
       }
-      return db.ref('publishedSchedule/firebaseKeyEncoding').once('value').then(function(encodingSnap) {
-        TICKET_DATA_CENTER.firebaseKeyEncoding = encodingSnap.val() || {};
-        var storageKey = resolveTicketPairStorageKey(pairKey);
-        return db.ref('publishedSchedule').child('pairs').child(storageKey).once('value');
-      }).then(function(pairSnap) {
-        TICKET_DATA_CENTER.pair = pairSnap.val() || null;
+      var sourceRef = db.ref('data/erpDataCenter/workbookSource');
+      return Promise.all([
+        sourceRef.child('manifest').once('value'),
+        sourceRef.child('routeFareRows').once('value'),
+        sourceRef.child('scheduleRows').once('value')
+      ]).then(function(parts) {
+        var index = SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, parts[0].val() || {});
+        TICKET_DATA_CENTER.pair = index.selectedRoute(booking.origin || booking.from, booking.destination || booking.to);
         TICKET_DATA_CENTER.pairKey = pairKey;
         updateTicketTransferPointLocation();
         if (currentBooking === booking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
@@ -856,7 +888,7 @@
         TICKET_DATA_CENTER.pair = null;
         TICKET_DATA_CENTER.pairKey = pairKey;
         updateTicketTransferPointLocation();
-        console.error('Ticket publishedSchedule pair load failed:', error && error.message ? error.message : error);
+        console.error('Ticket workbook route load failed:', error && error.message ? error.message : error);
         return null;
       });
     }
@@ -908,6 +940,7 @@
 
     function applyTicketPublishedScheduleMapView(mapView) {
       mapView = mapView || {};
+      TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null;
       TICKET_ERP_MAP_ROUTES = normalizeTicketErpMapRoutes(mapView.routes);
       var stops = Array.isArray(mapView.stops) ? mapView.stops : [];
       var centralStops = stops.map(function(stop, index) {
@@ -923,6 +956,7 @@
           lat: lat,
           lng: lng,
           icon: stop.icon || '',
+          displayPolicy: TICKET_ERP_MAP_DISPLAY_POLICY,
           stopType: 'main',
           order: ticketStopSortValue(name, Number(stop.displayOrder || stop.order) || (index + 1))
         };
@@ -1565,6 +1599,7 @@
           watchId = null;
         }
         stopTrackingSubscription();
+        stopSharingLocationWithDriver();
         return;
       }
       subscribeVanLocationForTicket();
@@ -1578,6 +1613,36 @@
       if (watchId !== null || !navigator.geolocation || !currentBooking) return;
       startGPS();
     }
+
+    function stopSharingLocationWithDriver() {
+      shareWithDriverActive = false;
+      if (currentBooking) {
+        try { db.ref('passengerLiveLocations/' + currentBooking.code).remove(); } catch (e) {}
+      }
+      renderShareWithDriverButton();
+    }
+
+    function toggleShareLocationWithDriver() {
+      if (shareWithDriverActive) {
+        stopSharingLocationWithDriver();
+        return;
+      }
+      if (!currentBooking || isServiceEnded(currentBooking)) return;
+      shareWithDriverActive = true;
+      autoStartPassengerGps();
+      if (lastPosition) {
+        db.ref('passengerLiveLocations/' + currentBooking.code).set({ lat: lastPosition.lat, lng: lastPosition.lng, ts: Date.now() });
+      }
+      renderShareWithDriverButton();
+    }
+
+    function renderShareWithDriverButton() {
+      var btn = document.getElementById('btnShareWithDriver');
+      if (!btn) return;
+      btn.textContent = shareWithDriverActive ? '\u2713 \u0e01\u0e33\u0e25\u0e31\u0e07\u0e41\u0e0a\u0e23\u0e4c\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07 (\u0e41\u0e15\u0e30\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e2b\u0e22\u0e38\u0e14)' : '\ud83d\udccd \u0e41\u0e0a\u0e23\u0e4c\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e43\u0e2b\u0e49\u0e04\u0e19\u0e02\u0e31\u0e1a';
+      btn.classList.toggle('active', shareWithDriverActive);
+    }
+    window.toggleShareLocationWithDriver = toggleShareLocationWithDriver;
 
     function showTopbar(yes) {
       var el = document.querySelector('.topbar');
@@ -1654,6 +1719,7 @@
       trackingVanAnimFrame = null;
       trackingPassengerAnimFrame = null;
       trackingVanMarkerPos = null;
+      trackingVanDisplayState = null;
       trackingPassengerMarkerPos = null;
     }
 
@@ -2131,6 +2197,12 @@
       el.title = label;
       el.setAttribute('aria-label', label);
       el.dataset.markerIcon = markerIcon || '';
+      if ((className === 'pickup' || className === 'transfer') &&
+          TICKET_ERP_MAP_DISPLAY_POLICY &&
+          TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers &&
+          TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers.scaleMode) {
+        el.dataset.scaleMode = TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers.scaleMode;
+      }
       if (className === 'pickup' || className === 'transfer') el.classList.add('station');
       if (className === 'van') {
         var img = document.createElement('img');
@@ -2239,8 +2311,8 @@
       options = options || {};
       var fromPos = markerAnimState(stateName) || toPos;
       var dist = trackingPointMeters(fromPos, toPos);
-      var minMeters = options.minMeters !== undefined ? options.minMeters : 5;
-      var maxMeters = options.maxMeters !== undefined ? options.maxMeters : 5000;
+      var minMeters = options.minMeters !== undefined ? options.minMeters : 0;
+      var maxMeters = options.maxMeters !== undefined ? options.maxMeters : Infinity;
       if (markerAnimState(frameName)) cancelAnimationFrame(markerAnimState(frameName));
       if (dist < minMeters || dist > maxMeters) {
         marker.setLngLat([toPos.lng, toPos.lat]);
@@ -2249,7 +2321,15 @@
         if (stateName === 'vanPos') renderTrackingRemainingRoute(toPos);
         return;
       }
-      var duration = Math.min(options.maxDuration || 2400, Math.max(options.minDuration || 650, dist * (options.msPerMeter || 18)));
+      var hasAnimConfig = options.maxDuration != null && options.minDuration != null && options.msPerMeter != null;
+      var duration = hasAnimConfig ? Math.min(options.maxDuration, Math.max(options.minDuration, dist * options.msPerMeter)) : 0;
+      if (!duration) {
+        marker.setLngLat([toPos.lng, toPos.lat]);
+        markerAnimState(stateName, toPos);
+        markerAnimState(frameName, null);
+        if (stateName === 'vanPos') renderTrackingRemainingRoute(toPos);
+        return;
+      }
       var started = null;
       function step(ts) {
         if (!started) started = ts;
@@ -2306,23 +2386,26 @@
       location = snapTrackingPointToRoute(location, 180);
       if (!trackingMapReady || !trackingMap || !location) return;
       if (vanLocation && vanLocation.heartbeatOnly === true) {
-        if (!trackingVanMarker) { renderVanMarker(location); trackingVanMarkerPos = location; }
+        if (!trackingVanMarker) { renderVanMarker(location); trackingVanMarkerPos = location; trackingVanDisplayState = null; }
         return;
       }
       if (!trackingVanMarker) {
         renderVanMarker(location);
         trackingVanMarkerPos = location;
+        trackingVanDisplayState = null;
         return;
       }
       if (window.SLTransitMapDisplayCenter && typeof window.SLTransitMapDisplayCenter.planVehicleMarker === 'function') {
         var vehiclePlan = window.SLTransitMapDisplayCenter.planVehicleMarker(
-          trackingVanMarkerPos ? { point: trackingVanMarkerPos } : null,
+          trackingVanDisplayState,
           Object.assign({ vehicleId: trackingVehicleId || 'booked_vehicle' }, location),
-          { maxStepMeters: 500 }
+          ticketVehicleMarkerCfg
         );
         if (vehiclePlan && vehiclePlan.point) location = vehiclePlan.point;
+        if (vehiclePlan && vehiclePlan.displayState) trackingVanDisplayState = vehiclePlan.displayState;
       }
-      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, { minMeters:5, maxMeters:5000, minDuration:650, maxDuration:2400, msPerMeter:18 });
+      trackingVanMarkerPos = location;
+      animateTrackingMarker(trackingVanMarker, 'vanPos', 'vanFrame', location, ticketVanMarkerAnimCfg);
       if (!lastPosition && !passengerAutoFocused && !trackingUserInteracted) focusTrackingMap();
       updateTrackingRouteLine();
     }
@@ -2543,13 +2626,7 @@
           .addTo(trackingMap);
         trackingPassengerMarkerPos = position;
       } else {
-        animateTrackingMarker(trackingPassengerMarker, 'passengerPos', 'passengerFrame', position, {
-          minMeters: 3,
-          maxMeters: 600,
-          minDuration: 500,
-          maxDuration: 1800,
-          msPerMeter: 15
-        });
+        animateTrackingMarker(trackingPassengerMarker, 'passengerPos', 'passengerFrame', position, ticketPassengerMarkerAnimCfg);
       }
     }
 
@@ -3140,6 +3217,9 @@
           stationaryMinutes: stationarySince ? Math.floor((Date.now() - stationarySince) / 60000) : 0,
           ts: Date.now()
         });
+        if (shareWithDriverActive) {
+          db.ref('passengerLiveLocations/' + currentBooking.code).set({ lat: next.lat, lng: next.lng, ts: Date.now() });
+        }
       }
     }
 
