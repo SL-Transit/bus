@@ -30,9 +30,11 @@ assert.match(rules.data.fleet['.write'], /adminAccounts/, 'fleet writes must be 
 assert.strictEqual(rules.operations.bookings['$bookingId']['.write'], "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true", 'operational booking mirror writes must be admin-only');
 assert.strictEqual(rules.operations.driverLogs['.write'], false, 'driver log parent must not be broadly writable');
 assert.match(rules.bookings['$bookingId']['.read'], /ownerUid/, 'booking reads must be owner-scoped');
+assert.match(rules.bookings['$bookingId']['.read'], /plannedVehicleId/, 'assigned drivers must read only their bookings');
 assert.match(rules.bookings['$bookingId']['.write'], /adminAccounts/, 'booking updates must not be available to every authenticated user');
 assert.doesNotMatch(rules.bookings['$bookingId']['.write'], /!data\.exists\(\)/, 'browser must not have a direct create path');
-assert.doesNotMatch(rules.bookings['$bookingId']['.write'], /ownerUid/, 'booking writes must not trust browser ownership claims');
+assert.match(rules.bookings['$bookingId']['.write'], /originCheckin/, 'assigned drivers may only perform the bounded check-in update');
+assert.match(rules.bookings['$bookingId']['.write'], /farePaidToDriver.*price/, 'driver check-in must use the stored booking price');
 assert.match(booking1, /firebase-auth-compat\.js/, 'Booking1 must load Firebase Auth');
 assert.match(booking1, /signInAnonymously/, 'Booking1 must establish an authenticated guest session');
 assert.match(bookingAdapter, /booking\.ownerUid = currentUser\.uid/, 'Booking1 must bind the created booking to the current auth UID');
