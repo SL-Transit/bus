@@ -27,6 +27,8 @@ assert(indexLogic.includes('color:var(--navy);font-weight:600'), 'index secondar
 assert(indexLogic.includes('Number(mapStop.displayOrder)+1'), 'index must normalize zero-based map stop order');
 assert(indexLogic.includes('var INDEX_OWNER_STOP_ORDER'), 'index must use owner-approved stop order');
 assert(indexLogic.includes('if(!mainRow1.length)'), 'index must not render an empty first main route row');
+assert(indexLogic.includes("[['ฉะเชิงเทรา (แปดริ้ว)','พนมสารคาม']"), 'index endpoint row one must show the first two stops from the opposite end');
+assert(indexLogic.includes("[['วังน้ำเย็น','คลองหาด']"), 'index endpoint row one must show the last two stops from the origin end');
 assert(indexLogic.includes('readIndexValue'), 'index Firebase reads must fail fast on network timeout');
 assert(indexLogic.includes('var gpsTimeout'), 'index GPS must not remain pending forever');
 assert(indexLogic.includes('workbookOrder'), 'index stop order must remain workbook-driven');

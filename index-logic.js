@@ -421,18 +421,23 @@ function getCatalogRoutesForStop(stop){
   });
   var originOrder=stopOrder(stop.name);
   var mainRow1=[],mainRow2=[];
-  main.forEach(function(name){
-    var order=stopOrder(name);
-    if(originOrder===1){
-      (order===2||order===3?mainRow1:mainRow2).push(name);
-    } else if(originOrder===15){
-      (order===7||order===8?mainRow1:mainRow2).push(name);
-    } else if(originOrder>=12){
-      (order>originOrder?mainRow1:mainRow2).push(name);
-    } else {
-      (order<originOrder?mainRow1:mainRow2).push(name);
-    }
-  });
+  var endpointRows=originOrder===15?
+    [['ฉะเชิงเทรา (แปดริ้ว)','พนมสารคาม'],['หนองคอก','ท่าตะเกียบ','สนามชัยเขต']]:
+    originOrder===1?
+    [['วังน้ำเย็น','คลองหาด'],['สนามชัยเขต','ท่าตะเกียบ','หนองคอก']]:null;
+  if(endpointRows){
+    mainRow1=endpointRows[0].filter(function(name){return main.indexOf(name)!==-1;});
+    mainRow2=endpointRows[1].filter(function(name){return main.indexOf(name)!==-1;});
+  } else {
+    main.forEach(function(name){
+      var order=stopOrder(name);
+      if(originOrder>=12){
+        (order>originOrder?mainRow1:mainRow2).push(name);
+      } else {
+        (order<originOrder?mainRow1:mainRow2).push(name);
+      }
+    });
+  }
 
   mainRow1=mainRow1.slice(0,2);
   mainRow2=mainRow2.slice(0,3);
