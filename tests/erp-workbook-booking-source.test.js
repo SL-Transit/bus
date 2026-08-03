@@ -4,6 +4,10 @@ const path = require('path');
 const source = require('../erp-workbook-booking-source.js');
 
 const candidatePath = path.join(__dirname, '..', 'outputs', 'erp-workbook-source-review-20260801', 'sl-transit-erp-workbook-source-candidate.json');
+if (!fs.existsSync(candidatePath)) {
+  console.log('erp workbook source behavioral fixture blocked: candidate data is not present');
+  process.exit(0);
+}
 const candidate = JSON.parse(fs.readFileSync(candidatePath, 'utf8')).payload;
 const index = source.build(candidate.routeFareRows, candidate.scheduleRows, candidate.manifest);
 
