@@ -10,5 +10,7 @@ assert.match(main, /setAllowFileAccess\(false\)/, 'driver map WebView must not r
 assert.match(main, /setAllowContentAccess\(false\)/, 'driver map WebView must not read content providers');
 assert.match(main, /MIXED_CONTENT_NEVER_ALLOW/, 'driver map WebView must reject mixed content');
 assert.match(main, /setSafeBrowsingEnabled\(true\)/, 'driver map WebView must enable safe browsing');
+assert.match(main, /shouldOverrideUrlLoading/, 'driver map WebView must control navigation');
+assert.match(main, /sl-transit\.com/, 'driver map WebView must allowlist the trusted site');
 
 console.log('driver android security contract ok');

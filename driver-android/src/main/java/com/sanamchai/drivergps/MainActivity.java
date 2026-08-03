@@ -3110,6 +3110,15 @@ public class MainActivity extends Activity {
         ws.setCacheMode(WebSettings.LOAD_NO_CACHE);
         driverMapWebView.clearCache(true);
         driverMapWebView.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                Uri parsed = Uri.parse(url == null ? "" : url);
+                String scheme = parsed.getScheme();
+                String host = parsed.getHost();
+                boolean trusted = "https".equalsIgnoreCase(scheme)
+                        && ("sl-transit.com".equalsIgnoreCase(host)
+                        || (host != null && host.endsWith(".sl-transit.com")));
+                return !trusted;
+            }
             @Override public void onPageFinished(WebView view, String url) {
                 driverMapReady = true;
                 updateLiveMap();
