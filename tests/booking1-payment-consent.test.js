@@ -8,4 +8,8 @@ assert(source.includes("paymentMethod: currentPayMethod || 'onsite'"), 'Consent 
 assert(source.includes('BOOKING1_PAYMENT_CONTACT.bankName'), 'Consent bank details must use the same payment contact as the payment panel');
 assert(source.includes("ไม่ต้องโอนเงินและไม่ต้องแนบสลิป"), 'Onsite payment consent must match the onsite payment option');
 assert(source.includes("หลังโอนให้แนบสลิปในช่องที่กำหนด"), 'Bank payment consent must match the bank payment option');
+assert(source.includes('id="consentCheck"'), 'Consent dialog must require an explicit checkbox');
+assert(source.includes('function onConsentCheckChange()'), 'Consent checkbox must participate in acceptance gating');
+assert(source.includes("fetch('info.html'"), 'Consent dialog must load the canonical long policy');
+assert(source.includes("querySelector('#policy')"), 'Consent dialog must load the canonical policy section');
 console.log('booking1 payment consent contract ok');

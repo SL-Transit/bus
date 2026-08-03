@@ -1859,6 +1859,10 @@ body {
       </div><!-- end consentBody -->
       <div class="consent-footer">
         <div class="consent-scroll-hint" id="consentScrollHint">⬇ เลื่อนอ่านจนสุดก่อนกดยืนยัน</div>
+        <label class="consent-check-label" style="display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:13px;line-height:1.5;">
+          <input type="checkbox" id="consentCheck" onchange="onConsentCheckChange()" style="margin-top:3px;accent-color:#0f766e;">
+          <span>ข้าพเจ้าอ่านและยอมรับนโยบายและเงื่อนไขการใช้บริการทั้งหมด</span>
+        </label>
         <button class="consent-btn-accept" id="consentBtnAccept" onclick="acceptConsent()" disabled>
           ✅ ข้าพเจ้าอ่านและยอมรับข้อตกลงทั้งหมด
         </button>
@@ -2875,6 +2879,38 @@ function onSlipSelectBooking1(input) {
 }
 
 /* ---------- CONSENT POPUP ---------- */
+var BOOKING1_LONG_POLICY_PROMISE = null;
+function loadBooking1LongPolicy() {
+  var policyEl = document.getElementById('consentPolicyContent');
+  var loadingEl = document.getElementById('consentLoading');
+  var fallbackEl = document.getElementById('consentFallback');
+  if (!policyEl) return Promise.resolve(false);
+  if (policyEl.innerHTML.trim()) return Promise.resolve(true);
+  if (BOOKING1_LONG_POLICY_PROMISE) return BOOKING1_LONG_POLICY_PROMISE;
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  BOOKING1_LONG_POLICY_PROMISE = fetch('info.html', { credentials: 'same-origin' })
+    .then(function(response) { if (!response.ok) throw new Error('policy_http_' + response.status); return response.text(); })
+    .then(function(html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var section = doc.querySelector('#policy');
+      if (!section) throw new Error('policy_section_missing');
+      policyEl.innerHTML = section.innerHTML;
+      policyEl.style.display = 'block';
+      if (loadingEl) loadingEl.style.display = 'none';
+      onConsentCheckChange();
+      return true;
+    })
+    .catch(function(error) {
+      console.warn('[Booking1] long policy load failed; using fallback policy', error);
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (fallbackEl) fallbackEl.style.display = 'block';
+      onConsentCheckChange();
+      return false;
+    });
+  return BOOKING1_LONG_POLICY_PROMISE;
+}
+
 function renderConsentPaymentSummary() {
   var el = document.getElementById('consentPaymentSummary');
   if (!el) return;
@@ -2901,33 +2937,50 @@ function openConsentPopup(e) {
   var body = document.getElementById('consentBody');
   body.scrollTop = 0;
   document.getElementById('consentBtnAccept').disabled = true;
+  var consentCheck = document.getElementById('consentCheck');
+  if (consentCheck) consentCheck.checked = false;
   document.getElementById('consentScrollHint').style.display = 'block';
   renderConsentPaymentSummary();
 
-  /* Firebase policy vs fallback */
+  /* Firebase policy, then the canonical long policy from info.html, then fallback */
   var policyEl   = document.getElementById('consentPolicyContent');
   var loadingEl  = document.getElementById('consentLoading');
   var fallbackEl = document.getElementById('consentFallback');
   var hasFirebase = policyEl && policyEl.innerHTML.trim().length > 0;
-  if (loadingEl)  loadingEl.style.display  = 'none';
-  if (policyEl)   policyEl.style.display   = hasFirebase ? 'block' : 'none';
-  if (fallbackEl) fallbackEl.style.display = hasFirebase ? 'none'  : 'block';
+  if (hasFirebase) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (policyEl) policyEl.style.display = 'block';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+  } else {
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (policyEl) policyEl.style.display = 'none';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+    loadBooking1LongPolicy();
+  }
 }
 
 function closeConsentPopup() {
   document.getElementById('consentOverlay').classList.remove('show');
 }
 
-function onConsentScroll() {
+function onConsentCheckChange() {
   var body = document.getElementById('consentBody');
+  var check = document.getElementById('consentCheck');
+  var btn = document.getElementById('consentBtnAccept');
   var atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
+  if (btn) btn.disabled = !(atBottom && check && check.checked);
   if (atBottom) {
-    document.getElementById('consentBtnAccept').disabled = false;
     document.getElementById('consentScrollHint').style.display = 'none';
   }
 }
 
+function onConsentScroll() {
+  onConsentCheckChange();
+}
+
 function acceptConsent() {
+  var consentCheck = document.getElementById('consentCheck');
+  if (!consentCheck || !consentCheck.checked) return;
   state.consentAccepted = true;
   var total = typeof getBookingTotal === 'function' ? getBookingTotal(state.pax || 1) : null;
   state.consent = {
