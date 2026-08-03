@@ -397,7 +397,7 @@ function getCatalogRoutesForStop(stop){
   function makeRow(label, destinations, groupId){
     return {
       dest:(stop.name||'')+' - '+label,
-      sub:destinations.join(' / '),
+      sub:'',
       tag:'คิว',
       groupId:groupId,
       routeId:groups[groupId]&&groups[groupId].routeIds[0]||'',

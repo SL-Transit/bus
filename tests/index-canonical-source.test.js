@@ -29,6 +29,7 @@ assert(indexLogic.includes('var INDEX_OWNER_STOP_ORDER'), 'index must use owner-
 assert(indexLogic.includes('if(!mainRow1.length)'), 'index must not render an empty first main route row');
 assert(indexLogic.includes("[['ฉะเชิงเทรา (แปดริ้ว)','พนมสารคาม']"), 'index endpoint row one must show the first two stops from the opposite end');
 assert(indexLogic.includes("[['วังน้ำเย็น','คลองหาด']"), 'index endpoint row one must show the last two stops from the origin end');
+assert(indexLogic.includes("sub:''"), 'index service-group rows must not expose detailed stop lists');
 assert(indexLogic.includes('readIndexValue'), 'index Firebase reads must fail fast on network timeout');
 assert(indexLogic.includes('var gpsTimeout'), 'index GPS must not remain pending forever');
 assert(indexLogic.includes('workbookOrder'), 'index stop order must remain workbook-driven');
