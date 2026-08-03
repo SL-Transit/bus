@@ -705,7 +705,7 @@ Promise.all([
         name:s.displayNameTh||s.nameTh||s.name||s.label||mapStop.label||k,
         lat:Number(s.lat),lng:Number(s.lng||s.lon),
         icon:s.icon||mapStop.icon||'\u{1F68F}',
-        order:Number(s.workbookOrder||s.displayOrder||s.order||mapStop.displayOrder||999999),
+        order:(s.workbookOrder!=null&&s.workbookOrder!==''?Number(s.workbookOrder):s.displayOrder!=null&&s.displayOrder!==''?Number(s.displayOrder):s.order!=null&&s.order!==''?Number(s.order):mapStop.displayOrder!=null&&mapStop.displayOrder!==''?Number(mapStop.displayOrder)+1:999999),
         terminal:s.stopType==='terminal'||s.classification==='terminal'||!!s.terminal,
         routes:Array.isArray(s.routes)?s.routes:null
       };

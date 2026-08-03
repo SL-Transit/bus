@@ -24,6 +24,7 @@ assert(indexLogic.includes('mainRow1=mainRow1.slice(0,2)'), 'index first main ro
 assert(indexLogic.includes('mainRow2=mainRow2.slice(0,3)'), 'index second main row must cap at three stops');
 assert(indexLogic.includes('var originOrder=stopOrder(stop.name)'), 'index must derive the origin order from the canonical stop list');
 assert(indexLogic.includes('color:var(--navy);font-weight:600'), 'index secondary stop text must remain dark and readable');
+assert(indexLogic.includes('Number(mapStop.displayOrder)+1'), 'index must normalize zero-based map stop order');
 assert(indexLogic.includes('readIndexValue'), 'index Firebase reads must fail fast on network timeout');
 assert(indexLogic.includes('var gpsTimeout'), 'index GPS must not remain pending forever');
 assert(indexLogic.includes('workbookOrder'), 'index stop order must remain workbook-driven');
