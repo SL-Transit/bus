@@ -6,6 +6,10 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'u
 const ticketDataCenter = fs.readFileSync(path.join(__dirname, '..', 'ticket-data-center.js'), 'utf8');
 
 assert(html.includes('erp-calculator-center.js'), 'Check Ticket must load ERP Calculator Center');
+assert(!html.includes('catalog-engine.js'), 'Check Ticket must not load legacy catalog engine');
+assert(!html.includes('schedule-engine.js'), 'Check Ticket must not load legacy schedule engine');
+assert(!html.includes("db.ref('data/settings')"), 'Check Ticket must not read legacy data/settings');
+assert(!html.includes("db.ref('catalogs/'"), 'Check Ticket must not read legacy catalog versions');
 assert(html.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
 assert(html.includes('erp-alert-center.js'), 'Check Ticket must load ERP Alert Center');
 assert(html.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read stop/map data from publishedSchedule mapView');
@@ -36,8 +40,6 @@ assert(html.includes('ticket-data-center.js'), 'Check Ticket must load Ticket Da
 assert(html.includes('SLTransitTicketDataCenter.findTicket(db, value'), 'Check Ticket lookup must go through Ticket Data Center');
 assert(ticketDataCenter.includes('/^(BK\\d{6,10}|TB\\d{6})$/i.test(clean(value))'), 'Ticket Data Center must accept Booking1 BK plus legacy ticket codes');
 assert(html.includes('placeholder="0812345678 หรือ BK1234567890"'), 'Check Ticket code placeholder must match Booking1 code length');
-assert(html.includes("booking.sourceMode === 'erp_data_center' || booking.publishedSchedule"), 'Check Ticket must not load legacy catalogs for ERP Data Center bookings');
-assert(html.includes('/^[A-Za-z0-9_-]+$/.test(version)'), 'Check Ticket catalogVersion paths must exclude Firebase-invalid dots');
 assert(html.includes('function buildTicketDataCenterContract'), 'Check Ticket must build a display-ready ticket contract before using booking fields');
 assert(html.includes("contractVersion: 'check_ticket_data_center_v1'"), 'Check Ticket ticket data center contract must be versioned');
 assert(html.includes('TICKET_DATA_CENTER.ticket = buildTicketDataCenterContract(booking)'), 'Check Ticket must cache the central ticket contract for the current booking');
