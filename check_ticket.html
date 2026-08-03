@@ -831,18 +831,6 @@
       };
     }
 
-    function resolveTicketPairStorageKey(pairKey) {
-      if (!pairKey) return '';
-      var encoded = TICKET_DATA_CENTER.firebaseKeyEncoding && TICKET_DATA_CENTER.firebaseKeyEncoding.encodedKeyIndex || {};
-      var indexes = [encoded.pairs || {}, encoded.compatibilityKeyIndex || {}];
-      for (var i = 0; i < indexes.length; i++) {
-        if (Object.prototype.hasOwnProperty.call(indexes[i], pairKey)) return pairKey;
-        var keys = Object.keys(indexes[i]);
-        for (var j = 0; j < keys.length; j++) if (indexes[i][keys[j]] === pairKey) return keys[j];
-      }
-      return pairKey;
-    }
-
     function ticketTransferPointLabel(pair) {
       pair = pair || TICKET_DATA_CENTER.pair || {};
       var transfer = pair.transfer || {};

@@ -116,6 +116,11 @@ function firstEmptyUnknownTransferPair(publishedSchedule) {
   assert((schedule.mappingStatusSummary.needs_review || 0) === 0, 'needs_review must be zero');
   assert(schedule.counts.pairs === 508, 'visible pair count mismatch');
   assert(schedule.counts.visiblePairs === 508, 'visible pair count alias mismatch');
+  assert(schedule.sourceDataContract.erpDataCenterPath === 'data/erpDataCenter/workbookSource', 'central workbook source path mismatch');
+  assert(schedule.sourceDataContract.expectedRouteFareRows === 244, 'route/fare source meaning mismatch');
+  assert(schedule.sourceDataContract.expectedScheduleRows === 881, 'schedule source meaning mismatch');
+  assert(schedule.counts.expectedWorkbookRouteFareRows === 244, 'published contract fare count mismatch');
+  assert(schedule.counts.expectedWorkbookScheduleRows === 881, 'published contract schedule count mismatch');
   assert(schedule.counts.transferUnknownPairs === 0, 'transfer unknown count mismatch');
   assert(schedule.counts.transferReferencePairs === 264, 'transfer reference count mismatch');
   assert(schedule.counts.transferFeasibleReferencePairs === 264, 'transfer feasible reference count mismatch');

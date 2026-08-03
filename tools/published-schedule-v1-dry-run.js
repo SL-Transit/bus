@@ -2,6 +2,7 @@
 'use strict';
 
 const { buildDryRunSnapshot, OWNER_WORKBOOK_STOPS } = require('./erp-data-center-dry-run-snapshot.js');
+const { CONTRACT: WORKBOOK_SOURCE_CONTRACT } = require('../erp-workbook-source-contract.js');
 const ROAD_POLYLINE_POINTS = require('./published-schedule-map-road-polyline.json');
 
 const ESTIMATED_BADGE_TH = 'เวลาโดยประมาณ';
@@ -1370,6 +1371,17 @@ async function buildPublishedScheduleV1DryRun() {
     productionReady: false,
     readyForApply: false,
     compatibilityTarget: 'passenger_publishedSchedule_v1',
+    sourceDataContract: {
+      schemaVersion: WORKBOOK_SOURCE_CONTRACT.schemaVersion,
+      erpDataCenterPath: WORKBOOK_SOURCE_CONTRACT.rootPath,
+      routeFareRowsPath: WORKBOOK_SOURCE_CONTRACT.routeFareRowsPath,
+      scheduleRowsPath: WORKBOOK_SOURCE_CONTRACT.scheduleRowsPath,
+      expectedRouteFareRows: WORKBOOK_SOURCE_CONTRACT.expectedRouteFareRows,
+      expectedScheduleRows: WORKBOOK_SOURCE_CONTRACT.expectedScheduleRows,
+      routeFareRowsMeaning: WORKBOOK_SOURCE_CONTRACT.routeFareMeaning,
+      scheduleRowsMeaning: WORKBOOK_SOURCE_CONTRACT.scheduleMeaning,
+      publishedPairsMeaning: WORKBOOK_SOURCE_CONTRACT.publishedPairsMeaning
+    },
     source: {
       erpDataCenterSnapshot: 'Round 2 dry-run',
       erpReadyForReview: erpResult.validation.readyForReview,
@@ -1407,6 +1419,8 @@ async function buildPublishedScheduleV1DryRun() {
       destinations: Object.keys(destinations).length,
       pairs: Object.keys(pairs).length,
       visiblePairs: Object.keys(pairs).length,
+      expectedWorkbookRouteFareRows: WORKBOOK_SOURCE_CONTRACT.expectedRouteFareRows,
+      expectedWorkbookScheduleRows: WORKBOOK_SOURCE_CONTRACT.expectedScheduleRows,
       scheduleOfferTimes: values(erp.scheduleOffers).length,
       transferUnknownPairs,
       transferReferencePairs: transferFeasibleReferencePairs,

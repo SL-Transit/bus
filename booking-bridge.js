@@ -2,9 +2,9 @@
  * booking-bridge.js
  * Booking1 page adapter for ERP workbook source rows.
  *
- * This file intentionally consumes the ERP published schedule contract. It does not read
- * routeData, publishedCatalog, settings/routes, or local static fare tables as
- * booking authority.
+ * This file intentionally consumes the ERP workbook source contract. It does not read
+ * publishedSchedule compatibility pairs, routeData, publishedCatalog, settings/routes,
+ * or local static fare tables as booking authority.
  */
 (function(global) {
   'use strict';
@@ -58,16 +58,6 @@
     return isFinite(order) ? order : index;
   }
 
-  function _encodedIndex(section) {
-    var idx = _preview.firebaseKeyEncoding && _preview.firebaseKeyEncoding.encodedKeyIndex;
-    return idx && idx[section] || {};
-  }
-
-  function _decodedPreviewKey(rawKey, section) {
-    var idx = _encodedIndex(section);
-    return idx && idx[rawKey] || rawKey;
-  }
-
   function _normalizeOrigins(options) {
     return _asArray(options).map(function(option, index) {
       var label = _optionLabel(option);
@@ -88,7 +78,7 @@
   function _normalizeDestinationOptions(raw) {
     var result = {};
     Object.keys(raw || {}).forEach(function(originKey) {
-      var originLabel = _decodedPreviewKey(originKey, 'destinationOptionsByOrigin');
+      var originLabel = originKey;
       result[originLabel] = _asArray(raw[originKey]).map(function(option, index) {
         var label = _optionLabel(option);
         var pairKey = option && option.pairKey || '';
@@ -108,19 +98,7 @@
   }
 
   function _resolvePairStorageKey(pairKey) {
-    if (!pairKey) return '';
-    var pairIndex = _encodedIndex('pairs');
-    var compatibilityIndex = _encodedIndex('compatibilityKeyIndex');
-    if (pairIndex[pairKey]) return pairKey;
-    if (compatibilityIndex[pairKey]) return pairKey;
-    var found = Object.keys(pairIndex || {}).filter(function(storageKey) {
-      return pairIndex[storageKey] === pairKey;
-    })[0];
-    if (found) return found;
-    found = Object.keys(compatibilityIndex || {}).filter(function(storageKey) {
-      return compatibilityIndex[storageKey] === pairKey;
-    })[0];
-    return found || pairKey;
+    return pairKey || '';
   }
 
   function _markReady() {

@@ -378,10 +378,11 @@ function focusSelectedOrigin() {
 // reads one precomputed, ready-to-render node instead: publishedSchedule
 // (schemaVersion publishedSchedule.v1, ERP Data Center active schedule
 // output -- dryRun/writesEnabled=false, readyForApply=false at the source).
-// Pair lookup key is "<originLabel>__<destLabel>", matching the generator's
-// compatibilityPairKey(). Only pairs in PUBLISHED_SCHEDULE.pairs are ever
-// read -- excludedPreviewPairs (transferUnknown/transferInfeasible) are never
-// consulted, so those never surface as selectable journeys.
+// Current passenger runtime receives origin/destination options from the
+// workbookSource contract. Each option carries a routeFareRows sourceRowId;
+// pair details are loaded from the same canonical fare/timetable rows. The
+// legacy publishedSchedule pair parser below remains only for old snapshots
+// and is not used by passenger.html's workbookSource path.
 var PUBLISHED_SCHEDULE = null;
 var PUBLISHED_SCHEDULE_DESTINATION_OPTIONS_BY_ORIGIN = {};
 var PUBLISHED_SCHEDULE_DESTINATION_OPTION_PAIR_KEYS = {};

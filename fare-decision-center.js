@@ -86,7 +86,7 @@
         slTransitFareCollection: true,
         externalPaymentRequired: false,
         reasonCode: 'missing_fare_amount',
-        missingField: 'publishedSchedule/pairs/{pairKey}.fareAmount or segment/time fareAmount',
+        missingField: 'data/erpDataCenter/workbookSource/routeFareRows/{sourceRowId}.amount',
         source: 'erp_logic_center'
       };
     }
