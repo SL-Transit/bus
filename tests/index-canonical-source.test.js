@@ -27,7 +27,7 @@ assert(indexLogic.includes('color:var(--navy);font-weight:600'), 'index secondar
 assert(indexLogic.includes('Number(mapStop.displayOrder)+1'), 'index must normalize zero-based map stop order');
 assert(indexLogic.includes('var INDEX_OWNER_STOP_ORDER'), 'index must use owner-approved stop order');
 assert(indexLogic.includes('if(!mainRow1.length)'), 'index must not render an empty first main route row');
-assert(indexLogic.includes("[['พนมสารคาม','สนามชัยเขต','ฉะเชิงเทรา (แปดริ้ว)']"), 'index Klonghat endpoint row template must match the approved stops');
+assert(indexLogic.includes("[['พนมสารคาม','ฉะเชิงเทรา (แปดริ้ว)']"), 'index Klonghat endpoint row one must match the approved stops');
 assert(indexLogic.includes("[['สี่แยกโคนม','วังน้ำเย็น','คลองหาด']"), 'index Chachoengsao endpoint row template must match the approved stops');
 assert(indexLogic.includes('var allMain=groups.group_001'), 'index endpoint templates must use all main route destinations');
 assert(indexLogic.includes("sub:''"), 'index service-group rows must not expose detailed stop lists');

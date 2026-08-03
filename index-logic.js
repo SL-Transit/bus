@@ -423,7 +423,7 @@ function getCatalogRoutesForStop(stop){
   var originOrder=stopOrder(stop.name);
   var mainRow1=[],mainRow2=[];
   var endpointRows=originOrder===15?
-    [['พนมสารคาม','สนามชัยเขต','ฉะเชิงเทรา (แปดริ้ว)'],['หนองคอก','ท่าตะเกียบ','สนามชัยเขต']]:
+    [['พนมสารคาม','ฉะเชิงเทรา (แปดริ้ว)'],['หนองคอก','ท่าตะเกียบ','สนามชัยเขต']]:
     originOrder===1?
     [['สี่แยกโคนม','วังน้ำเย็น','คลองหาด'],['สนามชัยเขต','ท่าตะเกียบ','หนองคอก']]:null;
   if(endpointRows){
