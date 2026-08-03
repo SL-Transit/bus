@@ -116,6 +116,9 @@ assert.strictEqual(enriched.queueNo, 4);
 assert.strictEqual(enriched.scheduleOnly, false);
 assert.strictEqual(enriched.assignment.assignmentSource, 'driver_work_by_service_date');
 assert.strictEqual(center.driverTicketPath('BK7991918149', enriched), 'operations/driverTicketsByServiceDate/2026-07-19/car1/BK7991918149');
+const scheduledUpdates = center.buildScheduledAssignmentUpdate('BK7991918149', scheduleOnlyBooking, workByVehicle, groupStops);
+assert(scheduledUpdates['bookings/BK7991918149/assignment'], 'scheduled reconciliation must persist assignment');
+assert.strictEqual(scheduledUpdates['bookings/BK7991918149/plannedVehicleId'], 'car1');
 
 const noAliasMatch = center.enrichBookingFromDriverWork(scheduleOnlyBooking, workByVehicle, {});
 assert.strictEqual(noAliasMatch.plannedVehicleId, undefined, 'alias-only destination must not match without ERP Data Center aliases');
@@ -132,7 +135,7 @@ assert(main.includes('mapEarningsValue.setText(formatBaht(prefs.getFloat(KEY_TOD
 assert(main.includes('heroAmount.setText(formatBaht(bookedAmount))'), 'Driver report hero must show booked revenue for today');
 assert(!main.includes('loadBookingsForDate'), 'Driver passenger views must not scan daily bookings locally');
 assert(!main.includes('bookingBelongsToVehicle(child, vehicleId)'), 'Driver passenger list must not filter all bookings on the device');
-assert(functionsIndex.includes('syncDriverTicketOnBookingWrite'), 'Functions must mirror bookings into the driver ticket feed');
+assert(functionsIndex.includes('handleBookingCreated'), 'Booking creation must mirror bookings into the driver ticket feed');
 assert(functionsIndex.includes('buildDriverTicketMirrorUpdate'), 'Functions must use the Driver Ticket Center contract');
 assert(functionsIndex.includes('enrichBookingFromDriverWork'), 'Functions must assign schedule-only bookings from central driver work before mirroring');
 assert(functionsIndex.includes('data/erpDataCenter/groupStops'), 'Driver assignment enrichment must read ERP Data Center group stop aliases');

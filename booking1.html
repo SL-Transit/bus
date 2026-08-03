@@ -1843,6 +1843,8 @@ body {
         <div class="consent-sub">กรุณาเลื่อนอ่านจนครบก่อนกดยืนยัน</div>
       </div>
       <div class="consent-body" id="consentBody" onscroll="onConsentScroll()">
+        <div id="consentPaymentSummary" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.7;color:#14532d;"></div>
+        <p class="consent-canonical-link" style="margin:0 0 10px;font-size:12px;color:var(--gray-text);">เอกสารฉบับเต็ม: <a href="info.html#policy" target="_blank" rel="noopener">เปิดนโยบายและเงื่อนไขทั้งหมดใน info.html</a></p>
         <div id="consentLoading" style="text-align:center;padding:20px;color:var(--gray-text);font-size:13px;">⏳ กำลังโหลดข้อความนโยบาย...</div>
         <div id="consentPolicyContent" style="display:none;"></div>
         <!-- fallback hardcode (แสดงถ้า Firebase ไม่ได้ตั้งค่า consentPolicy) -->
@@ -1864,6 +1866,10 @@ body {
       </div><!-- end consentBody -->
       <div class="consent-footer">
         <div class="consent-scroll-hint" id="consentScrollHint">⬇ เลื่อนอ่านจนสุดก่อนกดยืนยัน</div>
+        <label class="consent-check-label" style="display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:13px;line-height:1.5;">
+          <input type="checkbox" id="consentCheck" onchange="onConsentCheckChange()" style="margin-top:3px;accent-color:#0f766e;">
+          <span>ข้าพเจ้าอ่านและยอมรับนโยบายและเงื่อนไขการใช้บริการทั้งหมด</span>
+        </label>
         <button class="consent-btn-accept" id="consentBtnAccept" onclick="acceptConsent()" disabled>
           ✅ ข้าพเจ้าอ่านและยอมรับข้อตกลงทั้งหมด
         </button>
@@ -2108,6 +2114,36 @@ body {
      ============================================================ -->
 <script>
 var global = window;
+
+/* LINE In-App Browser guard. Booking requires a top-level browser for the
+   Firebase/LIFF/payment flow; keep the old explicit hand-off behavior. */
+(function initLineBrowserGuard() {
+  function isLineInAppBrowser() {
+    return /Line\/([\d.]+)/i.test(navigator.userAgent || '');
+  }
+  function detectLineBrowser() {
+    if (!isLineInAppBrowser()) return;
+    if (window.location.search.indexOf('ext=1') !== -1) return;
+    var overlay = document.getElementById('lineBrowserOverlay');
+    if (overlay) overlay.classList.add('show');
+  }
+  function tryOpenExternal() {
+    var url = window.location.href;
+    if (url.indexOf('ext=1') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'ext=1';
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      window.location.href = 'googlechrome://' + url.replace(/^https?:\/\//, '');
+      setTimeout(function () { window.location.href = url; }, 1500);
+    } else {
+      window.location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+      setTimeout(function () { window.location.href = url; }, 1500);
+    }
+  }
+  global.isLineInAppBrowser = isLineInAppBrowser;
+  global.tryOpenExternal = tryOpenExternal;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', detectLineBrowser);
+  else detectLineBrowser();
+}());
 /* ============================================================
    FIREBASE INIT + ERP BRIDGE
    ============================================================ */
@@ -2152,6 +2188,7 @@ var BOOKING1_PAYMENT_FALLBACK = {
   phone: '082-9860032',
   description: 'กรุณาโอนเงินไปยังบัญชีด้านล่าง จากนั้นถ่ายภาพหลักฐานการโอนเงินและแนบในช่องที่กำหนด'
 };
+var BOOKING1_PAYMENT_CONTACT = Object.assign({}, BOOKING1_PAYMENT_FALLBACK);
 
 var BOOKING_ANN = { items: [], cur: 0, timer: null, dur: 5000, paused: false };
 var BOOKING_ANN_TYPE_COLOR = {
@@ -2826,6 +2863,9 @@ function selectPayMethod(method) {
   }
 }
 
+  if (document.getElementById('consentOverlay') && document.getElementById('consentOverlay').classList.contains('show')) renderConsentPaymentSummary();
+}
+
 function onSlipSelectBooking1(input) {
   var file = input && input.files && input.files[0];
   state.slipFile = file || null;
@@ -2846,6 +2886,63 @@ function onSlipSelectBooking1(input) {
 }
 
 /* ---------- CONSENT POPUP ---------- */
+var BOOKING1_LONG_POLICY_PROMISE = null;
+function loadBooking1LongPolicy() {
+  var policyEl = document.getElementById('consentPolicyContent');
+  var loadingEl = document.getElementById('consentLoading');
+  var fallbackEl = document.getElementById('consentFallback');
+  if (!policyEl) return Promise.resolve(false);
+  if (BOOKING1_LONG_POLICY_PROMISE) return BOOKING1_LONG_POLICY_PROMISE;
+  var existingPolicyHtml = policyEl.innerHTML.trim();
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  BOOKING1_LONG_POLICY_PROMISE = fetch('info.html', { credentials: 'same-origin' })
+    .then(function(response) { if (!response.ok) throw new Error('policy_http_' + response.status); return response.text(); })
+    .then(function(html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var section = doc.querySelector('#policy');
+      if (!section) throw new Error('policy_section_missing');
+      policyEl.innerHTML = section.innerHTML;
+      policyEl.style.display = 'block';
+      if (loadingEl) loadingEl.style.display = 'none';
+      onConsentCheckChange();
+      return true;
+    })
+    .catch(function(error) {
+      console.warn('[Booking1] long policy load failed; using fallback policy', error);
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (existingPolicyHtml) {
+        policyEl.innerHTML = existingPolicyHtml;
+        policyEl.style.display = 'block';
+        if (fallbackEl) fallbackEl.style.display = 'none';
+      } else if (fallbackEl) {
+        fallbackEl.style.display = 'block';
+      }
+      onConsentCheckChange();
+      return false;
+    });
+  return BOOKING1_LONG_POLICY_PROMISE;
+}
+
+function renderConsentPaymentSummary() {
+  var el = document.getElementById('consentPaymentSummary');
+  if (!el) return;
+  var method = currentPayMethod || 'onsite';
+  var total = typeof getBookingTotal === 'function' ? getBookingTotal(state.pax || 1) : null;
+  var amount = total && total.status === 'ready' ? (total.total + ' บาท') : 'ตามยอดรวมที่แสดงในหน้าชำระเงิน';
+  var lines = ['รายละเอียดการชำระเงินของรายการนี้', 'ยอดที่ต้องชำระ: ' + amount];
+  if (method === 'onsite') {
+    lines.push('วิธี: จองหน้างาน — ชำระกับเจ้าหน้าที่ที่ท่ารถหรือบนรถ', 'ไม่ต้องโอนเงินและไม่ต้องแนบสลิป');
+  } else if (method === 'bank') {
+    lines.push('วิธี: โอนเงินผ่านบัญชีธนาคาร', 'ธนาคาร: ' + (BOOKING1_PAYMENT_CONTACT.bankName || '-'), 'เลขบัญชี: ' + (BOOKING1_PAYMENT_CONTACT.accountNo || '-'), 'ชื่อบัญชี: ' + (BOOKING1_PAYMENT_CONTACT.accountName || '-'), 'หลังโอนให้แนบสลิปในช่องที่กำหนด');
+  } else {
+    lines.push('วิธี: PromptPay / QR Payment', 'ชำระตามยอดรวม แล้วแนบหลักฐานตามที่ระบบกำหนด');
+  }
+  el.textContent = lines.join('\n');
+  el.style.whiteSpace = 'pre-line';
+  el.style.display = 'block';
+}
+
 function openConsentPopup(e) {
   if (e) e.preventDefault();
   var overlay = document.getElementById('consentOverlay');
@@ -2853,33 +2950,51 @@ function openConsentPopup(e) {
   var body = document.getElementById('consentBody');
   body.scrollTop = 0;
   document.getElementById('consentBtnAccept').disabled = true;
+  var consentCheck = document.getElementById('consentCheck');
+  if (consentCheck) consentCheck.checked = false;
   document.getElementById('consentScrollHint').style.display = 'block';
+  renderConsentPaymentSummary();
 
-  /* Firebase policy vs fallback */
+  /* Always prefer the canonical full policy from info.html; Firebase/embedded text is fallback only. */
   var policyEl   = document.getElementById('consentPolicyContent');
   var loadingEl  = document.getElementById('consentLoading');
   var fallbackEl = document.getElementById('consentFallback');
-  var hasFirebase = policyEl && policyEl.innerHTML.trim().length > 0;
-  if (loadingEl)  loadingEl.style.display  = 'none';
-  if (policyEl)   policyEl.style.display   = hasFirebase ? 'block' : 'none';
-  if (fallbackEl) fallbackEl.style.display = hasFirebase ? 'none'  : 'block';
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (policyEl) policyEl.style.display = 'none';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  loadBooking1LongPolicy();
 }
 
 function closeConsentPopup() {
   document.getElementById('consentOverlay').classList.remove('show');
 }
 
-function onConsentScroll() {
+function onConsentCheckChange() {
   var body = document.getElementById('consentBody');
+  var check = document.getElementById('consentCheck');
+  var btn = document.getElementById('consentBtnAccept');
   var atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
+  if (btn) btn.disabled = !(atBottom && check && check.checked);
   if (atBottom) {
-    document.getElementById('consentBtnAccept').disabled = false;
     document.getElementById('consentScrollHint').style.display = 'none';
   }
 }
 
+function onConsentScroll() {
+  onConsentCheckChange();
+}
+
 function acceptConsent() {
+  var consentCheck = document.getElementById('consentCheck');
+  if (!consentCheck || !consentCheck.checked) return;
   state.consentAccepted = true;
+  var total = typeof getBookingTotal === 'function' ? getBookingTotal(state.pax || 1) : null;
+  state.consent = {
+    contractVersion: 'booking1_consent_v2',
+    paymentMethod: currentPayMethod || 'onsite',
+    totalAmount: total && total.status === 'ready' ? total.total : null,
+    acceptedAt: Date.now()
+  };
   closeConsentPopup();
   // อัปเดต UI
   document.getElementById('consentStatusBar').style.display = 'block';
@@ -3062,6 +3177,7 @@ function closeTicketSavePopup() {
 function _applySettings(data) {
   data = data || {};
   data.payment = Object.assign({}, BOOKING1_PAYMENT_FALLBACK, data.payment || {});
+  BOOKING1_PAYMENT_CONTACT = Object.assign({}, data.payment);
   var set = function(id, v) { var e = document.getElementById(id); if (e && v != null) e.textContent = v; };
   set('paymentBankName',    data.payment && data.payment.bankName);
   set('paymentAccountNo',   data.payment && data.payment.accountNo);

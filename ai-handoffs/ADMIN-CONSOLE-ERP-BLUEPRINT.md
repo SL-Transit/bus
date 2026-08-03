@@ -6,33 +6,33 @@ Owner-approved direction. This file is the shared blueprint for all SL-Transit A
 
 ## Core Principle
 
-SL-Transit must move from separate pages making their own decisions to one controlled platform:
+SL-Transit must move from separate pages making their own decisions to one controlled Admin ERP / Backoffice platform:
 
 ```text
-Excel ERP Workbook
-  -> Admin Console / Backoffice
-  -> Draft / Review / Publish
+Admin ERP / Backoffice
+  -> direct point editing and control
+  -> Excel bulk import/export when useful
+  -> Draft / Validate / Review / Publish where required
   -> publishedSchedule and approved runtime/config nodes
   -> Passenger / Booking1 / Check Ticket / Driver
 ```
 
-During the first phase, Excel remains the source workbook. Admin Console reads Excel, validates it, previews it, and publishes approved data. Admin Console must not silently bypass validation or publish directly from an unreviewed edit.
+Excel remains an important source workbook and bulk-edit/import tool during the first phase. However, Excel is not the only edit method and is not a replacement for Admin ERP. Admin ERP must support direct point-level control and must not silently bypass validation or publish directly from an unreviewed edit.
 
-## What the Admin Console Is
+## What the Admin Console / Admin ERP Is
 
-The Admin Console is the SL-Transit backoffice platform / control panel, similar to the admin systems used by large platforms. It is not the old admin page and not a one-off test tool.
+Admin ERP is the SL-Transit backoffice platform / control panel, similar to the internal systems used by large platforms. It is not the old admin page, not a one-off test tool, and not merely a dashboard. Dashboard is only the first summary page inside Admin ERP.
 
-Admin Console responsibilities:
+Admin ERP responsibilities include, but are not limited to:
 
-- edit and inspect ERP workbook data in an Excel-like grid;
-- upload Excel workbook files;
+- inspect and edit ERP data in table/workbook-style views;
+- directly edit specific values such as time, booking flag, capacity, vehicle, driver, emergency status, and announcements;
+- upload Excel workbook files for bulk import/edit;
 - export current workbook/data snapshots;
 - validate data before publishing;
 - show changes/diff before publish;
-- publish approved schedule/display data;
-- manage announcements/news/content;
-- manage policy/config values;
-- manage role permissions;
+- publish approved schedule/display/config data where required;
+- manage bookings, tickets, cancellations, refunds, revenue, fees, vehicles, drivers, queues, trips, routes, statistics, usage history, Driver App control, testing tools, news/content, permissions, settings, audit, and rollback;
 - preserve audit log and rollback history.
 
 ## Old Admin Policy
@@ -53,7 +53,21 @@ Disallowed use:
 
 ## Admin Editing Model
 
-Admin Console should feel like Excel:
+Admin ERP must support both point-level editing and Excel-style bulk editing. The UI may feel spreadsheet-like where that helps, but Excel is not the only edit path.
+
+Point-level editing examples:
+
+- edit one time;
+- open/close booking;
+- close one trip;
+- close advance booking;
+- change bookable seat count;
+- change vehicle or driver;
+- cancel a booking for a passenger;
+- control emergency state;
+- run approved backoffice tests.
+
+Bulk editing examples:
 
 - rows and columns;
 - inline cell editing;
@@ -90,6 +104,8 @@ Only Owner is active today, but the system should be designed with platform-styl
 Do not hard-code all users as owner. Keep Owner-only as the first active rollout state.
 
 ## Required Admin Console Modules
+
+The following modules are examples and starting structure, not the full limit of Admin ERP. Dashboard is only the first summary page.
 
 Phase 1 modules:
 
