@@ -12,6 +12,9 @@ assert.match(rules.bookings['$bookingId']['.validate'], /phone.*matches/, 'booki
 assert.match(rules.bookings['$bookingId']['.validate'], /date.*matches/, 'booking date must be validated by rules');
 assert.match(rules.ticketLocations['$bookingId']['.write'], /adminAccounts/ , 'ticket location writes must be admin/driver-scoped');
 assert.match(rules.passengerLiveLocations['$bookingId']['.write'], /plannedVehicleId/, 'passenger live location writes must be vehicle-scoped');
+assert.match(rules.operations.ticketLocations['$bookingId']['.write'], /ownerUid/, 'operational ticket locations must be owner-scoped');
+assert.match(rules.operations.driverLogs['.read'], /runtimeVehicleId/, 'driver logs must be vehicle-scoped');
+assert.match(rules.driverCommands['$vehicleId'].lastResponse['.read'], /runtimeVehicleId/, 'driver command responses must be vehicle-scoped');
 assert.match(rules.ticketLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'ticket location payload must be bounded and timestamped');
 assert.match(rules.passengerLiveLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'shared location payload must be bounded and timestamped');
 assert.match(rules.data.settings['.write'], /adminAccounts/, 'settings writes must be admin-only');

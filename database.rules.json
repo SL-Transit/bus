@@ -6,7 +6,7 @@
         ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
       },
       "fleet": {
-        ".read": "auth != null",
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         "vehicles": {
           ".read": true
@@ -109,15 +109,15 @@
         }
       },
     "ticketLocations": {
-      ".read": "auth != null",
+      ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
       ".write": false,
       "$bookingId": {
-        ".write": "auth != null",
+        ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
         ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
       }
     },
     "driverLogs": {
-      ".read": "auth != null",
+      ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)",
       ".write": false,
       "$vehicleId": {
         ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true)"
@@ -201,8 +201,8 @@
           ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true && (newData.val() === 'forceGpsRestart' || newData.val() === null)"
         },
         "lastResponse": {
-          ".read": "auth != null",
-          ".write": "auth != null"
+          ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)",
+          ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"
         }
       }
     },
