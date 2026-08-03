@@ -27,8 +27,9 @@ assert(indexLogic.includes('color:var(--navy);font-weight:600'), 'index secondar
 assert(indexLogic.includes('Number(mapStop.displayOrder)+1'), 'index must normalize zero-based map stop order');
 assert(indexLogic.includes('var INDEX_OWNER_STOP_ORDER'), 'index must use owner-approved stop order');
 assert(indexLogic.includes('if(!mainRow1.length)'), 'index must not render an empty first main route row');
-assert(indexLogic.includes("[['ฉะเชิงเทรา (แปดริ้ว)','พนมสารคาม']"), 'index endpoint row one must show the first two stops from the opposite end');
-assert(indexLogic.includes("[['วังน้ำเย็น','คลองหาด']"), 'index endpoint row one must show the last two stops from the origin end');
+assert(indexLogic.includes("[['พนมสารคาม','สนามชัยเขต','ฉะเชิงเทรา (แปดริ้ว)']"), 'index Klonghat endpoint row template must match the approved stops');
+assert(indexLogic.includes("[['สี่แยกโคนม','วังน้ำเย็น','คลองหาด']"), 'index Chachoengsao endpoint row template must match the approved stops');
+assert(indexLogic.includes('var allMain=groups.group_001'), 'index endpoint templates must use all main route destinations');
 assert(indexLogic.includes("sub:''"), 'index service-group rows must not expose detailed stop lists');
 assert(indexLogic.includes("mainRow1=[endpointOne].concat(middleRecommendations.slice(0,1))"), 'index middle-stop row one must always include stop 1');
 assert(indexLogic.includes("mainRow2=middleRecommendations.slice(1,3).concat([endpointFifteen])"), 'index middle-stop row two must always end with stop 15');
