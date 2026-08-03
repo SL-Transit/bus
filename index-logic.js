@@ -367,17 +367,35 @@ function getCatalogRoutesForStop(stop){
   /* ปิดไว้ก่อน — รอ catalog format ตรงกับ logic 5 ตัวเลือก
      เมื่อ ERP พร้อม ค่อยเปิด block ด้านล่าง */
   if(!stop||!_canonicalFareRows) return null;
-  var seen={};
-  return Object.keys(_canonicalFareRows).map(function(id){
+  var groups={};
+  Object.keys(_canonicalFareRows).forEach(function(id){
     var row=_canonicalFareRows[id]||{};
     var fromKey=row.fromStopKey||row.originStopKey||'';
     var fromName=row.fromNameTh||row.originNameTh||'';
-    if(fromKey!==stop.key&&fromName!==stop.name) return null;
+    if(fromKey!==stop.key&&fromName!==stop.name) return;
+    var groupId=row.serviceGroupId||row.groupId||'group_unknown';
     var destination=row.toNameTh||row.destinationNameTh||row.toStopKey||row.destinationStopKey||'';
-    if(!destination||seen[destination]) return null;
-    seen[destination]=true;
-    return {dest:(stop.name||fromName)+' - '+destination,tag:'ERP',routeId:row.routeId||'',sourceRowId:row.sourceRowId||id};
-  }).filter(Boolean).sort(function(a,b){return String(a.dest).localeCompare(String(b.dest));});
+    if(!destination) return;
+    if(!groups[groupId]) groups[groupId]={id:groupId,order:Number(row.displayOrder||999999),destinations:[],routeIds:[]};
+    if(groups[groupId].destinations.indexOf(destination)===-1) groups[groupId].destinations.push(destination);
+    if(row.routeId&&groups[groupId].routeIds.indexOf(row.routeId)===-1) groups[groupId].routeIds.push(row.routeId);
+    groups[groupId].order=Math.min(groups[groupId].order,Number(row.displayOrder||999999));
+  });
+  return Object.keys(groups).map(function(groupId){
+    var group=groups[groupId];
+    var record=_canonicalServiceGroups&&(_canonicalServiceGroups[groupId]||{});
+    var label=record.displayNameTh||record.nameTh||record.label||record.name||INDEX_SERVICE_GROUP_LABELS[groupId]||groupId;
+    return {
+      dest:(stop.name||'')+' - '+label,
+      sub:group.destinations.join(' / '),
+      tag:'คิว',
+      groupId:groupId,
+      routeId:group.routeIds[0]||'',
+      destinations:group.destinations
+    };
+  }).sort(function(a,b){
+    return (groups[a.groupId].order-groups[b.groupId].order)||String(a.dest).localeCompare(String(b.dest));
+  });
 
   /* --- (reserved for future ERP integration) ---
   if(!_catalog||!window.SLTransitERP) return null;
@@ -570,6 +588,14 @@ var _catalog = null; /* เก็บ catalog ที่โหลดแล้ว *
 
 var _canonicalFareRows = null;
 var _canonicalMapView = null;
+var _canonicalServiceGroups = null;
+var INDEX_SERVICE_GROUP_LABELS = {
+  group_001: 'เส้นทางหลัก',
+  group_002: 'เอกมัย / หมอชิต',
+  group_003: 'ชลบุรี / พัทยา / ระยอง',
+  group_004: 'รังสิต',
+  group_005: 'รถไฟ'
+};
 
 function readIndexValue(ref, timeoutMs){
   return Promise.race([
@@ -597,11 +623,13 @@ function loadCatalog(){
 Promise.all([
   readIndexValue(db.ref('data/erpDataCenter/stops'),8000).catch(function(){ return null; }),
   readIndexValue(db.ref('data/erpDataCenter/workbookSource/routeFareRows'),8000).catch(function(){ return null; }),
-  readIndexValue(db.ref('publishedSchedule/mapView'),8000).catch(function(){ return null; })
+  readIndexValue(db.ref('publishedSchedule/mapView'),8000).catch(function(){ return null; }),
+  readIndexValue(db.ref('data/erpDataCenter/serviceGroups'),8000).catch(function(){ return null; })
 ]).then(function(snaps){
   var val=snaps[0]&&snaps[0].val();
   _canonicalFareRows=snaps[1]&&snaps[1].val()||{};
   _canonicalMapView=snaps[2]&&snaps[2].val()||{};
+  _canonicalServiceGroups=snaps[3]&&snaps[3].val()||{};
   var mapStops=Array.isArray(_canonicalMapView.stops)?_canonicalMapView.stops:[];
   var stopSource=val||mapStops.reduce(function(out,item){
     if(item&&item.stopKey) out[item.stopKey]=item;
