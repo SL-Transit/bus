@@ -1652,18 +1652,31 @@ public class GpsService extends Service implements SensorEventListener {
         try {
             Map<String, Object> data = new HashMap<>();
             data.put("event", event);
-            data.put("detail", detail);
+            String safeDetail = redactSensitiveLogText(detail);
+            data.put("detail", safeDetail);
             data.put("timestamp", now);
             data.put("level", "debug");
             data.put("trackingMode", trackingMode);
             data.put("gpsAgoSec", lastGpsUpdateAt > 0 ? (now - lastGpsUpdateAt) / 1000 : -1);
             data.put("fbAgoSec", lastLocationSentAt > 0 ? (now - lastLocationSentAt) / 1000 : -1);
             data.put("appVersion", BuildConfig.VERSION_NAME);
-            data.put("message", "[diag] " + event + ": " + detail);
+            data.put("message", "[diag] " + event + ": " + safeDetail);
             FirebaseDatabase.getInstance()
                 .getReference("driverLogs/" + queueId)
                 .push().setValue(data);
         } catch (Exception ignored) {}
+    }
+
+    /** Do not put contact details, secrets, or precise coordinates into diagnostics. */
+    private static String redactSensitiveLogText(String raw) {
+        if (raw == null) return "";
+        String safe = raw.replace("\n", " | ");
+        safe = safe.replaceAll("(?i)bearer\\s+[a-z0-9._-]+", "[token]");
+        safe = safe.replaceAll("(?i)(token|password|secret|authorization)\\s*[:=]\\s*[^ |,;]+", "$1=[redacted]");
+        safe = safe.replaceAll("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", "[email]");
+        safe = safe.replaceAll("(?<!\\d)(?:\\+?66|0)\\d{8,9}(?!\\d)", "[phone]");
+        safe = safe.replaceAll("(?<![\\d.])-?\\d{1,3}\\.\\d{4,}(?:\\s*,\\s*|\\s+/\\s+)-?\\d{1,3}\\.\\d{4,}(?![\\d.])", "[location]");
+        return safe.length() > 500 ? safe.substring(0, 500) : safe;
     }
 
     // ข้อ 4: BroadcastReceiver รับ location จาก PendingIntent — รองรับ Android 10-16

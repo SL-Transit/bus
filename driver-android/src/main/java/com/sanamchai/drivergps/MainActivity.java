@@ -48,6 +48,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -869,6 +870,7 @@ public class MainActivity extends Activity {
                     String apkUrl = snapshot.child("apkUrl").getValue(String.class);
                     String note = snapshot.child("note").getValue(String.class);
                     if (latest == null || apkUrl == null || apkUrl.isEmpty()) return;
+                    if (!isTrustedUpdateUrl(apkUrl)) return;
                     if (latest > BuildConfig.VERSION_CODE) {
                         addNotification("✨ มีแอพเวอร์ชันใหม่ (v" + latest + ") — แตะเพื่ออัพเดท");
                         showUpdateDialog(apkUrl, note);
@@ -877,6 +879,25 @@ public class MainActivity extends Activity {
                 @Override public void onCancelled(DatabaseError error) {}
             });
         } catch (Exception ignored) {}
+    }
+
+    /** Only accept update files from the official HTTPS hosts. */
+    private boolean isTrustedUpdateUrl(String rawUrl) {
+        try {
+            Uri uri = Uri.parse(rawUrl);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (!"https".equalsIgnoreCase(scheme) || host == null) return false;
+            host = host.toLowerCase(Locale.US);
+            return uri.getPort() == -1 && (
+                    "sl-transit.com".equals(host)
+                    || host.endsWith(".sl-transit.com")
+                    || "sl-transit-9464e.firebasestorage.app".equals(host)
+                    || "firebasestorage.googleapis.com".equals(host)
+            );
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     // ===== ระบบแจ้งเตือนแบบกระดิ่ง (ไม่หาย แสดงตัวเลขค้างไว้เหมือน Facebook) =====
@@ -957,6 +978,13 @@ public class MainActivity extends Activity {
 
     private void downloadAndInstallApk(String apkUrl) {
         try {
+            if (!isTrustedUpdateUrl(apkUrl)) {
+                new AlertDialog.Builder(this)
+                        .setTitle("ไม่สามารถดาวน์โหลดได้")
+                        .setMessage("แหล่งดาวน์โหลดไม่ใช่ของระบบ")
+                        .setPositiveButton("ตกลง", null).show();
+                return;
+            }
             File outFile = new File(getExternalFilesDir("Download"), "driver-update.apk");
             if (outFile.exists()) outFile.delete();
 
@@ -974,7 +1002,28 @@ public class MainActivity extends Activity {
                     long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
                     if (id != downloadId) return;
                     try { unregisterReceiver(this); } catch (Exception ignored) {}
-                    installApk(outFile);
+                    DownloadManager.Query query = new DownloadManager.Query().setFilterById(downloadId);
+                    android.database.Cursor cursor = dm.query(query);
+                    boolean completed = false;
+                    boolean successful = false;
+                    if (cursor != null) {
+                        try {
+                            if (cursor.moveToFirst()) {
+                                completed = cursor.getInt(cursor.getColumnIndexOrThrow(
+                                        DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL;
+                                successful = completed && outFile.isFile() && outFile.length() > 0;
+                            }
+                        } finally {
+                            cursor.close();
+                        }
+                    }
+                    if (successful) installApk(outFile);
+                    else if (completed || !outFile.isFile()) {
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("ดาวน์โหลดไม่สำเร็จ")
+                                .setMessage("ไฟล์อัปเดตไม่สมบูรณ์ จึงไม่ติดตั้ง")
+                                .setPositiveButton("ตกลง", null).show();
+                    }
                 }
             };
             ContextCompat.registerReceiver(this, receiver,
@@ -4405,7 +4454,7 @@ public class MainActivity extends Activity {
             DatabaseReference logRef = FirebaseDatabase.getInstance()
                     .getReference("driverLogs/" + vehicleId).push();
             Map<String, Object> data = new HashMap<>();
-            data.put("message", message.replace("⚠ ", "").replace("\n", " | "));
+            data.put("message", redactSensitiveLogText(message));
             data.put("timestamp", now);
             data.put("device", Build.MANUFACTURER + " " + Build.MODEL + " (Android " + Build.VERSION.RELEASE + ")");
             data.put("appVersion", BuildConfig.VERSION_NAME);
@@ -4423,9 +4472,8 @@ public class MainActivity extends Activity {
             extra.put("restartCount", rc);
             extra.put("lastRestartAt", prefs.getLong(KEY_LAST_RESTART, 0));
             extra.put("trackingEnabled", prefs.getBoolean(KEY_ENABLED, false));
-            extra.put("lastError", prefs.getString(KEY_LAST_ERROR, ""));
-            extra.put("lastStatus", prefs.getString(KEY_LAST_STATUS, ""));
-            extra.put("coords", prefs.getString(KEY_LAST_COORDS, ""));
+            extra.put("lastError", redactSensitiveLogText(prefs.getString(KEY_LAST_ERROR, "")));
+            extra.put("lastStatus", redactSensitiveLogText(prefs.getString(KEY_LAST_STATUS, "")));
             // ===== 4 ข้อที่ต้องการเพื่อหาสาเหตุ GPS หาย =====
             // 1. WakeLock ยังถือไว้ไหม — ถ้า false = CPU หลับ FLP หยุดทำงานทันที
             extra.put("wakelockHeld", prefs.getBoolean(KEY_WAKELOCK_HELD, false));
@@ -4434,7 +4482,7 @@ public class MainActivity extends Activity {
             // 3. callback มาแต่ถูก filter ทิ้งกี่ครั้ง — ถ้า > 0 = chip ยังส่งแต่ accuracy เลว, ถ้า 0 = callback ไม่มาเลย
             extra.put("locationFilteredCount", prefs.getInt(KEY_LOCATION_FILTER_COUNT, 0));
             // 4. request ล่าสุด throw exception ไหม — ถ้ามีข้อความ = FLP ปฏิเสธ request
-            extra.put("lastRequestError", prefs.getString(KEY_LAST_REQUEST_ERROR, ""));
+            extra.put("lastRequestError", redactSensitiveLogText(prefs.getString(KEY_LAST_REQUEST_ERROR, "")));
             if (Build.VERSION.SDK_INT >= 23) {
                 android.os.PowerManager pm2 = (android.os.PowerManager) getSystemService(POWER_SERVICE);
                 extra.put("batteryUnrestricted", pm2 != null && pm2.isIgnoringBatteryOptimizations(getPackageName()));
@@ -4474,6 +4522,18 @@ public class MainActivity extends Activity {
 
             logRef.setValue(data);
         } catch (Exception ignored) {}
+    }
+
+    /** Keep diagnostics useful without storing phone numbers, email addresses, tokens, or coordinates. */
+    private static String redactSensitiveLogText(String raw) {
+        if (raw == null) return "";
+        String safe = raw.replace("⚠ ", "").replace("\n", " | ");
+        safe = safe.replaceAll("(?i)bearer\\s+[a-z0-9._-]+", "[token]");
+        safe = safe.replaceAll("(?i)(token|password|secret|authorization)\\s*[:=]\\s*[^ |,;]+", "$1=[redacted]");
+        safe = safe.replaceAll("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", "[email]");
+        safe = safe.replaceAll("(?<!\\d)(?:\\+?66|0)\\d{8,9}(?!\\d)", "[phone]");
+        safe = safe.replaceAll("(?<![\\d.])-?\\d{1,3}\\.\\d{4,}(?:\\s*,\\s*|\\s+/\\s+)-?\\d{1,3}\\.\\d{4,}(?![\\d.])", "[location]");
+        return safe.length() > 500 ? safe.substring(0, 500) : safe;
     }
 
     // ===== อัพเดทป้าย "ออนไลน์/ออฟไลน์" ใต้โลโก้ ให้ตรงกับสถานะส่งตำแหน่งจริง =====
