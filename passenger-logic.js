@@ -899,7 +899,9 @@ function loadPassengerRouteData() {
       });
     }
     if (orderedStations.length) stations = orderedStations;
-    if (stations.length) {
+    // The published map view is authoritative for road geometry. A slow
+    // catalog fallback must not replace it with an empty route list.
+    if (stations.length && !PUBLISHED_SCHEDULE_MAP_VIEW) {
       applyPassengerRouteData({
         stations: stations,
         mapRoutes: [],
