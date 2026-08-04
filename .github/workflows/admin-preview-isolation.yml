@@ -25,7 +25,7 @@ jobs:
       - name: Verify protected files are unchanged
         shell: bash
         run: |
-          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed.txt
+          git diff --name-only origin/main...HEAD > changed.txt
           if grep -E '^(admin-erp\.html|booking1\.html|booking\.html|booking-pos\.js|booking-bridge\.js|booking1-preview-adapter\.js|passenger\.html|check_ticket\.html|cancel_ticket\.html|functions/|database\.rules\.json)' changed.txt; then
             echo 'Protected production files changed.' >&2
             exit 1
