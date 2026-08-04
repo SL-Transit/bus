@@ -1,6 +1,8 @@
 name: Admin Preview Isolation
 
 on:
+  push:
+    branches: [feat/admin-erp-owner-preview-only]
   pull_request:
     paths:
       - 'admin-erp-preview.html'
