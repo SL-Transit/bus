@@ -874,22 +874,24 @@ function loadPassengerRouteData() {
     return Promise.resolve(currentPassengerRouteData());
   }
   var adapter = global.SLTransit && global.SLTransit.db;
-  if (!adapter || typeof adapter.getAdminMasterDataCatalog !== 'function') {
+  if (!adapter || (typeof adapter.getStops !== 'function' && typeof adapter.getAdminMasterDataCatalog !== 'function')) {
     return Promise.resolve(currentPassengerRouteData());
   }
-  return adapter.getAdminMasterDataCatalog().then(function(catalog) {
-    var stops = catalog && catalog.stops && typeof catalog.stops === 'object' ? catalog.stops : {};
-    var stations = Object.keys(stops).map(function(key) {
-      var stop = stops[key] || {};
-      return Object.assign({ stopKey: key, key: key }, stop);
-    }).filter(function(stop) {
+  var stopLoad = typeof adapter.getStops === 'function'
+    ? adapter.getStops()
+    : adapter.getAdminMasterDataCatalog().then(function(catalog) { return catalog && catalog.stops || {}; });
+  return stopLoad.then(function(rawStops) {
+    var sourceStops = Array.isArray(rawStops) ? rawStops : Object.keys(rawStops || {}).map(function(key) {
+      return Object.assign({ stopKey: key, key: key }, rawStops[key] || {});
+    });
+    var stations = sourceStops.filter(function(stop) {
       return isFinite(Number(stop.lat != null ? stop.lat : stop.latitude)) &&
         isFinite(Number(stop.lng != null ? stop.lng : (stop.lon != null ? stop.lon : stop.longitude)));
     });
     var orderedStations = [];
     for (var order = 1; order <= stations.length; order++) {
       stations.forEach(function(stop) {
-        var stopOrder = Number(stop.order || stop.workbookOrder || 0);
+        var stopOrder = Number(stop.workbookOrder || stop.order || 0);
         if (stopOrder === order) orderedStations.push(stop);
       });
     }
