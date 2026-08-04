@@ -176,6 +176,9 @@
       "testMode": {
         ".read": "auth != null"
       },
+      "systemTestMode": {
+        ".read": true
+      },
       "vehicles": {
         "$vehicleId": {
           ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"

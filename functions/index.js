@@ -104,6 +104,15 @@ function capacityCounterPath(serviceDate, capacityKey) {
   return `operations/bookingCapacityByServiceDate/${serviceDate}/${capacityKey}`;
 }
 
+async function readSystemTestMode() {
+  const snap = await admin.database().ref("settings/systemTestMode").get();
+  return snap.val() || {};
+}
+
+function testModeResponse(res) {
+  sendJson(res, 503, { status: "blocked", error: "system_test_mode_enabled", message: "ระบบกำลังทดสอบ จึงยังไม่รับรายการนี้" });
+}
+
 exports.reserveBookingCapacity = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 15,
@@ -115,6 +124,7 @@ exports.reserveBookingCapacity = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
+    if ((await readSystemTestMode()).enabled === true) { testModeResponse(res); return; }
     const body = parseJsonRequest(req);
     const action = body.action || "reserve";
     const path = capacityCounterPath(body.serviceDate, body.capacityKey);
@@ -194,6 +204,7 @@ exports.createBooking = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
+    if ((await readSystemTestMode()).enabled === true) { testModeResponse(res); return; }
     const body = parseJsonRequest(req);
     const input = body.booking && typeof body.booking === "object" ? body.booking : {};
     const code = cleanBookingText(input.code || input.bookingCode, 80);
@@ -243,6 +254,36 @@ exports.createBooking = onRequest({
     sendJson(res, 201, { status: "ok", booking: result.snapshot.val() });
   } catch (error) {
     sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "booking_create_failed" });
+  }
+});
+
+exports.updateSystemTestMode = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 5
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  try {
+    const decoded = await requireAdminToken(req);
+    const body = parseJsonRequest(req);
+    const enabled = body.enabled === true;
+    const config = {
+      enabled,
+      title: cleanBookingText(body.title, 120) || "กำลังทดสอบระบบ",
+      message: cleanBookingText(body.message, 500) || "ทีมงานกำลังทดสอบระบบเพื่อให้บริการได้มั่นคงขึ้น",
+      reason: cleanBookingText(body.reason, 500) || "ระหว่างนี้จะไม่สามารถสร้างรายการจองหรือส่งข้อความแจ้งเตือนได้",
+      mockOnly: enabled,
+      noPaidConnections: enabled,
+      updatedBy: decoded.uid,
+      updatedAt: admin.database.ServerValue.TIMESTAMP
+    };
+    await admin.database().ref("settings/systemTestMode").set(config);
+    sendJson(res, 200, { status: "ok", config: { ...config, updatedBy: decoded.uid } });
+  } catch (error) {
+    sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "system_test_mode_update_failed" });
   }
 });
 
@@ -656,7 +697,7 @@ exports.processNotificationJob = onValueCreated({ ref: "/operations/notification
   const jobId = event.params.jobId; const job = event.data.val() || {}; const db = admin.database(); const dispatchRef = db.ref(`operations/notificationDispatch/${jobId}`);
   const claim = await dispatchRef.transaction((current) => { const decision = notificationCenter.claimDecision(current, Date.now()); if (!decision.claim) return; return { ...(current || {}), status: "processing", attempts: decision.attempts, createdAt: (current && current.createdAt) || admin.database.ServerValue.TIMESTAMP, processingStartedAt: Date.now(), retryKey: job.retryKey, recipient: job.recipient, channelKind: job.channelKind || notificationCenter.channelKind(job.recipient?.type), tokenKind: job.tokenKind || notificationCenter.tokenKind(job.recipient?.type), eventType: job.eventType, bookingCode: job.bookingCode }; });
   if (!claim.committed) return;
-  if (job.testMode === true || job.mockOnly === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: admin.database.ServerValue.TIMESTAMP }); return; }
+  if (job.testMode === true || job.mockOnly === true || (await readSystemTestMode()).enabled === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: admin.database.ServerValue.TIMESTAMP }); return; }
   const token = (job.tokenKind || notificationCenter.tokenKind(job.recipient?.type)) === "staff" ? staffLineToken.value() : lineToken.value();
   let attempt = Number((claim.snapshot && claim.snapshot.val() || {}).attempts || 1);
   while (attempt <= 3) {

@@ -457,6 +457,7 @@
       .tracking-cancel, .tracking-locate { width: auto; white-space: nowrap; }
     }
 `r`n</style>
+<script src="system-test-mode.js?v=20260804a"></script>
 </head>
 <body>
   <main class="wrap">
@@ -1646,6 +1647,10 @@
 
     function initTrackingMap() {
       if (trackingMap) return;
+      if (window.SLTransitSystemTestMode === true) {
+        setTrackingMapFallback('ขณะนี้ระบบกำลังทดสอบ จึงปิดการเชื่อมต่อแผนที่ชั่วคราว');
+        return;
+      }
       if (!loadBoxmapFromPassengerPattern()) {
         setTrackingMapFallback('กำลังโหลดแผนที่ กรุณารอสักครู่');
         return;
@@ -2520,6 +2525,7 @@
     }
 
     function requestMapboxRouteGeometry(coords) {
+      if (window.SLTransitSystemTestMode === true) return Promise.reject(new Error('SYSTEM_TEST_MODE'));
       coords = (coords || []).filter(isValidMapCoord);
       if (!MAPBOX_ACCESS_TOKEN || coords.length < 2) return Promise.reject(new Error('missing route inputs'));
       var clean = coords.map(function(c) { return Number(c[0]).toFixed(6) + ',' + Number(c[1]).toFixed(6); }).join(';');

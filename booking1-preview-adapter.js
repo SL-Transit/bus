@@ -956,6 +956,10 @@
     };
 
     global.goToTicket = function() {
+      if (global.SLTransitSystemTestMode === true) {
+        alert('ขณะนี้ระบบกำลังทดสอบ จึงยังไม่สามารถจองได้');
+        return;
+      }
       enforceSeparatePaymentStep();
       if (global.firebase && global.firebase.auth && !global.firebase.auth().currentUser && global._authReady) {
         global._authReady.then(function() { global.goToTicket(); }).catch(function() { alert('ไม่สามารถยืนยันเซสชันผู้ใช้งานได้'); });

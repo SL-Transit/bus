@@ -291,6 +291,7 @@
   }
 
   function reserveBookingCapacity(db, contract) {
+    if (global.SLTransitSystemTestMode === true) return Promise.reject(new Error('SYSTEM_TEST_MODE'));
     if (!contract || contract.status !== 'ready' || !contract.counterPath) return Promise.reject(new Error('BOOKING_CAPACITY_CONTRACT_NOT_READY'));
     return callCapacityFunction('reserve', contract).then(function(result) {
       if (!result || result.status !== 'ok') {
@@ -335,6 +336,7 @@
   }
 
   function createBooking(booking) {
+    if (global.SLTransitSystemTestMode === true) return Promise.reject(new Error('SYSTEM_TEST_MODE'));
     var auth = global.firebase && global.firebase.auth ? global.firebase.auth() : null;
     var user = auth && auth.currentUser;
     if (!user || typeof user.getIdToken !== 'function') return Promise.reject(new Error('BOOKING_AUTH_REQUIRED'));
