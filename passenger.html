@@ -20,7 +20,7 @@
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <script src="erp-data-adapter.js?v=20260716live5"></script>
 <script src="erp-core.js?v=20260704a"></script>
-<script src="passenger-logic.js?v=20260804central3"></script>
+<script src="passenger-logic.js?v=20260804central4"></script>
 <link rel="stylesheet" href="assets/map-marker-styles.css?v=20260728d">
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -1195,7 +1195,8 @@ applyAdminTesterMode();
   Promise.all([
     scheduleBaseRef.child('manifest').once('value'),
     scheduleBaseRef.child('routeFareRows').once('value'),
-    scheduleBaseRef.child('scheduleRows').once('value')
+    scheduleBaseRef.child('scheduleRows').once('value'),
+    db.ref('publishedSchedule/mapView').once('value')
   ]).then(function(parts) {
     const manifest = parts[0].val() || {};
     const workbookIndex = SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, manifest);
@@ -1216,6 +1217,7 @@ applyAdminTesterMode();
       firebaseKeyEncoding: {},
       validation: manifest.validation || {}
     };
+    optionNode.mapView = parts[3].val() || null;
     scheduleApi.applyPublishedScheduleOptions(optionNode);
   }).catch(function(err) {
     console.error('Passenger workbook schedule load failed:', err && err.message ? err.message : err);
