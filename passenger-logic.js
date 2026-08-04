@@ -984,6 +984,14 @@ function drawRoute(routeData) {
   var roadPolyline = routeData && routeData.geometryType === 'road_polyline' && Array.isArray(routeData.polyline)
     ? routeData.polyline.map(normalizeMapPolylinePoint).filter(Boolean)
     : [];
+  // Longdo mobile rendering becomes unreliable with very large geometry
+  // overlays. Keep the approved road shape, but cap vertices for display.
+  if (roadPolyline.length > 600) {
+    var routeStep = Math.ceil((roadPolyline.length - 1) / 600);
+    roadPolyline = roadPolyline.filter(function(point, index, points) {
+      return index === 0 || index === points.length - 1 || index % routeStep === 0;
+    });
+  }
   if (roadPolyline.length < 2) {
     knownRouteLinePoints = [];
     try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
@@ -996,6 +1004,7 @@ function drawRoute(routeData) {
     routeLine = new longdo.Polyline(roadPolyline, {
       lineWidth: 5,
       lineColor: 'rgba(0, 117, 194, 0.88)',
+      weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
       pointer: false
     });
     mapObj.Overlays.add(routeLine);
