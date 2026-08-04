@@ -167,6 +167,7 @@
     wakeCommandAfterMs: null,
     wakeCommandCooldownMs: null
   };
+  var vehicleMarkerCfgLoaded = false;
   function watchVehicleMarkerConfig() {
     var db = getDb();
     if (!db || typeof db.ref !== 'function') return function () {};
@@ -177,6 +178,8 @@
       Object.keys(vehicleMarkerCfg).forEach(function (key) {
         vehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
       });
+      vehicleMarkerCfgLoaded = true;
+      updateAllBusesOnMap(allBusPositions);
     };
     ref.on('value', handler, function (err) {
       console.error('watchVehicleMarkerConfig failed:', err && err.message ? err.message : err);
@@ -1071,7 +1074,7 @@ function maybeSendWakeCommand(vehicleId, ageMs) {
 }
 function updateAllBusesOnMap(buses) {
   allBusPositions = buses || {};
-  if (!mapReady || !mapObj) return;
+  if (!mapReady || !mapObj || !vehicleMarkerCfgLoaded) return;
   var center = getMapDisplayCenter();
   if (!center || typeof center.prepareVehicleLayer !== 'function') return;
   var signals = Object.keys(buses || {}).map(function(id) {
