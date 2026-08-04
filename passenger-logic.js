@@ -1002,8 +1002,8 @@ function drawRoute(routeData) {
   try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
   try {
     routeLine = new longdo.Polyline(roadPolyline, {
-      lineWidth: 5,
-      lineColor: 'rgba(0, 117, 194, 0.88)',
+      lineWidth: 8,
+      lineColor: 'rgba(0, 128, 230, 1)',
       weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
       pointer: false
     });
