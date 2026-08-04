@@ -873,7 +873,40 @@ function loadPassengerRouteData() {
   if (PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.stations)) {
     return Promise.resolve(currentPassengerRouteData());
   }
-  return Promise.resolve(currentPassengerRouteData());
+  var adapter = global.SLTransit && global.SLTransit.db;
+  if (!adapter || typeof adapter.getAdminMasterDataCatalog !== 'function') {
+    return Promise.resolve(currentPassengerRouteData());
+  }
+  return adapter.getAdminMasterDataCatalog().then(function(catalog) {
+    var stops = catalog && catalog.stops && typeof catalog.stops === 'object' ? catalog.stops : {};
+    var stations = Object.keys(stops).map(function(key) {
+      var stop = stops[key] || {};
+      return Object.assign({ stopKey: key, key: key }, stop);
+    }).filter(function(stop) {
+      return isFinite(Number(stop.lat != null ? stop.lat : stop.latitude)) &&
+        isFinite(Number(stop.lng != null ? stop.lng : (stop.lon != null ? stop.lon : stop.longitude)));
+    });
+    var orderedStations = [];
+    for (var order = 1; order <= stations.length; order++) {
+      stations.forEach(function(stop) {
+        var stopOrder = Number(stop.order || stop.workbookOrder || 0);
+        if (stopOrder === order) orderedStations.push(stop);
+      });
+    }
+    if (orderedStations.length) stations = orderedStations;
+    if (stations.length) {
+      applyPassengerRouteData({
+        stations: stations,
+        mapRoutes: [],
+        displayPolicy: null,
+        source: 'erpDataCenter.stops'
+      });
+    }
+    return currentPassengerRouteData();
+  }).catch(function(err) {
+    console.warn('Passenger central stops load failed:', err && err.message ? err.message : err);
+    return currentPassengerRouteData();
+  });
 }
 function renderRoutePolyline(routeData) {
   return drawRoute(routeData);
