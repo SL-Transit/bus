@@ -278,7 +278,7 @@ function highlightStop(stop){
 }
 
 var nearestStopMapCfg = { focusAnimationDurationSec: null, defaultZoom: null, userLocationZoom: null, fitBoundsMaxZoom: null, fitBoundsPaddingPx: null };
-(function watchNearestStopMapConfig(){
+function watchNearestStopMapConfig(){
   try {
     if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
     db.ref('data/erpDataCenter/settings/nearestStopMap').on('value', function(snap){
@@ -289,7 +289,7 @@ var nearestStopMapCfg = { focusAnimationDurationSec: null, defaultZoom: null, us
       });
     });
   } catch (e) {}
-})();
+}
 
 function focusMap(point, zoomLevel, animate){
   if(!mapObj||!point) return;
@@ -646,6 +646,7 @@ var INDEX_FIREBASE_CONFIG={
 };
 if(typeof firebase!=="undefined" && !firebase.apps.length) firebase.initializeApp(INDEX_FIREBASE_CONFIG);
 var db=firebase.database();
+watchNearestStopMapConfig();
 
 /* ══════════════════════════════════════════
    CATALOG DATA (ข้อมูลกลางจาก ERP)
