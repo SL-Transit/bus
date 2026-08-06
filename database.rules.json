@@ -17,6 +17,10 @@
         ".write": false
       },
       "erpDataCenter": {
+        "stops": {
+          ".read": true,
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        },
         "serviceGroups": {
           ".read": true,
           ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
