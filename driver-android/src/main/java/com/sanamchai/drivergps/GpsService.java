@@ -525,14 +525,26 @@ public class GpsService extends Service implements SensorEventListener {
             lastNetworkValidated = false;
             networkCallback = new ConnectivityManager.NetworkCallback() {
                 @Override public void onAvailable(Network network) {
-                    Log.d(TAG, "NetworkCallback: default network available (รอ validated ก่อนค่อย reconnect)");
+                    // สั่ง reconnect ทันทีที่เห็นว่ามีเน็ต (พฤติกรรมเดิมที่เคยทำงานได้ดี) — ไม่รอ
+                    // validated ก่อน เพราะเน็ตมือถือ (4G/5G) ระหว่างขับรถบางครั้ง Android ไม่รายงาน
+                    // สถานะ validated ชัดเจนแน่นอนเหมือนตอนต่อ WiFi ถ้ารอ validated อย่างเดียว
+                    // อาจไม่ reconnect เลยบนเน็ตมือถือบางกรณี
+                    handler.post(() -> {
+                        if (!running) return;
+                        Log.d(TAG, "NetworkCallback: เน็ตกลับมา (available) — force reconnect Firebase");
+                        try {
+                            FirebaseDatabase.getInstance().goOffline();
+                            FirebaseDatabase.getInstance().goOnline();
+                        } catch (Exception ignored) {}
+                        lastLocationSentAt = System.currentTimeMillis();
+                    });
                 }
                 @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
                     boolean validatedNow = capabilities != null
                             && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                             && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
-                    // สนใจเฉพาะ "ตอนเปลี่ยนจากไม่ validated เป็น validated" เท่านั้น กัน trigger รัวๆ
-                    // ทุกครั้งที่ capabilities เปลี่ยนแบบเล็กน้อยที่ไม่เกี่ยวกับการมีเน็ตใช้จริงหรือไม่
+                    // ตัวเสริม: ถ้าเน็ตเพิ่งกลายเป็น validated จริงๆ (เช่น ต่อ WiFi ติดแต่ผ่าน captive
+                    // portal ทีหลัง) ก็ reconnect ซ้ำอีกครั้งให้ชัวร์ — ไม่ได้แทนที่ onAvailable ด้านบน
                     if (validatedNow && !lastNetworkValidated) {
                         lastNetworkValidated = true;
                         handler.post(() -> {
