@@ -5,6 +5,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
 admin.initializeApp();
+const SERVER_TIMESTAMP = { ".sv": "timestamp" };
 
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
@@ -143,7 +144,7 @@ exports.reserveBookingCapacity = onRequest({
         const bookings = { ...current.bookings };
         delete bookings[bookingCode];
         const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - Number(existing.seats || requestedSeats));
-        return { ...current, bookedSeats, seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats), bookings, updatedAt: admin.database.ServerValue.TIMESTAMP };
+        return { ...current, bookedSeats, seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats), bookings, updatedAt: SERVER_TIMESTAMP };
       });
       sendJson(res, 200, { status: "ok", action: "release", committed: result.committed === true });
       return;
@@ -161,8 +162,8 @@ exports.reserveBookingCapacity = onRequest({
         contractVersion: "booking_capacity_v1",
         bookedSeats: bookedSeats + requestedSeats,
         seatsAvailable: capacityLimit - bookedSeats - requestedSeats,
-        bookings: { ...bookings, [bookingCode]: { ownerUid: decoded.uid, seats: requestedSeats, status: "reserved", reservedAt: admin.database.ServerValue.TIMESTAMP } },
-        updatedAt: admin.database.ServerValue.TIMESTAMP
+        bookings: { ...bookings, [bookingCode]: { ownerUid: decoded.uid, seats: requestedSeats, status: "reserved", reservedAt: SERVER_TIMESTAMP } },
+        updatedAt: SERVER_TIMESTAMP
       };
     });
     if (!result.committed) {
@@ -243,10 +244,10 @@ exports.createBooking = onRequest({
       externalPaymentRequired: false, testMode: false, mockPayment: false, status: "awaiting_payment",
       passengerIdentity: input.passengerIdentity || null, notificationPreference: input.notificationPreference || null,
       consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
-      publishedSchedule: { readyForApply: false, schemaVersion: schedule.schemaVersion || "" }, createdAt: admin.database.ServerValue.TIMESTAMP
+      publishedSchedule: { readyForApply: false, schemaVersion: schedule.schemaVersion || "" }, createdAt: SERVER_TIMESTAMP
     };
     const bookingRef = admin.database().ref(`bookings/${code}`);
-    const result = await bookingRef.transaction((current) => current || booking);
+    const result = await bookingRef.transaction((current) => current ? undefined : booking);
     if (!result.committed) {
       sendJson(res, 409, { status: "error", error: "booking_already_exists" });
       return;
@@ -278,7 +279,7 @@ exports.updateSystemTestMode = onRequest({
       mockOnly: enabled,
       noPaidConnections: enabled,
       updatedBy: decoded.uid,
-      updatedAt: admin.database.ServerValue.TIMESTAMP
+      updatedAt: SERVER_TIMESTAMP
     };
     await admin.database().ref("settings/systemTestMode").set(config);
     sendJson(res, 200, { status: "ok", config: { ...config, updatedBy: decoded.uid } });
@@ -624,7 +625,7 @@ async function enqueueNotification(db, { code, eventType, channelKind, recipient
   const resolvedChannel = channelKind || notificationCenter.channelKind(recipientType);
   const resolvedToken = resolvedChannel === "passenger" ? "passenger" : "staff";
   const jobId = safeJobId(code, eventType, resolvedChannel, recipientType, recipientId);
-  const job = { bookingCode: code, eventType, channelKind: resolvedChannel, tokenKind: resolvedToken, recipient: { type: recipientType, id: recipientId, lineTo: lineTo || "" }, text: text || "", retryKey: stableRetryKey(jobId), createdAt: admin.database.ServerValue.TIMESTAMP, testMode: testMode === true, mockOnly: mockOnly === true };
+  const job = { bookingCode: code, eventType, channelKind: resolvedChannel, tokenKind: resolvedToken, recipient: { type: recipientType, id: recipientId, lineTo: lineTo || "" }, text: text || "", retryKey: stableRetryKey(jobId), createdAt: SERVER_TIMESTAMP, testMode: testMode === true, mockOnly: mockOnly === true };
   await db.ref(`operations/notificationJobs/${jobId}`).transaction((current) => current || job);
   return jobId;
 }
@@ -660,7 +661,7 @@ exports.handleBookingCreated = onValueCreated({ ref: "/bookings/{code}", instanc
   if (Object.keys(updates).length) await admin.database().ref().update(updates);
   await createBookingJobs(code, booking);
   const serviceDate = driverTicketCenter.serviceDate(booking);
-  if (serviceDate) await admin.database().ref(`operations/bookingsByServiceDate/${serviceDate}/${code}`).set({ bookingCode: code, serviceDate, indexedAt: admin.database.ServerValue.TIMESTAMP });
+  if (serviceDate) await admin.database().ref(`operations/bookingsByServiceDate/${serviceDate}/${code}`).set({ bookingCode: code, serviceDate, indexedAt: SERVER_TIMESTAMP });
 });
 
 exports.handlePaymentStatusChanged = onValueUpdated({ ref: "/bookings/{code}/paymentStatus", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
@@ -695,9 +696,9 @@ exports.handleCheckinCreated = onValueCreated({ ref: "/operations/bookingEvents/
 
 exports.processNotificationJob = onValueCreated({ ref: "/operations/notificationJobs/{jobId}", instance: "sl-transit-9464e-default-rtdb", secrets: [lineToken, staffLineToken], region: "asia-southeast1", timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
   const jobId = event.params.jobId; const job = event.data.val() || {}; const db = admin.database(); const dispatchRef = db.ref(`operations/notificationDispatch/${jobId}`);
-  const claim = await dispatchRef.transaction((current) => { const decision = notificationCenter.claimDecision(current, Date.now()); if (!decision.claim) return; return { ...(current || {}), status: "processing", attempts: decision.attempts, createdAt: (current && current.createdAt) || admin.database.ServerValue.TIMESTAMP, processingStartedAt: Date.now(), retryKey: job.retryKey, recipient: job.recipient, channelKind: job.channelKind || notificationCenter.channelKind(job.recipient?.type), tokenKind: job.tokenKind || notificationCenter.tokenKind(job.recipient?.type), eventType: job.eventType, bookingCode: job.bookingCode }; });
+  const claim = await dispatchRef.transaction((current) => { const decision = notificationCenter.claimDecision(current, Date.now()); if (!decision.claim) return; return { ...(current || {}), status: "processing", attempts: decision.attempts, createdAt: (current && current.createdAt) || SERVER_TIMESTAMP, processingStartedAt: Date.now(), retryKey: job.retryKey, recipient: job.recipient, channelKind: job.channelKind || notificationCenter.channelKind(job.recipient?.type), tokenKind: job.tokenKind || notificationCenter.tokenKind(job.recipient?.type), eventType: job.eventType, bookingCode: job.bookingCode }; });
   if (!claim.committed) return;
-  if (job.testMode === true || job.mockOnly === true || (await readSystemTestMode()).enabled === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: admin.database.ServerValue.TIMESTAMP }); return; }
+  if (job.testMode === true || job.mockOnly === true || (await readSystemTestMode()).enabled === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: SERVER_TIMESTAMP }); return; }
   const token = (job.tokenKind || notificationCenter.tokenKind(job.recipient?.type)) === "staff" ? staffLineToken.value() : lineToken.value();
   let attempt = Number((claim.snapshot && claim.snapshot.val() || {}).attempts || 1);
   while (attempt <= 3) {
@@ -706,13 +707,13 @@ exports.processNotificationJob = onValueCreated({ ref: "/operations/notification
     try {
       response = await fetch("https://api.line.me/v2/bot/message/push", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "X-Line-Retry-Key": job.retryKey }, body: JSON.stringify({ to: job.recipient.lineTo, messages: [{ type: "text", text: job.text }] }) });
     } catch (error) {
-      if (attempt >= 3) { await dispatchRef.update({ status: "failed", attempts: attempt, failedAt: admin.database.ServerValue.TIMESTAMP, errorCode: "network_timeout" }); return; }
+      if (attempt >= 3) { await dispatchRef.update({ status: "failed", attempts: attempt, failedAt: SERVER_TIMESTAMP, errorCode: "network_timeout" }); return; }
       attempt += 1; await dispatchRef.update({ attempts: attempt, errorCode: "network_timeout" }); continue;
     }
     const classification = notificationCenter.classifyLineResponse(response.status);
-    if (classification.status === "sent" || classification.status === "accepted_duplicate") { await dispatchRef.update({ status: classification.status, attempts: attempt, sentAt: admin.database.ServerValue.TIMESTAMP, httpStatus: response.status }); return; }
-    if (!classification.retry) { await dispatchRef.update({ status: classification.status, attempts: 1, failedAt: admin.database.ServerValue.TIMESTAMP, httpStatus: response.status, errorCode: `line_${response.status}` }); return; }
-    if (attempt >= 3) { await dispatchRef.update({ status: "failed", attempts: attempt, failedAt: admin.database.ServerValue.TIMESTAMP, httpStatus: response.status, errorCode: `line_${response.status}` }); return; }
+      if (classification.status === "sent" || classification.status === "accepted_duplicate") { await dispatchRef.update({ status: classification.status, attempts: attempt, sentAt: SERVER_TIMESTAMP, httpStatus: response.status }); return; }
+      if (!classification.retry) { await dispatchRef.update({ status: classification.status, attempts: 1, failedAt: SERVER_TIMESTAMP, httpStatus: response.status, errorCode: `line_${response.status}` }); return; }
+      if (attempt >= 3) { await dispatchRef.update({ status: "failed", attempts: attempt, failedAt: SERVER_TIMESTAMP, httpStatus: response.status, errorCode: `line_${response.status}` }); return; }
     attempt += 1; await dispatchRef.update({ attempts: attempt, httpStatus: response.status, errorCode: `line_${response.status}` });
   }
 });
@@ -783,7 +784,7 @@ exports.prepareNextDayDriverWork = onSchedule({
     dailyAssignments: dailyAssignmentsSnap.val() || {},
     manualOverrides: manualOverridesSnap.val() || {},
     rotationConfig: (configSnap.val() || {}).rotation,
-    generatedAt: admin.database.ServerValue.TIMESTAMP
+    generatedAt: SERVER_TIMESTAMP
   });
 
   let bookingIndex = bookingIndexSnap.val() || {};
