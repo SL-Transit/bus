@@ -2,6 +2,38 @@
 
 Purpose: every AI must report completed work, blockers, and handoffs here so other AIs can continue without repeating work.
 
+## 2026-08-07 10:00 +07 - ERP Central Read Access / Booking and Index - DONE
+
+Scope:
+- `booking-bridge.js`
+- `booking1.html`
+- `database.rules.json`
+- Firebase Realtime Database rules for project `sl-transit-9464`
+
+Summary:
+- Fixed Booking destination list disappearing because `data/erpDataCenter/serviceGroups` returned `Permission denied` and the Booking bridge used an all-or-nothing `Promise.all` load.
+- Added public read access only for the master display nodes required by public pages: `data/erpDataCenter/serviceGroups` and `data/erpDataCenter/stops`.
+- Booking now treats service-group labels/order as optional metadata; authoritative fare and timetable rows remain `workbookSource/routeFareRows` and `workbookSource/scheduleRows`.
+- Bumped the Booking bridge cache version in `booking1.html` to `20260806service-groups`.
+- Index now reads the ERP stop master directly instead of falling back because of a denied read.
+
+Verified live Firebase reads:
+- `data/erpDataCenter/stops`: 15
+- `data/erpDataCenter/serviceGroups`: 5
+- `data/erpDataCenter/workbookSource/routeFareRows`: 244
+- `data/erpDataCenter/workbookSource/scheduleRows`: 881
+- `publishedSchedule/mapView`: readable
+
+Evidence:
+- Code commit: `0bc3c7b` (`restore booking destination groups`)
+- Rules commit: `6058f8f` (`allow public read of ERP stops`)
+- Firebase Realtime Database rules were deployed successfully to `sl-transit-9464e`.
+- GitHub Pages deployment for `0bc3c7b` completed successfully.
+
+Safety:
+- No seed, production data import, booking data, passenger data, driver data, payment data, LINE data, or live operational records were changed.
+- Only read permissions for the two public master display nodes were added; writes remain Admin-only.
+
 
 ## 2026-07-28 00:00 +07 - Documentation and AI Coordination Agent - REVIEW
 
