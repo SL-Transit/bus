@@ -1,6 +1,7 @@
 name: Admin Live Release Isolation
 
 on:
+  workflow_dispatch:
   push:
     branches: [release/admin-erp-live-owner-review]
   pull_request:
