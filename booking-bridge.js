@@ -114,7 +114,10 @@
       baseRef.child('manifest').once('value'),
       baseRef.child('routeFareRows').once('value'),
       baseRef.child('scheduleRows').once('value'),
-      db.ref('data/erpDataCenter/serviceGroups').once('value')
+      db.ref('data/erpDataCenter/serviceGroups').once('value').catch(function() {
+        // Group labels/order are optional; fare and timetable rows remain authoritative.
+        return { val: function() { return {}; } };
+      })
     ]).then(function(parts) {
       if (!global.SLTransitWorkbookBookingSource) throw new Error('workbook_booking_source_missing');
       var manifest = parts[0].val() || {};
