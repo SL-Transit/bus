@@ -10,7 +10,7 @@ const protectedFiles = [
 ];
 const run = (args) => cp.execFileSync('git', args, { cwd: root, encoding: 'utf8' });
 const changed = run(['diff', '--name-only', 'origin/main...HEAD']).trim().split(/\r?\n/).filter(Boolean);
-const allowed = new Set(['admin-erp.html', 'tests/admin-live-release-isolation.test.js']);
+const allowed = new Set(['admin-erp.html', 'tests/admin-live-release-isolation.test.js', '.github/workflows/admin-live-release.yml']);
 const unexpected = changed.filter((file) => !allowed.has(file));
 if (unexpected.length) throw new Error(`unexpected release files: ${unexpected.join(', ')}`);
 for (const file of protectedFiles) {

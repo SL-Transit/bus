@@ -766,6 +766,7 @@
     var searchInput=$('adminSearch');if(searchInput)searchInput.addEventListener('keydown',function(ev){if(ev.key==='Enter'){recordAudit('admin-search',this.value||'empty');ev.preventDefault()}});
     document.addEventListener('click',function(ev){var tab=ev.target&&ev.target.closest&&ev.target.closest('[data-erp-tab]');if(tab){state.erpPage=1;state.erpDraftChanges={};state.erpEditMode=false;state.erpSaveMessage=''}},true);
     if(ADMIN_LIVE_REVIEW_READ_ONLY){document.addEventListener('click',function(ev){var target=ev.target&&ev.target.closest&&ev.target.closest('#publishCloseNow,#publishOpenNow,#erpSaveDraft,#erpEditToggle,[data-rollback-control]');if(target){ev.preventDefault();ev.stopImmediatePropagation();alert(ADMIN_DISABLED_ACTION_MESSAGE)}},true)}
+    setInterval(function(){if(document.body)document.body.setAttribute('data-current-page',state.page)},250);
     syncNavigationState();
     window.addEventListener('sltransit:analytics-updated', function(){render()});
     window.addEventListener('sltransit:booking-activity-updated', function(){render()});
