@@ -476,5 +476,30 @@
       if(text==='ส่งขออนุมัติ') openDrawer('<h2>ส่งขออนุมัติ Release</h2><p class="label">ส่งผลการทดสอบและรายการตรวจสอบให้ Owner พิจารณา</p><div class="notice">ยังไม่เผยแพร่ Production</div>');
     });
   </script>
+  <style>
+    .test-mode-layer{position:fixed;inset:0;z-index:100;background:rgba(3,18,32,.48);display:grid;place-items:center;padding:18px}.test-mode-dialog{width:min(470px,100%);background:var(--panel);color:var(--ink);border:1px solid #e3b45c;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.25);padding:22px}.test-mode-dialog .test-kicker{color:#9b6506;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.test-mode-dialog h2{margin:6px 0 5px;font-size:20px}.test-mode-dialog p{margin:0;color:var(--muted);font-size:12px}.test-mode-list{display:grid;gap:8px;margin:16px 0}.test-mode-list div{display:flex;justify-content:space-between;gap:12px;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12px}.test-mode-list span{color:#9b6506;font-weight:700}.test-mode-dialog .btn{width:100%}.test-mode-banner{position:sticky;top:0;z-index:15;padding:7px 12px;background:#fff3d6;color:#8a5700;border-bottom:1px solid #f0c77d;font-size:11px;font-weight:700;text-align:center}
+  </style>
+  <script>
+    (function(){
+      var testModeActive=false, popupOpen=false;
+      function showTestPopup(){
+        if(popupOpen)return; popupOpen=true;
+        var layer=document.createElement('div');layer.className='test-mode-layer';layer.id='testModeLayer';
+        layer.innerHTML='<section class="test-mode-dialog" role="dialog" aria-modal="true"><div class="test-kicker">SL-Transit · Test Mode</div><h2>กำลังอยู่ในโหมดทดสอบ</h2><p>คุณกำลังทดสอบระบบผ่านคอมพิวเตอร์ ข้อมูลและการทำรายการจะไม่ส่งผลจริง</p><div class="test-mode-list"><div><strong>การชำระเงินจริง</strong><span>ปิด</span></div><div><strong>บริการที่มีค่าใช้จ่าย</strong><span>ปิด</span></div><div><strong>การแจ้งเตือนภายนอก</strong><span>ปิด</span></div><div><strong>ข้อมูล Production</strong><span>ห้ามเขียน</span></div></div><button class="btn primary" id="testModeAcknowledge">รับทราบและเริ่มทดสอบ</button></section>';
+        document.body.appendChild(layer);document.getElementById('testModeAcknowledge').onclick=function(){layer.remove();popupOpen=false};
+      }
+      function syncTestMode(){
+        var title=document.querySelector('#content .head h1');
+        if(title&&title.textContent==='โหมดทดสอบและเผยแพร่'){
+          var toggle=document.querySelector('#content .banner .switch-control');
+          if(toggle&&!toggle.dataset.testBound){toggle.dataset.testBound='1';toggle.addEventListener('click',function(){setTimeout(function(){testModeActive=toggle.classList.contains('is-on');if(testModeActive)showTestPopup()},0)})}
+        }
+        if(testModeActive){if(!document.querySelector('.test-mode-banner')){var b=document.createElement('div');b.className='test-mode-banner';b.textContent='TEST MODE · ปิดการชำระเงินจริง บริการมีค่าใช้จ่าย และการเขียนข้อมูล Production';document.querySelector('main').prepend(b)}showTestPopup()}
+        else {var b=document.querySelector('.test-mode-banner');if(b)b.remove()}
+      }
+      new MutationObserver(syncTestMode).observe(document.getElementById('content'),{childList:true,subtree:true});
+      setTimeout(syncTestMode,0);
+    })();
+  </script>
 </body>
 </html>
