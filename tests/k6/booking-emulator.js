@@ -10,7 +10,22 @@ const databaseBase = __ENV.DATABASE_EMULATOR_URL || 'http://127.0.0.1:9000';
 const runId = String(__ENV.K6_RUN_ID || 'missing').replace(/[^A-Za-z0-9_-]/g, '_');
 
 export const options = {
-  scenarios: { smoke: { executor: 'constant-vus', vus: 5, duration: '10s' } },
+  scenarios: {
+    staged_low_load: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { target: 50, duration: '30s' },
+        { target: 50, duration: '9m30s' },
+        { target: 100, duration: '30s' },
+        { target: 100, duration: '9m30s' },
+        { target: 300, duration: '30s' },
+        { target: 300, duration: '9m30s' },
+        { target: 0, duration: '30s' }
+      ],
+      gracefulRampDown: '30s'
+    }
+  },
   thresholds: { http_req_failed: ['rate<0.05'], http_req_duration: ['p(95)<1000', 'p(99)<2000'], checks: ['rate>0.95'], test_errors: ['rate<0.05'] }
 };
 
