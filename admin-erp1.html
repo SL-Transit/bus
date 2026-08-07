@@ -314,5 +314,11 @@
       document.addEventListener('click',function(e){const b=e.target.closest('[data-test-tab]');if(b)document.getElementById('content').innerHTML=testCenter(b.dataset.testTab)});
     })();
   </script>
+  <script>
+    (function(){
+      views.logout=function(){return head('ออกจากระบบ','สิ้นสุดการใช้งานบัญชีปัจจุบัน')+`<section class="card detail" style="max-width:560px"><h2>ยืนยันการออกจากระบบ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>บัญชีปัจจุบัน</strong><span>ผู้ดูแลระบบ · ยังไม่เชื่อมต่อบัญชีจริง</span></div><div class="dashboard-status">ใช้งานอยู่</div></div><div class="dashboard-list-row"><div><strong>เซสชัน</strong><span>การเชื่อมต่อของอุปกรณ์นี้</span></div><div class="dashboard-status">—</div></div></div><div class="content-actions"><button class="btn">ยกเลิก</button><button class="btn primary" data-logout-confirm="1">ออกจากระบบ</button></div><div class="content-note">ปุ่มนี้ยังเป็น Preview และยังไม่ยุติเซสชันจริง</div></section>`};
+      document.addEventListener('click',function(e){if(e.target.closest('[data-logout-confirm]')){openDrawer('<h2>ยังไม่ดำเนินการจริง</h2><p class="label">ระบบ Logout จะเชื่อมต่อเมื่อเปิดใช้ Authentication runtime</p><div class="notice">UI Preview เท่านั้น</div>')}});
+    })();
+  </script>
 </body>
 </html>
