@@ -419,6 +419,22 @@
     syncSwitches();
     new MutationObserver(syncSwitches).observe(document.getElementById('content'),{childList:true,subtree:true});
   </script>
-  <style>.switch.is-on{background:var(--teal)!important;border-color:var(--teal)!important}.switch.is-on:after,.switch.is-on span{transform:translateX(21px)!important}</style>
+  <style>.switch.is-on{background:var(--teal)!important;border-color:var(--teal)!important}.switch.is-on:after,.switch.is-on span{transform:translateX(21px)!important}.switch.switch-control{appearance:none;-webkit-appearance:none;padding:0;margin:0;outline:0}.switch.switch-control:focus-visible{box-shadow:0 0 0 3px rgba(22,119,200,.28)}</style>
+  <script>
+    (function(){
+      function upgradeSwitches(){
+        document.querySelectorAll('.switch:not(.switch-control)').forEach(function(old){
+          var input=old.querySelector('input');
+          if(!input)return;
+          var button=document.createElement('button');
+          button.type='button';button.className='switch switch-control'+(input.checked?' is-on':'');button.setAttribute('aria-label','เปิดหรือปิดช่องทาง');button.setAttribute('aria-pressed',input.checked?'true':'false');
+          button.addEventListener('click',function(){var on=!button.classList.contains('is-on');button.classList.toggle('is-on',on);button.setAttribute('aria-pressed',on?'true':'false');var row=button.closest('.rule-line,.payment-channel');if(row){var status=row.querySelector('.dashboard-status');if(status)status.textContent=on?'เปิด':'ปิด'}});
+          old.replaceWith(button);
+        });
+      }
+      upgradeSwitches();
+      new MutationObserver(upgradeSwitches).observe(document.getElementById('content'),{childList:true,subtree:true});
+    })();
+  </script>
 </body>
 </html>
