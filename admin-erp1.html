@@ -403,5 +403,17 @@
       else if(key) document.getElementById('content').innerHTML=window.renderFinanceCenter(key);
     });
   </script>
+  <style>
+    .switch{display:inline-flex;position:relative;width:48px;height:27px;flex:0 0 48px;border-radius:999px;background:#cbd5df;border:1px solid #b7c4d0;cursor:pointer;vertical-align:middle;transition:.18s ease}.switch input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:2}.switch:after,.switch span{content:"";position:absolute;left:3px;top:3px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(10,35,60,.2);transition:.18s ease;z-index:1}.switch:has(input:checked){background:var(--teal);border-color:var(--teal)}.switch:has(input:checked):after,.switch:has(input:checked) span{transform:translateX(21px)}.switch input:focus-visible{outline:3px solid rgba(22,119,200,.28);border-radius:999px}
+  </style>
+  <script>
+    document.addEventListener('change',function(e){
+      if(!e.target.matches('.switch input')) return;
+      const sw=e.target.closest('.switch');
+      if(sw) sw.setAttribute('aria-checked',e.target.checked?'true':'false');
+      const row=e.target.closest('.rule-line,.payment-channel');
+      if(row){const status=row.querySelector('.dashboard-status');if(status)status.textContent=e.target.checked?'เปิด':'ปิด';}
+    });
+  </script>
 </body>
 </html>
