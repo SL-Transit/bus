@@ -225,6 +225,7 @@
       if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureLatestDashboard,{once:true});
       else setTimeout(ensureLatestDashboard,0);
       window.addEventListener('load',ensureLatestDashboard,{once:true});
+      setTimeout(ensureLatestDashboard,500);
     })();
   </script>
 </body>
