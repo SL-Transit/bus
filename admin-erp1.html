@@ -292,8 +292,9 @@
     })();
   </script>
   <style>
-    .content-item .action{white-space:nowrap;min-width:72px;text-align:center}
-    @media(max-width:600px){.content-item{grid-template-columns:8px minmax(0,1fr) auto}.content-item .action{padding:8px 10px}}
+    .content-list .content-item{grid-template-columns:8px minmax(0,1fr) auto}
+    .content-list .content-item > .action{display:block;width:86px;min-width:86px;padding:8px 10px;text-align:center;white-space:nowrap;word-break:keep-all;overflow:visible}
+    @media(max-width:600px){.content-list .content-item{grid-template-columns:8px minmax(0,1fr) auto}.content-list .content-item > .action{width:86px;min-width:86px}}
   </style>
 </body>
 </html>
