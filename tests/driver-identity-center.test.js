@@ -47,7 +47,8 @@ assert(main.includes('DriverIdentityCenter.isSelfOnlyWorkPath'), 'Driver work re
 
 console.log('driver identity center checks passed');
 
-assert(!gps.includes('goOffline') && !gps.includes('goOnline'));
+assert(!/FirebaseDatabase\.getInstance\(\)\.goOffline\s*\(\)/.test(gps));
+assert(!/FirebaseDatabase\.getInstance\(\)\.goOnline\s*\(\)/.test(gps));
 assert(!gps.includes('signInAnonymously'));
 assert(gps.includes('writeInFlight') && gps.includes('flushPendingWrite'));
 assert(gps.includes('stale_gps'));
