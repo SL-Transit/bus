@@ -320,5 +320,24 @@
       document.addEventListener('click',function(e){if(e.target.closest('[data-logout-confirm]')){openDrawer('<h2>ยังไม่ดำเนินการจริง</h2><p class="label">ระบบ Logout จะเชื่อมต่อเมื่อเปิดใช้ Authentication runtime</p><div class="notice">UI Preview เท่านั้น</div>')}});
     })();
   </script>
+  <style>
+    :root{--blue-deep:#0b4f86;--blue-soft:#e8f3fb;--teal-soft:#e4f7f5;--orange:#d97706;--red:#c2413b;--shadow-soft:0 14px 30px rgba(15,54,86,.08)}
+    html[data-theme=dark]{--blue-soft:#17364f;--teal-soft:#123f40;--shadow-soft:0 14px 30px rgba(0,0,0,.22)}
+    body{background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 88%,var(--blue-soft)) 100%)}
+    .side{background:linear-gradient(180deg,#082b4d 0%,#061e37 100%);box-shadow:8px 0 26px rgba(4,27,49,.14)}
+    .brand{border-bottom-color:rgba(255,255,255,.13)}.brand img{box-shadow:0 5px 16px rgba(0,0,0,.18)}
+    .nav button{position:relative;transition:background .16s ease,color .16s ease,transform .16s ease}.nav button:hover{background:rgba(255,255,255,.08);transform:translateX(2px)}.nav button.active{background:linear-gradient(90deg,#176da7,#125788);box-shadow:inset 3px 0 var(--teal),0 7px 16px rgba(0,0,0,.12)}
+    .top{box-shadow:0 5px 18px rgba(15,54,86,.05)}.content{padding-top:30px}.crumb{letter-spacing:.02em}.head h1{letter-spacing:-.02em}.head p{max-width:680px}
+    .card{box-shadow:var(--shadow-soft);border-color:color-mix(in srgb,var(--line) 88%,var(--blue));transition:box-shadow .18s ease,border-color .18s ease}.card:hover{border-color:color-mix(in srgb,var(--line) 65%,var(--blue));box-shadow:0 16px 34px rgba(15,54,86,.11)}
+    .kpi{position:relative;overflow:hidden}.kpi:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--blue)}.kpi:nth-child(2):before{background:var(--teal)}.kpi:nth-child(3):before{background:var(--orange)}.kpi:nth-child(4):before{background:#7c5ac7}.kpi .label{font-weight:650}.kpi .value{letter-spacing:-.03em}
+    .btn,.icon,.action{transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease}.btn:hover,.icon:hover,.action:hover{border-color:#77b6e6;color:var(--blue);transform:translateY(-1px);box-shadow:0 5px 12px rgba(22,119,200,.11)}.btn.primary{background:linear-gradient(135deg,#1b83d0,#11649f);box-shadow:0 7px 16px rgba(22,119,200,.2)}.btn.primary:hover{color:#fff;filter:brightness(1.06)}
+    .tabs button{transition:.16s ease}.tabs button:hover{border-color:#8dc7ed;color:var(--blue);background:var(--blue-soft)}.tabs button.active{box-shadow:inset 0 -2px var(--blue);font-weight:700}
+    .status{padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:11px}.status:before{width:6px;height:6px}.status.ready{background:var(--teal-soft);border-color:#9bded7;color:#087c85}.status.ready:before{background:var(--teal)}
+    .notice{background:linear-gradient(135deg,var(--bg),var(--blue-soft));border-color:color-mix(in srgb,var(--line) 70%,var(--blue));}.empty:before{content:"";display:block;width:34px;height:34px;margin:0 auto 10px;border:2px solid color-mix(in srgb,var(--muted) 50%,transparent);border-radius:10px;opacity:.55}.empty strong{font-size:14px}.empty span{display:block;margin-top:3px}
+    .dashboard-visual h2,.dashboard-panel h2,.detail h2{letter-spacing:-.01em}.dashboard-chart,.chart-empty{background-color:color-mix(in srgb,var(--panel) 92%,var(--blue-soft));}.dashboard-donut{box-shadow:inset 0 0 0 1px var(--line),0 8px 18px rgba(15,54,86,.06)}
+    .table tbody tr:hover{box-shadow:inset 3px 0 var(--teal)}.table th{letter-spacing:.01em}.table .money{color:#087c85}.content-item{transition:border-color .16s ease,box-shadow .16s ease}.content-item:hover{border-color:#8fc9e9;box-shadow:0 6px 16px rgba(15,54,86,.07)}
+    .field:focus,.search:focus{outline:0;border-color:#62aee1;box-shadow:0 0 0 3px rgba(22,119,200,.12)}
+    @media(max-width:700px){.content{padding-top:20px}.head h1{font-size:26px}.card:hover{box-shadow:var(--shadow-soft)}.kpi{min-height:105px}}
+  </style>
 </body>
 </html>
