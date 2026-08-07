@@ -228,5 +228,17 @@
       setTimeout(ensureLatestDashboard,500);
     })();
   </script>
+  <script>
+    (function(){
+      function financePage(){
+        return head('รายได้ / จอง / ยกเลิก','ดูยอดธุรกรรมและการกระจายเงิน','รีเฟรช')+
+        `<div class="kpis"><article class="card kpi"><div class="label">ยอดจองรวม</div><div class="value">—</div></article><article class="card kpi"><div class="label">ส่วนของรถ</div><div class="value">—</div></article><article class="card kpi"><div class="label">ส่วนกลุ่มคิว</div><div class="value">—</div></article><article class="card kpi"><div class="label">ส่วนบริษัท</div><div class="value">—</div></article></div>
+        <div class="dashboard-visuals"><section class="card dashboard-visual"><div class="dashboard-visual-head"><div><h2>รายได้ตามช่วงเวลา</h2><div class="dashboard-visual-sub">เลือกช่วงเวลาเพื่อดูแนวโน้ม</div></div><select class="field"><option>7 วัน</option><option>30 วัน</option></select></div><div class="dashboard-chart"><div class="dashboard-chart-empty"><span>ยังไม่มีข้อมูลกราฟ</span></div></div></section><section class="card dashboard-visual"><h2>สถานะการชำระ</h2><div class="dashboard-visual-sub">รายการตามสถานะ</div><div class="dashboard-donut"></div><div class="dashboard-legend"><div><span><i></i>ชำระแล้ว</span><strong>—</strong></div><div><span><i></i>รอตรวจสอบ</span><strong>—</strong></div><div><span><i></i>คืนเงิน</span><strong>—</strong></div></div></section></div>
+        <div class="filters"><input class="field" type="date"><select class="field"><option>ทุกสถานะ</option><option>ชำระแล้ว</option><option>รอตรวจสอบ</option><option>คืนเงิน</option></select><select class="field"><option>ทุกกลุ่มคิว</option></select><button class="btn">กระทบยอด</button></div>
+        <section class="card"><div class="toolbar"><div><strong>รายการธุรกรรม</strong><span class="label">แยกส่วนรถ กลุ่มคิว และบริษัท</span></div><div class="actions"><button class="btn">ดูรายการจอง</button><button class="btn primary">สร้างรอบจ่าย</button></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Booking</th><th>คิวรถ</th><th>เที่ยวรถ</th><th>รถ</th><th>ยอดจอง</th><th>ส่วนรถ</th><th>ส่วนกลุ่มคิว</th><th>ส่วนบริษัท</th><th>สถานะ</th></tr></thead><tbody><tr><td>—</td><td>—</td><td>—</td><td>—</td><td class="money">—</td><td class="money">—</td><td class="money">—</td><td class="money">—</td><td><span class="status">ยังไม่มีข้อมูล</span></td></tr></tbody></table></div></section>`;
+      }
+      views.finance=financePage;
+    })();
+  </script>
 </body>
 </html>
