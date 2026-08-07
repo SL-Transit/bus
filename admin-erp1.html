@@ -43,5 +43,10 @@
     document.addEventListener('click',e=>{const b=e.target.closest('[data-ops-view]');if(b){document.getElementById('content').innerHTML=b.dataset.opsView==='booking'?views.opsBooking():views.ops();}});
     document.addEventListener('click',e=>{if(e.target.closest('[data-booking]')){document.getElementById('drawerBody').innerHTML='<h2>ตั้งค่าการจองของเที่ยว</h2><p class="label">กำหนดช่วงเวลารับจองและจำนวนที่นั่งโดยไม่เขียนข้อมูลจริง</p><div class="booking-rule"><label>เริ่มเปิดจอง<input class="field" placeholder="เช่น 30 วันล่วงหน้า"></label><label>ปิดรับจองก่อนออก<input class="field" placeholder="เช่น 20 นาที"></label><label>จำนวนที่นั่งสูงสุด<input class="field" placeholder="—"></label><label>จำกัดต่อรายการ<input class="field" placeholder="—"></label></div><div class="rule-box"><h3>การเปิดรับจองรายป้าย</h3><div class="rule-line"><div><strong>เปิดรับขึ้นรถทุกป้าย</strong><span>สามารถปรับเป็นรายป้ายในตารางเวลา</span></div><span class="switch"></span></div><div class="rule-line"><div><strong>ปิดอัตโนมัติเมื่อเต็ม</strong><span>บันทึกเหตุผลทุกครั้งที่ override</span></div><span class="switch"></span></div></div><div class="notice">การเปลี่ยนแปลงจะเป็นฉบับร่างและต้องตรวจสอบก่อนเผยแพร่</div>';document.getElementById('drawer').classList.add('open')}});
   </script>
+  <script>
+    views.booking=views.opsBooking;
+    const bookingNav=document.createElement('button');bookingNav.textContent='การเปิดรับจอง';bookingNav.dataset.page='booking';
+    const dataNav=document.querySelector('[data-page="data"]');nav.insertBefore(bookingNav,dataNav||null);
+  </script>
 </body>
 </html>
