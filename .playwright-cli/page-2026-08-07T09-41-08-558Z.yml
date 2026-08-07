@@ -1,0 +1,27 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - img "SL-Transit" [ref=e5]
+      - generic [ref=e6]:
+        - strong [ref=e7]: SL-TRANSIT
+        - generic [ref=e8]: ADMIN ERP CONSOLE
+    - navigation [ref=e9]:
+      - button "แดชบอร์ด" [ref=e10] [cursor=pointer]
+      - button "รายได้ / จอง / ยกเลิก" [ref=e14] [cursor=pointer]
+      - button "ปฏิบัติงาน / คิวรถ" [ref=e18] [cursor=pointer]
+      - button "จัดการข้อมูล" [ref=e22] [cursor=pointer]
+      - button "อัพเดทข่าวสาร" [ref=e26] [cursor=pointer]
+      - generic [ref=e30]: การดูแลระบบ
+      - button "พนักงาน / สิทธิ์" [ref=e31] [cursor=pointer]
+      - button "ตั้งค่าบัญชี" [ref=e35] [cursor=pointer]
+      - button "โหมดทดสอบ" [ref=e39] [cursor=pointer]
+    - button "ออกจากระบบ" [ref=e43] [cursor=pointer]
+  - main [ref=e44]:
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - button "เปิดเมนู" [ref=e47] [cursor=pointer]
+        - textbox "ค้นหาในระบบ" [ref=e50]
+      - generic [ref=e51]:
+        - button "สลับธีม" [ref=e52] [cursor=pointer]
+        - button "การแจ้งเตือน" [ref=e55] [cursor=pointer]
+        - generic [ref=e58]: A

@@ -1,0 +1,58 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - img "SL-Transit" [ref=e5]
+      - generic [ref=e6]:
+        - strong [ref=e7]: SL-TRANSIT
+        - text: ADMIN ERP CONSOLE
+    - navigation [ref=e8]:
+      - button "แดชบอร์ด" [ref=e9]
+      - button "รายได้ / จอง / ยกเลิก" [ref=e10]
+      - button "ปฏิบัติงาน / คิวรถ" [ref=e11]
+      - button "จัดการข้อมูล" [ref=e12]
+      - button "อัพเดทข่าวสาร" [ref=e13]
+      - button "พนักงาน / สิทธิ์" [ref=e14]
+      - button "ตั้งค่าบัญชี" [ref=e15]
+      - button "โหมดทดสอบ" [ref=e16]
+      - button "ออกจากระบบ" [ref=e17]
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - textbox "ค้นหาในระบบ" [ref=e20]
+      - generic [ref=e21]:
+        - button "Light" [ref=e22]
+        - generic [ref=e23]: A
+    - generic [ref=e24]:
+      - generic [ref=e25]: SL-Transit / Admin ERP
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - heading "แดชบอร์ด" [level=1] [ref=e28]
+          - paragraph [ref=e29]: ภาพรวมการดำเนินงานของ SL-Transit
+        - button "รีเฟรชข้อมูล" [ref=e31]
+      - generic [ref=e32]:
+        - article [ref=e33]:
+          - generic [ref=e34]: รายได้วันนี้
+          - generic [ref=e35]: —
+          - text: ยังไม่เชื่อมต่อข้อมูลจริง
+        - article [ref=e36]:
+          - generic [ref=e37]: การจองวันนี้
+          - generic [ref=e38]: —
+          - text: ยังไม่เชื่อมต่อข้อมูลจริง
+        - article [ref=e39]:
+          - generic [ref=e40]: ยกเลิกวันนี้
+          - generic [ref=e41]: —
+          - text: ยังไม่เชื่อมต่อข้อมูลจริง
+        - article [ref=e42]:
+          - generic [ref=e43]: เที่ยวบริการวันนี้
+          - generic [ref=e44]: —
+          - text: ยังไม่เชื่อมต่อข้อมูลจริง
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - heading "แนวโน้มรายได้และการจอง" [level=2] [ref=e47]
+          - generic [ref=e49]:
+            - strong [ref=e50]: ยังไม่มีข้อมูลให้แสดง
+            - text: หน้าจอนี้จะพร้อมเมื่อเชื่อมต่อแหล่งข้อมูลที่ยืนยันแล้ว
+        - generic [ref=e51]:
+          - heading "สถานะแหล่งข้อมูล" [level=2] [ref=e52]
+          - generic [ref=e54]:
+            - strong [ref=e55]: ยังไม่มีข้อมูลให้แสดง
+            - text: หน้าจอนี้จะพร้อมเมื่อเชื่อมต่อแหล่งข้อมูลที่ยืนยันแล้ว
