@@ -194,6 +194,18 @@
     .ops-detail:has(> h2 + .notice):not(:has(.rule-line)):not(:has(button)){display:none}
     .table-footer span:first-child{display:none}
     .detail > .notice{font-size:12px}
+    .dashboard-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:16px}.dashboard-panel{padding:18px}.dashboard-panel h2{font-size:16px;margin:0 0 4px}.dashboard-panel .panel-sub{color:var(--muted);font-size:12px}.chart-empty{height:190px;margin-top:16px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;color:var(--muted);background:linear-gradient(180deg,transparent,rgba(22,119,200,.035))}.dashboard-list{display:grid;gap:10px;margin-top:14px}.dashboard-list-row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.dashboard-list-row:last-child{border-bottom:0}.dashboard-list-row strong{display:block;font-size:13px}.dashboard-list-row span{display:block;color:var(--muted);font-size:11px}.dashboard-status{white-space:nowrap;color:var(--muted);font-size:12px}.dashboard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    @media(max-width:900px){.dashboard-grid{grid-template-columns:1fr}}
   </style>
+  <script>
+    (function(){
+      function compactDashboard(){
+        return head('แดชบอร์ด','ภาพรวม SL-Transit','รีเฟรช')+
+        `<div class="kpis"><article class="card kpi"><div class="label">รายได้วันนี้</div><div class="value">—</div></article><article class="card kpi"><div class="label">การจองวันนี้</div><div class="value">—</div></article><article class="card kpi"><div class="label">ยกเลิกวันนี้</div><div class="value">—</div></article><article class="card kpi"><div class="label">เที่ยวบริการวันนี้</div><div class="value">—</div></article></div>
+        <div class="dashboard-grid"><section class="card dashboard-panel"><h2>แนวโน้มรายได้และการจอง</h2><div class="panel-sub">ข้อมูลจะแสดงเมื่อเชื่อมต่อแหล่งข้อมูลจริง</div><div class="chart-empty">ยังไม่มีข้อมูลกราฟ</div></section><section class="card dashboard-panel"><h2>สถานะระบบ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>ข้อมูล ERP</strong><span>แหล่งข้อมูลกลาง</span></div><div class="dashboard-status">ยังไม่เชื่อมต่อ</div></div><div class="dashboard-list-row"><div><strong>ตารางเที่ยวรถ</strong><span>รอบเวลาวันนี้</span></div><div class="dashboard-status">—</div></div><div class="dashboard-list-row"><div><strong>ประกาศเว็บไซต์</strong><span>หน้า Index</span></div><div class="dashboard-status">—</div></div></div></section><section class="card dashboard-panel"><h2>งานที่ต้องจัดการ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>รายการรอตรวจสอบ</strong><span>ตารางเวลาและประกาศ</span></div><div class="dashboard-status">—</div></div><div class="dashboard-list-row"><div><strong>แจ้งเตือนระบบ</strong><span>กล่องดำและ GPS</span></div><div class="dashboard-status">—</div></div></div><div class="dashboard-actions"><button class="btn">ดูรายการ</button><button class="btn">เปิดแจ้งเตือน</button></div></section><section class="card dashboard-panel"><h2>ทางลัด</h2><div class="dashboard-actions"><button class="btn" data-page="ops">คิวรถและตารางเวลา</button><button class="btn" data-page="data">จัดการข้อมูล</button><button class="btn" data-page="news">สร้างประกาศ</button></div></section></div>`;
+      }
+      views.dashboard=compactDashboard;
+    })();
+  </script>
 </body>
 </html>
