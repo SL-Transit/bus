@@ -46,3 +46,15 @@ assert(main.includes('operations/driverWorkByServiceDate'), 'Driver app must rea
 assert(main.includes('DriverIdentityCenter.isSelfOnlyWorkPath'), 'Driver work reads must be gated to the assigned runtime vehicle');
 
 console.log('driver identity center checks passed');
+
+assert(!gps.includes('goOffline') && !gps.includes('goOnline'));
+assert(!gps.includes('signInAnonymously'));
+assert(gps.includes('writeInFlight') && gps.includes('flushPendingWrite'));
+assert(gps.includes('stale_gps'));
+assert(gps.includes('ERROR_REPORT_INTERVAL_MS') && gps.includes('DIAG_WRITE_INTERVAL_MS'));
+assert(!main.includes('vehiclePickerText.setOnClickListener') && !main.includes('showVehicleDialog'));
+assert(!main.includes('FirebaseDatabase.getInstance().goOffline'));
+assert(logic.includes('PASSENGER_LOGIC_VERSION'));
+assert(!logic.includes('busImgHtml + label'));
+assert(html.includes('passenger-logic.js?v=20260807drivergps1'));
+console.log('driver identity, Firebase, and passenger checks passed');
