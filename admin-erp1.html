@@ -291,5 +291,9 @@
       document.addEventListener('click',function(e){const b=e.target.closest('[data-account-tab]');if(b)document.getElementById('content').innerHTML=accountPage(b.dataset.accountTab)});
     })();
   </script>
+  <style>
+    .content-item .action{white-space:nowrap;min-width:72px;text-align:center}
+    @media(max-width:600px){.content-item{grid-template-columns:8px minmax(0,1fr) auto}.content-item .action{padding:8px 10px}}
+  </style>
 </body>
 </html>
