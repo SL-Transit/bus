@@ -10,7 +10,7 @@ const databaseBase = __ENV.DATABASE_EMULATOR_URL || 'http://127.0.0.1:9000';
 const runId = String(__ENV.K6_RUN_ID || 'missing').replace(/[^A-Za-z0-9_-]/g, '_');
 
 export const options = {
-  scenarios: { smoke: { executor: 'constant-vus', vus: 1, duration: '10s' } },
+  scenarios: { smoke: { executor: 'constant-vus', vus: 5, duration: '10s' } },
   thresholds: { http_req_failed: ['rate<0.05'], http_req_duration: ['p(95)<1000', 'p(99)<2000'], checks: ['rate>0.95'], test_errors: ['rate<0.05'] }
 };
 
