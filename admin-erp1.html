@@ -415,7 +415,7 @@
       const row=e.target.closest('.rule-line,.payment-channel');
       if(row){const status=row.querySelector('.dashboard-status');if(status)status.textContent=e.target.checked?'เปิด':'ปิด';}
     });
-    document.addEventListener('click',function(e){var sw=e.target.closest('.switch');if(!sw)return;var input=sw.querySelector('input');if(!input)return;if(e.target!==input){e.preventDefault();input.checked=!input.checked;input.dispatchEvent(new Event('change',{bubbles:true}))}});
+    document.addEventListener('pointerdown',function(e){var sw=e.target.closest('.switch');if(!sw)return;var input=sw.querySelector('input');if(!input)return;e.preventDefault();e.stopPropagation();input.checked=!input.checked;input.dispatchEvent(new Event('change',{bubbles:true}))},true);
     syncSwitches();
     new MutationObserver(syncSwitches).observe(document.getElementById('content'),{childList:true,subtree:true});
   </script>
