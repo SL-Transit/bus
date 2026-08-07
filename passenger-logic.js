@@ -148,6 +148,7 @@
   var selOrigin = '';
   var selDest   = '';
   var allBusPositions = {};
+  var PASSENGER_LOGIC_VERSION = '20260807-driver-gps-v1';
   var BUS_ICON_SRC = 'assets/passenger-bus-icon.png';
   var PASSENGER_MAP_CONFIG_PATH = 'data/erpDataCenter/settings/passengerMap';
   // vehicleMarkerCfg มาจาก ERP (data/erpDataCenter/settings/passengerMap) เท่านั้น — ไม่มีค่าเริ่มต้นที่
@@ -1052,7 +1053,7 @@ function placeBusMarkerAt(carId, latlng, options) {
   mapObj.Overlays.add(busMarkers[carId]);
   busTagMarkers[carId] = new longdo.Marker(point, {
     weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
-    icon: { html: '<div id="bus-tag-' + safeCarId + '" class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + busImgHtml + label + '</div>', offset: { x: 10, y: -20 } }
+    icon: { html: '<div id="bus-tag-' + safeCarId + '" class="map-bus-label" onclick="window.selectPassengerBus(&quot;' + safeCarId + '&quot;)">' + label + '</div>', offset: { x: 10, y: -20 } }
   });
   mapObj.Overlays.add(busTagMarkers[carId]);
 }
