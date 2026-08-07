@@ -911,18 +911,35 @@ function loadAnnouncements(){
     var val = snap.val() || {};
     var list = Object.keys(val).map(function(k){
       var a = val[k] || {};
+      var publishFrom = a.publishFrom || a.startsAt || a.startAt || null;
+      var publishUntil = a.publishUntil || a.expiresAt || a.endAt || null;
+      var fromMs = publishFrom ? new Date(publishFrom).getTime() : 0;
+      var untilMs = publishUntil ? new Date(publishUntil).getTime() : 0;
+      var channels = Array.isArray(a.channels) ? a.channels : (a.channel ? [a.channel] : []);
+      var placement = a.placement || a.placementId || 'homepage_hero';
       return {
         id: k,
         title:    a.title   || '',
         body:     a.body    || '',
         type:     a.type    || 'info',
-        active:   a.active  !== false,
+        active:   a.active  !== false && a.enabled !== false,
+        status:   a.status  || 'published',
+        placement: placement,
+        channels: channels,
+        publishFrom: publishFrom,
+        publishUntil: publishUntil,
         ts:       a.ts      || 0,
-        imageB64: a.imageB64|| null,
-        expiresAt:a.expiresAt||null
+        imageB64: a.imageB64 || a.imageUrl || a.assetUrl || null,
+        expiresAt: publishUntil
       };
     }).filter(function(a){
-      return a.active && a.title && !(a.expiresAt && a.expiresAt < now);
+      var allowedChannel = !a.channels.length || a.channels.indexOf('passenger') !== -1 || a.channels.indexOf('index') !== -1;
+      var allowedPlacement = a.placement === 'homepage_hero' || a.placement === 'hero' || a.placement === 'homepage_banner';
+      var readyStatus = a.status === 'published' || a.status === 'live' || a.status === 'active';
+      var fromMs = a.publishFrom ? new Date(a.publishFrom).getTime() : 0;
+      var untilMs = a.publishUntil ? new Date(a.publishUntil).getTime() : 0;
+      return a.active && readyStatus && allowedChannel && allowedPlacement && a.title &&
+        (!fromMs || isNaN(fromMs) || fromMs <= now) && (!untilMs || isNaN(untilMs) || untilMs >= now);
     }).sort(function(a,b){ return b.ts - a.ts; });
 
     if(list.length) initSlideshow(list);
