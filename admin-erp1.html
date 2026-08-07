@@ -488,9 +488,9 @@
       window.__slTestModeActive=testModeActive;
       function showTestPopup(){
         if(popupOpen)return; popupOpen=true;
-        var layer=document.createElement('div');layer.className='test-mode-layer';layer.id='testModeLayer';
+        var layer=document.createElement('div');layer.className='test-mode-layer';layer.id='testModeLayer';layer.setAttribute('aria-live','assertive');
         layer.innerHTML='<section class="test-mode-dialog" role="dialog" aria-modal="true"><div class="test-kicker">SL-Transit · Test Mode</div><h2>กำลังอยู่ในโหมดทดสอบ</h2><p>คุณกำลังทดสอบระบบผ่านคอมพิวเตอร์ ข้อมูลและการทำรายการจะไม่ส่งผลจริง</p><div class="test-mode-list"><div><strong>การชำระเงินจริง</strong><span>ปิด</span></div><div><strong>บริการที่มีค่าใช้จ่าย</strong><span>ปิด</span></div><div><strong>การแจ้งเตือนภายนอก</strong><span>ปิด</span></div><div><strong>ข้อมูล Production</strong><span>ห้ามเขียน</span></div></div><button class="btn primary" id="testModeAcknowledge">รับทราบและเริ่มทดสอบ</button></section>';
-        document.body.appendChild(layer);document.getElementById('testModeAcknowledge').onclick=function(){layer.remove();popupOpen=false};
+        document.body.appendChild(layer);document.body.dataset.testPopupOverflow=document.body.style.overflow;document.body.style.overflow='hidden';var acknowledge=document.getElementById('testModeAcknowledge');acknowledge.focus();acknowledge.onclick=function(){layer.remove();document.body.style.overflow=document.body.dataset.testPopupOverflow||'';delete document.body.dataset.testPopupOverflow;popupOpen=false};
       }
       function syncTopbar(){
         var topLeft=document.querySelector('.top-left');if(!topLeft)return;
