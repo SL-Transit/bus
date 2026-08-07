@@ -8,6 +8,7 @@ on:
     paths:
       - 'admin-erp.html'
       - 'tests/admin-live-release-isolation.test.js'
+      - 'tests/admin-enterprise-ux.test.js'
       - '.github/workflows/admin-live-release.yml'
 
 permissions:
@@ -24,3 +25,4 @@ jobs:
         with:
           node-version: 22
       - run: node tests/admin-live-release-isolation.test.js
+      - run: node tests/admin-enterprise-ux.test.js
