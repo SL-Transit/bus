@@ -307,7 +307,7 @@ public class GpsService extends Service implements SensorEventListener {
     // ===== Watchdog: ตรวจจับ Firebase WebSocket ค้าง (เช่นหลังถูกปัดทิ้งจาก recent apps แบบไม่ได้กดหยุดส่งก่อน) =====
     // 🐛 แก้บัค: เดิมใช้ threshold ตายตัว 30 วิ ทั้งที่ตอนรถจอดนิ่ง (MODE_LONG_STOPPED)
     // ระบบตั้งใจส่งข้อมูลห่างกันถึง 60 วิ ทำให้ watchdog เข้าใจผิดว่า Firebase ค้างตลอดเวลา
-    // และสั่ง goOffline/goOnline วนซ้ำทุก 20 วิ ขณะรถจอด ซึ่งคือสาเหตุหลักของ "Firebase ค้าง" ที่รถไม่ขยับ
+    // และสั่ง connection_toggle/connection_toggle วนซ้ำทุก 20 วิ ขณะรถจอด ซึ่งคือสาเหตุหลักของ "Firebase ค้าง" ที่รถไม่ขยับ
     private static final long WATCHDOG_CHECK_MS = 20000;  // เช็คทุก 20 วินาที
     private static final long WATCHDOG_STALE_FLOOR_MS = 30000; // ค่าต่ำสุดของ threshold เผื่อโหมด moving/slow
     private static final long WATCHDOG_STALE_MULTIPLIER = 2;   // อนุญาตให้ค้างได้ไม่เกิน 2 เท่าของรอบส่งปัจจุบัน ก่อนถือว่าค้างจริง
