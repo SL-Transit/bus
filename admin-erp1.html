@@ -221,6 +221,7 @@
         <div class="dashboard-bottom"><section class="card dashboard-panel"><h2>สถานะระบบ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>ERP Data Center</strong><span>ข้อมูลกลาง</span></div><div class="dashboard-status">—</div></div><div class="dashboard-list-row"><div><strong>ตารางเที่ยวรถ</strong><span>รอบเวลาวันนี้</span></div><div class="dashboard-status">—</div></div></div></section><section class="card dashboard-panel"><h2>งานที่ต้องจัดการ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>รายการรอตรวจสอบ</strong><span>ข้อมูลและประกาศ</span></div><div class="dashboard-status">—</div></div><div class="dashboard-list-row"><div><strong>แจ้งเตือนระบบ</strong><span>GPS และกล่องดำ</span></div><div class="dashboard-status">—</div></div></div></section></div>`;
       }
       views.dashboard=restoredDashboard;
+      if(typeof render==='function') render('dashboard');
     })();
   </script>
 </body>
