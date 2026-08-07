@@ -484,7 +484,9 @@
   </style>
   <script>
     (function(){
-      var testModeActive=sessionStorage.getItem('slTransitTestMode')==='on', popupOpen=false, lastPopupPage='';
+      function readTestMode(){try{return sessionStorage.getItem('slTransitTestMode')==='on'}catch(e){return false}}
+      function writeTestMode(value){try{sessionStorage.setItem('slTransitTestMode',value?'on':'off')}catch(e){}}
+      var testModeActive=readTestMode(), popupOpen=false, lastPopupPage='';
       window.__slTestModeActive=testModeActive;
       function showTestPopup(pageKey){
         if(popupOpen)return; popupOpen=true;
@@ -503,7 +505,7 @@
         var title=document.querySelector('#content .head h1');
         if(title&&title.textContent==='โหมดทดสอบและเผยแพร่'){
           var toggle=document.querySelector('#content .banner .switch-control');
-          if(toggle&&!toggle.dataset.testBound){toggle.dataset.testBound='1';toggle.addEventListener('click',function(){setTimeout(function(){testModeActive=toggle.classList.contains('is-on');window.__slTestModeActive=testModeActive;sessionStorage.setItem('slTransitTestMode',testModeActive?'on':'off');if(testModeActive){lastPopupPage='';showTestPopup(title.textContent)}},0)})}
+          if(toggle&&!toggle.dataset.testBound){toggle.dataset.testBound='1';toggle.addEventListener('click',function(){setTimeout(function(){testModeActive=toggle.classList.contains('is-on');window.__slTestModeActive=testModeActive;writeTestMode(testModeActive);if(testModeActive){lastPopupPage='';showTestPopup(title.textContent)}},0)})}
         }
         syncTopbar();
         if(testModeActive){if(!document.querySelector('.test-mode-banner')){var b=document.createElement('div');b.className='test-mode-banner';b.textContent='TEST MODE · ปิดการชำระเงินจริง บริการมีค่าใช้จ่าย และการเขียนข้อมูล Production';document.querySelector('main').prepend(b)}var pageKey=title?title.textContent:'page';if(lastPopupPage!==pageKey)showTestPopup(pageKey)}
