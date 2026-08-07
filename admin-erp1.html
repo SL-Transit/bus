@@ -465,5 +465,16 @@
       if(text==='สร้างเที่ยวรถ'||text==='เพิ่มรอบเวลา') openDrawer('<h2>'+text+'</h2><div class="booking-rule"><label>กลุ่มคิวรถ<select class="field"><option>เลือกกลุ่มคิว</option></select></label><label>เวลาออก<input class="field" type="time"></label><label>ต้นทาง<input class="field" placeholder="เลือกป้ายต้นทาง"></label><label>ปลายทาง<input class="field" placeholder="เลือกป้ายปลายทาง"></label></div><div class="content-actions"><button class="btn primary">บันทึกฉบับร่าง</button></div><div class="notice">ยังไม่สร้างเที่ยวหรือรอบเวลาจริง</div>');
     });
   </script>
+  <script>
+    document.addEventListener('click',function(e){
+      const title=document.querySelector('#content .head h1');
+      if(!title || title.textContent!=='โหมดทดสอบและเผยแพร่') return;
+      const btn=e.target.closest('button');if(!btn)return;const text=btn.textContent.trim();
+      if(text==='เริ่ม k6'||text==='เริ่มทดสอบ') openDrawer('<h2>เริ่มการทดสอบ k6</h2><p class="label">ตรวจสอบเป้าหมายและค่าทดสอบก่อนเริ่ม</p><div class="notice">Preview เท่านั้น · ยังไม่เชื่อมต่อ k6 runtime</div><div class="content-actions"><button class="btn">ยกเลิก</button><button class="btn primary">ยืนยันเริ่มทดสอบ</button></div>');
+      if(text==='หยุดการทดสอบ') openDrawer('<h2>หยุดการทดสอบ</h2><p class="label">ยืนยันการหยุดเซสชันทดสอบปัจจุบัน</p><div class="content-actions"><button class="btn">ยกเลิก</button><button class="btn primary">ยืนยันหยุด</button></div>');
+      if(text==='บันทึกกำหนดการ') openDrawer('<h2>บันทึกกำหนดการปรับปรุง</h2><p class="label">กำหนดการจะเป็นฉบับร่างจนกว่าจะได้รับอนุมัติ</p><div class="notice">ยังไม่ประกาศหรือปิดระบบจริง</div>');
+      if(text==='ส่งขออนุมัติ') openDrawer('<h2>ส่งขออนุมัติ Release</h2><p class="label">ส่งผลการทดสอบและรายการตรวจสอบให้ Owner พิจารณา</p><div class="notice">ยังไม่เผยแพร่ Production</div>');
+    });
+  </script>
 </body>
 </html>
