@@ -167,7 +167,6 @@
         return head('คอนเทนต์และประกาศ','จัดการข่าวสารที่แสดงบนเว็บไซต์','สร้างประกาศ')+
         `<div class="content-hub">
           <div class="tabs content-tabs"><button class="active">ประกาศ</button><button>แบนเนอร์</button><button>Popup</button><button>แจ้งเตือน</button><button>คลังสื่อ</button></div>
-          <section class="card detail"><div class="toolbar" style="padding:0 0 13px;border:0"><div><strong>สถานะงาน</strong><span class="label">ฉบับร่าง → ตรวจสอบ → เผยแพร่</span></div><span class="status ready">โหมดออกแบบ</span></div><div class="status-pipeline"><span class="pipeline-step current">ฉบับร่าง</span><span>→</span><span class="pipeline-step">ตรวจสอบ</span><span>→</span><span class="pipeline-step">เผยแพร่</span></div></section>
           <div class="content-layout">
             <section class="card content-form"><div class="section-kicker">Editor</div><h2>สร้างประกาศ</h2><div class="content-form-grid">
               <label class="field-label wide">หัวข้อ<input class="field" placeholder="หัวข้อประกาศ"></label>
@@ -180,7 +179,7 @@
             <div class="section-kicker" style="margin-top:16px">แสดงที่</div><div class="channel-grid"><label class="channel-option"><input type="checkbox" checked> หน้า Index</label><label class="channel-option"><input type="checkbox"> แจ้งเตือน</label><label class="channel-option"><input type="checkbox"> หน้า Booking</label></div>
             <div class="asset-drop"><strong>รูปภาพ</strong><input id="contentAssetInput" type="file" accept="image/*"></div>
             <div class="content-actions"><button class="btn" data-content-action="draft">บันทึกร่าง</button><button class="btn" data-content-action="preview">Preview</button><button class="btn primary" data-content-action="review">ส่งตรวจสอบ</button></div></section>
-            <section class="card content-preview"><div class="section-kicker">Preview</div><h2>ตัวอย่างหน้า Index</h2><div class="preview-frame"><img id="contentPreviewImage" alt="ตัวอย่างรูปประกาศ"><div class="preview-copy"><div class="preview-tag">ประกาศ SL-Transit</div><h3 id="contentPreviewTitle">ยังไม่มีหัวข้อ</h3><p id="contentPreviewBody">ตัวอย่างจะแสดงที่นี่</p></div></div><div class="notice">แสดงเมื่อสถานะเป็น “เผยแพร่แล้ว”</div></section>
+            <section class="card content-preview"><div class="section-kicker">Preview</div><h2>ตัวอย่างหน้า Index</h2><div class="preview-frame"><img id="contentPreviewImage" alt="ตัวอย่างรูปประกาศ"><div class="preview-copy"><div class="preview-tag">ประกาศ SL-Transit</div><h3 id="contentPreviewTitle">ยังไม่มีหัวข้อ</h3><p id="contentPreviewBody">ตัวอย่างจะแสดงที่นี่</p></div></div></section>
           </div>
           <section class="card"><div class="toolbar"><div><strong>รายการประกาศ</strong><span class="label">ยังไม่มีรายการ</span></div><select class="field"><option>ทุกสถานะ</option><option>ฉบับร่าง</option><option>เผยแพร่แล้ว</option></select></div><div class="content-list"><div class="content-item"><i class="content-dot"></i><div><strong>ยังไม่มีประกาศ</strong><span>สร้างรายการใหม่จากปุ่มด้านบน</span></div><span class="status">ว่าง</span></div></div></section>
         </div>`;
