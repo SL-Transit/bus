@@ -352,6 +352,7 @@
         return head('รายได้ / จอง / ยกเลิก','จัดการค่าบริการ ช่องทางชำระ และการกระจายเงิน','รีเฟรช')+`<div class="tabs">${tabs}</div>${body}`;
       }
       const paymentStyle=document.createElement('style');paymentStyle.textContent='.payment-channel{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.payment-channel:last-of-type{border-bottom:0}.payment-channel strong{display:block}.payment-channel span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.payment-channel .switch{flex-shrink:0}';document.head.appendChild(paymentStyle);
+      window.renderFinanceCenter=financeCenter;
       views.finance=function(){return financeCenter('overview')};
       document.addEventListener('click',function(e){const b=e.target.closest('[data-finance-tab]');if(b)document.getElementById('content').innerHTML=financeCenter(b.dataset.financeTab)});
     })();
@@ -366,6 +367,7 @@
         return head('การเงินและการชำระเงิน','ควบคุมค่าบริการ ช่องทางชำระ และการกระจายเงิน','รีเฟรช')+
         `<div class="mode-strip"><div><strong>โหมดการตั้งค่า</strong><span>กำลังดูข้อมูลจำลอง · ยังไม่กระทบการชำระเงินจริง</span></div><span class="mode-badge">TEST MODE</span></div><div class="tabs"><button class="active">ช่องทางชำระเงิน</button><button>ค่าบริการ</button><button>การกระจายเงิน</button><button>ประวัติการเปลี่ยนแปลง</button></div><div class="lower" style="margin-top:0"><section class="card detail"><div class="toolbar" style="padding:0 0 14px"><div><strong>Payment methods</strong><span class="label">เปิด–ปิดช่องทางที่แสดงบน Booking</span></div><span class="status ready">มีช่องทางสำรอง</span></div><div class="payment-method-list"><div class="payment-method-card"><i class="dot"></i><div><strong>จองหน้างาน</strong><small>ชำระกับเจ้าหน้าที่ที่ท่ารถหรือบนรถ</small><div class="method-meta"><span class="method-tag live">เปิดใช้งาน</span><span class="method-tag">ไม่มีค่าธรรมเนียมออนไลน์</span></div></div><div class="control-actions"><button class="action" data-payment-control="onsite">จัดการ</button></div></div><div class="payment-method-card"><i class="dot"></i><div><strong>โอนบัญชีธนาคาร</strong><small>แนบหลักฐานการโอนเงิน</small><div class="method-meta"><span class="method-tag live">เปิดใช้งาน</span><span class="method-tag">บัญชีรับเงิน 1 รายการ</span></div></div><div class="control-actions"><button class="action" data-payment-control="bank">จัดการ</button></div></div><div class="payment-method-card off"><i class="dot"></i><div><strong>PromptPay / QR</strong><small>สแกน QR เพื่อชำระเงิน</small><div class="method-meta"><span class="method-tag off">ปิดใช้งาน</span><span class="method-tag">เปิดได้ภายหลัง</span></div></div><div class="control-actions"><button class="action" data-payment-control="promptpay">เปิดใช้งาน</button></div></div></div></section><section class="card detail"><h2>ผลกระทบ</h2><div class="impact-list"><div><span>ช่องทางที่เปิดอยู่</span><strong>2 / 3</strong></div><div><span>การแสดงผลบน Booking</span><strong>พร้อมใช้งาน</strong></div><div><span>Fallback</span><strong>บัญชีธนาคาร</strong></div><div><span>รายการค้างชำระ</span><strong>—</strong></div></div><div class="notice" style="margin-top:14px">การปิดช่องทางสุดท้ายจะถูกป้องกันจนกว่าจะเลือกช่องทางสำรอง</div></section></div><div class="lower"><section class="card detail"><h2>ค่าบริการ</h2><div class="payment-settings-grid"><label class="field-label">ค่าบริการระบบ<input class="field" placeholder="— บาท"></label><label class="field-label">ค่าธรรมเนียมชำระ<input class="field" placeholder="— บาท / %"></label></div><div class="content-actions"><button class="btn">แก้ไขค่าบริการ</button></div></section><section class="card detail"><h2>บัญชีและ QR</h2><div class="impact-list"><div><span>ธนาคาร</span><strong>ยังไม่ตั้งค่า</strong></div><div><span>เลขบัญชี</span><strong>ยังไม่ตั้งค่า</strong></div><div><span>QR Code</span><strong>ยังไม่ตั้งค่า</strong></div></div><button class="btn" style="margin-top:12px">จัดการข้อมูลรับเงิน</button></section></div><section class="card detail" style="margin-top:16px"><div class="toolbar" style="padding:0 0 10px"><div><strong>Draft changes</strong><span class="label">การเปลี่ยนแปลงที่ยังไม่เผยแพร่</span></div><span class="status">ยังไม่มี</span></div><div class="version-row"><div><strong>Payment settings v—</strong><span>ยังไม่มีฉบับร่าง</span></div><button class="action">ดูประวัติ</button></div></section>`;
       }
+      window.renderFinanceControl=financeControl;
       views.finance=financeControl;
       document.addEventListener('click',function(e){const b=e.target.closest('[data-payment-control]');if(!b)return;const name=b.dataset.paymentControl==='promptpay'?'PromptPay / QR':b.dataset.paymentControl==='bank'?'โอนบัญชีธนาคาร':'จองหน้างาน';openDrawer('<h2>จัดการ '+name+'</h2><p class="label">การเปลี่ยนแปลงจะเป็นฉบับร่างและต้องผ่านการตรวจสอบ</p><div class="notice">ตรวจสอบผลกระทบต่อ Booking, รายการค้างชำระ และช่องทางสำรองก่อนยืนยัน</div><label class="field-label">เหตุผลการเปลี่ยนแปลง<textarea class="field" rows="4" placeholder="ระบุเหตุผล"></textarea></label><div class="content-actions"><button class="btn">ยกเลิก</button><button class="btn primary">สร้างฉบับร่าง</button></div>')});
     })();
@@ -387,6 +389,19 @@
         if(draftStatus) draftStatus.textContent='มีฉบับร่าง';
       });
     })();
+  </script>
+  <script>
+    document.addEventListener('click',function(e){
+      const tab=e.target.closest('#content > .tabs > button');
+      if(!tab || !window.renderFinanceControl) return;
+      const title=document.querySelector('#content .head h1');
+      if(!title || title.textContent!=='การเงินและการชำระเงิน') return;
+      const map={'ช่องทางชำระเงิน':'payments','ค่าบริการ':'fees','การกระจายเงิน':'settlement','ประวัติการเปลี่ยนแปลง':'history'};
+      const key=map[tab.textContent.trim()];
+      if(key==='history') openDrawer('<h2>ประวัติการเปลี่ยนแปลง</h2><p class="label">ตรวจสอบ version และ rollback ของ Payment settings</p><div class="notice">ยังไม่มีประวัติการเปลี่ยนแปลง</div>');
+      else if(key==='payments') document.getElementById('content').innerHTML=window.renderFinanceControl();
+      else if(key) document.getElementById('content').innerHTML=window.renderFinanceCenter(key);
+    });
   </script>
 </body>
 </html>
