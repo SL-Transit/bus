@@ -484,10 +484,11 @@
   </style>
   <script>
     (function(){
-      var testModeActive=sessionStorage.getItem('slTransitTestMode')==='on', popupOpen=false;
+      var testModeActive=sessionStorage.getItem('slTransitTestMode')==='on', popupOpen=false, lastPopupPage='';
       window.__slTestModeActive=testModeActive;
-      function showTestPopup(){
+      function showTestPopup(pageKey){
         if(popupOpen)return; popupOpen=true;
+        lastPopupPage=pageKey||document.querySelector('#content .head h1')?.textContent||'page';
         var layer=document.createElement('div');layer.className='test-mode-layer';layer.id='testModeLayer';layer.setAttribute('aria-live','assertive');
         layer.innerHTML='<section class="test-mode-dialog" role="dialog" aria-modal="true"><div class="test-kicker">SL-Transit · Test Mode</div><h2>กำลังอยู่ในโหมดทดสอบ</h2><p>คุณกำลังทดสอบระบบผ่านคอมพิวเตอร์ ข้อมูลและการทำรายการจะไม่ส่งผลจริง</p><div class="test-mode-list"><div><strong>การชำระเงินจริง</strong><span>ปิด</span></div><div><strong>บริการที่มีค่าใช้จ่าย</strong><span>ปิด</span></div><div><strong>การแจ้งเตือนภายนอก</strong><span>ปิด</span></div><div><strong>ข้อมูล Production</strong><span>ห้ามเขียน</span></div></div><button class="btn primary" id="testModeAcknowledge">รับทราบและเริ่มทดสอบ</button></section>';
         document.body.appendChild(layer);document.body.dataset.testPopupOverflow=document.body.style.overflow;document.body.style.overflow='hidden';var acknowledge=document.getElementById('testModeAcknowledge');acknowledge.focus();acknowledge.onclick=function(){layer.remove();document.body.style.overflow=document.body.dataset.testPopupOverflow||'';delete document.body.dataset.testPopupOverflow;popupOpen=false};
@@ -502,10 +503,10 @@
         var title=document.querySelector('#content .head h1');
         if(title&&title.textContent==='โหมดทดสอบและเผยแพร่'){
           var toggle=document.querySelector('#content .banner .switch-control');
-          if(toggle&&!toggle.dataset.testBound){toggle.dataset.testBound='1';toggle.addEventListener('click',function(){setTimeout(function(){testModeActive=toggle.classList.contains('is-on');window.__slTestModeActive=testModeActive;sessionStorage.setItem('slTransitTestMode',testModeActive?'on':'off');if(testModeActive)showTestPopup()},0)})}
+          if(toggle&&!toggle.dataset.testBound){toggle.dataset.testBound='1';toggle.addEventListener('click',function(){setTimeout(function(){testModeActive=toggle.classList.contains('is-on');window.__slTestModeActive=testModeActive;sessionStorage.setItem('slTransitTestMode',testModeActive?'on':'off');if(testModeActive){lastPopupPage='';showTestPopup(title.textContent)}},0)})}
         }
         syncTopbar();
-        if(testModeActive){if(!document.querySelector('.test-mode-banner')){var b=document.createElement('div');b.className='test-mode-banner';b.textContent='TEST MODE · ปิดการชำระเงินจริง บริการมีค่าใช้จ่าย และการเขียนข้อมูล Production';document.querySelector('main').prepend(b)}showTestPopup()}
+        if(testModeActive){if(!document.querySelector('.test-mode-banner')){var b=document.createElement('div');b.className='test-mode-banner';b.textContent='TEST MODE · ปิดการชำระเงินจริง บริการมีค่าใช้จ่าย และการเขียนข้อมูล Production';document.querySelector('main').prepend(b)}var pageKey=title?title.textContent:'page';if(lastPopupPage!==pageKey)showTestPopup(pageKey)}
         else {var b=document.querySelector('.test-mode-banner');if(b)b.remove()}
       }
       new MutationObserver(syncTestMode).observe(document.getElementById('content'),{childList:true,subtree:true});
