@@ -2165,24 +2165,10 @@ public class MainActivity extends Activity {
 
         // vehiclePickerText สร้างไว้ก่อน จะ addView ในการ์ดคิว (ข้อ 1)
         vehiclePickerText = new TextView(this);
-        vehiclePickerText.setTextColor(COLOR_LIGHT_TEAL);
-        vehiclePickerText.setTextSize(12);
-        vehiclePickerText.setTypeface(Typeface.DEFAULT_BOLD);
-        vehiclePickerText.setGravity(Gravity.CENTER);
-        vehiclePickerText.setPadding(dp(10), dp(6), dp(10), dp(6));
-        // ถ้ายังไม่ได้เลือกรถ แสดง "เลือกรถ ▾" แทนค่า default
         String savedVehicle = prefs.getString(KEY_VEHICLE_ID, null);
-        vehiclePickerText.setText(savedVehicle != null ? savedVehicle + "\n▾" : "เลือกรถ\n▾");
-        GradientDrawable pickerBg = new GradientDrawable();
-        pickerBg.setColor(Color.argb(50, 0, 167, 181));
-        pickerBg.setCornerRadius(dp(10));
-        vehiclePickerText.setBackground(pickerBg);
-        vehiclePickerText.setOnClickListener(v -> {
-            animateTap(vehiclePickerText);
-            showVehicleDialog();
-        });
-
-        // ===== ข้อ 3: การ์ดคิววันนี้ / เส้นทาง / รอบถัดไป / สถานะให้บริการ =====
+        vehiclePickerText.setText(savedVehicle != null ? savedVehicle : "central identity pending");
+        vehiclePickerText.setClickable(false);
+        vehiclePickerText.setFocusable(false);
         LinearLayout queueCard = new LinearLayout(this);
         queueCard.setOrientation(LinearLayout.VERTICAL);
         queueCard.setPadding(dp(18), dp(18), dp(18), dp(16));
@@ -3809,7 +3795,8 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         btnLp.setMargins(0, dp(8), 0, dp(8));
         changeVehicleBtn.setLayoutParams(btnLp);
-        changeVehicleBtn.setOnClickListener(v -> showVehicleDialog());
+        changeVehicleBtn.setClickable(false);
+        changeVehicleBtn.setFocusable(false);
         root.addView(changeVehicleBtn);
 
         TextView signOutBtn = new TextView(this);
@@ -4088,17 +4075,6 @@ public class MainActivity extends Activity {
     }
 
     // ---- Dialog เลือกรถ + ล็อคคันที่ online อยู่ ----
-    private void showVehicleDialog() {
-        String runtimeVehicleId = authorizedRuntimeVehicleId();
-        String erpVehicleId = prefs.getString(KEY_ERP_VEHICLE_ID, "");
-        new AlertDialog.Builder(this)
-                .setTitle("Vehicle assigned by central system")
-                .setMessage("ERP vehicle: " + erpVehicleId
-                        + "\nRuntime vehicle: " + runtimeVehicleId
-                        + "\n\nTo change vehicles, update Driver Identity Center or sign out and use another approved account.")
-                .setPositiveButton("OK", null)
-                .show();
-    }
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
@@ -4187,10 +4163,10 @@ public class MainActivity extends Activity {
             return;
         }
         prefs.edit().putBoolean(KEY_ENABLED, true).apply();
-        try { FirebaseDatabase.getInstance().goOffline(); } catch (Exception ignored) {}
+        try {  } catch (Exception ignored) {}
         uiHandler.postDelayed(() -> {
             try {
-                FirebaseDatabase.getInstance().goOnline();
+                
                 Intent intent = new Intent(this, GpsService.class);
                 intent.setAction(GpsService.ACTION_START);
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent);
