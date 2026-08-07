@@ -456,5 +456,14 @@
       if(text==='ดูสมาชิก') openDrawer('<h2>สมาชิกทีม</h2><p class="label">รายชื่อสมาชิกของทีมนี้</p><div class="empty"><div><strong>ยังไม่มีสมาชิก</strong><span>เพิ่มสมาชิกจากคำเชิญ</span></div></div>');
     });
   </script>
+  <script>
+    document.addEventListener('click',function(e){
+      const title=document.querySelector('#content .head h1');
+      if(!title || title.textContent!=='คิวรถและตารางเวลา') return;
+      const btn=e.target.closest('button');if(!btn)return;const text=btn.textContent.trim();
+      if(text==='ดูรายละเอียด') openDrawer('<h2>รายละเอียดคิวรถ</h2><div class="impact-list"><div><span>คิวรถ</span><strong>—</strong></div><div><span>เวลาออก</span><strong>—</strong></div><div><span>ต้นทาง → ปลายทาง</span><strong>—</strong></div><div><span>สถานะ GPS</span><strong>—</strong></div></div><div class="notice">ข้อมูลจะมาจาก ERP Data Center เมื่อเชื่อมต่อจริง</div>');
+      if(text==='สร้างเที่ยวรถ'||text==='เพิ่มรอบเวลา') openDrawer('<h2>'+text+'</h2><div class="booking-rule"><label>กลุ่มคิวรถ<select class="field"><option>เลือกกลุ่มคิว</option></select></label><label>เวลาออก<input class="field" type="time"></label><label>ต้นทาง<input class="field" placeholder="เลือกป้ายต้นทาง"></label><label>ปลายทาง<input class="field" placeholder="เลือกป้ายปลายทาง"></label></div><div class="content-actions"><button class="btn primary">บันทึกฉบับร่าง</button></div><div class="notice">ยังไม่สร้างเที่ยวหรือรอบเวลาจริง</div>');
+    });
+  </script>
 </body>
 </html>
