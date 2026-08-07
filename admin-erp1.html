@@ -187,5 +187,13 @@
       views.news=compactContentHub;
     })();
   </script>
+  <style>
+    /* Compact enterprise copy: keep actions and data, reduce helper text. */
+    .toolbar > div > .label{display:none}
+    .kpi span.label,.ops-mini span.label{display:none}
+    .ops-detail:has(> h2 + .notice):not(:has(.rule-line)):not(:has(button)){display:none}
+    .table-footer span:first-child{display:none}
+    .detail > .notice{font-size:12px}
+  </style>
 </body>
 </html>
