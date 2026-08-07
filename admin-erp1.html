@@ -370,5 +370,23 @@
       document.addEventListener('click',function(e){const b=e.target.closest('[data-payment-control]');if(!b)return;const name=b.dataset.paymentControl==='promptpay'?'PromptPay / QR':b.dataset.paymentControl==='bank'?'โอนบัญชีธนาคาร':'จองหน้างาน';openDrawer('<h2>จัดการ '+name+'</h2><p class="label">การเปลี่ยนแปลงจะเป็นฉบับร่างและต้องผ่านการตรวจสอบ</p><div class="notice">ตรวจสอบผลกระทบต่อ Booking, รายการค้างชำระ และช่องทางสำรองก่อนยืนยัน</div><label class="field-label">เหตุผลการเปลี่ยนแปลง<textarea class="field" rows="4" placeholder="ระบุเหตุผล"></textarea></label><div class="content-actions"><button class="btn">ยกเลิก</button><button class="btn primary">สร้างฉบับร่าง</button></div>')});
     })();
   </script>
+  <script>
+    (function(){
+      document.addEventListener('click',function(e){
+        const btn=e.target.closest('[data-payment-control]');
+        if(!btn) return;
+        const card=btn.closest('.payment-method-card');
+        if(!card) return;
+        const status=card.querySelector('.method-tag');
+        const isOff=card.classList.toggle('off');
+        if(status){status.textContent=isOff?'ปิดใช้งาน':'เปิดใช้งาน';status.classList.toggle('off',isOff);status.classList.toggle('live',!isOff)}
+        btn.textContent=isOff?'เปิดใช้งาน':'ปิดใช้งาน';
+        const draft=document.querySelector('.version-row');
+        const draftStatus=document.querySelector('.card .toolbar .status:not(.ready)');
+        if(draft) draft.innerHTML='<div><strong>Payment settings · ฉบับร่าง</strong><span>มีการเปลี่ยนแปลงที่ยังไม่เผยแพร่</span></div><button class="action">ดูรายละเอียด</button>';
+        if(draftStatus) draftStatus.textContent='มีฉบับร่าง';
+      });
+    })();
+  </script>
 </body>
 </html>
