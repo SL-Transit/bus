@@ -4,6 +4,8 @@ const fs = require('fs');
 const main = fs.readFileSync('driver-android/src/main/java/com/sanamchai/drivergps/MainActivity.java', 'utf8');
 const gps = fs.readFileSync('driver-android/src/main/java/com/sanamchai/drivergps/GpsService.java', 'utf8');
 const identity = fs.readFileSync('driver-android/src/main/java/com/sanamchai/drivergps/DriverIdentityCenter.java', 'utf8');
+const logic = fs.readFileSync('passenger-logic.js', 'utf8');
+const html = fs.readFileSync('passenger.html', 'utf8');
 
 [
   'uid',
