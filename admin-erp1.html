@@ -240,5 +240,18 @@
       views.finance=financePage;
     })();
   </script>
+  <script>
+    (function(){
+      function opsQueuePage(mode){
+        const timetable=mode==='timetable';
+        const rows=Array.from({length:5},()=>`<tr><td class="primary-cell"><strong>—</strong><span class="sub">ยังไม่มีข้อมูลคิว</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="status">—</span></td><td><span class="status">—</span></td><td><button class="action">ดูรายละเอียด</button></td></tr>`).join('');
+        return head('คิวรถและตารางเวลา',timetable?'จัดการรอบเวลาและการเปิดรับจอง':'ภาพรวมคิวรถที่ให้บริการวันนี้',timetable?'เพิ่มรอบเวลา':'รีเฟรช')+
+        `<div class="tabs"><button class="${timetable?'':'active'}" data-ops-mode="queue">คิวรถ</button><button class="${timetable?'active':''}" data-ops-mode="timetable">ตารางเวลา</button></div><div class="kpis"><article class="card kpi"><div class="label">${timetable?'รอบเวลาทั้งหมด':'คิวรถวันนี้'}</div><div class="value">—</div></article><article class="card kpi"><div class="label">เปิดจอง</div><div class="value">—</div></article><article class="card kpi"><div class="label">ปิดจอง</div><div class="value">—</div></article><article class="card kpi"><div class="label">ต้องตรวจสอบ</div><div class="value">—</div></article></div><div class="filters"><input class="field" type="date"><select class="field"><option>ทุกกลุ่มคิว</option></select><select class="field"><option>ทุกสถานะ</option></select><button class="btn">ตัวกรอง</button></div><section class="card"><div class="toolbar"><div><strong>${timetable?'ตารางเวลาให้บริการ':'ตารางคิวรถวันนี้'}</strong><span class="label">${timetable?'ควบคุมเวลาและสถานะการจอง':'เวลาออกและสถานะการแสดงตำแหน่ง'}</span></div><div class="actions"><button class="btn">นำเข้า Excel</button><button class="btn primary">${timetable?'เพิ่มรอบเวลา':'สร้างเที่ยวรถ'}</button></div></div><div class="table-wrap"><table class="table schedule-table"><thead><tr>${timetable?'<th>รหัสรอบ</th><th>เส้นทาง</th><th>กลุ่มคิว</th><th>ต้นทาง</th><th>ปลายทาง</th><th>เวลาออก</th><th>เปิดจอง</th><th>สถานะ</th><th></th>':'<th>คิวรถ</th><th>เวลาออก</th><th>เที่ยวรถ</th><th>ต้นทาง</th><th>ปลายทาง</th><th>การแสดงผล</th><th>GPS / กล่องดำ</th><th></th>'}</tr></thead><tbody>${rows}</tbody></table></div></section><div class="lower"><section class="card detail"><h2>${timetable?'การเปิดรับจอง':'การแสดงตำแหน่ง'}</h2><div class="rule-line"><div><strong>${timetable?'เปิด–ปิดการจองรายรอบ':'แสดงตำแหน่งตามเที่ยว'}</strong><span>${timetable?'กำหนดได้จากตารางเวลา':'เปิดเฉพาะช่วงเวลาที่อนุญาต'}</span></div><span class="switch"></span></div></section><section class="card detail"><h2>สถานะข้อมูล</h2><div class="notice">ยังไม่มีข้อมูลจริง</div></section></div>`;
+      }
+      views.ops=function(){return opsQueuePage('queue')};
+      views.timetable=function(){return opsQueuePage('timetable')};
+      document.addEventListener('click',function(e){const b=e.target.closest('[data-ops-mode]');if(b)document.getElementById('content').innerHTML=opsQueuePage(b.dataset.opsMode)});
+    })();
+  </script>
 </body>
 </html>
