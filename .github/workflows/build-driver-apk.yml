@@ -37,6 +37,9 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > driver-android/keystore.jks
       
+      - name: Run driver identity and Firebase tests
+        run: node tests/driver-identity-center.test.js
+
       - name: Build release APK
         id: build
         continue-on-error: true
