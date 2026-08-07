@@ -419,7 +419,7 @@
     syncSwitches();
     new MutationObserver(syncSwitches).observe(document.getElementById('content'),{childList:true,subtree:true});
   </script>
-  <style>.switch.is-on{background:var(--teal)!important;border-color:var(--teal)!important}.switch.is-on:after,.switch.is-on span{transform:translateX(21px)!important}.switch.switch-control{appearance:none;-webkit-appearance:none;padding:0;margin:0;outline:0}.switch.switch-control:focus-visible{box-shadow:0 0 0 3px rgba(22,119,200,.28)}</style>
+  <style>.switch.is-on{background:var(--teal)!important;border-color:var(--teal)!important}.switch.is-on:after,.switch.is-on span{transform:translateX(21px)!important}.switch.switch-control{appearance:none;-webkit-appearance:none;padding:0;margin:0;outline:0}.switch.switch-control:focus-visible{box-shadow:0 0 0 3px rgba(22,119,200,.28)}.account-saved{display:none;margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--teal-soft);color:#087c85;font-size:12px}.account-saved.show{display:block}</style>
   <script>
     (function(){
       function upgradeSwitches(){
@@ -435,6 +435,15 @@
       upgradeSwitches();
       new MutationObserver(upgradeSwitches).observe(document.getElementById('content'),{childList:true,subtree:true});
     })();
+  </script>
+  <script>
+    document.addEventListener('click',function(e){
+      const title=document.querySelector('#content .head h1');
+      if(!title || title.textContent!=='ตั้งค่าบัญชี') return;
+      const btn=e.target.closest('button');if(!btn)return;
+      if(btn.textContent.includes('บันทึกการเปลี่ยนแปลง')) openDrawer('<h2>บันทึกฉบับร่าง</h2><p class="label">ข้อมูลโปรไฟล์ถูกเตรียมไว้สำหรับบันทึก</p><div class="notice">ยังไม่เขียน Authentication หรือบัญชีจริง</div>');
+      if(btn.textContent.includes('เปลี่ยนรหัสผ่าน')) openDrawer('<h2>เปลี่ยนรหัสผ่าน</h2><label class="field-label">รหัสผ่านใหม่<input class="field" type="password"></label><label class="field-label" style="margin-top:12px">ยืนยันรหัสผ่าน<input class="field" type="password"></label><div class="content-actions"><button class="btn primary">บันทึกฉบับร่าง</button></div><div class="notice">ยังไม่เปลี่ยนรหัสผ่านจริง</div>');
+    });
   </script>
 </body>
 </html>
