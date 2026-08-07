@@ -10,9 +10,9 @@ const env = { ...process.env, GCLOUD_PROJECT: process.env.GCLOUD_PROJECT || 'sl-
 const k6 = process.platform === 'win32' ? 'k6.exe' : 'k6';
 let status = 0;
 try {
-  status = run(process.execPath, ['--test', '--test-timeout=30000', 'tests/emulator-security.behavioral.test.js'], env);
+  status = run(process.execPath, ['tools/seed-emulator-k6.js'], env);
   if (status === 0) {
-    status = run(process.execPath, ['tools/seed-emulator-k6.js'], env);
+    status = run(process.execPath, ['--test', '--test-timeout=30000', 'tests/emulator-security.behavioral.test.js'], env);
     if (status === 0) status = run(k6, ['run', 'tests/k6/booking-emulator.js'], env);
   }
 } finally {
