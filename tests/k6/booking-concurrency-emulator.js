@@ -47,7 +47,10 @@ export function bookOnce(data) {
   const code = `K6C-${runId}-${__VU}`;
   const params = { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` }, responseCallback: http.expectedStatuses(200, 201, 409) };
   const reserve = http.post(`${functionsBase}/${projectId}/asia-southeast1/reserveBookingCapacity`, JSON.stringify({ action: 'reserve', serviceDate: '2099-01-01', capacityKey: 'pair-test', bookingCode: code, requestedSeats: 1 }), params);
-  const reserveOk = check(reserve, { 'จองที่นั่งพร้อมกันโดยไม่เกิน 20 ที่นั่ง': (r) => r.status === 200 });
+  const reserveOk = check(reserve, {
+    'จองที่นั่งพร้อมกันโดยไม่เกิน 20 ที่นั่ง': (r) => r.status === 200,
+    [`รหัสตอบกลับการจองที่นั่ง ${reserve.status}`]: (r) => r.status === 200
+  });
   errors.add(!reserveOk);
   bookingErrors.add(!reserveOk);
   if (!reserveOk) {
