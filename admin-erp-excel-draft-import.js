@@ -159,6 +159,40 @@
     Object.keys(left).forEach(function (key) { if (!Object.prototype.hasOwnProperty.call(right, key)) removed++; });
     return { added: added, changed: changed, unchanged: unchanged, removed: removed };
   }
+  function sensitiveText(value) {
+    return /token|secret|password|credential|access[ _-]?key|api[ _-]?key/i.test(text(value));
+  }
+  function restrictedSheetReview(workbook) {
+    var sheets = sheetList(workbook);
+    var result = {
+      localOnly: true,
+      productionWrite: false,
+      readyForApply: false,
+      payment: { status: 'restricted', targetPath: 'data/erpDataCenter/paymentOwnership', rows: [], rawValuesStored: false },
+      staffLine: { status: 'separate-contract-required', targetPath: 'data/notificationCenter/staffLineTargets', rows: [], rawValuesStored: false },
+      blockers: [],
+      warnings: []
+    };
+    var paymentSheet = sheets.find(function (sheet) { return sheetName(sheet) === '07_PaymentContact'; });
+    if (paymentSheet) {
+      normalizeRows(paymentSheet, SHEETS['07_PaymentContact']).filter(function (row) { return !row.blank; }).forEach(function (row) {
+        result.payment.rows.push({ sourceSheet: '07_PaymentContact', sourceRowNumber: row.sourceRowNumber, key: text(row.values.key), value: '[ปกปิด]', redacted: true });
+      });
+      result.warnings.push({ code: 'payment-values-redacted', sheet: '07_PaymentContact', message: 'ห้ามนำเลขบัญชีและเบอร์โทรเข้า ERP Data Center จนกว่าจะมีสัญญาฟิลด์และสิทธิ์ที่อนุมัติ' });
+    }
+    var staffSheet = sheets.find(function (sheet) { return sheetName(sheet) === '09_StaffLineConfig'; });
+    if (staffSheet) {
+      normalizeRows(staffSheet, SHEETS['09_StaffLineConfig']).filter(function (row) { return !row.blank; }).forEach(function (row) {
+        var key = text(row.values['System field'] || row.values.key);
+        var value = text(row.values['Value to fill'] || row.values.value);
+        var tokenDetected = sensitiveText(key) || sensitiveText(value);
+        result.staffLine.rows.push({ sourceSheet: '09_StaffLineConfig', sourceRowNumber: row.sourceRowNumber, field: key, value: '[ปกปิด]', redacted: true, tokenDetected: tokenDetected });
+        if (tokenDetected) result.blockers.push({ code: 'staff-line-token-detected', sheet: '09_StaffLineConfig', sourceRowNumber: row.sourceRowNumber, field: key, message: 'พบชื่อฟิลด์หรือค่าที่มีลักษณะเป็นโทเคน ห้ามเก็บใน Excel หรือ ERP Data Center' });
+      });
+      result.warnings.push({ code: 'staff-line-separate-contract', sheet: '09_StaffLineConfig', targetPath: result.staffLine.targetPath, message: 'ข้อมูล Staff LINE ต้องใช้สัญญาแจ้งเตือนแยกและเก็บความลับนอกฐานข้อมูล' });
+    }
+    return result;
+  }
   function buildDraftPreview(workbook, options) {
     options = options || {};
     var sheets = sheetList(workbook);
@@ -241,12 +275,13 @@
         sheets: sheetPreviews,
         counts: sheetPreviews.reduce(function (total, sheet) { total.rows += sheet.rowCount; total.added += sheet.diff.added; total.changed += sheet.diff.changed; total.unchanged += sheet.diff.unchanged; total.removed += sheet.diff.removed; return total; }, { rows: 0, added: 0, changed: 0, unchanged: 0, removed: 0 }),
         blockers: blockers,
-        warnings: warnings
+        warnings: warnings,
+        restrictedReview: restrictedSheetReview(workbook)
       }
     };
   }
 
-  var api = { WORKBOOK_NAME: WORKBOOK_NAME, SHEET_ORDER: SHEET_ORDER.slice(), SHEETS: SHEETS, buildDraftPreview: buildDraftPreview };
+  var api = { WORKBOOK_NAME: WORKBOOK_NAME, SHEET_ORDER: SHEET_ORDER.slice(), SHEETS: SHEETS, buildDraftPreview: buildDraftPreview, restrictedSheetReview: restrictedSheetReview };
   global.AdminErpExcelDraftImport = api;
   global.SLTransit = global.SLTransit || {};
   global.SLTransit.adminErpExcelDraftImport = api;

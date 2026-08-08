@@ -56,6 +56,16 @@ assert.strictEqual(preview.draft.records['06_รถและคิว'][0].sourc
 assert.strictEqual(preview.draft.records['07_PaymentContact'][0].sourceValues.value, '[ปกปิด]');
 assert.strictEqual(preview.draft.records['01_ข้อมูลป้ายต้นทาง'][0].sourceRowNumber, 2);
 assert.strictEqual(preview.preview.counts.rows, 9);
+assert.strictEqual(preview.preview.restrictedReview.productionWrite, false);
+assert.strictEqual(preview.preview.restrictedReview.payment.targetPath, 'data/erpDataCenter/paymentOwnership');
+assert.strictEqual(preview.preview.restrictedReview.staffLine.targetPath, 'data/notificationCenter/staffLineTargets');
+assert.strictEqual(JSON.stringify(preview.preview.restrictedReview).includes('private-phone'), false, 'restricted review must not retain sensitive values');
+
+const tokenWorkbook = validWorkbook();
+tokenWorkbook.sheets[8].rows = [['lineAccessToken', 'secret-test', 'data/notificationCenter/staffLineTargets/token', 'Yes', '']];
+const tokenReview = contract.restrictedSheetReview(tokenWorkbook);
+assert(tokenReview.blockers.some((item) => item.code === 'staff-line-token-detected'));
+assert.strictEqual(JSON.stringify(tokenReview).includes('secret-test'), false, 'token values must never appear in review output');
 
 const withBlankRow = validWorkbook();
 withBlankRow.sheets[0].rows = [
