@@ -6,9 +6,11 @@ const bookingAlerts = alerts.bookingCreatedAlerts({
     code: 'TB123456',
     passengerLineId: 'U-passenger',
     driverLineId: 'U-driver',
-    transferTerminalLineId: 'G-transfer'
+    transferTerminalLineId: 'G-transfer',
+    plannedVehicleId: 'car1'
   },
-  adminLineId: 'G-admin'
+  adminLineId: 'G-admin',
+  staffTargets: { driversByVehicleId: { car1: { driver: { lineUserId: 'U-driver-central', active: true } } } }
 });
 assert.deepStrictEqual(bookingAlerts.map((item) => item.recipientRole), [
   'passenger',
@@ -17,6 +19,13 @@ assert.deepStrictEqual(bookingAlerts.map((item) => item.recipientRole), [
   'transfer_terminal'
 ]);
 assert.ok(bookingAlerts.every((item) => item.onceKey.includes('TB123456')));
+assert.strictEqual(bookingAlerts.filter((item) => item.recipientRole === 'driver')[0].lineTo, 'U-driver-central');
+
+const forgedDriver = alerts.bookingCreatedAlerts({
+  booking: { code: 'TB000009', plannedVehicleId: 'car1', driverLineId: 'U-forged' },
+  driverLineId: 'U-forged'
+});
+assert(!forgedDriver.some((item) => item.recipientRole === 'driver'), 'Legacy helper must ignore booking-supplied driver LINE IDs');
 
 const noTransfer = alerts.bookingCreatedAlerts({
   booking: { code: 'TB000001', passengerLineId: 'U-passenger' },

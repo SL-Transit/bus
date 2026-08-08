@@ -15,7 +15,15 @@
     var booking = input.booking || {};
     var recipients = [];
     addRecipient(recipients, 'passenger', booking.passengerLineId || booking.lineUserId);
-    addRecipient(recipients, 'driver', booking.driverLineId || input.driverLineId);
+    // Driver LINE must come from the central vehicle binding. Never trust a
+    // driverLineId supplied by a booking, timetable, or browser form.
+    var assignment = booking.resolvedAssignment || booking.assignment || {};
+    var vehicleId = clean(assignment.runtimeVehicleId || assignment.plannedVehicleId || booking.plannedVehicleId);
+    var driverTargets = input.staffTargets && input.staffTargets.driversByVehicleId && input.staffTargets.driversByVehicleId[vehicleId];
+    Object.keys(driverTargets || {}).forEach(function(key) {
+      var target = driverTargets[key] || {};
+      if (target.active !== false) addRecipient(recipients, 'driver', target.lineUserId);
+    });
     addRecipient(recipients, 'admin', input.adminLineId);
     if (booking.transferTerminalLineId || input.transferTerminalLineId) {
       addRecipient(recipients, 'transfer_terminal', booking.transferTerminalLineId || input.transferTerminalLineId);
