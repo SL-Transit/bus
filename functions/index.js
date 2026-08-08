@@ -16,6 +16,7 @@ const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
 const notificationCenter = require("./notification-center.js");
 const adminDashboardSummary = require("./admin-dashboard-summary.js");
+const adminErpAuthorization = require("./admin-erp-authorization.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -548,8 +549,10 @@ exports.readAdminErpDataCenter = onRequest({
     res.set("Cache-Control", "private, max-age=30");
     res.status(200).type("application/json").send(JSON.stringify({
       status: "ready",
-      path: "data/erpDataCenter",
-      erpDataCenter: snap.val() || {},
+      path: readScope.path,
+      erpDataCenter: scoped,
+      permissions: access.permissions,
+      roles: access.roles,
       generatedAt: Date.now()
     }));
   } catch (err) {
@@ -655,6 +658,7 @@ exports.updateAdminErpDataCenter = onRequest({
     };
     await admin.database().ref().update(patch);
     sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
+    */
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (err && err.statusCode) {
