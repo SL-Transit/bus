@@ -34,5 +34,6 @@ if (!bridge.includes('อ่านอย่างเดียว')) throw new Er
 if (!bridge.includes('sourceRowNumber')) throw new Error('read-only rows must preserve the original Excel row number');
 if (!bridge.includes('แถว Excel')) throw new Error('read-only rows must display the original Excel row number');
 if (!bridge.includes("document.addEventListener('DOMContentLoaded', startBridge")) throw new Error('integration bridge must wait for body readiness');
+if (!page.includes("routes:['02_เส้นทาง',['รหัสกลุ่ม (group_id)','ชื่อกลุ่ม','ลำดับกลุ่ม'")) throw new Error('Admin ERP1 routes table must use the Excel sheet 02 group columns');
 
 console.log('admin-erp1 integration contract: PASS');

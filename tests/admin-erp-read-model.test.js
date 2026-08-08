@@ -5,7 +5,7 @@ const readModel = require('../admin-erp-read-model.js');
 
 const expected = {
   stops: { kind: 'catalog', name: 'stops', path: 'data/erpDataCenter/stops' },
-  routes: { kind: 'catalog', name: 'routes', path: 'data/erpDataCenter/routes' },
+  routes: { kind: 'catalog', name: 'serviceGroups', path: 'data/erpDataCenter/serviceGroups' },
   fares: { kind: 'workbook', name: 'routeFareRows', path: 'data/erpDataCenter/workbookSource/routeFareRows' },
   rounds: { kind: 'workbook', name: 'scheduleRows', path: 'data/erpDataCenter/workbookSource/scheduleRows' },
   stopTimes: { kind: 'catalog', name: 'stopTimes', path: 'data/erpDataCenter/stopTimes' },
@@ -25,6 +25,12 @@ Object.keys(expected).forEach((tab) => {
   assert(readModel.sources[tab].fields.length > 0, tab + ' must declare UI field mapping');
   assert(readModel.sources[tab].fields.every((field) => typeof field === 'string' && field.length > 0), tab + ' fields must be named');
 });
+
+assert.deepStrictEqual(readModel.sources.routes.fields, [
+  'serviceGroupId', 'displayNameTh', 'sortOrder', 'groupType', 'transferStopKey',
+  'minTransferMinutes', 'maxWaitMinutes', 'idealWaitMinutes', 'reliability',
+  'displayOrder', 'passengerSelectable', 'status'
+], 'เส้นทาง must expose the exact fields from Excel sheet 02');
 
 ['staff', 'accounts', 'alerts'].forEach((tab) => {
   assert.strictEqual(readModel.sourceForTab(tab), null, tab + ' must not read without an approved backend contract');
