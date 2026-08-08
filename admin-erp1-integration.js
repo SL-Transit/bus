@@ -60,10 +60,11 @@
       return;
     }
     body.innerHTML = result.rows.map(function (row, index) {
+      var sourceRowNumber = row && row[source.orderField] != null ? row[source.orderField] : index + 1;
       var cells = source.fields.map(function (field) {
         return '<td><input class="field" readonly aria-readonly="true" value="' + escapeHtml(row[field]) + '"></td>';
       }).join('');
-      return '<tr><td><span class="status ready">แถวที่ ' + (index + 1) + '</span></td>' + cells + '<td><span class="status ready">' + escapeHtml(STATUS_TEXT[result.status] || STATUS_TEXT.ready) + '</span></td><td><button class="action" disabled>อ่านอย่างเดียว</button></td></tr>';
+      return '<tr data-source-row-number="' + escapeHtml(sourceRowNumber) + '"><td><span class="status ready">แถว Excel ' + escapeHtml(sourceRowNumber) + '</span></td>' + cells + '<td><span class="status ready">' + escapeHtml(STATUS_TEXT[result.status] || STATUS_TEXT.ready) + '</span></td><td><button class="action" disabled>อ่านอย่างเดียว</button></td></tr>';
     }).join('');
   }
 
