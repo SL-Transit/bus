@@ -33,5 +33,6 @@ if (!bridge.includes('ไม่มีสิทธิ์เข้าถึง')) 
 if (!bridge.includes('อ่านอย่างเดียว')) throw new Error('read-only rendering is required');
 if (!bridge.includes('sourceRowNumber')) throw new Error('read-only rows must preserve the original Excel row number');
 if (!bridge.includes('แถว Excel')) throw new Error('read-only rows must display the original Excel row number');
+if (!bridge.includes("document.addEventListener('DOMContentLoaded', startBridge")) throw new Error('integration bridge must wait for body readiness');
 
 console.log('admin-erp1 integration contract: PASS');

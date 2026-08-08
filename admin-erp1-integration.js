@@ -127,7 +127,7 @@
     refresh();
   }
 
-  if (typeof document !== 'undefined') {
+  function startBridge() {
     var observer = new MutationObserver(refresh);
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener('click', function (event) {
@@ -138,6 +138,10 @@
       refresh();
     });
     setTimeout(initialize, 0);
+  }
+  if (typeof document !== 'undefined') {
+    if (document.body) startBridge();
+    else document.addEventListener('DOMContentLoaded', startBridge, { once: true });
   }
 
   global.AdminErpPageIntegration = { refresh: refresh, statusText: STATUS_TEXT, sources: SOURCE_BY_TAB };
