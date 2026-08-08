@@ -10,7 +10,10 @@
     values(rows).forEach(function (row) {
       var key = row.queueTripId || row.canonicalQueueTripId || row.scheduleOfferId || row.routeId || row.sourceRowId;
       if (!key) return;
-      groups[key] = groups[key] || { key: key, group: row.serviceGroupId || '-', route: row.routeLabelTh || row.routeNameTh || row.routeId || '-', times: [] };
+      var origin = row.originNameTh || row.fromNameTh || row.fromStopKey || '';
+      var destination = row.destinationNameTh || row.toNameTh || row.toStopKey || '';
+      var routeLabel = origin && destination ? origin + ' → ' + destination : (row.routeLabelTh || row.routeNameTh || row.routeId || '-');
+      groups[key] = groups[key] || { key: key, group: row.serviceGroupId || '-', route: routeLabel + (row.routeId ? ' (' + row.routeId + ')' : ''), times: [] };
       if (row.scheduledTime || row.departureTime) groups[key].times.push(row.scheduledTime || row.departureTime);
     });
     return values(groups).sort(function (a, b) { return String(a.key).localeCompare(String(b.key)); });
