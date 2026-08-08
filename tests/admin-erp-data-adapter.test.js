@@ -17,11 +17,13 @@ function response(body, status = 200) { return { ok: status >= 200 && status < 3
     const payload = scope === 'stops' ? { stops: {
       stop_0003: { stopKey: 'stop_0003', sourceRowNumber: 3 },
       stop_0002: { stopKey: 'stop_0002', sourceRowNumber: 2 }
+    } } : scope === 'assignmentRules' ? { fleet: {
+      assignmentRules: { rule_1: { runtimeVehicleId: 'runtime_1', sourceRowNumber: 5 } }
     } } : { routes: {
       route_b: { routeId: 'route_b' },
       route_a: { routeId: 'route_a' }
     } };
-    const path = scope === 'stops' ? 'data/erpDataCenter/stops' : 'data/erpDataCenter/routes';
+    const path = scope === 'stops' ? 'data/erpDataCenter/stops' : scope === 'assignmentRules' ? 'data/erpDataCenter/fleet/assignmentRules' : 'data/erpDataCenter/routes';
     return response({ status: 'ready', path, erpDataCenter: payload, generatedAt: 1000 });
   }, now: () => 1000 });
   const orderedStops = await adapter.getCatalog('stops');
@@ -31,6 +33,9 @@ function response(body, status = 200) { return { ok: status >= 200 && status < 3
   assert.deepStrictEqual(payloadOrderRoutes.rows.map((row) => row.routeId), ['route_b', 'route_a'], 'without source row numbers the adapter must preserve backend payload order');
   assert.strictEqual(payloadOrderRoutes.status, 'partial');
   assert.strictEqual(payloadOrderRoutes.orderVerified, false);
+  const assignmentRules = await adapter.getCatalog('assignmentRules');
+  assert.strictEqual(assignmentRules.path, 'data/erpDataCenter/fleet/assignmentRules');
+  assert.strictEqual(assignmentRules.rows[0].runtimeVehicleId, 'runtime_1');
   const draft = await adapter.createDraft({ base: { stops: root.stops }, records: { stops: { s1: root.stops.s1 } } }); await adapter.updateDraft(draft.draftId, { routes: { r1: root.routes.r1 } });
   const validation = await adapter.validateDraft(draft.draftId); assert.strictEqual(validation.valid, true); assert.strictEqual(validation.auditPreview.productionWrite, false); assert.strictEqual(validation.diff.counts.added, 1);
   const review = await adapter.submitForReview(draft.draftId); assert.strictEqual(review.status, 'in_review'); assert.strictEqual(review.productionWrite, false);

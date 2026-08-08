@@ -23,7 +23,7 @@ Legacy page edits remain local Draft and validation operations. They do not call
 | คิวรถและเวลา | `data/erpDataCenter/fleet/queues`, `data/erpDataCenter/stopTimes` |
 | รถและคิว | `data/erpDataCenter/fleet/vehicles`, `data/erpDataCenter/fleet/queues`, `data/erpDataCenter/fleet/assignmentRules` |
 | การชำระเงินและผู้ติดต่อ | `data/erpDataCenter/paymentOwnership` |
-| รถ ผู้ขับ และกลุ่มบริการ | vehicles/serviceGroups; ข้อมูลผู้ขับต้องได้รับอนุมัติขอบเขตก่อน |
+| รถ ผู้ขับ และกลุ่มบริการ | `data/erpDataCenter/fleet/vehicles`, `data/erpDataCenter/serviceGroups`, `data/erpDataCenter/fleet/assignmentRules` ตามชีต `08_DriverVehicleGroup`; ข้อมูลผู้ขับต้องได้รับอนุมัติขอบเขตก่อน |
 | ผู้ใช้งานและการแจ้งเตือน | ยังไม่มี client read path ที่อนุมัติ |
 | บัญชีและสิทธิ์ | backend ใช้ตรวจสิทธิ์เท่านั้น ไม่ส่งให้ client |
 | ศูนย์แจ้งเตือน | ยังไม่มี path ที่อนุมัติ |
