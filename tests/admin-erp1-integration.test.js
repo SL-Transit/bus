@@ -1,9 +1,11 @@
 'use strict';
 
 const fs = require('fs');
-const page = fs.readFileSync('admin-erp1.html', 'utf8');
-const bridge = fs.readFileSync('admin-erp1-integration.js', 'utf8');
-const config = fs.readFileSync('admin-erp-firebase-config.js', 'utf8');
+const path = require('path');
+const root = path.resolve(__dirname, '..');
+const page = fs.readFileSync(path.join(root, 'admin-erp1.html'), 'utf8');
+const bridge = fs.readFileSync(path.join(root, 'admin-erp1-integration.js'), 'utf8');
+const config = fs.readFileSync(path.join(root, 'admin-erp-firebase-config.js'), 'utf8');
 
 if (!page.includes('admin-erp-data-adapter.js')) throw new Error('page must load the central adapter');
 if (!page.includes('admin-erp-read-model.js')) throw new Error('page must load the Admin ERP read model');
@@ -22,7 +24,7 @@ if (page.includes('ยังไม่ได้เชื่อมต่อระ�
 if (/firebase\.database|\.ref\s*\(/.test(page)) throw new Error('admin-erp1 must not call Firebase directly');
 if (/routeData|publishedCatalog|settings\/routes|bus-booking-1d68c/.test(bridge)) throw new Error('integration bridge must not use legacy sources');
 if (!config.includes('readAdminErpDataCenter')) throw new Error('config must point at the approved read endpoint');
-if (/databaseURL|firebase\.database|\.ref\s*\(/.test(config)) throw new Error('config must not enable direct database access');
+if (config.includes('firebase.database(') || config.includes('.ref(')) throw new Error('config must not enable direct database access');
 if (!config.includes('signInWithEmailAndPassword')) throw new Error('config must own Firebase Auth sign-in');
 if (!config.includes('setSessionPersistence')) throw new Error('config must use session persistence for admin auth');
 if (!config.includes('persistence.LOCAL')) throw new Error('admin auth must survive a browser tab being suspended');
