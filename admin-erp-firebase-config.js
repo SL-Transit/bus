@@ -39,7 +39,7 @@
     var auth = getAuth();
     var persistence = global.firebase && global.firebase.auth && global.firebase.auth.Auth && global.firebase.auth.Auth.Persistence;
     return auth && persistence && typeof auth.setPersistence === 'function'
-      ? auth.setPersistence(persistence.SESSION)
+      ? auth.setPersistence(persistence.LOCAL)
       : Promise.resolve();
   }
   function notify() { global.dispatchEvent(new Event('admin-erp:refresh')); }
