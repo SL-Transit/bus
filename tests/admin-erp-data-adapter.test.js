@@ -23,11 +23,14 @@ function response(body, status = 200) { return { ok: status >= 200 && status < 3
     } };
     const path = scope === 'stops' ? 'data/erpDataCenter/stops' : 'data/erpDataCenter/routes';
     return response({ status: 'ready', path, erpDataCenter: payload, generatedAt: 1000 });
-  } });
+  }, now: () => 1000 });
   const orderedStops = await adapter.getCatalog('stops');
   assert.deepStrictEqual(orderedStops.rows.map((row) => row.stopKey), ['stop_0002', 'stop_0003'], 'Excel source row numbers must control row order');
+  assert.strictEqual(orderedStops.orderVerified, true);
   const payloadOrderRoutes = await adapter.getCatalog('routes');
   assert.deepStrictEqual(payloadOrderRoutes.rows.map((row) => row.routeId), ['route_b', 'route_a'], 'without source row numbers the adapter must preserve backend payload order');
+  assert.strictEqual(payloadOrderRoutes.status, 'partial');
+  assert.strictEqual(payloadOrderRoutes.orderVerified, false);
   const draft = await adapter.createDraft({ base: { stops: root.stops }, records: { stops: { s1: root.stops.s1 } } }); await adapter.updateDraft(draft.draftId, { routes: { r1: root.routes.r1 } });
   const validation = await adapter.validateDraft(draft.draftId); assert.strictEqual(validation.valid, true); assert.strictEqual(validation.auditPreview.productionWrite, false); assert.strictEqual(validation.diff.counts.added, 1);
   const review = await adapter.submitForReview(draft.draftId); assert.strictEqual(review.status, 'in_review'); assert.strictEqual(review.productionWrite, false);
