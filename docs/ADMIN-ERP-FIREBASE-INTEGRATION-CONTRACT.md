@@ -17,7 +17,7 @@ Legacy page edits remain local Draft and validation operations. They do not call
 | หมวดในหน้า Admin ERP | แหล่งข้อมูลกลาง |
 | --- | --- |
 | ป้ายต้นทาง | `data/erpDataCenter/stops` |
-| เส้นทาง | `data/erpDataCenter/routes`, `data/erpDataCenter/stops` |
+| เส้นทาง | `data/erpDataCenter/serviceGroups` ตามชีต `02_เส้นทาง` |
 | เส้นทางและราคา | `data/erpDataCenter/routes`, `data/erpDataCenter/fares`, `data/erpDataCenter/workbookSource/routeFareRows` |
 | รอบเวลา | `data/erpDataCenter/trips`, `data/erpDataCenter/stopTimes`, `data/erpDataCenter/workbookSource/scheduleRows` |
 | คิวรถและเวลา | `data/erpDataCenter/fleet/queues`, `data/erpDataCenter/stopTimes` |

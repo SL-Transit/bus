@@ -36,7 +36,7 @@
 | หมวดหน้า | Path ที่อนุมัติใน contract | วิธีอ่าน |
 |---|---|---|
 | ป้ายต้นทาง | `data/erpDataCenter/stops` | adapter catalog |
-| เส้นทาง | `data/erpDataCenter/routes` | adapter catalog |
+| เส้นทาง | `data/erpDataCenter/serviceGroups` ตามชีต `02_เส้นทาง` | adapter catalog |
 | เส้นทางและราคา | `data/erpDataCenter/workbookSource/routeFareRows` | workbook read model |
 | รอบเวลา | `data/erpDataCenter/workbookSource/scheduleRows` | workbook read model |
 | คิวรถและเวลา | `data/erpDataCenter/trips`, `stopTimes`, `fleet/queues` | ต้องยืนยัน field contract เพิ่ม |
