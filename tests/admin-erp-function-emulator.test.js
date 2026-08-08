@@ -5,7 +5,7 @@ const assert = require('assert');
 const AUTH_BASE = process.env.ADMIN_ERP_AUTH_EMULATOR || 'http://127.0.0.1:9099';
 const DATABASE_BASE = process.env.ADMIN_ERP_DATABASE_EMULATOR || 'http://127.0.0.1:9000';
 const FUNCTION_URL = process.env.ADMIN_ERP_FUNCTION_EMULATOR || 'http://127.0.0.1:5001/demo-sl-transit/asia-southeast1/readAdminErpDataCenter';
-const DATABASE_NAMESPACE = process.env.ADMIN_ERP_DATABASE_NAMESPACE || 'demo-sl-transit';
+const DATABASE_NAMESPACE = process.env.ADMIN_ERP_DATABASE_NAMESPACE || 'sl-transit-9464e-default-rtdb';
 const ORIGIN = 'http://127.0.0.1:5173';
 
 async function request(url, options) {
