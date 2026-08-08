@@ -19,7 +19,7 @@
   function getIdToken() {
     var auth = getAuth();
     return auth && auth.currentUser && typeof auth.currentUser.getIdToken === 'function'
-      ? auth.currentUser.getIdToken(false)
+      ? auth.currentUser.getIdToken(true)
       : Promise.resolve('');
   }
   function authError(code, message) { var error = new Error(message || code); error.code = code; return error; }
@@ -48,6 +48,9 @@
   if (global.firebase && typeof global.firebase.initializeApp === 'function') {
     if (!global.firebase.apps.length) global.firebase.initializeApp(FIREBASE_CONFIG);
     var auth = getAuth();
+    if (auth && typeof auth.setPersistence === 'function' && global.firebase.auth.Auth && global.firebase.auth.Auth.Persistence) {
+      auth.setPersistence(global.firebase.auth.Auth.Persistence.LOCAL).catch(function () {});
+    }
     if (auth && typeof auth.onAuthStateChanged === 'function') auth.onAuthStateChanged(notify);
   }
 
