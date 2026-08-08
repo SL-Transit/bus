@@ -331,7 +331,7 @@
     var currentBooking = null;
     var currentBookingPath = '';
     var currentTicket = null;
-    var CANCEL_BOOKING_ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/cancelBooking';
+    var CANCEL_BOOKING_ENDPOINT = 'https://cancelbooking-anorx4mdfa-as.a.run.app';
     var authReady = firebase.auth().signInAnonymously().catch(function(err) {
       console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
       return null;
