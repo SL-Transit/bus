@@ -16,6 +16,7 @@
 <script src="geo-engine.js?v=20260626geo2"></script>
 <script src="map-display-center.js?v=20260716center4"></script>
 <script src="user-location-center.js?v=20260716a"></script>
+<script src="announcement-data-adapter.js?v=20260808a"></script>
 <script src="erp-workbook-booking-source.js?v=20260801a"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <script src="erp-data-adapter.js?v=20260716live5"></script>
@@ -602,6 +603,9 @@ body { background:#edf6f8; }
 }
 
 </style>
+<style>
+  .passenger-announcement{display:none;margin:10px auto 0;max-width:480px;padding:0 12px}.passenger-announcement.is-visible{display:block}.passenger-announcement-card{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid #b8d8e8;border-radius:12px;background:#f2fbfd;color:#12324d;box-shadow:0 5px 16px rgba(11,29,58,.08)}.passenger-announcement-media{width:58px;height:48px;flex:0 0 58px;border-radius:8px;object-fit:cover;background:linear-gradient(135deg,#0b1d3a,#0da5a5)}.passenger-announcement-copy{min-width:0}.passenger-announcement-tag{font-size:11px;font-weight:700;color:#087c85}.passenger-announcement-title{margin-top:2px;font-weight:700;font-size:14px;overflow-wrap:anywhere}.passenger-announcement-body{margin-top:2px;color:#60758a;font-size:12px;overflow-wrap:anywhere}.passenger-announcement-close{margin-left:auto;border:0;background:transparent;color:#60758a;font-size:20px;line-height:1;cursor:pointer;padding:4px}.passenger-announcement-modal{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:18px;background:rgba(7,23,38,.52)}.passenger-announcement-modal.is-visible{display:grid}.passenger-announcement-dialog{width:min(430px,100%);border-radius:14px;background:#fff;color:#12324d;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden}.passenger-announcement-dialog img{display:block;width:100%;height:170px;object-fit:cover;background:linear-gradient(135deg,#0b1d3a,#0da5a5)}.passenger-announcement-dialog-body{padding:18px}.passenger-announcement-dialog h2{margin:5px 0;font-size:20px}.passenger-announcement-dialog p{margin:0;color:#60758a;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.passenger-announcement-dialog-actions{display:flex;justify-content:flex-end;margin-top:15px}.passenger-announcement-dialog-actions button{border:0;border-radius:8px;background:#0d79bd;color:#fff;padding:9px 15px;cursor:pointer}@media(max-width:480px){.passenger-announcement{padding:0 8px}.passenger-announcement-card{align-items:flex-start}.passenger-announcement-media{width:48px;height:42px;flex-basis:48px}.passenger-announcement-dialog img{height:140px}}
+</style>
 </head>
 <body>
 
@@ -624,6 +628,12 @@ body { background:#edf6f8; }
 
 <div class="test-mode-strip" id="testModeStrip">โหมดทดสอบเปิดอยู่ - ระบบจะไม่ส่งข้อความ LINE จริง</div>
 <div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: กำลังตรวจสอบระบบในสถานะผู้โดยสารจริง</div>
+<section id="passengerAnnouncement" class="passenger-announcement" aria-live="polite" aria-label="ประกาศบริการ">
+  <div class="passenger-announcement-card"><div class="passenger-announcement-copy"><div id="passengerAnnouncementTag" class="passenger-announcement-tag">ประกาศ SL-Transit</div><div id="passengerAnnouncementTitle" class="passenger-announcement-title"></div><div id="passengerAnnouncementBody" class="passenger-announcement-body"></div></div><button id="passengerAnnouncementClose" class="passenger-announcement-close" type="button" aria-label="ปิดประกาศ">×</button></div>
+</section>
+<div id="passengerAnnouncementModal" class="passenger-announcement-modal" role="dialog" aria-modal="true" aria-labelledby="passengerAnnouncementModalTitle">
+  <section class="passenger-announcement-dialog"><img id="passengerAnnouncementModalImage" alt=""><div class="passenger-announcement-dialog-body"><div id="passengerAnnouncementModalTag" class="passenger-announcement-tag">ประกาศ SL-Transit</div><h2 id="passengerAnnouncementModalTitle"></h2><p id="passengerAnnouncementModalBody"></p><div class="passenger-announcement-dialog-actions"><button id="passengerAnnouncementModalClose" type="button">รับทราบ</button></div></div></section>
+</div>
 
 <div class="map-page">
 <div class="main">
@@ -693,6 +703,37 @@ body { background:#edf6f8; }
 // then erp-core / erp-data-adapter on top of the same app instance.
 const _erpReady = SLPassengerLogic.init(); // sets up firebase + db synchronously, ERP catalog loads async
 const db = SLPassengerLogic.getDb();
+function initPassengerAnnouncements(items) {
+  if (!items || !items.length) return;
+  var item = items[0];
+  var isPopup = item.placement === 'popup';
+  var target = isPopup ? document.getElementById('passengerAnnouncementModal') : document.getElementById('passengerAnnouncement');
+  if (!target) return;
+  var prefix = isPopup ? 'passengerAnnouncementModal' : 'passengerAnnouncement';
+  var title = document.getElementById(prefix + 'Title');
+  var body = document.getElementById(prefix + 'Body');
+  var tag = document.getElementById(prefix + 'Tag');
+  if (title) title.textContent = item.title;
+  if (body) body.textContent = item.body;
+  if (tag) tag.textContent = item.type === 'danger' ? 'ประกาศเร่งด่วน' : item.type === 'warn' ? 'แจ้งเตือนบริการ' : 'ประกาศ SL-Transit';
+  var image = document.getElementById(prefix + 'Image');
+  if (image && item.imageUrl) image.src = item.imageUrl;
+  target.classList.add('is-visible');
+}
+function closePassengerAnnouncement(id) {
+  var node = document.getElementById(id);
+  if (node) node.classList.remove('is-visible');
+}
+var passengerAnnouncementClose = document.getElementById('passengerAnnouncementClose');
+if (passengerAnnouncementClose) passengerAnnouncementClose.onclick = function () { closePassengerAnnouncement('passengerAnnouncement'); };
+var passengerAnnouncementModalClose = document.getElementById('passengerAnnouncementModalClose');
+if (passengerAnnouncementModalClose) passengerAnnouncementModalClose.onclick = function () { closePassengerAnnouncement('passengerAnnouncementModal'); };
+if (window.SLTransitAnnouncementAdapter) {
+  window.SLTransitAnnouncementAdapter.readPublished(db, {
+    channel: 'passenger',
+    placements: ['homepage_hero', 'homepage_banner', 'popup']
+  }).then(initPassengerAnnouncements).catch(function () { /* ไม่แสดงประกาศเมื่ออ่านไม่ได้ */ });
+}
 _erpReady.then(function() {
 }).catch(function(err) {
   console.error('SLPassengerLogic.init failed:', err && err.message ? err.message : err);
