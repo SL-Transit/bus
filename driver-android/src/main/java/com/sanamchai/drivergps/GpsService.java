@@ -90,6 +90,8 @@ public class GpsService extends Service implements SensorEventListener {
     private LocationCallback fusedCallback;
     private FirebaseAuth auth;
     private DatabaseReference liveVehicleRef, connectedRef, vehicleSettingsRef;
+    private boolean uptimeWriteInFlight = false;
+    private final DriverUptimeTracker uptimeTracker = new DriverUptimeTracker();
     private DatabaseReference bookingAlertsRef;
     private com.google.firebase.database.ChildEventListener bookingAlertsListener;
     private final java.util.Set<String> seenBookingAlertKeys = new java.util.HashSet<>();
@@ -1467,11 +1469,25 @@ public class GpsService extends Service implements SensorEventListener {
             if (err != null) { if (!"gps_error".equals(String.valueOf(data.get("status")))) recordError("Firebase " + err.getCode() + ": " + err.getMessage()); flushPendingWrite(); return; }
             long now = System.currentTimeMillis(); lastLocationSentAt = now; if (loc != null) lastFirebaseLocation = new Location(loc);
             prefs.edit().putLong(MainActivity.KEY_LAST_SENT, now).putString(MainActivity.KEY_LAST_STATUS, String.valueOf(data.get("status"))).putString(MainActivity.KEY_LAST_ERROR, "").apply();
+            writeUptimeSnapshot(now);
             flushPendingWrite();
         };
         if (fullLocationWrite && data.containsKey("lat") && data.containsKey("lng")) liveVehicleRef.setValue(data, completion); else liveVehicleRef.updateChildren(data, completion);
     }
 
+    private void writeUptimeSnapshot(long nowMs) {
+        if (!running || !remoteEnabled || queueId == null || uptimeWriteInFlight) return;
+        if (!uptimeTracker.shouldPublish(nowMs)) return;
+        DriverUptimeTracker.Snapshot snapshot = uptimeTracker.observe(nowMs, true);
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("operations/driverUptimeByServiceDate/" + snapshot.serviceDate() + "/" + queueId);
+        uptimeWriteInFlight = true;
+        ref.setValue(snapshot.data(), (error, ignored) -> {
+            uptimeWriteInFlight = false;
+            if (error == null) uptimeTracker.markPublished(nowMs);
+            else Log.w(TAG, "uptime snapshot failed: " + error.getMessage());
+        });
+    }
     private void markOffline() {
         long now = System.currentTimeMillis();
         Map<String, Object> d = new HashMap<>();
