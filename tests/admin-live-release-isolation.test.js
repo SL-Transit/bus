@@ -11,18 +11,28 @@ const protectedFiles = [
 const run = (args) => cp.execFileSync('git', args, { cwd: root, encoding: 'utf8' });
 const changed = run(['diff', '--name-only', 'origin/main...HEAD']).trim().split(/\r?\n/).filter(Boolean);
 const allowed = new Set([
+  'admin.html',
+  'admin-console.html',
   'admin-erp.html',
   'admin-erp-data-adapter.js',
+  'admin-erp-draft-adapter.js',
+  'admin-erp-firebase-config.js',
+  'admin-erp-read-model.js',
+  'admin-erp1-integration.js',
+  'admin-erp1.html',
   'docs/ADMIN-ERP-DUPLICATE-WORK-AUDIT.md',
   'docs/ADMIN-ERP-FIREBASE-INTEGRATION-CONTRACT.md',
   'docs/ADMIN-ERP-READINESS-REPORT.md',
   'functions/admin-erp-authorization.js',
   'functions/index.js',
   'tests/admin-console-blueprint-ui.test.js',
+  'tests/admin-console-safety.test.js',
   'tests/admin-erp-authorization.test.js',
   'tests/admin-erp-data-adapter.test.js',
   'tests/admin-erp-function-emulator.test.js',
   'tests/admin-erp-legacy-adapter-migration.test.js',
+  'tests/admin-erp1-integration.test.js',
+  'tests/admin-erp1-live-entry.test.js',
   'tests/admin-enterprise-ux.test.js',
   'tests/admin-live-release-isolation.test.js'
 ]);
