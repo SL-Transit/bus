@@ -173,6 +173,7 @@ exports.reserveBookingCapacity = onRequest({
     if (!result.committed) {
       const snapshot = await ref.get();
       const existing = snapshot.child(`bookings/${bookingCode}`).val();
+      if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_reservation_rejected", path, capacityLimit: snapshot.child("capacityLimit").val(), bookedSeats: snapshot.child("bookedSeats").val(), hasExistingBooking: !!existing }));
       sendJson(res, existing && existing.ownerUid === decoded.uid ? 200 : 409, { status: "error", error: existing ? "capacity_already_reserved" : "capacity_full_or_not_ready" });
       return;
     }
