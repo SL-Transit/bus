@@ -49,8 +49,8 @@
       <label class="login-field">รหัสผ่าน<input id="loginPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required></label>
       <button class="login-submit" id="loginSubmit" type="submit">เข้าสู่ระบบ</button>
       <div class="login-error" id="loginError" role="status" aria-live="polite"></div>
-      <div class="login-notice">การยืนยันตัวตนจริงจะเชื่อมต่อผ่านระบบกลางหลังจากกำหนด Firebase Auth และสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว</div>
-      <div class="login-meta">SL-Transit Admin ERP · Preview UI</div>
+      <div class="login-notice">ระบบจะตรวจสอบบัญชีกับ Firebase และตรวจสิทธิ์ Admin ERP จากหลังบ้านก่อนเปิดข้อมูล</div>
+      <div class="login-meta">SL-Transit Admin ERP · ตรวจสอบตัวตนก่อนเข้าระบบ</div>
     </form>
   </section>
   <script src="admin-erp-draft-adapter.js?v=20260808a"></script>
@@ -632,16 +632,33 @@
   </style>
   <script>
     (function(){
-      document.body.classList.add('auth-preview');
-      var form=document.getElementById('loginForm'),error=document.getElementById('loginError'),submit=document.getElementById('loginSubmit');
-      if(new URLSearchParams(location.search).get('adminPreview')==='1'){document.body.classList.remove('auth-preview');document.body.classList.add('authenticated');document.getElementById('loginScreen').classList.add('login-screen-hidden');document.getElementById('appShell')?.removeAttribute('aria-hidden');}
+      var form=document.getElementById('loginForm'),error=document.getElementById('loginError'),submit=document.getElementById('loginSubmit'),config=window.SLTransitAdminErpConfig,preview=new URLSearchParams(location.search).get('adminPreview')==='1',deniedMessage='';
+      function setAuthenticated(value){document.body.classList.toggle('authenticated',value);document.body.classList.toggle('auth-preview',!value);if(value){document.getElementById('loginScreen').classList.add('login-screen-hidden')}else{document.getElementById('loginScreen').classList.remove('login-screen-hidden')}}
+      function messageFor(error){var code=error&&error.code||'';if(code==='forbidden'||code==='admin_erp_read_permission_required')return 'บัญชีนี้เข้าสู่ระบบได้ แต่ยังไม่มีสิทธิ์อ่านข้อมูล Admin ERP';if(code==='auth/invalid-credential'||code==='auth/wrong-password'||code==='auth/user-not-found')return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';if(code==='auth/too-many-requests')return 'ระบบพักการเข้าสู่ระบบชั่วคราว เนื่องจากมีการลองหลายครั้ง';if(code==='auth_not_configured')return 'ยังไม่ได้ตั้งค่าระบบยืนยันตัวตนจริง';return 'ไม่สามารถตรวจสอบสิทธิ์ได้ กรุณาลองใหม่หรือติดต่อ Owner'}
+      function showError(value){if(error)error.textContent=value||''}
+      function showDenied(){setAuthenticated(false);showError(deniedMessage||'')}
+      function verifyAccess(){
+        if(!config||typeof config.getIdToken!=='function'||!config.endpoint)return Promise.reject(Object.assign(new Error('ยังไม่ได้ตั้งค่าระบบยืนยันตัวตนจริง'),{code:'auth_not_configured'}));
+        if(!window.AdminErpDataSource)return Promise.reject(Object.assign(new Error('ไม่พบตัวเชื่อมต่อข้อมูล Admin ERP'),{code:'data_source_not_configured'}));
+        window.AdminErpDataSource.configure(config);
+        return window.AdminErpDataSource.getDataCenter().then(function(snapshot){if(!snapshot.permissions||snapshot.permissions.indexOf('read')===-1)throw Object.assign(new Error('ไม่มีสิทธิ์อ่านข้อมูล Admin ERP'),{code:'forbidden'});return snapshot});
+      }
+      if(preview){setAuthenticated(true);showError('โหมด Preview นี้ไม่อ่านข้อมูลจริงและไม่ใช้สิทธิ์ผู้ดูแล');return}
+      setAuthenticated(false);
       if(!form)return;
+      if(!config||typeof config.onAuthStateChanged!=='function'||typeof config.signIn!=='function'){showError('ยังไม่ได้เชื่อมต่อระบบยืนยันตัวตนจริง');return}
+      if(typeof config.setSessionPersistence==='function')config.setSessionPersistence().catch(function(){});
+      config.onAuthStateChanged(function(user){
+        if(!user){showDenied();return}
+        showError('กำลังตรวจสอบสิทธิ์ Admin ERP…');
+        verifyAccess().then(function(){deniedMessage='';setAuthenticated(true);showError('');window.dispatchEvent(new Event('admin-erp:refresh'))}).catch(function(authError){deniedMessage=messageFor(authError);return config.signOut().catch(function(){}).then(showDenied)});
+      });
       form.addEventListener('submit',function(event){
         event.preventDefault();
         var email=(document.getElementById('loginEmail').value||'').trim(),password=document.getElementById('loginPassword').value||'';
-        if(!email||!password){error.textContent='กรุณากรอกอีเมลและรหัสผ่านให้ครบ';return}
-        error.textContent='ยังไม่ได้เชื่อมต่อระบบยืนยันตัวตนจริง กรุณาใช้ Preview Mode เพื่อดูหน้าจอ Admin ERP';
-        if(submit)submit.disabled=false;
+        if(!email||!password){showError('กรุณากรอกอีเมลและรหัสผ่านให้ครบ');return}
+        if(submit)submit.disabled=true;showError('กำลังตรวจสอบบัญชี…');
+        config.signIn(email,password).catch(function(authError){showError(messageFor(authError))}).finally(function(){if(submit)submit.disabled=false});
       });
     })();
   </script>
