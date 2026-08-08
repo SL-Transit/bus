@@ -161,13 +161,14 @@ exports.reserveBookingCapacity = onRequest({
       const bookedSeats = Math.max(0, Number(current.bookedSeats || 0));
       const capacityLimit = Number(current.capacityLimit);
       if (bookedSeats + requestedSeats > capacityLimit) return;
+      const serverNow = Date.now();
       return {
         ...current,
         contractVersion: "booking_capacity_v1",
         bookedSeats: bookedSeats + requestedSeats,
         seatsAvailable: capacityLimit - bookedSeats - requestedSeats,
-        bookings: { ...bookings, [bookingCode]: { ownerUid: decoded.uid, seats: requestedSeats, status: "reserved", reservedAt: SERVER_TIMESTAMP } },
-        updatedAt: SERVER_TIMESTAMP
+        bookings: { ...bookings, [bookingCode]: { ownerUid: decoded.uid, seats: requestedSeats, status: "reserved", reservedAt: serverNow } },
+        updatedAt: serverNow
       };
     });
     if (!result.committed) {
