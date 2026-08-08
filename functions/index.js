@@ -4,10 +4,11 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
+const ERP_DATA_CENTER_DATABASE_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
 const emulatorDatabaseUrl = process.env.FIREBASE_DATABASE_EMULATOR_HOST
   ? `http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=sl-transit-9464e-default-rtdb`
   : '';
-admin.initializeApp(emulatorDatabaseUrl ? { databaseURL: emulatorDatabaseUrl } : undefined);
+admin.initializeApp(emulatorDatabaseUrl ? { databaseURL: emulatorDatabaseUrl } : { databaseURL: ERP_DATA_CENTER_DATABASE_URL });
 const SERVER_TIMESTAMP = { ".sv": "timestamp" };
 const MAX_CAPACITY_LIMIT = 300;
 
