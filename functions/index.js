@@ -84,6 +84,28 @@ function validatePublishedSchedulePayload(value) {
   return { schedule, blockers };
 }
 
+function enrichScheduleDisplayLabels(schedule, stops) {
+  const stopMap = stops && typeof stops === "object" ? stops : {};
+  const fareRows = Object.values(schedule.routeFareRows || {});
+  const routeFare = {};
+  fareRows.forEach((row) => {
+    if (row && row.routeId && !routeFare[row.routeId]) routeFare[row.routeId] = row;
+  });
+  Object.values(schedule.scheduleRows || {}).forEach((row) => {
+    if (!row || typeof row !== "object") return;
+    const fare = routeFare[row.routeId] || {};
+    const fromKey = row.fromStopKey || fare.fromStopKey || "";
+    const toKey = row.toStopKey || fare.toStopKey || "";
+    const from = stopMap[fromKey] || {};
+    const to = stopMap[toKey] || {};
+    row.fromStopKey = fromKey;
+    row.toStopKey = toKey;
+    row.originNameTh = from.displayNameTh || from.nameTh || row.originNameTh || fare.fromNameTh || fromKey;
+    row.destinationNameTh = to.displayNameTh || to.nameTh || row.destinationNameTh || fare.toNameTh || toKey;
+  });
+  return schedule;
+}
+
 exports.publishAdminSchedule = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 30,
@@ -105,6 +127,8 @@ exports.publishAdminSchedule = onRequest({
     const checked = validatePublishedSchedulePayload(parseJsonRequest(req));
     if (checked.blockers.length) { sendJson(res, 400, { status: "error", error: "schedule_validation_failed", blockers: checked.blockers }); return; }
     const schedule = checked.schedule;
+    const stopsSnap = await admin.database().ref("data/erpDataCenter/stops").get();
+    enrichScheduleDisplayLabels(schedule, stopsSnap.val() || {});
     const auditKey = `schedule_publish_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const existingSnap = await admin.database().ref("publishedSchedule").get();
     const existing = existingSnap.val() || {};
