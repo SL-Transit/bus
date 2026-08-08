@@ -17,7 +17,7 @@
   });
   var ENTITY_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
   var FORBIDDEN_KEYS = Object.freeze(['bookings', 'passengers', 'tickets', 'driverLogs', 'checkIns', 'operations', 'adminAccounts']);
-  var state = { config: null, drafts: {}, versions: {}, audits: [], sequence: 0 };
+  var state = { config: null, cache: null, cacheAt: 0, drafts: {}, versions: {}, audits: [], sequence: 0 };
 
   function object(value) { return value && typeof value === 'object' ? value : {}; }
   function clone(value) { return JSON.parse(JSON.stringify(value == null ? null : value)); }
@@ -28,13 +28,17 @@
 
   function configure(options) {
     options = options || {};
-    state.config = {
+    var next = {
       endpoint: String(options.endpoint || '').replace(/\/$/, ''),
       getIdToken: options.getIdToken,
       fetchImpl: options.fetchImpl || (typeof fetch === 'function' ? fetch : null),
       now: options.now || function () { return Date.now(); },
-      maxAgeMs: Number(options.maxAgeMs || 15 * 60 * 1000)
+      maxAgeMs: Number(options.maxAgeMs || 15 * 60 * 1000),
+      cacheMs: Number(options.cacheMs == null ? 10 * 1000 : options.cacheMs)
     };
+    var changed = !state.config || state.config.endpoint !== next.endpoint || state.config.getIdToken !== next.getIdToken || state.config.fetchImpl !== next.fetchImpl;
+    state.config = next;
+    if (changed) { state.cache = null; state.cacheAt = 0; }
     return api;
   }
   function requireConfig() {
@@ -44,6 +48,8 @@
   function readRoot() {
     var config;
     try { config = requireConfig(); } catch (error) { return Promise.reject(error); }
+    var currentTime = config.now();
+    if (state.cache && config.cacheMs > 0 && currentTime - state.cacheAt < config.cacheMs) return Promise.resolve(state.cache);
     return Promise.resolve(config.getIdToken()).then(function (token) {
       if (!token) throw adapterError('token_required', 'ยังไม่เชื่อมต่อแหล่งข้อมูล');
       return config.fetchImpl(config.endpoint, { method: 'GET', headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
@@ -56,7 +62,10 @@
       if (containsForbiddenKey(root)) throw adapterError('forbidden_data_scope', 'ข้อมูลอยู่นอกขอบเขต Admin ERP');
       var generatedAt = Number(payload && payload.generatedAt || 0);
       var reported = [STATUS.partial, STATUS.empty, STATUS.stale].indexOf(String(payload && payload.status || '')) !== -1 ? String(payload.status) : null;
-      return { root: root, generatedAt: generatedAt || null, status: reported || (generatedAt && config.now() - generatedAt > config.maxAgeMs ? STATUS.stale : STATUS.ready), permissions: payload && payload.permissions || null, version: payload && payload.version || null };
+      var snapshot = { root: root, generatedAt: generatedAt || null, status: reported || (generatedAt && config.now() - generatedAt > config.maxAgeMs ? STATUS.stale : STATUS.ready), permissions: payload && payload.permissions || null, version: payload && payload.version || null };
+      state.cache = snapshot;
+      state.cacheAt = config.now();
+      return snapshot;
     }).catch(function (error) {
       if (error && error.code) throw error;
       throw adapterError('endpoint_error', 'อ่านข้อมูลไม่สำเร็จ', { cause: error && error.message });
@@ -225,9 +234,10 @@
     var entry = audit(draft, 'rollback_preview', { versionId: versionId });
     return Promise.resolve({ versionId: versionId, draftId: draft.draftId, status: draft.status, auditPreview: entry, localOnly: true, productionWrite: false });
   }
-  function resetLocalState() { state.drafts = {}; state.versions = {}; state.audits = []; state.sequence = 0; return api; }
+  function clearReadCache() { state.cache = null; state.cacheAt = 0; return api; }
+  function resetLocalState() { state.drafts = {}; state.versions = {}; state.audits = []; state.sequence = 0; clearReadCache(); return api; }
   function getDataCenter() { return readRoot(); }
-  var api = { STATUS: STATUS, PATHS: PATHS, ENTITY_PATHS: ENTITY_PATHS, configure: configure, getDataCenter: getDataCenter, getCatalog: getCatalog, getWorkbookSource: getWorkbookSource, getRecord: getRecord, createDraft: createDraft, updateDraft: updateDraft, validateDraft: validateDraft, compareVersions: compareVersions, submitForReview: submitForReview, approveReview: approveReview, getAuditHistory: getAuditHistory, publish: publish, rollback: rollback, resetLocalState: resetLocalState };
+  var api = { STATUS: STATUS, PATHS: PATHS, ENTITY_PATHS: ENTITY_PATHS, configure: configure, clearReadCache: clearReadCache, getDataCenter: getDataCenter, getCatalog: getCatalog, getWorkbookSource: getWorkbookSource, getRecord: getRecord, createDraft: createDraft, updateDraft: updateDraft, validateDraft: validateDraft, compareVersions: compareVersions, submitForReview: submitForReview, approveReview: approveReview, getAuditHistory: getAuditHistory, publish: publish, rollback: rollback, resetLocalState: resetLocalState };
   global.AdminErpDataSource = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 }(typeof window !== 'undefined' ? window : globalThis));

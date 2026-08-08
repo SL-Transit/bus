@@ -5,9 +5,11 @@ const root = { stops: { s1: { stopKey: 's1', nameTh: 'ต้นทาง' } }, r
 function response(body, status = 200) { return { ok: status >= 200 && status < 300, status, json: async () => body }; }
 
 (async () => {
-  adapter.configure({ endpoint: 'https://example.test/readAdminErpDataCenter', getIdToken: async () => 'emulator-token', now: () => 1000, fetchImpl: async (url, options) => { assert.strictEqual(url, 'https://example.test/readAdminErpDataCenter'); assert.strictEqual(options.headers.Authorization, 'Bearer emulator-token'); return response({ status: 'ready', path: 'data/erpDataCenter', erpDataCenter: root, generatedAt: 1000 }); } });
+  let readCount = 0;
+  adapter.configure({ endpoint: 'https://example.test/readAdminErpDataCenter', getIdToken: async () => 'emulator-token', now: () => 1000, fetchImpl: async (url, options) => { readCount += 1; assert.strictEqual(url, 'https://example.test/readAdminErpDataCenter'); assert.strictEqual(options.headers.Authorization, 'Bearer emulator-token'); return response({ status: 'ready', path: 'data/erpDataCenter', erpDataCenter: root, generatedAt: 1000 }); } });
   const stops = await adapter.getCatalog('stops'); assert.strictEqual(stops.status, 'ready'); assert.strictEqual(stops.rows[0].stopKey, 's1');
-  assert.strictEqual((await adapter.getWorkbookSource('routeFareRows')).rows[0].sourceRowId, 'fare_0002');
+  assert.strictEqual((await adapter.getWorkbookSource('routeFareRows')).rows[0].sourceRowId, 'fare_0002'); assert.strictEqual(readCount, 1);
+  adapter.clearReadCache(); assert.strictEqual((await adapter.getCatalog('stops')).rows[0].stopKey, 's1'); assert.strictEqual(readCount, 2);
   const draft = await adapter.createDraft({ base: { stops: root.stops }, records: { stops: { s1: root.stops.s1 } } }); await adapter.updateDraft(draft.draftId, { routes: { r1: root.routes.r1 } });
   const validation = await adapter.validateDraft(draft.draftId); assert.strictEqual(validation.valid, true); assert.strictEqual(validation.auditPreview.productionWrite, false); assert.strictEqual(validation.diff.counts.added, 1);
   const review = await adapter.submitForReview(draft.draftId); assert.strictEqual(review.status, 'in_review'); assert.strictEqual(review.productionWrite, false);
