@@ -94,6 +94,32 @@ test.before(async (t) => {
   rulesEnforced = rulesProbe.status === 401;
 });
 
+test('ช่องยกเลิกต้องตรวจรหัสกับเบอร์โทรและไม่เปิดข้อมูลลับ', async (t) => {
+  if (!adminSdk) return t.skip('ระบบจำลองไม่พร้อม');
+
+  const wrongPhone = await functionRequest('cancelBooking', {
+    bookingCode: testCodes[0], phone: '0899999999', action: 'lookup'
+  });
+  assert.equal(wrongPhone.status, 404);
+
+  const lookup = await functionRequest('cancelBooking', {
+    bookingCode: testCodes[0], phone: '0800000000', action: 'lookup'
+  });
+  const lookupBody = await responseBody(lookup);
+  assert.equal(lookup.status, 200, JSON.stringify(lookupBody));
+  assert.equal(lookupBody.booking.code, testCodes[0]);
+  assert.equal(lookupBody.booking.phone, '0800000000');
+  assert.equal(Object.prototype.hasOwnProperty.call(lookupBody.booking, 'ownerUid'), false);
+
+  const cancelled = await functionRequest('cancelBooking', {
+    bookingCode: testCodes[0], phone: '0800000000', action: 'cancel'
+  });
+  const cancelledBody = await responseBody(cancelled);
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelledBody));
+  assert.equal(cancelledBody.booking.status, 'cancelled');
+  assert.equal((await adminSdk.database().ref(`bookings/${testCodes[0]}/status`).get()).val(), 'cancelled');
+});
+
 test.after(async () => {
   if (!adminSdk) return;
   await adminSdk.database().ref('publishedSchedule').remove();

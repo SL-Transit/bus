@@ -9,7 +9,7 @@ const cancelTicket = fs.readFileSync(path.join(root, 'cancel_ticket.html'), 'utf
 assert(checkTicket.includes('ticket-data-center.js'), 'Check Ticket must load Ticket Data Center');
 assert(cancelTicket.includes('ticket-data-center.js'), 'Cancel Ticket must load Ticket Data Center');
 assert(checkTicket.includes('SLTransitTicketDataCenter.findTicket(db, value'), 'Check Ticket lookup must use Ticket Data Center');
-assert(cancelTicket.includes('SLTransitTicketDataCenter.findTicket(db, value'), 'Cancel Ticket lookup must use Ticket Data Center');
+assert(cancelTicket.includes('requestBookingForCancellation(value, phone)'), 'Cancel Ticket lookup must use the protected cancellation endpoint');
 assert(checkTicket.includes('SLTransitTicketDataCenter.bookingPathForCode'), 'Check Ticket booking path must go through Ticket Data Center');
 assert(cancelTicket.includes('SLTransitTicketDataCenter.bookingPathForCode'), 'Cancel Ticket booking path must go through Ticket Data Center');
 

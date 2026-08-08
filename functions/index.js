@@ -35,6 +35,7 @@ function formatThaiDate(date) {
 }
 
 const adminDashboardRateState = new Map();
+const cancellationRateState = new Map();
 
 function setCors(req, res) {
   const origin = req.headers.origin || "";
@@ -68,6 +69,47 @@ function sendJson(res, status, body) {
     return;
   }
   res.status(status).type("application/json").send(text);
+}
+
+function checkCancellationRate(req) {
+  const key = String(req.headers["x-forwarded-for"] || req.headers.origin || "unknown").split(",")[0].trim();
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const max = 10;
+  const state = cancellationRateState.get(key) || { start: now, count: 0 };
+  if (now - state.start > windowMs) { state.start = now; state.count = 0; }
+  state.count += 1;
+  cancellationRateState.set(key, state);
+  return state.count <= max;
+}
+
+function normalizeBookingPhone(value) {
+  return String(value || "").replace(/[^0-9]/g, "");
+}
+
+function bookingDepartureMs(booking) {
+  const date = String(booking && (booking.serviceDate || booking.date) || "");
+  const time = String(booking && (booking.pickupTime || booking.time) || "").slice(0, 5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return NaN;
+  return Date.parse(`${date}T${time}:00+07:00`);
+}
+
+async function releaseBookingCapacityServer(booking, code) {
+  const contract = booking && booking.capacity || {};
+  const serviceDate = String(contract.serviceDate || booking.serviceDate || booking.date || "");
+  const capacityKey = String(contract.capacityKey || "").replace(/[^A-Za-z0-9_-]/g, "_");
+  const counterPath = capacityCounterPath(serviceDate, capacityKey);
+  if (!counterPath || String(contract.bookingCode || code) !== code) return { status: "skipped", reason: "missing_capacity_contract" };
+  const requestedSeats = Math.max(1, Number(contract.requestedSeats || booking.seats || booking.pax || 1));
+  const ref = admin.database().ref(counterPath);
+  const result = await ref.transaction((current) => {
+    if (!current || !current.bookings || !current.bookings[code]) return current;
+    const bookings = { ...current.bookings };
+    delete bookings[code];
+    const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - requestedSeats);
+    return { ...current, bookedSeats, seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats), bookings, updatedAt: Date.now() };
+  });
+  return { status: result.committed ? "released" : "skipped", counterPath };
 }
 
 async function requireAdminToken(req) {
@@ -264,6 +306,67 @@ exports.createBooking = onRequest({
     sendJson(res, 201, { status: "ok", booking: result.snapshot.val() });
   } catch (error) {
     sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "booking_create_failed" });
+  }
+});
+
+exports.cancelBooking = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 15,
+  memory: "256MiB",
+  maxInstances: 20
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  if (!checkCancellationRate(req)) { sendJson(res, 429, { status: "error", error: "too_many_requests" }); return; }
+  try {
+    const body = parseJsonRequest(req);
+    const code = cleanBookingText(body.bookingCode || body.code, 80);
+    const phone = normalizeBookingPhone(body.phone);
+    const action = body.action === "cancel" ? "cancel" : "lookup";
+    if (!/^[A-Za-z0-9_-]{6,80}$/.test(code) || !/^0[689]\d{8}$/.test(phone)) {
+      sendJson(res, 400, { status: "error", error: "booking_code_and_phone_required" });
+      return;
+    }
+    const ref = admin.database().ref(`bookings/${code}`);
+    const before = await ref.get();
+    const booking = before.val();
+    if (!booking || normalizeBookingPhone(booking.phone) !== phone) {
+      sendJson(res, 404, { status: "error", error: "booking_not_found" });
+      return;
+    }
+    if (action === "lookup") {
+      sendJson(res, 200, { status: "ok", booking: {
+        code,
+        name: cleanBookingText(booking.name, 120),
+        phone,
+        origin: cleanBookingText(booking.origin, 120),
+        destination: cleanBookingText(booking.destination, 120),
+        date: cleanBookingText(booking.date || booking.serviceDate, 10),
+        serviceDate: cleanBookingText(booking.serviceDate || booking.date, 10),
+        time: cleanBookingText(booking.time || booking.pickupTime, 20),
+        seats: Math.max(1, Number(booking.seats || booking.pax || 1)),
+        status: cleanBookingText(booking.status, 40) || "confirmed"
+      } });
+      return;
+    }
+    if (booking.status === "cancelled") {
+      sendJson(res, 409, { status: "error", error: "booking_already_cancelled" });
+      return;
+    }
+    if (!Number.isFinite(bookingDepartureMs(booking)) || bookingDepartureMs(booking) - Date.now() < 60 * 60 * 1000) {
+      sendJson(res, 409, { status: "error", error: "cancellation_window_closed" });
+      return;
+    }
+    const result = await ref.transaction((current) => {
+      if (!current || normalizeBookingPhone(current.phone) !== phone || current.status === "cancelled") return;
+      return { ...current, status: "cancelled", cancelledAt: Date.now(), officialStatus: "ยกเลิกแล้ว", ticketActionContract: "ticket_action_center_cancel_v1" };
+    });
+    if (!result.committed) { sendJson(res, 409, { status: "error", error: "booking_changed_or_already_cancelled" }); return; }
+    const capacityRelease = await releaseBookingCapacityServer(booking, code);
+    sendJson(res, 200, { status: "ok", booking: { code, status: "cancelled" }, capacityRelease });
+  } catch (error) {
+    sendJson(res, Number(error.statusCode) || 500, { status: "error", error: "booking_cancellation_failed" });
   }
 });
 

@@ -262,9 +262,10 @@
   <main class="content">
     <section id="lookupCard" class="lookup-card">
       <form onsubmit="lookupTicket(event)">
-        <label for="lookupValue">กรอกรหัสตั๋วหรือเบอร์โทร</label>
+        <label for="lookupValue">กรอกรหัสตั๋วและเบอร์โทร</label>
         <div class="lookup-row">
-          <input id="lookupValue" autocomplete="off" inputmode="text" placeholder="เช่น BK179633 หรือ 0812345678">
+          <input id="lookupValue" autocomplete="off" inputmode="text" placeholder="เช่น BK179633">
+          <input id="lookupPhone" autocomplete="tel" inputmode="tel" placeholder="เบอร์โทร 0812345678">
           <button id="lookupButton" class="lookup-btn" type="submit">ค้นหา</button>
         </div>
       </form>
@@ -330,6 +331,7 @@
     var currentBooking = null;
     var currentBookingPath = '';
     var currentTicket = null;
+    var CANCEL_BOOKING_ENDPOINT = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/cancelBooking';
     var authReady = firebase.auth().signInAnonymously().catch(function(err) {
       console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
       return null;
@@ -420,10 +422,25 @@
       show('actions', true);
     }
 
+    function requestBookingForCancellation(code, phone, action) {
+      return fetch(CANCEL_BOOKING_ENDPOINT, {
+        method: 'POST', credentials: 'omit', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingCode: normalizeLookup(code), phone: normalizeLookup(phone), action: action || 'lookup' })
+      }).then(function(response) {
+        return response.json().catch(function() { return {}; }).then(function(body) {
+          if (!response.ok) throw new Error(body.error || 'booking_lookup_failed');
+          return body.booking || {};
+        });
+      });
+    }
+
     function lookupTicket(event) {
       if (event) event.preventDefault();
       var input = document.getElementById('lookupValue');
       var value = normalizeLookup(input && input.value);
+      var phoneInput = document.getElementById('lookupPhone');
+      var phone = normalizeLookup(phoneInput && phoneInput.value);
       if (!value) {
         setStatus('bad', 'กรุณากรอกรหัสตั๋วหรือเบอร์โทร');
         return;
@@ -431,14 +448,11 @@
       setStatus('', 'กำลังค้นหาข้อมูลการจอง...');
       show('ticketCard', false);
       show('actions', false);
-      authReady.then(function() {
-        return window.SLTransitTicketDataCenter.findTicket(db, value, {
-          excludeNotificationOnly: true,
-          sortValue: function(booking) {
-            return Number(booking.createdAt || booking.ts || 0);
-          }
-        });
-      }).then(function(found) {
+      if (!/^BK[A-Za-z0-9_-]{4,}$/.test(value) || !/^0[689][0-9]{8}$/.test(phone)) {
+        setStatus('bad', 'กรุณากรอกรหัสตั๋วและเบอร์โทรศัพท์ให้ครบ');
+        return;
+      }
+      requestBookingForCancellation(value, phone).then(function(found) {
         if (!found) {
           currentBooking = null;
           currentBookingPath = '';
@@ -447,7 +461,7 @@
           return;
         }
         currentBooking = normalizeBooking(found.booking, found.code);
-        currentBookingPath = found.readPath || (bookingPathForCode(found.code, currentBooking) + found.code);
+        currentBookingPath = bookingPathForCode(found.code, currentBooking) + found.code;
         currentTicket = { code: found.code, booking: currentBooking, readPath: currentBookingPath };
         setStatus('good', 'พบข้อมูลการจองแล้ว กรุณาตรวจสอบก่อนยกเลิก');
         renderBooking(currentBooking);
@@ -473,13 +487,8 @@
       var button = document.getElementById('confirmCancelButton');
       button.disabled = true;
       button.textContent = 'กำลังยกเลิก...';
-      window.SLTransitTicketActionCenter.cancelTicket({
-        db: db,
-        firebase: firebase,
-        bookingBridge: window.SLBookingBridge,
-        ticket: currentTicket || { booking: currentBooking, readPath: currentBookingPath }
-      }).then(function(result) {
-        currentBooking = result.booking || Object.assign({}, currentBooking, { status: 'cancelled' });
+      requestBookingForCancellation(currentBooking.code, currentBooking.phone, 'cancel').then(function(result) {
+        currentBooking = Object.assign({}, currentBooking, result, { status: 'cancelled' });
         closeCancelConfirm();
         setStatus('good', 'ยกเลิกตั๋วสำเร็จ');
         renderBooking(currentBooking);
