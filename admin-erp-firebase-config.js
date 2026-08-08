@@ -21,6 +21,27 @@
       ? auth.currentUser.getIdToken(false)
       : Promise.resolve('');
   }
+  function authError(code, message) { var error = new Error(message || code); error.code = code; return error; }
+  function signIn(email, password) {
+    var auth = getAuth();
+    if (!auth || typeof auth.signInWithEmailAndPassword !== 'function') return Promise.reject(authError('auth_not_configured', 'ยังไม่ได้ตั้งค่าระบบยืนยันตัวตน'));
+    return auth.signInWithEmailAndPassword(String(email || '').trim(), String(password || ''));
+  }
+  function signOut() {
+    var auth = getAuth();
+    return auth && typeof auth.signOut === 'function' ? auth.signOut() : Promise.resolve();
+  }
+  function onAuthStateChanged(callback) {
+    var auth = getAuth();
+    return auth && typeof auth.onAuthStateChanged === 'function' ? auth.onAuthStateChanged(callback) : function () {};
+  }
+  function setSessionPersistence() {
+    var auth = getAuth();
+    var persistence = global.firebase && global.firebase.auth && global.firebase.auth.Auth && global.firebase.auth.Auth.Persistence;
+    return auth && persistence && typeof auth.setPersistence === 'function'
+      ? auth.setPersistence(persistence.SESSION)
+      : Promise.resolve();
+  }
   function notify() { global.dispatchEvent(new Event('admin-erp:refresh')); }
 
   if (global.firebase && typeof global.firebase.initializeApp === 'function') {
@@ -33,6 +54,10 @@
     projectId: FIREBASE_PROJECT_ID,
     endpoint: ENDPOINT,
     getIdToken: getIdToken,
+    signIn: signIn,
+    signOut: signOut,
+    onAuthStateChanged: onAuthStateChanged,
+    setSessionPersistence: setSessionPersistence,
     fetchImpl: typeof fetch === 'function' ? fetch.bind(global) : null
   });
 }(typeof window !== 'undefined' ? window : globalThis));
