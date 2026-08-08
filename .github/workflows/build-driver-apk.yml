@@ -37,6 +37,9 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > driver-android/keystore.jks
       
+      - name: Run driver identity and Firebase tests
+        run: node tests/driver-identity-center.test.js
+
       - name: Build release APK
         id: build
         continue-on-error: true
@@ -99,6 +102,15 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
             -d @outputs_comment.json
+
+      - name: Generate APK checksum
+        run: sha256sum driver-android/build/outputs/apk/release/*.apk > driver-android/build/outputs/apk/release/SHA256SUMS.txt
+
+      - name: Upload APK checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanamchai-driver-gps-apk-sha256
+          path: driver-android/build/outputs/apk/release/SHA256SUMS.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

@@ -4,6 +4,8 @@ const fs = require('fs');
 const main = fs.readFileSync('driver-android/src/main/java/com/sanamchai/drivergps/MainActivity.java', 'utf8');
 const gps = fs.readFileSync('driver-android/src/main/java/com/sanamchai/drivergps/GpsService.java', 'utf8');
 const identity = fs.readFileSync('driver-android/src/main/java/com/sanamchai/drivergps/DriverIdentityCenter.java', 'utf8');
+const logic = fs.readFileSync('passenger-logic.js', 'utf8');
+const html = fs.readFileSync('passenger.html', 'utf8');
 
 [
   'uid',
@@ -46,3 +48,16 @@ assert(main.includes('operations/driverWorkByServiceDate'), 'Driver app must rea
 assert(main.includes('DriverIdentityCenter.isSelfOnlyWorkPath'), 'Driver work reads must be gated to the assigned runtime vehicle');
 
 console.log('driver identity center checks passed');
+
+assert(!/FirebaseDatabase\.getInstance\(\)\.goOffline\s*\(\)/.test(gps));
+assert(!/FirebaseDatabase\.getInstance\(\)\.goOnline\s*\(\)/.test(gps));
+assert(!gps.includes('signInAnonymously'));
+assert(gps.includes('writeInFlight') && gps.includes('flushPendingWrite'));
+assert(gps.includes('stale_gps'));
+assert(gps.includes('ERROR_REPORT_INTERVAL_MS') && gps.includes('DIAG_WRITE_INTERVAL_MS'));
+assert(!main.includes('vehiclePickerText.setOnClickListener') && !main.includes('showVehicleDialog'));
+assert(!main.includes('FirebaseDatabase.getInstance().goOffline'));
+assert(logic.includes('PASSENGER_LOGIC_VERSION'));
+assert(!logic.includes('busImgHtml + label'));
+assert(html.includes('passenger-logic.js?v=20260807drivergps1'));
+console.log('driver identity, Firebase, and passenger checks passed');

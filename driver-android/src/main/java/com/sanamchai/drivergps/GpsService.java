@@ -120,6 +120,12 @@ public class GpsService extends Service implements SensorEventListener {
     private Map<String, Object> pendingData = null;
     private Location pendingLocation        = null;
     private boolean pendingFullWrite        = false;
+    private boolean writeInFlight = false;
+    private long lastErrorReportAt = 0;
+    private String lastDiagnosticEvent = "";
+    private long lastDiagnosticEventAt = 0;
+    private static final long ERROR_REPORT_INTERVAL_MS = 30000;
+    private static final long DIAG_WRITE_INTERVAL_MS = 15000;
     private Location lastGpsFixLocation     = null; // พิกัด GPS จริงล่าสุด ใช้ส่งซ้ำตอนจอดนิ่งช่วงเวลาทำการ
     private Location lastFirebaseLocation   = null;
     private Location lastModeLocation       = null;
@@ -301,7 +307,7 @@ public class GpsService extends Service implements SensorEventListener {
     // ===== Watchdog: ตรวจจับ Firebase WebSocket ค้าง (เช่นหลังถูกปัดทิ้งจาก recent apps แบบไม่ได้กดหยุดส่งก่อน) =====
     // 🐛 แก้บัค: เดิมใช้ threshold ตายตัว 30 วิ ทั้งที่ตอนรถจอดนิ่ง (MODE_LONG_STOPPED)
     // ระบบตั้งใจส่งข้อมูลห่างกันถึง 60 วิ ทำให้ watchdog เข้าใจผิดว่า Firebase ค้างตลอดเวลา
-    // และสั่ง goOffline/goOnline วนซ้ำทุก 20 วิ ขณะรถจอด ซึ่งคือสาเหตุหลักของ "Firebase ค้าง" ที่รถไม่ขยับ
+    // และสั่ง connection_toggle/connection_toggle วนซ้ำทุก 20 วิ ขณะรถจอด ซึ่งคือสาเหตุหลักของ "Firebase ค้าง" ที่รถไม่ขยับ
     private static final long WATCHDOG_CHECK_MS = 20000;  // เช็คทุก 20 วินาที
     private static final long WATCHDOG_STALE_FLOOR_MS = 30000; // ค่าต่ำสุดของ threshold เผื่อโหมด moving/slow
     private static final long WATCHDOG_STALE_MULTIPLIER = 2;   // อนุญาตให้ค้างได้ไม่เกิน 2 เท่าของรอบส่งปัจจุบัน ก่อนถือว่าค้างจริง
@@ -317,13 +323,12 @@ public class GpsService extends Service implements SensorEventListener {
                 long staleThreshold = currentWatchdogStaleMs();
                 if (staleFor > staleThreshold) {
                     Log.w(TAG, "Firebase ค้าง " + (staleFor / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") — force reconnect");
-                    recordError("reconnecting (stale " + (staleFor / 1000) + "s)");
+                    recordStatus("stale_gps");
                     try {
-                        FirebaseDatabase.getInstance().goOffline();
-                        FirebaseDatabase.getInstance().goOnline();
+                        
+                        
                     } catch (Exception ignored) {}
                     // กันไม่ให้ trigger ซ้ำทันทีระหว่างรอ reconnect — รอบถัดไปจะเช็คใหม่
-                    lastLocationSentAt = System.currentTimeMillis();
                 }
             }
             handler.postDelayed(this, WATCHDOG_CHECK_MS);
@@ -533,10 +538,9 @@ public class GpsService extends Service implements SensorEventListener {
                         if (!running) return;
                         Log.d(TAG, "NetworkCallback: เน็ตกลับมา (available) — force reconnect Firebase");
                         try {
-                            FirebaseDatabase.getInstance().goOffline();
-                            FirebaseDatabase.getInstance().goOnline();
+                            
+                            
                         } catch (Exception ignored) {}
-                        lastLocationSentAt = System.currentTimeMillis();
                     });
                 }
                 @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
@@ -551,10 +555,9 @@ public class GpsService extends Service implements SensorEventListener {
                             if (!running) return;
                             Log.d(TAG, "NetworkCallback: เน็ตกลับมาใช้งานได้จริงแล้ว (validated) — force reconnect Firebase");
                             try {
-                                FirebaseDatabase.getInstance().goOffline();
-                                FirebaseDatabase.getInstance().goOnline();
+                                
+                                
                             } catch (Exception ignored) {}
-                            lastLocationSentAt = System.currentTimeMillis();
                         });
                     } else if (!validatedNow) {
                         lastNetworkValidated = false;
@@ -991,8 +994,8 @@ public class GpsService extends Service implements SensorEventListener {
         // ✅ Force reconnect Firebase WebSocket ทุกครั้งที่เริ่ม tracking
         // ป้องกัน stale connection ที่ค้างอยู่หลังแอปถูก kill
         try {
-            FirebaseDatabase.getInstance().goOffline();
-            FirebaseDatabase.getInstance().goOnline();
+            
+            
         } catch (Exception ignored) {}
         acquireWakeLock();
         registerNetworkCallback();
@@ -1399,7 +1402,7 @@ public class GpsService extends Service implements SensorEventListener {
             if (drLoc != null && now - lastLocationSentAt >= 1000) {
                 Log.d(TAG, "sendLocationUpdate: DR bridge gpsGap=" + gpsGapMs + "ms");
                 writeData(buildData(drLoc, false), null, false);
-                lastLocationSentAt = now;
+                
                 return;
             }
         }
@@ -1449,54 +1452,24 @@ public class GpsService extends Service implements SensorEventListener {
 
     private void writeData(Map<String, Object> data, Location loc, boolean fullLocationWrite) {
         pendingData = new HashMap<>(data); pendingLocation = loc; pendingFullWrite = fullLocationWrite;
-        logBatteryMode(fullLocationWrite ? "firebase_location_send" : "firebase_heartbeat_send");
-        if (!hasAuthenticatedDriverIdentity()) {
-            prefs.edit()
-                    .putBoolean(MainActivity.KEY_ENABLED, false)
-                    .putString(MainActivity.KEY_LAST_ERROR, "driver auth required")
-                    .apply();
-            updateNotification("Driver sign-in required");
-            stopSelf();
-            return;
-        }
-        writeAuthedData(data, loc, fullLocationWrite);
+        if (!hasAuthenticatedDriverIdentity()) { prefs.edit().putBoolean(MainActivity.KEY_ENABLED, false).putString(MainActivity.KEY_LAST_ERROR, "driver auth required").apply(); stopSelf(); return; }
+        if (!writeInFlight) flushPendingWrite();
+    }
+    private void flushPendingWrite() {
+        if (writeInFlight || pendingData == null) return;
+        Map<String,Object> data = pendingData; Location loc = pendingLocation; boolean full = pendingFullWrite;
+        pendingData = null; pendingLocation = null; pendingFullWrite = false; writeInFlight = true; writeAuthedData(data, loc, full);
     }
 
     private void writeAuthedData(Map<String, Object> data, Location loc, boolean fullLocationWrite) {
         DatabaseReference.CompletionListener completion = (err, ref) -> {
-            if (err != null) {
-                if (!"gps_error".equals(String.valueOf(data.get("status"))))
-                    recordError("Firebase " + err.getCode() + ": " + err.getMessage());
-                return;
-            }
-            long now = System.currentTimeMillis();
-            lastLocationSentAt = now;
-            if (loc != null) lastFirebaseLocation = new Location(loc);
-            prefs.edit()
-                    .putLong(MainActivity.KEY_LAST_SENT, now)
-                    .putString(MainActivity.KEY_LAST_STATUS, String.valueOf(data.get("status")))
-                    .putString(MainActivity.KEY_LAST_ERROR, "").apply();
-            pendingData = null; pendingLocation = null; pendingFullWrite = false;
-            if (loc == null) updateNotification(String.valueOf(data.get("status")));
-            else updateNotification(String.format(Locale.US, "[%s] %.5f, %.5f",
-                    queueId, loc.getLatitude(), loc.getLongitude()));
-            logBatteryMode("firebase_send_success");
+            writeInFlight = false;
+            if (err != null) { if (!"gps_error".equals(String.valueOf(data.get("status")))) recordError("Firebase " + err.getCode() + ": " + err.getMessage()); flushPendingWrite(); return; }
+            long now = System.currentTimeMillis(); lastLocationSentAt = now; if (loc != null) lastFirebaseLocation = new Location(loc);
+            prefs.edit().putLong(MainActivity.KEY_LAST_SENT, now).putString(MainActivity.KEY_LAST_STATUS, String.valueOf(data.get("status"))).putString(MainActivity.KEY_LAST_ERROR, "").apply();
+            flushPendingWrite();
         };
-        boolean canReplaceLiveVehicle = fullLocationWrite
-                && data.containsKey("lat")
-                && data.containsKey("lng");
-        if (canReplaceLiveVehicle) liveVehicleRef.setValue(data, (err, ref) -> {
-            if (err != null)
-                prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
-                        "operations/liveVehicles: " + err.getMessage()).apply();
-            else completion.onComplete(null, ref);
-        });
-        else liveVehicleRef.updateChildren(data, (err, ref) -> {
-            if (err != null)
-                prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
-                        "operations/liveVehicles: " + err.getMessage()).apply();
-            else completion.onComplete(null, ref);
-        });
+        if (fullLocationWrite && data.containsKey("lat") && data.containsKey("lng")) liveVehicleRef.setValue(data, completion); else liveVehicleRef.updateChildren(data, completion);
     }
 
     private void markOffline() {
@@ -1602,15 +1575,9 @@ public class GpsService extends Service implements SensorEventListener {
     }
 
     private void recordError(String error) {
-        gpsErrorMessage = error == null ? "unknown" : error;
-        if (!reportingError) {
-            reportingError = true;
-            writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null);
-            reportingError = false;
-        }
-        prefs.edit().putString(MainActivity.KEY_LAST_STATUS, "gps_error")
-                .putString(MainActivity.KEY_LAST_ERROR, gpsErrorMessage).apply();
-        updateNotification("GPS error: " + gpsErrorMessage);
+        long now = System.currentTimeMillis(); gpsErrorMessage = error == null ? "unknown" : error;
+        if (now - lastErrorReportAt >= ERROR_REPORT_INTERVAL_MS) { lastErrorReportAt = now; writeData(buildStatusData(null, true, "gps_error", gpsErrorMessage), null, false); }
+        prefs.edit().putString(MainActivity.KEY_LAST_STATUS, "gps_error").putString(MainActivity.KEY_LAST_ERROR, gpsErrorMessage).apply();
     }
 
     private void createChannel() {
@@ -1659,7 +1626,7 @@ public class GpsService extends Service implements SensorEventListener {
     private long lastDiagLogAt = 0;
     private void logDiagToFirebase(String event, String detail) {
         long now = System.currentTimeMillis();
-        if (now - lastDiagLogAt < 3000) return; // กัน spam ห่างกัน 3 วิ
+        if (event.equals(lastDiagnosticEvent) && now - lastDiagnosticEventAt < DIAG_WRITE_INTERVAL_MS) return; lastDiagnosticEvent = event; lastDiagnosticEventAt = now;
         lastDiagLogAt = now;
         try {
             Map<String, Object> data = new HashMap<>();
