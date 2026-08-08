@@ -39,6 +39,7 @@ jobs:
       
       - name: Run driver identity and Firebase tests
         run: node tests/driver-identity-center.test.js
+        node tests/driver-uptime-history.test.js
 
       - name: Build release APK
         id: build
