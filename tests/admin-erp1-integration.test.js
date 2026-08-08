@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const page = fs.readFileSync(path.join(root, 'admin-erp1.html'), 'utf8');
 const bridge = fs.readFileSync(path.join(root, 'admin-erp1-integration.js'), 'utf8');
 const config = fs.readFileSync(path.join(root, 'admin-erp-firebase-config.js'), 'utf8');
+const readModel = fs.readFileSync(path.join(root, 'admin-erp-read-model.js'), 'utf8');
 
 if (!page.includes('admin-erp-data-adapter.js')) throw new Error('page must load the central adapter');
 if (!page.includes('admin-erp-read-model.js')) throw new Error('page must load the Admin ERP read model');
@@ -35,5 +36,7 @@ if (!bridge.includes('sourceRowNumber')) throw new Error('read-only rows must pr
 if (!bridge.includes('แถว Excel')) throw new Error('read-only rows must display the original Excel row number');
 if (!bridge.includes("document.addEventListener('DOMContentLoaded', startBridge")) throw new Error('integration bridge must wait for body readiness');
 if (!page.includes("routes:['02_เส้นทาง',['รหัสกลุ่ม (group_id)','ชื่อกลุ่ม','ลำดับกลุ่ม'")) throw new Error('Admin ERP1 routes table must use the Excel sheet 02 group columns');
+
+if (!readModel.includes("name: 'assignmentRules'")) throw new Error('Driver/group read model must use the approved assignmentRules path');
 
 console.log('admin-erp1 integration contract: PASS');

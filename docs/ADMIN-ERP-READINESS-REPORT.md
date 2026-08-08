@@ -42,7 +42,7 @@
 | คิวรถและเวลา | `data/erpDataCenter/trips`, `stopTimes`, `fleet/queues` | ต้องยืนยัน field contract เพิ่ม |
 | รถและคิว | `data/erpDataCenter/fleet/vehicles`, `queues`, `assignmentRules` | adapter catalog |
 | การชำระเงินและผู้ติดต่อ | `data/erpDataCenter/paymentOwnership` | ต้องยืนยัน field privacy เพิ่ม |
-| รถ ผู้ขับ และกลุ่มบริการ | `fleet/vehicles`, `serviceGroups` | ไม่ดึงข้อมูลส่วนตัวเกินจำเป็น |
+| รถ ผู้ขับ และกลุ่มบริการ | `fleet/vehicles`, `serviceGroups`, `fleet/assignmentRules` ตามชีต `08_DriverVehicleGroup` | ไม่ดึงข้อมูลส่วนตัวเกินจำเป็น |
 | ผู้ใช้งานและการแจ้งเตือน | ยังไม่มี client path ที่อนุมัติ | แสดงสถานะไม่เชื่อมต่อ |
 | บัญชีและสิทธิ์ | อ่านผ่าน backend authorization เท่านั้น | ไม่อ่านจากหน้าเว็บโดยตรง |
 | ศูนย์แจ้งเตือน | ยังไม่มี client path ที่อนุมัติ | แสดงสถานะไม่เชื่อมต่อ |

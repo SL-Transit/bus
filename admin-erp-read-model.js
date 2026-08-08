@@ -9,7 +9,7 @@
     vehicles: Object.freeze({ kind: 'catalog', name: 'vehicles', excelSheet: '06_รถและคิว', orderField: 'sourceRowNumber', path: 'data/erpDataCenter/fleet/vehicles', fields: ['vehicleId', 'legacyAlias', 'queueId', 'assignmentMode', 'temporaryPlate', 'temporaryPhone', 'active', 'driverId', 'driverName', 'driverPhone', 'note'] }),
     stopTimes: Object.freeze({ kind: 'catalog', name: 'stopTimes', excelSheet: '05_คิวรถและเวลา', orderField: 'sourceRowNumber', path: 'data/erpDataCenter/stopTimes', fields: ['order', 'tripId', 'routeId', 'serviceGroupId', 'stopKey', 'stopNameTh', 'time'] }),
     payments: Object.freeze({ kind: 'catalog', name: 'paymentOwnership', excelSheet: '07_PaymentContact', orderField: 'sourceRowNumber', path: 'data/erpDataCenter/paymentOwnership', fields: ['bookingId', 'paymentId', 'amount', 'status', 'method', 'contact', 'owner', 'note'] }),
-    driverGroups: Object.freeze({ kind: 'catalog', name: 'serviceGroups', excelSheet: '08_DriverVehicleGroup', orderField: 'sourceRowNumber', path: 'data/erpDataCenter/serviceGroups', fields: ['runtimeVehicleId', 'erpVehicleId', 'serviceGroupId', 'serviceGroupNameTh', 'queueScope', 'assignmentMode', 'note'] })
+    driverGroups: Object.freeze({ kind: 'catalog', name: 'assignmentRules', excelSheet: '08_DriverVehicleGroup', orderField: 'sourceRowNumber', path: 'data/erpDataCenter/fleet/assignmentRules', fields: ['runtimeVehicleId', 'erpVehicleId', 'serviceGroupId', 'serviceGroupNameTh', 'queueScope', 'assignmentMode', 'note'] })
   });
 
   function sourceForTab(tab) { return sources[tab] || null; }

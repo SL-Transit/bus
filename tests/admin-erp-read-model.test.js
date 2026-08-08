@@ -11,7 +11,7 @@ const expected = {
   stopTimes: { kind: 'catalog', name: 'stopTimes', path: 'data/erpDataCenter/stopTimes' },
   vehicles: { kind: 'catalog', name: 'vehicles', path: 'data/erpDataCenter/fleet/vehicles' },
   payments: { kind: 'catalog', name: 'paymentOwnership', path: 'data/erpDataCenter/paymentOwnership' },
-  driverGroups: { kind: 'catalog', name: 'serviceGroups', path: 'data/erpDataCenter/serviceGroups' }
+  driverGroups: { kind: 'catalog', name: 'assignmentRules', path: 'data/erpDataCenter/fleet/assignmentRules' }
 };
 
 assert.deepStrictEqual(Object.keys(readModel.sources).sort(), Object.keys(expected).sort(), 'only approved ERP read sources may be exposed');
