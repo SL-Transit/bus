@@ -13,6 +13,7 @@ if (!page.includes('admin-erp-firebase-config.js')) throw new Error('page must l
 if (!page.includes('config.signIn(email,password)')) throw new Error('page must submit credentials through the central auth config');
 if (!page.includes('config.onAuthStateChanged')) throw new Error('page must wait for Firebase Auth state before opening ERP');
 if (!page.includes('verifyAccess')) throw new Error('page must verify Admin ERP read access before opening ERP');
+if (!page.includes('AdminErpDataSource.getAccess')) throw new Error('page must use the lightweight access read before loading ERP data');
 if (!page.includes('admin_erp_read_permission_required')) throw new Error('page must expose backend authorization denial');
 if (!page.includes('ACTIVE_PAGE_KEY')) throw new Error('page must preserve the active page across reloads');
 if (!page.includes('visibilitychange')) throw new Error('page must retry access after the document becomes visible');

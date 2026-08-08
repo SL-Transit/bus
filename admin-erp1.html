@@ -645,7 +645,7 @@
         if(!config||typeof config.getIdToken!=='function'||!config.endpoint)return Promise.reject(Object.assign(new Error('ยังไม่ได้ตั้งค่าระบบยืนยันตัวตนจริง'),{code:'auth_not_configured'}));
         if(!window.AdminErpDataSource)return Promise.reject(Object.assign(new Error('ไม่พบตัวเชื่อมต่อข้อมูล Admin ERP'),{code:'data_source_not_configured'}));
         window.AdminErpDataSource.configure(config);
-        return window.AdminErpDataSource.getDataCenter().then(function(snapshot){if(!snapshot.permissions||snapshot.permissions.indexOf('read')===-1)throw Object.assign(new Error('ไม่มีสิทธิ์อ่านข้อมูล Admin ERP'),{code:'forbidden'});return snapshot});
+        return (typeof window.AdminErpDataSource.getAccess==='function'?window.AdminErpDataSource.getAccess():window.AdminErpDataSource.getDataCenter()).then(function(snapshot){if(!snapshot.permissions||snapshot.permissions.indexOf('read')===-1)throw Object.assign(new Error('ไม่มีสิทธิ์อ่านข้อมูล Admin ERP'),{code:'forbidden'});return snapshot});
       }
       if(preview){setAuthenticated(true);showError('โหมด Preview นี้ไม่อ่านข้อมูลจริงและไม่ใช้สิทธิ์ผู้ดูแล');return}
       setAuthenticated(false);

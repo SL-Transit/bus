@@ -16,8 +16,11 @@
     versions: 'data/erpDataCenter/meta/versions', audit: 'data/erpDataCenter/meta/audit'
   });
   var ENTITY_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
+  var ENTITY_SCOPES = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
+  var ENTITY_DATA_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'fleet/vehicles', queues: 'fleet/queues', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
+  var SCOPE_PATHS = Object.freeze({ access: 'data/erpDataCenter/meta/access', root: PATHS && PATHS.root, stops: 'data/erpDataCenter/stops', routes: 'data/erpDataCenter/routes', trips: 'data/erpDataCenter/trips', stopTimes: 'data/erpDataCenter/stopTimes', fares: 'data/erpDataCenter/fares', vehicles: 'data/erpDataCenter/fleet/vehicles', queues: 'data/erpDataCenter/fleet/queues', assignmentRules: 'data/erpDataCenter/fleet/assignmentRules', serviceGroups: 'data/erpDataCenter/serviceGroups', paymentOwnership: 'data/erpDataCenter/paymentOwnership', routeFareRows: 'data/erpDataCenter/workbookSource/routeFareRows', scheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows', manifest: 'data/erpDataCenter/workbookSource/manifest', reconciliation: 'data/erpDataCenter/workbookSource/reconciliation', workbookSource: 'data/erpDataCenter/workbookSource' });
   var FORBIDDEN_KEYS = Object.freeze(['bookings', 'passengers', 'tickets', 'driverLogs', 'checkIns', 'operations', 'adminAccounts']);
-  var state = { config: null, cache: null, cacheAt: 0, drafts: {}, versions: {}, audits: [], sequence: 0 };
+  var state = { config: null, cache: {}, cacheAt: {}, drafts: {}, versions: {}, audits: [], sequence: 0 };
 
   function object(value) { return value && typeof value === 'object' ? value : {}; }
   function clone(value) { return JSON.parse(JSON.stringify(value == null ? null : value)); }
@@ -38,33 +41,35 @@
     };
     var changed = !state.config || state.config.endpoint !== next.endpoint || state.config.getIdToken !== next.getIdToken || state.config.fetchImpl !== next.fetchImpl;
     state.config = next;
-    if (changed) { state.cache = null; state.cacheAt = 0; }
+    if (changed) { state.cache = {}; state.cacheAt = {}; }
     return api;
   }
   function requireConfig() {
     if (!state.config || !state.config.endpoint || typeof state.config.getIdToken !== 'function' || typeof state.config.fetchImpl !== 'function') throw adapterError('data_source_not_configured', 'ยังไม่เชื่อมต่อแหล่งข้อมูล');
     return state.config;
   }
-  function readRoot() {
+  function readRoot(scope) {
+    scope = scope || 'root';
+    if (!SCOPE_PATHS[scope]) return Promise.reject(adapterError('unknown_read_scope', 'ไม่รู้จักขอบเขตการอ่าน: ' + scope));
     var config;
     try { config = requireConfig(); } catch (error) { return Promise.reject(error); }
     var currentTime = config.now();
-    if (state.cache && config.cacheMs > 0 && currentTime - state.cacheAt < config.cacheMs) return Promise.resolve(state.cache);
+    if (state.cache[scope] && config.cacheMs > 0 && currentTime - state.cacheAt[scope] < config.cacheMs) return Promise.resolve(state.cache[scope]);
     return Promise.resolve(config.getIdToken()).then(function (token) {
       if (!token) throw adapterError('token_required', 'ยังไม่เชื่อมต่อแหล่งข้อมูล');
-      return config.fetchImpl(config.endpoint, { method: 'GET', headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+      return config.fetchImpl(config.endpoint + '?scope=' + encodeURIComponent(scope), { method: 'GET', headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
     }).then(function (response) {
       if (!response || !response.ok) throw adapterError(response && response.status === 403 ? 'forbidden' : 'endpoint_error', 'อ่านข้อมูลไม่สำเร็จ', { status: response && response.status });
       return response.json();
     }).then(function (payload) {
       var root = object(payload && payload.erpDataCenter);
-      if (payload && payload.path && payload.path !== PATHS.root) throw adapterError('invalid_source_path', 'แหล่งข้อมูลไม่ใช่ ERP Data Center');
+      if (payload && payload.path && payload.path !== SCOPE_PATHS[scope]) throw adapterError('invalid_source_path', 'แหล่งข้อมูลไม่ใช่ขอบเขตที่ร้องขอ');
       if (containsForbiddenKey(root)) throw adapterError('forbidden_data_scope', 'ข้อมูลอยู่นอกขอบเขต Admin ERP');
       var generatedAt = Number(payload && payload.generatedAt || 0);
       var reported = [STATUS.partial, STATUS.empty, STATUS.stale].indexOf(String(payload && payload.status || '')) !== -1 ? String(payload.status) : null;
       var snapshot = { root: root, generatedAt: generatedAt || null, status: reported || (generatedAt && config.now() - generatedAt > config.maxAgeMs ? STATUS.stale : STATUS.ready), permissions: payload && payload.permissions || null, version: payload && payload.version || null };
-      state.cache = snapshot;
-      state.cacheAt = config.now();
+      state.cache[scope] = snapshot;
+      state.cacheAt[scope] = config.now();
       return snapshot;
     }).catch(function (error) {
       if (error && error.code) throw error;
@@ -75,17 +80,17 @@
   function getCatalog(entity, query) {
     query = query || {};
     if (!ENTITY_PATHS[entity]) return Promise.reject(adapterError('unknown_entity', 'ไม่รู้จักหมวดข้อมูล: ' + entity));
-    return readRoot().then(function (snapshot) {
-      var rows = values(pathValue(snapshot.root, ENTITY_PATHS[entity]));
+    return readRoot(ENTITY_SCOPES[entity]).then(function (snapshot) {
+      var rows = values(pathValue(snapshot.root, ENTITY_DATA_PATHS[entity]));
       if (query.search) rows = rows.filter(function (row) { return JSON.stringify(row).toLowerCase().indexOf(String(query.search).toLowerCase()) !== -1; });
       if (query.limit != null) rows = rows.slice(0, Math.max(0, Number(query.limit)));
-      return toResult(snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status, PATHS[ENTITY_PATHS[entity]], rows, snapshot);
+      return toResult(snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status, PATHS[ENTITY_SCOPES[entity]], rows, snapshot);
     });
   }
   function getWorkbookSource(sheet, query) {
     var key = sheet ? (sheet === 'routeFareRows' || sheet === 'scheduleRows' || sheet === 'manifest' || sheet === 'reconciliation' ? sheet : null) : 'workbookSource';
     if (!key) return Promise.reject(adapterError('unknown_workbook_sheet', 'ไม่รู้จักชุดข้อมูล workbook: ' + sheet));
-    return readRoot().then(function (snapshot) {
+    return readRoot(key === 'workbookSource' ? 'workbookSource' : key).then(function (snapshot) {
       var rows = pathValue(snapshot.root, key === 'workbookSource' ? key : 'workbookSource/' + key);
       if (key === 'workbookSource') return toResult(snapshot.status, PATHS.workbookSource, rows, snapshot);
       rows = values(rows);
@@ -234,10 +239,11 @@
     var entry = audit(draft, 'rollback_preview', { versionId: versionId });
     return Promise.resolve({ versionId: versionId, draftId: draft.draftId, status: draft.status, auditPreview: entry, localOnly: true, productionWrite: false });
   }
-  function clearReadCache() { state.cache = null; state.cacheAt = 0; return api; }
+  function clearReadCache(scope) { if (scope) { delete state.cache[scope]; delete state.cacheAt[scope]; } else { state.cache = {}; state.cacheAt = {}; } return api; }
   function resetLocalState() { state.drafts = {}; state.versions = {}; state.audits = []; state.sequence = 0; clearReadCache(); return api; }
-  function getDataCenter() { return readRoot(); }
-  var api = { STATUS: STATUS, PATHS: PATHS, ENTITY_PATHS: ENTITY_PATHS, configure: configure, clearReadCache: clearReadCache, getDataCenter: getDataCenter, getCatalog: getCatalog, getWorkbookSource: getWorkbookSource, getRecord: getRecord, createDraft: createDraft, updateDraft: updateDraft, validateDraft: validateDraft, compareVersions: compareVersions, submitForReview: submitForReview, approveReview: approveReview, getAuditHistory: getAuditHistory, publish: publish, rollback: rollback, resetLocalState: resetLocalState };
+  function getDataCenter() { return readRoot('root'); }
+  function getAccess() { return readRoot('access').then(function (snapshot) { return { status: snapshot.status, path: SCOPE_PATHS.access, permissions: snapshot.permissions || [], roles: snapshot.roles || [], generatedAt: snapshot.generatedAt }; }); }
+  var api = { STATUS: STATUS, PATHS: PATHS, ENTITY_PATHS: ENTITY_PATHS, ENTITY_SCOPES: ENTITY_SCOPES, configure: configure, clearReadCache: clearReadCache, getAccess: getAccess, getDataCenter: getDataCenter, getCatalog: getCatalog, getWorkbookSource: getWorkbookSource, getRecord: getRecord, createDraft: createDraft, updateDraft: updateDraft, validateDraft: validateDraft, compareVersions: compareVersions, submitForReview: submitForReview, approveReview: approveReview, getAuditHistory: getAuditHistory, publish: publish, rollback: rollback, resetLocalState: resetLocalState };
   global.AdminErpDataSource = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 }(typeof window !== 'undefined' ? window : globalThis));
