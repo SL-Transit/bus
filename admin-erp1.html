@@ -65,6 +65,7 @@
   <script src="admin-erp-data-adapter.js"></script>
   <script src="admin-erp-read-model.js"></script>
   <script src="admin-erp1-integration.js"></script>
+  <script src="admin-erp1-network-integration.js?v=20260808-network"></script>
   <script>
     const pages=[['dashboard','แดชบอร์ด'],['finance','รายได้ การจอง และการยกเลิก'],['ops','คิวรถและตารางเวลา'],['data','ศูนย์ข้อมูล ERP'],['news','ข่าวสารและประกาศ'],['staff','ผู้ใช้งานและสิทธิ์'],['account','การตั้งค่าบัญชี'],['test','โหมดทดสอบและเผยแพร่'],['logout','ออกจากระบบ']];
     const nav=document.getElementById('nav'); pages.forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.dataset.page=id;nav.appendChild(b)});

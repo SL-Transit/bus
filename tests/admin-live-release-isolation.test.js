@@ -19,6 +19,8 @@ const allowed = new Set([
   'admin-erp-firebase-config.js',
   'admin-erp-read-model.js',
   'admin-erp1-integration.js',
+  'admin-erp1-network-integration.js',
+  'tests/admin-erp1-network-publish.test.js',
   'admin-erp1.html',
   'docs/ADMIN-ERP-DUPLICATE-WORK-AUDIT.md',
   'docs/ADMIN-ERP-FIREBASE-INTEGRATION-CONTRACT.md',
