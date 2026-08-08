@@ -82,7 +82,9 @@
     document.addEventListener('click',e=>{const b=e.target.closest('[data-sheet]');if(b){document.getElementById('content').innerHTML=b.dataset.sheet==='stops'?dataStops():dataRound()}});
   </script>
   <script>
+    if(false){
     dataStops=function(){return head('จัดการข้อมูล','แก้ไขข้อมูลจากแม่แบบ Excel โดยแยกหมวดข้อมูลชัดเจนและไม่ใช้ข้อมูลตัวอย่าง','บันทึกฉบับร่าง')+`<div class="tabs"><button data-sheet="round">04_รอบเวลา</button><button class="active" data-sheet="stops">05_คิวรถและเวลา</button><button data-sheet="vehicles">06_รถและคิว</button></div><div class="filters"><input class="search" placeholder="ค้นหาในตาราง"><button class="btn">ตรวจสอบข้อมูล</button><button class="btn">นำเข้า Excel</button></div><section class="card"><div class="toolbar"><div><strong>Excel-style editor · 05_คิวรถและเวลา</strong><span class="label">ลำดับป้ายและเวลาในแต่ละเที่ยว · ช่องว่างพร้อมกรอก</span></div><div class="actions"><button class="btn">เพิ่มแถว</button><button class="btn primary">บันทึกฉบับร่าง</button></div></div><div class="table-wrap"><table class="table schedule-table"><thead><tr><th>ลำดับป้าย</th><th>รหัสเที่ยว</th><th>รหัสเส้นทาง</th><th>ชื่อเส้นทาง</th><th>รหัสป้าย</th><th>ชื่อป้าย</th><th>เวลา</th></tr></thead><tbody>${editorRows(['ลำดับป้าย','รหัสเที่ยว','รหัสเส้นทาง','ชื่อเส้นทาง','รหัสป้าย','ชื่อป้าย','เวลา'])}</tbody></table></div><div class="table-footer"><span>แถวใหม่ — · ยังไม่มีข้อมูลจริง</span><span>ฉบับร่าง · ยังไม่เผยแพร่</span></div></section><div class="lower"><section class="card ops-detail"><h2>กฎการตรวจสอบ</h2><div class="notice">ลำดับป้ายต้องเรียงตามเที่ยว และเวลาต้องสัมพันธ์กับรอบเวลา</div></section><section class="card ops-detail"><h2>แหล่งข้อมูล</h2><div class="notice">โครงสร้างอ้างอิงจาก Excel เท่านั้น ไม่อ่านข้อมูลสุ่มจากระบบภายนอก</div></section></div>`};
+    }
   </script>
   <script>
     const dataSets={
@@ -214,7 +216,7 @@
   <script>
     (function(){
       function restoredDashboard(){
-        return head('แดชบอร์ด','ภาพรวม SL-Transit','รีเฟรช')+
+        return head('แดชบอร์ด','ภาพรวม SL-Transit','อัปเดตข้อมูล')+
         `<div class="kpis"><article class="card kpi"><div class="label">รายได้วันนี้</div><div class="value">—</div></article><article class="card kpi"><div class="label">การจองวันนี้</div><div class="value">—</div></article><article class="card kpi"><div class="label">ยกเลิกวันนี้</div><div class="value">—</div></article><article class="card kpi"><div class="label">เที่ยวบริการวันนี้</div><div class="value">—</div></article></div>
         <div class="dashboard-visuals"><section class="card dashboard-visual"><div class="dashboard-visual-head"><div><h2>รายได้และการจอง</h2><div class="dashboard-visual-sub">แนวโน้มตามช่วงเวลา</div></div><select class="field"><option>7 วัน</option><option>30 วัน</option></select></div><div class="dashboard-chart"><div class="dashboard-chart-empty"><span>ยังไม่มีข้อมูลกราฟ</span></div></div></section><section class="card dashboard-visual"><h2>สัดส่วนการจอง</h2><div class="dashboard-visual-sub">แยกตามสถานะ</div><div class="dashboard-donut"></div><div class="dashboard-legend"><div><span><i></i>ยืนยันแล้ว</span><strong>—</strong></div><div><span><i></i>รอดำเนินการ</span><strong>—</strong></div><div><span><i></i>ยกเลิก</span><strong>—</strong></div></div></section></div>
         <section class="card dashboard-table"><div class="toolbar"><div><strong>รายการล่าสุด</strong><span class="label">การจองและการดำเนินงาน</span></div><button class="btn">ดูทั้งหมด</button></div>${empty}</section>
