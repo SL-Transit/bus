@@ -8,6 +8,30 @@ const ERP_DATA_CENTER_DATABASE_URL = "https://sl-transit-9464e-default-rtdb.asia
 const EMULATOR_DATABASE_URL = `http://127.0.0.1:9000?ns=${encodeURIComponent(process.env.GCLOUD_PROJECT || "demo-sl-transit")}`;
 admin.initializeApp({ databaseURL: process.env.FUNCTIONS_EMULATOR === "true" ? EMULATOR_DATABASE_URL : ERP_DATA_CENTER_DATABASE_URL });
 
+const ERP_READ_SCOPES = Object.freeze({
+  access: { path: "data/erpDataCenter/meta/access", root: null, envelope: [] },
+  root: { path: "data/erpDataCenter", root: null, envelope: [] },
+  workbookSource: { path: "data/erpDataCenter/workbookSource", root: "workbookSource", envelope: ["workbookSource"] },
+  stops: { path: "data/erpDataCenter/stops", root: "stops", envelope: ["stops"] },
+  routes: { path: "data/erpDataCenter/routes", root: "routes", envelope: ["routes"] },
+  trips: { path: "data/erpDataCenter/trips", root: "trips", envelope: ["trips"] },
+  stopTimes: { path: "data/erpDataCenter/stopTimes", root: "stopTimes", envelope: ["stopTimes"] },
+  fares: { path: "data/erpDataCenter/fares", root: "fares", envelope: ["fares"] },
+  vehicles: { path: "data/erpDataCenter/fleet/vehicles", root: "fleet", envelope: ["fleet", "vehicles"] },
+  queues: { path: "data/erpDataCenter/fleet/queues", root: "fleet", envelope: ["fleet", "queues"] },
+  assignmentRules: { path: "data/erpDataCenter/fleet/assignmentRules", root: "fleet", envelope: ["fleet", "assignmentRules"] },
+  serviceGroups: { path: "data/erpDataCenter/serviceGroups", root: "serviceGroups", envelope: ["serviceGroups"] },
+  paymentOwnership: { path: "data/erpDataCenter/paymentOwnership", root: "paymentOwnership", envelope: ["paymentOwnership"] },
+  routeFareRows: { path: "data/erpDataCenter/workbookSource/routeFareRows", root: "workbookSource", envelope: ["workbookSource", "routeFareRows"] },
+  scheduleRows: { path: "data/erpDataCenter/workbookSource/scheduleRows", root: "workbookSource", envelope: ["workbookSource", "scheduleRows"] },
+  manifest: { path: "data/erpDataCenter/workbookSource/manifest", root: "workbookSource", envelope: ["workbookSource", "manifest"] },
+  reconciliation: { path: "data/erpDataCenter/workbookSource/reconciliation", root: "workbookSource", envelope: ["workbookSource", "reconciliation"] }
+});
+
+function envelopeRead(value, envelope) {
+  return (envelope || []).reduceRight((out, key) => ({ [key]: out }), value);
+}
+
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
@@ -212,6 +236,12 @@ exports.readAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
+  const scope = String(req.query.scope || "root");
+  const readScope = ERP_READ_SCOPES[scope];
+  if (!readScope) {
+    sendJson(res, 400, { status: "error", error: "unsupported_erp_read_scope" });
+    return;
+  }
   const authHeader = String(req.headers.authorization || "");
   const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!tokenMatch) {
@@ -226,12 +256,21 @@ exports.readAdminErpDataCenter = onRequest({
       sendJson(res, 403, { status: "error", error: "admin_erp_read_permission_required" });
       return;
     }
-    const snap = await admin.database().ref("data/erpDataCenter").get();
-    const scoped = adminErpAuthorization.sanitizeReadModel(snap.val() || {}, access);
+    if (scope === "access") {
+      res.set("Cache-Control", "private, max-age=30");
+      sendJson(res, 200, { status: "ready", path: readScope.path, erpDataCenter: {}, permissions: access.permissions, roles: access.roles, generatedAt: Date.now() });
+      return;
+    }
+    if (readScope.root && !access.roots.includes(readScope.root)) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_scope_permission_required", scope });
+      return;
+    }
+    const snap = await admin.database().ref(readScope.path).get();
+    const scoped = adminErpAuthorization.sanitizeReadModel(envelopeRead(snap.val() || {}, readScope.envelope), access);
     res.set("Cache-Control", "private, max-age=30");
     res.status(200).type("application/json").send(JSON.stringify({
       status: "ready",
-      path: "data/erpDataCenter",
+      path: readScope.path,
       erpDataCenter: scoped,
       permissions: access.permissions,
       roles: access.roles,

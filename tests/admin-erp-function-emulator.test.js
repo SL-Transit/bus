@@ -37,10 +37,10 @@ async function grantLegacyAdmin(user) {
   assert.strictEqual(result.status, 200, `กำหนดสิทธิ์ผู้ดูแลในตัวจำลองไม่สำเร็จ: ${JSON.stringify(result.body)}`);
 }
 
-async function callRead(token) {
+async function callRead(token, scope) {
   const headers = { Origin: ORIGIN };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return request(FUNCTION_URL, { method: 'GET', headers });
+  return request(`${FUNCTION_URL}${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`, { method: 'GET', headers });
 }
 
 async function main() {
@@ -62,6 +62,20 @@ async function main() {
   assert.strictEqual(adminRead.body.path, 'data/erpDataCenter');
   assert.strictEqual(adminRead.body.permissions.includes('read'), true);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(adminRead.body.erpDataCenter, 'adminAccounts'), false);
+
+  const accessRead = await callRead(admin.idToken, 'access');
+  assert.strictEqual(accessRead.status, 200);
+  assert.strictEqual(accessRead.body.path, 'data/erpDataCenter/meta/access');
+  assert.deepStrictEqual(accessRead.body.erpDataCenter, {});
+
+  const scopedStops = await callRead(admin.idToken, 'stops');
+  assert.strictEqual(scopedStops.status, 200);
+  assert.strictEqual(scopedStops.body.path, 'data/erpDataCenter/stops');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(scopedStops.body.erpDataCenter, 'routes'), false);
+
+  const unsupportedScope = await callRead(admin.idToken, 'bookings');
+  assert.strictEqual(unsupportedScope.status, 400);
+  assert.strictEqual(unsupportedScope.body.error, 'unsupported_erp_read_scope');
 
   const update = await request('http://127.0.0.1:5001/demo-sl-transit/asia-southeast1/updateAdminErpDataCenter', {
     method: 'POST',
