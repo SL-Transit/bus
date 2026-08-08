@@ -26,7 +26,9 @@
   function signIn(email, password) {
     var auth = getAuth();
     if (!auth || typeof auth.signInWithEmailAndPassword !== 'function') return Promise.reject(authError('auth_not_configured', 'ยังไม่ได้ตั้งค่าระบบยืนยันตัวตน'));
-    return auth.signInWithEmailAndPassword(String(email || '').trim(), String(password || ''));
+    return setSessionPersistence().then(function() {
+      return auth.signInWithEmailAndPassword(String(email || '').trim(), String(password || ''));
+    });
   }
   function signOut() {
     var auth = getAuth();
