@@ -15,7 +15,7 @@ try {
   $sheets = [ordered]@{}
 
   foreach ($worksheet in $workbook.Worksheets) {
-    if (-not ($worksheet.Name.StartsWith('01_') -or $worksheet.Name.StartsWith('02_') -or $worksheet.Name.StartsWith('03_') -or $worksheet.Name.StartsWith('04_') -or $worksheet.Name.StartsWith('05_') -or $worksheet.Name.StartsWith('06_') -or $worksheet.Name.StartsWith('08_'))) {
+    if (-not ($worksheet.Name.StartsWith('03_') -or $worksheet.Name.StartsWith('04_'))) {
       continue
     }
 

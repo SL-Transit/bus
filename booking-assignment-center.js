@@ -15,10 +15,7 @@
     var resolved = input.resolvedAssignment || {};
     var scheduleOnly = resolved.scheduleOnly === true
       || resolved.noLiveTracking === true
-      || resolved.serviceType === 'schedule-only'
-      || resolved.operationMode === 'schedule_only'
-      || resolved.operationMode === 'schedule-only'
-      || resolved.trackingMode === 'schedule_only';
+      || resolved.serviceType === 'schedule-only';
     var queueNo = numberOrBlank(resolved.queueNo);
     var plannedVehicleId = clean(resolved.plannedVehicleId);
     var tripId = clean(input.tripId || resolved.tripId);
@@ -44,11 +41,6 @@
       contractVersion: 'booking_assignment_v1',
       serviceDate: clean(input.serviceDate || resolved.serviceDate),
       routeId: clean(input.routeId || resolved.routeId),
-      operatorId: clean(resolved.operatorId || resolved.providerId || resolved.serviceGroupId),
-      serviceGroupId: clean(resolved.serviceGroupId || resolved.groupId || resolved.operatorId),
-      operationMode: scheduleOnly ? 'schedule_only' : clean(resolved.operationMode || 'integrated'),
-      bookingMode: scheduleOnly ? 'reference_only' : clean(resolved.bookingMode || 'bookable'),
-      trackingMode: scheduleOnly ? 'schedule_only' : clean(resolved.trackingMode || 'live'),
       tripId: tripId,
       queueNo: queueNo,
       plannedVehicleId: scheduleOnly ? '' : plannedVehicleId,

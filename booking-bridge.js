@@ -114,7 +114,6 @@
       baseRef.child('manifest').once('value'),
       baseRef.child('routeFareRows').once('value'),
       baseRef.child('scheduleRows').once('value'),
-      _db.ref('publishedSchedule').once('value'),
       db.ref('data/erpDataCenter/serviceGroups').once('value').catch(function() {
         // Group labels/order are optional; fare and timetable rows remain authoritative.
         return { val: function() { return {}; } };
@@ -122,11 +121,7 @@
     ]).then(function(parts) {
       if (!global.SLTransitWorkbookBookingSource) throw new Error('workbook_booking_source_missing');
       var manifest = parts[0].val() || {};
-      var published = parts[3].val() || null;
-      var isPublished = published && published.publicationStatus === 'published';
-      var routeFareRows = isPublished && published.routeFareRows ? published.routeFareRows : (parts[1].val() || {});
-      var scheduleRows = isPublished ? (published.scheduleRows || {}) : (parts[2].val() || {});
-      _workbookIndex = global.SLTransitWorkbookBookingSource.build(routeFareRows, scheduleRows, manifest, parts[4].val() || {});
+      _workbookIndex = global.SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, manifest, parts[3].val() || {});
       _preview = {
         schemaVersion: manifest.schemaVersion || 'erp.workbook-source.v1',
         generatedAt: manifest.generatedAt || '',
@@ -141,10 +136,8 @@
         destinationOptionsByOrigin: _workbookIndex.destinationOptionsByOrigin,
         paymentContact: manifest.paymentContact || null,
         firebaseKeyEncoding: {},
-      validation: manifest.validation || null,
-        bookingPolicy: manifest.bookingPolicy || {},
-        networkMatcherEnabled: manifest.networkMatcherEnabled === true,
-        publishedSchedule: isPublished ? { publicationVersion: published.publicationVersion || '', publishedAt: published.publishedAt || '' } : null
+        validation: manifest.validation || null,
+        bookingPolicy: manifest.bookingPolicy || {}
       };
       _markReady();
       return _preview;
@@ -455,16 +448,6 @@
     var isExternal = availabilityDecision.status === 'external_reference';
     var fareMissing = fareContract.status === 'NEEDS_CONTRACT_FIELD';
     var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
-    var operationMode = String(timeEntry.operationMode || segment.operationMode || pair.operationMode || option.operationMode || 'integrated').trim().toLowerCase();
-    var providerScheduleOnly = operationMode === 'schedule_only' || operationMode === 'schedule-only' || operationMode === 'external_schedule_only';
-    var operatorId = timeEntry.operatorId || segment.operatorId || pair.operatorId || option.operatorId || '';
-    var serviceGroupId = timeEntry.serviceGroupId || segment.serviceGroupId || pair.serviceGroupId || option.serviceGroupId || '';
-    var bookingMode = timeEntry.bookingMode || segment.bookingMode || pair.bookingMode || option.bookingMode || (providerScheduleOnly ? 'reference_only' : 'bookable');
-    var trackingMode = timeEntry.trackingMode || segment.trackingMode || pair.trackingMode || option.trackingMode || (providerScheduleOnly ? 'schedule_only' : 'live');
-    var journeyId = pair.journeyId || pair.canonicalPairKey || pair.pairId || option.pairKey || '';
-    var journeyLegs = (pair.segments || []).map(function(leg, index) {
-      return { legIndex: index, fromLabel: leg.fromLabel || '', toLabel: leg.toLabel || '', routeId: leg.routeId || '', operatorId: leg.operatorId || '', serviceGroupId: leg.serviceGroupId || '', operationMode: leg.operationMode || 'integrated', bookingMode: leg.bookingMode || 'bookable', trackingMode: leg.trackingMode || 'live' };
-    });
     return {
       pickupTime: time,
       label: _timeLabel(timeEntry),
@@ -472,15 +455,6 @@
       vehicleId: '',
       routeStops: [],
       scheduleOnly: true,
-      providerScheduleOnly: providerScheduleOnly,
-      operatorId: operatorId,
-      serviceGroupId: serviceGroupId,
-      operationMode: operationMode,
-      bookingMode: bookingMode,
-      trackingMode: trackingMode,
-      journeyId: journeyId,
-      journeyLegCount: journeyLegs.length || 1,
-      journeyLegs: journeyLegs,
       fare: fareContract.fareAmount || 0,
       fareAmount: fareContract.fareAmount,
       fareContract: fareContract,
@@ -518,12 +492,7 @@
         vehicleId: undefined,
         assignmentSource: 'none',
         scheduleOnly: true,
-        liveTrackingAvailable: trackingMode === 'live' && !providerScheduleOnly,
-        operatorId: operatorId,
-        serviceGroupId: serviceGroupId,
-        operationMode: operationMode,
-        bookingMode: bookingMode,
-        trackingMode: trackingMode
+        liveTrackingAvailable: false
       }
     };
   }
@@ -580,18 +549,6 @@
 
   function loadAvailableTrips(originLabel, destLabel, serviceDate) {
     var option = _selectedDestinationOption(originLabel, destLabel);
-    if (_preview.networkMatcherEnabled === true && option && _workbookIndex && global.SLTransitNetwork && typeof global.SLTransitNetwork.buildJourneys === 'function') {
-      var originKey = option.originDestinationId || originLabel;
-      var destinationKey = option.destinationId || destLabel;
-      var readiness = getNetworkReadiness();
-      if (readiness.ready) {
-        var journeys = loadNetworkJourneys(originKey, destinationKey, serviceDate, _preview.bookingPolicy);
-        return Promise.resolve(journeys.map(function(journey) {
-          var first = journey.legs[0] || {}, last = journey.legs[journey.legs.length - 1] || {};
-          return { tripId: journey.journeyId, journeyId: journey.journeyId, time: first.departureTime, departureTime: first.departureTime, arrivalTime: last.arrivalTime, originLabel: originLabel, destinationLabel: destLabel, serviceDate: serviceDate || '', bookingMode: journey.bookingMode, referenceOnly: journey.referenceOnly, trackingMode: journey.trackingMode, journeyLegs: journey.legs, transferWaitMinutes: journey.transferWaitMinutes, transferCount: journey.transferCount, capacity: null, bookingEligible: journey.bookingMode === 'bookable' };
-        }));
-      }
-    }
     return loadPair(originLabel, destLabel).then(function(pair) {
       if (!pair) return [];
       return attachRuntimeCapacity(_pairToTrips(pair, option, serviceDate));
@@ -636,27 +593,6 @@
     return Promise.resolve(0);
   }
 
-  function buildNetworkJourneys(input) {
-    if (!global.SLTransitNetwork || typeof global.SLTransitNetwork.buildJourneys !== 'function') return [];
-    return global.SLTransitNetwork.buildJourneys(input || {});
-  }
-
-  function loadNetworkJourneys(originStopKey, destinationStopKey, serviceDate, policy) {
-    if (!_workbookIndex || typeof _workbookIndex.getNetworkLegs !== 'function') return [];
-    return buildNetworkJourneys({
-      originStopKey: originStopKey,
-      destinationStopKey: destinationStopKey,
-      serviceDate: serviceDate || '',
-      policy: policy || {},
-      legs: _workbookIndex.getNetworkLegs(serviceDate || '')
-    });
-  }
-
-  function getNetworkReadiness() {
-    if (!_workbookIndex || !global.SLTransitNetwork || typeof global.SLTransitNetwork.buildReadinessReport !== 'function') return { ready: false, blockers: [{ code: 'workbook_source_not_loaded' }] };
-    return global.SLTransitNetwork.buildReadinessReport({ groups: _workbookIndex.serviceGroups || {}, legs: _workbookIndex.getNetworkLegs('') });
-  }
-
   function buildBookingSnapshot(params) {
     var assignment = params.assignment || {
       assignmentSource: 'none',
@@ -688,8 +624,6 @@
       fareContract: params.fareContract || null,
       paymentOwnership: params.paymentOwnership || 'sl_transit',
       externalPaymentRequired: params.externalPaymentRequired === true,
-      journeyId: params.journeyId || '',
-      journeyLegs: Array.isArray(params.journeyLegs) ? params.journeyLegs : [],
       referenceOnly: params.referenceOnly === true,
       capacity: params.capacity || null,
       payMethod: params.payMethod || '',
@@ -730,9 +664,6 @@
     releaseBookingCapacity: releaseBookingCapacity,
     buildBookingSnapshot: buildBookingSnapshot,
     getTransferBufferAsync: getTransferBufferAsync,
-    buildNetworkJourneys: buildNetworkJourneys,
-    loadNetworkJourneys: loadNetworkJourneys,
-    getNetworkReadiness: getNetworkReadiness,
     get _catalog() { return null; },
     get _preview() { return _preview; }
   };

@@ -29,7 +29,6 @@ window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID || '2010733143-x
 </script>
 
 <!-- S.L.Transit ERP booking adapter layer -->
-<script src="network-engine.js?v=20260808journey1"></script>
 <script src="booking-assignment-center.js?v=20260713b"></script>
 <script src="booking-availability-center.js?v=20260715a"></script>
 <script src="fare-decision-center.js?v=20260714c"></script>
@@ -925,13 +924,6 @@ body {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 10px; margin: 0 0 8px;
 }
-.trip-journey-box { margin-top:10px; padding:10px 12px; border:1px solid #dbe7ef; border-radius:10px; background:#f8fbfd; }
-.trip-journey-title { font-size:11px; font-weight:800; color:#1e3a5f; margin-bottom:6px; }
-.trip-journey-leg { display:grid; grid-template-columns:42px 1fr; gap:2px 8px; padding:6px 0; border-top:1px solid #e6eef3; font-size:11px; }
-.trip-journey-leg:first-of-type { border-top:0; }
-.trip-journey-leg span { color:#64748b; font-weight:700; }
-.trip-journey-leg strong { color:#1f2937; font-size:11px; }
-.trip-journey-leg small { grid-column:2; color:#64748b; font-size:10px; }
 /* กรณีต่อรถ (3 แถว): เส้นเชื่อมจุดจอด (บัส → เส้นประ → หมุด) ใช้ภาพเดียว
    assets/2088.png ครอบทั้งความสูง — ภาพนี้มี 3 องค์ประกอบตายตัว จึงใช้กับ
    การ์ด 3 แถวเท่านั้น */

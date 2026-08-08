@@ -429,14 +429,6 @@
       {key:'paymentContact',label:'ข้อมูลติดต่อชำระเงิน',path:'data/erpDataCenter/paymentOwnership',dataKey:'paymentOwnership',idField:'paymentOwnershipId',columns:[['paymentOwnershipId','รายการ','paymentOwnershipId,id,type'],['bankName','ชื่อธนาคาร','bankName'],['accountNo','เลขที่บัญชี','accountNo,accountNumber'],['accountName','ชื่อบัญชี','accountName'],['contactPhone','เบอร์ติดต่อ','contactPhone,phone'],['status','สถานะ','status,active']]},
       {key:'driverVehicleGroup',label:'คนขับ',path:'data/erpDataCenter/fleet/assignmentRules',dataKey:'assignmentRules',idField:'assignmentRuleId',columns:[['runtimeVehicleId','runtimeVehicleId','runtimeVehicleId,legacyAlias,vehicleAlias'],['vehicleId','erpVehicleId','vehicleId,erpVehicleId'],['serviceGroupId','serviceGroupId','serviceGroupId,groupId'],['serviceGroupNameTh','serviceGroupNameTh','serviceGroupNameTh,groupNameTh'],['queueId','queueScope','queueId,queueScope'],['assignmentMode','assignmentMode','assignmentMode'],['note','note','note,remark']]}
     ];
-    (function addNetworkScheduleFields() {
-      var scheduleTab = ERP_WORKBOOK_TABS.filter(function(tab) { return tab.key === 'scheduleOffers'; })[0];
-      if (scheduleTab) {
-        scheduleTab.columns.push(['arrivalTime', 'เวลาถึงปลายทาง', 'arrivalTime,arriveTime,destinationArrivalTime']);
-        scheduleTab.columns.push(['serviceDays', 'วันให้บริการ', 'serviceDays,daysOfWeek,operatingDays']);
-      }
-    })();
-    (function addNetworkCapabilityFields(){var groupTab=ERP_WORKBOOK_TABS.filter(function(tab){return tab.key==='serviceGroups';})[0];if(groupTab){[['operatorId','รหัสผู้ให้บริการ','operatorId,providerId'],['operationMode','โหมดดำเนินงาน','operationMode,fleetMode,providerMode'],['bookingMode','โหมดการจอง','bookingMode'],['trackingMode','โหมดติดตาม','trackingMode'],['hasFleet','มีข้อมูลรถ','hasFleet'],['hasLiveLocation','มี GPS สด','hasLiveLocation,liveTracking'],['hasQueue','มีคิวรถ','hasQueue'],['canBook','เปิดจอง','canBook']].forEach(function(column){groupTab.columns.push(column);});}var fleetTab=ERP_WORKBOOK_TABS.filter(function(tab){return tab.key==='vehiclesAndQueues';})[0];if(fleetTab){fleetTab.columns.push(['serviceGroupId','รหัสกลุ่มผู้ให้บริการ','serviceGroupId,groupId']);fleetTab.columns.push(['operatorId','รหัสผู้ให้บริการ','operatorId,providerId']);}}());
     var ANNOUNCEMENT_CATEGORIES = [
       ['service_notice','Service notice','general service message','draft-only'],
       ['route_change','Route change','route or stop change notice','draft-only'],

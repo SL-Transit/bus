@@ -24,7 +24,7 @@
     var booking = input.booking || {};
     var buses = input.vehicles || input.buses || {};
     var assignment = input.assignment || {};
-    if (input.scheduleOnly === true || assignment.scheduleOnly === true || assignment.noLiveTracking === true || assignment.serviceType === 'schedule-only' || assignment.operationMode === 'schedule_only' || assignment.operationMode === 'schedule-only' || assignment.trackingMode === 'schedule_only') {
+    if (input.scheduleOnly === true || assignment.scheduleOnly === true || assignment.noLiveTracking === true || assignment.serviceType === 'schedule-only') {
       return { id: '', vehicleId: '', vehicle: null, location: null, status: 'schedule_only' };
     }
     var vehicleId = plannedVehicleIdForBooking(booking, assignment);
