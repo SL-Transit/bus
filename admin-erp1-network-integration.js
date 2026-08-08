@@ -14,7 +14,7 @@
       var origin = row.originNameTh || row.fromNameTh || row.fromStopKey || '';
       var destination = row.destinationNameTh || row.toNameTh || row.toStopKey || '';
       var route = origin && destination ? origin + ' → ' + destination : (row.routeLabelTh || row.routeNameTh || row.routeId || '-');
-      groups[key] = groups[key] || { key: key, group: row.serviceGroupId || '-', route: route + (row.routeId ? ' (' + row.routeId + ')' : ''), times: [] };
+      groups[key] = groups[key] || { key: key, group: row.serviceGroupId || '-', route: route, times: [] };
       if (row.scheduledTime || row.departureTime) groups[key].times.push(row.scheduledTime || row.departureTime);
     });
     return values(groups).sort(function (a, b) { return String(a.key).localeCompare(String(b.key)); });
