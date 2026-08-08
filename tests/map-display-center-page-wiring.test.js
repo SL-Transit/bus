@@ -57,7 +57,7 @@ assert(!passengerHtml.includes('focusPoint(pos, 14)'), 'Passenger UI must not ch
 assert(passengerHtml.includes('map-display-center.js?v=20260716center4'), 'Passenger must load the current Map Display Center version');
 assert(passengerHtml.includes('erp-data-adapter.js?v=20260716live5'), 'Passenger must load the current ERP adapter version');
 assert(passengerHtml.includes('passenger-logic.js?v=20260716live5'), 'Passenger must load the current map adapter version');
-assert(passengerHtml.includes("db.ref('data/settings')"), 'Passenger settings must read the public data/settings path');
+assert(!passengerHtml.includes("db.ref('data/settings')"), 'Passenger must not read the legacy public data/settings path');
 assert(!passengerHtml.includes("db.ref('settings')"), 'Passenger must not read the blocked top-level settings path');
 
 assert(passengerLogic.includes('SLTransit.db'), 'Passenger must consume live vehicles through the ERP data adapter');

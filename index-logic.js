@@ -278,7 +278,7 @@ function highlightStop(stop){
 }
 
 var nearestStopMapCfg = { focusAnimationDurationSec: null, defaultZoom: null, userLocationZoom: null, fitBoundsMaxZoom: null, fitBoundsPaddingPx: null };
-(function watchNearestStopMapConfig(){
+function watchNearestStopMapConfig(){
   try {
     if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
     db.ref('data/erpDataCenter/settings/nearestStopMap').on('value', function(snap){
@@ -289,7 +289,7 @@ var nearestStopMapCfg = { focusAnimationDurationSec: null, defaultZoom: null, us
       });
     });
   } catch (e) {}
-})();
+}
 
 function focusMap(point, zoomLevel, animate){
   if(!mapObj||!point) return;
@@ -386,6 +386,7 @@ function getCatalogRoutesForStop(stop){
     return record.displayNameTh||record.nameTh||record.label||record.name||fallback||INDEX_SERVICE_GROUP_LABELS[groupId]||groupId;
   }
   function stopOrder(name){
+    if(INDEX_OWNER_STOP_ORDER[name]) return INDEX_OWNER_STOP_ORDER[name];
     for(var i=0;i<STOPS.length;i++){
       if(!STOPS[i]||STOPS[i].name!==name) continue;
       var value=Number(STOPS[i].order);
@@ -396,7 +397,7 @@ function getCatalogRoutesForStop(stop){
   function makeRow(label, destinations, groupId){
     return {
       dest:(stop.name||'')+' - '+label,
-      sub:destinations.join(' / '),
+      sub:'',
       tag:'คิว',
       groupId:groupId,
       routeId:groups[groupId]&&groups[groupId].routeIds[0]||'',
@@ -415,26 +416,40 @@ function getCatalogRoutesForStop(stop){
     };
   }
 
-  var main=(groups.group_001&&groups.group_001.destinations||[]).filter(function(name){
+  var allMain=groups.group_001&&groups.group_001.destinations||[];
+  var main=allMain.filter(function(name){
     return INDEX_RECOMMENDED_MAIN_STOPS[name] && name!==stop.name;
   });
   var originOrder=stopOrder(stop.name);
   var mainRow1=[],mainRow2=[];
-  main.forEach(function(name){
-    var order=stopOrder(name);
-    if(originOrder===1){
-      (order===2||order===3?mainRow1:mainRow2).push(name);
-    } else if(originOrder===15){
-      (order===7||order===8?mainRow1:mainRow2).push(name);
-    } else if(originOrder>=12){
-      (order>originOrder?mainRow1:mainRow2).push(name);
-    } else {
-      (order<originOrder?mainRow1:mainRow2).push(name);
-    }
-  });
+  var endpointRows=originOrder===15?
+    [['พนมสารคาม','ฉะเชิงเทรา (แปดริ้ว)'],['หนองคอก','ท่าตะเกียบ','สนามชัยเขต']]:
+    originOrder===1?
+    [['สี่แยกโคนม','วังน้ำเย็น','คลองหาด'],['สนามชัยเขต','ท่าตะเกียบ','หนองคอก']]:null;
+  if(endpointRows){
+    mainRow1=endpointRows[0].filter(function(name){return allMain.indexOf(name)!==-1;});
+    mainRow2=endpointRows[1].filter(function(name){return allMain.indexOf(name)!==-1;});
+  } else {
+    var endpointOne=main.filter(function(name){return stopOrder(name)===1;})[0]||'ฉะเชิงเทรา (แปดริ้ว)';
+    var endpointFifteen=main.filter(function(name){return stopOrder(name)===15;})[0]||'คลองหาด';
+    var middleRecommendations=main.filter(function(name){
+      var order=stopOrder(name);
+      return order!==1&&order!==15;
+    });
+    mainRow1=[endpointOne].concat(middleRecommendations.slice(0,1));
+    mainRow2=middleRecommendations.slice(1,3).concat([endpointFifteen]);
+  }
 
-  mainRow1=mainRow1.slice(0,2);
-  mainRow2=mainRow2.slice(0,3);
+  if(!endpointRows){
+    mainRow1=mainRow1.slice(0,2);
+    mainRow2=mainRow2.slice(0,3);
+  }
+  if(!mainRow1.length){
+    var forcedRow1=originOrder===1?['พนมสารคาม','สนามชัยเขต']:
+      originOrder===15?['ท่าตะเกียบ','หนองคอก']:
+      main.filter(function(name){return stopOrder(name)<originOrder;}).slice(-2);
+    mainRow1=forcedRow1.filter(function(name){return main.indexOf(name)!==-1;}).slice(0,2);
+  }
   var bangkok=(groups.group_002&&groups.group_002.destinations||[]).concat(groups.group_004&&groups.group_004.destinations||[]);
   var rows=[
     makeMainRow(mainRow1,'group_001_forward'),
@@ -631,6 +646,7 @@ var INDEX_FIREBASE_CONFIG={
 };
 if(typeof firebase!=="undefined" && !firebase.apps.length) firebase.initializeApp(INDEX_FIREBASE_CONFIG);
 var db=firebase.database();
+watchNearestStopMapConfig();
 
 /* ══════════════════════════════════════════
    CATALOG DATA (ข้อมูลกลางจาก ERP)
@@ -655,6 +671,11 @@ var INDEX_RECOMMENDED_MAIN_STOPS = {
   'หนองคอก': true,
   'วังน้ำเย็น': true,
   'คลองหาด': true
+};
+var INDEX_OWNER_STOP_ORDER = {
+  'ฉะเชิงเทรา (แปดริ้ว)':1,'ฉะเชิงเทรา':1,'พนมสารคาม':2,'ท่ารถสนามชัยเขต':3,'สนามชัยเขต':3,
+  'กม.1':4,'กม.7':5,'ห้วยโสม':6,'ท่าตะเกียบ':7,'หนองคอก':8,'คลองตะเคียน':9,
+  'หนองเรือ':10,'ไพรจิต':11,'ทุ่งกบินทร์':12,'สี่แยกโคนม':13,'วังน้ำเย็น':14,'คลองหาด':15
 };
 
 function readIndexValue(ref, timeoutMs){
@@ -705,7 +726,7 @@ Promise.all([
         name:s.displayNameTh||s.nameTh||s.name||s.label||mapStop.label||k,
         lat:Number(s.lat),lng:Number(s.lng||s.lon),
         icon:s.icon||mapStop.icon||'\u{1F68F}',
-        order:Number(s.workbookOrder||s.displayOrder||s.order||mapStop.displayOrder||999999),
+        order:(s.workbookOrder!=null&&s.workbookOrder!==''?Number(s.workbookOrder):s.displayOrder!=null&&s.displayOrder!==''?Number(s.displayOrder):s.order!=null&&s.order!==''?Number(s.order):mapStop.displayOrder!=null&&mapStop.displayOrder!==''?Number(mapStop.displayOrder)+1:999999),
         terminal:s.stopType==='terminal'||s.classification==='terminal'||!!s.terminal,
         routes:Array.isArray(s.routes)?s.routes:null
       };

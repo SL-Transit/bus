@@ -18,7 +18,18 @@
     return value !== false && normalized !== 'false' && normalized !== '0' && normalized !== 'ไม่' && normalized !== 'no';
   }
 
-  function build(routeFareRows, scheduleRows, manifest) {
+  function build(routeFareRows, scheduleRows, manifest, serviceGroups) {
+    var groupLabels = {
+      group_001: 'เส้นทางหลัก',
+      group_002: 'เอกมัย / หมอชิต',
+      group_003: 'ชลบุรี / พัทยา / ระยอง',
+      group_004: 'รังสิต',
+      group_005: 'รถไฟ'
+    };
+    Object.keys(serviceGroups || {}).forEach(function(groupId) {
+      var group = serviceGroups[groupId] || {};
+      groupLabels[groupId] = group.displayNameTh || group.nameTh || group.label || group.name || groupLabels[groupId] || groupId;
+    });
     var fares = values(routeFareRows).filter(function(row) {
       return row && clean(row.fromNameTh) && clean(row.toNameTh) && enabled(row.status);
     });
@@ -46,6 +57,7 @@
     Object.keys(fareByOd).forEach(function(key) {
       var fare = fareByOd[key];
       if (!destinationOptionsByOrigin[fare.fromNameTh]) destinationOptionsByOrigin[fare.fromNameTh] = [];
+      var serviceGroupId = fare.serviceGroupId || fare.groupId || '';
       destinationOptionsByOrigin[fare.fromNameTh].push({
         key: fare.toNameTh,
         label: fare.toNameTh,
@@ -56,12 +68,15 @@
         routeFareRowId: fare.sourceRowId,
         pairKey: fare.sourceRowId,
         routeId: fare.routeId,
+        serviceGroupId: serviceGroupId,
+        group: groupLabels[serviceGroupId] || serviceGroupId || 'ปลายทางอื่น',
+        groupOrder: Number((serviceGroups && serviceGroups[serviceGroupId] || {}).sortOrder || (serviceGroups && serviceGroups[serviceGroupId] || {}).displayOrder || fare.displayOrder) || 0,
         order: Number(fare.displayOrder) || 0,
         bookingEligible: true
       });
     });
     Object.keys(destinationOptionsByOrigin).forEach(function(origin) {
-      destinationOptionsByOrigin[origin].sort(function(a, b) { return a.order - b.order; });
+      destinationOptionsByOrigin[origin].sort(function(a, b) { return a.groupOrder - b.groupOrder || a.order - b.order; });
     });
 
     function selectedRoute(origin, destination) {

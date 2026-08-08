@@ -12,12 +12,11 @@ assert.deepStrictEqual(navPages, [
   'bookings',
   'tickets-refunds',
   'alerts',
-  'schedule',
   'workbook',
   'announcements',
   'roles',
   'settings',
-], 'Admin ERP concept keeps exactly 10 primary sidebar entries on this runtime page (added: schedule, 2026-07-29 owner-approved exception to the Screen 02 lock)');
+], 'Admin ERP keeps exactly nine approved primary modules');
 
 for (const requiredShell of [
   'class="side"',

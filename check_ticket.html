@@ -16,7 +16,6 @@
 <script defer src="site-analytics.js?v=20260624a"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.2/mapbox-gl.js"></script>
-<script src="catalog-engine.js?v=20260627catalog2"></script>
 <script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
 <script src="erp-calculator-center.js?v=20260713center1"></script>
@@ -28,7 +27,6 @@
 <script src="ticket-data-center.js?v=20260718center1"></script>
 <script src="line-event-engine.js?v=20260626line2"></script>
 <script src="ticket-policy-engine.js?v=20260626policy1"></script>
-<script src="schedule-engine.js?v=20260627central3"></script>
 <script src="erp-workbook-booking-source.js?v=20260801a"></script>
   <style>
     :root {
@@ -636,9 +634,6 @@
       console.warn('Anonymous auth is unavailable; continuing with public ticket lookup.', err);
       return null;
     });
-    if (window.SLTransitSchedule && typeof window.SLTransitSchedule.watchFirebaseData === 'function') {
-      window.SLTransitSchedule.watchFirebaseData(db);
-    }
     // LINE OA notification is sent by Firebase Function sendLineOnBooking when new data is created at /bookings/{code}.
     var TERMINAL = { lat: null, lng: null };
     var ROTATING_VEHICLE_IDS = ['car1', 'car2', 'car3', 'car4'];
@@ -674,21 +669,10 @@
     var currentCode = null;
     var PAGE_ENTRY_MODE = 'track';
     var TICKET_DATA_CENTER = { pair: null, pairKey: '', firebaseKeyEncoding: {}, ticket: null };
-    var TICKET_CATALOG_VERSION_APPLIED = '';
-    var TICKET_CATALOG_RAW = null;
-    var TICKET_CATALOG_LOADS = {};
-    var TICKET_CATALOG_ROUTES_APPLIED = false;
-    var TICKET_CATALOG_ROUTE_DATA_APPLIED = false;
     var TICKET_ERP_MAP_ROUTES = [];
     var TICKET_ERP_MAP_DISPLAY_POLICY = null;
     var MAIN_ROUTE_STOPS_FROM_CATALOG = [];
     function ticketStopSortValue(label, fallback) {
-      if (window.SLTransitERP && typeof window.SLTransitERP.stopOrderValue === 'function') {
-        return window.SLTransitERP.stopOrderValue(label, fallback == null ? 999999 : fallback);
-      }
-      if (window.SLTransitCatalog && typeof window.SLTransitCatalog.stopOrderValue === 'function') {
-        return window.SLTransitCatalog.stopOrderValue(label, fallback == null ? 999999 : fallback);
-      }
       return fallback == null ? 999999 : Number(fallback);
     }
     var lastPosition = null;
@@ -882,51 +866,6 @@
       });
     }
 
-    db.ref('settings').on('value', function(snap) {
-      var settings = snap.val() || {};
-      TEST_MODE = settings.testMode === true;
-      MAPBOX_ACCESS_TOKEN = (settings.boxmap && settings.boxmap.accessToken) ||
-        (settings.mapbox && settings.mapbox.accessToken) ||
-        settings.boxmapAccessToken ||
-        settings.mapboxAccessToken ||
-        MAPBOX_ACCESS_TOKEN;
-      renderTestModeStatus();
-      if (settings.checkin && settings.checkin.radiusKm !== undefined) CHECKIN_RADIUS_KM = Number(settings.checkin.radiusKm) || 2.5;
-      if (settings.checkin && settings.checkin.distanceMode) {
-        DISTANCE_MODE = settings.checkin.distanceMode === 'straight' ? 'straight' : 'road';
-      }
-      if (currentBooking && !document.getElementById('ticketPanel').classList.contains('hidden')) renderBooking();
-      updateActionAvailability();
-    });
-
-    function applyTicketRouteData(routeData) {
-      routeData = routeData || {};
-      var stops = routeData.stops || {};
-      var centralStops = Object.keys(stops).map(function(key) {
-        var stop = stops[key] || {};
-        var lat = Number(stop.lat);
-        var lng = Number(stop.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        var name = String(stop.stopNameTh || stop.name || key).trim();
-        return { key:key, name:name, lat:lat, lng:lng, icon:stop.icon || '', stopType:stop.stopType || 'main', order:ticketStopSortValue(name, Number(stop.order) || 999999) };
-      }).filter(Boolean);
-      if (!centralStops.length) return;
-      MAIN_ROUTE_STOPS_FROM_CATALOG = buildMainRouteStopsFromRouteData(routeData, centralStops);
-      STOP_LOCATIONS = centralStops.slice().sort(function(a, b) {
-        return ticketStopSortValue(a && a.name, a && a.order || 999999) - ticketStopSortValue(b && b.name, b && b.order || 999999)
-          || String(a && a.name || '').localeCompare(String(b && b.name || ''));
-      });
-      if (!currentBooking) return;
-      pickupStopLocation = resolvePickupStopLocation(currentBooking);
-      destinationLocation = resolveDestinationLocation(currentBooking);
-      updateTicketTransferPointLocation();
-      relevantRouteStops = resolveRelevantRouteStops(currentBooking);
-      renderPickupMarker();
-      renderTransferMarker();
-      renderRouteStopMarkers();
-      updateTrackingRouteLine();
-    }
-
     function applyTicketPublishedScheduleMapView(mapView) {
       mapView = mapView || {};
       TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null;
@@ -962,7 +901,6 @@
         return ticketStopSortValue(a && a.name, a && a.order || 999999) - ticketStopSortValue(b && b.name, b && b.order || 999999)
           || String(a && a.name || '').localeCompare(String(b && b.name || ''));
       });
-      TICKET_CATALOG_ROUTE_DATA_APPLIED = true;
       if (!currentBooking) return;
       pickupStopLocation = resolvePickupStopLocation(currentBooking);
       destinationLocation = resolveDestinationLocation(currentBooking);
@@ -1000,67 +938,11 @@
       });
     }
 
-    function buildMainRouteStopsFromRouteData(routeData, centralStops) {
-      return centralStops
-        .filter(function(stop) { return stop.stopType !== 'conditional'; })
-        .sort(function(a, b) {
-          return ticketStopSortValue(a.name, a.order) - ticketStopSortValue(b.name, b.order)
-            || String(a.name).localeCompare(String(b.name));
-        })
-        .map(function(stop) { return stop.name; });
-    }
-
     db.ref('publishedSchedule/mapView').on('value', function(snap) {
       applyTicketPublishedScheduleMapView(snap.val() || {});
     }, function(error) {
       console.error('Ticket publishedSchedule mapView load failed:', error && error.message ? error.message : error);
     });
-
-    function applyTicketCatalog(catalog, source) {
-      if (!catalog) return;
-      TICKET_CATALOG_RAW = catalog;
-      var view = window.SLTransitERP && typeof window.SLTransitERP.catalogView === 'function'
-        ? window.SLTransitERP.catalogView(catalog)
-        : null;
-      TICKET_CATALOG_VERSION_APPLIED = String((view && view.version) || catalog.version || '');
-      console.log('[TICKET ERP] applied ' + (source || 'catalog'), TICKET_CATALOG_VERSION_APPLIED);
-    }
-
-    function getTicketErpContext(booking) {
-      booking = booking || currentBooking || {};
-      if (!TICKET_CATALOG_RAW || !window.SLTransitERP) return null;
-      var routeId = booking.catalogRouteId || booking.routeId || '';
-      var tripId = booking.catalogTripId || booking.tripId || '';
-      if (routeId && typeof window.SLTransitERP.routeTripContext === 'function') {
-        var byId = window.SLTransitERP.routeTripContext(TICKET_CATALOG_RAW, routeId, tripId, booking.time || booking.pickupTime || '');
-        if (byId) return byId;
-      }
-      if (typeof window.SLTransitERP.bookingContext !== 'function') return null;
-      return window.SLTransitERP.bookingContext(
-        TICKET_CATALOG_RAW,
-        booking.origin || booking.from || getRouteOrigin(booking),
-        booking.destination || booking.to || connectionRouteInfo(booking.route).destination,
-        booking.time || booking.pickupTime || ''
-      );
-    }
-
-    function loadCatalogForBooking(booking) {
-      if (booking && (booking.sourceMode === 'erp_data_center' || booking.publishedSchedule)) return Promise.resolve(false);
-      var version = String(booking && booking.catalogVersion || '').trim();
-      if (!version || version === TICKET_CATALOG_VERSION_APPLIED) return Promise.resolve(false);
-      if (!/^[A-Za-z0-9_-]+$/.test(version)) return Promise.resolve(false);
-      if (!TICKET_CATALOG_LOADS[version]) {
-        TICKET_CATALOG_LOADS[version] = db.ref('catalogs/' + version).once('value').then(function(snap) {
-          if (!snap.exists()) return false;
-          applyTicketCatalog(snap.val(), 'catalogs/' + version);
-          return true;
-        }).catch(function(error) {
-          console.warn('[TICKET CATALOG] booking catalogVersion load failed', version, error && error.message ? error.message : error);
-          return false;
-        });
-      }
-      return TICKET_CATALOG_LOADS[version];
-    }
 
     function normalizeLookup(value) { return value.trim().toUpperCase().replace(/\s+/g, ''); }
     function isAdminTesterBooking(booking) {
@@ -1159,18 +1041,16 @@
         } else {
           hideStatus('lookupStatus');
         }
-        return loadCatalogForBooking(currentBooking).then(function() {
-          if (currentCode !== found.code) return;
-          if (isCancelledBooking(currentBooking)) {
-            clearRememberedTicket();
-            showCancelledDonePopup();
-            startBookingListener(found.code);
-            return;
-          }
-          rememberLastTicket(found.code);
-          renderBooking();
+        if (currentCode !== found.code) return;
+        if (isCancelledBooking(currentBooking)) {
+          clearRememberedTicket();
+          showCancelledDonePopup();
           startBookingListener(found.code);
-        });
+          return;
+        }
+        rememberLastTicket(found.code);
+        renderBooking();
+        startBookingListener(found.code);
       }).catch(function(err) {
         console.error(err);
         var message = err && err.code === 'auth/operation-not-allowed'
@@ -1323,9 +1203,7 @@
             showCancelledDonePopup();
             return;
           }
-          loadCatalogForBooking(currentBooking).then(function() {
-            if (currentCode === code) renderBooking();
-          });
+          if (currentCode === code) renderBooking();
         }
       });
     }
@@ -1348,8 +1226,7 @@
       document.getElementById('showDate').textContent = formatDate(currentBooking.date);
       document.getElementById('showSeats').textContent = currentBooking.seats + ' ที่นั่ง';
       document.getElementById('showPrice').textContent = currentBooking.price ? '฿' + Number(currentBooking.price).toLocaleString() + ' บาท' : '-';
-      var erpContext = getTicketErpContext(currentBooking);
-      var displayPrice = currentBooking.price || currentBooking.catalogFare || currentBooking.fare || (erpContext && erpContext.fare);
+      var displayPrice = currentBooking.price || currentBooking.catalogFare || currentBooking.fare;
       if (displayPrice) document.getElementById('showPrice').textContent = '฿' + Number(displayPrice).toLocaleString() + ' บาท';
       var adminStatus = document.getElementById('adminTesterStatus');
       if (adminStatus) {

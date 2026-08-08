@@ -13,17 +13,14 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260624a"></script>
-<script src="catalog-engine.js?v=20260627catalog2"></script>
-<script src="erp-engine.js?v=20260627erp4"></script>
 <script src="geo-engine.js?v=20260626geo2"></script>
 <script src="map-display-center.js?v=20260716center4"></script>
 <script src="user-location-center.js?v=20260716a"></script>
-<script src="schedule-engine.js?v=20260627central3"></script>
 <script src="erp-workbook-booking-source.js?v=20260801a"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <script src="erp-data-adapter.js?v=20260716live5"></script>
 <script src="erp-core.js?v=20260704a"></script>
-<script src="passenger-logic.js?v=20260716live5"></script>
+<script src="passenger-logic.js?v=20260804central8"></script>
 <link rel="stylesheet" href="assets/map-marker-styles.css?v=20260728d">
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -698,9 +695,6 @@ body { background:#edf6f8; }
 const _erpReady = SLPassengerLogic.init(); // sets up firebase + db synchronously, ERP catalog loads async
 const db = SLPassengerLogic.getDb();
 _erpReady.then(function() {
-  if (window.SLTransitSchedule && typeof window.SLTransitSchedule.watchFirebaseData === 'function') {
-    window.SLTransitSchedule.watchFirebaseData(db);
-  }
 }).catch(function(err) {
   console.error('SLPassengerLogic.init failed:', err && err.message ? err.message : err);
 });
@@ -1192,14 +1186,6 @@ buildDropdowns();
 applyAdminTesterMode();
 
 // ---- Firebase wiring: subscribe here, hand data to passenger-logic.js to process ----
-db.ref('data/settings').on('value', function(snap) {
-  const settings = snap.val() || {};
-  TEST_MODE = settings.testMode === true;
-  applyTestModeUI();
-}, function(err) {
-  console.error('Passenger settings load failed:', err && err.message ? err.message : err);
-});
-
 // Precomputed, ready-to-render schedule -- ERP Data Center active schedule.
 // Register this before map/catalog/vehicle feeds so dropdowns become usable as
 // soon as lightweight option data arrives; pair details are loaded on demand.
@@ -1210,7 +1196,8 @@ db.ref('data/settings').on('value', function(snap) {
   Promise.all([
     scheduleBaseRef.child('manifest').once('value'),
     scheduleBaseRef.child('routeFareRows').once('value'),
-    scheduleBaseRef.child('scheduleRows').once('value')
+    scheduleBaseRef.child('scheduleRows').once('value'),
+    db.ref('publishedSchedule/mapView').once('value')
   ]).then(function(parts) {
     const manifest = parts[0].val() || {};
     const workbookIndex = SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, manifest);
@@ -1231,6 +1218,7 @@ db.ref('data/settings').on('value', function(snap) {
       firebaseKeyEncoding: {},
       validation: manifest.validation || {}
     };
+    optionNode.mapView = parts[3].val() || null;
     scheduleApi.applyPublishedScheduleOptions(optionNode);
   }).catch(function(err) {
     console.error('Passenger workbook schedule load failed:', err && err.message ? err.message : err);
@@ -1241,6 +1229,8 @@ db.ref('data/settings').on('value', function(snap) {
 SLPassengerLogic.on('scheduleUpdated', function() {
   buildDropdowns();
   renderSched();
+  SLPassengerLogic.map.refreshRoute();
+  SLPassengerLogic.map.updateVehicles(SLPassengerLogic.vehicles.getAll());
   updateBottomSheetSummary();
 });
 
@@ -1270,6 +1260,11 @@ document.addEventListener('DOMContentLoaded', async function(){
   const routeData = await SLPassengerLogic.map.loadRouteData();
   await SLPassengerLogic.map.renderRoute(routeData);
   SLPassengerLogic.map.renderStops(routeData);
+  // Re-check after map readiness in case the published map view arrived
+  // while the initial catalog fallback was still resolving.
+  SLPassengerLogic.map.refreshRoute();
+  // The live vehicle feed can arrive before the map is ready; replay it now.
+  SLPassengerLogic.map.updateVehicles(SLPassengerLogic.vehicles.getAll());
   updateBottomSheetSummary();
   SLPassengerLogic.map.refreshSize();
   const initialUserLocation = await requestPassengerUserLocation({ showErrors: false, setBusy: false, timeout: 8000 });

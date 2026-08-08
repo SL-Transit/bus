@@ -105,16 +105,6 @@
 /* ────────────────────────────────────────────────────────────
      SETTINGS — data/settings
   ──────────────────────────────────────────────────────────── */
-  function watchSettings(callback) {
-    var db = getDb();
-    if (!db || typeof callback !== 'function') return function () {};
-    var ref = db.ref('data/settings');
-    ref.on('value', callback, function (err) {
-      console.error('watchSettings failed:', err && err.message ? err.message : err);
-    });
-    return function unsubscribe() { ref.off('value', callback); };
-  }
-
   function applyLiveVehicleSnapshot(snapshot) {
     var raw = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : snapshot;
     var vehicles = retainLastVehiclePoints(raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {});
@@ -177,6 +167,7 @@
     wakeCommandAfterMs: null,
     wakeCommandCooldownMs: null
   };
+  var vehicleMarkerCfgLoaded = false;
   function watchVehicleMarkerConfig() {
     var db = getDb();
     if (!db || typeof db.ref !== 'function') return function () {};
@@ -187,6 +178,8 @@
       Object.keys(vehicleMarkerCfg).forEach(function (key) {
         vehicleMarkerCfg[key] = v[key] != null ? v[key] : null;
       });
+      vehicleMarkerCfgLoaded = true;
+      updateAllBusesOnMap(allBusPositions);
     };
     ref.on('value', handler, function (err) {
       console.error('watchVehicleMarkerConfig failed:', err && err.message ? err.message : err);
@@ -883,7 +876,44 @@ function loadPassengerRouteData() {
   if (PASSENGER_ROUTE_DATA && Array.isArray(PASSENGER_ROUTE_DATA.stations)) {
     return Promise.resolve(currentPassengerRouteData());
   }
-  return Promise.resolve(currentPassengerRouteData());
+  var adapter = global.SLTransit && global.SLTransit.db;
+  if (!adapter || (typeof adapter.getStops !== 'function' && typeof adapter.getAdminMasterDataCatalog !== 'function')) {
+    return Promise.resolve(currentPassengerRouteData());
+  }
+  var stopLoad = typeof adapter.getStops === 'function'
+    ? adapter.getStops()
+    : adapter.getAdminMasterDataCatalog().then(function(catalog) { return catalog && catalog.stops || {}; });
+  return stopLoad.then(function(rawStops) {
+    var sourceStops = Array.isArray(rawStops) ? rawStops : Object.keys(rawStops || {}).map(function(key) {
+      return Object.assign({ stopKey: key, key: key }, rawStops[key] || {});
+    });
+    var stations = sourceStops.filter(function(stop) {
+      return isFinite(Number(stop.lat != null ? stop.lat : stop.latitude)) &&
+        isFinite(Number(stop.lng != null ? stop.lng : (stop.lon != null ? stop.lon : stop.longitude)));
+    });
+    var orderedStations = [];
+    for (var order = 1; order <= stations.length; order++) {
+      stations.forEach(function(stop) {
+        var stopOrder = Number(stop.workbookOrder || stop.order || 0);
+        if (stopOrder === order) orderedStations.push(stop);
+      });
+    }
+    if (orderedStations.length) stations = orderedStations;
+    // The published map view is authoritative for road geometry. A slow
+    // catalog fallback must not replace it with an empty route list.
+    if (stations.length && !PUBLISHED_SCHEDULE_MAP_VIEW) {
+      applyPassengerRouteData({
+        stations: stations,
+        mapRoutes: [],
+        displayPolicy: null,
+        source: 'erpDataCenter.stops'
+      });
+    }
+    return currentPassengerRouteData();
+  }).catch(function(err) {
+    console.warn('Passenger central stops load failed:', err && err.message ? err.message : err);
+    return currentPassengerRouteData();
+  });
 }
 function renderRoutePolyline(routeData) {
   return drawRoute(routeData);
@@ -954,6 +984,14 @@ function drawRoute(routeData) {
   var roadPolyline = routeData && routeData.geometryType === 'road_polyline' && Array.isArray(routeData.polyline)
     ? routeData.polyline.map(normalizeMapPolylinePoint).filter(Boolean)
     : [];
+  // Longdo mobile rendering becomes unreliable with very large geometry
+  // overlays. Keep the approved road shape, but cap vertices for display.
+  if (roadPolyline.length > 600) {
+    var routeStep = Math.ceil((roadPolyline.length - 1) / 600);
+    roadPolyline = roadPolyline.filter(function(point, index, points) {
+      return index === 0 || index === points.length - 1 || index % routeStep === 0;
+    });
+  }
   if (roadPolyline.length < 2) {
     knownRouteLinePoints = [];
     try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
@@ -964,8 +1002,9 @@ function drawRoute(routeData) {
   try { if (routeLine) mapObj.Overlays.remove(routeLine); } catch(e){}
   try {
     routeLine = new longdo.Polyline(roadPolyline, {
-      lineWidth: 5,
-      lineColor: 'rgba(0, 117, 194, 0.88)',
+      lineWidth: 8,
+      lineColor: 'rgba(0, 128, 230, 1)',
+      weight: longdo.OverlayWeight && longdo.OverlayWeight.Top,
       pointer: false
     });
     mapObj.Overlays.add(routeLine);
@@ -1046,7 +1085,7 @@ function maybeSendWakeCommand(vehicleId, ageMs) {
 }
 function updateAllBusesOnMap(buses) {
   allBusPositions = buses || {};
-  if (!mapReady || !mapObj) return;
+  if (!mapReady || !mapObj || !vehicleMarkerCfgLoaded) return;
   var center = getMapDisplayCenter();
   if (!center || typeof center.prepareVehicleLayer !== 'function') return;
   var signals = Object.keys(buses || {}).map(function(id) {
@@ -1161,7 +1200,6 @@ function removeBusFromMap(carId) {
     init: init,
     getApp: getApp,
     getDb: getDb,
-    watchSettings: watchSettings,
     BUS_ICON_SRC: BUS_ICON_SRC,
     on: on,
     off: off,
