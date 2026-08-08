@@ -778,7 +778,7 @@ async function createBookingJobs(code, booking) {
   }
   const staffConfig = await staffNotificationCenter.readStaffLineTargetsConfig(db);
   const alerts = staffNotificationCenter.bookingCreatedStaffAlerts({ booking, staffConfig });
-  const uniqueAlerts = notificationCenter.dedupeRecipients(alerts.map((alert) => ({ ...alert, type: alert.recipientRole, channelKind: "staff", lineTo: alert.lineTo })));
+  const uniqueAlerts = notificationCenter.dedupeRecipients(alerts.map((alert) => ({ ...alert, type: alert.recipientRole, channelKind: "staff", lineTo: alert.lineTo })), { preserveRecipientType: true });
   for (const alert of uniqueAlerts) jobs.push(enqueueNotification(db, { code, eventType: "booking_created", channelKind: "staff", recipientType: alert.type, recipientId: alert.lineTo, lineTo: alert.lineTo, text: staffNotificationCenter.staffBookingMessage(alert, booking), testMode: booking.testMode, mockOnly: booking.mockOnly }));
   return Promise.all(jobs);
 }
@@ -791,7 +791,7 @@ async function createCancellationJobs(code, booking) {
   const db = admin.database();
   const staffConfig = await staffNotificationCenter.readStaffLineTargetsConfig(db);
   const alerts = staffNotificationCenter.bookingCreatedStaffAlerts({ booking, staffConfig });
-  const uniqueAlerts = notificationCenter.dedupeRecipients(alerts.map((alert) => ({ ...alert, type: alert.recipientRole, channelKind: "staff", lineTo: alert.lineTo })));
+  const uniqueAlerts = notificationCenter.dedupeRecipients(alerts.map((alert) => ({ ...alert, type: alert.recipientRole, channelKind: "staff", lineTo: alert.lineTo })), { preserveRecipientType: true });
   return Promise.all(uniqueAlerts.map((alert) => enqueueNotification(db, {
     code,
     eventType: "booking_cancelled",

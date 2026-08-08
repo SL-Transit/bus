@@ -16,13 +16,16 @@ function retryKey(jobId) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20)}`;
 }
 
-function dedupeRecipients(recipients) {
+function dedupeRecipients(recipients, options) {
+  options = options || {};
+  const preserveRecipientType = options.preserveRecipientType === true;
   const map = new Map();
   for (const recipient of recipients || []) {
     const lineTo = String(recipient.lineTo || "").trim();
     if (!lineTo) continue;
     const channelKind = recipient.channelKind || (recipient.type === "passenger" ? "passenger" : "staff");
-    const key = `${channelKind}::${lineTo}`;
+    const recipientType = String(recipient.type || "");
+    const key = preserveRecipientType ? `${channelKind}::${recipientType}::${lineTo}` : `${channelKind}::${lineTo}`;
     const previous = map.get(key);
     map.set(key, previous ? { ...previous, roles: [...new Set([...(previous.roles || []), recipient.type].filter(Boolean))] } : { ...recipient, channelKind, roles: recipient.type ? [recipient.type] : [] });
   }

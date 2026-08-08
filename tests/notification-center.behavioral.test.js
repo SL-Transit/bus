@@ -7,6 +7,7 @@ assert.notStrictEqual(center.safeJobId("BK1", "booking_created", "passenger", "p
 assert.strictEqual(center.retryKey(id), center.retryKey(id));
 assert.strictEqual(center.dedupeRecipients([{ type: "admin", channelKind: "staff", lineTo: "U1" }, { type: "driver", channelKind: "staff", lineTo: "U1" }, { type: "passenger", channelKind: "passenger", lineTo: "U1" }]).length, 2);
 assert.deepStrictEqual(center.dedupeRecipients([{ type: "admin", channelKind: "staff", lineTo: "U1" }, { type: "driver", channelKind: "staff", lineTo: "U1" }])[0].roles.sort(), ["admin", "driver"]);
+assert.deepStrictEqual(center.dedupeRecipients([{ type: "admin", channelKind: "staff", lineTo: "U1" }, { type: "driver", channelKind: "staff", lineTo: "U1" }], { preserveRecipientType: true }).map((item) => item.type).sort(), ["admin", "driver"]);
 assert.strictEqual(center.tokenKind("admin"), "staff");
 assert.strictEqual(center.tokenKind("transfer_terminal"), "staff");
 assert.strictEqual(center.tokenKind("passenger"), "passenger");
