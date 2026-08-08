@@ -22,7 +22,7 @@ if (page.includes('ยังไม่ได้เชื่อมต่อระ�
 if (/firebase\.database|\.ref\s*\(/.test(page)) throw new Error('admin-erp1 must not call Firebase directly');
 if (/routeData|publishedCatalog|settings\/routes|bus-booking-1d68c/.test(bridge)) throw new Error('integration bridge must not use legacy sources');
 if (!config.includes('readAdminErpDataCenter')) throw new Error('config must point at the approved read endpoint');
-if (/(?:^|\W)databaseURL\s*:|firebase\.database\s*\(|\.ref\s*\(/.test(config)) throw new Error('config must not enable direct database access');
+if (config.includes('databaseURL:') || config.includes('firebase.database(') || config.includes('.ref(')) throw new Error('config must not enable direct database access');
 if (!config.includes('signInWithEmailAndPassword')) throw new Error('config must own Firebase Auth sign-in');
 if (!config.includes('setSessionPersistence')) throw new Error('config must use session persistence for admin auth');
 if (!config.includes('persistence.LOCAL')) throw new Error('admin auth must survive a browser tab being suspended');
