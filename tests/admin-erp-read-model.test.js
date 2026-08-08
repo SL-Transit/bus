@@ -17,7 +17,11 @@ const expected = {
 assert.deepStrictEqual(Object.keys(readModel.sources).sort(), Object.keys(expected).sort(), 'only approved ERP read sources may be exposed');
 
 Object.keys(expected).forEach((tab) => {
-  assert.deepStrictEqual(readModel.sources[tab], Object.assign({ fields: readModel.sources[tab].fields }, expected[tab]), tab + ' mapping must use its canonical path');
+  assert.strictEqual(readModel.sources[tab].kind, expected[tab].kind, tab + ' mapping kind mismatch');
+  assert.strictEqual(readModel.sources[tab].name, expected[tab].name, tab + ' mapping name mismatch');
+  assert.strictEqual(readModel.sources[tab].path, expected[tab].path, tab + ' mapping must use its canonical path');
+  assert.strictEqual(readModel.sources[tab].orderField, 'sourceRowNumber', tab + ' must use the Excel source row number for ordering');
+  assert(readModel.sources[tab].excelSheet, tab + ' must declare its source Excel sheet');
   assert(readModel.sources[tab].fields.length > 0, tab + ' must declare UI field mapping');
   assert(readModel.sources[tab].fields.every((field) => typeof field === 'string' && field.length > 0), tab + ' fields must be named');
 });
