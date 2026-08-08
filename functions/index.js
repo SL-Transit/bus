@@ -756,6 +756,28 @@ async function createBookingJobs(code, booking) {
   return Promise.all(jobs);
 }
 
+function buildCancellationStaffMessage(booking) {
+  return ["การยกเลิกการจอง", staffNotificationCenter.staffBookingMessage({ recipientRole: "admin" }, booking)].join("\n");
+}
+
+async function createCancellationJobs(code, booking) {
+  const db = admin.database();
+  const staffConfig = await staffNotificationCenter.readStaffLineTargetsConfig(db);
+  const alerts = staffNotificationCenter.bookingCreatedStaffAlerts({ booking, staffConfig });
+  const uniqueAlerts = notificationCenter.dedupeRecipients(alerts.map((alert) => ({ ...alert, type: alert.recipientRole, channelKind: "staff", lineTo: alert.lineTo })));
+  return Promise.all(uniqueAlerts.map((alert) => enqueueNotification(db, {
+    code,
+    eventType: "booking_cancelled",
+    channelKind: "staff",
+    recipientType: alert.type,
+    recipientId: alert.lineTo,
+    lineTo: alert.lineTo,
+    text: buildCancellationStaffMessage(booking),
+    testMode: booking.testMode,
+    mockOnly: booking.mockOnly
+  })));
+}
+
 exports.handleBookingCreated = onValueCreated({ ref: "/bookings/{code}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken, staffLineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
   let booking = event.data.val() || {};
   const code = event.params.code || booking.code || "";
@@ -774,6 +796,13 @@ exports.handleBookingCreated = onValueCreated({ ref: "/bookings/{code}", instanc
   await createBookingJobs(code, booking);
   const serviceDate = driverTicketCenter.serviceDate(booking);
   if (serviceDate) await admin.database().ref(`operations/bookingsByServiceDate/${serviceDate}/${code}`).set({ bookingCode: code, serviceDate, indexedAt: SERVER_TIMESTAMP });
+});
+
+exports.handleBookingCancelled = onValueUpdated({ ref: "/bookings/{code}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [staffLineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
+  const before = event.data.before.val() || {};
+  const after = event.data.after.val() || {};
+  if (before.status === "cancelled" || after.status !== "cancelled") return;
+  await createCancellationJobs(event.params.code, after);
 });
 
 exports.handlePaymentStatusChanged = onValueUpdated({ ref: "/bookings/{code}/paymentStatus", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
