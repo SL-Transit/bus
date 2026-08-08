@@ -4,7 +4,9 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
-admin.initializeApp();
+const ERP_DATA_CENTER_DATABASE_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
+const EMULATOR_DATABASE_URL = `http://127.0.0.1:9000?ns=${encodeURIComponent(process.env.GCLOUD_PROJECT || "demo-sl-transit")}`;
+admin.initializeApp({ databaseURL: process.env.FUNCTIONS_EMULATOR === "true" ? EMULATOR_DATABASE_URL : ERP_DATA_CENTER_DATABASE_URL });
 
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
