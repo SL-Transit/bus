@@ -24,7 +24,27 @@
 
   function object(value) { return value && typeof value === 'object' ? value : {}; }
   function clone(value) { return JSON.parse(JSON.stringify(value == null ? null : value)); }
-  function values(map) { return Object.keys(object(map)).map(function (key) { return Object.assign({ id: key }, object(map[key])); }); }
+  function sourceRowNumber(row) {
+    row = object(row);
+    var value = row.sourceRowNumber;
+    if (value == null || value === '') value = row.excelRowNumber;
+    if (value == null || value === '') return null;
+    var number = Number(value);
+    return isFinite(number) ? number : null;
+  }
+  function values(map) {
+    var rows = Object.keys(object(map)).map(function (key, index) {
+      return { row: Object.assign({ id: key }, object(map[key])), payloadIndex: index };
+    });
+    var hasCompleteSourceOrder = rows.length > 1 && rows.every(function (entry) { return sourceRowNumber(entry.row) !== null; });
+    if (hasCompleteSourceOrder) {
+      rows.sort(function (left, right) {
+        var difference = sourceRowNumber(left.row) - sourceRowNumber(right.row);
+        return difference || left.payloadIndex - right.payloadIndex;
+      });
+    }
+    return rows.map(function (entry) { return entry.row; });
+  }
   function pathValue(root, path) { return path.split('/').reduce(function (value, key) { return value == null ? undefined : value[key]; }, root); }
   function adapterError(code, message, details) { var error = new Error(message || code); error.code = code; error.details = details || {}; return error; }
   function containsForbiddenKey(value) { return value && typeof value === 'object' && Object.keys(value).some(function (key) { return FORBIDDEN_KEYS.indexOf(key) !== -1 || containsForbiddenKey(value[key]); }); }
