@@ -96,6 +96,7 @@ assert(!alerts.some((item) => item.lineTo === "U-driver-off"));
 
 const driverAlert = alerts.find((item) => item.recipientRole === "driver");
 const driverMessage = staff.staffBookingMessage(driverAlert, booking);
+assert(driverMessage.includes("ผู้รับ:"));
 assert(driverMessage.includes("รหัส: BK123456"));
 assert(driverMessage.includes("โทร: 0812345678"));
 assert(driverMessage.includes("เส้นทาง: Nong Khok - Chachoengsao"));
@@ -107,6 +108,7 @@ assert(!driverMessage.includes("Chachoengsao - Pattaya"), "Driver messages must 
 
 const adminAlert = alerts.find((item) => item.recipientRole === "admin");
 const adminMessage = staff.staffBookingMessage(adminAlert, booking);
+assert(adminMessage.includes("ผู้รับ:"));
 assert(adminMessage.includes("โทร: 0812345678"), "Admin messages must include passenger contact details");
 
 const terminalAlert = alerts.find((item) => item.recipientRole === "transfer_terminal");

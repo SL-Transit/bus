@@ -44,6 +44,7 @@
 
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@drawable/app_cover"
         android:label="GPS Transit"
         android:roundIcon="@drawable/app_cover"

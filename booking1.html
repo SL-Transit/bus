@@ -7,6 +7,7 @@
 
 <!-- Firebase SDK (compat v9) — เหมือน index.html ของ project -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script defer src="site-analytics.js?v=20260728a"></script>
 
@@ -1171,6 +1172,7 @@ body {
   .step-label { font-size: 11px; }
 }
 </style>
+<script src="system-test-mode.js?v=20260804a"></script>
 </head>
 <body>
 
@@ -2178,7 +2180,12 @@ var FIREBASE_CONFIG = {
 ──────────────────────────────────────────────────────────── */
 
 var _fbApp   = firebase.initializeApp(FIREBASE_CONFIG);
+var _auth    = firebase.auth();
 var _db      = firebase.database();
+var _authReady = _auth.currentUser
+  ? Promise.resolve(_auth.currentUser)
+  : _auth.signInAnonymously().then(function(cred) { return cred.user; });
+window._authReady = _authReady;
 var BOOKING1_PAYMENT_FALLBACK = {
   bankName: 'กสิกรไทย (KBank)',
   accountNo: '232-8-93015-6',
@@ -2207,6 +2214,14 @@ function annEscHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function annSafeImageUrl(value) {
+  var url = String(value || '').trim();
+  if (url.length > 2 * 1024 * 1024) return '';
+  if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/i.test(url)) return url;
+  if (/^https:\/\/[^\s"'<>]+$/i.test(url)) return url;
+  return '';
+}
+
 function initBookingAnnouncements(items) {
   if (!items || !items.length) return;
   BOOKING_ANN.items = items;
@@ -2221,8 +2236,9 @@ function initBookingAnnouncements(items) {
     var type = (a.type === 'warn' || a.type === 'danger') ? a.type : 'info';
     var color = BOOKING_ANN_TYPE_COLOR[type] || BOOKING_ANN_TYPE_COLOR.info;
     var tag = BOOKING_ANN_TYPE_TAG[type] || BOOKING_ANN_TYPE_TAG.info;
-    var bgStyle = a.imageB64
-      ? 'background-image:url(' + a.imageB64 + ')'
+    var safeImage = annSafeImageUrl(a.imageB64);
+    var bgStyle = safeImage
+      ? 'background-image:url("' + annEscHtml(safeImage) + '")'
       : 'background:linear-gradient(135deg,#0B1D3A,#0f2647)';
     return '<div class="ann-slide' + (i === 0 ? ' active' : '') + '" id="ann-s-' + i + '">' +
       '<div class="ann-slide-bg" id="ann-bg-' + i + '" style="' + bgStyle + '"></div>' +

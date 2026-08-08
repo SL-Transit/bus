@@ -585,6 +585,7 @@
       passengerIdentity: snapshot.passengerIdentity || currentPassengerIdentity(state),
       notificationPreference: snapshot.notificationPreference || currentNotificationPreference(state),
       consent: snapshot.consent || currentConsent(state),
+      ownerUid: snapshot.ownerUid || '',
       originCheckin: { status: 'pending', identityVerified: false },
       status: snapshot.status || 'awaiting_payment',
       ts: global.firebase && global.firebase.database ? global.firebase.database.ServerValue.TIMESTAMP : Date.now()
@@ -955,7 +956,15 @@
     };
 
     global.goToTicket = function() {
+      if (global.SLTransitSystemTestMode === true) {
+        alert('ขณะนี้ระบบกำลังทดสอบ จึงยังไม่สามารถจองได้');
+        return;
+      }
       enforceSeparatePaymentStep();
+      if (global.firebase && global.firebase.auth && !global.firebase.auth().currentUser && global._authReady) {
+        global._authReady.then(function() { global.goToTicket(); }).catch(function() { alert('ไม่สามารถยืนยันเซสชันผู้ใช้งานได้'); });
+        return;
+      }
       var state = appState();
       if (state._bookingSubmitInFlight) { alert('กำลังบันทึกการจอง กรุณารอสักครู่'); return; }
       if (!preparePassengerAndPayment(false)) return;
@@ -1010,12 +1019,21 @@
         assignment: assignmentContract
       });
       var booking = withoutUndefined(legacyBookingPayload(state, bookingSnap));
+      var currentUser = global.firebase && global.firebase.auth ? global.firebase.auth().currentUser : null;
+      if (!currentUser || !currentUser.uid) {
+        alert('เซสชันผู้ใช้งานยังไม่พร้อม กรุณาลองใหม่');
+        return false;
+      }
+      booking.ownerUid = currentUser.uid;
       var btn = document.getElementById('btnConfirm');
       state._bookingSubmitInFlight = true;
       if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึกการจอง...'; }
       global.SLBookingBridge.reserveBookingCapacity(db, capacityContract).then(function(reservation) {
         booking.capacity = reservation;
-        return db.ref('bookings/' + booking.code).set(booking).catch(function(err) {
+        return global.SLBookingBridge.createBooking(booking).then(function(serverBooking) {
+          booking = serverBooking || booking;
+          return booking;
+        }).catch(function(err) {
           return global.SLBookingBridge.releaseBookingCapacity(db, capacityContract).then(function() { throw err; });
         });
       }).then(function() {

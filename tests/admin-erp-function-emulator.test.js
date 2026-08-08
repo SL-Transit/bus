@@ -44,6 +44,12 @@ async function callRead(token, scope) {
 }
 
 async function main() {
+  try {
+    await fetch(`${AUTH_BASE}/identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(DATABASE_NAMESPACE)}`);
+  } catch (error) {
+    console.log('admin erp function emulator skipped: Firebase emulators are not running');
+    return;
+  }
   const admin = await createUser('owner');
   await grantLegacyAdmin(admin);
   const normal = await createUser('viewer-without-account');

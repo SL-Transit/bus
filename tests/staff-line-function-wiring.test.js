@@ -6,6 +6,9 @@ const index = fs.readFileSync(path.join(__dirname, "../functions/index.js"), "ut
 
 assert(index.includes('const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN")'));
 assert(index.includes("exports.handleBookingCreated = onValueCreated"));
+assert(index.includes("exports.handleBookingCancelled = onValueUpdated"));
+assert(index.includes('eventType: "booking_cancelled"'));
+assert(index.includes("createCancellationJobs"));
 assert(index.includes("exports.processNotificationJob = onValueCreated"));
 assert(index.includes("operations/notificationJobs/${jobId}"));
 assert(index.includes("operations/notificationDispatch/${jobId}"));

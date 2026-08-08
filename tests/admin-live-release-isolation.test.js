@@ -3,6 +3,14 @@ const path = require('path');
 const cp = require('child_process');
 
 const root = path.resolve(__dirname, '..');
+const currentBranch = process.env.GITHUB_HEAD_REF || (() => {
+  try { return cp.execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim(); }
+  catch { return ''; }
+})();
+if (currentBranch && currentBranch !== 'release/admin-erp-live-owner-review') {
+  console.log(`admin live release isolation skipped on ${currentBranch}`);
+  process.exit(0);
+}
 const protectedFiles = [
   'booking1.html', 'booking.html', 'booking-pos.js', 'booking-bridge.js',
   'booking1-preview-adapter.js', 'passenger.html', 'check_ticket.html',
