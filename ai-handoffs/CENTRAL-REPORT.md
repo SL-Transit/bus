@@ -1616,3 +1616,31 @@ GitHub Actions CI: unavailable; no workflow run evidence existed for the PR bran
 ## Safety
 
 No deployment occurred. No Firebase production write occurred. No Firebase Rules or Indexes were modified as part of the merge action. No seed, ERP data publish, production apply, or Screen 02 work was started.
+# 2026-08-08 00:00 +07 - Master Data Excel Normalization Handoff - BLOCKED / NEEDS COORDINATION
+
+Scope:
+- Read-only inspection of the Owner Master Data workbook in `C:\Users\com\Downloads\SL-Transit_20260712_payment_contact_updated.xlsx`.
+- Coordination handoff only; this entry does not publish runtime code, seed Firebase, or change production data.
+
+Findings:
+- The workbook contains 5 service groups, 244 route/fare rows, 881 timetable rows, and 5 vehicle records.
+- The five group labels are `group_001` สนามชัยเขต / หนองคอก / คลองหาด, `group_002` ท่ารถหมอชิต-เอกมัย-BTS, `group_003` ท่ารถพัทยา-ระยอง-มีนบุรี, `group_004` ท่ารถรังสิต, and `group_005` สถานีรถไฟ.
+- The workbook maps `car1` through `car5` to `group_001`; the vehicle rows contain temporary/test credential fields that must not be imported into production.
+- The timetable sheet does not currently contain canonical `arrivalTime` or `serviceDays` fields. Network matching must remain gated until the responsible data owner decides how to represent estimated/pass-through times and service-day semantics.
+- Group and route identifiers require normalization before import; route prefixes such as `G_001-*` through `G_005-*` are stable mapping evidence, while some timetable group cells use Thai display labels instead of canonical IDs.
+
+Coordination:
+- Data Import AI owns the dry-run catalog/fleet/settings plan.
+- Main Backbone Lead owns `erp-schema.js`, `erp-import-plan.js`, and the schema contract.
+- This session prepared a local normalizer/import-plan draft for analysis only, but it is not included in this board-only update and is not ready for merge.
+- Per current board rules, stop before editing shared implementation files until a work lock and owner decision are recorded.
+
+Safety:
+- Firebase writes: none.
+- Seed/import apply: none.
+- Deployment/merge of runtime code: none.
+- Passenger/private data: not read or modified.
+- Temporary workbook-derived artifacts: local dry-run only; no production upload.
+
+Next action:
+- Data Import AI/Main Backbone Lead to review this handoff, assign ownership/work lock, and decide whether the normalizer should be implemented in the central import pipeline.
