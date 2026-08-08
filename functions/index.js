@@ -11,6 +11,7 @@ const driverWorkAutoCenter = require("./driver-work-auto-center.js");
 const staffNotificationCenter = require("./staff-notification-center.js");
 const notificationCenter = require("./notification-center.js");
 const adminDashboardSummary = require("./admin-dashboard-summary.js");
+const adminErpAuthorization = require("./admin-erp-authorization.js");
 
 const lineToken = defineSecret("LINE_CHANNEL_ACCESS_TOKEN");
 const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
@@ -216,13 +217,22 @@ exports.readAdminErpDataCenter = onRequest({
     return;
   }
   try {
-    await admin.auth().verifyIdToken(tokenMatch[1]);
+    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
+    const access = adminErpAuthorization.accessFor(decoded, adminSnap.val());
+    if (!access.authenticated || !access.can("read")) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_read_permission_required" });
+      return;
+    }
     const snap = await admin.database().ref("data/erpDataCenter").get();
+    const scoped = adminErpAuthorization.sanitizeReadModel(snap.val() || {}, access);
     res.set("Cache-Control", "private, max-age=30");
     res.status(200).type("application/json").send(JSON.stringify({
       status: "ready",
       path: "data/erpDataCenter",
-      erpDataCenter: snap.val() || {},
+      erpDataCenter: scoped,
+      permissions: access.permissions,
+      roles: access.roles,
       generatedAt: Date.now()
     }));
   } catch (err) {
@@ -300,10 +310,15 @@ exports.updateAdminErpDataCenter = onRequest({
   try {
     const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
     const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
-    if (adminSnap.val() !== true) {
-      sendJson(res, 403, { status: "error", error: "admin_account_required" });
+    const access = adminErpAuthorization.accessFor(decoded, adminSnap.val());
+    if (!access.authenticated || !access.can("edit")) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_edit_permission_required" });
       return;
     }
+    // Direct canonical writes are disabled. Changes must use a Draft -> Validate -> Review -> Owner approval -> Publish workflow.
+    sendJson(res, 409, { status: "error", error: "draft_workflow_required", productionWrite: false });
+    return;
+    /*
     const body = parseJsonRequest(req);
     const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
     const paths = Object.keys(updates);
@@ -330,6 +345,7 @@ exports.updateAdminErpDataCenter = onRequest({
     };
     await admin.database().ref().update(patch);
     sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
+    */
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (/token|auth|credential/i.test(message)) {
