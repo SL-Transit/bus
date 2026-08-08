@@ -36,6 +36,7 @@ window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID || '2010733143-x
 <script src="passenger-identity-center.js?v=20260716a"></script>
 <script src="erp-workbook-booking-source.js?v=20260803group1"></script>
 <script src="booking-bridge.js?v=20260806service-groups"></script>
+<script src="announcement-data-adapter.js?v=20260808a"></script>
 <script src="booking1-preview-adapter.js?v=20260716a" defer></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2299,6 +2300,13 @@ var _erpCoreReady = (window.SLTransit && window.SLTransit.core && typeof window.
   : Promise.resolve(false); /* erp-core.js ยังไม่ได้โหลด → ข้ามไปเลย ไม่รอ */
 
 /* Bridge init (publishedSchedule -> populate UI) */
+if (window.SLTransitAnnouncementAdapter) {
+  window.SLTransitAnnouncementAdapter.readPublished(_db, {
+    channel: 'booking',
+    placements: ['booking_banner', 'homepage_banner', 'homepage_hero']
+  }).then(initBookingAnnouncements).catch(function() { /* ใช้ placeholder */ });
+}
+
 SLBookingBridge.init(_db).then(function() {
   _applySettings({ payment: SLBookingBridge.getPaymentContact && SLBookingBridge.getPaymentContact() });
   _populateStopPicker();
