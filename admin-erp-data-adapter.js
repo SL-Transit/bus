@@ -32,7 +32,7 @@
     var number = Number(value);
     return isFinite(number) ? number : null;
   }
-  function values(map) {
+  function orderedValues(map) {
     var rows = Object.keys(object(map)).map(function (key, index) {
       return { row: Object.assign({ id: key }, object(map[key])), payloadIndex: index };
     });
@@ -43,8 +43,9 @@
         return difference || left.payloadIndex - right.payloadIndex;
       });
     }
-    return rows.map(function (entry) { return entry.row; });
+    return { rows: rows.map(function (entry) { return entry.row; }), verified: rows.length <= 1 || hasCompleteSourceOrder };
   }
+  function values(map) { return orderedValues(map).rows; }
   function pathValue(root, path) { return path.split('/').reduce(function (value, key) { return value == null ? undefined : value[key]; }, root); }
   function adapterError(code, message, details) { var error = new Error(message || code); error.code = code; error.details = details || {}; return error; }
   function containsForbiddenKey(value) { return value && typeof value === 'object' && Object.keys(value).some(function (key) { return FORBIDDEN_KEYS.indexOf(key) !== -1 || containsForbiddenKey(value[key]); }); }
@@ -96,15 +97,18 @@
       throw adapterError('endpoint_error', 'อ่านข้อมูลไม่สำเร็จ', { cause: error && error.message });
     });
   }
-  function toResult(status, path, rows, snapshot, error) { return { status: status, path: path, rows: Array.isArray(rows) ? rows : values(rows), count: Array.isArray(rows) ? rows.length : Object.keys(object(rows)).length, source: 'admin-erp-read-endpoint', version: snapshot && snapshot.version || null, lastUpdated: snapshot && snapshot.generatedAt || null, permissions: snapshot && snapshot.permissions || null, error: error || null }; }
+  function toResult(status, path, rows, snapshot, error, orderVerified) { return { status: status, path: path, rows: Array.isArray(rows) ? rows : values(rows), count: Array.isArray(rows) ? rows.length : Object.keys(object(rows)).length, source: 'admin-erp-read-endpoint', version: snapshot && snapshot.version || null, lastUpdated: snapshot && snapshot.generatedAt || null, permissions: snapshot && snapshot.permissions || null, orderField: 'sourceRowNumber', orderVerified: orderVerified !== false, error: error || null }; }
   function getCatalog(entity, query) {
     query = query || {};
     if (!ENTITY_PATHS[entity]) return Promise.reject(adapterError('unknown_entity', 'ไม่รู้จักหมวดข้อมูล: ' + entity));
     return readRoot(ENTITY_SCOPES[entity]).then(function (snapshot) {
-      var rows = values(pathValue(snapshot.root, ENTITY_DATA_PATHS[entity]));
+      var ordered = orderedValues(pathValue(snapshot.root, ENTITY_DATA_PATHS[entity]));
+      var rows = ordered.rows;
       if (query.search) rows = rows.filter(function (row) { return JSON.stringify(row).toLowerCase().indexOf(String(query.search).toLowerCase()) !== -1; });
       if (query.limit != null) rows = rows.slice(0, Math.max(0, Number(query.limit)));
-      return toResult(snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status, PATHS[ENTITY_SCOPES[entity]], rows, snapshot);
+      var status = snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status;
+      if (status === STATUS.ready && !ordered.verified) status = STATUS.partial;
+      return toResult(status, PATHS[ENTITY_SCOPES[entity]], rows, snapshot, null, ordered.verified);
     });
   }
   function getWorkbookSource(sheet, query) {
@@ -113,9 +117,12 @@
     return readRoot(key === 'workbookSource' ? 'workbookSource' : key).then(function (snapshot) {
       var rows = pathValue(snapshot.root, key === 'workbookSource' ? key : 'workbookSource/' + key);
       if (key === 'workbookSource') return toResult(snapshot.status, PATHS.workbookSource, rows, snapshot);
-      rows = values(rows);
+      var ordered = orderedValues(rows);
+      rows = ordered.rows;
       if (query && query.search) rows = rows.filter(function (row) { return JSON.stringify(row).toLowerCase().indexOf(String(query.search).toLowerCase()) !== -1; });
-      return toResult(snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status, PATHS[key], rows, snapshot);
+      var status = snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status;
+      if (status === STATUS.ready && !ordered.verified) status = STATUS.partial;
+      return toResult(status, PATHS[key], rows, snapshot, null, ordered.verified);
     });
   }
   function getRecord(entity, recordId) { return getCatalog(entity).then(function (result) { return Object.assign(result, { record: result.rows.find(function (row) { return row.id === recordId || row[entity + 'Id'] === recordId || row.stopKey === recordId; }) || null }); }); }
