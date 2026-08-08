@@ -73,6 +73,27 @@ async function main() {
   assert.strictEqual(scopedStops.body.path, 'data/erpDataCenter/stops');
   assert.strictEqual(Object.prototype.hasOwnProperty.call(scopedStops.body.erpDataCenter, 'routes'), false);
 
+  const scopedPaths = {
+    routes: 'data/erpDataCenter/routes',
+    trips: 'data/erpDataCenter/trips',
+    stopTimes: 'data/erpDataCenter/stopTimes',
+    fares: 'data/erpDataCenter/fares',
+    vehicles: 'data/erpDataCenter/fleet/vehicles',
+    queues: 'data/erpDataCenter/fleet/queues',
+    assignmentRules: 'data/erpDataCenter/fleet/assignmentRules',
+    serviceGroups: 'data/erpDataCenter/serviceGroups',
+    paymentOwnership: 'data/erpDataCenter/paymentOwnership',
+    routeFareRows: 'data/erpDataCenter/workbookSource/routeFareRows',
+    scheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows',
+    manifest: 'data/erpDataCenter/workbookSource/manifest',
+    reconciliation: 'data/erpDataCenter/workbookSource/reconciliation'
+  };
+  for (const [scope, path] of Object.entries(scopedPaths)) {
+    const scoped = await callRead(admin.idToken, scope);
+    assert.strictEqual(scoped.status, 200, `${scope} scope must be readable by an approved admin`);
+    assert.strictEqual(scoped.body.path, path, `${scope} scope must return its canonical path`);
+  }
+
   const unsupportedScope = await callRead(admin.idToken, 'bookings');
   assert.strictEqual(unsupportedScope.status, 400);
   assert.strictEqual(unsupportedScope.body.error, 'unsupported_erp_read_scope');
