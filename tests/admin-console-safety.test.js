@@ -201,7 +201,7 @@ assert.ok(html.includes('Excel'));
 assert.ok(html.includes('Draft'));
 assert.ok(html.includes('Review'));
 assert.ok(html.includes('Publish'));
-assert.ok(legacyAdmin.includes('url=admin-erp.html'));
-assert.ok(compatibilityAdmin.includes('url=admin-erp.html'));
+assert.ok(legacyAdmin.includes('url=admin-erp1.html'));
+assert.ok(compatibilityAdmin.includes('url=admin-erp1.html'));
 
 console.log('admin-erp safety ok');
