@@ -70,7 +70,6 @@
   <script src="admin-erp-data-adapter.js"></script>
   <script src="admin-erp-read-model.js"></script>
   <script src="admin-erp1-integration.js"></script>
-  <script src="admin-erp1-network-integration.js?v=20260808-network"></script>
   <script>
     const pages=[['dashboard','แดชบอร์ด'],['finance','รายได้ การจอง และการยกเลิก'],['ops','คิวรถและตารางเวลา'],['data','ศูนย์ข้อมูล ERP'],['news','ข่าวสารและประกาศ'],['staff','ผู้ใช้งานและสิทธิ์'],['account','การตั้งค่าบัญชี'],['test','โหมดทดสอบและเผยแพร่'],['logout','ออกจากระบบ']];
     const nav=document.getElementById('nav'); pages.forEach(([id,label])=>{const b=document.createElement('button');b.textContent=label;b.dataset.page=id;nav.appendChild(b)});
@@ -680,6 +679,7 @@
     })();
   </script>
   <style id="daily-schedule-console">
+    .schedule-state{display:none!important}
     .schedule-mode-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.schedule-mode-card{padding:15px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;color:var(--ink)}.schedule-mode-card.active,.schedule-mode-card:hover{border-color:#85bdf0;background:var(--soft)}.schedule-mode-card strong,.schedule-mode-card span{display:block}.schedule-mode-card span{margin-top:5px;color:var(--muted);font-size:12px}.schedule-mode-card i{display:block;width:8px;height:8px;border-radius:50%;background:var(--teal);margin-bottom:10px}.schedule-control{display:flex;justify-content:space-between;gap:12px;align-items:end;flex-wrap:wrap;padding:16px;border-bottom:1px solid var(--line)}.schedule-control-group{display:flex;gap:9px;flex-wrap:wrap}.schedule-control label{display:grid;gap:5px;color:var(--muted);font-size:11px}.schedule-control input,.schedule-control select{min-width:150px}.schedule-state{padding:12px 16px;background:var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}.schedule-empty{min-height:180px;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}.schedule-empty strong{display:block;color:var(--ink);margin-bottom:5px}.schedule-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.schedule-detail-card{padding:18px}.schedule-detail-card h2{font-size:16px;margin:0 0 6px}.schedule-detail-card p{color:var(--muted);font-size:12px}.schedule-rule{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.schedule-rule strong,.schedule-rule span{display:block}.schedule-rule span{color:var(--muted);font-size:11px;margin-top:3px}.schedule-drawer-actions{display:flex;gap:8px;margin-top:18px}@media(max-width:1000px){.schedule-mode-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.schedule-mode-grid,.schedule-detail-grid{grid-template-columns:1fr}.schedule-control{display:grid}.schedule-control-group{display:grid;grid-template-columns:1fr}.schedule-control input,.schedule-control select{width:100%;min-width:0}}
   </style>
   <script>
