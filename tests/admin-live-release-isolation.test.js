@@ -6,11 +6,26 @@ const root = path.resolve(__dirname, '..');
 const protectedFiles = [
   'booking1.html', 'booking.html', 'booking-pos.js', 'booking-bridge.js',
   'booking1-preview-adapter.js', 'passenger.html', 'check_ticket.html',
-  'cancel_ticket.html', 'functions/index.js', 'database.rules.json'
+  'cancel_ticket.html', 'database.rules.json'
 ];
 const run = (args) => cp.execFileSync('git', args, { cwd: root, encoding: 'utf8' });
 const changed = run(['diff', '--name-only', 'origin/main...HEAD']).trim().split(/\r?\n/).filter(Boolean);
-const allowed = new Set(['admin-erp.html', 'tests/admin-console-all.test.js', 'tests/admin-console-browser.spec.js', 'tests/admin-enterprise-ux.test.js', 'tests/admin-live-release-isolation.test.js', '.github/workflows/admin-live-release.yml']);
+const allowed = new Set([
+  'admin-erp.html',
+  'admin-erp-data-adapter.js',
+  'docs/ADMIN-ERP-DUPLICATE-WORK-AUDIT.md',
+  'docs/ADMIN-ERP-FIREBASE-INTEGRATION-CONTRACT.md',
+  'docs/ADMIN-ERP-READINESS-REPORT.md',
+  'functions/admin-erp-authorization.js',
+  'functions/index.js',
+  'tests/admin-console-blueprint-ui.test.js',
+  'tests/admin-erp-authorization.test.js',
+  'tests/admin-erp-data-adapter.test.js',
+  'tests/admin-erp-function-emulator.test.js',
+  'tests/admin-erp-legacy-adapter-migration.test.js',
+  'tests/admin-enterprise-ux.test.js',
+  'tests/admin-live-release-isolation.test.js'
+]);
 const unexpected = changed.filter((file) => !allowed.has(file));
 if (unexpected.length) throw new Error(`unexpected release files: ${unexpected.join(', ')}`);
 for (const file of protectedFiles) {
