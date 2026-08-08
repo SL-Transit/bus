@@ -155,13 +155,15 @@ exports.reserveBookingCapacity = onRequest({
       return;
     }
     const result = await ref.transaction((current) => {
-      if (!current || !Number.isInteger(Number(current.capacityLimit)) || Number(current.capacityLimit) < 1 || Number(current.capacityLimit) > MAX_CAPACITY_LIMIT) return;
+      if (!current) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "missing_counter" })); return; }
+      const transactionCapacityLimit = Number(current.capacityLimit);
+      if (!Number.isInteger(transactionCapacityLimit) || transactionCapacityLimit < 1 || transactionCapacityLimit > MAX_CAPACITY_LIMIT) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "invalid_limit", capacityLimit: current.capacityLimit })); return; }
       const bookings = current.bookings || {};
       const existing = bookings[bookingCode];
       if (existing) return existing.ownerUid === decoded.uid ? current : undefined;
       const bookedSeats = Math.max(0, Number(current.bookedSeats || 0));
-      const capacityLimit = Number(current.capacityLimit);
-      if (bookedSeats + requestedSeats > capacityLimit) return;
+      const capacityLimit = transactionCapacityLimit;
+      if (bookedSeats + requestedSeats > capacityLimit) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "capacity_full", capacityLimit, bookedSeats, requestedSeats })); return; }
       const serverNow = Date.now();
       return {
         ...current,
