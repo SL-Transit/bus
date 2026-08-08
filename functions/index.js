@@ -5,12 +5,34 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 
 const ERP_DATA_CENTER_DATABASE_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
-const emulatorDatabaseUrl = process.env.FIREBASE_DATABASE_EMULATOR_HOST
-  ? `http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=sl-transit-9464e-default-rtdb`
-  : '';
-admin.initializeApp(emulatorDatabaseUrl ? { databaseURL: emulatorDatabaseUrl } : { databaseURL: ERP_DATA_CENTER_DATABASE_URL });
+const EMULATOR_DATABASE_URL = `http://127.0.0.1:9000?ns=${encodeURIComponent(process.env.GCLOUD_PROJECT || "demo-sl-transit")}`;
+admin.initializeApp({ databaseURL: process.env.FUNCTIONS_EMULATOR === "true" ? EMULATOR_DATABASE_URL : ERP_DATA_CENTER_DATABASE_URL });
 const SERVER_TIMESTAMP = { ".sv": "timestamp" };
 const MAX_CAPACITY_LIMIT = 300;
+
+const ERP_READ_SCOPES = Object.freeze({
+  access: { path: "data/erpDataCenter/meta/access", root: null, envelope: [] },
+  root: { path: "data/erpDataCenter", root: null, envelope: [] },
+  workbookSource: { path: "data/erpDataCenter/workbookSource", root: "workbookSource", envelope: ["workbookSource"] },
+  stops: { path: "data/erpDataCenter/stops", root: "stops", envelope: ["stops"] },
+  routes: { path: "data/erpDataCenter/routes", root: "routes", envelope: ["routes"] },
+  trips: { path: "data/erpDataCenter/trips", root: "trips", envelope: ["trips"] },
+  stopTimes: { path: "data/erpDataCenter/stopTimes", root: "stopTimes", envelope: ["stopTimes"] },
+  fares: { path: "data/erpDataCenter/fares", root: "fares", envelope: ["fares"] },
+  vehicles: { path: "data/erpDataCenter/fleet/vehicles", root: "fleet", envelope: ["fleet", "vehicles"] },
+  queues: { path: "data/erpDataCenter/fleet/queues", root: "fleet", envelope: ["fleet", "queues"] },
+  assignmentRules: { path: "data/erpDataCenter/fleet/assignmentRules", root: "fleet", envelope: ["fleet", "assignmentRules"] },
+  serviceGroups: { path: "data/erpDataCenter/serviceGroups", root: "serviceGroups", envelope: ["serviceGroups"] },
+  paymentOwnership: { path: "data/erpDataCenter/paymentOwnership", root: "paymentOwnership", envelope: ["paymentOwnership"] },
+  routeFareRows: { path: "data/erpDataCenter/workbookSource/routeFareRows", root: "workbookSource", envelope: ["workbookSource", "routeFareRows"] },
+  scheduleRows: { path: "data/erpDataCenter/workbookSource/scheduleRows", root: "workbookSource", envelope: ["workbookSource", "scheduleRows"] },
+  manifest: { path: "data/erpDataCenter/workbookSource/manifest", root: "workbookSource", envelope: ["workbookSource", "manifest"] },
+  reconciliation: { path: "data/erpDataCenter/workbookSource/reconciliation", root: "workbookSource", envelope: ["workbookSource", "reconciliation"] }
+});
+
+function envelopeRead(value, envelope) {
+  return (envelope || []).reduceRight((out, key) => ({ [key]: out }), value);
+}
 
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
@@ -544,24 +566,41 @@ exports.readAdminErpDataCenter = onRequest({
     sendJson(res, 429, { status: "error", error: "rate_limited" });
     return;
   }
+  const scope = String(req.query.scope || "root");
+  const readScope = ERP_READ_SCOPES[scope];
+  if (!readScope) {
+    sendJson(res, 400, { status: "error", error: "unsupported_erp_read_scope" });
+    return;
+  }
+  const authHeader = String(req.headers.authorization || "");
+  const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) {
+    sendJson(res, 401, { status: "error", error: "admin_token_required" });
+    return;
+  }
   try {
-    await requireAdminToken(req);
-    const snap = await admin.database().ref("data/erpDataCenter").get();
-    res.set("Cache-Control", "private, max-age=30");
-    res.status(200).type("application/json").send(JSON.stringify({
-      status: "ready",
-      path: readScope.path,
-      erpDataCenter: scoped,
-      permissions: access.permissions,
-      roles: access.roles,
-      generatedAt: Date.now()
-    }));
-  } catch (err) {
-    const message = err && err.message ? err.message : String(err);
-    if (err && err.statusCode) {
-      sendJson(res, err.statusCode, { status: "error", error: err.statusCode === 403 ? "admin_account_required" : "invalid_admin_token" });
+    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
+    const access = adminErpAuthorization.accessFor(decoded, adminSnap.val());
+    if (!access.authenticated || !access.can("read")) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_read_permission_required" });
       return;
     }
+    if (scope === "access") {
+      res.set("Cache-Control", "private, max-age=30");
+      sendJson(res, 200, { status: "ready", path: readScope.path, erpDataCenter: {}, permissions: access.permissions, roles: access.roles, generatedAt: Date.now() });
+      return;
+    }
+    if (readScope.root && !access.roots.includes(readScope.root)) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_scope_permission_required", scope });
+      return;
+    }
+    const snap = await admin.database().ref(readScope.path).get();
+    const scoped = adminErpAuthorization.sanitizeReadModel(envelopeRead(snap.val() || {}, readScope.envelope), access);
+    res.set("Cache-Control", "private, max-age=30");
+    res.status(200).type("application/json").send(JSON.stringify({ status: "ready", path: readScope.path, erpDataCenter: scoped, permissions: access.permissions, roles: access.roles, generatedAt: Date.now() }));
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
     if (/token|auth|credential/i.test(message)) {
       sendJson(res, 401, { status: "error", error: "invalid_admin_token" });
       return;
@@ -633,33 +672,14 @@ exports.updateAdminErpDataCenter = onRequest({
     return;
   }
   try {
-    const decoded = await requireAdminToken(req);
-    const body = parseJsonRequest(req);
-    const updates = body && body.updates && typeof body.updates === "object" ? body.updates : {};
-    const paths = Object.keys(updates);
-    if (!paths.length || paths.length > 50) {
-      sendJson(res, 400, { status: "error", error: "invalid_update_count" });
+    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    const adminSnap = await admin.database().ref(`data/erpDataCenter/adminAccounts/${decoded.uid}`).get();
+    const access = adminErpAuthorization.accessFor(decoded, adminSnap.val());
+    if (!access.authenticated || !access.can("edit")) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_edit_permission_required" });
       return;
     }
-    const patch = {};
-    for (const path of paths) {
-      if (!allowedErpUpdatePath(path) || !scalarErpValue(updates[path])) {
-        sendJson(res, 400, { status: "error", error: "invalid_erp_update_path" });
-        return;
-      }
-      patch[path] = updates[path];
-    }
-    const auditKey = `admin_erp_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    patch[`data/erpDataCenter/meta/audit/${auditKey}`] = {
-      actorUid: decoded.uid,
-      action: "admin_erp_update",
-      updateCount: paths.length,
-      paths,
-      createdAt: Date.now()
-    };
-    await admin.database().ref().update(patch);
-    sendJson(res, 200, { status: "ready", updateCount: paths.length, auditKey });
-    */
+    sendJson(res, 409, { status: "error", error: "draft_workflow_required", productionWrite: false });
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     if (err && err.statusCode) {
