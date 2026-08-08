@@ -75,9 +75,12 @@
     function finance(){const rows=Array.from({length:5},()=>`<tr><td class="primary-cell"><strong>ยังไม่มีข้อมูล</strong><span class="sub">รอการเชื่อมต่อ Booking</span></td><td><span class="sub">คิวรถ</span>—</td><td><span class="sub">เที่ยวรถ</span>—</td><td><span class="sub">vehicle</span>—</td><td class="num money">—</td><td class="num money">—</td><td class="num money">—</td><td class="num money">—</td><td><span class="status">รอตรวจสอบ</span></td><td><button class="action" data-settlement="1">ดูรายละเอียด</button></td></tr>`).join('');return head('รายได้และการกระจายยอด','จัดการยอดจอง รายได้รถ กลุ่มคิว และค่าบริการ SL-Transit','ส่งออกข้อมูล')+`<div class="kpis">${['ยอดจองรวม','ส่วนของรถ','ส่วนกลุ่มคิว','ส่วน SL-Transit'].map(x=>`<article class="card kpi"><div class="label">${x}</div><div class="value">—</div><span class="label">ยังไม่มีข้อมูลจริง</span></article>`).join('')}</div><div class="filters"><input class="field" type="date"><select class="field"><option>ทุกสถานะการจ่าย</option></select><select class="field"><option>ทุกกลุ่มคิว</option></select><button class="btn">กระทบยอด</button></div><div class="tabs"><button class="active">การกระจายยอด</button><button>รายการจอง</button><button>รอบการจ่ายเงิน</button><button>ยกเลิก / คืนเงิน</button></div><section class="card"><div class="toolbar"><div><strong>Settlement Ledger</strong><span class="label">แยกยอดตาม booking, trip, vehicle และ payment</span></div><button class="btn primary">สร้างรอบจ่าย</button></div><div class="table-wrap"><table class="table"><thead><tr><th rowspan="2">Booking</th><th rowspan="2">คิวรถ</th><th rowspan="2">เที่ยวรถ</th><th rowspan="2">รถ</th><th colspan="4">ยอดการกระจาย</th><th rowspan="2">สถานะ</th><th rowspan="2"></th></tr><tr><th class="num">ยอดจอง</th><th class="num">ส่วนรถ</th><th class="num">ส่วนกลุ่มคิว</th><th class="num">ส่วนบริษัท</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>แสดง — รายการ · ยังไม่เชื่อมต่อแหล่งข้อมูล</span><span>หน้า —</span></div></section><div class="lower"><section class="card detail"><h2>สถานะการจ่ายเงิน</h2><div class="notice">ชำระเงินแล้ว → กันยอดไว้ → พร้อมกระจาย → รอจ่าย → จ่ายแล้ว</div></section><section class="card detail"><h2>การกระทบยอด</h2><div class="notice">ยังไม่มีข้อมูล Payment หรือรายการคืนเงิน</div></section></div>`}
     const views={dashboard,finance,ops:()=>head('การเดินรถ / ตารางเที่ยวบริการ','คิวรถ เวลาออก และนโยบายการเผยแพร่ตำแหน่ง','สร้างเที่ยวบริการ')+empty,data:()=>head('จัดการข้อมูล','ตารางว่างจากแม่แบบ Excel สำหรับกรอกและแก้ไขข้อมูล')+'<div class="notice">ใช้เฉพาะหัวคอลัมน์จาก Excel ไม่มีข้อมูลตัวอย่าง</div>'+empty,news:()=>standard('อัพเดทข่าวสาร','สร้าง ตรวจสอบ และเผยแพร่ประกาศบนเว็บไซต์'),staff:()=>standard('พนักงาน / สิทธิ์','จัดการผู้ใช้งานและสิทธิ์การเข้าถึง'),account:()=>standard('ตั้งค่าบัญชี','จัดการโปรไฟล์และความปลอดภัย'),test:()=>standard('โหมดทดสอบ','ควบคุมสภาพแวดล้อมสำหรับการทดสอบ'),logout:()=>head('ออกจากระบบ','สิ้นสุด session ของผู้ใช้งานปัจจุบัน')};
     function closeAll(){document.getElementById('side').classList.remove('open');document.getElementById('overlay').classList.remove('show')}
-    function render(id){document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));document.getElementById('content').innerHTML=views[id||'dashboard']();closeAll()}
+    const ACTIVE_PAGE_KEY='slTransitAdminErpActivePageV1';
+    function readActivePage(){try{return localStorage.getItem(ACTIVE_PAGE_KEY)||sessionStorage.getItem(ACTIVE_PAGE_KEY)||''}catch(e){return ''}}
+    function saveActivePage(id){if(!id||id==='logout')return;try{localStorage.setItem(ACTIVE_PAGE_KEY,id);sessionStorage.setItem(ACTIVE_PAGE_KEY,id)}catch(e){}}
+    function render(id, persist){id=id&&views[id]?id:'dashboard';document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));document.getElementById('content').innerHTML=views[id]();if(persist!==false)saveActivePage(id);closeAll()}
     function openDrawer(){document.getElementById('drawerBody').innerHTML='<h2>รายละเอียดการกระจายยอด</h2><p class="label">แยกเงินจากการจองหนึ่งรายการให้ผู้เกี่ยวข้องหลายฝ่าย</p><div class="grid">'+['ยอดที่ผู้โดยสารชำระ','ส่วนของรถ','ส่วนกลุ่มคิว','ส่วน SL-Transit','ค่าธรรมเนียมชำระเงิน','เงินคืน'].map(x=>`<div class="cell"><small>${x}</small>—</div>`).join('')+'</div><div class="notice">ยังไม่ใช่การโอนเงินจริง และยังไม่เชื่อมต่อ Payment</div><h3>สถานะ</h3><select class="field"><option>รอตรวจสอบ</option><option>พร้อมกระจายยอด</option><option>รอจ่าย</option><option>จ่ายแล้ว</option></select>';document.getElementById('drawer').classList.add('open')}
-    document.addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b)render(b.dataset.page);if(e.target.closest('[data-settlement]'))openDrawer()});document.getElementById('menu').onclick=()=>{document.getElementById('side').classList.toggle('open');document.getElementById('overlay').classList.toggle('show')};document.getElementById('overlay').onclick=closeAll;document.getElementById('close').onclick=()=>document.getElementById('drawer').classList.remove('open');document.getElementById('theme').onclick=function(){const d=document.documentElement;d.dataset.theme=d.dataset.theme==='dark'?'light':'dark';this.textContent=d.dataset.theme==='dark'?'Dark':'Light'};render('dashboard');
+    document.addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b)render(b.dataset.page);if(e.target.closest('[data-settlement]'))openDrawer()});document.getElementById('menu').onclick=()=>{document.getElementById('side').classList.toggle('open');document.getElementById('overlay').classList.toggle('show')};document.getElementById('overlay').onclick=closeAll;document.getElementById('close').onclick=()=>document.getElementById('drawer').classList.remove('open');document.getElementById('theme').onclick=function(){const d=document.documentElement;d.dataset.theme=d.dataset.theme==='dark'?'light':'dark';this.textContent=d.dataset.theme==='dark'?'Dark':'Light'};render(readActivePage()||'dashboard');
   </script>
   <script>
     views.ops=function(){
@@ -273,11 +276,11 @@
         <div class="dashboard-bottom"><section class="card dashboard-panel"><h2>สถานะระบบ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>ERP Data Center</strong><span>ข้อมูลกลาง</span></div><div class="dashboard-status">—</div></div><div class="dashboard-list-row"><div><strong>ตารางเที่ยวรถ</strong><span>รอบเวลาวันนี้</span></div><div class="dashboard-status">—</div></div></div></section><section class="card dashboard-panel"><h2>งานที่ต้องจัดการ</h2><div class="dashboard-list"><div class="dashboard-list-row"><div><strong>รายการรอตรวจสอบ</strong><span>ข้อมูลและประกาศ</span></div><div class="dashboard-status">—</div></div><div class="dashboard-list-row"><div><strong>แจ้งเตือนระบบ</strong><span>GPS และกล่องดำ</span></div><div class="dashboard-status">—</div></div></div></section></div>`;
       }
       views.dashboard=restoredDashboard;
-      function ensureLatestDashboard(){if(typeof render==='function') render('dashboard');}
-      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureLatestDashboard,{once:true});
-      else setTimeout(ensureLatestDashboard,0);
-      window.addEventListener('load',ensureLatestDashboard,{once:true});
-      setTimeout(ensureLatestDashboard,500);
+      function ensureLatestView(){var id=typeof readActivePage==='function'&&readActivePage()||'dashboard';if(typeof render==='function') render(id,false);}
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureLatestView,{once:true});
+      else setTimeout(ensureLatestView,0);
+      window.addEventListener('load',ensureLatestView,{once:true});
+      setTimeout(ensureLatestView,500);
     })();
   </script>
   <script>
@@ -648,11 +651,19 @@
       if(!form)return;
       if(!config||typeof config.onAuthStateChanged!=='function'||typeof config.signIn!=='function'){showError('ยังไม่ได้เชื่อมต่อระบบยืนยันตัวตนจริง');return}
       if(typeof config.setSessionPersistence==='function')config.setSessionPersistence().catch(function(){});
+      function handleAccessFailure(authError){
+        deniedMessage=messageFor(authError);
+        if(authError&&(authError.code==='forbidden'||authError.code==='admin_erp_read_permission_required'))return config.signOut().catch(function(){}).then(showDenied);
+        setAuthenticated(false);showDenied();
+      }
+      function retryAccess(){var auth=window.firebase&&typeof window.firebase.auth==='function'?window.firebase.auth():null;if(auth&&auth.currentUser)verifyAccess().then(function(){deniedMessage='';setAuthenticated(true);showError('');window.dispatchEvent(new Event('admin-erp:refresh'))}).catch(handleAccessFailure)}
       config.onAuthStateChanged(function(user){
         if(!user){showDenied();return}
         showError('กำลังตรวจสอบสิทธิ์ Admin ERP…');
-        verifyAccess().then(function(){deniedMessage='';setAuthenticated(true);showError('');window.dispatchEvent(new Event('admin-erp:refresh'))}).catch(function(authError){deniedMessage=messageFor(authError);return config.signOut().catch(function(){}).then(showDenied)});
+        verifyAccess().then(function(){deniedMessage='';setAuthenticated(true);showError('');window.dispatchEvent(new Event('admin-erp:refresh'))}).catch(handleAccessFailure);
       });
+      document.addEventListener('visibilitychange',function(){if(!document.hidden)retryAccess()});
+      window.addEventListener('online',retryAccess);
       form.addEventListener('submit',function(event){
         event.preventDefault();
         var email=(document.getElementById('loginEmail').value||'').trim(),password=document.getElementById('loginPassword').value||'';
