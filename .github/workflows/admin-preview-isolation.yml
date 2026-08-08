@@ -4,6 +4,7 @@ on:
   push:
     branches: [feat/admin-erp-owner-preview-only]
   pull_request:
+    branches: [feat/admin-erp-owner-preview-only]
     paths:
       - 'admin-erp-preview.html'
       - 'tests/admin-preview-isolation.test.js'
