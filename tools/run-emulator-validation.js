@@ -14,6 +14,7 @@ try {
   if (status === 0) {
     status = run(process.execPath, ['--test', '--test-timeout=30000', 'tests/emulator-security.behavioral.test.js'], env);
     if (status === 0) status = run(process.execPath, ['tools/seed-emulator-k6.js'], env);
+    if (status === 0) status = run(process.execPath, ['tools/assert-emulator-k6-seed.js'], env);
     if (status === 0) status = run(k6, ['run', 'tests/k6/booking-concurrency-emulator.js'], env);
   }
 } finally {
