@@ -36,10 +36,74 @@ function setCors(req, res) {
   if (adminDashboardSummary.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
-    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   }
 }
+
+function validatePublishedSchedulePayload(value) {
+  const schedule = value && value.publishedSchedule && typeof value.publishedSchedule === "object"
+    ? value.publishedSchedule
+    : value;
+  const blockers = [];
+  if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) blockers.push("schedule_object_required");
+  if (schedule && schedule.readyForApply === true) blockers.push("ready_for_apply_must_remain_false");
+  if (schedule && !["published", "preview"].includes(String(schedule.publicationStatus || ""))) blockers.push("publication_status_required");
+  if (schedule && schedule.scheduleRows && typeof schedule.scheduleRows !== "object") blockers.push("schedule_rows_must_be_object");
+  if (schedule && schedule.noPublishedScheduleBehavior !== "hide") blockers.push("empty_schedule_behavior_must_be_hide");
+  return { schedule, blockers };
+}
+
+exports.publishAdminSchedule = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 30,
+  memory: "512MiB",
+  maxInstances: 5
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  const origin = req.headers.origin || "";
+  if (!adminDashboardSummary.originAllowed(origin, process.env.FUNCTIONS_EMULATOR === "true")) {
+    sendJson(res, 403, { status: "error", error: "origin_not_allowed" }); return;
+  }
+  const tokenMatch = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch) { sendJson(res, 401, { status: "error", error: "admin_token_required" }); return; }
+  try {
+    const decoded = await admin.auth().verifyIdToken(tokenMatch[1]);
+    if (decoded.slTransitRole !== "owner") { sendJson(res, 403, { status: "error", error: "owner_role_required" }); return; }
+    const body = parseJsonRequest(req);
+    const checked = validatePublishedSchedulePayload(body);
+    if (checked.blockers.length) { sendJson(res, 400, { status: "error", error: "schedule_validation_failed", blockers: checked.blockers }); return; }
+    const schedule = checked.schedule;
+    const auditKey = `schedule_publish_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const published = Object.assign({}, schedule, {
+      publicationStatus: "published",
+      readyForApply: false,
+      publishedAt: new Date().toISOString(),
+      publishedByUid: decoded.uid,
+      publishedByEmail: decoded.email || "",
+      publicationVersion: auditKey
+    });
+    await admin.database().ref().update({
+      publishedSchedule: published,
+      [`data/erpDataCenter/meta/audit/${auditKey}`]: {
+        actorUid: decoded.uid,
+        actorEmail: decoded.email || "",
+        action: "publish_schedule",
+        publicationVersion: auditKey,
+        scheduleRowCount: schedule.scheduleRows && typeof schedule.scheduleRows === "object" ? Object.keys(schedule.scheduleRows).length : 0,
+        createdAt: Date.now()
+      }
+    });
+    sendJson(res, 200, { status: "published", publicationVersion: auditKey, publishedAt: published.publishedAt });
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    if (/token|auth|credential/i.test(message)) { sendJson(res, 401, { status: "error", error: "invalid_admin_token" }); return; }
+    console.error("publishAdminSchedule failed", { message });
+    sendJson(res, 500, { status: "error", error: "schedule_publish_failed" });
+  }
+});
 
 function checkAdminDashboardRate(origin) {
   const key = String(origin || "no-origin");

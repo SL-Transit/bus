@@ -17,6 +17,7 @@
 <script src="map-display-center.js?v=20260716center4"></script>
 <script src="user-location-center.js?v=20260716a"></script>
 <script src="erp-workbook-booking-source.js?v=20260801a"></script>
+<script src="network-engine.js?v=20260808journey1"></script>
 <script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
 <script src="erp-data-adapter.js?v=20260716live5"></script>
 <script src="erp-core.js?v=20260704a"></script>
@@ -270,6 +271,8 @@ body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); 
   min-width:0;
 }
 .leg2-time-item:last-child { border-bottom:none; }
+.segment-capability { display:flex; justify-content:space-between; gap:8px; padding:5px 14px; color:#64748b; font-size:10px; background:#f8fbfd; border-top:1px solid var(--border); }
+.segment-capability span:last-child { text-align:right; color:#0f766e; }
   .time-cell.disabled-time,.leg2-time-item.disabled-time{text-decoration:line-through;color:#94a3b8;background:#f1f5f9;}
 .leg2-time-item.empty { background:#fafbfc; min-height:58px; }
 
@@ -944,6 +947,16 @@ function buildLeg2TimeItem(entry) {
   return '<div class="leg2-time-item'+(disabled?' disabled-time':'')+(entry.isEstimated?' estimated-time':'')+'">'+entry.time+badges+'</div>';
 }
 
+function segmentCapabilityHtml(segment) {
+  segment = segment || {};
+  var operator = segment.operatorId || segment.serviceGroupId || '';
+  var mode = segment.operationMode || '';
+  var tracking = segment.trackingMode === 'live' ? 'GPS live' : (segment.trackingMode === 'schedule_only' ? 'schedule only' : 'tracking unavailable');
+  var booking = segment.bookingMode === 'bookable' ? 'bookable' : (segment.bookingMode ? 'reference only' : '');
+  if (!operator && !mode && !segment.trackingMode) return '';
+  return '<div class="segment-capability"><span>' + (operator || 'provider not specified') + '</span><span>' + tracking + (booking ? ' · ' + booking : '') + '</span></div>';
+}
+
 // รวบรวมข้อความ disclaimer จาก ERP มาแสดง 1 ครั้งต่อรายการ (ไม่ซ้ำ) — passenger
 // ไม่แต่งข้อความเอง แค่หยิบ pair.transferDisclaimerTh / entry.disclaimerTh ที่มากับข้อมูล
 function collectPairDisclaimers(pair) {
@@ -1035,6 +1048,7 @@ function renderSched() {
         <div class="leg2-col-head"${isFirst?' style="background:#f0f6ff;"':''}>
           <div class="leg2-col-sub">${seg.label || ('เที่ยวที่ ' + (idx+1))}</div>
           <div class="leg2-col-name"${isFirst?' style="color:#1e3a8a;"':''}>${seg.fromLabel} → ${seg.toLabel}</div>
+          ${segmentCapabilityHtml(seg)}
           ${seg.note ? '<div class="leg2-col-note">'+seg.note+'</div>' : ''}
         </div>
         <div class="leg2-col-head" style="border-right:none;">
@@ -1063,6 +1077,7 @@ function renderSched() {
           <div class="sched-route-from">${pair.displayBadgeTh || 'เส้นทาง'}</div>
           <div class="sched-route-name">${origin} → ${dest}</div>
         </div>
+        ${segmentCapabilityHtml(seg)}
         <div class="time-grid">${(seg.times||[]).map(t=>buildTimeCell(t)).join('')}</div>
       </div>
       ${disclaimersHtml}`;
@@ -1196,10 +1211,15 @@ applyAdminTesterMode();
     scheduleBaseRef.child('manifest').once('value'),
     scheduleBaseRef.child('routeFareRows').once('value'),
     scheduleBaseRef.child('scheduleRows').once('value'),
+    db.ref('publishedSchedule').once('value'),
     db.ref('publishedSchedule/mapView').once('value')
   ]).then(function(parts) {
     const manifest = parts[0].val() || {};
-    const workbookIndex = SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, manifest);
+    const published = parts[3].val() || null;
+    const isPublished = published && published.publicationStatus === 'published';
+    const routeFareRows = isPublished && published.routeFareRows ? published.routeFareRows : (parts[1].val() || {});
+    const scheduleRows = isPublished ? (published.scheduleRows || {}) : (parts[2].val() || {});
+    const workbookIndex = SLTransitWorkbookBookingSource.build(routeFareRows, scheduleRows, manifest);
     if (typeof scheduleApi.setPairLoader === 'function') {
       scheduleApi.setPairLoader(function(rowId) { return Promise.resolve(workbookIndex.selectedRouteByRowId(rowId)); });
     }
@@ -1217,7 +1237,7 @@ applyAdminTesterMode();
       firebaseKeyEncoding: {},
       validation: manifest.validation || {}
     };
-    optionNode.mapView = parts[3].val() || null;
+    optionNode.mapView = parts[4].val() || null;
     scheduleApi.applyPublishedScheduleOptions(optionNode);
   }).catch(function(err) {
     console.error('Passenger workbook schedule load failed:', err && err.message ? err.message : err);

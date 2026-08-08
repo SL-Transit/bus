@@ -249,6 +249,24 @@
     };
   }
 
+  function buildWorkbookSourceImportPlan(candidate) {
+    candidate = valueOrEmpty(candidate);
+    var payload = valueOrEmpty(candidate.payload || candidate), master = valueOrEmpty(payload.masterData), updates = {};
+    Object.keys(valueOrEmpty(master.serviceGroups)).forEach(function(id) {
+      updates[ERP_DATA_CENTER_ROOT + '/serviceGroups/' + id] = master.serviceGroups[id];
+    });
+    Object.keys(valueOrEmpty(master.vehicles)).forEach(function(id) {
+      var vehicle = Object.assign({}, master.vehicles[id], { status: master.vehicles[id].active === false ? 'inactive' : 'provisional' });
+      delete vehicle.active;
+      updates[ERP_DATA_CENTER_ROOT + '/fleet/vehicles/' + id] = vehicle;
+    });
+    updates[ERP_DATA_CENTER_ROOT + '/workbookSource/routeFareRows'] = valueOrEmpty(payload.routeFareRows);
+    updates[ERP_DATA_CENTER_ROOT + '/workbookSource/scheduleRows'] = valueOrEmpty(payload.scheduleRows);
+    updates[ERP_DATA_CENTER_ROOT + '/workbookSource/manifest'] = Object.assign({}, valueOrEmpty(payload.manifest), { dryRun: true, writesEnabled: false, readyForApply: false });
+    updates[ERP_DATA_CENTER_ROOT + '/workbookSource/reconciliation'] = valueOrEmpty(payload.reconciliation);
+    return { dryRun: true, writesEnabled: false, planVersion: PLAN_VERSION, generatedAt: new Date().toISOString(), source: payload.sourceWorkbookName || 'owner-workbook', updates: updates, safety: { firebaseWrites: false, seed: false, deploy: false, productionApply: false } };
+  }
+
   var api = {
     PLAN_VERSION: PLAN_VERSION,
     ERP_DATA_CENTER_ROOT: ERP_DATA_CENTER_ROOT,
@@ -260,6 +278,7 @@
     ALLOWED_ROOTS: ALLOWED_ROOTS.slice(),
     validateImportPlan: validateImportPlan,
     buildEmptyImportPlan: buildEmptyImportPlan,
+    buildWorkbookSourceImportPlan: buildWorkbookSourceImportPlan,
     snapshotFromPlan: snapshotFromPlan
   };
 

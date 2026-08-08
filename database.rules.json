@@ -156,7 +156,7 @@
     },
     "publishedSchedule": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": false
     },
     "bookings": {
       ".read": false,

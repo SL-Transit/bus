@@ -113,6 +113,18 @@
     return badges;
   }
 
+  function journeyLegsHtml(trip) {
+    var legs = Array.isArray(trip && trip.journeyLegs) ? trip.journeyLegs : [];
+    if (!legs.length) return '';
+    var rows = legs.map(function(leg, index) {
+      var provider = leg.operatorId || leg.serviceGroupId || '\u0e44\u0e21\u0e48\u0e23\u0e30\u0e1a\u0e38\u0e1c\u0e39\u0e49\u0e43\u0e2b\u0e49\u0e1a\u0e23\u0e34\u0e01\u0e32\u0e23';
+      var tracking = leg.trackingMode === 'live' ? 'GPS live' : 'timetable';
+      var booking = leg.bookingMode === 'bookable' ? 'bookable' : 'reference only';
+      return '<div class="trip-journey-leg"><span>Leg ' + (index + 1) + '</span><strong>' + esc((leg.fromLabel || '') + ' &rarr; ' + (leg.toLabel || '')) + '</strong><small>' + esc(provider) + ' · ' + tracking + ' · ' + booking + '</small></div>';
+    }).join('');
+    return '<div class="trip-journey-box"><div class="trip-journey-title">Journey ' + esc(trip.journeyId || '') + ' · ' + legs.length + ' leg(s)</div>' + rows + '</div>';
+  }
+
   function noteHtml(trip) {
     var notes = tripNotes(trip);
     return notes.length ? '<div class="ti-inline-note">' + notes.map(esc).join('<br>') + '</div>' : '';
@@ -567,6 +579,8 @@
       catalogRouteId: selected.routeId || '',
       catalogTripId: selected.tripId || '',
       catalogFare: total.fareAmount,
+      journeyId: selected.journeyId || snapshot.journeyId || selected.pairId || snapshot.pairId || '',
+      journeyLegs: Array.isArray(selected.journeyLegs) ? selected.journeyLegs : (Array.isArray(snapshot.journeyLegs) ? snapshot.journeyLegs : []),
       leg1Route: legSchedule.leg1,
       leg1Time: legSchedule.leg1Time,
       leg2Route: legSchedule.leg2,
@@ -722,7 +736,7 @@
         + '<div class="trip-card-head"><div class="trip-time-wrap">'
         + '<span class="trip-time-compact">' + esc(trip.label) + '</span>' + tripBadges(trip)
         + '</div><div class="trip-head-route"><span class="trip-route-text">' + routeText(trip) + '</span></div></div>'
-        + '<div class="trip-card-body">' + stopsHtml(trip) + transferDetailHtml(trip) + '</div>'
+        + '<div class="trip-card-body">' + stopsHtml(trip) + transferDetailHtml(trip) + journeyLegsHtml(trip) + '</div>'
         + noteHtml(trip)
         + '<div class="trip-bottom">' + selectButton(trip, index, false) + '</div>'
         + '</div>';
@@ -753,7 +767,7 @@
       + '<div class="trip-card-head"><div class="trip-time-wrap">'
       + '<span class="trip-time">' + esc(best.label) + '</span><span class="trip-time-badge badge-recommend">เที่ยวแนะนำ</span>'
       + tripBadges(best) + '</div><div class="trip-head-route"><span class="trip-route-text">' + routeText(best) + '</span></div></div>'
-      + '<div class="trip-card-body">' + stopsHtml(best) + transferDetailHtml(best) + '</div>'
+      + '<div class="trip-card-body">' + stopsHtml(best) + transferDetailHtml(best) + journeyLegsHtml(best) + '</div>'
       + noteHtml(best)
       + '<div class="trip-bottom">' + selectButton(best, recommendedIndex, true) + '</div></div>';
 
@@ -1007,6 +1021,8 @@
         passengerIdentity: currentPassengerIdentity(state),
         notificationPreference: currentNotificationPreference(state),
         consent: currentConsent(state),
+        journeyId: state.selectedTrip && (state.selectedTrip.journeyId || state.selectedTrip.pairId) || '',
+        journeyLegs: state.selectedTrip && state.selectedTrip.journeyLegs || [],
         assignment: assignmentContract
       });
       var booking = withoutUndefined(legacyBookingPayload(state, bookingSnap));

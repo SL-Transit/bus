@@ -36,6 +36,14 @@ const candidate = source.buildCandidate(workbook);
 assert.strictEqual(candidate.schemaVersion, 'erpWorkbookSource.v1');
 assert.strictEqual(Object.keys(candidate.routeFareRows).length, 244);
 assert.strictEqual(Object.keys(candidate.scheduleRows).length, 881);
+assert.strictEqual(candidate.idRegistry.schemaVersion, 'owner-master-id-registry.v1');
+assert.strictEqual(candidate.idRegistry.valid, true);
+assert.strictEqual(Object.keys(candidate.idRegistry.entities.routes).length, 244);
+assert.strictEqual(Object.keys(candidate.idRegistry.entities.trips).length, 881);
+assert.strictEqual(Object.keys(candidate.idRegistry.entities.vehicles).length, 0);
+assert.strictEqual(candidate.idRegistry.collisions.length, 0);
+assert.strictEqual(candidate.masterData.schedulePublicationPolicy.schemaVersion, 'schedule-publication-policy.v1');
+assert.strictEqual(candidate.masterData.schedulePublicationPolicy.productionApplyAllowed, false);
 assert.strictEqual(candidate.routeFareRows.fare_0002.sourceRowNumber, 2);
 assert.strictEqual(candidate.routeFareRows.fare_0002.routeId, 'fare-1');
 assert.strictEqual(candidate.routeFareRows.fare_0002.sourceValues.route_id, 'fare-1');
@@ -59,6 +67,9 @@ const numericTime = source.buildCandidate({
 assert.strictEqual(numericTime.scheduleRows.schedule_0002.departureTime, '17:20');
 assert.strictEqual(numericTime.reconciliation.valid, true);
 assert.strictEqual(candidate.reconciliation.valid, true);
+assert.strictEqual(candidate.reconciliation.networkReady, true);
+assert.strictEqual(candidate.reconciliation.operationalScheduleReady, false);
+assert.strictEqual(candidate.reconciliation.operationalScheduleBlockers.length, 1);
 assert.strictEqual(candidate.manifest.readyForFirebaseReview, true);
 assert.strictEqual(candidate.manifest.readyForApply, false);
 

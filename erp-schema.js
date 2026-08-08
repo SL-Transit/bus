@@ -188,6 +188,7 @@
   };
 
   var VALID_MASTER_STATUS = ['draft', 'test', 'active', 'inactive', 'archived', 'provisional'];
+  var VALID_OPERATION_MODES = ['integrated', 'schedule_only', 'schedule-only', 'external_schedule_only'];
   var SERVICE_FEE_POLICY = {
     currency: 'THB',
     defaultStandardFee: 5,
@@ -581,6 +582,36 @@
     });
   }
 
+  function scanOperatorCapabilityRules(root, blockers, warnings) {
+    var groups = valueOrEmpty(readPath(root, PATHS.serviceGroups));
+    Object.keys(groups).forEach(function(key) {
+      var group = valueOrEmpty(groups[key]);
+      var path = PATHS.serviceGroups + '/' + key;
+      var mode = String(group.operationMode || group.fleetMode || group.providerMode || '').trim().toLowerCase();
+      if (mode && VALID_OPERATION_MODES.indexOf(mode) === -1) {
+        blockers.push({ level: 'blocker', code: 'invalid-operation-mode', path: path, field: 'operationMode', value: mode, message: 'operationMode must be integrated or schedule_only.' });
+      }
+      var scheduleOnly = mode === 'schedule_only' || mode === 'schedule-only' || mode === 'external_schedule_only' || group.hasFleet === false || group.scheduleOnly === true;
+      if (scheduleOnly && group.hasFleet === true) warnings.push({ level: 'warning', code: 'schedule-only-group-declares-fleet', path: path, field: 'hasFleet' });
+      if (scheduleOnly && group.hasLiveLocation === true) warnings.push({ level: 'warning', code: 'schedule-only-group-declares-live-location', path: path, field: 'hasLiveLocation' });
+      if (scheduleOnly && group.hasQueue === true) warnings.push({ level: 'warning', code: 'schedule-only-group-declares-queue', path: path, field: 'hasQueue' });
+      if (scheduleOnly && group.canBook === true) warnings.push({ level: 'warning', code: 'schedule-only-group-declares-booking', path: path, field: 'canBook' });
+    });
+
+    var serviceGroups = groups;
+    var vehicles = valueOrEmpty(readPath(root, PATHS.fleetVehicles));
+    Object.keys(vehicles).forEach(function(key) {
+      var vehicle = valueOrEmpty(vehicles[key]);
+      var groupId = String(vehicle.serviceGroupId || vehicle.operatorId || vehicle.providerId || '').trim();
+      if (!groupId) return;
+      var group = valueOrEmpty(serviceGroups[groupId]);
+      var mode = String(group.operationMode || group.fleetMode || group.providerMode || '').trim().toLowerCase();
+      if (mode === 'schedule_only' || mode === 'schedule-only' || mode === 'external_schedule_only') {
+        blockers.push({ level: 'blocker', code: 'vehicle-under-schedule-only-group', path: PATHS.fleetVehicles + '/' + key, field: 'serviceGroupId', value: groupId, message: 'A schedule-only provider cannot own integrated fleet records.' });
+      }
+    });
+  }
+
   function paymentOwnershipOf(record) {
     record = valueOrEmpty(record);
     return String(record.paymentOwnership || record.paymentOwner || '').trim();
@@ -659,6 +690,7 @@
     scanReferences(root, warnings);
     scanLiveVehicleRecords(root, warnings);
     scanFleetRules(root, blockers, warnings);
+    scanOperatorCapabilityRules(root, blockers, warnings);
     scanFarePaymentRules(root, blockers);
     scanMasterData(root, blockers, warnings);
     var readinessGate = {
