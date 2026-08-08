@@ -218,9 +218,11 @@ function bookingCreatedStaffAlerts(input) {
 function staffBookingMessage(alert, booking) {
   alert = alert || {};
   booking = booking || {};
+  const recipientLabel = alert.recipientRole === "driver" ? "คนขับ" : alert.recipientRole === "admin" ? "ผู้ดูแลระบบ" : alert.recipientRole === "queue" ? "คิวรถ" : alert.recipientRole === "transfer_terminal" ? "จุดต่อรถ" : "เจ้าหน้าที่";
   const roleRoute = clean(alert.routeText) || routeTextForRole(alert.recipientRole, booking);
   const roleTime = clean(alert.tripTime) || timeTextForRole(alert.recipientRole, booking) || "-";
   const lines = [
+    `ผู้รับ: ${recipientLabel}`,
     `รหัส: ${bookingCode(booking) || "-"}`,
     `👤 ชื่อ: ${clean(booking.name) || "-"}   โทร: ${clean(booking.phone) || "-"}`,
     `🛣️ เส้นทาง: ${roleRoute || "-"}`,

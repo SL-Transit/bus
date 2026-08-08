@@ -756,8 +756,8 @@ async function createBookingJobs(code, booking) {
   return Promise.all(jobs);
 }
 
-function buildCancellationStaffMessage(booking) {
-  return ["การยกเลิกการจอง", staffNotificationCenter.staffBookingMessage({ recipientRole: "admin" }, booking)].join("\n");
+function buildCancellationStaffMessage(alert, booking) {
+  return ["การยกเลิกการจอง", staffNotificationCenter.staffBookingMessage(alert, booking)].join("\n");
 }
 
 async function createCancellationJobs(code, booking) {
@@ -772,7 +772,7 @@ async function createCancellationJobs(code, booking) {
     recipientType: alert.type,
     recipientId: alert.lineTo,
     lineTo: alert.lineTo,
-    text: buildCancellationStaffMessage(booking),
+    text: buildCancellationStaffMessage(alert, booking),
     testMode: booking.testMode,
     mockOnly: booking.mockOnly
   })));
