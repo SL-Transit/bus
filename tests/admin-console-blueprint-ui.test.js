@@ -79,7 +79,9 @@ assert.ok(!dashboardSource.includes('bookings/'), 'Dashboard UI must not read ra
 
 assert.ok(html.includes('ERP_WORKBOOK_TABS'), 'ERP management page must define workbook-style entity tabs');
 assert.ok(html.includes('readAdminErpDataCenter'), 'ERP management page must read ERP Data Center through the HTTPS admin endpoint');
-assert.ok(html.includes('updateAdminErpDataCenter'), 'ERP management page must save ERP Data Center edits through the HTTPS admin endpoint');
+assert.ok(html.includes('AdminErpDataSource.createDraft'), 'ERP management page must create local ERP drafts through the central Adapter');
+assert.ok(html.includes('AdminErpDataSource.validateDraft'), 'ERP management page must validate local ERP drafts through the central Adapter');
+assert.ok(!html.includes('updateAdminErpDataCenter'), 'ERP management page must not write directly to the canonical ERP Data Center');
 assert.ok(html.includes("Authorization:'Bearer '+token"), 'ERP management page must pass a Firebase ID token to the ERP Data Center endpoint');
 assert.ok(html.includes('id="erpEditToggle"'), 'ERP management page must require an explicit edit button before cell edits');
 assert.ok(html.includes('id="erpSaveDraft"'), 'ERP management page must expose a save button for ERP edits');
