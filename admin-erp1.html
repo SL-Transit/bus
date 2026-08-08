@@ -4,6 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SL-Transit Admin ERP</title>
+  <script>
+    (function(){
+      function collectRows(){return Array.from(document.querySelectorAll('.erp-table tbody tr')).map(function(row){var item={};row.querySelectorAll('input[aria-label],select[aria-label]').forEach(function(field){item[field.getAttribute('aria-label')]=field.value||''});return item})}
+      function localDrawer(title,body){if(typeof openDrawer==='function')openDrawer('<h2>'+title+'</h2>'+body)}
+      function actionMode(button){var mode=button&&button.dataset&&button.dataset.erpAction;if(mode)return mode;var title=document.querySelector('#content .head h1');if(title&&title.textContent==='ศูนย์ข้อมูล ERP'&&button&&button.textContent.trim()==='บันทึกฉบับร่าง')return 'save';return ''}
+      document.addEventListener('click',function(e){
+        var button=e.target.closest('[data-erp-action],#content .head .btn');if(!button||!window.SLTransitErpDraftAdapter)return;var mode=actionMode(button);if(['save','validate','history','compare'].indexOf(mode)===-1)return;
+        setTimeout(function(){
+          var entity=(document.querySelector('.erp-meta-card strong')||{}).textContent||'ข้อมูล ERP';
+          if(mode==='save'){var draft=window.SLTransitErpDraftAdapter.create({entity:entity,rows:collectRows()});localDrawer('บันทึกฉบับร่าง', '<p class="label">บันทึกไว้ในโหมดทดสอบของเบราว์เซอร์เท่านั้น</p><div class="impact-list"><div><span>Draft ID</span><strong>'+draft.draftId+'</strong></div><div><span>สถานะ</span><strong>ฉบับร่าง</strong></div><div><span>แหล่งจัดเก็บ</span><strong>Session ของเครื่องนี้</strong></div></div><div class="content-actions"><button class="btn" data-local-validate="'+draft.draftId+'">ตรวจสอบข้อมูล</button><button class="btn primary" data-local-submit="'+draft.draftId+'">ส่งตรวจสอบ</button></div><div class="notice">ยังไม่เขียน Firebase และยังไม่เผยแพร่ข้อมูลจริง</div>');}
+          if(mode==='validate'){var report=window.SLTransitErpDraftAdapter.validateRows(collectRows());localDrawer('ผลการตรวจสอบข้อมูล','<div class="impact-list"><div><span>จำนวนแถว</span><strong>'+report.rowCount+'</strong></div><div><span>แถวที่กรอกข้อมูล</span><strong>'+report.filledCount+'</strong></div><div><span>แถวที่ไม่มีรหัสอ้างอิง</span><strong>'+report.missingIdentityCount+'</strong></div><div><span>ความพร้อม</span><strong>'+(report.ready?'พร้อมส่งตรวจสอบ':'ต้องแก้ไขข้อมูล')+'</strong></div></div><div class="notice">การตรวจสอบนี้เป็น Local/Test-only ยังไม่ตรวจ foreign key จาก Firebase</div>');}
+          if(mode==='history'){var history=window.SLTransitErpDraftAdapter.history();localDrawer('ประวัติฉบับร่าง','<div class="empty"><div><strong>'+ (history.length?'มีรายการใน Session นี้':'ยังไม่มีประวัติ') +'</strong><span>'+ (history.length?'แสดงเฉพาะการทดลองบนเครื่องนี้':'เริ่มจากการบันทึกฉบับร่าง') +'</span></div></div><div class="notice">Audit จริงจะเชื่อม `data/erpDataCenter/meta/audit` หลังผ่านการอนุมัติ backend</div>');}
+          if(mode==='compare'){localDrawer('เปรียบเทียบเวอร์ชัน','<div class="empty"><div><strong>ยังไม่มีเวอร์ชันสำหรับเปรียบเทียบ</strong><span>เวอร์ชันจริงจะมาจาก ERP Data Center หลังมีการ Review</span></div></div><div class="notice">ยังไม่อ่านหรือเขียน Firebase ในโหมดนี้</div>');}
+        },0);
+      });
+      document.addEventListener('click',function(e){var validate=e.target.closest('[data-local-validate]');if(validate&&window.SLTransitErpDraftAdapter){var result=window.SLTransitErpDraftAdapter.validate(validate.dataset.localValidate);localDrawer('ผลการตรวจสอบฉบับร่าง','<div class="impact-list"><div><span>สถานะ</span><strong>'+((result.draft&&result.draft.status)||'ต้องตรวจสอบ')+'</strong></div><div><span>แถวที่กรอกข้อมูล</span><strong>'+result.report.filledCount+'</strong></div><div><span>แถวที่ไม่มีรหัส</span><strong>'+result.report.missingIdentityCount+'</strong></div></div><div class="notice">ผลนี้จัดเก็บใน Session เท่านั้น</div>')}});
+      document.addEventListener('click',function(e){var submit=e.target.closest('[data-local-submit]');if(submit&&window.SLTransitErpDraftAdapter){var draft=window.SLTransitErpDraftAdapter.submitForReview(submit.dataset.localSubmit);localDrawer('ส่งตรวจสอบแล้ว','<div class="notice">ฉบับร่าง '+(draft?draft.draftId:'')+' เปลี่ยนเป็นสถานะรอตรวจสอบในโหมดทดสอบ</div><div class="notice">ยังไม่มีการเขียน Firebase และยังไม่มีการเผยแพร่จริง</div>')}});
+    })();
+  </script>
   <style>
     :root{--bg:#f4f7fb;--panel:#fff;--ink:#18324d;--muted:#71849a;--line:#dbe5ef;--nav:#082b4d;--blue:#1677c8;--teal:#09a4ad;--soft:#eef6fc;--warn:#a35e00}
     html[data-theme=dark]{--bg:#0d1b2a;--panel:#14283a;--ink:#e9f2fa;--muted:#91a9bc;--line:#2b455b;--nav:#071726;--soft:#19344a}
@@ -14,6 +33,7 @@
 </head>
 <body>
   <script src="admin-erp-read-adapter.js?v=20260808a"></script>
+  <script src="admin-erp-draft-adapter.js?v=20260808a"></script>
   <div class="app"><aside class="side" id="side"><div class="brand"><img src="assets/sl-transit-logo-admin.jpg" alt="SL-Transit"><div><strong>SL-TRANSIT</strong><small>ADMIN ERP CONSOLE</small></div></div><nav class="nav" id="nav"></nav></aside><div class="overlay" id="overlay"></div><main><header class="top"><div class="top-left"><button class="menu" id="menu" aria-label="เปิดเมนู"><i></i></button><input class="search" placeholder="ค้นหาในระบบ"></div><div class="top-right"><button class="icon" id="theme">Light</button><div class="avatar">A</div></div></header><section class="content" id="content"></section></main></div>
   <aside class="drawer" id="drawer"><button class="btn drawer-close" id="close">ปิด</button><div id="drawerBody"></div></aside>
   <script>
