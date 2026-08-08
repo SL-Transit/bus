@@ -140,7 +140,7 @@ exports.reserveBookingCapacity = onRequest({
       return;
     }
     const ref = admin.database().ref(path);
-    await ref.get();
+    const initialCapacity = (await ref.get()).val();
     if (action === "release") {
       const result = await ref.transaction((current) => {
         if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
@@ -155,18 +155,19 @@ exports.reserveBookingCapacity = onRequest({
       return;
     }
     const result = await ref.transaction((current) => {
-      if (!current) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "missing_counter" })); return; }
-      const transactionCapacityLimit = Number(current.capacityLimit);
-      if (!Number.isInteger(transactionCapacityLimit) || transactionCapacityLimit < 1 || transactionCapacityLimit > MAX_CAPACITY_LIMIT) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "invalid_limit", capacityLimit: current.capacityLimit })); return; }
-      const bookings = current.bookings || {};
+      const state = current || initialCapacity;
+      if (!state) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "missing_counter" })); return; }
+      const transactionCapacityLimit = Number(state.capacityLimit);
+      if (!Number.isInteger(transactionCapacityLimit) || transactionCapacityLimit < 1 || transactionCapacityLimit > MAX_CAPACITY_LIMIT) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "invalid_limit", capacityLimit: state.capacityLimit })); return; }
+      const bookings = state.bookings || {};
       const existing = bookings[bookingCode];
-      if (existing) return existing.ownerUid === decoded.uid ? current : undefined;
-      const bookedSeats = Math.max(0, Number(current.bookedSeats || 0));
+      if (existing) return existing.ownerUid === decoded.uid ? state : undefined;
+      const bookedSeats = Math.max(0, Number(state.bookedSeats || 0));
       const capacityLimit = transactionCapacityLimit;
       if (bookedSeats + requestedSeats > capacityLimit) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "capacity_full", capacityLimit, bookedSeats, requestedSeats })); return; }
       const serverNow = Date.now();
       return {
-        ...current,
+        ...state,
         contractVersion: "booking_capacity_v1",
         bookedSeats: bookedSeats + requestedSeats,
         seatsAvailable: capacityLimit - bookedSeats - requestedSeats,
