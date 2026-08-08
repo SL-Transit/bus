@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Ticket Review Check</title>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #617084;
+      --line: #d8e0ec;
+      --paper: #ffffff;
+      --soft: #f4f7fb;
+      --blue: #1d5f9f;
+      --green: #15803d;
+      --red: #b91c1c;
+      --amber: #b45309;
+      --navy: #17324d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Kanit", sans-serif;
+      background: #eef2f7;
+      color: var(--ink);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) minmax(360px, 44vw);
+      min-height: 100vh;
+    }
+
+    .panel {
+      padding: 22px;
+      overflow: auto;
+    }
+
+    .left {
+      border-right: 1px solid var(--line);
+      background: var(--soft);
+    }
+
+    .right {
+      background: #dfe7f2;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 28px;
+      line-height: 1.3;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-family: "Kanit", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--blue);
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: var(--navy);
+      border: 1px solid var(--line);
+    }
+
+    button:disabled {
+      opacity: .62;
+      cursor: not-allowed;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .stat .value {
+      margin-top: 5px;
+      font-family: "Chakra Petch", sans-serif;
+      color: var(--navy);
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .group {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .group-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #f9fbfe;
+    }
+
+    .group-title {
+      font-weight: 800;
+      color: var(--navy);
+    }
+
+    .group-count {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .case {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr) 110px;
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .case:last-child { border-bottom: 0; }
+
+    .case-id {
+      font-family: "Chakra Petch", sans-serif;
+      color: var(--navy);
+      font-weight: 700;
+    }
+
+    .case-name {
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .case-detail {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .badge {
+      justify-self: end;
+      min-width: 94px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: #475569;
+      background: #e2e8f0;
+    }
+
+    .badge.run { color: #1d4ed8; background: #dbeafe; }
+    .badge.pass { color: #15803d; background: #dcfce7; }
+    .badge.fail { color: #b91c1c; background: #fee2e2; }
+    .badge.skip { color: #92400e; background: #fef3c7; }
+
+    .log {
+      min-height: 160px;
+      max-height: 220px;
+      overflow: auto;
+      background: #111827;
+      color: #d1fae5;
+      border-radius: 8px;
+      padding: 12px;
+      font: 12px/1.6 Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--navy);
+      font-weight: 800;
+    }
+
+    .preview-frame-wrap {
+      flex: 1;
+      min-height: 520px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      border: 0;
+      background: #fff;
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .left { border-right: 0; border-bottom: 1px solid var(--line); }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .case { grid-template-columns: 78px minmax(0, 1fr); }
+      .badge { justify-self: start; grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel left">
+      <div class="topbar">
+        <div>
+          <h1>Smart Ticket Review Check</h1>
+          <div class="subtitle">ตรวจ booking.html, check_ticket.html และ passenger.html หลังแก้โค้ด</div>
+        </div>
+        <div class="actions">
+          <button id="runAllBtn" type="button">รันทั้งหมด</button>
+          <button id="runBookingBtn" class="secondary" type="button">Booking</button>
+          <button id="runTicketBtn" class="secondary" type="button">Ticket</button>
+          <button id="runPassengerBtn" class="secondary" type="button">Passenger</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="label">ทั้งหมด</div><div id="statTotal" class="value">0</div></div>
+        <div class="stat"><div class="label">ผ่าน</div><div id="statPass" class="value">0</div></div>
+        <div class="stat"><div class="label">ไม่ผ่าน</div><div id="statFail" class="value">0</div></div>
+        <div class="stat"><div class="label">กำลังรัน</div><div id="statRun" class="value">0</div></div>
+      </div>
+
+      <div id="caseGroups"></div>
+      <div id="log" class="log"></div>
+    </section>
+
+    <section class="panel right">
+      <div class="preview-head">
+        <span id="previewTitle">Preview</span>
+        <button id="clearBtn" class="secondary" type="button">ล้างผล</button>
+      </div>
+      <div class="preview-frame-wrap">
+        <iframe id="targetFrame" title="Review target preview"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <script src="review_check.js?v=20260603b"></script>
+</body>
+</html>
