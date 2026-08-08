@@ -24,9 +24,11 @@
   }
 
   function nonBlankRows(sheet) {
-    return Array.isArray(sheet && sheet.rows) ? sheet.rows.filter(function(row) {
-      return Object.keys(object(row)).some(function(key) {
-        return String(row[key] == null ? '' : row[key]).trim() !== '';
+    return Array.isArray(sheet && sheet.rows) ? sheet.rows.map(function(row, index) {
+      return { values: object(row), sourceRowNumber: index + 2 };
+    }).filter(function(entry) {
+      return Object.keys(entry.values).some(function(key) {
+        return String(entry.values[key] == null ? '' : entry.values[key]).trim() !== '';
       });
     }) : [];
   }
@@ -38,8 +40,9 @@
   }
 
   function sourceMap(rows, kind, sheetName) {
-    return rows.reduce(function(map, values, index) {
-      var rowNumber = index + 2;
+    return rows.reduce(function(map, entry, index) {
+      var values = entry && entry.values ? entry.values : object(entry);
+      var rowNumber = entry && entry.sourceRowNumber != null ? Number(entry.sourceRowNumber) : index + 2;
       var sourceRowId = kind + '_' + String(rowNumber).padStart(4, '0');
       var canonical = {};
       var sourceKeys = Object.keys(object(values));
@@ -61,6 +64,18 @@
     }, {});
   }
 
+  function validateSourceOrder(collection, kind) {
+    var rows = Object.keys(object(collection)).map(function(key) { return object(collection[key]); });
+    var invalid = [];
+    var previous = null;
+    rows.forEach(function(row) {
+      var current = Number(row.sourceRowNumber);
+      if (!isFinite(current) || current < 2 || Math.floor(current) !== current || (previous !== null && current <= previous)) invalid.push(row.sourceRowId || kind);
+      previous = current;
+    });
+    return invalid;
+  }
+
   function validateCandidate(candidate) {
     var routeFareRows = object(candidate && candidate.routeFareRows);
     var scheduleRows = object(candidate && candidate.scheduleRows);
@@ -78,6 +93,14 @@
     });
     if (invalidScheduleTimes.length) blockers.push({
       code: 'schedule-time-format-invalid', count: invalidScheduleTimes.length, sourceRowIds: invalidScheduleTimes
+    });
+    var invalidFareOrder = validateSourceOrder(routeFareRows, 'fare');
+    if (invalidFareOrder.length) blockers.push({
+      code: 'route-fare-source-row-order-invalid', count: invalidFareOrder.length, sourceRowIds: invalidFareOrder
+    });
+    var invalidScheduleOrder = validateSourceOrder(scheduleRows, 'schedule');
+    if (invalidScheduleOrder.length) blockers.push({
+      code: 'schedule-source-row-order-invalid', count: invalidScheduleOrder.length, sourceRowIds: invalidScheduleOrder
     });
     return {
       valid: blockers.length === 0,

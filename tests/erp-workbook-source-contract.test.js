@@ -62,6 +62,24 @@ assert.strictEqual(candidate.reconciliation.valid, true);
 assert.strictEqual(candidate.manifest.readyForFirebaseReview, true);
 assert.strictEqual(candidate.manifest.readyForApply, false);
 
+const blankFareRows = rows(244, 'fare-');
+blankFareRows.splice(1, 0, {});
+const blankRowWorkbook = {
+  name: 'blank-row-owner-workbook.xlsx',
+  sheets: {
+    '03_routes_and_fares': { rows: blankFareRows },
+    '04_timetable': { rows: scheduleRows(881) }
+  }
+};
+const blankRowCandidate = source.buildCandidate(blankRowWorkbook);
+assert.strictEqual(blankRowCandidate.routeFareRows.fare_0004.sourceRowNumber, 4, 'blank Excel rows must not shift the original source row number');
+assert.strictEqual(blankRowCandidate.reconciliation.valid, true, 'blank rows with valid source order remain reviewable');
+
+const invalidOrderCandidate = source.buildCandidate(workbook);
+invalidOrderCandidate.scheduleRows.schedule_0003.sourceRowNumber = 2;
+const invalidOrder = source.validateCandidate(invalidOrderCandidate);
+assert(invalidOrder.blockers.some((item) => item.code === 'schedule-source-row-order-invalid'), 'non-increasing Excel source rows must block review');
+
 const incomplete = source.buildCandidate({
   name: 'incomplete.xlsx',
   sheets: {
