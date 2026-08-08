@@ -566,6 +566,13 @@
         </div>`;
       }
       function erpDrawer(mode){
+        if(mode==='save'&&window.SLTransitErpDraftAdapter){
+          const rows=Array.from(document.querySelectorAll('.erp-table tbody tr')).map(row=>{const item={};row.querySelectorAll('input[aria-label],select[aria-label]').forEach(field=>{item[field.getAttribute('aria-label')]=field.value||''});return item});
+          const entity=(document.querySelector('.erp-meta-card strong')||{}).textContent||'ข้อมูล ERP';
+          const draft=window.SLTransitErpDraftAdapter.create({entity,rows});
+          openDrawer('<h2>บันทึกฉบับร่าง</h2><p class="label">บันทึกไว้ในโหมดทดสอบของเบราว์เซอร์เท่านั้น</p><div class="impact-list"><div><span>Draft ID</span><strong>'+draft.draftId+'</strong></div><div><span>สถานะ</span><strong>ฉบับร่าง</strong></div><div><span>แหล่งจัดเก็บ</span><strong>Session ของเครื่องนี้</strong></div></div><div class="content-actions"><button class="btn" data-local-validate="'+draft.draftId+'">ตรวจสอบข้อมูล</button><button class="btn primary" data-local-submit="'+draft.draftId+'">ส่งตรวจสอบ</button></div><div class="notice">ยังไม่เขียน Firebase และยังไม่เผยแพร่ข้อมูลจริง</div>');
+          return;
+        }
         const title=mode==='import'?'นำเข้าไฟล์ Excel':mode==='template'?'ดาวน์โหลดแม่แบบ':mode==='validate'?'ตรวจสอบคุณภาพข้อมูล':mode==='save'?'บันทึกฉบับร่าง':mode==='history'?'ประวัติการแก้ไข':mode==='compare'?'เปรียบเทียบเวอร์ชัน':'รายละเอียดแถวข้อมูล';
         const body={
           import:'<p class="label">เลือกไฟล์เพื่อดูตัวอย่างและตรวจ column mapping ก่อนนำเข้า</p><input class="field" type="file" accept=".xlsx,.xls,.csv"><div class="erp-drawer-list"><div class="erp-drawer-item"><span>ขั้นตอนที่ 1</span><strong>ตรวจ column mapping</strong></div><div class="erp-drawer-item"><span>ขั้นตอนที่ 2</span><strong>ตรวจข้อมูลผิดพลาด</strong></div><div class="erp-drawer-item"><span>ขั้นตอนที่ 3</span><strong>ยืนยันเป็นฉบับร่าง</strong></div></div><div class="notice">ยังไม่เขียนข้อมูลจริง และจะไม่แทนที่ข้อมูลเดิมทันที</div>',
