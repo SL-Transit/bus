@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>SL-Transit Admin ERP</title>
+  <script src="system-test-mode.js?v=20260804a"></script>
   <script>
     (function(){
       function collectRows(){return Array.from(document.querySelectorAll('.erp-table tbody tr')).map(function(row){var item={};row.querySelectorAll('input[aria-label],select[aria-label]').forEach(function(field){item[field.getAttribute('aria-label')]=field.value||''});return item})}
