@@ -31,5 +31,7 @@ if (!config.includes('persistence.LOCAL')) throw new Error('admin auth must surv
 if (!bridge.includes('ยังไม่เชื่อมต่อแหล่งข้อมูล')) throw new Error('disconnected state is required');
 if (!bridge.includes('ไม่มีสิทธิ์เข้าถึง')) throw new Error('forbidden state is required');
 if (!bridge.includes('อ่านอย่างเดียว')) throw new Error('read-only rendering is required');
+if (!bridge.includes('sourceRowNumber')) throw new Error('read-only rows must preserve the original Excel row number');
+if (!bridge.includes('แถว Excel')) throw new Error('read-only rows must display the original Excel row number');
 
 console.log('admin-erp1 integration contract: PASS');
