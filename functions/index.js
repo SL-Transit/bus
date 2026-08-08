@@ -156,15 +156,15 @@ exports.reserveBookingCapacity = onRequest({
     }
     const result = await ref.transaction((current) => {
       const state = current || initialCapacity;
-      if (!state) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "missing_counter" })); return; }
+      if (!state) return;
       const transactionCapacityLimit = Number(state.capacityLimit);
-      if (!Number.isInteger(transactionCapacityLimit) || transactionCapacityLimit < 1 || transactionCapacityLimit > MAX_CAPACITY_LIMIT) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "invalid_limit", capacityLimit: state.capacityLimit })); return; }
+      if (!Number.isInteger(transactionCapacityLimit) || transactionCapacityLimit < 1 || transactionCapacityLimit > MAX_CAPACITY_LIMIT) return;
       const bookings = state.bookings || {};
       const existing = bookings[bookingCode];
       if (existing) return existing.ownerUid === decoded.uid ? state : undefined;
       const bookedSeats = Math.max(0, Number(state.bookedSeats || 0));
       const capacityLimit = transactionCapacityLimit;
-      if (bookedSeats + requestedSeats > capacityLimit) { if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_transaction_rejected", reason: "capacity_full", capacityLimit, bookedSeats, requestedSeats })); return; }
+      if (bookedSeats + requestedSeats > capacityLimit) return;
       const serverNow = Date.now();
       return {
         ...state,
@@ -178,7 +178,6 @@ exports.reserveBookingCapacity = onRequest({
     if (!result.committed) {
       const snapshot = await ref.get();
       const existing = snapshot.child(`bookings/${bookingCode}`).val();
-      if (process.env.FUNCTIONS_EMULATOR === "true") console.log(JSON.stringify({ event: "capacity_reservation_rejected", path, capacityLimit: snapshot.child("capacityLimit").val(), bookedSeats: snapshot.child("bookedSeats").val(), hasExistingBooking: !!existing }));
       sendJson(res, existing && existing.ownerUid === decoded.uid ? 200 : 409, { status: "error", error: existing ? "capacity_already_reserved" : "capacity_full_or_not_ready" });
       return;
     }
