@@ -5,6 +5,7 @@
   var FIREBASE_CONFIG = Object.freeze({
     apiKey: 'AIzaSyCuWN1RhTSnKjbg5vliTEXa8HtgY7j2spM',
     authDomain: 'sl-transit-9464e.firebaseapp.com',
+    databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
     projectId: FIREBASE_PROJECT_ID,
     storageBucket: 'sl-transit-9464e.firebasestorage.app',
     messagingSenderId: '480076551107',
