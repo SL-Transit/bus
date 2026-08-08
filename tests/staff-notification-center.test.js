@@ -10,6 +10,7 @@ const contractDoc = fs.readFileSync(
 
 assert.strictEqual(staff.STAFF_LINE_TARGETS_PATH, "data/notificationCenter/staffLineTargets");
 assert.strictEqual(staff.STAFF_LINE_TARGETS_SCHEMA_VERSION, "staff_line_targets_v1");
+assert.strictEqual(staff.DRIVER_LINE_BINDING, "vehicle");
 assert(contractDoc.includes("Notification Center Contract"));
 assert(contractDoc.includes("must survive page rebuilds"));
 assert(contractDoc.includes("/data/notificationCenter/staffLineTargets"));
@@ -93,6 +94,12 @@ assert(alerts.every((item) => item.onceKey.includes("BK123456")));
 assert(!alerts.some((item) => item.lineTo === "U-forged-driver"));
 assert(!alerts.some((item) => item.lineTo === "G-forged-terminal"));
 assert(!alerts.some((item) => item.lineTo === "U-driver-off"));
+
+const groupOnlyDriverAlerts = staff.bookingCreatedStaffAlerts({
+  booking,
+  staffConfig: { driversByVehicleId: { car1: [{ staffId: "bad", lineGroupId: "G-not-a-driver-phone" }] } }
+});
+assert(!groupOnlyDriverAlerts.some((item) => item.recipientRole === "driver"), "Driver must be bound to a LINE user on the vehicle");
 
 const driverAlert = alerts.find((item) => item.recipientRole === "driver");
 const driverMessage = staff.staffBookingMessage(driverAlert, booking);

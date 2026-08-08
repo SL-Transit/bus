@@ -34,6 +34,8 @@ These files are the stable backend/center boundary. Future website or UX/UI rebu
 - `/data/notificationCenter/staffLineTargets`
   - Central Firebase config for LINE recipients.
   - Drivers must be mapped by car ID at `driversByVehicleId/{carId}`. Example: `car3 -> LINE userId of car3 driver`.
+  - The car is the staff notification identity: the timetable/booking may identify which car is assigned, but it must never carry the driver's LINE ID.
+  - A driver target must be a `lineUserId` (the employee's LINE account). Group/room targets are not accepted as a driver phone destination.
 
 Website pages are replaceable. A new booking page only needs to write the booking contract to `/bookings/{code}` with the stable fields documented below. It must not decide staff LINE recipients itself.
 
@@ -143,6 +145,7 @@ Role-specific metadata may be appended after the core message:
 - Do not calculate fares in Notification Center. Use values already resolved by ERP Calculator Center.
 - Do not calculate ETA in Notification Center. ETA must come from real operational evidence through Logic Center and Calculator Center.
 - Do not invent GPS, vehicle, driver, queue, or terminal targets.
-- Do not trust staff LINE targets inside public booking payloads.
+- Do not trust staff LINE targets inside public booking payloads, timetable rows, or browser helper input.
+- Driver LINE resolution must follow this chain only: server-approved assignment -> vehicle ID -> `driversByVehicleId/{vehicleId}` -> active `lineUserId`.
 - Do not bind notification policy to `booking1.html`.
 - If Firebase notification config is changed, backup first.

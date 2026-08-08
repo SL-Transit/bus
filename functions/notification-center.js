@@ -62,9 +62,9 @@ function retryDelayMs(attempt) { return attempt === 1 ? 0 : attempt === 2 ? 1000
 function lookupAssignmentRecipients(assignment, config) {
   const output = [];
   const driverGroup = config?.driversByVehicleId?.[assignment?.plannedVehicleId] || {};
-  for (const target of Object.values(driverGroup)) if (target.active !== false && target.lineUserId) output.push({ type: "driver", lineTo: target.lineUserId });
+  for (const target of Object.values(driverGroup)) if (target.active !== false && target.lineUserId) output.push({ type: "driver", lineTo: target.lineUserId, binding: "vehicle", vehicleId: assignment?.plannedVehicleId });
   const queueGroup = config?.queuesByQueueId?.[assignment?.queueId] || {};
-  for (const target of Object.values(queueGroup)) if (target.active !== false && target.lineUserId) output.push({ type: "queue", lineTo: target.lineUserId });
+  for (const target of Object.values(queueGroup)) if (target.active !== false && (target.lineUserId || target.lineGroupId || target.lineRoomId)) output.push({ type: "queue", lineTo: target.lineUserId || target.lineGroupId || target.lineRoomId });
   return dedupeRecipients(output);
 }
 

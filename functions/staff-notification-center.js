@@ -1,5 +1,6 @@
 const STAFF_LINE_TARGETS_PATH = "data/notificationCenter/staffLineTargets";
 const STAFF_LINE_TARGETS_SCHEMA_VERSION = "staff_line_targets_v1";
+const DRIVER_LINE_BINDING = "vehicle";
 
 function clean(value) {
   return String(value == null ? "" : value).trim();
@@ -96,6 +97,17 @@ function slipText(booking) {
 function staffLineTo(target) {
   target = target || {};
   return clean(target.lineUserId || target.lineGroupId || target.lineRoomId || target.lineTo);
+}
+
+// A driver's LINE account is a private staff destination for a vehicle.
+// Do not allow a group/room target to masquerade as a driver's phone.
+function driverLineTo(target) {
+  target = target || {};
+  return clean(target.lineUserId);
+}
+
+function isActiveDriverTarget(target) {
+  return target && target.active !== false && driverLineTo(target);
 }
 
 function isActiveTarget(target) {
@@ -196,7 +208,8 @@ function bookingCreatedStaffAlerts(input) {
 
   if (vehicleId && config.driversByVehicleId) {
     list(config.driversByVehicleId[vehicleId]).forEach((target) => {
-      addTarget(alerts, seen, "driver", target, booking, vehicleId);
+      if (!isActiveDriverTarget(target)) return;
+      addTarget(alerts, seen, "driver", { ...target, lineTo: driverLineTo(target) }, booking, vehicleId);
     });
   }
 
@@ -247,6 +260,7 @@ function staffBookingMessage(alert, booking) {
 module.exports = {
   STAFF_LINE_TARGETS_PATH,
   STAFF_LINE_TARGETS_SCHEMA_VERSION,
+  DRIVER_LINE_BINDING,
   normalizeStaffLineTargetsConfig,
   readStaffLineTargetsConfig,
   bookingCreatedStaffAlerts,
