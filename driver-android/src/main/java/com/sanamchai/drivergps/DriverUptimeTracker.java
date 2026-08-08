@@ -72,7 +72,8 @@ public final class DriverUptimeTracker {
     public static String serviceDate(long nowMs) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         format.setTimeZone(TimeZone.getTimeZone("Asia/Bangkok"));
-        return format.format(nowMs == 0 ? System.currentTimeMillis() : new java.util.Date(nowMs));
+        long timestamp = nowMs == 0 ? System.currentTimeMillis() : nowMs;
+        return format.format(new java.util.Date(timestamp));
     }
 
     public static final class Snapshot {
