@@ -9,6 +9,7 @@ const emulatorDatabaseUrl = process.env.FIREBASE_DATABASE_EMULATOR_HOST
   : '';
 admin.initializeApp(emulatorDatabaseUrl ? { databaseURL: emulatorDatabaseUrl } : undefined);
 const SERVER_TIMESTAMP = { ".sv": "timestamp" };
+const MAX_CAPACITY_LIMIT = 300;
 
 const driverTicketCenter = require("./driver-ticket-center.js");
 const driverWorkAutoCenter = require("./driver-work-auto-center.js");
@@ -153,7 +154,7 @@ exports.reserveBookingCapacity = onRequest({
       return;
     }
     const result = await ref.transaction((current) => {
-      if (!current || !Number.isInteger(Number(current.capacityLimit)) || Number(current.capacityLimit) < 1 || Number(current.capacityLimit) > 10) return;
+      if (!current || !Number.isInteger(Number(current.capacityLimit)) || Number(current.capacityLimit) < 1 || Number(current.capacityLimit) > MAX_CAPACITY_LIMIT) return;
       const bookings = current.bookings || {};
       const existing = bookings[bookingCode];
       if (existing) return existing.ownerUid === decoded.uid ? current : undefined;
