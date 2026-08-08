@@ -358,15 +358,13 @@ exports.cancelBooking = onRequest({
       sendJson(res, 409, { status: "error", error: "cancellation_window_closed" });
       return;
     }
-    let result = { committed: false };
-    for (let attempt = 0; attempt < 3 && !result.committed; attempt += 1) {
-      result = await ref.transaction((current) => {
-        if (!current || normalizeBookingPhone(current.phone) !== phone || current.status === "cancelled") return;
-        return { ...current, status: "cancelled", cancelledAt: Date.now(), officialStatus: "ยกเลิกแล้ว", ticketActionContract: "ticket_action_center_cancel_v1" };
-      });
-      if (!result.committed && attempt < 2) await new Promise((resolve) => setTimeout(resolve, 25));
+    await ref.update({ status: "cancelled", cancelledAt: Date.now(), officialStatus: "ยกเลิกแล้ว", ticketActionContract: "ticket_action_center_cancel_v1" });
+    const after = await ref.get();
+    const afterBooking = after.val();
+    if (!afterBooking || afterBooking.status !== "cancelled" || normalizeBookingPhone(afterBooking.phone) !== phone) {
+      sendJson(res, 409, { status: "error", error: "booking_changed_or_already_cancelled" });
+      return;
     }
-    if (!result.committed) { sendJson(res, 409, { status: "error", error: "booking_changed_or_already_cancelled" }); return; }
     const capacityRelease = await releaseBookingCapacityServer(booking, code);
     sendJson(res, 200, { status: "ok", booking: { code, status: "cancelled" }, capacityRelease });
   } catch (error) {
