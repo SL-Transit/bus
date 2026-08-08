@@ -25,6 +25,7 @@ async function main() {
   const deletes = Object.keys(values).filter((code) => code.startsWith(`K6-${runId}-`)).map((code) => db.ref(`bookings/${code}`).remove());
   await Promise.all(deletes);
   await db.ref('publishedSchedule').remove();
+  await db.ref('operations/bookingCapacityByServiceDate/2099-01-01/pair-test').remove();
   await db.ref('settings/systemTestMode').remove();
   await removeUsers();
   await admin.app().delete();
