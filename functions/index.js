@@ -140,6 +140,7 @@ exports.reserveBookingCapacity = onRequest({
       return;
     }
     const ref = admin.database().ref(path);
+    await ref.get();
     if (action === "release") {
       const result = await ref.transaction((current) => {
         if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
