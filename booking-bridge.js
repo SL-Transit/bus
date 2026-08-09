@@ -327,6 +327,10 @@
           action: action,
           serviceDate: contract.serviceDate,
           capacityKey: String(contract.capacityKey || '').replace(/[^A-Za-z0-9_-]/g, '_'),
+          pairKey: String(contract.pairKey || ''),
+          tripKey: String(contract.tripKey || ''),
+          routeKey: String(contract.routeKey || ''),
+          pickupTime: String(contract.pickupTime || ''),
           bookingCode: firebaseSafeKey(contract.bookingCode),
           requestedSeats: Math.max(1, Number(contract.requestedSeats || 1))
         })
