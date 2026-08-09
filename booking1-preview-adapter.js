@@ -961,8 +961,21 @@
         return;
       }
       enforceSeparatePaymentStep();
-      if (global.firebase && global.firebase.auth && !global.firebase.auth().currentUser && global._authReady) {
-        global._authReady.then(function() { global.goToTicket(); }).catch(function() { alert('ไม่สามารถยืนยันเซสชันผู้ใช้งานได้'); });
+      if (global.firebase && global.firebase.auth && !global.firebase.auth().currentUser && (global._ensureBookingAuth || global._authReady)) {
+        var authWait = typeof global._ensureBookingAuth === 'function'
+          ? global._ensureBookingAuth()
+          : global._authReady;
+        authWait.then(function() { global.goToTicket(); }).catch(function(err) {
+          var code = err && err.code ? String(err.code) : '';
+          if (code === 'auth/operation-not-allowed') {
+            alert('ระบบยืนยันตัวตนยังไม่ได้เปิดใช้งาน กรุณาแจ้งผู้ดูแลระบบ');
+          } else if (code === 'auth/network-request-failed') {
+            alert('การเชื่อมต่อขัดข้อง กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่');
+          } else {
+            alert('ระบบยืนยันตัวตนยังไม่พร้อม กรุณาลองใหม่อีกครั้ง');
+          }
+          console.error('[Booking1PreviewAdapter] booking auth failed', { code: code || 'unknown' });
+        });
         return;
       }
       var state = appState();
