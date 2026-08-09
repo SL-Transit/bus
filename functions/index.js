@@ -49,6 +49,7 @@ const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
 // state is now written exclusively under operations/notificationDispatch.
 // Historical audit label: recipient: "passenger_line"
 const LEGACY_NOTIFICATION_AUDIT_TERMS = ["skipped_no_passenger_line_target", "recipient: \"passenger_line\""];
+const DEFAULT_PUBLISHED_TRIP_CAPACITY = 3;
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -298,15 +299,21 @@ async function resolvePublishedCapacity({ serviceDate, pairKey, tripKey, routeKe
     const sameTime = !wantedTime || String(candidate.departureTime || "") === wantedTime;
     return sameTrip && sameRoute && sameTime;
   });
-  const limit = Number(row && row.capacity);
-  if (!row || !Number.isInteger(limit) || limit < 1 || limit > MAX_CAPACITY_LIMIT) return null;
+  if (!row || row.displayWhenPublished !== true) return null;
+  const configuredLimit = Number(row.capacity);
+  const limit = Number.isInteger(configuredLimit) && configuredLimit > 0
+    ? configuredLimit
+    : DEFAULT_PUBLISHED_TRIP_CAPACITY;
+  if (limit > MAX_CAPACITY_LIMIT) return null;
   return {
     capacityLimit: limit,
     bookedSeats: 0,
     seatsAvailable: limit,
     bookings: {},
     serviceDate: String(serviceDate || ""),
-    source: "publishedSchedule/scheduleRows",
+    source: Number.isInteger(configuredLimit) && configuredLimit > 0
+      ? "publishedSchedule/scheduleRows"
+      : "publishedSchedule/defaultCapacityPolicy",
     sourceRowId: String(row.sourceRowId || ""),
     updatedAt: SERVER_TIMESTAMP
   };
