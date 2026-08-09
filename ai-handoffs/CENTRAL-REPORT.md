@@ -1,5 +1,14 @@
 # SL-Transit Central AI Report
 
+## 2026-08-09 - Project Context Documentation - REVIEW
+
+- Added the central project context index and separated requirements, architecture, business rules, API specification, decisions, testing, implementation plan, and review checklist under `docs/project-context/`.
+- The documents label facts as confirmed, proposed, unresolved, or blocked so future work does not treat guesses or screenshots as production contracts.
+- Runtime code, Firebase rules, Firebase data, production bookings, and LINE delivery were not changed in this documentation pass.
+- Tests were not changed or used as a substitute for the existing behavioral and emulator validation evidence; the latest evidence is recorded in `docs/project-context/06-TESTING.md`.
+
+Next action: every new task should start from `docs/project-context/README.md`, then create a scoped plan and work lock before implementation.
+
 Purpose: every AI must report completed work, blockers, and handoffs here so other AIs can continue without repeating work.
 
 ## 2026-08-07 10:00 +07 - ERP Central Read Access / Booking and Index - DONE
