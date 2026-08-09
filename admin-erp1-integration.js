@@ -25,9 +25,43 @@
     '\u0e40\u0e19\u0084\u0e40\u0e18\u0e01\u0e40\u0e19\u0088': 'ไม่'
   });
 
+  var WINDOWS_874_REVERSE = null;
+
+  function windows874ReverseMap() {
+    if (WINDOWS_874_REVERSE) return WINDOWS_874_REVERSE;
+    WINDOWS_874_REVERSE = {};
+    if (typeof TextDecoder !== 'function') return WINDOWS_874_REVERSE;
+    try {
+      var decoder = new TextDecoder('windows-874');
+      for (var byte = 0x80; byte <= 0xff; byte += 1) {
+        WINDOWS_874_REVERSE[decoder.decode(new Uint8Array([byte]))] = byte;
+      }
+    } catch (error) {
+      WINDOWS_874_REVERSE = {};
+    }
+    return WINDOWS_874_REVERSE;
+  }
+
   function repairDisplayText(value) {
     if (typeof value !== 'string') return value;
-    return Object.prototype.hasOwnProperty.call(DISPLAY_REPAIRS, value) ? DISPLAY_REPAIRS[value] : value;
+    if (Object.prototype.hasOwnProperty.call(DISPLAY_REPAIRS, value)) return DISPLAY_REPAIRS[value];
+    if (!/\u0e40\u0e18|\u0e40\u0e19(?:€|[\u0080-\u009f])/.test(value)) return value;
+    var reverse = windows874ReverseMap();
+    if (!Object.keys(reverse).length || typeof TextDecoder !== 'function') return value;
+    try {
+      var bytes = [];
+      for (var index = 0; index < value.length; index += 1) {
+        var character = value.charAt(index);
+        var code = value.charCodeAt(index);
+        var byte = code < 0x80 ? code : reverse[character];
+        if (byte == null) return value;
+        bytes.push(byte);
+      }
+      var repaired = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      return repaired.indexOf('\ufffd') === -1 && repaired !== value ? repaired : value;
+    } catch (error) {
+      return value;
+    }
   }
 
   function text(value) {
