@@ -285,6 +285,33 @@ function capacityCounterPath(serviceDate, capacityKey) {
   return `operations/bookingCapacityByServiceDate/${serviceDate}/${capacityKey}`;
 }
 
+async function resolvePublishedCapacity({ serviceDate, pairKey, tripKey, routeKey, pickupTime }) {
+  const rowsSnap = await admin.database().ref("publishedSchedule/scheduleRows").get();
+  const rows = rowsSnap.val() || {};
+  const wantedTrip = String(tripKey || "");
+  const wantedRoute = String(routeKey || "");
+  const wantedTime = String(pickupTime || "");
+  const row = Object.values(rows).find((candidate) => {
+    if (!candidate || candidate.bookingEnabled === false) return false;
+    const sameTrip = wantedTrip && String(candidate.scheduleOfferId || "") === wantedTrip;
+    const sameRoute = !wantedRoute || String(candidate.routeId || "") === wantedRoute;
+    const sameTime = !wantedTime || String(candidate.departureTime || "") === wantedTime;
+    return sameTrip && sameRoute && sameTime;
+  });
+  const limit = Number(row && row.capacity);
+  if (!row || !Number.isInteger(limit) || limit < 1 || limit > MAX_CAPACITY_LIMIT) return null;
+  return {
+    capacityLimit: limit,
+    bookedSeats: 0,
+    seatsAvailable: limit,
+    bookings: {},
+    serviceDate: String(serviceDate || ""),
+    source: "publishedSchedule/scheduleRows",
+    sourceRowId: String(row.sourceRowId || ""),
+    updatedAt: SERVER_TIMESTAMP
+  };
+}
+
 async function readSystemTestMode() {
   const snap = await admin.database().ref("settings/systemTestMode").get();
   return snap.val() || {};
@@ -316,7 +343,20 @@ exports.reserveBookingCapacity = onRequest({
       return;
     }
     const ref = admin.database().ref(path);
-    const initialCapacity = (await ref.get()).val();
+    let initialCapacity = (await ref.get()).val();
+    if (!initialCapacity && action !== "release") {
+      initialCapacity = await resolvePublishedCapacity({
+        serviceDate: body.serviceDate,
+        pairKey: body.pairKey,
+        tripKey: body.tripKey,
+        routeKey: body.routeKey,
+        pickupTime: body.pickupTime
+      });
+      if (!initialCapacity) {
+        sendJson(res, 409, { status: "error", error: "capacity_full_or_not_ready" });
+        return;
+      }
+    }
     if (action === "release") {
       const result = await ref.transaction((current) => {
         if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
