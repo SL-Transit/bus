@@ -98,17 +98,48 @@
     });
   }
   function toResult(status, path, rows, snapshot, error, orderVerified) { return { status: status, path: path, rows: Array.isArray(rows) ? rows : values(rows), count: Array.isArray(rows) ? rows.length : Object.keys(object(rows)).length, source: 'admin-erp-read-endpoint', version: snapshot && snapshot.version || null, lastUpdated: snapshot && snapshot.generatedAt || null, permissions: snapshot && snapshot.permissions || null, orderField: 'sourceRowNumber', orderVerified: orderVerified !== false, error: error || null }; }
+
+  function enrichCatalogNames(entity, rows) {
+    var relation = entity === 'stopTimes'
+      ? { source: 'stops', idField: 'stopKey', nameField: 'nameTh', targetField: 'stopNameTh' }
+      : entity === 'assignmentRules'
+        ? { source: 'serviceGroups', idField: 'serviceGroupId', nameField: 'displayNameTh', targetField: 'serviceGroupNameTh' }
+        : null;
+    if (!relation || !rows.some(function (row) { return !hasDisplayValue(row[relation.targetField]) && hasDisplayValue(row[relation.idField]); })) return Promise.resolve({ rows: rows, status: null, error: null });
+    return getCatalog(relation.source).then(function (lookup) {
+      var namesById = {};
+      lookup.rows.forEach(function (row) {
+        var id = row[relation.idField] || row.id;
+        if (hasDisplayValue(id) && hasDisplayValue(row[relation.nameField])) namesById[String(id)] = row[relation.nameField];
+      });
+      var enriched = rows.map(function (row) {
+        if (hasDisplayValue(row[relation.targetField]) || !hasDisplayValue(row[relation.idField])) return row;
+        var name = namesById[String(row[relation.idField])];
+        return name == null ? row : Object.assign({}, row, (function () { var patch = {}; patch[relation.targetField] = name; return patch; }()));
+      });
+      var unresolved = enriched.some(function (row) { return !hasDisplayValue(row[relation.targetField]) && hasDisplayValue(row[relation.idField]); });
+      return { rows: enriched, status: unresolved || lookup.status !== STATUS.ready ? STATUS.partial : null, error: lookup.error || null };
+    }).catch(function (error) {
+      return { rows: rows, status: STATUS.partial, error: error };
+    });
+  }
+
+  function hasDisplayValue(value) { return value !== undefined && value !== null && value !== ''; }
+
   function getCatalog(entity, query) {
     query = query || {};
     if (!ENTITY_PATHS[entity]) return Promise.reject(adapterError('unknown_entity', 'ไม่รู้จักหมวดข้อมูล: ' + entity));
     return readRoot(ENTITY_SCOPES[entity]).then(function (snapshot) {
       var ordered = orderedValues(pathValue(snapshot.root, ENTITY_DATA_PATHS[entity]));
-      var rows = ordered.rows;
-      if (query.search) rows = rows.filter(function (row) { return JSON.stringify(row).toLowerCase().indexOf(String(query.search).toLowerCase()) !== -1; });
-      if (query.limit != null) rows = rows.slice(0, Math.max(0, Number(query.limit)));
-      var status = snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status;
-      if (status === STATUS.ready && !ordered.verified) status = STATUS.partial;
-      return toResult(status, PATHS[ENTITY_SCOPES[entity]], rows, snapshot, null, ordered.verified);
+      return enrichCatalogNames(entity, ordered.rows).then(function (enrichment) {
+        var rows = enrichment.rows;
+        if (query.search) rows = rows.filter(function (row) { return JSON.stringify(row).toLowerCase().indexOf(String(query.search).toLowerCase()) !== -1; });
+        if (query.limit != null) rows = rows.slice(0, Math.max(0, Number(query.limit)));
+        var status = snapshot.status === STATUS.ready && !rows.length ? STATUS.empty : snapshot.status;
+        if (status === STATUS.ready && !ordered.verified) status = STATUS.partial;
+        if (enrichment.status === STATUS.partial && status === STATUS.ready) status = STATUS.partial;
+        return toResult(status, PATHS[ENTITY_SCOPES[entity]], rows, snapshot, enrichment.error, ordered.verified);
+      });
     });
   }
   function getWorkbookSource(sheet, query) {

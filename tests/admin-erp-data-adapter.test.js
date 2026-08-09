@@ -36,6 +36,23 @@ function response(body, status = 200) { return { ok: status >= 200 && status < 3
   const assignmentRules = await adapter.getCatalog('assignmentRules');
   assert.strictEqual(assignmentRules.path, 'data/erpDataCenter/fleet/assignmentRules');
   assert.strictEqual(assignmentRules.rows[0].runtimeVehicleId, 'runtime_1');
+  adapter.configure({ endpoint: 'https://example.test/enrich', getIdToken: async () => 'token', fetchImpl: async (url) => {
+    const scope = new URL(url).searchParams.get('scope');
+    const payloads = {
+      stopTimes: { stopTimes: { time_1: { tripId: 'trip_1', stopKey: 'stop_0002', time: '09:00', sourceRowNumber: 2 } } },
+      stops: { stops: { stop_0002: { stopKey: 'stop_0002', nameTh: 'ป้ายกลาง' } } },
+      assignmentRules: { fleet: { assignmentRules: { rule_1: { runtimeVehicleId: 'runtime_1', serviceGroupId: 'group_001' } } } },
+      serviceGroups: { serviceGroups: { group_001: { serviceGroupId: 'group_001', displayNameTh: 'กลุ่มกลาง' } } }
+    };
+    const paths = { stopTimes: 'data/erpDataCenter/stopTimes', stops: 'data/erpDataCenter/stops', assignmentRules: 'data/erpDataCenter/fleet/assignmentRules', serviceGroups: 'data/erpDataCenter/serviceGroups' };
+    return response({ status: 'ready', path: paths[scope], erpDataCenter: payloads[scope], generatedAt: 1000 });
+  }, now: () => 1000 });
+  const enrichedStopTimes = await adapter.getCatalog('stopTimes');
+  assert.strictEqual(enrichedStopTimes.rows[0].stopNameTh, 'ป้ายกลาง', 'stop times must resolve names from the canonical stop catalog');
+  assert.strictEqual(enrichedStopTimes.status, 'ready');
+  const enrichedAssignments = await adapter.getCatalog('assignmentRules');
+  assert.strictEqual(enrichedAssignments.rows[0].serviceGroupNameTh, 'กลุ่มกลาง', 'assignment rules must resolve service group names from the canonical catalog');
+  assert.strictEqual(enrichedAssignments.status, 'ready');
   const draft = await adapter.createDraft({ base: { stops: root.stops }, records: { stops: { s1: root.stops.s1 } } }); await adapter.updateDraft(draft.draftId, { routes: { r1: root.routes.r1 } });
   const validation = await adapter.validateDraft(draft.draftId); assert.strictEqual(validation.valid, true); assert.strictEqual(validation.auditPreview.productionWrite, false); assert.strictEqual(validation.diff.counts.added, 1);
   const review = await adapter.submitForReview(draft.draftId); assert.strictEqual(review.status, 'in_review'); assert.strictEqual(review.productionWrite, false);
