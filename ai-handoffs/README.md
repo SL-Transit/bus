@@ -1,46 +1,21 @@
-# SL-Transit AI Handoffs
+# SL-Transit AI Coordination Board
 
-This folder contains role-specific instructions for the AI teams working on SL-Transit.
+This folder is the single source of coordination for all AI work in this repository.
 
-## Source of Truth
-Repository: https://github.com/SL-Transit/bus/tree/main
+## Start here
 
-Every AI must inspect the latest `main` branch before starting work.
+1. Read `SYSTEM-DIRECTION.md`.
+2. Read `WORK-BOARD.md` and do not start work already locked by another owner.
+3. Add a work lock before changing code or data contracts.
+4. Record the result, verification, and next action in `DECISION-LOG.md`.
 
-## Global Hard Constraints
-- GitHub is the source of truth.
-- Do not edit local files.
-- Do not write Firebase unless explicitly approved by the user.
-- Do not create, modify, or read real passenger/private data unless explicitly approved.
-- Push changes through GitHub only.
-- After every push, verify GitHub Actions and GitHub Pages.
-- When in doubt, produce a dry-run plan first.
+## Hard rules
 
-## Current Priority
-The current priority is the system backbone: schema, catalog, fleet, settings, migration/readiness, validation, and safe bridge contracts.
+- GitHub `main` is the repository source of truth.
+- `admin-erp1.html` is the future primary Admin ERP interface.
+- `data/erpDataCenter` is the only master-data source for published consumer information.
+- CSV and Excel are import sources only; consumer pages never read them directly.
+- No Firebase production write, seed, security-rule deployment, or private passenger/booking data access without explicit Owner approval.
+- Do not create duplicate schema, importer, Admin workflow, or page-specific business rules.
 
-## Roles
-1. Main Backbone Lead: existing lead AI controlling schema and merge contract.
-2. Main Backbone Support AI: helps the lead with validators, readiness, contracts, and safe admin tooling.
-3. Data Import / Catalog AI: prepares real backbone data as dry-run JSON plans.
-4. QA / Release Guard AI: read-only verification and regression guard.
-5. Booking Logic AI: prepares booking bridge to backbone.
-6. Passenger AI: prepares passenger UI bridge to backbone.
-7. Check Ticket AI: prepares ticket/QR compatibility contract.
-8. Driver / Operations AI: prepares driver/live vehicle bridge.
-
-## Recommended Start Order
-1. Data Import / Catalog AI starts first.
-2. QA / Release Guard AI starts in read-only mode.
-3. Main Backbone Support AI starts after reading current schema/admin/data adapter.
-4. Booking, Passenger, Check Ticket, and Driver AIs start with audit + bridge plan only.
-5. Implementation beyond bridge-safe changes waits for Main Backbone Lead contract confirmation.
-
-## Files
-- `00-main-backbone-support-ai.md`
-- `01-data-import-catalog-ai.md`
-- `02-qa-release-guard-ai.md`
-- `03-booking-logic-ai.md`
-- `04-passenger-ai.md`
-- `05-check-ticket-ai.md`
-- `06-driver-operations-ai.md`
+Historic coordination material was intentionally reset on 2026-08-09. Git history remains the archive.
