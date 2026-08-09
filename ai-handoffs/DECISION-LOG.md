@@ -9,6 +9,8 @@
 | 2026-08-09 | Use one versioned ERP network source; CSV/Excel are import sources only. | Approved | Owner instruction |
 | 2026-08-09 | Use stable canonical network identities to connect providers at the same physical location. | Approved | Owner instruction |
 | 2026-08-09 | No production Firebase write or seed is implied by the new board. | Active safeguard | Owner approval required per release |
+| 2026-08-09 | Every work item must follow Read → Requirements → Project Context → Plan → Implement → Review. | Approved | Owner instruction |
+| 2026-08-09 | Architecture, business rules, API specification, and testing requirements are mandatory context before implementation. | Approved | Owner instruction |
 
 ## Reporting template
 
@@ -31,7 +33,7 @@ WORKSTREAM: Coordination reset
 STATUS: DONE
 OWNER: Codex
 SCOPE: `ai-handoffs/`
-RESULT: Historical board content replaced with one direction for the versioned ERP network, Admin ERP1, staged imports, and published consumer read models.
-VERIFICATION: Board contains only README, system direction, work board, and decision log; no runtime or Firebase files changed.
+RESULT: Historical board content replaced with mandatory project context, architecture, business rules, API specification, work sequence, testing gates, and the unified versioned ERP network direction.
+VERIFICATION: `admin-erp-data-adapter`, `admin-erp1-integration`, `erp-data-center-dry-run-snapshot`, `erp-stable-id-registry`, `erp-workbook-source-contract`, `admin-erp-authorization`, `admin-erp-function-config`, `admin-console-safety`, and `booking-security-rules` tests passed. `schedule-resolver-matrix` was skipped because its legacy source path is not publicly readable; this is not treated as a pass.
 SAFETY: Firebase writes: none. Production data: none. Private data: none.
 NEXT ACTION: Main Backbone locks the network master-data contract workstream and defines the import mapping against the approved CSV package.

@@ -12,6 +12,7 @@ Before editing a scope, replace the matching `TODO` row with an `IN_PROGRESS` lo
 
 | Workstream | Owner | Status | Scope | Start | Output | Firebase / Production writes |
 | --- | --- | --- | --- | --- | --- | --- |
+| Coordination context baseline | Codex | DONE | `ai-handoffs/` project context, business rules, API specification, testing, and workflow | 2026-08-09 +07 | Unified onboarding and delivery process | none |
 | Network master-data contract | Main Backbone | TODO | Stable IDs, provider/node/terminal/boarding-point/group-stop boundaries, version contract | — | Approved schema and migration map | none |
 | Import Package and CSV mapping | Data Import | TODO | CSV package manifest, field mapping, staging validation, error report | — | Dry-run import package | none |
 | Admin ERP1 integration | Admin ERP1 | TODO | Draft, validation, review, version history, import status UI | — | Admin workflow using central adapter | none |
@@ -21,12 +22,12 @@ Before editing a scope, replace the matching `TODO` row with an `IN_PROGRESS` lo
 
 ## Required sequence
 
-1. Approve the network master-data contract.
-2. Approve the Import Package and validation report.
-3. Build Admin ERP1 draft/review integration.
-4. Build the versioned Published Read Model.
-5. Connect consumer pages to the one published contract.
-6. Run QA and obtain Owner approval before any production write.
+1. Read current source, tests, `PROJECT-CONTEXT.md`, `BUSINESS-RULES.md`, `API-SPECIFICATION.md`, and `DECISION-LOG.md`.
+2. Write requirements with measurable acceptance criteria.
+3. Lock one workstream and publish a scoped plan.
+4. Implement only the locked scope.
+5. Run the required tests from `TESTING-AND-REVIEW.md` and perform a focused review.
+6. Record the result and only then unlock or hand off the work.
 
 ## Global blockers
 

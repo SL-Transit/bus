@@ -2,12 +2,25 @@
 
 This folder is the single source of coordination for all AI work in this repository.
 
-## Start here
+## Required work sequence
 
-1. Read `SYSTEM-DIRECTION.md`.
-2. Read `WORK-BOARD.md` and do not start work already locked by another owner.
-3. Add a work lock before changing code or data contracts.
-4. Record the result, verification, and next action in `DECISION-LOG.md`.
+Every task follows this order. Do not skip a step.
+
+1. **Read** — inspect the relevant source, current board, tests, and latest `main`.
+2. **Requirements** — state the user outcome, scope, acceptance criteria, and restrictions.
+3. **Project Context** — read the Architecture, Business Rules, API Specification, and Decisions below.
+4. **Plan** — post a scoped plan and take a work lock in `WORK-BOARD.md`.
+5. **Implement** — change only the locked scope.
+6. **Review** — run relevant tests, inspect the changed behavior, record safety impact, and update the decision log.
+
+## Mandatory context
+
+- `PROJECT-CONTEXT.md` — system architecture and authoritative data boundaries
+- `BUSINESS-RULES.md` — network, timetable, fare, booking, and version rules
+- `API-SPECIFICATION.md` — current interfaces and planned import/publish contract
+- `DECISION-LOG.md` — approved decisions and unresolved items
+- `TESTING-AND-REVIEW.md` — minimum verification and release evidence
+- `WORK-BOARD.md` — active work locks and delivery order
 
 ## Hard rules
 
