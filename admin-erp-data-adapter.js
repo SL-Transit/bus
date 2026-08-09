@@ -245,13 +245,21 @@
     });
     draftRows(records.trips).forEach(function (row, index) {
       if (!hasId(records, 'routes', row.routeId)) issues.push({ code: 'invalid_foreign_key', entity: 'trips', field: 'routeId', value: row.routeId, index: index });
+      if (hasDisplayValue(row.serviceGroupId) && !hasId(records, 'serviceGroups', row.serviceGroupId)) issues.push({ code: 'invalid_foreign_key', entity: 'trips', field: 'serviceGroupId', value: row.serviceGroupId, index: index });
     });
     draftRows(records.stopTimes).forEach(function (row, index) {
       if (!hasId(records, 'trips', row.tripId)) issues.push({ code: 'invalid_foreign_key', entity: 'stopTimes', field: 'tripId', value: row.tripId, index: index });
       if (!hasId(records, 'stops', row.stopKey)) issues.push({ code: 'invalid_foreign_key', entity: 'stopTimes', field: 'stopKey', value: row.stopKey, index: index });
+      if (hasDisplayValue(row.serviceGroupId) && !hasId(records, 'serviceGroups', row.serviceGroupId)) issues.push({ code: 'invalid_foreign_key', entity: 'stopTimes', field: 'serviceGroupId', value: row.serviceGroupId, index: index });
     });
     draftRows(records.fares).forEach(function (row, index) {
       if (!hasId(records, 'routes', row.routeId)) issues.push({ code: 'invalid_foreign_key', entity: 'fares', field: 'routeId', value: row.routeId, index: index });
+      if (hasDisplayValue(row.serviceGroupId) && !hasId(records, 'serviceGroups', row.serviceGroupId)) issues.push({ code: 'invalid_foreign_key', entity: 'fares', field: 'serviceGroupId', value: row.serviceGroupId, index: index });
+      if (hasDisplayValue(row.fromStopKey) && !hasId(records, 'stops', row.fromStopKey)) issues.push({ code: 'invalid_foreign_key', entity: 'fares', field: 'fromStopKey', value: row.fromStopKey, index: index });
+      if (hasDisplayValue(row.toStopKey) && !hasId(records, 'stops', row.toStopKey)) issues.push({ code: 'invalid_foreign_key', entity: 'fares', field: 'toStopKey', value: row.toStopKey, index: index });
+    });
+    draftRows(records.queues).forEach(function (row, index) {
+      if (hasDisplayValue(row.groupId) && !hasId(records, 'serviceGroups', row.groupId)) issues.push({ code: 'invalid_foreign_key', entity: 'queues', field: 'groupId', value: row.groupId, index: index });
     });
     draft.validation = { valid: !issues.length, issues: clone(issues), checkedAt: now() };
     draft.status = issues.length ? 'draft' : 'validated';
