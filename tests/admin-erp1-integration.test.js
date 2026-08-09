@@ -36,6 +36,8 @@ if (!bridge.includes('sourceRowNumber')) throw new Error('read-only rows must pr
 if (!bridge.includes('แถว Excel')) throw new Error('read-only rows must display the original Excel row number');
 if (!bridge.includes("document.addEventListener('DOMContentLoaded', startBridge")) throw new Error('integration bridge must wait for body readiness');
 if (!page.includes("routes:['02_เส้นทาง',['รหัสกลุ่ม (group_id)','ชื่อกลุ่ม','ลำดับกลุ่ม'")) throw new Error('Admin ERP1 routes table must use the Excel sheet 02 group columns');
+if (!page.includes("fares:['03_เส้นทางและราคา',['รหัสเส้นทาง','รหัสกลุ่มบริการ','รหัสป้ายต้นทาง','ชื่อป้ายต้นทาง','รหัสป้ายปลายทาง','ชื่อป้ายปลายทาง'")) throw new Error('Admin ERP1 fare table must show origin and destination stop names');
+if (!bridge.includes("'ใช่'")) throw new Error('Admin ERP1 must repair the observed mojibake yes/no display values');
 
 if (!readModel.includes("name: 'assignmentRules'")) throw new Error('Driver/group read model must use the approved assignmentRules path');
 

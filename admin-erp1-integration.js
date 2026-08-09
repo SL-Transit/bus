@@ -20,11 +20,21 @@
     alerts: 'ยังไม่มีเส้นทางข้อมูลที่อนุมัติสำหรับศูนย์แจ้งเตือน'
   };
 
+  var DISPLAY_REPAIRS = Object.freeze({
+    '\u0e40\u0e19\u0083\u0e40\u0e18\u008a\u0e40\u0e19\u0088': 'ใช่',
+    '\u0e40\u0e19\u0084\u0e40\u0e18\u0e01\u0e40\u0e19\u0088': 'ไม่'
+  });
+
+  function repairDisplayText(value) {
+    if (typeof value !== 'string') return value;
+    return Object.prototype.hasOwnProperty.call(DISPLAY_REPAIRS, value) ? DISPLAY_REPAIRS[value] : value;
+  }
+
   function text(value) {
     if (value === null || value === undefined || value === '') return '—';
     if (typeof value === 'boolean') return value ? 'ใช่' : 'ไม่ใช่';
     if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
+    return repairDisplayText(String(value));
   }
 
   function escapeHtml(value) {
@@ -144,5 +154,5 @@
     else document.addEventListener('DOMContentLoaded', startBridge, { once: true });
   }
 
-  global.AdminErpPageIntegration = { refresh: refresh, statusText: STATUS_TEXT, sources: SOURCE_BY_TAB };
+  global.AdminErpPageIntegration = { refresh: refresh, statusText: STATUS_TEXT, sources: SOURCE_BY_TAB, repairDisplayText: repairDisplayText };
 }(typeof window !== 'undefined' ? window : globalThis));
