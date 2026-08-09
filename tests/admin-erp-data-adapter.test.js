@@ -64,6 +64,16 @@ function response(body, status = 200) { return { ok: status >= 200 && status < 3
   const duplicateDraft = await adapter.createDraft({ records: { stops: [{ stopKey: 'duplicate' }, { stopKey: 'duplicate' }] } }); const duplicateValidation = await adapter.validateDraft(duplicateDraft.draftId); assert(duplicateValidation.issues.some((issue) => issue.code === 'duplicate_id'));
   const missingDraft = await adapter.createDraft({ records: { routes: { route_1: { routeId: 'route_1', fromStopKey: 's1' } } } }); const missingValidation = await adapter.validateDraft(missingDraft.draftId); assert(missingValidation.issues.some((issue) => issue.code === 'missing_required_field' && issue.field === 'toStopKey'));
   const foreignKeyDraft = await adapter.createDraft({ records: { routes: { route_1: { routeId: 'route_1', fromStopKey: 'missing', toStopKey: 'missing' } } } }); const foreignKeyValidation = await adapter.validateDraft(foreignKeyDraft.draftId); assert(foreignKeyValidation.issues.some((issue) => issue.code === 'invalid_foreign_key'));
+  const relationshipDraft = await adapter.createDraft({ records: {
+    stops: { stop_1: { stopKey: 'stop_1' } },
+    routes: { route_1: { routeId: 'route_1', fromStopKey: 'stop_1', toStopKey: 'stop_1' } },
+    fares: { fare_1: { fareId: 'fare_1', routeId: 'route_1', serviceGroupId: 'missing_group', fromStopKey: 'missing_stop', toStopKey: 'stop_1', amount: 55 } },
+    queues: { queue_1: { queueId: 'queue_1', groupId: 'missing_group' } }
+  } });
+  const relationshipValidation = await adapter.validateDraft(relationshipDraft.draftId);
+  assert(relationshipValidation.issues.some((issue) => issue.entity === 'fares' && issue.field === 'serviceGroupId'), 'fare must reference an existing service group');
+  assert(relationshipValidation.issues.some((issue) => issue.entity === 'fares' && issue.field === 'fromStopKey'), 'fare origin must reference an existing stop');
+  assert(relationshipValidation.issues.some((issue) => issue.entity === 'queues' && issue.field === 'groupId'), 'queue must reference an existing service group');
   await assert.rejects(() => adapter.publish('review-1'), (error) => error.code === 'review_not_found');
   adapter.configure({ endpoint: 'https://example.test/read', getIdToken: async () => null, fetchImpl: async () => response({}) }); await assert.rejects(() => adapter.getCatalog('stops'), (error) => error.code === 'token_required');
   adapter.configure({ endpoint: 'https://example.test/read', getIdToken: async () => 'token', fetchImpl: async () => response({}, 403) }); await assert.rejects(() => adapter.getCatalog('stops'), (error) => error.code === 'forbidden');
