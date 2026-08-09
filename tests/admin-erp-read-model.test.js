@@ -31,6 +31,10 @@ assert.deepStrictEqual(readModel.sources.routes.fields, [
   'minTransferMinutes', 'maxWaitMinutes', 'idealWaitMinutes', 'reliability',
   'displayOrder', 'passengerSelectable', 'status'
 ], 'เส้นทาง must expose the exact fields from Excel sheet 02');
+assert.deepStrictEqual(readModel.sources.fares.fields, [
+  'routeId', 'serviceGroupId', 'fromStopKey', 'fromNameTh', 'toStopKey', 'toNameTh',
+  'amount', 'currency', 'effectiveFrom', 'status'
+], 'เส้นทางและราคาต้องเปิดเผยรหัสและชื่อป้ายต้นทาง/ปลายทางตามสัญญาข้อมูล');
 
 ['staff', 'accounts', 'alerts'].forEach((tab) => {
   assert.strictEqual(readModel.sourceForTab(tab), null, tab + ' must not read without an approved backend contract');
