@@ -1,7 +1,9 @@
 'use strict';
 
+const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const page = fs.readFileSync(path.join(root, 'admin-erp1.html'), 'utf8');
 const bridge = fs.readFileSync(path.join(root, 'admin-erp1-integration.js'), 'utf8');
@@ -38,6 +40,17 @@ if (!bridge.includes("document.addEventListener('DOMContentLoaded', startBridge"
 if (!page.includes("routes:['02_เส้นทาง',['รหัสกลุ่ม (group_id)','ชื่อกลุ่ม','ลำดับกลุ่ม'")) throw new Error('Admin ERP1 routes table must use the Excel sheet 02 group columns');
 if (!page.includes("fares:['03_เส้นทางและราคา',['รหัสเส้นทาง','รหัสกลุ่มบริการ','รหัสป้ายต้นทาง','ชื่อป้ายต้นทาง','รหัสป้ายปลายทาง','ชื่อป้ายปลายทาง'")) throw new Error('Admin ERP1 fare table must show origin and destination stop names');
 if (!bridge.includes("'ใช่'")) throw new Error('Admin ERP1 must repair the observed mojibake yes/no display values');
+
+const displaySandbox = { TextDecoder, Uint8Array };
+vm.runInNewContext(bridge, displaySandbox, { filename: 'admin-erp1-integration.js' });
+const repairDisplayText = displaySandbox.AdminErpPageIntegration.repairDisplayText;
+const mojibakeStopName = String.fromCodePoint(
+  0x0e40, 0x0e18, 0x89, 0x0e40, 0x0e18, 0x0e10, 0x0e40, 0x0e19, 0x20ac,
+  0x0e40, 0x0e18, 0x8a, 0x0e40, 0x0e18, 0x0e14, 0x0e40, 0x0e18, 0x87,
+  0x0e40, 0x0e19, 0x20ac, 0x0e40, 0x0e18, 0x2014, 0x0e40, 0x0e18, 0x0e03,
+  0x0e40, 0x0e18, 0x0e12
+);
+assert.strictEqual(repairDisplayText(mojibakeStopName), 'ฉะเชิงเทรา', 'Admin ERP1 must repair legacy Thai display encoding');
 
 if (!readModel.includes("name: 'assignmentRules'")) throw new Error('Driver/group read model must use the approved assignmentRules path');
 
