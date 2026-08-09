@@ -2182,10 +2182,32 @@ var FIREBASE_CONFIG = {
 var _fbApp   = firebase.initializeApp(FIREBASE_CONFIG);
 var _auth    = firebase.auth();
 var _db      = firebase.database();
-var _authReady = _auth.currentUser
-  ? Promise.resolve(_auth.currentUser)
-  : _auth.signInAnonymously().then(function(cred) { return cred.user; });
+function _startBookingAuth() {
+  if (_auth.currentUser) return Promise.resolve(_auth.currentUser);
+  return _auth.signInAnonymously().then(function(cred) {
+    if (!cred || !cred.user || !cred.user.uid) {
+      var invalid = new Error('Firebase Auth returned no user');
+      invalid.code = 'auth/invalid-user';
+      throw invalid;
+    }
+    window._bookingAuthError = null;
+    return cred.user;
+  }).catch(function(err) {
+    window._bookingAuthError = {
+      code: err && err.code ? String(err.code) : 'auth/unknown',
+      message: err && err.message ? String(err.message) : ''
+    };
+    throw err;
+  });
+}
+var _authReady = _startBookingAuth();
 window._authReady = _authReady;
+window._ensureBookingAuth = function() {
+  if (_auth.currentUser) return Promise.resolve(_auth.currentUser);
+  return _authReady.catch(function() {
+    return _startBookingAuth();
+  });
+};
 var BOOKING1_PAYMENT_FALLBACK = {
   bankName: 'กสิกรไทย (KBank)',
   accountNo: '232-8-93015-6',
