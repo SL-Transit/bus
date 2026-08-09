@@ -674,14 +674,18 @@ function applyPublishedScheduleMapView(mapView) {
     var lng = Number(stop.lng);
     if (!isFinite(lat) || !isFinite(lng)) return;
     var key = stop.stopKey || stop.groupStopId || ('map_stop_' + index);
+    var rawStopLabel = stop.label || stop.displayNameTh || stop.nameTh || key;
+    var stopLabel = global.SLTransitText && typeof global.SLTransitText.canonicalStopLabel === 'function'
+      ? global.SLTransitText.canonicalStopLabel(key, rawStopLabel)
+      : rawStopLabel;
     stations.push({
       stopKey: key,
       key: key,
       groupStopId: stop.groupStopId,
       groupStopCode: stop.groupStopCode,
       nodeId: stop.nodeId,
-      stopNameTh: stop.label || stop.displayNameTh || stop.nameTh || key,
-      name: stop.label || stop.displayNameTh || stop.nameTh || key,
+      stopNameTh: stopLabel,
+      name: stopLabel,
       lat: lat,
       lng: lng,
       icon: stop.icon || '🚏',
