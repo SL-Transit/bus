@@ -27,12 +27,12 @@ async function createUser(label) {
   return result.body;
 }
 
-async function grantLegacyAdmin(user) {
+async function grantOwner(user) {
   const url = `${DATABASE_BASE}/data/erpDataCenter/adminAccounts/${encodeURIComponent(user.localId)}.json?ns=${encodeURIComponent(DATABASE_NAMESPACE)}`;
   const result = await request(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.idToken}` },
-    body: 'true'
+    body: JSON.stringify({ role: 'owner', displayNameTh: 'เจ้าของระบบ', email: 'must-not-leak@example.test' })
   });
   assert.strictEqual(result.status, 200, `กำหนดสิทธิ์ผู้ดูแลในตัวจำลองไม่สำเร็จ: ${JSON.stringify(result.body)}`);
 }
@@ -51,7 +51,7 @@ async function main() {
     return;
   }
   const admin = await createUser('owner');
-  await grantLegacyAdmin(admin);
+  await grantOwner(admin);
   const normal = await createUser('viewer-without-account');
 
   const noToken = await callRead('');
@@ -61,6 +61,8 @@ async function main() {
   const nonAdmin = await callRead(normal.idToken);
   assert.strictEqual(nonAdmin.status, 403);
   assert.strictEqual(nonAdmin.body.error, 'admin_erp_read_permission_required');
+  const nonAdminAccounts = await callRead(normal.idToken, 'adminAccounts');
+  assert.strictEqual(nonAdminAccounts.status, 403);
 
   const adminRead = await callRead(admin.idToken);
   assert.strictEqual(adminRead.status, 200);
@@ -93,12 +95,17 @@ async function main() {
     scheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows',
     manifest: 'data/erpDataCenter/workbookSource/manifest',
     reconciliation: 'data/erpDataCenter/workbookSource/reconciliation'
+    ,adminAccounts: 'data/erpDataCenter/adminAccounts'
+    ,alerts: 'data/erpDataCenter/meta/alerts'
   };
   for (const [scope, path] of Object.entries(scopedPaths)) {
     const scoped = await callRead(admin.idToken, scope);
     assert.strictEqual(scoped.status, 200, `${scope} scope must be readable by an approved admin`);
     assert.strictEqual(scoped.body.path, path, `${scope} scope must return its canonical path`);
   }
+  const accountRead = await callRead(admin.idToken, 'adminAccounts');
+  assert.strictEqual(accountRead.body.erpDataCenter.adminAccounts[admin.localId].role, 'owner');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(accountRead.body.erpDataCenter.adminAccounts[admin.localId], 'email'), false);
 
   const unsupportedScope = await callRead(admin.idToken, 'bookings');
   assert.strictEqual(unsupportedScope.status, 400);

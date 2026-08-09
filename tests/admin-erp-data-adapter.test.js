@@ -53,6 +53,21 @@ function response(body, status = 200) { return { ok: status >= 200 && status < 3
   const enrichedAssignments = await adapter.getCatalog('assignmentRules');
   assert.strictEqual(enrichedAssignments.rows[0].serviceGroupNameTh, 'กลุ่มกลาง', 'assignment rules must resolve service group names from the canonical catalog');
   assert.strictEqual(enrichedAssignments.status, 'ready');
+  adapter.configure({ endpoint: 'https://example.test/admin-read', getIdToken: async () => 'owner-token', fetchImpl: async (url) => {
+    const scope = new URL(url).searchParams.get('scope');
+    const payloads = {
+      adminAccounts: { adminAccounts: { owner: { uid: 'owner', role: 'owner', canRead: true } } },
+      alerts: { meta: { alerts: { alert_1: { alertId: 'alert_1', type: 'review', priority: 'normal', status: 'open' } } } }
+    };
+    const paths = { adminAccounts: 'data/erpDataCenter/adminAccounts', alerts: 'data/erpDataCenter/meta/alerts' };
+    return response({ status: 'ready', path: paths[scope], erpDataCenter: payloads[scope], generatedAt: 1000 });
+  }, now: () => 1000 });
+  const adminAccounts = await adapter.getCatalog('adminAccounts');
+  assert.strictEqual(adminAccounts.path, 'data/erpDataCenter/adminAccounts');
+  assert.strictEqual(adminAccounts.rows[0].uid, 'owner');
+  const alerts = await adapter.getCatalog('alerts');
+  assert.strictEqual(alerts.path, 'data/erpDataCenter/meta/alerts');
+  assert.strictEqual(alerts.rows[0].alertId, 'alert_1');
   const draft = await adapter.createDraft({ base: { stops: root.stops }, records: { stops: { s1: root.stops.s1 } } }); await adapter.updateDraft(draft.draftId, { routes: { r1: root.routes.r1 } });
   const validation = await adapter.validateDraft(draft.draftId); assert.strictEqual(validation.valid, true); assert.strictEqual(validation.auditPreview.productionWrite, false); assert.strictEqual(validation.diff.counts.added, 1);
   const review = await adapter.submitForReview(draft.draftId); assert.strictEqual(review.status, 'in_review'); assert.strictEqual(review.productionWrite, false);
