@@ -1,12 +1,83 @@
 (function(global) {
   'use strict';
 
+  /* Repair legacy Thai text that was decoded as Windows-874 before storage. */
+  var CP874_THAI = {};
+  (function buildCp874ThaiMap() {
+    var code = 0x0E01;
+    for (var byte = 0xA1; byte <= 0xDA; byte++, code++) CP874_THAI[code] = byte;
+    CP874_THAI[0x0E3F] = 0xDF;
+    code = 0x0E40;
+    for (byte = 0xE0; byte <= 0xEA; byte++, code++) CP874_THAI[code] = byte;
+    code = 0x0E50;
+    for (byte = 0xF0; byte <= 0xF9; byte++, code++) CP874_THAI[code] = byte;
+  }());
+
+  function repairMojibake(value) {
+    if (typeof value !== 'string' || !/[\u0080-\u009F]/.test(value)) return value;
+    var bytes = [];
+    for (var i = 0; i < value.length; i++) {
+      var cp = value.charCodeAt(i);
+      if (cp <= 0x7F || (cp >= 0x80 && cp <= 0xFF)) bytes.push(cp);
+      else if (CP874_THAI[cp] != null) bytes.push(CP874_THAI[cp]);
+      else return value;
+    }
+    try {
+      var decoded = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+      return /[\u0E00-\u0E7F]/.test(decoded) ? decoded : value;
+    } catch (err) {
+      return value;
+    }
+  }
+
+  global.SLTransitText = global.SLTransitText || {};
+  global.SLTransitText.repairMojibake = repairMojibake;
+  if (typeof global.alert === 'function' && !global.alert.__slTransitEncodingFix) {
+    var nativeAlert = global.alert.bind(global);
+    var repairedAlert = function(message) { return nativeAlert(repairMojibake(String(message == null ? '' : message))); };
+    repairedAlert.__slTransitEncodingFix = true;
+    global.alert = repairedAlert;
+  }
+
+  function repairDomText(root) {
+    if (!global.document || !root) return;
+    var walker = global.document.createTreeWalker(root, global.NodeFilter ? global.NodeFilter.SHOW_TEXT : 4);
+    var node;
+    while ((node = walker.nextNode())) {
+      var repaired = repairMojibake(node.nodeValue);
+      if (repaired !== node.nodeValue) node.nodeValue = repaired;
+    }
+  }
+
+  global.SLTransitText.repairDomText = repairDomText;
+  function installDomRepair() {
+    if (!global.document || !global.MutationObserver || !global.document.body) return;
+    repairDomText(global.document.body);
+    var observer = new global.MutationObserver(function(records) {
+      records.forEach(function(record) {
+        Array.prototype.forEach.call(record.addedNodes || [], function(node) {
+          if (node.nodeType === 3) {
+            var repaired = repairMojibake(node.nodeValue);
+            if (repaired !== node.nodeValue) node.nodeValue = repaired;
+          } else if (node.nodeType === 1) {
+            repairDomText(node);
+          }
+        });
+      });
+    });
+    observer.observe(global.document.body, { childList: true, subtree: true });
+  }
+  if (global.document) {
+    if (global.document.body) installDomRepair();
+    else global.document.addEventListener('DOMContentLoaded', installDomRepair, { once: true });
+  }
+
   function values(value) {
     return Array.isArray(value) ? value : Object.keys(value || {}).map(function(key) { return value[key]; });
   }
 
   function clean(value) {
-    return String(value == null ? '' : value).trim();
+    return repairMojibake(String(value == null ? '' : value)).trim();
   }
 
   function identity(origin, destination) {
@@ -30,10 +101,22 @@
       var group = serviceGroups[groupId] || {};
       groupLabels[groupId] = group.displayNameTh || group.nameTh || group.label || group.name || groupLabels[groupId] || groupId;
     });
-    var fares = values(routeFareRows).filter(function(row) {
+    var fares = values(routeFareRows).map(function(row) {
+      if (!row) return row;
+      var normalized = Object.assign({}, row);
+      normalized.fromNameTh = clean(row.fromNameTh);
+      normalized.toNameTh = clean(row.toNameTh);
+      return normalized;
+    }).filter(function(row) {
       return row && clean(row.fromNameTh) && clean(row.toNameTh) && enabled(row.status);
     });
-    var schedules = values(scheduleRows).filter(function(row) {
+    var schedules = values(scheduleRows).map(function(row) {
+      if (!row) return row;
+      var normalized = Object.assign({}, row);
+      normalized.originNameTh = clean(row.originNameTh);
+      normalized.destinationNameTh = clean(row.destinationNameTh);
+      return normalized;
+    }).filter(function(row) {
       return row && clean(row.originNameTh) && clean(row.destinationNameTh) && /^\d{2}:\d{2}$/.test(clean(row.departureTime));
     });
     var fareByOd = {};
