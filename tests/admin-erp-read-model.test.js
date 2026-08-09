@@ -11,7 +11,10 @@ const expected = {
   stopTimes: { kind: 'catalog', name: 'stopTimes', path: 'data/erpDataCenter/stopTimes' },
   vehicles: { kind: 'catalog', name: 'vehicles', path: 'data/erpDataCenter/fleet/vehicles' },
   payments: { kind: 'catalog', name: 'paymentOwnership', path: 'data/erpDataCenter/paymentOwnership' },
-  driverGroups: { kind: 'catalog', name: 'assignmentRules', path: 'data/erpDataCenter/fleet/assignmentRules' }
+  driverGroups: { kind: 'catalog', name: 'assignmentRules', path: 'data/erpDataCenter/fleet/assignmentRules' },
+  staff: { kind: 'catalog', name: 'adminAccounts', path: 'data/erpDataCenter/adminAccounts' },
+  accounts: { kind: 'catalog', name: 'adminAccounts', path: 'data/erpDataCenter/adminAccounts' },
+  alerts: { kind: 'catalog', name: 'alerts', path: 'data/erpDataCenter/meta/alerts' }
 };
 
 assert.deepStrictEqual(Object.keys(readModel.sources).sort(), Object.keys(expected).sort(), 'only approved ERP read sources may be exposed');
@@ -36,10 +39,6 @@ assert.deepStrictEqual(readModel.sources.fares.fields, [
   'amount', 'currency', 'effectiveFrom', 'status'
 ], 'เส้นทางและราคาต้องเปิดเผยรหัสและชื่อป้ายต้นทาง/ปลายทางตามสัญญาข้อมูล');
 
-['staff', 'accounts', 'alerts'].forEach((tab) => {
-  assert.strictEqual(readModel.sourceForTab(tab), null, tab + ' must not read without an approved backend contract');
-});
-
 (async () => {
   const calls = [];
   const adapter = {
@@ -51,8 +50,7 @@ assert.deepStrictEqual(readModel.sources.fares.fields, [
   assert.deepStrictEqual(calls.map((call) => call.kind + ':' + call.name).sort(), Object.keys(expected).map((tab) => expected[tab].kind + ':' + expected[tab].name).sort(), 'each approved UI category must call only its mapped adapter read');
   assert(calls.every((call) => call.query && call.query.limit === 25), 'read queries must pass through to the adapter');
 
-  await assert.rejects(() => readModel.read('staff', adapter), /no_approved_read_source:staff/);
-  assert.strictEqual(calls.length, Object.keys(expected).length, 'unapproved categories must not call Firebase through the adapter');
+  assert.strictEqual(calls.length, Object.keys(expected).length, 'each approved category must call the adapter exactly once');
 
   console.log('admin erp read model contract: PASS');
 })().catch((error) => {

@@ -61,5 +61,7 @@ assert.strictEqual(
 );
 
 if (!readModel.includes("name: 'assignmentRules'")) throw new Error('Driver/group read model must use the approved assignmentRules path');
+if (!readModel.includes("name: 'adminAccounts'")) throw new Error('Admin users read model must use the approved adminAccounts path');
+if (!readModel.includes("name: 'alerts'")) throw new Error('Admin alerts read model must use the approved alerts path');
 
 console.log('admin-erp1 integration contract: PASS');

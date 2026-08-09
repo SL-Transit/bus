@@ -13,12 +13,12 @@
     stopTimes: 'data/erpDataCenter/stopTimes', fares: 'data/erpDataCenter/fares', vehicles: 'data/erpDataCenter/fleet/vehicles',
     queues: 'data/erpDataCenter/fleet/queues', assignmentRules: 'data/erpDataCenter/fleet/assignmentRules',
     serviceGroups: 'data/erpDataCenter/serviceGroups', paymentOwnership: 'data/erpDataCenter/paymentOwnership',
-    versions: 'data/erpDataCenter/meta/versions', audit: 'data/erpDataCenter/meta/audit'
+    versions: 'data/erpDataCenter/meta/versions', audit: 'data/erpDataCenter/meta/audit', alerts: 'data/erpDataCenter/meta/alerts', adminAccounts: 'data/erpDataCenter/adminAccounts'
   });
-  var ENTITY_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', assignmentRules: 'assignmentRules', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
-  var ENTITY_SCOPES = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', assignmentRules: 'assignmentRules', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
-  var ENTITY_DATA_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'fleet/vehicles', queues: 'fleet/queues', assignmentRules: 'fleet/assignmentRules', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership' });
-  var SCOPE_PATHS = Object.freeze({ access: 'data/erpDataCenter/meta/access', root: PATHS && PATHS.root, stops: 'data/erpDataCenter/stops', routes: 'data/erpDataCenter/routes', trips: 'data/erpDataCenter/trips', stopTimes: 'data/erpDataCenter/stopTimes', fares: 'data/erpDataCenter/fares', vehicles: 'data/erpDataCenter/fleet/vehicles', queues: 'data/erpDataCenter/fleet/queues', assignmentRules: 'data/erpDataCenter/fleet/assignmentRules', serviceGroups: 'data/erpDataCenter/serviceGroups', paymentOwnership: 'data/erpDataCenter/paymentOwnership', routeFareRows: 'data/erpDataCenter/workbookSource/routeFareRows', scheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows', manifest: 'data/erpDataCenter/workbookSource/manifest', reconciliation: 'data/erpDataCenter/workbookSource/reconciliation', workbookSource: 'data/erpDataCenter/workbookSource' });
+  var ENTITY_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', assignmentRules: 'assignmentRules', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership', adminAccounts: 'adminAccounts', alerts: 'alerts' });
+  var ENTITY_SCOPES = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'vehicles', queues: 'queues', assignmentRules: 'assignmentRules', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership', adminAccounts: 'adminAccounts', alerts: 'alerts' });
+  var ENTITY_DATA_PATHS = Object.freeze({ stops: 'stops', routes: 'routes', trips: 'trips', stopTimes: 'stopTimes', fares: 'fares', vehicles: 'fleet/vehicles', queues: 'fleet/queues', assignmentRules: 'fleet/assignmentRules', serviceGroups: 'serviceGroups', paymentOwnership: 'paymentOwnership', adminAccounts: 'adminAccounts', alerts: 'meta/alerts' });
+  var SCOPE_PATHS = Object.freeze({ access: 'data/erpDataCenter/meta/access', root: PATHS && PATHS.root, adminAccounts: 'data/erpDataCenter/adminAccounts', alerts: 'data/erpDataCenter/meta/alerts', stops: 'data/erpDataCenter/stops', routes: 'data/erpDataCenter/routes', trips: 'data/erpDataCenter/trips', stopTimes: 'data/erpDataCenter/stopTimes', fares: 'data/erpDataCenter/fares', vehicles: 'data/erpDataCenter/fleet/vehicles', queues: 'data/erpDataCenter/fleet/queues', assignmentRules: 'data/erpDataCenter/fleet/assignmentRules', serviceGroups: 'data/erpDataCenter/serviceGroups', paymentOwnership: 'data/erpDataCenter/paymentOwnership', routeFareRows: 'data/erpDataCenter/workbookSource/routeFareRows', scheduleRows: 'data/erpDataCenter/workbookSource/scheduleRows', manifest: 'data/erpDataCenter/workbookSource/manifest', reconciliation: 'data/erpDataCenter/workbookSource/reconciliation', workbookSource: 'data/erpDataCenter/workbookSource' });
   var FORBIDDEN_KEYS = Object.freeze(['bookings', 'passengers', 'tickets', 'driverLogs', 'checkIns', 'operations', 'adminAccounts']);
   var state = { config: null, cache: {}, cacheAt: {}, drafts: {}, versions: {}, audits: [], sequence: 0 };
 
@@ -48,7 +48,7 @@
   function values(map) { return orderedValues(map).rows; }
   function pathValue(root, path) { return path.split('/').reduce(function (value, key) { return value == null ? undefined : value[key]; }, root); }
   function adapterError(code, message, details) { var error = new Error(message || code); error.code = code; error.details = details || {}; return error; }
-  function containsForbiddenKey(value) { return value && typeof value === 'object' && Object.keys(value).some(function (key) { return FORBIDDEN_KEYS.indexOf(key) !== -1 || containsForbiddenKey(value[key]); }); }
+  function containsForbiddenKey(value, allowedRootKey, isRoot) { return value && typeof value === 'object' && Object.keys(value).some(function (key) { return (FORBIDDEN_KEYS.indexOf(key) !== -1 && !(isRoot && key === allowedRootKey)) || containsForbiddenKey(value[key], null, false); }); }
 
   function configure(options) {
     options = options || {};
@@ -85,7 +85,7 @@
     }).then(function (payload) {
       var root = object(payload && payload.erpDataCenter);
       if (payload && payload.path && payload.path !== SCOPE_PATHS[scope]) throw adapterError('invalid_source_path', 'แหล่งข้อมูลไม่ใช่ขอบเขตที่ร้องขอ');
-      if (containsForbiddenKey(root)) throw adapterError('forbidden_data_scope', 'ข้อมูลอยู่นอกขอบเขต Admin ERP');
+      if (containsForbiddenKey(root, scope === 'adminAccounts' ? 'adminAccounts' : null, true)) throw adapterError('forbidden_data_scope', 'ข้อมูลอยู่นอกขอบเขต Admin ERP');
       var generatedAt = Number(payload && payload.generatedAt || 0);
       var reported = [STATUS.partial, STATUS.empty, STATUS.stale].indexOf(String(payload && payload.status || '')) !== -1 ? String(payload.status) : null;
       var snapshot = { root: root, generatedAt: generatedAt || null, status: reported || (generatedAt && config.now() - generatedAt > config.maxAgeMs ? STATUS.stale : STATUS.ready), permissions: payload && payload.permissions || null, version: payload && payload.version || null };
@@ -156,7 +156,7 @@
       return toResult(status, PATHS[key], rows, snapshot, null, ordered.verified);
     });
   }
-  function getRecord(entity, recordId) { return getCatalog(entity).then(function (result) { return Object.assign(result, { record: result.rows.find(function (row) { return row.id === recordId || row[entity + 'Id'] === recordId || row.stopKey === recordId; }) || null }); }); }
+  function getRecord(entity, recordId) { return getCatalog(entity).then(function (result) { return Object.assign(result, { record: result.rows.find(function (row) { return row.id === recordId || row[entity + 'Id'] === recordId || row.uid === recordId || row.alertId === recordId || row.stopKey === recordId; }) || null }); }); }
   function now() { return state.config && typeof state.config.now === 'function' ? state.config.now() : Date.now(); }
   function audit(draft, action, details) {
     var entry = Object.assign({ auditId: 'audit_local_' + (++state.sequence), draftId: draft && draft.draftId || null, action: action, actor: 'current-authenticated-user', createdAt: now(), productionWrite: false, localOnly: true }, details || {});

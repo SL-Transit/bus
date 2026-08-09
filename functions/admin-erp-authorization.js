@@ -7,7 +7,7 @@ const ROLE_PERMISSIONS = Object.freeze({
   operations: ['read', 'edit'], finance: ['read', 'edit', 'review'],
   content_manager: ['read', 'edit', 'review'], viewer: ['read']
 });
-const SAFE_CHILDREN = Object.freeze({ workbookSource: ['routeFareRows', 'scheduleRows', 'manifest', 'reconciliation'], fleet: ['vehicles', 'queues', 'assignmentRules'], meta: ['versions'] });
+const SAFE_CHILDREN = Object.freeze({ workbookSource: ['routeFareRows', 'scheduleRows', 'manifest', 'reconciliation'], fleet: ['vehicles', 'queues', 'assignmentRules'], meta: ['versions', 'alerts'] });
 const ROLE_ROOTS = Object.freeze({
   owner: ['workbookSource', 'stops', 'routes', 'trips', 'stopTimes', 'fares', 'serviceGroups', 'paymentOwnership', 'fleet', 'meta'],
   admin: ['workbookSource', 'stops', 'routes', 'trips', 'stopTimes', 'fares', 'serviceGroups', 'paymentOwnership', 'fleet', 'meta'],
@@ -53,6 +53,30 @@ function sanitizeReadModel(root, access) {
   });
   return output;
 }
+function sanitizeAdminAccounts(accounts) {
+  const source = object(accounts); const output = {};
+  Object.keys(source).forEach((uid) => {
+    const account = source[uid];
+    const access = accessFor({ uid }, account);
+    const value = object(account);
+    output[uid] = {
+      uid,
+      displayNameTh: typeof value.displayNameTh === 'string' ? value.displayNameTh : null,
+      role: access.roles[0] || null,
+      roles: access.roles,
+      permissions: access.permissions,
+      canRead: access.can('read'),
+      canEdit: access.can('edit'),
+      canReview: access.can('review'),
+      canPublish: access.can('publish'),
+      status: typeof value.status === 'string' ? value.status : (access.roles.length ? 'active' : 'inactive'),
+      lastLoginAt: value.lastLoginAt || null,
+      createdAt: value.createdAt || null,
+      updatedAt: value.updatedAt || null
+    };
+  });
+  return output;
+}
 function workflowTransition(from, action, access, context) {
   const transitions = { draft: { validate: 'validating', submit_for_review: 'in_review' }, validating: { validation_passed: 'validated', validation_failed: 'draft' }, validated: { submit_for_review: 'in_review' }, in_review: { approve: 'approved', reject: 'rejected', request_changes: 'draft' }, approved: { publish: 'published' }, published: { rollback: 'rolled_back' }, rejected: { revise: 'draft' }, rolled_back: { revise: 'draft' } };
   const permission = ['approve', 'reject', 'request_changes'].includes(action) ? 'review' : ['validate', 'submit_for_review', 'revise'].includes(action) ? 'edit' : action;
@@ -63,4 +87,4 @@ function workflowTransition(from, action, access, context) {
   if (!transitions[from] || !transitions[from][action]) return { allowed: false, code: 'invalid_workflow_transition', from, action };
   return { allowed: true, from, action, to: transitions[from][action] };
 }
-module.exports = { ROLES, PERMISSIONS, ROLE_PERMISSIONS, ROLE_ROOTS, normalizeAccount, accessFor, sanitizeReadModel, workflowTransition };
+module.exports = { ROLES, PERMISSIONS, ROLE_PERMISSIONS, ROLE_ROOTS, normalizeAccount, accessFor, sanitizeReadModel, sanitizeAdminAccounts, workflowTransition };

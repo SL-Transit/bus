@@ -12,6 +12,8 @@ const MAX_CAPACITY_LIMIT = 300;
 
 const ERP_READ_SCOPES = Object.freeze({
   access: { path: "data/erpDataCenter/meta/access", root: null, envelope: [] },
+  adminAccounts: { path: "data/erpDataCenter/adminAccounts", root: null, envelope: ["adminAccounts"], requiredPermission: "manage_users" },
+  alerts: { path: "data/erpDataCenter/meta/alerts", root: "meta", envelope: ["meta", "alerts"], requiredPermission: "manage_settings" },
   root: { path: "data/erpDataCenter", root: null, envelope: [] },
   workbookSource: { path: "data/erpDataCenter/workbookSource", root: "workbookSource", envelope: ["workbookSource"] },
   stops: { path: "data/erpDataCenter/stops", root: "stops", envelope: ["stops"] },
@@ -699,12 +701,18 @@ exports.readAdminErpDataCenter = onRequest({
       sendJson(res, 200, { status: "ready", path: readScope.path, erpDataCenter: {}, permissions: access.permissions, roles: access.roles, generatedAt: Date.now() });
       return;
     }
+    if (readScope.requiredPermission && !access.can(readScope.requiredPermission)) {
+      sendJson(res, 403, { status: "error", error: "admin_erp_scope_permission_required", scope });
+      return;
+    }
     if (readScope.root && !access.roots.includes(readScope.root)) {
       sendJson(res, 403, { status: "error", error: "admin_erp_scope_permission_required", scope });
       return;
     }
     const snap = await admin.database().ref(readScope.path).get();
-    const scoped = adminErpAuthorization.sanitizeReadModel(envelopeRead(snap.val() || {}, readScope.envelope), access);
+    const scoped = scope === "adminAccounts"
+      ? { adminAccounts: adminErpAuthorization.sanitizeAdminAccounts(snap.val() || {}) }
+      : adminErpAuthorization.sanitizeReadModel(envelopeRead(snap.val() || {}, readScope.envelope), access);
     res.set("Cache-Control", "private, max-age=30");
     res.status(200).type("application/json").send(JSON.stringify({ status: "ready", path: readScope.path, erpDataCenter: scoped, permissions: access.permissions, roles: access.roles, generatedAt: Date.now() }));
   } catch (err) {
