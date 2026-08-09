@@ -52,6 +52,14 @@ const mojibakeStopName = String.fromCodePoint(
 );
 assert.strictEqual(repairDisplayText(mojibakeStopName), 'ฉะเชิงเทรา', 'Admin ERP1 must repair legacy Thai display encoding');
 
+const noDecoderSandbox = {};
+vm.runInNewContext(bridge, noDecoderSandbox);
+assert.strictEqual(
+  noDecoderSandbox.AdminErpPageIntegration.repairDisplayText(mojibakeStopName),
+  'ฉะเชิงเทรา',
+  'Admin ERP1 must repair legacy Thai display encoding without TextDecoder'
+);
+
 if (!readModel.includes("name: 'assignmentRules'")) throw new Error('Driver/group read model must use the approved assignmentRules path');
 
 console.log('admin-erp1 integration contract: PASS');
