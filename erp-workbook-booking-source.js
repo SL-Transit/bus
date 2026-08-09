@@ -30,8 +30,54 @@
     }
   }
 
+  var CANONICAL_STOP_LABELS = {
+    chachoengsao: 'ฉะเชิงเทรา',
+    g01p001: 'ฉะเชิงเทรา',
+    phanom: 'พนมสารคาม',
+    g01p002: 'พนมสารคาม',
+    sanamchaikhet: 'สนามชัยเขต',
+    sanamchai: 'สนามชัยเขต',
+    g01p003: 'สนามชัยเขต',
+    km_1: 'กม.1',
+    g01p004: 'กม.1',
+    km_7: 'กม.7',
+    g01p005: 'กม.7',
+    huaisom: 'ห้วยโสม',
+    g01p006: 'ห้วยโสม',
+    tatakiab: 'ท่าตะเกียบ',
+    g01p007: 'ท่าตะเกียบ',
+    nongkhok: 'หนองคอก',
+    g01p008: 'หนองคอก',
+    khlongtakien: 'คลองตะเคียน',
+    g01p009: 'คลองตะเคียน',
+    nongruea: 'หนองเรือ',
+    g01p010: 'หนองเรือ',
+    phaijit: 'ไพรจิต',
+    g01p011: 'ไพรจิต',
+    thoengkabintr: 'ทุ่งกบินทร์',
+    g01p012: 'ทุ่งกบินทร์',
+    siyaekkhonom: 'สี่แยกโคนม',
+    g01p013: 'สี่แยกโคนม',
+    wangnamyen: 'วังน้ำเย็น',
+    g01p014: 'วังน้ำเย็น',
+    klonghat: 'คลองหาด',
+    khlonghat: 'คลองหาด',
+    g01p015: 'คลองหาด'
+  };
+
+  function canonicalStopLabel(key, fallback) {
+    var normalizedKey = String(key == null ? '' : key).trim().toLowerCase()
+      .replace(/[\s-]+/g, '_');
+    return CANONICAL_STOP_LABELS[normalizedKey] || cleanDisplay(fallback);
+  }
+
+  function cleanDisplay(value) {
+    return repairMojibake(String(value == null ? '' : value)).trim();
+  }
+
   global.SLTransitText = global.SLTransitText || {};
   global.SLTransitText.repairMojibake = repairMojibake;
+  global.SLTransitText.canonicalStopLabel = canonicalStopLabel;
   if (typeof global.alert === 'function' && !global.alert.__slTransitEncodingFix) {
     var nativeAlert = global.alert.bind(global);
     var repairedAlert = function(message) { return nativeAlert(repairMojibake(String(message == null ? '' : message))); };
@@ -77,7 +123,7 @@
   }
 
   function clean(value) {
-    return repairMojibake(String(value == null ? '' : value)).trim();
+    return cleanDisplay(value);
   }
 
   function identity(origin, destination) {
@@ -99,13 +145,13 @@
     };
     Object.keys(serviceGroups || {}).forEach(function(groupId) {
       var group = serviceGroups[groupId] || {};
-      groupLabels[groupId] = group.displayNameTh || group.nameTh || group.label || group.name || groupLabels[groupId] || groupId;
+      groupLabels[groupId] = clean(group.displayNameTh || group.nameTh || group.label || group.name || groupLabels[groupId] || groupId);
     });
     var fares = values(routeFareRows).map(function(row) {
       if (!row) return row;
       var normalized = Object.assign({}, row);
-      normalized.fromNameTh = clean(row.fromNameTh);
-      normalized.toNameTh = clean(row.toNameTh);
+      normalized.fromNameTh = canonicalStopLabel(row.fromStopKey || row.originStopKey || row.fromKey, row.fromNameTh);
+      normalized.toNameTh = canonicalStopLabel(row.toStopKey || row.destinationStopKey || row.toKey, row.toNameTh);
       return normalized;
     }).filter(function(row) {
       return row && clean(row.fromNameTh) && clean(row.toNameTh) && enabled(row.status);
@@ -113,8 +159,8 @@
     var schedules = values(scheduleRows).map(function(row) {
       if (!row) return row;
       var normalized = Object.assign({}, row);
-      normalized.originNameTh = clean(row.originNameTh);
-      normalized.destinationNameTh = clean(row.destinationNameTh);
+      normalized.originNameTh = canonicalStopLabel(row.originStopKey || row.fromStopKey || row.originKey, row.originNameTh);
+      normalized.destinationNameTh = canonicalStopLabel(row.destinationStopKey || row.toStopKey || row.destinationKey, row.destinationNameTh);
       return normalized;
     }).filter(function(row) {
       return row && clean(row.originNameTh) && clean(row.destinationNameTh) && /^\d{2}:\d{2}$/.test(clean(row.departureTime));
