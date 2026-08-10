@@ -48,6 +48,8 @@ const staffLineToken = defineSecret("LINE_STAFF_CHANNEL_ACCESS_TOKEN");
 // Historical audit label: recipient: "passenger_line"
 const LEGACY_NOTIFICATION_AUDIT_TERMS = ["skipped_no_passenger_line_target", "recipient: \"passenger_line\""];
 const DEFAULT_PUBLISHED_TRIP_CAPACITY = 3;
+const CANONICAL_ROUTE_FARE_COUNT = 244;
+const CANONICAL_SCHEDULE_COUNT = 881;
 
 function money(value) {
   return Number(value || 0).toLocaleString("th-TH");
@@ -284,20 +286,75 @@ function capacityCounterPath(serviceDate, capacityKey) {
   return `operations/bookingCapacityByServiceDate/${serviceDate}/${capacityKey}`;
 }
 
+async function readCanonicalWorkbookSource() {
+  const snap = await admin.database().ref("data/erpDataCenter/workbookSource").get();
+  const source = snap.val() || {};
+  return {
+    manifest: source.manifest || {},
+    routeFareRows: source.routeFareRows || {},
+    scheduleRows: source.scheduleRows || {}
+  };
+}
+
+function canonicalWorkbookReady(source) {
+  return Object.keys(source.routeFareRows || {}).length === CANONICAL_ROUTE_FARE_COUNT &&
+    Object.keys(source.scheduleRows || {}).length === CANONICAL_SCHEDULE_COUNT;
+}
+
+function findCanonicalWorkbookPair(source, booking) {
+  const fareRows = Object.values(source.routeFareRows || {});
+  const scheduleRows = Object.values(source.scheduleRows || {});
+  const wantedPairIds = [booking.pairKey, booking.pairId, booking.canonicalPairKey].filter(Boolean).map(String);
+  const fare = fareRows.find((row) => {
+    if (!row || !wantedPairIds.includes(String(row.sourceRowId || ""))) return false;
+    if (booking.routeId && String(row.routeId || "") !== String(booking.routeId)) return false;
+    if (booking.origin && String(row.fromNameTh || "") !== String(booking.origin)) return false;
+    if (booking.destination && String(row.toNameTh || "") !== String(booking.destination)) return false;
+    return String(row.status == null ? "" : row.status).toLowerCase() !== "false";
+  });
+  if (!fare) return null;
+  const wantedTripIds = [booking.tripId, booking.catalogTripId].filter(Boolean).map(String);
+  const trip = scheduleRows.find((row) => {
+    if (!row || String(row.routeId || "") !== String(fare.routeId || "")) return false;
+    if (wantedTripIds.length && !wantedTripIds.includes(String(row.scheduleOfferId || ""))) return false;
+    if (booking.pickupTime && String(row.departureTime || "") !== String(booking.pickupTime)) return false;
+    if (String(row.originNameTh || "") !== String(fare.fromNameTh || "")) return false;
+    if (String(row.destinationNameTh || "") !== String(fare.toNameTh || "")) return false;
+    return row.bookingEnabled !== false && String(row.bookingEnabled || "").toLowerCase() !== "false";
+  });
+  if (!trip) return null;
+  const fareAmount = Number(fare.amount);
+  if (!Number.isFinite(fareAmount) || fareAmount < 0) return null;
+  return {
+    pairKey: String(fare.sourceRowId || ""),
+    pairId: String(fare.sourceRowId || ""),
+    canonicalPairKey: String(fare.sourceRowId || ""),
+    routeId: String(fare.routeId || ""),
+    originLabel: String(fare.fromNameTh || ""),
+    destinationLabel: String(fare.toNameTh || ""),
+    fareAmount,
+    fareContract: { status: "ready", fareAmount, serviceFeeAmount: 0, paymentOwnership: "sl_transit" },
+    scheduleOfferId: String(trip.scheduleOfferId || ""),
+    scheduleRowId: String(trip.sourceRowId || ""),
+    capacity: Number(trip.capacity) || DEFAULT_PUBLISHED_TRIP_CAPACITY
+  };
+}
+
 async function resolvePublishedCapacity({ serviceDate, pairKey, tripKey, routeKey, pickupTime }) {
-  const rowsSnap = await admin.database().ref("publishedSchedule/scheduleRows").get();
-  const rows = rowsSnap.val() || {};
+  const source = await readCanonicalWorkbookSource();
+  if (!canonicalWorkbookReady(source)) return null;
+  const rows = source.scheduleRows;
   const wantedTrip = String(tripKey || "");
   const wantedRoute = String(routeKey || "");
   const wantedTime = String(pickupTime || "");
   const row = Object.values(rows).find((candidate) => {
-    if (!candidate || candidate.bookingEnabled === false) return false;
+    if (!candidate || candidate.bookingEnabled === false || String(candidate.bookingEnabled || "").toLowerCase() === "false") return false;
     const sameTrip = wantedTrip && String(candidate.scheduleOfferId || "") === wantedTrip;
     const sameRoute = !wantedRoute || String(candidate.routeId || "") === wantedRoute;
     const sameTime = !wantedTime || String(candidate.departureTime || "") === wantedTime;
     return sameTrip && sameRoute && sameTime;
   });
-  if (!row || row.displayWhenPublished !== true) return null;
+  if (!row) return null;
   const configuredLimit = Number(row.capacity);
   const limit = Number.isInteger(configuredLimit) && configuredLimit > 0
     ? configuredLimit
@@ -310,8 +367,8 @@ async function resolvePublishedCapacity({ serviceDate, pairKey, tripKey, routeKe
     bookings: {},
     serviceDate: String(serviceDate || ""),
     source: Number.isInteger(configuredLimit) && configuredLimit > 0
-      ? "publishedSchedule/scheduleRows"
-      : "publishedSchedule/defaultCapacityPolicy",
+      ? "data/erpDataCenter/workbookSource/scheduleRows"
+      : "data/erpDataCenter/workbookSource/defaultCapacityPolicy",
     sourceRowId: String(row.sourceRowId || ""),
     updatedAt: SERVER_TIMESTAMP
   };
@@ -414,16 +471,6 @@ function cleanBookingText(value, maxLength) {
   return text.length <= maxLength ? text : text.slice(0, maxLength);
 }
 
-function findPublishedPair(schedule, booking) {
-  const pairs = schedule && schedule.pairs || {};
-  const wanted = [booking.pairKey, booking.pairId, booking.canonicalPairKey].filter(Boolean).map(String);
-  for (const [key, pair] of Object.entries(pairs)) {
-    const candidates = [key, pair && pair.pairKey, pair && pair.pairId, pair && pair.canonicalPairKey, pair && pair.compatibilityPairKey].filter(Boolean).map(String);
-    if (wanted.some((value) => candidates.includes(value))) return pair;
-  }
-  return null;
-}
-
 exports.createBooking = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 15,
@@ -446,15 +493,14 @@ exports.createBooking = onRequest({
       sendJson(res, 400, { status: "error", error: "invalid_booking_request" });
       return;
     }
-    const scheduleSnap = await admin.database().ref("publishedSchedule").get();
-    const schedule = scheduleSnap.val() || {};
-    if (schedule.readyForApply !== false) {
-      sendJson(res, 409, { status: "error", error: "published_schedule_not_ready" });
+    const source = await readCanonicalWorkbookSource();
+    if (!canonicalWorkbookReady(source)) {
+      sendJson(res, 409, { status: "error", error: "canonical_workbook_source_not_ready" });
       return;
     }
-    const pair = findPublishedPair(schedule, input);
+    const pair = findCanonicalWorkbookPair(source, input);
     const serverFare = Number(pair && pair.fareAmount);
-    const serverFee = Number(pair && pair.fareContract && pair.fareContract.serviceFeeAmount || pair && pair.serviceFeeAmount || 0);
+    const serverFee = Number(pair && pair.fareContract && pair.fareContract.serviceFeeAmount || 0);
     const expectedTotal = (serverFare + serverFee) * pax;
     if (!pair || !Number.isFinite(serverFare) || serverFare < 0 || !Number.isFinite(serverFee) || serverFee < 0 || Number(input.fareAmount) !== serverFare || Number(input.price) !== expectedTotal || Number(input.fare) !== expectedTotal) {
       sendJson(res, 409, { status: "error", error: "authoritative_price_mismatch" });
@@ -474,7 +520,7 @@ exports.createBooking = onRequest({
       externalPaymentRequired: false, testMode: false, mockPayment: false, status: "awaiting_payment",
       passengerIdentity: input.passengerIdentity || null, notificationPreference: input.notificationPreference || null,
       consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
-      publishedSchedule: { readyForApply: false, schemaVersion: schedule.schemaVersion || "" }, createdAt: SERVER_TIMESTAMP
+      publishedSchedule: { readyForApply: false, schemaVersion: source.manifest.schemaVersion || "erpWorkbookSource.v1" }, createdAt: SERVER_TIMESTAMP
     };
     const bookingRef = admin.database().ref(`bookings/${code}`);
     const result = await bookingRef.transaction((current) => current ? undefined : booking);
