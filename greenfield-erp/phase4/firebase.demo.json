@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "source": "functions",
+    "codebase": "greenfield-erp-phase4",
+    "runtime": "nodejs22"
+  },
+  "database": {
+    "rules": "../phase2/rules/database.rules.proposal.json"
+  },
+  "emulators": {
+    "auth": { "port": 9199 },
+    "database": { "port": 9100 },
+    "functions": { "port": 5002 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}
