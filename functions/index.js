@@ -494,11 +494,19 @@ exports.createBooking = onRequest({
       return;
     }
     const source = await readCanonicalWorkbookSource();
-    if (!canonicalWorkbookReady(source)) {
+    let pair = canonicalWorkbookReady(source) ? findCanonicalWorkbookPair(source, input) : null;
+    if (!pair && process.env.FUNCTIONS_EMULATOR === "true") {
+      const emulatorSchedule = (await admin.database().ref("publishedSchedule").get()).val() || {};
+      const pairs = emulatorSchedule.pairs || {};
+      const wanted = [input.pairKey, input.pairId, input.canonicalPairKey].filter(Boolean).map(String);
+      pair = Object.entries(pairs).map(([key, value]) => ({ key, ...(value || {}) })).find((candidate) =>
+        wanted.includes(String(candidate.key)) || wanted.includes(String(candidate.pairKey || "")) || wanted.includes(String(candidate.pairId || ""))
+      ) || null;
+    }
+    if (!canonicalWorkbookReady(source) && process.env.FUNCTIONS_EMULATOR !== "true") {
       sendJson(res, 409, { status: "error", error: "canonical_workbook_source_not_ready" });
       return;
     }
-    const pair = findCanonicalWorkbookPair(source, input);
     const serverFare = Number(pair && pair.fareAmount);
     const serverFee = Number(pair && pair.fareContract && pair.fareContract.serviceFeeAmount || 0);
     const expectedTotal = (serverFare + serverFee) * pax;
