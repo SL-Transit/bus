@@ -5,7 +5,7 @@
     "runtime": "nodejs22"
   },
   "database": {
-    "rules": "../phase2/rules/database.rules.proposal.json"
+    "rules": "rules/database.rules.emulator.json"
   },
   "emulators": {
     "auth": { "port": 9199 },
