@@ -38,6 +38,8 @@ jobs:
       - name: ติดตั้งชุดโปรแกรมหลังบ้าน
         run: npm ci --prefix functions --ignore-scripts --no-audit --no-fund
 
+      - name: ติดตั้ง dependency ของ Greenfield Phase 4 แยกจากระบบเดิม
+        run: npm ci --prefix greenfield-erp/phase4/functions --ignore-scripts --no-audit --no-fund
       - name: ติดตั้งเครื่องมือ Firebase สำหรับระบบจำลอง
         run: npm install --global firebase-tools@15.18.0 --no-audit --no-fund
 

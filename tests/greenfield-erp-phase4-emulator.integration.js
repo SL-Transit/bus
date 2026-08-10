@@ -18,8 +18,9 @@ async function signIn(email, password) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password, returnSecureToken: true })
   });
-  assert.equal(response.ok, true, await response.text());
-  return (await response.json()).idToken;
+  const responseText = await response.text();
+  assert.equal(response.ok, true, responseText);
+  return JSON.parse(responseText).idToken;
 }
 
 async function main() {
