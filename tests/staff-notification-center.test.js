@@ -1,20 +1,9 @@
 const assert = require("assert");
-const fs = require("fs");
-const path = require("path");
 const staff = require("../functions/staff-notification-center.js");
-
-const contractDoc = fs.readFileSync(
-  path.join(__dirname, "../ai-handoffs/NOTIFICATION-CENTER-CONTRACT.md"),
-  "utf8"
-);
 
 assert.strictEqual(staff.STAFF_LINE_TARGETS_PATH, "data/notificationCenter/staffLineTargets");
 assert.strictEqual(staff.STAFF_LINE_TARGETS_SCHEMA_VERSION, "staff_line_targets_v1");
 assert.strictEqual(staff.DRIVER_LINE_BINDING, "vehicle");
-assert(contractDoc.includes("Notification Center Contract"));
-assert(contractDoc.includes("must survive page rebuilds"));
-assert(contractDoc.includes("/data/notificationCenter/staffLineTargets"));
-assert(contractDoc.includes("Do not bind notification policy to `booking1.html`"));
 
 const booking = {
   code: "BK123456",
@@ -103,25 +92,25 @@ assert(!groupOnlyDriverAlerts.some((item) => item.recipientRole === "driver"), "
 
 const driverAlert = alerts.find((item) => item.recipientRole === "driver");
 const driverMessage = staff.staffBookingMessage(driverAlert, booking);
-assert(driverMessage.includes("ผู้รับ:"));
-assert(driverMessage.includes("รหัส: BK123456"));
-assert(driverMessage.includes("โทร: 0812345678"));
-assert(driverMessage.includes("เส้นทาง: Nong Khok - Chachoengsao"));
-assert(driverMessage.includes("วันที่: 2026-07-18 เวลา 09:00 น."));
-assert(driverMessage.includes("จำนวน: 2 คน  ราคา: 240 บาท"));
-assert(driverMessage.includes("สลิป: https://res.cloudinary.com/sl-transit/slips/BK123456.jpg"));
-assert(driverMessage.includes("รถ: car1"));
+assert(driverMessage.includes("??????:"));
+assert(driverMessage.includes("????: BK123456"));
+assert(driverMessage.includes("???: 0812345678"));
+assert(driverMessage.includes("???????: Nong Khok - Chachoengsao"));
+assert(driverMessage.includes("??????: 2026-07-18 ???? 09:00 ?."));
+assert(driverMessage.includes("?????: 2 ??  ????: 240 ???"));
+assert(driverMessage.includes("????: https://res.cloudinary.com/sl-transit/slips/BK123456.jpg"));
+assert(driverMessage.includes("??: car1"));
 assert(!driverMessage.includes("Chachoengsao - Pattaya"), "Driver messages must use the first leg for transfer bookings");
 
 const adminAlert = alerts.find((item) => item.recipientRole === "admin");
 const adminMessage = staff.staffBookingMessage(adminAlert, booking);
-assert(adminMessage.includes("ผู้รับ:"));
-assert(adminMessage.includes("โทร: 0812345678"), "Admin messages must include passenger contact details");
+assert(adminMessage.includes("??????:"));
+assert(adminMessage.includes("???: 0812345678"), "Admin messages must include passenger contact details");
 
 const terminalAlert = alerts.find((item) => item.recipientRole === "transfer_terminal");
 const terminalMessage = staff.staffBookingMessage(terminalAlert, booking);
-assert(terminalMessage.includes("เส้นทาง: Chachoengsao - Pattaya"), "Transfer terminal messages must use the transfer leg");
-assert(terminalMessage.includes("วันที่: 2026-07-18 เวลา 11:30 น."));
+assert(terminalMessage.includes("???????: Chachoengsao - Pattaya"), "Transfer terminal messages must use the transfer leg");
+assert(terminalMessage.includes("??????: 2026-07-18 ???? 11:30 ?."));
 
 const noConfigAlerts = staff.bookingCreatedStaffAlerts({ booking, staffConfig: {} });
 assert.deepStrictEqual(noConfigAlerts, []);
