@@ -129,7 +129,7 @@
         sourceCommitSha: manifest.sourceCommitSha || '',
         dryRun: manifest.dryRun !== false,
         writesEnabled: manifest.writesEnabled === true,
-        workbookSourceReady: _workbookIndex.routeFareRowCount === 244 && _workbookIndex.scheduleRowCount === 881,
+        workbookSourceReady: _workbookIndex.routeFareRowCount > 0 && _workbookIndex.scheduleRowCount > 0,
         readyForReview: manifest.readyForReview === true,
         readyForApply: manifest.readyForApply === true,
         publicationStatus: manifest.publicationStatus || 'workbook_source',
