@@ -297,8 +297,12 @@ async function readCanonicalWorkbookSource() {
 }
 
 function canonicalWorkbookReady(source) {
-  return Object.keys(source.routeFareRows || {}).length === CANONICAL_ROUTE_FARE_COUNT &&
-    Object.keys(source.scheduleRows || {}).length === CANONICAL_SCHEDULE_COUNT;
+  const fareCount = Object.keys(source.routeFareRows || {}).length;
+  const scheduleCount = Object.keys(source.scheduleRows || {}).length;
+  const manifestCounts = source.manifest && source.manifest.counts || {};
+  return fareCount > 0 && scheduleCount > 0 &&
+    Number(manifestCounts.routeFareRows) === fareCount &&
+    Number(manifestCounts.scheduleRows) === scheduleCount;
 }
 
 function findCanonicalWorkbookPair(source, booking) {
