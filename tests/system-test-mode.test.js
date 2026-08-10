@@ -6,17 +6,23 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('ทุกหน้าหลักโหลดตัวประกาศโหมดทดสอบ', () => {
-  const pages = fs.readdirSync(root)
-    .filter((name) => name.endsWith('.html'));
+test('ทุกหน้าหลักโหลดตัวประกาศโหมดที่ตรงกับขอบเขตระบบ', () => {
+  const pages = fs.readdirSync(root).filter((name) => name.endsWith('.html'));
   assert.ok(pages.length > 0);
   for (const page of pages) {
-    assert.match(read(page), /system-test-mode\.js/,
-      `${page} ต้องโหลดตัวประกาศโหมดทดสอบ`);
+    const expected = page === 'admin-erp1.html' ? /admin-erp1-greenfield-system-mode\.js/ : /system-test-mode\.js/;
+    assert.match(read(page), expected, `${page} ต้องโหลดตัวประกาศโหมดที่ตรงกับขอบเขต`);
   }
 });
 
-test('โหมดทดสอบมีการแจ้งเตือนและไม่แทรกข้อความเป็นโค้ดหน้าเว็บ', () => {
+test('Admin ERP1 Greenfield ใช้โหมด Preview แบบไม่เปิดสิทธิ์เขียน', () => {
+  const source = read('admin-erp1-greenfield-system-mode.js');
+  assert.match(source, /contract-preview/);
+  assert.match(source, /writesEnabled: false/);
+  assert.match(source, /textContent/);
+});
+
+test('โหมดทดสอบระบบเดิมมีการแจ้งเตือนและไม่แทรกข้อความเป็นโค้ดหน้าเว็บ', () => {
   const source = read('system-test-mode.js');
   assert.match(source, /slTransitSystemTestOverlay/);
   assert.match(source, /textContent/);
@@ -37,7 +43,7 @@ test('เซิร์ฟเวอร์หยุดการจองและ�
   assert.match(source, /noPaidConnections/);
 });
 
-test('หน้าแอดมินมีปุ่มเปิดปิดโหมดทดสอบ', () => {
+test('หน้าแอดมินระบบเดิมมีปุ่มเปิดปิดโหมดทดสอบ', () => {
   const source = read('admin-erp.html');
   assert.match(source, /SYSTEM_TEST_MODE_ENDPOINT/);
   assert.match(source, /systemTestPanel/);

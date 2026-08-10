@@ -1,22 +1,20 @@
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
 
-const root = path.join(__dirname, '..');
-const page = fs.readFileSync(path.join(root, 'admin-erp1.html'), 'utf8');
-const adminRedirect = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
-const consoleRedirect = fs.readFileSync(path.join(root, 'admin-console.html'), 'utf8');
+const root = path.resolve(__dirname, '..');
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-assert.ok(page.includes('admin-erp-data-adapter.js'));
-assert.ok(page.includes('admin-erp-read-model.js'));
-assert.ok(page.includes('admin-erp1-integration.js'));
-assert.ok(page.includes('data/erpDataCenter'));
-assert.ok(!/firebase\.database|\.ref\s*\(/.test(page));
-assert.ok(!page.includes('routeData'));
-assert.ok(!page.includes('settings/routes'));
-assert.ok(adminRedirect.includes('url=admin-erp1.html'));
-assert.ok(adminRedirect.includes('href="admin-erp1.html"'));
-assert.ok(consoleRedirect.includes('url=admin-erp1.html'));
-assert.ok(consoleRedirect.includes('href="admin-erp1.html"'));
+test('ทางเข้า Admin เดิมยังพาไปยังชื่อหลัก admin-erp1.html', () => {
+  assert.match(read('admin.html'), /admin-erp1\.html/);
+  assert.match(read('admin-console.html'), /admin-erp1\.html/);
+});
 
-console.log('admin-erp1 live entry: PASS');
+test('หน้า Admin ERP1 ประกาศสถานะ Greenfield contract preview', () => {
+  const page = read('admin-erp1.html');
+  assert.match(page, /GREENFIELD · PREVIEW/);
+  assert.match(page, /Backend not connected/);
+  assert.match(page, /No production writes/);
+  assert.doesNotMatch(page, /system-test-mode\.js/);
+});

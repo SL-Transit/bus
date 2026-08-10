@@ -1,89 +1,54 @@
-const assert = require('assert');
-const { test } = require('node:test');
-const fs = require('fs');
-const path = require('path');
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const State = require('../admin-erp1-greenfield-state.js');
+const Api = require('../admin-erp1-greenfield-api-client.js');
 
-const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'admin-erp1.html'), 'utf8');
-const contract = require(path.join(root, 'admin-erp-excel-draft-import.js'));
+test('state machine รับ metadata ของไฟล์และกันขนาดเกิน 25 MB', () => {
+  const selected = State.reduce(State.initialState(), { type: 'SELECT_FILE', file: { name: 'network.xlsx', size: 2048, type: 'application/xlsx' } });
+  assert.equal(selected.phase, State.PHASES.FILE_SELECTED);
+  assert.equal(selected.file.name, 'network.xlsx');
+  assert.equal(State.deriveView(selected).canValidate, true);
 
-global.AdminErpExcelDraftImport = contract;
-global.sessionStorage = {
-  values: {},
-  setItem(key, value) { this.values[key] = String(value); },
-  getItem(key) { return this.values[key] || null; },
-  removeItem(key) { delete this.values[key]; }
-};
-const controller = require(path.join(root, 'admin-erp-excel-import-controller.js'));
+  const tooLarge = State.reduce(State.initialState(), { type: 'SELECT_FILE', file: { name: 'large.zip', size: State.MAX_IMPORT_BYTES + 1 } });
+  assert.equal(tooLarge.phase, State.PHASES.IDLE);
+  assert.equal(tooLarge.error.code, 'file_too_large');
+});
 
-function workbookMatrix() {
-  const sheets = {};
-  contract.SHEET_ORDER.forEach((name) => {
-    const definition = contract.SHEETS[name];
-    const headerRow = definition.headerMode === 'keyValue'
-      ? [definition.headers[0]]
-      : definition.headers.slice();
-    const leading = Array.from({ length: (definition.headerRow || 1) - 1 }, () => []);
-    if (definition.headerMode === 'keyValue') {
-      sheets[name] = { matrix: [headerRow, [], []] };
-    } else {
-      sheets[name] = { matrix: leading.concat([headerRow, [], []]) };
-    }
+test('Draft ที่ผ่าน Validation เท่านั้นจึงส่ง Review และ Approve ได้', () => {
+  let state = State.reduce(State.initialState(), { type: 'SELECT_FILE', file: { name: 'network.csv', size: 100 } });
+  state = State.reduce(state, { type: 'START_VALIDATION' });
+  state = State.reduce(state, { type: 'VALIDATION_SUCCEEDED', draftId: 'draft-001', report: { errors: [], warnings: [] } });
+  assert.equal(state.phase, State.PHASES.DRAFT);
+  state = State.reduce(state, { type: 'REQUEST_REVIEW' });
+  assert.equal(state.phase, State.PHASES.REVIEW_REQUESTED);
+  state = State.reduce(state, { type: 'APPROVAL_DECIDED', decision: 'approve' });
+  assert.equal(state.phase, State.PHASES.APPROVED);
+});
+
+test('ผล Validation ที่ผิดไม่ผ่านไป Review', () => {
+  let state = State.reduce(State.initialState(), { type: 'SELECT_FILE', file: { name: 'broken.csv', size: 100 } });
+  state = State.reduce(state, { type: 'START_VALIDATION' });
+  state = State.reduce(state, { type: 'VALIDATION_FAILED', report: { errors: [{ code: 'missing_stop' }], warnings: [] } });
+  state = State.reduce(state, { type: 'REQUEST_REVIEW' });
+  assert.equal(state.phase, State.PHASES.INVALID);
+  assert.equal(state.error.code, 'review_blocked');
+});
+
+test('API client fail closed เมื่อยังไม่มี transport', async () => {
+  const client = Api.createClient();
+  await assert.rejects(client.send('import.validate', { file: {} }), (error) => error.code === 'greenfield_backend_not_connected');
+});
+
+test('API client ส่ง command envelope ผ่าน transport ที่ inject เท่านั้น', async () => {
+  let request;
+  const client = Api.createClient({
+    getToken: async () => 'preview-token',
+    transport: async (input) => { request = input; return { ok: true, data: { valid: true } }; }
   });
-  return sheets;
-}
-
-test('admin erp1 loads the Excel contract and controller beside the existing import action', () => {
-  assert.match(html, /admin-erp-excel-draft-import\.js/);
-  assert.match(html, /admin-erp-excel-import-controller\.js/);
-  assert.match(html, /data-erp-action="import"/);
-  assert.match(html, /data-admin-erp-excel-file/);
-  assert.match(html, /data-admin-erp-excel-preview/);
-  assert.match(html, /function openDrawer\(content\)/);
-  assert.doesNotMatch(fs.readFileSync(path.join(root, 'admin-erp-excel-import-controller.js'), 'utf8'), /firebase\.(database|auth)|fetch\s*\(/i);
-});
-
-test('parser adapter preserves workbook order and Excel row numbers before contract validation', async () => {
-  const fakeParser = {
-    read() {
-      const sheets = workbookMatrix();
-      return { SheetNames: contract.SHEET_ORDER.slice(), Sheets: sheets };
-    },
-    utils: {
-      sheet_to_json(sheet) { return sheet.matrix; }
-    }
-  };
-  const file = {
-    name: contract.WORKBOOK_NAME,
-    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer
-  };
-  const workbook = await controller.parseFile(file, { parser: fakeParser });
-  assert.deepStrictEqual(workbook.sheets.map((sheet) => sheet.name), contract.SHEET_ORDER);
-  assert.deepStrictEqual(workbook.sheets[0].rows.map((row) => row.sourceRowNumber), [2, 3]);
-  assert.deepStrictEqual(workbook.sheets[7].rows.map((row) => row.sourceRowNumber), [5, 6]);
-  const result = controller.buildPreview(workbook);
-  assert.strictEqual(result.draft.localOnly, true);
-  assert.strictEqual(result.draft.productionWrite, false);
-  assert.strictEqual(result.draft.readyForApply, false);
-  assert.strictEqual(result.preview.sheetOrderVerified, true);
-  assert.strictEqual(result.preview.readyForApply, false);
-});
-
-test('missing parser fails closed and never invents a preview', async () => {
-  const file = { name: 'owner-approved.xlsx', arrayBuffer: async () => new ArrayBuffer(0) };
-  await assert.rejects(
-    controller.parseFile(file, { parser: null }),
-    (error) => error && error.code === 'excel-parser-unavailable'
-  );
-  assert.strictEqual(controller.readPreview(), null);
-});
-
-test('stored preview is session-only and can be cleared', () => {
-  const result = { draft: { localOnly: true, productionWrite: false }, preview: { status: 'พร้อมสร้างฉบับร่าง' } };
-  assert.strictEqual(controller.storePreview(result), true);
-  const stored = controller.readPreview();
-  assert.strictEqual(stored.draft.productionWrite, false);
-  assert.ok(stored.storedAt);
-  controller.clearPreview();
-  assert.strictEqual(controller.readPreview(), null);
+  const result = await client.send('import.validate', { file: { name: 'network.csv' } });
+  assert.equal(result.valid, true);
+  assert.equal(request.method, 'POST');
+  assert.equal(request.url, '/api/greenfield-erp/commands');
+  assert.equal(request.headers.Authorization, 'Bearer preview-token');
+  assert.equal(request.body.command, 'import.validate');
 });

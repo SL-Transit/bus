@@ -1,67 +1,38 @@
-'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
 
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
 const root = path.resolve(__dirname, '..');
-const page = fs.readFileSync(path.join(root, 'admin-erp1.html'), 'utf8');
-const bridge = fs.readFileSync(path.join(root, 'admin-erp1-integration.js'), 'utf8');
-const config = fs.readFileSync(path.join(root, 'admin-erp-firebase-config.js'), 'utf8');
-const readModel = fs.readFileSync(path.join(root, 'admin-erp-read-model.js'), 'utf8');
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-if (!page.includes('admin-erp-data-adapter.js')) throw new Error('page must load the central adapter');
-if (!page.includes('admin-erp-read-model.js')) throw new Error('page must load the Admin ERP read model');
-if (!page.includes('admin-erp1-integration.js')) throw new Error('page must load the page integration bridge');
-if (!page.includes('firebase-auth-compat.js')) throw new Error('page must load Firebase Auth for token acquisition');
-if (!page.includes('admin-erp-firebase-config.js')) throw new Error('page must load the non-secret Firebase integration config');
-if (!page.includes('config.signIn(email,password)')) throw new Error('page must submit credentials through the central auth config');
-if (!page.includes('config.onAuthStateChanged')) throw new Error('page must wait for Firebase Auth state before opening ERP');
-if (!page.includes('verifyAccess')) throw new Error('page must verify Admin ERP read access before opening ERP');
-if (!page.includes('AdminErpDataSource.getAccess')) throw new Error('page must use the lightweight access read before loading ERP data');
-if (!page.includes('admin_erp_read_permission_required')) throw new Error('page must expose backend authorization denial');
-if (!page.includes('ACTIVE_PAGE_KEY')) throw new Error('page must preserve the active page across reloads');
-if (!page.includes('visibilitychange')) throw new Error('page must retry access after the document becomes visible');
-if (!page.includes('function handleAccessFailure')) throw new Error('page must not sign out on transient endpoint failures');
-if (page.includes('ยังไม่ได้เชื่อมต่อระบบยืนยันตัวตนจริง กรุณาใช้ Preview Mode')) throw new Error('page must not keep the old forced preview login');
-if (/firebase\.database|\.ref\s*\(/.test(page)) throw new Error('admin-erp1 must not call Firebase directly');
-if (/routeData|publishedCatalog|settings\/routes|bus-booking-1d68c/.test(bridge)) throw new Error('integration bridge must not use legacy sources');
-if (!config.includes('readAdminErpDataCenter')) throw new Error('config must point at the approved read endpoint');
-if (config.includes('firebase.database(') || config.includes('.ref(')) throw new Error('config must not enable direct database access');
-if (!config.includes('signInWithEmailAndPassword')) throw new Error('config must own Firebase Auth sign-in');
-if (!config.includes('setSessionPersistence')) throw new Error('config must use session persistence for admin auth');
-if (!config.includes('persistence.LOCAL')) throw new Error('admin auth must survive a browser tab being suspended');
-if (!bridge.includes('ยังไม่เชื่อมต่อแหล่งข้อมูล')) throw new Error('disconnected state is required');
-if (!bridge.includes('ไม่มีสิทธิ์เข้าถึง')) throw new Error('forbidden state is required');
-if (!bridge.includes('อ่านอย่างเดียว')) throw new Error('read-only rendering is required');
-if (!bridge.includes('sourceRowNumber')) throw new Error('read-only rows must preserve the original Excel row number');
-if (!bridge.includes('แถว Excel')) throw new Error('read-only rows must display the original Excel row number');
-if (!bridge.includes("document.addEventListener('DOMContentLoaded', startBridge")) throw new Error('integration bridge must wait for body readiness');
-if (!page.includes("routes:['02_เส้นทาง',['รหัสกลุ่ม (group_id)','ชื่อกลุ่ม','ลำดับกลุ่ม'")) throw new Error('Admin ERP1 routes table must use the Excel sheet 02 group columns');
-if (!page.includes("fares:['03_เส้นทางและราคา',['รหัสเส้นทาง','รหัสกลุ่มบริการ','รหัสป้ายต้นทาง','ชื่อป้ายต้นทาง','รหัสป้ายปลายทาง','ชื่อป้ายปลายทาง'")) throw new Error('Admin ERP1 fare table must show origin and destination stop names');
-if (!bridge.includes("'ใช่'")) throw new Error('Admin ERP1 must repair the observed mojibake yes/no display values');
+test('Admin ERP1 เป็นหน้า Greenfield ที่โหลดเฉพาะโมดูลชุดใหม่', () => {
+  const page = read('admin-erp1.html');
+  assert.match(page, /SL-Transit · Greenfield Admin ERP1/);
+  assert.match(page, /admin-erp1-greenfield-state\.js/);
+  assert.match(page, /admin-erp1-greenfield-api-client\.js/);
+  assert.match(page, /admin-erp1-greenfield-system-mode\.js/);
+  assert.match(page, /admin-erp1-greenfield-controller\.js/);
+  assert.match(page, /assets\/admin-erp1-greenfield\.css/);
+  assert.doesNotMatch(page, /admin-erp1-integration\.js|admin-erp1-network-integration\.js/);
+  assert.doesNotMatch(page, /firebase-(?:app|auth|database)|gstatic\.com/i);
+});
 
-const displaySandbox = { TextDecoder, Uint8Array };
-vm.runInNewContext(bridge, displaySandbox, { filename: 'admin-erp1-integration.js' });
-const repairDisplayText = displaySandbox.AdminErpPageIntegration.repairDisplayText;
-const mojibakeStopName = String.fromCodePoint(
-  0x0e40, 0x0e18, 0x89, 0x0e40, 0x0e18, 0x0e10, 0x0e40, 0x0e19, 0x20ac,
-  0x0e40, 0x0e18, 0x8a, 0x0e40, 0x0e18, 0x0e14, 0x0e40, 0x0e18, 0x87,
-  0x0e40, 0x0e19, 0x20ac, 0x0e40, 0x0e18, 0x2014, 0x0e40, 0x0e18, 0x0e03,
-  0x0e40, 0x0e18, 0x0e12
-);
-assert.strictEqual(repairDisplayText(mojibakeStopName), 'ฉะเชิงเทรา', 'Admin ERP1 must repair legacy Thai display encoding');
+test('หน้า Greenfield มี CSP และขอบเขต Preview ชัดเจน', () => {
+  const page = read('admin-erp1.html');
+  assert.match(page, /Content-Security-Policy/);
+  assert.match(page, /default-src 'self'/);
+  assert.match(page, /Contract Preview · Backend not connected · No production writes/);
+  assert.match(page, /id="overview"/);
+  assert.match(page, /id="import"/);
+  assert.match(page, /id="draft"/);
+  assert.match(page, /id="validation"/);
+  assert.match(page, /id="review"/);
+  assert.match(page, /id="approval"/);
+});
 
-const noDecoderSandbox = {};
-vm.runInNewContext(bridge, noDecoderSandbox);
-assert.strictEqual(
-  noDecoderSandbox.AdminErpPageIntegration.repairDisplayText(mojibakeStopName),
-  'ฉะเชิงเทรา',
-  'Admin ERP1 must repair legacy Thai display encoding without TextDecoder'
-);
-
-if (!readModel.includes("name: 'assignmentRules'")) throw new Error('Driver/group read model must use the approved assignmentRules path');
-if (!readModel.includes("name: 'adminAccounts'")) throw new Error('Admin users read model must use the approved adminAccounts path');
-if (!readModel.includes("name: 'alerts'")) throw new Error('Admin alerts read model must use the approved alerts path');
-
-console.log('admin-erp1 integration contract: PASS');
+test('หน้า Phase 3 ไม่มีปุ่มหรือคำสั่งเผยแพร่', () => {
+  const page = read('admin-erp1.html');
+  assert.doesNotMatch(page, /<button[^>]+(?:id|data-command)="[^"]*publish/i);
+  assert.doesNotMatch(page, /publishedReadModels\/current|erpDataCenter\/publication/);
+});
