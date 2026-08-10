@@ -1,0 +1,23 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "data": {
+      "erpDataCenter": {
+        ".read": false,
+        ".write": false,
+        "importPackages": { ".indexOn": ["status", "draftId"] },
+        "authoring": {
+          "drafts": { ".indexOn": ["status", "createdAt", "createdByUid"] }
+        },
+        "audit": {
+          "events": { ".indexOn": ["eventType", "entityId", "occurredAt"] }
+        }
+      }
+    },
+    "publishedReadModels": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
