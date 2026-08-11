@@ -39,6 +39,9 @@ function createImportJobService(options) {
     const operatorScope = command.payload && Array.isArray(command.payload.operatorScope) ? Array.from(new Set(command.payload.operatorScope)) : [];
     if (operatorScope.length === 0 || operatorScope.some(function (id) { return typeof id !== "string" || !id; })) throw jobError("operator_scope_required");
     const jobId = jobIdFor(command.idempotencyKey || command.requestId, command.actorUid);
+    if (input.uploadAuthorizationStore && typeof input.uploadAuthorizationStore.consumeAuthorization === "function") {
+      await input.uploadAuthorizationStore.consumeAuthorization({ source, actorUid: command.actorUid, consumedAt: createdAt });
+    }
     return input.jobStore.createQueuedJob({
       jobId, requestId: command.requestId, actorUid: command.actorUid, source, operatorScope,
       createdAt, lastTouchedAt: createdAt,
