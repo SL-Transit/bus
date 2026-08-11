@@ -16,11 +16,11 @@
 
 | Workstream | Owner | Status | Scope เริ่มต้น | ผลลัพธ์ที่ต้องได้ | Production |
 | --- | --- | --- | --- | --- | --- |
-| 1. Backbone / Schema / Import Package | Unassigned | TODO | Stable IDs, contracts, CSV/Excel mapping, validators | Versioned schemas, import manifest, validation report | none |
-| 2. Admin ERP1 Integration | Unassigned | TODO | `admin-erp1.html`, backend draft/review APIs | Import -> Draft -> Validate -> Review UI ที่ไม่เขียน Published โดยตรง | none จนอนุมัติ |
+| 1. Backbone / Schema / Import Package | Primary AI (Greenfield) | IN_PROGRESS | Stable IDs, contracts, CSV/Excel mapping, validators | Versioned schemas, import manifest, validation report | none |
+| 2. Admin ERP1 Integration | Primary AI (Greenfield) | REVIEW | `admin-erp1.html`, backend draft/review APIs | Import -> Draft -> Validate -> Review UI ที่ไม่เขียน Published โดยตรง | none จนอนุมัติ |
 | 3. Published Read Model / Network Journey | Unassigned | TODO | immutable versions, pointer, routing contract/cache | Published contract เดียว, fixed/frequency routing, rollback | none จนอนุมัติ |
 | 4. Booking / Passenger Consumer Integration | Unassigned | TODO | adapters และ compatibility migration | Consumers อ่าน Published contract เดียว; server revalidates booking | none จนอนุมัติ |
-| 5. QA / Security / Release | Unassigned | TODO | Emulator, Rules tests, load/cost/release gates | Regression, privacy, concurrency, version-switch และ rollback evidence | read-only/emulator |
+| 5. QA / Security / Release | Primary AI (Greenfield) | IN_PROGRESS | Emulator, Rules tests, load/cost/release gates | Regression, privacy, concurrency, version-switch และ rollback evidence | read-only/emulator |
 
 ## ลำดับดำเนินงาน
 
@@ -34,6 +34,31 @@
 8. ทดสอบ version switch, rollback, authorization, privacy, concurrency, latency และ cost guard
 9. ขอ Owner approval แยกก่อน deploy Firebase หรือแตะข้อมูลจริง
 
+## สถานะ Greenfield ล่าสุด — 2026-08-11
+
+| งาน | สถานะ | หลักฐาน | ขอบเขต/งานค้าง |
+| --- | --- | --- | --- |
+| โครงสร้างระบบใหม่ | DONE | PR #142 merged | เอกสารเท่านั้น; ไม่ deploy |
+| Data Contract v1 | DONE | PR #143 merged | Canonical JSON contract และ fixtures |
+| Draft Core | DONE | PR #144 merged | RTDB Emulator เท่านั้น |
+| Admin ERP1 contract preview | REVIEW | Draft PR #147 | ยังไม่ใช่ Review/Approve/Publish UI สมบูรณ์ |
+| Async Import + Retention | REVIEW | Draft PR #148, CI run `31448617071` ผ่าน | Canonical JSON เท่านั้น; Excel mapping ยังไม่ทำ; ไม่ deploy |
+| Published Read Model / Journey | TODO | ยังไม่มี PR | ห้ามเริ่มซ้ำก่อนล็อก Workstream 3 |
+| Booking / Passenger migration | TODO | ยังไม่มี Greenfield consumer PR | ระบบเดิมยังไม่ถูกย้าย |
+
+### Active file locks
+
+- PR #140 `agent/reset-central-board`: `ai-handoffs/**` เท่านั้น
+- PR #141 `agent/decouple-notification-test-v2`: `tests/staff-notification-center.test.js`
+- PR #147 `codex/greenfield-erp-phase3-admin-ui`: Greenfield Admin ERP1 preview/client/controller/tests
+- PR #148 `codex/greenfield-erp-phase4-command-gateway`: Greenfield Phase 4.1 Gateway, Worker, retention, emulator config และ tests
+- ห้ามเปิดงานใหม่ที่แก้ไฟล์ข้างต้นจนกว่า PR เจ้าของไฟล์จะ merge, close หรือปลด lock ในบอร์ด
+
+### ขอบเขตที่ยังไม่ได้รับอนุมัติ
+
+- Merge PR #140, #141, #147 หรือ #148
+- Firebase deploy, Rules deploy, Storage lifecycle, seed/import ข้อมูลจริง หรือ Production write
+- Excel parser/mapping, Review/Approve commands, Published version/current pointer, Journey Engine และ Consumer cutover
 ## Work Lock Template
 
 ```text

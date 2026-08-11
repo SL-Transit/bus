@@ -51,3 +51,12 @@
 
 - Decision: งาน repository ต้องเปลี่ยนผ่าน GitHub branch/commit/PR ไม่แก้ไฟล์ในคอมพิวเตอร์เพื่อส่งงาน
 - Consequence: ทุกการเปลี่ยนย้อนตรวจได้จาก commit และต้องรักษา scope ของ PR ให้ชัดเจน
+## D-011 — Async Import Boundary
+
+- Decision: HTTP Gateway ตรวจ Auth/สิทธิ์และ metadata เท่านั้น จากนั้นสร้างงานแบบ idempotent และตอบ `202 + jobId`; การอ่านไฟล์ ตรวจ checksum/validation และสร้าง Draft เป็นหน้าที่ของ Task Worker ที่มี lease/claim token.
+- Consequence: ห้ามส่งไฟล์ก้อนใหญ่หรือประมวลผล Import ทั้งหมดใน HTTP request; Worker ต้องจำกัด concurrency/retry/timeout และการกดคำสั่งเดิมต้องไม่สร้าง audit, outbox หรือ Draft ซ้ำ.
+
+## D-012 — Explicit Retention And Bounded Cleanup
+
+- Decision: Import Job, staged source และ Draft ชั่วคราวต้องมี Owner-defined retention policy, `expiresAt`, expiry-bucket index และ scheduled cleanup ที่ใช้ lease, cursor, day window และ batch limit.
+- Consequence: ห้ามสแกน RTDB root; ต้องปกป้องงาน processing/review/approved/published/rollback/legal hold และ `protectedFromCleanup`; Storage lifecycle และค่า Production ต้องขอ Owner approval แยก.
