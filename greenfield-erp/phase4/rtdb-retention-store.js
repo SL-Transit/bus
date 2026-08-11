@@ -62,7 +62,7 @@ function createRtdbRetentionStore(options) {
       const snapshot = await database.ref(path).get();
       if (!snapshot.exists()) {
         await database.ref(basePath + "/maintenance/expiryBuckets/" + candidate.expiryDateKey + "/importJobs/" + candidate.id).remove();
-        return { action: "deleted" };
+        return { action: "stale_index_removed" };
       }
       const job = snapshot.val();
       if (job.protectedFromCleanup === true || !job.expiresAt || job.expiresAt > candidate.now || (job.status === "processing" && job.leaseExpiresAt > candidate.now)) return defer("importJobs", candidate.id, candidate.expiryDateKey, candidate.now);
@@ -83,7 +83,7 @@ function createRtdbRetentionStore(options) {
       const metadataSnapshot = await database.ref(basePath + "/authoring/drafts/" + candidate.id + "/metadata").get();
       if (!metadataSnapshot.exists()) {
         await database.ref(basePath + "/maintenance/expiryBuckets/" + candidate.expiryDateKey + "/drafts/" + candidate.id).remove();
-        return { action: "deleted" };
+        return { action: "stale_index_removed" };
       }
       const metadata = metadataSnapshot.val();
       if (metadata.status !== "draft" || metadata.protectedFromCleanup === true || !metadata.expiresAt || metadata.expiresAt > candidate.now) return defer("drafts", candidate.id, candidate.expiryDateKey, candidate.now);
