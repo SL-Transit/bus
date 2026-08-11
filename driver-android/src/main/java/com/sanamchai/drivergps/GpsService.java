@@ -56,6 +56,7 @@ public class GpsService extends Service implements SensorEventListener {
     private static final long RESTART_INTERVAL_MS = 10 * 60 * 1000;
     private static final long STANDBY_LOCATION_INTERVAL_MS = 5 * 60 * 1000;
     private static final long SERVICE_WINDOW_CHECK_MS = 30 * 1000;
+    private static final long FIREBASE_RECOVERY_RETRY_MS = 30 * 1000;
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
@@ -109,6 +110,7 @@ public class GpsService extends Service implements SensorEventListener {
     private boolean running        = false;
     private boolean reportingError = false;
     private long lastLocationSentAt = 0;
+    private long lastFirebaseRecoveryAt = 0;
     private long lastGpsUpdateAt    = 0;
     private long gpsRequestStartedAt = 0;
     private long lastGpsRecoveryAt = 0;
@@ -326,10 +328,7 @@ public class GpsService extends Service implements SensorEventListener {
                 if (staleFor > staleThreshold) {
                     Log.w(TAG, "Firebase ค้าง " + (staleFor / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") — force reconnect");
                     recordStatus("stale_gps");
-                    try {
-                        
-                        
-                    } catch (Exception ignored) {}
+                    requestFirebaseRecovery("stale_write");
                     // กันไม่ให้ trigger ซ้ำทันทีระหว่างรอ reconnect — รอบถัดไปจะเช็คใหม่
                 }
             }
@@ -539,10 +538,7 @@ public class GpsService extends Service implements SensorEventListener {
                     handler.post(() -> {
                         if (!running) return;
                         Log.d(TAG, "NetworkCallback: เน็ตกลับมา (available) — force reconnect Firebase");
-                        try {
-                            
-                            
-                        } catch (Exception ignored) {}
+                        requestFirebaseRecovery("network_available");
                     });
                 }
                 @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
@@ -1425,11 +1421,41 @@ public class GpsService extends Service implements SensorEventListener {
         writeData(buildData(loc, true), loc, true);
     }
 
+    private void requestFirebaseRecovery(String reason) {
+        if (!running || connectedRef == null) return;
+        long now = System.currentTimeMillis();
+        if (now - lastFirebaseRecoveryAt < FIREBASE_RECOVERY_RETRY_MS) return;
+        lastFirebaseRecoveryAt = now;
+        recordStatus("firebase_reconnecting");
+        Log.w(TAG, "Firebase recovery requested: " + reason);
+        connectedRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                if (!running) return;
+                Boolean connected = snapshot.getValue(Boolean.class);
+                if (Boolean.TRUE.equals(connected)) {
+                    setupDisconnectHandlers();
+                    if (pendingData != null) writeData(pendingData, pendingLocation, pendingFullWrite);
+                    else { lastLocationSentAt = 0; sendHeartbeat(); }
+                } else {
+                    handler.postDelayed(() -> requestFirebaseRecovery("still_disconnected"), FIREBASE_RECOVERY_RETRY_MS);
+                }
+            }
+            @Override public void onCancelled(DatabaseError error) {
+                Log.w(TAG, "Firebase recovery check failed: " + error.getMessage());
+                handler.postDelayed(() -> requestFirebaseRecovery("recovery_check_failed"), FIREBASE_RECOVERY_RETRY_MS);
+            }
+        });
+    }
     private void watchConnectionState() {
         connectedRef.addValueEventListener(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snapshot) {
                 Boolean connected = snapshot.getValue(Boolean.class);
-                if (!Boolean.TRUE.equals(connected) || !running) return;
+                if (!running) return;
+                if (!Boolean.TRUE.equals(connected)) {
+                    recordStatus("firebase_disconnected");
+                    handler.postDelayed(() -> requestFirebaseRecovery("connection_state"), FIREBASE_RECOVERY_RETRY_MS);
+                    return;
+                }
                 // ✅ แก้ไข: เมื่อ reconnect ให้ set online:true ทันที ก่อน setupDisconnectHandlers
                 // ป้องกัน onDisconnect handler ค้างทำให้ passenger เห็น online:false
                 long now = System.currentTimeMillis();
