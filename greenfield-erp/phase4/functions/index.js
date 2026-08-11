@@ -21,6 +21,10 @@ const { createRtdbRetentionStore } = require("../rtdb-retention-store.js");
 const { createRetentionService } = require("../retention-service.js");
 const { parseRetentionPolicy } = require("../retention-policy.js");
 const { createStoragePackageReader } = require("../storage-package-reader.js");
+const { createDraftWorkflowService } = require("../../phase6a/draft-workflow-service.js");
+const { createRtdbDraftWorkflowStore } = require("../../phase6a/rtdb-draft-workflow-store.js");
+const { createRtdbUploadAuthorizationStore } = require("../../phase6a/rtdb-upload-authorization-store.js");
+const { createUploadAuthorizationService } = require("../../phase6a/upload-authorization-service.js");
 
 const GATEWAY_OPTIONS = Object.freeze({ region: "asia-southeast1", minInstances: 0, maxInstances: 3, concurrency: 10, timeoutSeconds: 30, memory: "256MiB", cors: false });
 const WORKER_OPTIONS = Object.freeze({
@@ -38,6 +42,14 @@ function configuredProjectId() {
 }
 function allowedOrigins() { const value = process.env.GREENFIELD_ALLOWED_ORIGINS; return value ? value.split(",").map(function (item) { return item.trim(); }).filter(Boolean) : ["http://127.0.0.1:5000", "http://localhost:5000"]; }
 function systemRunId(value) { return "RUN-" + crypto.createHash("sha256").update(String(value), "utf8").digest("hex").slice(0, 24).toUpperCase(); }
+function buildEmulatorUploadTarget(input) {
+  const origin = "http://" + process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+  return {
+    url: origin + "/v0/b/" + encodeURIComponent(input.bucket) + "/o?name=" + encodeURIComponent(input.objectPath),
+    method: "POST",
+    headers: { "content-type": input.contentType }
+  };
+}
 
 const projectId = configuredProjectId();
 const databaseEmulatorHost = process.env.FIREBASE_DATABASE_EMULATOR_HOST;
@@ -62,7 +74,20 @@ const draftStore = createRtdbEmulatorDraftStore({ database, projectId, databaseE
 const accessReader = createRtdbAccessReader({ database, projectId, databaseEmulatorHost });
 const jobStore = createRtdbImportJobStore({ database, projectId, databaseEmulatorHost });
 const importJobService = createImportJobService({ jobStore, packageReader: storageReader, draftStore, retentionPolicy, createValidatedDraft });
-const gateway = createCommandGateway({ importJobService, accessReader });
+const uploadAuthorizationStore = createRtdbUploadAuthorizationStore({ database, projectId, databaseEmulatorHost });
+const uploadAuthorizationService = createUploadAuthorizationService({
+  store: uploadAuthorizationStore,
+  bucketName: projectId + ".appspot.com",
+  buildUploadTarget: buildEmulatorUploadTarget
+});
+const workflowStore = createRtdbDraftWorkflowStore({ database, projectId, databaseEmulatorHost });
+const workflowService = createDraftWorkflowService({ store: workflowStore });
+const gateway = createCommandGateway({
+  importJobService,
+  accessReader,
+  uploadAuthorizationService,
+  workflowService
+});
 const handler = createFirebaseHttpHandler({ gateway, allowedOrigins: allowedOrigins(), verifyIdToken: function (token) { return getAuth(app).verifyIdToken(token); } });
 const retentionStore = createRtdbRetentionStore({ database, projectId, databaseEmulatorHost, deleteSource: storageReader.deleteSource });
 const retentionService = createRetentionService({ store: retentionStore, policy: retentionPolicy });
