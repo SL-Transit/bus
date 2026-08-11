@@ -70,8 +70,11 @@ const retentionService = createRetentionService({ store: retentionStore, policy:
 exports.greenfieldErpCommand = onRequest(GATEWAY_OPTIONS, handler);
 exports.greenfieldImportWorker = onTaskDispatched(WORKER_OPTIONS, async function (request) {
   const data = request && request.data || {};
+  const probeUrl = "http://" + databaseEmulatorHost + "/data/erpDataCenter/importJobs/" + encodeURIComponent(data.jobId || "missing") + "/metadata.json?ns=" + encodeURIComponent(projectId + "-default-rtdb");
+  const probeResponse = await fetch(probeUrl);
+  const probeJob = probeResponse.ok ? await probeResponse.json() : null;
   const result = await importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
-  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true, projectId, databaseEmulatorHost, databaseRef: database.ref("data/erpDataCenter").toString() });
+  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true, probeStatus: probeJob && probeJob.status || "missing", projectId, databaseEmulatorHost, databaseRef: database.ref("data/erpDataCenter").toString() });
   return result;
 });
 exports.greenfieldRetentionCleanup = onSchedule(CLEANUP_OPTIONS, async function (event) {
