@@ -6,6 +6,8 @@ const { ID_FIELDS } = require("../phase2/rtdb-emulator-draft-store.js");
 const DRAFT_ID_PATTERN = /^DRF-[A-F0-9]{24}$/;
 const MAX_DRAFT_OPERATIONS = 100;
 const MAX_DRAFT_CHANGE_BYTES = 512 * 1024;
+const MAX_DRAFT_PAGE_ITEMS = 50;
+const MAX_DRAFT_PAGE_BYTES = 256 * 1024;
 
 function workflowError(code, status) {
   const error = new Error(code);
@@ -85,6 +87,51 @@ function createDraftWorkflowService(options) {
     return { command, summary, operatorScope };
   }
 
+  async function readDraft(command) {
+    const context = await loadAuthorized(command.payload, command.account);
+    if (context.summary.revision !== context.command.expectedRevision) {
+      throw workflowError("revision_conflict", 409);
+    }
+    const entityType = command.payload && command.payload.entityType;
+    if (!ID_FIELDS[entityType]) throw workflowError("draft_entity_type_invalid");
+    const cursor = command.payload && command.payload.cursor;
+    if (cursor !== undefined && cursor !== null && !safeId(cursor)) throw workflowError("draft_cursor_invalid");
+    const requestedLimit = command.payload && command.payload.limit;
+    const limit = requestedLimit === undefined ? 25 : requestedLimit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DRAFT_PAGE_ITEMS) {
+      throw workflowError("draft_page_limit_invalid");
+    }
+    const page = await input.store.readDraftPage({
+      draftId: context.command.draftId,
+      entityType,
+      cursor: cursor || null,
+      limit: limit + 1
+    });
+    const entries = [];
+    for (const entry of page.entries || []) {
+      if (entries.length >= limit) break;
+      const candidate = entries.concat([entry]);
+      if (Buffer.byteLength(JSON.stringify(candidate), "utf8") > MAX_DRAFT_PAGE_BYTES) {
+        if (entries.length === 0) throw workflowError("draft_page_record_too_large", 413);
+        break;
+      }
+      entries.push(entry);
+    }
+    const hasMore = (page.entries || []).length > entries.length;
+    return Object.freeze({
+      draftId: context.command.draftId,
+      status: context.summary.status,
+      revision: context.summary.revision,
+      validationStatus: context.summary.validationStatus || "required",
+      validatedRevision: context.summary.validatedRevision || null,
+      validationErrorCount: context.summary.validationErrorCount,
+      entityType,
+      entries,
+      nextCursor: hasMore && entries.length ? entries[entries.length - 1].entityId : null,
+      hasMore
+    });
+  }
+
   async function saveDraft(command) {
     const operations = validateOperations(command.payload && command.payload.operations);
     const context = await loadAuthorized(command.payload, command.account, operations);
@@ -139,13 +186,15 @@ function createDraftWorkflowService(options) {
     });
   }
 
-  return Object.freeze({ decideApproval, requestReview, saveDraft });
+  return Object.freeze({ decideApproval, readDraft, requestReview, saveDraft });
 }
 
 module.exports = {
   DRAFT_ID_PATTERN,
   MAX_DRAFT_CHANGE_BYTES,
   MAX_DRAFT_OPERATIONS,
+  MAX_DRAFT_PAGE_BYTES,
+  MAX_DRAFT_PAGE_ITEMS,
   assertDraftCommand,
   createDraftWorkflowService,
   safeId,

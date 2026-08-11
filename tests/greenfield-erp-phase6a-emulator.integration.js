@@ -78,7 +78,7 @@ async function main() {
     await auth.setCustomUserClaims(ownerUid, { role: "admin" });
     await database.ref(basePath + "/access/accounts/" + operatorUid).set({
       active: true,
-      allowedCommands: ["upload.authorize", "import.start", "import.status", "draft.save", "review.request"],
+      allowedCommands: ["upload.authorize", "import.start", "import.status", "draft.read", "draft.save", "draft.validate", "draft.validation.status", "review.request"],
       resourceScopes: { operatorIds: ["OPR-BUS01"] }
     });
     await database.ref(basePath + "/access/accounts/" + ownerUid).set({
@@ -140,88 +140,154 @@ async function main() {
     assert.equal(status.body.result.source, undefined);
     const draftId = status.body.result.draftId;
 
-    const reviewCommand = envelope("6A04", "review.request", {
+    const draftPage = await post(operatorToken, envelope("6A20", "draft.read", {
       draftId,
       expectedRevision: 1,
-      operatorScope
-    });
-    const review = await post(operatorToken, reviewCommand);
-    assert.equal(review.response.status, 200);
-    assert.equal(review.body.result.status, "review_requested");
-    assert.equal(review.body.result.revision, 2);
-    const repeatedReview = await post(operatorToken, reviewCommand);
-    assert.equal(repeatedReview.response.status, 200);
-    assert.equal(repeatedReview.body.result.reused, true);
-    assert.equal(repeatedReview.body.result.revision, 2);
-
-    const selfApproval = await post(operatorToken, envelope("6A05", "approval.decide", {
-      draftId,
-      expectedRevision: 2,
       operatorScope,
-      decision: "approve"
+      entityType: "routes",
+      limit: 25
     }));
-    assert.equal(selfApproval.response.status, 403);
-    assert.equal(selfApproval.body.code, "coarse_role_denied");
+    assert.equal(draftPage.response.status, 200);
+    assert.equal(draftPage.body.result.entries.length, 2);
+    assert.equal(draftPage.body.result.entries.some(function (entry) { return entry.entityId === "RTE-BUS01-0001"; }), true);
+    assert.equal(Buffer.byteLength(JSON.stringify(draftPage.body.result.entries), "utf8") < 256 * 1024, true);
 
-    const approval = await post(ownerToken, envelope("6A06", "approval.decide", {
+    const firstSave = await post(operatorToken, envelope("6A21", "draft.save", {
       draftId,
-      expectedRevision: 2,
-      operatorScope,
-      decision: "approve",
-      comment: "owner approval in emulator"
-    }));
-    assert.equal(approval.response.status, 200);
-    assert.equal(approval.body.result.status, "approved");
-    assert.equal(approval.body.result.revision, 3);
-
-    const approvedMetadata = (await database.ref(basePath + "/authoring/drafts/" + draftId + "/metadata").get()).val();
-    assert.equal(approvedMetadata.status, "approved");
-    assert.equal(approvedMetadata.approval.decidedByUid, ownerUid);
-    assert.equal(approvedMetadata.revision, 3);
-
-    const editableDraftId = "DRF-" + "C".repeat(24);
-    await database.ref(basePath + "/authoring/drafts/" + editableDraftId).set({
-      metadata: {
-        draftId: editableDraftId,
-        status: "draft",
-        revision: 1,
-        createdByUid: operatorUid,
-        lastChangedByUid: operatorUid,
-        operatorScope,
-        validationStatus: "valid",
-        validatedRevision: 1,
-        validationErrorCount: 0
-      },
-      entities: {
-        operators: { "OPR-BUS01": { operatorId: "OPR-BUS01", nameTh: "ผู้ให้บริการตัวอย่าง" } },
-        routes: { "RTE-BUS01-0001": { routeId: "RTE-BUS01-0001", operatorId: "OPR-BUS01", shortName: "F1", serviceMode: "fixed" } }
-      }
-    });
-    const save = await post(operatorToken, envelope("6A07", "draft.save", {
-      draftId: editableDraftId,
       expectedRevision: 1,
       operatorScope,
-      changeSummary: "แก้ชื่อย่อสายรถใน Draft",
+      changeSummary: "แก้ชื่อย่อสายรถก่อนส่งตรวจใหม่",
       operations: [{
         entityType: "routes",
         entityId: "RTE-BUS01-0001",
         value: { routeId: "RTE-BUS01-0001", operatorId: "OPR-BUS01", shortName: "F2", serviceMode: "fixed" }
       }]
     }));
-    assert.equal(save.response.status, 200);
-    assert.equal(save.body.result.revision, 2);
-    assert.equal(save.body.result.validationStatus, "required");
-    const savedDraft = (await database.ref(basePath + "/authoring/drafts/" + editableDraftId).get()).val();
-    assert.equal(savedDraft.entities.routes["RTE-BUS01-0001"].shortName, "F2");
-    assert.equal(savedDraft.metadata.validationStatus, "required");
+    assert.equal(firstSave.response.status, 200);
+    assert.equal(firstSave.body.result.revision, 2);
+    assert.equal(firstSave.body.result.validationStatus, "required");
 
-    const prematureReview = await post(operatorToken, envelope("6A08", "review.request", {
-      draftId: editableDraftId,
+    const prematureReview = await post(operatorToken, envelope("6A22", "review.request", {
+      draftId,
       expectedRevision: 2,
       operatorScope
     }));
     assert.equal(prematureReview.response.status, 409);
     assert.equal(prematureReview.body.code, "workflow_precondition_failed");
+
+    const queuedValidation = await post(operatorToken, envelope("6A23", "draft.validate", {
+      draftId,
+      expectedRevision: 2,
+      operatorScope
+    }));
+    assert.equal(queuedValidation.response.status, 202);
+    assert.equal(queuedValidation.body.result.status, "queued");
+    const validationJobId = queuedValidation.body.result.jobId;
+    const validationWorkerEndpoint = "http://" + functionsHost + "/" + projectId + "/asia-southeast1/greenfieldDraftValidationWorker";
+    const validationWorkerResponse = await fetch(validationWorkerEndpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ data: { jobId: validationJobId } })
+    });
+    const validationWorkerBody = await validationWorkerResponse.text();
+    assert.equal(validationWorkerResponse.ok, true, validationWorkerBody);
+    const validationStatus = await post(operatorToken, envelope("6A24", "draft.validation.status", { jobId: validationJobId }));
+    assert.equal(validationStatus.response.status, 200);
+    assert.equal(validationStatus.body.result.status, "completed");
+    assert.equal(validationStatus.body.result.resultCode, "draft_valid");
+    assert.equal(validationStatus.body.result.validation.errorCount, 0);
+
+    const reviewCommand = envelope("6A04", "review.request", {
+      draftId,
+      expectedRevision: 2,
+      operatorScope
+    });
+    const review = await post(operatorToken, reviewCommand);
+    assert.equal(review.response.status, 200);
+    assert.equal(review.body.result.status, "review_requested");
+    assert.equal(review.body.result.revision, 3);
+    const repeatedReview = await post(operatorToken, reviewCommand);
+    assert.equal(repeatedReview.response.status, 200);
+    assert.equal(repeatedReview.body.result.reused, true);
+    assert.equal(repeatedReview.body.result.revision, 3);
+
+    const selfApproval = await post(operatorToken, envelope("6A05", "approval.decide", {
+      draftId,
+      expectedRevision: 3,
+      operatorScope,
+      decision: "approve"
+    }));
+    assert.equal(selfApproval.response.status, 403);
+    assert.equal(selfApproval.body.code, "coarse_role_denied");
+
+    const rejection = await post(ownerToken, envelope("6A06", "approval.decide", {
+      draftId,
+      expectedRevision: 3,
+      operatorScope,
+      decision: "reject",
+      comment: "กรุณาแก้ชื่อสายและส่งตรวจใหม่"
+    }));
+    assert.equal(rejection.response.status, 200);
+    assert.equal(rejection.body.result.status, "rejected");
+    assert.equal(rejection.body.result.revision, 4);
+
+    const saveAfterReject = await post(operatorToken, envelope("6A25", "draft.save", {
+      draftId,
+      expectedRevision: 4,
+      operatorScope,
+      changeSummary: "แก้ Draft หลังได้รับความเห็นผู้อนุมัติ",
+      operations: [{
+        entityType: "routes",
+        entityId: "RTE-BUS01-0001",
+        value: { routeId: "RTE-BUS01-0001", operatorId: "OPR-BUS01", shortName: "F3", serviceMode: "fixed" }
+      }]
+    }));
+    assert.equal(saveAfterReject.response.status, 200);
+    assert.equal(saveAfterReject.body.result.revision, 5);
+    assert.equal(saveAfterReject.body.result.validationStatus, "required");
+
+    const secondValidation = await post(operatorToken, envelope("6A26", "draft.validate", {
+      draftId,
+      expectedRevision: 5,
+      operatorScope
+    }));
+    assert.equal(secondValidation.response.status, 202);
+    const secondWorkerResponse = await fetch(validationWorkerEndpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ data: { jobId: secondValidation.body.result.jobId } })
+    });
+    const secondWorkerBody = await secondWorkerResponse.text();
+    assert.equal(secondWorkerResponse.ok, true, secondWorkerBody);
+    const secondValidationStatus = await post(operatorToken, envelope("6A27", "draft.validation.status", {
+      jobId: secondValidation.body.result.jobId
+    }));
+    assert.equal(secondValidationStatus.body.result.resultCode, "draft_valid");
+
+    const secondReview = await post(operatorToken, envelope("6A28", "review.request", {
+      draftId,
+      expectedRevision: 5,
+      operatorScope
+    }));
+    assert.equal(secondReview.response.status, 200);
+    assert.equal(secondReview.body.result.revision, 6);
+
+    const approval = await post(ownerToken, envelope("6A29", "approval.decide", {
+      draftId,
+      expectedRevision: 6,
+      operatorScope,
+      decision: "approve",
+      comment: "owner approval after correction"
+    }));
+    assert.equal(approval.response.status, 200);
+    assert.equal(approval.body.result.status, "approved");
+    assert.equal(approval.body.result.revision, 7);
+
+    const approvedMetadata = (await database.ref(basePath + "/authoring/drafts/" + draftId + "/metadata").get()).val();
+    assert.equal(approvedMetadata.status, "approved");
+    assert.equal(approvedMetadata.approval.decidedByUid, ownerUid);
+    assert.equal(approvedMetadata.revision, 7);
+    assert.equal(approvedMetadata.lastValidationJobId, secondValidation.body.result.jobId);
 
     const events = (await database.ref(basePath + "/audit/events").get()).val() || {};
     const eventTypes = Object.values(events).map(function (event) { return event.eventType; });
@@ -229,6 +295,8 @@ async function main() {
     assert.ok(eventTypes.includes("draft.created"));
     assert.ok(eventTypes.includes("review.requested"));
     assert.ok(eventTypes.includes("approval.approved"));
+    assert.ok(eventTypes.includes("approval.rejected"));
+    assert.ok(eventTypes.includes("draft.validation.valid"));
     assert.ok(eventTypes.includes("draft.saved"));
     assert.equal((await database.ref("publishedReadModels/current").get()).exists(), false);
 
@@ -245,7 +313,7 @@ async function main() {
     assert.equal(browserWrite.ok, false, "direct RTDB write unexpectedly succeeded: " + browserWrite.status + " " + browserWriteBody);
     assert.equal((await database.ref(basePath + "/authoring/drafts/browser").get()).exists(), false);
 
-    console.log("greenfield Phase 6A Admin upload, import, review and approval emulator integration PASS");
+    console.log("greenfield Phase 6A.1 Draft edit, revalidation, Reject and approval emulator integration PASS");
   } finally {
     await database.ref(basePath).remove();
     await deleteApp(app);

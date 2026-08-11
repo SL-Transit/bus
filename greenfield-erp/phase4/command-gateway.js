@@ -124,9 +124,23 @@ function createCommandGateway(options) {
         result: publicJob(job)
       });
     }
-    if (["draft.save", "review.request", "approval.decide"].includes(envelope.command)) {
+    if (envelope.command === "draft.validate") {
+      if (!input.validationJobService) throw commandError("draft_validation_unavailable", 503);
+      const result = await input.validationJobService.start(command);
+      return Object.freeze({ requestId: envelope.requestId, command: envelope.command, accepted: true, result });
+    }
+    if (envelope.command === "draft.validation.status") {
+      if (!input.validationJobService) throw commandError("draft_validation_unavailable", 503);
+      const result = await input.validationJobService.status(
+        envelope.payload && envelope.payload.jobId,
+        authorization.account
+      );
+      return Object.freeze({ requestId: envelope.requestId, command: envelope.command, result });
+    }
+    if (["draft.read", "draft.save", "review.request", "approval.decide"].includes(envelope.command)) {
       if (!input.workflowService) throw commandError("draft_workflow_unavailable", 503);
       const method = {
+        "draft.read": "readDraft",
         "draft.save": "saveDraft",
         "review.request": "requestReview",
         "approval.decide": "decideApproval"

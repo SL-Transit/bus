@@ -10,7 +10,10 @@
     "upload.authorize",
     "import.start",
     "import.status",
+    "draft.read",
     "draft.save",
+    "draft.validate",
+    "draft.validation.status",
     "review.request",
     "approval.decide"
   ]);

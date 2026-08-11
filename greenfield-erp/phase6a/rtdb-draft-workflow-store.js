@@ -137,6 +137,25 @@ function createRtdbDraftWorkflowStore(options) {
     return metadata;
   }
 
+  async function readDraftPage(command) {
+    safeSegment(command.draftId, "draftId");
+    safeSegment(command.entityType, "entityType");
+    let query = database.ref(
+      basePath + "/authoring/drafts/" + command.draftId + "/entities/" + command.entityType
+    ).orderByKey();
+    if (command.cursor) {
+      safeSegment(command.cursor, "cursor");
+      query = query.startAfter(command.cursor);
+    }
+    const snapshot = await query.limitToFirst(command.limit).get();
+    const values = snapshot.exists() ? snapshot.val() : {};
+    return {
+      entries: Object.keys(values || {}).sort().map(function (entityId) {
+        return { entityId, value: values[entityId] };
+      })
+    };
+  }
+
   async function saveDraft(command) {
     const lock = await acquire({ ...command, command: "draft.save" }, ["draft", "rejected"]);
     if (lock.reused) return Object.freeze({ ...lock.result, reused: true });
@@ -148,6 +167,12 @@ function createRtdbDraftWorkflowStore(options) {
     finalMetadata.validationStatus = "required";
     finalMetadata.validatedRevision = null;
     finalMetadata.validationErrorCount = null;
+    finalMetadata.validationWarningCount = null;
+    finalMetadata.validationJobId = null;
+    finalMetadata.validationRequestedAt = null;
+    finalMetadata.validationRequestedByUid = null;
+    finalMetadata.lastValidationJobId = null;
+    finalMetadata.lastValidatedAt = null;
     finalMetadata.lastTouchedAt = command.occurredAt;
     finalMetadata.lastChangedAt = command.occurredAt;
     finalMetadata.lastChangedByUid = command.actorUid;
@@ -246,7 +271,7 @@ function createRtdbDraftWorkflowStore(options) {
     );
   }
 
-  return Object.freeze({ decideApproval, getDraftSummary, requestReview, saveDraft });
+  return Object.freeze({ decideApproval, getDraftSummary, readDraftPage, requestReview, saveDraft });
 }
 
 module.exports = {

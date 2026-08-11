@@ -25,6 +25,7 @@ function createRetentionService(options) {
         for (const candidate of candidates) {
           let result;
           if (candidate.type === "importJobs") result = await input.store.cleanupImportJob({ ...candidate, now: startedAt });
+          else if (candidate.type === "validationJobs") result = await input.store.cleanupValidationJob({ ...candidate, now: startedAt });
           else if (candidate.type === "uploadAuthorizations") result = await input.store.cleanupUploadAuthorization({ ...candidate, now: startedAt });
           else result = await input.store.cleanupDraft({ ...candidate, now: startedAt });
           processed += 1;

@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
 test('Phase 3 allowlist ไม่มีคำสั่งเผยแพร่', async () => {
-  assert.deepEqual(Api.ALLOWED_COMMANDS, ['upload.authorize', 'import.start', 'import.status', 'draft.save', 'review.request', 'approval.decide']);
+  assert.deepEqual(Api.ALLOWED_COMMANDS, ['upload.authorize', 'import.start', 'import.status', 'draft.read', 'draft.save', 'draft.validate', 'draft.validation.status', 'review.request', 'approval.decide']);
   const client = Api.createClient({ transport: async () => ({ ok: true, data: {} }) });
   await assert.rejects(client.send('publication.activate', {}), (error) => error.code === 'unsupported_command');
 });
