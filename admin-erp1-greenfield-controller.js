@@ -23,6 +23,7 @@
     let state = State.initialState();
     let selectedFile = null;
     let workflowGeneration = 0;
+    let renderedPage = null;
 
     const byId = function (id) { return documentRef.getElementById(id); };
     const elements = {
@@ -34,12 +35,26 @@
       reset: byId("reset-workflow"),
       review: byId("request-review"),
       approve: byId("approve-draft"),
+      reject: byId("reject-draft"),
+      approvalComment: byId("approval-comment"),
       phase: byId("workflow-phase"),
       status: byId("workflow-status"),
       notice: byId("action-notice"),
       errorCode: byId("error-code"),
       jobId: byId("job-id"),
-      backendStatus: byId("backend-status")
+      backendStatus: byId("backend-status"),
+      draftType: byId("draft-entity-type"),
+      loadDraft: byId("load-draft-page"),
+      nextDraft: byId("next-draft-page"),
+      entityList: byId("draft-entity-list"),
+      entityId: byId("draft-entity-id"),
+      entityJson: byId("draft-json"),
+      changeSummary: byId("draft-change-summary"),
+      saveEntity: byId("save-draft-entity"),
+      deleteEntity: byId("delete-draft-entity"),
+      validateDraft: byId("validate-draft"),
+      validationJobId: byId("validation-job-id"),
+      validationResult: byId("validation-result")
     };
 
     function formatBytes(bytes) {
@@ -63,13 +78,68 @@
       if (state.error) return state.error.message;
       if (state.phase === State.PHASES.VALIDATING) return "กำลังขอสิทธิ์ Upload และส่งไฟล์เข้าพื้นที่พักข้อมูล";
       if (state.phase === State.PHASES.QUEUED) return "Backend รับงานแล้ว กำลังตรวจสอบและสร้าง Draft";
+      if (state.phase === State.PHASES.REVALIDATING) return "Worker กำลังตรวจ Draft revision ปัจจุบัน";
+      if (state.phase === State.PHASES.DRAFT && state.draft && state.draft.validationStatus === "required") return "Draft ถูกแก้แล้ว ต้องตรวจใหม่ก่อนส่ง Review";
       if (state.phase === State.PHASES.DRAFT) return "Draft ผ่าน Validation พร้อมส่ง Review";
+      if (state.phase === State.PHASES.INVALID) return "Draft ยังมีข้อผิดพลาด ให้แก้ข้อมูลและสั่งตรวจใหม่";
       if (state.phase === State.PHASES.REVIEW_REQUESTED) return "ส่ง Review แล้ว ต้องใช้บัญชีผู้อนุมัติที่ไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด";
       if (state.phase === State.PHASES.APPROVED) return "อนุมัติ Draft แล้ว แต่ยังไม่มีการ Publish";
-      if (state.phase === State.PHASES.REJECTED) return "Draft ถูกส่งกลับเพื่อแก้ไข";
+      if (state.phase === State.PHASES.REJECTED) return "Draft ถูกส่งกลับ แก้ไขและตรวจใหม่ก่อน Review";
       return runtime.commandEndpoint
         ? "พร้อมเชื่อม Backend ในสภาพแวดล้อมที่กำหนด"
         : "ยังไม่ได้กำหนด Backend/Authentication และไม่มีการเขียน Production";
+    }
+
+    function renderValidation() {
+      if (elements.validationJobId) {
+        elements.validationJobId.textContent = state.validationJob && state.validationJob.id || "—";
+      }
+      if (!elements.validationResult) return;
+      const report = state.validation;
+      if (!report) {
+        elements.validationResult.textContent = state.draft && state.draft.validationStatus === "required"
+          ? "รอตรวจใหม่หลังการแก้ไข"
+          : "ยังไม่มีผลตรวจรอบใหม่";
+        return;
+      }
+      const errors = Array.isArray(report.errors) ? report.errors : [];
+      const errorCount = Number.isFinite(report.errorCount) ? report.errorCount : errors.length;
+      const warningCount = Number.isFinite(report.warningCount) ? report.warningCount :
+        (Array.isArray(report.warnings) ? report.warnings.length : 0);
+      const lines = ["ข้อผิดพลาด " + errorCount + " · คำเตือน " + warningCount];
+      errors.slice(0, 5).forEach(function (error) {
+        lines.push(String(error.code || "validation_error") + " @ " + String(error.path || "$"));
+      });
+      if (report.truncated === true || errorCount > errors.length) lines.push("แสดงผลแบบจำกัด โปรดใช้รายงาน Backend ฉบับเต็ม");
+      elements.validationResult.textContent = lines.join("\n");
+    }
+
+    function fillEditorFromSelection() {
+      const page = state.draftPage;
+      const id = elements.entityList && elements.entityList.value;
+      const entry = page && page.entries && page.entries.find(function (item) { return item.entityId === id; });
+      if (!entry) return;
+      elements.entityId.value = entry.entityId;
+      elements.entityJson.value = JSON.stringify(entry.value, null, 2);
+    }
+
+    function renderDraftPage() {
+      if (!elements.entityList || state.draftPage === renderedPage) return;
+      renderedPage = state.draftPage;
+      elements.entityList.replaceChildren();
+      elements.entityId.value = "";
+      elements.entityJson.value = "";
+      const entries = state.draftPage && state.draftPage.entries || [];
+      entries.forEach(function (entry) {
+        const option = documentRef.createElement("option");
+        option.value = entry.entityId;
+        option.textContent = entry.entityId;
+        elements.entityList.appendChild(option);
+      });
+      if (entries.length) {
+        elements.entityList.value = entries[0].entityId;
+        fillEditorFromSelection();
+      }
     }
 
     function render() {
@@ -80,17 +150,28 @@
       elements.validate.disabled = !view.canValidate;
       elements.review.disabled = !view.canRequestReview;
       elements.approve.disabled = !view.canApprove;
+      elements.reject.disabled = !view.canReject;
+      elements.loadDraft.disabled = !view.canLoadDraft;
+      elements.nextDraft.disabled = !view.canLoadDraft || !(state.draftPage && state.draftPage.hasMore);
+      elements.saveEntity.disabled = !view.canSaveDraft;
+      elements.deleteEntity.disabled = !view.canSaveDraft;
+      elements.validateDraft.disabled = !view.canValidateDraft;
       elements.status.textContent = statusText();
       elements.errorCode.textContent = state.error ? state.error.code : "none";
-      if (elements.jobId) elements.jobId.textContent = state.job && state.job.id || "—";
+      const activeJob = state.validationJob && state.validationJob.id || state.job && state.job.id;
+      if (elements.jobId) elements.jobId.textContent = activeJob || "—";
       if (elements.backendStatus) {
         elements.backendStatus.textContent = runtime.commandEndpoint ? "Configured" : "Not configured";
         elements.backendStatus.className = runtime.commandEndpoint ? "online" : "offline";
       }
       elements.notice.dataset.kind = state.error ? "warning" : "neutral";
       documentRef.querySelectorAll("[data-phase]").forEach(function (item) {
-        item.dataset.active = String(item.dataset.phase === state.phase);
+        const validationActive = item.dataset.phase === State.PHASES.INVALID &&
+          [State.PHASES.INVALID, State.PHASES.REVALIDATING].includes(state.phase);
+        item.dataset.active = String(item.dataset.phase === state.phase || validationActive);
       });
+      renderDraftPage();
+      renderValidation();
     }
 
     async function checksumSha256(file) {
@@ -119,12 +200,36 @@
             validation: job.validation || { errors: [{ code: job.resultCode || "validation_failed" }], warnings: [] }
           };
         }
-        const delay = Math.min(250 * Math.pow(2, Math.min(attempt, 5)), maxPollDelayMs);
-        await sleep(delay);
+        await sleep(Math.min(250 * Math.pow(2, Math.min(attempt, 5)), maxPollDelayMs));
       }
       const error = new Error("import_status_timeout");
       error.code = "import_status_timeout";
       throw error;
+    }
+
+    async function pollDraftValidation(jobId, generation) {
+      for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+        if (generation !== workflowGeneration) return null;
+        const job = await client.send("draft.validation.status", { jobId });
+        dispatch({ type: "DRAFT_VALIDATION_STATUS", job });
+        if (["completed", "failed"].includes(job.status)) return job;
+        await sleep(Math.min(250 * Math.pow(2, Math.min(attempt, 5)), maxPollDelayMs));
+      }
+      const error = new Error("draft_validation_status_timeout");
+      error.code = "draft_validation_status_timeout";
+      throw error;
+    }
+
+    function commandFailure(error, fallback) {
+      if (error && ["greenfield_backend_not_connected", "upload_transport_not_connected"].includes(error.code)) {
+        dispatch({ type: "BACKEND_UNAVAILABLE" });
+        return;
+      }
+      dispatch({
+        type: "COMMAND_FAILED",
+        code: error && error.code || fallback || "command_failed",
+        message: "Backend ไม่สามารถดำเนินงานนี้ได้ กรุณาตรวจรหัสข้อผิดพลาด"
+      });
     }
 
     async function validateSelectedFile() {
@@ -135,7 +240,7 @@
           type: "COMMAND_FAILED",
           code: !selectedFile || !/.json$/i.test(selectedFile.name) ? "canonical_json_required" : "operator_scope_required",
           message: !selectedFile || !/.json$/i.test(selectedFile.name)
-            ? "Phase 6A รับเฉพาะ Canonical JSON ที่ผ่านการ Mapping แล้ว"
+            ? "Phase 6A.1 รับเฉพาะ Canonical JSON ที่ผ่านการ Mapping แล้ว"
             : "กรุณาระบุ Stable Operator ID อย่างน้อยหนึ่งรายการ"
         });
         return;
@@ -153,10 +258,7 @@
           operatorScope: scope
         });
         await client.upload(selectedFile, authorization.target);
-        const queued = await client.send("import.start", {
-          operatorScope: scope,
-          source: authorization.source
-        });
+        const queued = await client.send("import.start", { operatorScope: scope, source: authorization.source });
         dispatch({ type: "IMPORT_QUEUED", jobId: queued.jobId, status: queued.status });
         const job = await pollImport(queued.jobId, generation);
         if (!job) return;
@@ -165,21 +267,88 @@
             type: "VALIDATION_SUCCEEDED",
             draftId: job.draftId,
             revision: 1,
-            report: job.validation || { errors: [], warnings: [] }
+            report: job.validation || { errors: [], warnings: [], errorCount: 0, warningCount: 0 }
           });
         } else {
           dispatch({ type: "VALIDATION_FAILED", report: job.validation });
         }
       } catch (error) {
-        if (error && ["greenfield_backend_not_connected", "upload_transport_not_connected"].includes(error.code)) {
-          dispatch({ type: "BACKEND_UNAVAILABLE" });
-        } else {
-          dispatch({
-            type: "COMMAND_FAILED",
-            code: error && error.code || "command_failed",
-            message: "Backend ไม่สามารถดำเนินงานนี้ได้ กรุณาตรวจรหัสข้อผิดพลาด"
-          });
-        }
+        commandFailure(error);
+      }
+    }
+
+    async function loadDraftPage(cursor) {
+      if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
+      dispatch({ type: "COMMAND_STARTED" });
+      try {
+        const page = await client.send("draft.read", {
+          draftId: state.draft.id,
+          expectedRevision: state.draft.revision,
+          operatorScope: operatorScope(),
+          entityType: elements.draftType.value,
+          cursor: cursor || null,
+          limit: 25
+        });
+        dispatch({ type: "DRAFT_PAGE_LOADED", page });
+      } catch (error) {
+        commandFailure(error);
+      }
+    }
+
+    async function saveDraftOperation(value) {
+      if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
+      const entityId = elements.entityId.value.trim();
+      const changeSummary = elements.changeSummary.value.trim();
+      if (!entityId || changeSummary.length < 3) {
+        return dispatch({
+          type: "COMMAND_FAILED",
+          code: !entityId ? "draft_entity_target_invalid" : "change_summary_invalid",
+          message: "กรุณาระบุ Stable ID และเหตุผลการแก้ไขอย่างน้อย 3 ตัวอักษร"
+        });
+      }
+      dispatch({ type: "COMMAND_STARTED" });
+      try {
+        const result = await client.send("draft.save", {
+          draftId: state.draft.id,
+          expectedRevision: state.draft.revision,
+          operatorScope: operatorScope(),
+          changeSummary,
+          operations: [{ entityType: elements.draftType.value, entityId, value }]
+        });
+        elements.changeSummary.value = "";
+        dispatch({ type: "DRAFT_SAVED", revision: result.revision });
+      } catch (error) {
+        commandFailure(error);
+      }
+    }
+
+    async function saveDraftEntity() {
+      let value;
+      try {
+        value = JSON.parse(elements.entityJson.value);
+      } catch (_error) {
+        return dispatch({ type: "COMMAND_FAILED", code: "draft_json_invalid", message: "JSON ไม่ถูกต้อง กรุณาตรวจวงเล็บและเครื่องหมายคำพูด" });
+      }
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return dispatch({ type: "COMMAND_FAILED", code: "draft_entity_value_invalid", message: "ข้อมูลรายการต้องเป็น JSON object" });
+      }
+      return saveDraftOperation(value);
+    }
+
+    async function validateDraft() {
+      if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
+      const generation = ++workflowGeneration;
+      dispatch({ type: "COMMAND_STARTED" });
+      try {
+        const queued = await client.send("draft.validate", {
+          draftId: state.draft.id,
+          expectedRevision: state.draft.revision,
+          operatorScope: operatorScope()
+        });
+        dispatch({ type: "DRAFT_VALIDATION_QUEUED", jobId: queued.jobId, status: queued.status });
+        await pollDraftValidation(queued.jobId, generation);
+      } catch (error) {
+        commandFailure(error);
       }
     }
 
@@ -194,24 +363,28 @@
         });
         dispatch({ type: "REQUEST_REVIEW", revision: result.revision });
       } catch (error) {
-        dispatch({ type: "COMMAND_FAILED", code: error && error.code || "command_failed" });
+        commandFailure(error);
       }
     }
 
-    async function approveDraft() {
+    async function decideApproval(decision) {
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "approval_blocked" });
+      const comment = elements.approvalComment.value.trim();
+      if (decision === "reject" && comment.length < 3) {
+        return dispatch({ type: "COMMAND_FAILED", code: "rejection_comment_required", message: "กรุณาระบุเหตุผลที่ส่งกลับอย่างน้อย 3 ตัวอักษร" });
+      }
       dispatch({ type: "COMMAND_STARTED" });
       try {
         const result = await client.send("approval.decide", {
           draftId: state.draft.id,
           expectedRevision: state.draft.revision,
           operatorScope: operatorScope(),
-          decision: "approve",
-          comment: ""
+          decision,
+          comment
         });
-        dispatch({ type: "APPROVAL_DECIDED", decision: "approve", revision: result.revision });
+        dispatch({ type: "APPROVAL_DECIDED", decision, revision: result.revision });
       } catch (error) {
-        dispatch({ type: "COMMAND_FAILED", code: error && error.code || "command_failed" });
+        commandFailure(error);
       }
     }
 
@@ -238,20 +411,42 @@
     elements.reset.addEventListener("click", function () {
       workflowGeneration += 1;
       selectedFile = null;
+      renderedPage = null;
       elements.file.value = "";
+      elements.changeSummary.value = "";
+      elements.approvalComment.value = "";
       dispatch({ type: "RESET" });
     });
+    elements.loadDraft.addEventListener("click", function () { loadDraftPage(null); });
+    elements.nextDraft.addEventListener("click", function () {
+      loadDraftPage(state.draftPage && state.draftPage.nextCursor);
+    });
+    elements.draftType.addEventListener("change", function () {
+      renderedPage = null;
+      elements.entityList.replaceChildren();
+      elements.entityId.value = "";
+      elements.entityJson.value = "";
+    });
+    elements.entityList.addEventListener("change", fillEditorFromSelection);
+    elements.saveEntity.addEventListener("click", saveDraftEntity);
+    elements.deleteEntity.addEventListener("click", function () { saveDraftOperation(null); });
+    elements.validateDraft.addEventListener("click", validateDraft);
     elements.review.addEventListener("click", requestReview);
-    elements.approve.addEventListener("click", approveDraft);
+    elements.approve.addEventListener("click", function () { decideApproval("approve"); });
+    elements.reject.addEventListener("click", function () { decideApproval("reject"); });
     bindNavigation();
     render();
 
     return Object.freeze({
-      approveDraft,
+      decideApproval,
       dispatch,
       getState: function () { return state; },
+      loadDraftPage,
+      pollDraftValidation,
       pollImport,
       requestReview,
+      saveDraftEntity,
+      validateDraft,
       validateSelectedFile
     });
   }
