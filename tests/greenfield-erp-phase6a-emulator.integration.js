@@ -240,7 +240,7 @@ async function main() {
         body: JSON.stringify({ forbidden: true })
       }
     );
-    assert.ok([401, 403].includes(browserWrite.status));
+    const browserWriteBody = await browserWrite.text();`n    assert.equal(browserWrite.ok, false, "direct RTDB write unexpectedly succeeded: " + browserWrite.status + " " + browserWriteBody);`n    assert.equal((await database.ref(basePath + "/authoring/drafts/browser").get()).exists(), false);
 
     console.log("greenfield Phase 6A Admin upload, import, review and approval emulator integration PASS");
   } finally {
