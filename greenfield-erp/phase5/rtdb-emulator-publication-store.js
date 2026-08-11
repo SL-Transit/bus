@@ -112,16 +112,19 @@ function createRtdbEmulatorPublicationStore(options) {
 
     async finalizeVersion(versionId, readyManifest) {
       const ref = database.ref(versionRoot(versionId) + "/manifest");
-      let rejected = false;
+      const warmed = snapshotValue(await ref.get());
+      if (!warmed || warmed.requestHash !== readyManifest.requestHash || warmed.status !== "building") {
+        throw codedError("publication_finalize_rejected");
+      }
       const result = await ref.transaction(function (current) {
-        if (!current || current.requestHash !== readyManifest.requestHash || current.status !== "building") {
-          rejected = true;
-          return;
-        }
+        if (!current || current.requestHash !== readyManifest.requestHash || current.status !== "building") return;
         return readyManifest;
       }, undefined, false);
-      if (rejected || !result.committed) throw codedError("publication_finalize_rejected");
-      return snapshotValue(result.snapshot);
+      const finalized = snapshotValue(result.snapshot);
+      if (!result.committed || !finalized || finalized.status !== "ready") {
+        throw codedError("publication_finalize_rejected");
+      }
+      return finalized;
     },
 
     async failVersion(versionId, failureCode) {
