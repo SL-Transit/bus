@@ -69,7 +69,9 @@ const retentionService = createRetentionService({ store: retentionStore, policy:
 exports.greenfieldErpCommand = onRequest(GATEWAY_OPTIONS, handler);
 exports.greenfieldImportWorker = onTaskDispatched(WORKER_OPTIONS, async function (request) {
   const data = request && request.data || {};
-  return importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
+  const result = await importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
+  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true });
+  return result;
 });
 exports.greenfieldRetentionCleanup = onSchedule(CLEANUP_OPTIONS, async function (event) {
   return retentionService.run(systemRunId(event && event.id || new Date().toISOString()));
