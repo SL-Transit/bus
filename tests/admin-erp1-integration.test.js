@@ -22,7 +22,7 @@ test('หน้า Greenfield มี CSP และขอบเขต Preview ช
   const page = read('admin-erp1.html');
   assert.match(page, /Content-Security-Policy/);
   assert.match(page, /default-src 'self'/);
-  assert.match(page, /Phase 6A · Backend integration review · No production writes/);
+  assert.match(page, /Phase 6A\\.1 · Draft editor \\+ async revalidation · No production writes/);
   assert.match(page, /id="overview"/);
   assert.match(page, /id="import"/);
   assert.match(page, /id="draft"/);
