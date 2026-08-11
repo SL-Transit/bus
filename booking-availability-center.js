@@ -134,7 +134,8 @@
     if (departureMs !== null && departureMs <= now) return decision('unavailable', false, 'departure_past', { seatsAvailable: seatsAvailable });
     if (departureMs !== null && (departureMs - now) / 60000 <= cutoffMinutes) return decision('unavailable', false, 'cutoff_closed', { seatsAvailable: seatsAvailable });
     if (limit > 0 && bookedSeats + requestedSeats > limit) return decision('unavailable', false, 'capacity_full', { seatsAvailable: seatsAvailable });
-    if (preview.readyForApply !== true || preview.productionReady !== true || preview.writesEnabled !== true) {
+    var legacyReady = preview.readyForApply === true && preview.productionReady === true && preview.writesEnabled === true;
+    if (preview.workbookSourceReady !== true && legacyReady !== true) {
       return decision('unavailable', false, 'preview_not_apply_ready', { seatsAvailable: seatsAvailable, selectionAllowed: true });
     }
     return decision('available', true, 'available', { seatsAvailable: seatsAvailable });
