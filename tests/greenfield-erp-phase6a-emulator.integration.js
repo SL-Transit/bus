@@ -233,10 +233,11 @@ async function main() {
     assert.equal((await database.ref("publishedReadModels/current").get()).exists(), false);
 
     const browserWrite = await fetch(
-      "http://" + databaseHost + "/" + basePath + "/authoring/drafts/browser.json?ns=" + namespace,
+      "http://" + databaseHost + "/" + basePath + "/authoring/drafts/browser.json?ns=" + namespace +
+        "&auth=" + encodeURIComponent(operatorToken),
       {
         method: "PUT",
-        headers: { "content-type": "application/json", authorization: "Bearer " + operatorToken },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ forbidden: true })
       }
     );
