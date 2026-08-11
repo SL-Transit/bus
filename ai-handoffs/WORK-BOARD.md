@@ -18,7 +18,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 1. Backbone / Schema / Import Package | Primary AI (Greenfield) | IN_PROGRESS | Stable IDs, contracts, CSV/Excel mapping, validators | Versioned schemas, import manifest, validation report | none |
 | 2. Admin ERP1 Integration | Primary AI (Greenfield) | IN_PROGRESS | `admin-erp1.html`, backend draft/review APIs | Import -> Draft -> Validate -> Review UI ที่ไม่เขียน Published โดยตรง | none จนอนุมัติ |
-| 3. Published Read Model / Network Journey | Primary AI (Greenfield) | IN_PROGRESS | immutable versions, pointer, routing contract/cache | Published contract เดียว, fixed/frequency routing, rollback | emulator only |
+| 3. Published Read Model / Network Journey | Primary AI (Greenfield) | REVIEW | immutable versions, pointer, routing contract/cache | Published contract เดียว, fixed/frequency routing, rollback | emulator only |
 | 4. Booking / Passenger Consumer Integration | Unassigned | TODO | adapters และ compatibility migration | Consumers อ่าน Published contract เดียว; server revalidates booking | none จนอนุมัติ |
 | 5. QA / Security / Release | Primary AI (Greenfield) | IN_PROGRESS | Emulator, Rules tests, load/cost/release gates | Regression, privacy, concurrency, version-switch และ rollback evidence | read-only/emulator |
 
@@ -43,7 +43,7 @@
 | Draft Core | DONE | PR #144 merged | RTDB Emulator เท่านั้น |
 | Admin ERP1 contract preview | DONE | PR #147 merged; CI `31454386100` | หน้า Preview บน GitHub Pages; Backend ยังไม่เชื่อม Production |
 | Async Import + Retention | DONE | PR #148 merged; CI `31456735953` | Canonical JSON + Emulator; ไม่ deploy Firebase |
-| Published Read Model / Journey | IN_PROGRESS | branch `agent/greenfield-published-journey` | Two-Phase Publish, rollback, hybrid routing และ cache; Emulator only |
+| Published Read Model / Journey | REVIEW | Draft PR #150; CI `31459838901` ผ่าน | Two-Phase Publish, rollback, hybrid routing และ cache; ยังไม่ merge/deploy |
 | Booking / Passenger migration | TODO | ยังไม่มี Greenfield consumer PR | ระบบเดิมยังไม่ถูกย้าย |
 
 ### Active file locks
@@ -66,6 +66,21 @@
 - Firebase deploy, Rules deploy, Storage lifecycle, seed/import ข้อมูลจริง หรือ Production write
 - Excel parser/mapping ที่ใช้ข้อมูลจริง, Review/Approve commands และ Booking/Passenger/Map cutover
 
+## Completion Report — Workstream 3 / PR #150
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #150 (`agent/greenfield-published-journey`)
+FILES_CHANGED: greenfield-erp/phase5/**, tests/greenfield-erp-phase5*, docs/greenfield-erp/PHASE5-PUBLISHED-JOURNEY.md, workflow test step, WORK-BOARD.md
+RESULTS: immutable query-shaped Read Model; chunk staging/checksum; ready gate; atomic 3-location pointer switch; rollback; fixed/frequency journey; explicit transfer; version-keyed cache
+TESTS: GitHub Actions run 31459838901 passed unit tests, Phase 2/4/5 Emulators, version switch, rollback and existing regression/performance suite
+ACTIONS/PAGES: https://github.com/SL-Transit/bus/actions/runs/31459838901 ; no Pages deploy from Draft PR
+FIREBASE_DEPLOY_EVIDENCE: none — Emulator only
+DATA/PRIVACY_IMPACT: canonical fixture only; no passenger, booking, payment or personal data
+COST_IMPACT: no Production cost; operational chunk 4 MB/4,500 leaf paths; atomic switch 3 locations/64 KiB; bounded verification concurrency and journey states
+KNOWN_RISKS: not full RAPTOR; Production latency/load not measured; frequency segment runtime is missing from Data Contract v1 and therefore blocks publication unless explicitly supplied; Actions dependency deprecation warnings remain outside this PR
+NEXT_ACTION: Owner review; merge requires separate approval. Production Functions/Rules/current pointer and Consumer cutover remain forbidden.
+```
 ## Work Lock Template
 
 ```text
