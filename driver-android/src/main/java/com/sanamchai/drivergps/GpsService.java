@@ -552,10 +552,7 @@ public class GpsService extends Service implements SensorEventListener {
                         handler.post(() -> {
                             if (!running) return;
                             Log.d(TAG, "NetworkCallback: เน็ตกลับมาใช้งานได้จริงแล้ว (validated) — force reconnect Firebase");
-                            try {
-                                
-                                
-                            } catch (Exception ignored) {}
+                            requestFirebaseRecovery("network_validated");
                         });
                     } else if (!validatedNow) {
                         lastNetworkValidated = false;
@@ -565,6 +562,7 @@ public class GpsService extends Service implements SensorEventListener {
                     lastNetworkValidated = false;
                     handler.post(() -> {
                         if (!running) return;
+                        recordStatus("network_lost");
                         Log.w(TAG, "NetworkCallback: เน็ตหาย");
                     });
                 }
