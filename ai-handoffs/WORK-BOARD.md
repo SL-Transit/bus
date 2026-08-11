@@ -44,14 +44,16 @@
 | Admin ERP1 contract preview | DONE | PR #147 merged; CI `31454386100` | หน้า Preview บน GitHub Pages; Backend ยังไม่เชื่อม Production |
 | Async Import + Retention | DONE | PR #148 merged; CI `31456735953` | Canonical JSON + Emulator; ไม่ deploy Firebase |
 | Published Read Model / Journey core | DONE | PR #150 merged; CI `31460002078`; Pages `31460450126` | Emulator proof complete; ยังไม่ deploy Firebase/Production |
-| Admin ERP1 backend integration | TODO | Phase 6A scope | ต้องเชื่อม Auth, upload authorization, async job, Draft/Review/Approve จริงใน Emulator |
+| Admin ERP1 backend integration | IN_PROGRESS | `agent/phase6a-admin-backend-integration` | เชื่อม Auth, upload authorization, async job, Draft/Review/Approve จริงใน Emulator |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
 ### Active file locks
 
-- `agent/close-workstream3-plan-phase6`: `ai-handoffs/WORK-BOARD.md`, `ai-handoffs/DECISION-LOG.md`, `docs/greenfield-erp/PHASE6-INTEGRATION-SCOPE.md` เท่านั้น
+- `agent/phase6a-admin-backend-integration`: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-*.js`, `greenfield-erp/phase2/rtdb-emulator-draft-store.js`, `greenfield-erp/phase4/**`, `greenfield-erp/phase6a/**`, `tests/*greenfield*`, `.github/workflows/booking-security-validation.yml`, `docs/greenfield-erp/PHASE6-INTEGRATION-SCOPE.md`
 - Workstream 3 runtime lock ถูกปลดหลัง PR #150 merge
 - ยังไม่มีการล็อกไฟล์ Admin ERP1 หรือ Consumer สำหรับ implementation; ต้องเปิด branch และประกาศไฟล์ก่อนเริ่มโค้ด
+
+- Scope: Emulator only; no Firebase/Rules deploy, Production credential/write, Publish command, pointer switch, or Consumer cutover
 
 ### Workstream 3 closeout
 
