@@ -70,7 +70,7 @@ exports.greenfieldErpCommand = onRequest(GATEWAY_OPTIONS, handler);
 exports.greenfieldImportWorker = onTaskDispatched(WORKER_OPTIONS, async function (request) {
   const data = request && request.data || {};
   const result = await importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
-  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true });
+  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true, projectId, databaseEmulatorHost, databaseRef: database.ref("data/erpDataCenter").toString() });
   return result;
 });
 exports.greenfieldRetentionCleanup = onSchedule(CLEANUP_OPTIONS, async function (event) {
