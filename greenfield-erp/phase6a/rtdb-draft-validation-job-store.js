@@ -194,7 +194,7 @@ function createRtdbDraftValidationJobStore(options) {
     const draftRef = database.ref(basePath + "/authoring/drafts/" + result.draftId + "/metadata");
     const transaction = await draftRef.transaction(function (current) {
       if (!current || current.revision !== result.expectedRevision || current.status !== "draft") return current;
-      if (current.validationJobId !== result.jobId && current.lastValidationJobId !== result.jobId) return current;
+      if (current.validationJobId !== result.jobId) return current;
       return {
         ...current,
         validationStatus: result.validationStatus,
@@ -246,6 +246,23 @@ function createRtdbDraftValidationJobStore(options) {
 
   async function finishFailedJob(result) {
     safeSegment(result.jobId, "jobId");
+    if (result.draftId && Number.isInteger(result.expectedRevision)) {
+      const draftRef = database.ref(basePath + "/authoring/drafts/" + result.draftId + "/metadata");
+      await draftRef.transaction(function (current) {
+        if (!current ||
+            current.revision !== result.expectedRevision ||
+            current.status !== "draft" ||
+            current.validationJobId !== result.jobId) return current;
+        return {
+          ...current,
+          validationStatus: "required",
+          validatedRevision: null,
+          validationErrorCount: null,
+          validationWarningCount: null,
+          lastTouchedAt: result.failedAt
+        };
+      }, undefined, false);
+    }
     const updates = {};
     updates["draftValidationJobs/" + result.jobId + "/metadata/status"] = "failed";
     updates["draftValidationJobs/" + result.jobId + "/metadata/finishedAt"] = result.failedAt;
