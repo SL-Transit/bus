@@ -53,8 +53,11 @@ function createRtdbRetentionStore(options) {
       const jobSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/importJobs").limitToFirst(limit).get();
       const jobs = snapshotKeys(jobSnapshot, "importJobs").map(function (item) { return { ...item, expiryDateKey }; });
       if (jobs.length >= limit) return jobs;
-      const draftSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/drafts").limitToFirst(limit - jobs.length).get();
-      return jobs.concat(snapshotKeys(draftSnapshot, "drafts").map(function (item) { return { ...item, expiryDateKey }; }));
+      const uploadSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/uploadAuthorizations").limitToFirst(limit - jobs.length).get();
+      const uploads = snapshotKeys(uploadSnapshot, "uploadAuthorizations").map(function (item) { return { ...item, expiryDateKey }; });
+      if (jobs.length + uploads.length >= limit) return jobs.concat(uploads);
+      const draftSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/drafts").limitToFirst(limit - jobs.length - uploads.length).get();
+      return jobs.concat(uploads, snapshotKeys(draftSnapshot, "drafts").map(function (item) { return { ...item, expiryDateKey }; }));
     },
     async cleanupImportJob(candidate) {
       safe(candidate.id, "jobId");
@@ -78,7 +81,33 @@ function createRtdbRetentionStore(options) {
       await database.ref(basePath).update(updates);
       return { action: "deleted" };
     },
-    async cleanupDraft(candidate) {
+    async cleanupUploadAuthorization(candidate) {
+      safe(candidate.id, "uploadId");
+      const path = basePath + "/uploadAuthorizations/" + candidate.id;
+      const snapshot = await database.ref(path).get();
+      if (!snapshot.exists()) {
+        await database.ref(basePath + "/maintenance/expiryBuckets/" + candidate.expiryDateKey + "/uploadAuthorizations/" + candidate.id).remove();
+        return { action: "stale_index_removed" };
+      }
+      const authorization = snapshot.val();
+      if (authorization.protectedFromCleanup === true || !authorization.expiresAt || authorization.expiresAt > candidate.now) {
+        return defer("uploadAuthorizations", candidate.id, candidate.expiryDateKey, candidate.now);
+      }
+      await input.deleteSource({
+        bucket: authorization.bucket,
+        objectPath: authorization.objectPath,
+        contentType: authorization.contentType,
+        sizeBytes: authorization.sizeBytes,
+        checksumSha256: authorization.checksumSha256
+      });
+      const auditId = "AUD-" + digest(candidate.id + ":cleanup:" + candidate.now).slice(0, 24).toUpperCase();
+      const updates = {};
+      updates["uploadAuthorizations/" + candidate.id] = null;
+      updates["maintenance/expiryBuckets/" + candidate.expiryDateKey + "/uploadAuthorizations/" + candidate.id] = null;
+      updates["audit/events/" + auditId] = { eventId: auditId, eventType: "retention.upload_authorization.deleted", entityId: candidate.id, actorUid: "system:retention", occurredAt: candidate.now };
+      await database.ref(basePath).update(updates);
+      return { action: "deleted" };
+    },    async cleanupDraft(candidate) {
       safe(candidate.id, "draftId");
       const metadataSnapshot = await database.ref(basePath + "/authoring/drafts/" + candidate.id + "/metadata").get();
       if (!metadataSnapshot.exists()) {
