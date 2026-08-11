@@ -91,6 +91,11 @@ function createRtdbEmulatorDraftStore(options) {
         createdAt: inputDraft.createdAt,
         lastTouchedAt: inputDraft.createdAt,
         createdByUid: inputDraft.actorUid,
+        lastChangedByUid: inputDraft.actorUid,
+        operatorScope: inputDraft.package.metadata.operatorScope,
+        validationStatus: "valid",
+        validatedRevision: 1,
+        validationErrorCount: 0,
         packageBytes: inputDraft.packageBytes,
         entityCount: inputDraft.entityCount
       };

@@ -1,6 +1,17 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    match /erp-import-quarantine/{uid}/{fileName} {
+      allow read, delete: if false;
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && fileName.matches('^UPL-[A-F0-9]{24}[.]json$')
+                    && request.resource != null
+                    && request.resource.size > 0
+                    && request.resource.size <= 25 * 1024 * 1024
+                    && request.resource.contentType == 'application/json';
+      allow update: if false;
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

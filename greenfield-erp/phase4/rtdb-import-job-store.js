@@ -43,8 +43,10 @@ function createRtdbImportJobStore(options) {
     },
     async getJob(jobId) {
       safe(jobId, "jobId");
-      const snapshot = await database.ref(basePath + "/importJobs/" + jobId + "/metadata").get();
-      return snapshot.exists() ? snapshot.val() : null;
+      const snapshot = await database.ref(basePath + "/importJobs/" + jobId).get();
+      if (!snapshot.exists()) return null;
+      const record = snapshot.val() || {};
+      return { ...(record.metadata || {}), validation: record.validation || null };
     },
     async claimJob(inputClaim) {
       safe(inputClaim.jobId, "jobId"); safe(inputClaim.workerId, "workerId");

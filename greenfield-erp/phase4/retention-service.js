@@ -23,9 +23,10 @@ function createRetentionService(options) {
       while (cursor <= today && days < input.policy.maxDaysPerRun) {
         const candidates = await input.store.listCandidates(cursor, input.policy.batchSize);
         for (const candidate of candidates) {
-          const result = candidate.type === "importJobs"
-            ? await input.store.cleanupImportJob({ ...candidate, now: startedAt })
-            : await input.store.cleanupDraft({ ...candidate, now: startedAt });
+          let result;
+          if (candidate.type === "importJobs") result = await input.store.cleanupImportJob({ ...candidate, now: startedAt });
+          else if (candidate.type === "uploadAuthorizations") result = await input.store.cleanupUploadAuthorization({ ...candidate, now: startedAt });
+          else result = await input.store.cleanupDraft({ ...candidate, now: startedAt });
           processed += 1;
           if (result.action === "deleted") deleted += 1;
           if (result.action === "deferred") deferred += 1;

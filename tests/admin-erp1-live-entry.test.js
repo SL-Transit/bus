@@ -11,10 +11,10 @@ test('ทางเข้า Admin เดิมยังพาไปยังช�
   assert.match(read('admin-console.html'), /admin-erp1\.html/);
 });
 
-test('หน้า Admin ERP1 ประกาศสถานะ Greenfield contract preview', () => {
+test('หน้า Admin ERP1 ประกาศสถานะ Phase 6A Emulator review', () => {
   const page = read('admin-erp1.html');
-  assert.match(page, /GREENFIELD · PREVIEW/);
-  assert.match(page, /Backend not connected/);
+  assert.match(page, /GREENFIELD · EMULATOR REVIEW/);
+  assert.match(page, /Runtime config required/);
   assert.match(page, /No production writes/);
   assert.doesNotMatch(page, /system-test-mode\.js/);
 });

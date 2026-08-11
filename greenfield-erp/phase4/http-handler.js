@@ -33,7 +33,7 @@ function applyCors(request, response, allowedOrigins) {
   setHeader(response, "access-control-allow-origin", origin);
   setHeader(response, "vary", "Origin");
   setHeader(response, "access-control-allow-methods", "POST, OPTIONS");
-  setHeader(response, "access-control-allow-headers", "authorization, content-type");
+  setHeader(response, "access-control-allow-headers", "authorization, content-type, x-idempotency-key");
   setHeader(response, "access-control-max-age", "600");
 }
 

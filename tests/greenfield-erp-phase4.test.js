@@ -45,7 +45,7 @@ test("gateway enqueues metadata only and returns jobId without validating packag
       async status() { return null; }
     }
   });
-  const output = await gateway.execute({ requestId: "REQ-20260811-0001", command: "import.start", payload: { operatorScope: ["OPR-BUS01"], source: { metadataOnly: true } } }, { uid: "owner-001", role: "admin" });
+  const output = await gateway.execute({ requestId: "REQ-20260811-0001", idempotencyKey: "IDM-REQ-20260811-0001", command: "import.start", payload: { operatorScope: ["OPR-BUS01"], source: { metadataOnly: true } } }, { uid: "owner-001", role: "admin" });
   assert.equal(output.accepted, true);
   assert.equal(output.result.status, "queued");
   assert.equal(startCommand.payload.package, undefined);
@@ -101,7 +101,7 @@ test("retention cleanup uses a lease, bounded batch and cursor", async () => {
 test("HTTP handler returns 202 for asynchronous import", async () => {
   const handler = createFirebaseHttpHandler({ allowedOrigins: ["http://localhost:5000"], verifyIdToken: async () => ({ uid: "owner-001", role: "admin" }), gateway: { async execute() { return { accepted: true, result: { jobId: "JOB-1", status: "queued" } }; } } });
   const response = responseMock();
-  await handler({ method: "POST", headers: { origin: "http://localhost:5000", authorization: "Bearer token" }, body: { requestId: "REQ-20260811-0003", command: "import.start", payload: {} } }, response);
+  await handler({ method: "POST", headers: { origin: "http://localhost:5000", authorization: "Bearer token" }, body: { requestId: "REQ-20260811-0003", idempotencyKey: "IDM-REQ-20260811-0003", command: "import.start", payload: {} } }, response);
   assert.equal(response.statusCode, 202);
   assert.equal(response.body.result.status, "queued");
 });
