@@ -82,17 +82,23 @@ function createRtdbEmulatorDraftStore(options) {
       const auditEventId = "AUD-" + digest(draftId + ":" + inputDraft.createdAt).slice(0, 24).toUpperCase();
       const metadataPath = basePath + "/authoring/drafts/" + draftId + "/metadata";
 
-      await database.ref(metadataPath).set({
+      const draftMetadata = {
         draftId,
         packageId,
         schemaVersion: inputDraft.package.metadata.schemaVersion,
         status: "writing",
         revision: 0,
         createdAt: inputDraft.createdAt,
+        lastTouchedAt: inputDraft.createdAt,
         createdByUid: inputDraft.actorUid,
         packageBytes: inputDraft.packageBytes,
         entityCount: inputDraft.entityCount
-      });
+      };
+      if (inputDraft.expiresAt) {
+        draftMetadata.expiresAt = inputDraft.expiresAt;
+        draftMetadata.retentionClass = "abandoned_draft";
+      }
+      await database.ref(metadataPath).set(draftMetadata);
 
       const records = entityRecords(draftId, inputDraft.package);
       const chunks = estimateChunks(records, {
@@ -123,6 +129,10 @@ function createRtdbEmulatorDraftStore(options) {
         packageId,
         draftId
       };
+      if (inputDraft.expiresAt) {
+        const expiryDateKey = inputDraft.expiresAt.slice(0, 10);
+        finalUpdates["maintenance/expiryBuckets/" + expiryDateKey + "/drafts/" + draftId] = true;
+      }
       finalUpdates["audit/events/" + auditEventId] = {
         eventId: auditEventId,
         eventType: "draft.created",

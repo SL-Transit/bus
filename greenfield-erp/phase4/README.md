@@ -1,55 +1,43 @@
-# Greenfield ERP Phase 4 — Command Gateway
+# Greenfield ERP Phase 4.1 — Async Import and Retention
 
 สถานะ: **Emulator only / Draft review / ห้าม deploy**
 
-Phase 4 เพิ่ม HTTPS Command Gateway สำหรับ Cloud Functions v2 และเชื่อมคำสั่ง `import.validate` เข้ากับ Phase 2 Draft Service โดยตรง โค้ด entry point จะหยุดทันทีถ้า project ID ไม่ขึ้นต้นด้วย `demo-` หรือไม่มี Database Emulator host
+Phase 4.1 แยกงาน HTTP ออกจากงานประมวลผลข้อมูลขนาดใหญ่ หน้า Admin ส่งเฉพาะ metadata ของไฟล์ที่อยู่ใน quarantine แล้ว Gateway ตรวจ Token/สิทธิ์และคืน `202 + jobId` โดยไม่ parse หรือสร้าง Draft ใน HTTP request
 
-## Request contract
+## Data flow
 
-`POST` พร้อม Bearer ID token และ JSON:
+1. ไฟล์ canonical package ถูกวางที่ `erp-import-quarantine/{uid}/...` ใน Storage Emulator
+2. `import.start` ตรวจ metadata, checksum, ขนาด และ operator scope
+3. RTDB บันทึก Import Job สถานะ `queued` และ task outbox แบบ idempotent
+4. `greenfieldImportWorker` ซึ่งเป็น Task Queue Function claim งานด้วย lease
+5. Worker stream ไฟล์, ตรวจ byte count/checksum, parse และเรียก Phase 2 validation
+6. ผ่านแล้วจึงสร้าง Draft; ไม่ผ่านบันทึก validation error ใน job
+7. `import.status` คืนเฉพาะ progress/result ที่ปลอดภัย ไม่คืน storage path
 
-```json
-{
-  "requestId": "REQ-20260811-0001",
-  "command": "import.validate",
-  "payload": { "package": {} }
-}
-```
+## Cost and timeout boundaries
 
-Custom Claim อ่านเฉพาะ `role` ส่วนรายละเอียดสิทธิ์อ่านแบบ bounded read ที่:
+- Gateway body ไม่เกิน 1 MB และ timeout 30 วินาที
+- ไฟล์ staged ไม่เกิน 25 MB
+- Worker concurrency 1, max instances 2, task dispatch พร้อมกันไม่เกิน 2
+- Worker retry ไม่เกิน 5 ครั้งและทุกงานต้อง idempotent
+- Worker ใช้ stream ตรวจขนาด/checksum ก่อน JSON parse
+- Excel parser ยังไม่อยู่ใน Phase นี้; ต้องออกแบบ streaming mapping หลังอ่าน workbook จริง
 
-`data/erpDataCenter/access/accounts/{uid}`
+## Retention
 
-ตัวอย่างบัญชี Emulator:
+ทุก Import Job และ Draft ที่ Phase 4.1 สร้างมี `lastTouchedAt`, `expiresAt` และ `retentionClass` ค่าอายุทั้งหมดมาจาก `GREENFIELD_RETENTION_POLICY_JSON`; ถ้าขาด Function จะหยุดบูต
 
-```json
-{
-  "active": true,
-  "allowedCommands": ["import.validate"],
-  "resourceScopes": { "operatorIds": ["OPR-BUS01"] }
-}
-```
+Scheduled Cleanup:
 
-## ขอบเขตที่ทำแล้ว
+- ใช้ lease กันรอบซ้อน
+- ใช้ cursor และ expiry bucket รายวัน ไม่ scan RTDB root
+- อ่าน candidate แบบ `limitToFirst(batchSize)`
+- ลบ Draft แยกตาม entity type ก่อนลบ metadata
+- งาน processing ที่ lease ยังไม่หมดและข้อมูล protected จะถูกเลื่อนไปวันถัดไป
+- เก็บ audit event แบบสรุป ไม่คัดลอก package เดิม
 
-- ตรวจ Bearer token ผ่าน Auth Emulator
-- coarse role: `admin` หรือ `operations`
-- fine permission และ operator scope จาก RTDB Emulator
-- จำกัด request 26 MB และ 20 ครั้งต่อนาทีต่อ instance
-- CORS allowlist เฉพาะ origin ที่กำหนด
-- `import.validate` ใช้ Phase 2 validation/idempotent Draft write
-- Function options ล็อก `minInstances: 0`, `maxInstances: 3`, `concurrency: 10`
+Storage Lifecycle จริงและระยะเวลาเก็บต้องได้รับ Owner approval แยกก่อน deploy
 
-คำสั่ง `draft.save`, `review.request`, `approval.decide` สงวนชื่อไว้ใน contract แต่ตอบ `command_not_implemented_phase4` เพื่อไม่สร้าง workflow transition ที่ยังไม่ได้อนุมัติรายละเอียด
+## Emulator proof
 
-## Excel mapping
-
-พบไฟล์ต้นทาง `new erp data.xlsx` แล้ว แต่การอ่าน workbook ยัง pending เพราะ spreadsheet runtime ที่กำหนดไม่มีใน session นี้ จึงยังไม่มีข้อมูลจาก Excel ถูกคัดลอกหรือ commit เข้า repository
-
-## ห้ามทำใน Phase นี้
-
-- ห้าม deploy Function
-- ห้ามใช้ Production project/credential
-- ห้าม Publish หรือสลับ Published pointer
-- ห้าม browser เขียน RTDB โดยตรง
-- ห้ามเพิ่มสิทธิ์ละเอียดลง Custom Claims
+Integration test ครอบคลุม Auth token, bounded access read, async queue state, ไม่มี Draft ก่อน Worker, idempotent start, Task Worker, status response, Draft expiry, cleanup job/draft/source และ browser direct-write denial

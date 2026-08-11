@@ -6,7 +6,7 @@
   'use strict';
 
   const COMMAND_ENDPOINT = '/api/greenfield-erp/commands';
-  const ALLOWED_COMMANDS = Object.freeze(['import.validate', 'draft.save', 'review.request', 'approval.decide']);
+  const ALLOWED_COMMANDS = Object.freeze(['import.start', 'import.status', 'draft.save', 'review.request', 'approval.decide']);
 
   function clientError(code, message) {
     const error = new Error(message);

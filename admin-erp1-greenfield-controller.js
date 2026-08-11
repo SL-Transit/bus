@@ -59,7 +59,7 @@
       render();
       if (state.phase !== State.PHASES.VALIDATING) return;
       try {
-        const result = await client.send('import.validate', { file: state.file });
+        const result = await client.send('import.start', { file: state.file });
         if (result && result.valid === true) {
           dispatch({ type: 'VALIDATION_SUCCEEDED', draftId: result.draftId, report: result.report });
         } else {

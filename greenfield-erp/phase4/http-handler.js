@@ -70,7 +70,7 @@ function createFirebaseHttpHandler(options) {
       const uid = decoded && (decoded.uid || decoded.sub);
       const role = decoded && decoded.role;
       const result = await input.gateway.execute(bodyObject(request), { uid, role });
-      return sendJson(response, 200, { ok: true, ...result });
+      return sendJson(response, result && result.accepted === true ? 202 : 200, { ok: true, ...result });
     } catch (error) {
       const status = Number.isInteger(error && error.httpStatus) ? error.httpStatus : 500;
       const code = error && typeof error.code === "string" ? error.code : "internal_error";
