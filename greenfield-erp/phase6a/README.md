@@ -40,11 +40,17 @@
 
 GitHub Actions run `31493338953` ผ่าน unit/regression/performance และ Phase 2/4/6A/5 Emulator ทั้งหมด โดย Phase 6A ทดสอบ upload, import, Draft, Review, Owner Approval, Audit และ Rules denial ครบใน demo project; GitHub Pages run `31493736824` ผ่านหลัง Merge
 
+## Phase 6A.1 — Draft PR #154
+
+Phase 6A.1 เพิ่ม `draft.read` แบบแบ่งหน้า, `draft.validate` + `draft.validation.status` ผ่าน Worker, Draft Editor และ Reject control ใน Admin ERP1 พร้อมล้าง validation เดิมทุกครั้งที่แก้ไข รายละเอียดอยู่ที่ `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
+
+ขอบเขตยังเป็น Emulator only และ PR ยังเป็น Draft; ยังไม่มีสิทธิ์ Merge หรือ Deploy
+
 ## Known gaps
 
-- เมื่อ `draft.save` แก้ข้อมูล ระบบจะตั้ง `validationStatus=required`; ต้องเพิ่ม async revalidation ก่อน Draft ที่แก้แล้วจะส่ง Review ได้
-- หน้า Admin ยังไม่มี Draft editor และ Reject control แม้ Backend contract รองรับ save/reject
+- `taskOutbox/draftValidation` ยังไม่มี Production Cloud Tasks dispatcher; Emulator test เรียก Worker endpoint โดยตรง
 - Production signed/resumable upload adapter และ Storage lifecycle ยังไม่ถูกสร้างหรือ deploy
+- ยังไม่มี Production load/latency/cost evidence
 - Excel/CSV ยังต้องผ่าน Mapping/Import Package; browser รับเฉพาะ Canonical JSON
 
 ## ข้อห้าม
