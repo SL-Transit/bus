@@ -1,6 +1,7 @@
 "use strict";
 
 const COMMAND_POLICIES = Object.freeze({
+  "upload.authorize": Object.freeze({ roles: Object.freeze(["admin", "operations"]), operatorScoped: true }),
   "import.start": Object.freeze({ roles: Object.freeze(["admin", "operations"]), operatorScoped: true }),
   "import.status": Object.freeze({ roles: Object.freeze(["admin", "operations"]), operatorScoped: false }),
   "draft.save": Object.freeze({ roles: Object.freeze(["admin", "operations"]), operatorScoped: true }),
