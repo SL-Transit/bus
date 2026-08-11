@@ -53,9 +53,10 @@ const demoRetentionPolicy = Object.freeze({
 });
 const retentionPolicy = parseRetentionPolicy(process.env.GREENFIELD_RETENTION_POLICY_JSON || demoRetentionPolicy);
 const appName = "greenfield-phase4-command-gateway";
+const databaseUrl = "http://" + databaseEmulatorHost + "?ns=" + projectId + "-default-rtdb";
 const existingApp = getApps().find(function (candidate) { return candidate.name === appName; });
-const app = existingApp || initializeApp({ projectId, storageBucket: projectId + ".appspot.com", databaseURL: "http://" + databaseEmulatorHost + "?ns=" + projectId + "-default-rtdb" }, appName);
-const database = getDatabase(app);
+const app = existingApp || initializeApp({ projectId, storageBucket: projectId + ".appspot.com", databaseURL: databaseUrl }, appName);
+const database = getDatabase(app, databaseUrl);
 const storageReader = createStoragePackageReader({ storage: getStorage(app) });
 const draftStore = createRtdbEmulatorDraftStore({ database, projectId, databaseEmulatorHost });
 const accessReader = createRtdbAccessReader({ database, projectId, databaseEmulatorHost });
