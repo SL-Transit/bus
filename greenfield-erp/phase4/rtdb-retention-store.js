@@ -72,7 +72,7 @@ function createRtdbRetentionStore(options) {
       }
       const job = snapshot.val();
       if (job.protectedFromCleanup === true || !job.expiresAt || job.expiresAt > candidate.now || (job.status === "processing" && job.leaseExpiresAt > candidate.now)) return defer("importJobs", candidate.id, candidate.expiryDateKey, candidate.now);
-      if (!["queued", "retryable", "failed", "completed"].includes(job.status)) return defer("importJobs", candidate.id, candidate.expiryDateKey, candidate.now);
+      if (!["queued", "processing", "retryable", "failed", "completed"].includes(job.status)) return defer("importJobs", candidate.id, candidate.expiryDateKey, candidate.now);
       if (job.source) await input.deleteSource(job.source);
       const auditId = "AUD-" + digest(candidate.id + ":cleanup:" + candidate.now).slice(0, 24).toUpperCase();
       const updates = {};
@@ -98,7 +98,7 @@ function createRtdbRetentionStore(options) {
       if (job.protectedFromCleanup === true || !job.expiresAt || job.expiresAt > candidate.now || (job.status === "processing" && job.leaseExpiresAt > candidate.now)) {
         return defer("validationJobs", candidate.id, candidate.expiryDateKey, candidate.now);
       }
-      if (!["queued", "retryable", "failed", "completed"].includes(job.status)) {
+      if (!["queued", "processing", "retryable", "failed", "completed"].includes(job.status)) {
         return defer("validationJobs", candidate.id, candidate.expiryDateKey, candidate.now);
       }
       const auditId = "AUD-" + digest(candidate.id + ":cleanup:" + candidate.now).slice(0, 24).toUpperCase();
