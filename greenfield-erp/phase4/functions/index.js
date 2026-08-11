@@ -22,6 +22,8 @@ const { createRetentionService } = require("../retention-service.js");
 const { parseRetentionPolicy } = require("../retention-policy.js");
 const { createStoragePackageReader } = require("../storage-package-reader.js");
 const { createDraftWorkflowService } = require("../../phase6a/draft-workflow-service.js");
+const { createDraftValidationJobService } = require("../../phase6a/draft-validation-job-service.js");
+const { createRtdbDraftValidationJobStore } = require("../../phase6a/rtdb-draft-validation-job-store.js");
 const { createRtdbDraftWorkflowStore } = require("../../phase6a/rtdb-draft-workflow-store.js");
 const { createRtdbUploadAuthorizationStore } = require("../../phase6a/rtdb-upload-authorization-store.js");
 const { createUploadAuthorizationService } = require("../../phase6a/upload-authorization-service.js");
@@ -92,11 +94,17 @@ const uploadAuthorizationService = createUploadAuthorizationService({
 });
 const workflowStore = createRtdbDraftWorkflowStore({ database, projectId, databaseEmulatorHost });
 const workflowService = createDraftWorkflowService({ store: workflowStore });
+const draftValidationStore = createRtdbDraftValidationJobStore({ database, projectId, databaseEmulatorHost });
+const validationJobService = createDraftValidationJobService({
+  store: draftValidationStore,
+  retentionPolicy
+});
 const gateway = createCommandGateway({
   importJobService,
   accessReader,
   uploadAuthorizationService,
-  workflowService
+  workflowService,
+  validationJobService
 });
 const handler = createFirebaseHttpHandler({ gateway, allowedOrigins: allowedOrigins(), verifyIdToken: function (token) { return getAuth(app).verifyIdToken(token); } });
 const retentionStore = createRtdbRetentionStore({ database, projectId, databaseEmulatorHost, deleteSource: storageReader.deleteSource });
@@ -107,6 +115,17 @@ exports.greenfieldImportWorker = onTaskDispatched(WORKER_OPTIONS, async function
   const data = request && request.data || {};
   const result = await importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
   console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true });
+  return result;
+});
+exports.greenfieldDraftValidationWorker = onTaskDispatched(WORKER_OPTIONS, async function (request) {
+  const data = request && request.data || {};
+  const result = await validationJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
+  console.info("greenfield_draft_validation_worker_result", {
+    jobId: data.jobId || null,
+    status: result.status,
+    resultCode: result.resultCode || null,
+    reused: result.reused === true
+  });
   return result;
 });
 exports.greenfieldRetentionCleanup = onSchedule(CLEANUP_OPTIONS, async function (event) {
