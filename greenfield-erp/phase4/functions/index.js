@@ -6,7 +6,7 @@ const { onTaskDispatched } = require("firebase-functions/v2/tasks");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
-const { getDatabase } = require("firebase-admin/database");
+const { getDatabaseWithUrl } = require("firebase-admin/database");
 const { getStorage } = require("firebase-admin/storage");
 
 const { assertDemoDatabaseEmulator } = require("../../phase2/environment-guard.js");
@@ -56,7 +56,7 @@ const appName = "greenfield-phase4-command-gateway";
 const databaseUrl = "http://" + databaseEmulatorHost + "?ns=" + projectId + "-default-rtdb";
 const existingApp = getApps().find(function (candidate) { return candidate.name === appName; });
 const app = existingApp || initializeApp({ projectId, storageBucket: projectId + ".appspot.com", databaseURL: databaseUrl }, appName);
-const database = getDatabase(app, databaseUrl);
+const database = getDatabaseWithUrl(databaseUrl, app);
 const storageReader = createStoragePackageReader({ storage: getStorage(app) });
 const draftStore = createRtdbEmulatorDraftStore({ database, projectId, databaseEmulatorHost });
 const accessReader = createRtdbAccessReader({ database, projectId, databaseEmulatorHost });
@@ -70,14 +70,8 @@ const retentionService = createRetentionService({ store: retentionStore, policy:
 exports.greenfieldErpCommand = onRequest(GATEWAY_OPTIONS, handler);
 exports.greenfieldImportWorker = onTaskDispatched(WORKER_OPTIONS, async function (request) {
   const data = request && request.data || {};
-  const probePath = "/data/erpDataCenter/importJobs/" + encodeURIComponent(data.jobId || "missing") + "/metadata.json?ns=";
-  const probeOptions = { headers: { authorization: "Bearer owner" } };
-  const defaultProbe = await fetch("http://" + databaseEmulatorHost + probePath + encodeURIComponent(projectId + "-default-rtdb"), probeOptions);
-  const projectProbe = await fetch("http://" + databaseEmulatorHost + probePath + encodeURIComponent(projectId), probeOptions);
-  const defaultProbeJob = defaultProbe.ok ? await defaultProbe.json() : null;
-  const projectProbeJob = projectProbe.ok ? await projectProbe.json() : null;
   const result = await importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
-  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true, defaultProbeHttp: defaultProbe.status, defaultProbeStatus: defaultProbeJob && defaultProbeJob.status || "missing", projectProbeHttp: projectProbe.status, projectProbeStatus: projectProbeJob && projectProbeJob.status || "missing", projectId, databaseEmulatorHost, databaseRef: database.ref("data/erpDataCenter").toString() });
+  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true });
   return result;
 });
 exports.greenfieldRetentionCleanup = onSchedule(CLEANUP_OPTIONS, async function (event) {
