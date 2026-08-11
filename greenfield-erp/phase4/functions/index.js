@@ -43,7 +43,15 @@ const projectId = configuredProjectId();
 const databaseEmulatorHost = process.env.FIREBASE_DATABASE_EMULATOR_HOST;
 assertDemoDatabaseEmulator({ projectId, databaseEmulatorHost });
 if (!process.env.FIREBASE_STORAGE_EMULATOR_HOST) throw new Error("greenfield_storage_emulator_required");
-const retentionPolicy = parseRetentionPolicy(process.env.GREENFIELD_RETENTION_POLICY_JSON);
+const demoRetentionPolicy = Object.freeze({
+  importJobRetentionHours: 24,
+  abandonedDraftRetentionDays: 30,
+  cleanupStartDate: "2026-08-01",
+  batchSize: 50,
+  maxDaysPerRun: 31,
+  leaseSeconds: 60
+});
+const retentionPolicy = parseRetentionPolicy(process.env.GREENFIELD_RETENTION_POLICY_JSON || demoRetentionPolicy);
 const appName = "greenfield-phase4-command-gateway";
 const existingApp = getApps().find(function (candidate) { return candidate.name === appName; });
 const app = existingApp || initializeApp({ projectId, storageBucket: projectId + ".appspot.com", databaseURL: "http://" + databaseEmulatorHost + "?ns=" + projectId + "-default-rtdb" }, appName);
