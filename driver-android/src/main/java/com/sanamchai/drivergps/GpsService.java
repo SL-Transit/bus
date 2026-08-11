@@ -56,6 +56,7 @@ public class GpsService extends Service implements SensorEventListener {
     private static final long RESTART_INTERVAL_MS = 10 * 60 * 1000;
     private static final long STANDBY_LOCATION_INTERVAL_MS = 5 * 60 * 1000;
     private static final long SERVICE_WINDOW_CHECK_MS = 30 * 1000;
+    private static final long FIREBASE_RECOVERY_RETRY_MS = 30 * 1000;
 
     private static final String TAG                 = "GPSTransit";
     private static final String CHANNEL_ID          = "gps_sender";
@@ -90,6 +91,8 @@ public class GpsService extends Service implements SensorEventListener {
     private LocationCallback fusedCallback;
     private FirebaseAuth auth;
     private DatabaseReference liveVehicleRef, connectedRef, vehicleSettingsRef;
+    private boolean uptimeWriteInFlight = false;
+    private final DriverUptimeTracker uptimeTracker = new DriverUptimeTracker();
     private DatabaseReference bookingAlertsRef;
     private com.google.firebase.database.ChildEventListener bookingAlertsListener;
     private final java.util.Set<String> seenBookingAlertKeys = new java.util.HashSet<>();
@@ -107,6 +110,7 @@ public class GpsService extends Service implements SensorEventListener {
     private boolean running        = false;
     private boolean reportingError = false;
     private long lastLocationSentAt = 0;
+    private long lastFirebaseRecoveryAt = 0;
     private long lastGpsUpdateAt    = 0;
     private long gpsRequestStartedAt = 0;
     private long lastGpsRecoveryAt = 0;
@@ -324,10 +328,7 @@ public class GpsService extends Service implements SensorEventListener {
                 if (staleFor > staleThreshold) {
                     Log.w(TAG, "Firebase ค้าง " + (staleFor / 1000) + "s (threshold " + (staleThreshold / 1000) + "s, mode=" + trackingMode + ") — force reconnect");
                     recordStatus("stale_gps");
-                    try {
-                        
-                        
-                    } catch (Exception ignored) {}
+                    requestFirebaseRecovery("stale_write");
                     // กันไม่ให้ trigger ซ้ำทันทีระหว่างรอ reconnect — รอบถัดไปจะเช็คใหม่
                 }
             }
@@ -537,10 +538,7 @@ public class GpsService extends Service implements SensorEventListener {
                     handler.post(() -> {
                         if (!running) return;
                         Log.d(TAG, "NetworkCallback: เน็ตกลับมา (available) — force reconnect Firebase");
-                        try {
-                            
-                            
-                        } catch (Exception ignored) {}
+                        requestFirebaseRecovery("network_available");
                     });
                 }
                 @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
@@ -554,10 +552,7 @@ public class GpsService extends Service implements SensorEventListener {
                         handler.post(() -> {
                             if (!running) return;
                             Log.d(TAG, "NetworkCallback: เน็ตกลับมาใช้งานได้จริงแล้ว (validated) — force reconnect Firebase");
-                            try {
-                                
-                                
-                            } catch (Exception ignored) {}
+                            requestFirebaseRecovery("network_validated");
                         });
                     } else if (!validatedNow) {
                         lastNetworkValidated = false;
@@ -567,6 +562,7 @@ public class GpsService extends Service implements SensorEventListener {
                     lastNetworkValidated = false;
                     handler.post(() -> {
                         if (!running) return;
+                        recordStatus("network_lost");
                         Log.w(TAG, "NetworkCallback: เน็ตหาย");
                     });
                 }
@@ -1423,11 +1419,41 @@ public class GpsService extends Service implements SensorEventListener {
         writeData(buildData(loc, true), loc, true);
     }
 
+    private void requestFirebaseRecovery(String reason) {
+        if (!running || connectedRef == null) return;
+        long now = System.currentTimeMillis();
+        if (now - lastFirebaseRecoveryAt < FIREBASE_RECOVERY_RETRY_MS) return;
+        lastFirebaseRecoveryAt = now;
+        recordStatus("firebase_reconnecting");
+        Log.w(TAG, "Firebase recovery requested: " + reason);
+        connectedRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                if (!running) return;
+                Boolean connected = snapshot.getValue(Boolean.class);
+                if (Boolean.TRUE.equals(connected)) {
+                    setupDisconnectHandlers();
+                    if (pendingData != null) writeData(pendingData, pendingLocation, pendingFullWrite);
+                    else { lastLocationSentAt = 0; sendHeartbeat(); }
+                } else {
+                    handler.postDelayed(() -> requestFirebaseRecovery("still_disconnected"), FIREBASE_RECOVERY_RETRY_MS);
+                }
+            }
+            @Override public void onCancelled(DatabaseError error) {
+                Log.w(TAG, "Firebase recovery check failed: " + error.getMessage());
+                handler.postDelayed(() -> requestFirebaseRecovery("recovery_check_failed"), FIREBASE_RECOVERY_RETRY_MS);
+            }
+        });
+    }
     private void watchConnectionState() {
         connectedRef.addValueEventListener(new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snapshot) {
                 Boolean connected = snapshot.getValue(Boolean.class);
-                if (!Boolean.TRUE.equals(connected) || !running) return;
+                if (!running) return;
+                if (!Boolean.TRUE.equals(connected)) {
+                    recordStatus("firebase_disconnected");
+                    handler.postDelayed(() -> requestFirebaseRecovery("connection_state"), FIREBASE_RECOVERY_RETRY_MS);
+                    return;
+                }
                 // ✅ แก้ไข: เมื่อ reconnect ให้ set online:true ทันที ก่อน setupDisconnectHandlers
                 // ป้องกัน onDisconnect handler ค้างทำให้ passenger เห็น online:false
                 long now = System.currentTimeMillis();
@@ -1467,11 +1493,25 @@ public class GpsService extends Service implements SensorEventListener {
             if (err != null) { if (!"gps_error".equals(String.valueOf(data.get("status")))) recordError("Firebase " + err.getCode() + ": " + err.getMessage()); flushPendingWrite(); return; }
             long now = System.currentTimeMillis(); lastLocationSentAt = now; if (loc != null) lastFirebaseLocation = new Location(loc);
             prefs.edit().putLong(MainActivity.KEY_LAST_SENT, now).putString(MainActivity.KEY_LAST_STATUS, String.valueOf(data.get("status"))).putString(MainActivity.KEY_LAST_ERROR, "").apply();
+            writeUptimeSnapshot(now);
             flushPendingWrite();
         };
         if (fullLocationWrite && data.containsKey("lat") && data.containsKey("lng")) liveVehicleRef.setValue(data, completion); else liveVehicleRef.updateChildren(data, completion);
     }
 
+    private void writeUptimeSnapshot(long nowMs) {
+        if (!running || !remoteEnabled || queueId == null || uptimeWriteInFlight) return;
+        if (!uptimeTracker.shouldPublish(nowMs)) return;
+        DriverUptimeTracker.Snapshot snapshot = uptimeTracker.observe(nowMs, true);
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("operations/driverUptimeByServiceDate/" + snapshot.serviceDate() + "/" + queueId);
+        uptimeWriteInFlight = true;
+        ref.setValue(snapshot.data(), (error, ignored) -> {
+            uptimeWriteInFlight = false;
+            if (error == null) uptimeTracker.markPublished(nowMs);
+            else Log.w(TAG, "uptime snapshot failed: " + error.getMessage());
+        });
+    }
     private void markOffline() {
         long now = System.currentTimeMillis();
         Map<String, Object> d = new HashMap<>();
