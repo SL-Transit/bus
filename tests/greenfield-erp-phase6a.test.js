@@ -6,6 +6,8 @@ const path = require("node:path");
 const test = require("node:test");
 
 const Api = require("../admin-erp1-greenfield-api-client.js");
+const AdminState = require("../admin-erp1-greenfield-state.js");
+const validPackage = require("../contracts/greenfield-erp/v1/fixtures/valid-network-package.json");
 const {
   createUploadAuthorizationService,
   uploadIdFor,
@@ -14,14 +16,21 @@ const {
 const {
   MAX_DRAFT_CHANGE_BYTES,
   MAX_DRAFT_OPERATIONS,
+  MAX_DRAFT_PAGE_BYTES,
+  MAX_DRAFT_PAGE_ITEMS,
   createDraftWorkflowService,
   validateOperations
 } = require("../greenfield-erp/phase6a/draft-workflow-service.js");
 const { assertEnvelope, createCommandGateway } = require("../greenfield-erp/phase4/command-gateway.js");
+const {
+  MAX_VALIDATION_ERRORS,
+  createDraftValidationJobService,
+  validationJobIdFor
+} = require("../greenfield-erp/phase6a/draft-validation-job-service.js");
 
 const account = {
   active: true,
-  allowedCommands: ["upload.authorize", "import.start", "import.status", "draft.save", "review.request", "approval.decide"],
+  allowedCommands: ["upload.authorize", "import.start", "import.status", "draft.read", "draft.save", "draft.validate", "draft.validation.status", "review.request", "approval.decide"],
   resourceScopes: { operatorIds: ["OPR-BUS01"] }
 };
 
@@ -227,6 +236,132 @@ test("gateway routes upload and workflow commands only after hybrid authorizatio
   }, { uid: "operator-001", role: "operations" });
   assert.equal(result.result.status, "review_requested");
   assert.deepEqual(calls, ["IDM-20260811-6201"]);
+});
+
+test("Draft read returns one bounded entity page and rejects unbounded requests", async () => {
+  const entries = Array.from({ length: 51 }, function (_value, index) {
+    const id = "RTE-BUS01-" + String(index + 1).padStart(4, "0");
+    return { entityId: id, value: { routeId: id, operatorId: "OPR-BUS01", shortName: "R" + index, serviceMode: "fixed" } };
+  });
+  const service = createDraftWorkflowService({
+    store: {
+      async getDraftSummary() {
+        return {
+          draftId: "DRF-" + "D".repeat(24),
+          revision: 7,
+          status: "draft",
+          operatorScope: ["OPR-BUS01"],
+          validationStatus: "required"
+        };
+      },
+      async readDraftPage() { return { entries }; }
+    }
+  });
+  const page = await service.readDraft({
+    actorUid: "operator-001",
+    account,
+    requestId: "REQ-20260811-6301",
+    idempotencyKey: "IDM-20260811-6301",
+    payload: {
+      draftId: "DRF-" + "D".repeat(24),
+      expectedRevision: 7,
+      operatorScope: ["OPR-BUS01"],
+      entityType: "routes",
+      limit: 50
+    }
+  });
+  assert.equal(page.entries.length, 50);
+  assert.equal(page.hasMore, true);
+  assert.equal(page.nextCursor, page.entries[49].entityId);
+  assert.ok(Buffer.byteLength(JSON.stringify(page.entries), "utf8") <= MAX_DRAFT_PAGE_BYTES);
+  assert.equal(MAX_DRAFT_PAGE_ITEMS, 50);
+  await assert.rejects(service.readDraft({
+    actorUid: "operator-001",
+    account,
+    payload: {
+      draftId: "DRF-" + "D".repeat(24),
+      expectedRevision: 7,
+      operatorScope: ["OPR-BUS01"],
+      entityType: "routes",
+      limit: 51
+    }
+  }), function (error) { return error.code === "draft_page_limit_invalid"; });
+});
+
+test("Draft validation runs outside the Gateway and bounds the returned report", async () => {
+  let queued;
+  let finished;
+  const draftId = "DRF-" + "E".repeat(24);
+  const jobId = validationJobIdFor("operator-001", "IDM-20260811-6401");
+  const service = createDraftValidationJobService({
+    now: () => "2026-08-11T00:00:00.000Z",
+    retentionPolicy: { importJobRetentionHours: 24 },
+    store: {
+      async getDraftSummary() {
+        return { draftId, revision: 2, status: "draft", operatorScope: ["OPR-BUS01"] };
+      },
+      async createQueuedJob(input) {
+        queued = input;
+        return { jobId: input.jobId, status: "queued", expiresAt: input.expiresAt };
+      },
+      async getJob() {
+        return { jobId, draftId, expectedRevision: 2, status: "completed", operatorScope: ["OPR-BUS01"], validation: { errors: [], warnings: [], errorCount: 0 } };
+      },
+      async claimJob() {
+        return {
+          claimed: true,
+          status: "processing",
+          job: { jobId, draftId, expectedRevision: 2, actorUid: "operator-001", operatorScope: ["OPR-BUS01"] }
+        };
+      },
+      async readDraftPackage() {
+        return { package: validPackage, packageBytes: Buffer.byteLength(JSON.stringify(validPackage)), entityCount: 16 };
+      },
+      async finishJob(input) {
+        finished = input;
+        return { status: "completed", resultCode: input.resultCode };
+      },
+      async finishFailedJob() { throw new Error("must_not_fail"); },
+      async markRetryableFailure() { throw new Error("must_not_retry"); }
+    }
+  });
+  const started = await service.start({
+    actorUid: "operator-001",
+    account,
+    requestId: "REQ-20260811-6401",
+    idempotencyKey: "IDM-20260811-6401",
+    payload: { draftId, expectedRevision: 2, operatorScope: ["OPR-BUS01"] }
+  });
+  assert.equal(started.status, "queued");
+  assert.equal(queued.jobId, jobId);
+  assert.equal(queued.expiresAt, "2026-08-12T00:00:00.000Z");
+  const result = await service.process(jobId, "RUN-VALIDATION");
+  assert.equal(result.resultCode, "draft_valid");
+  assert.equal(finished.validationStatus, "valid");
+  assert.equal(finished.validation.errors.length, 0);
+  assert.equal(MAX_VALIDATION_ERRORS, 100);
+});
+
+test("Admin state blocks Review after edit, then enables Reject and another edit", () => {
+  let state = AdminState.initialState();
+  state = AdminState.reduce(state, { type: "SELECT_FILE", file: { name: "network.json", size: 10 } });
+  state = AdminState.reduce(state, { type: "START_VALIDATION" });
+  state = AdminState.reduce(state, { type: "VALIDATION_SUCCEEDED", draftId: "DRF-" + "F".repeat(24), revision: 1 });
+  assert.equal(AdminState.deriveView(state).canRequestReview, true);
+  state = AdminState.reduce(state, { type: "DRAFT_SAVED", revision: 2 });
+  assert.equal(AdminState.deriveView(state).canRequestReview, false);
+  assert.equal(AdminState.deriveView(state).canValidateDraft, true);
+  state = AdminState.reduce(state, { type: "DRAFT_VALIDATION_QUEUED", jobId: "DVJ-" + "A".repeat(24), status: "queued" });
+  state = AdminState.reduce(state, {
+    type: "DRAFT_VALIDATION_STATUS",
+    job: { jobId: "DVJ-" + "A".repeat(24), status: "completed", resultCode: "draft_valid", validation: { errors: [], warnings: [], errorCount: 0, warningCount: 0 } }
+  });
+  assert.equal(AdminState.deriveView(state).canRequestReview, true);
+  state = AdminState.reduce(state, { type: "REQUEST_REVIEW", revision: 3 });
+  assert.equal(AdminState.deriveView(state).canReject, true);
+  state = AdminState.reduce(state, { type: "APPROVAL_DECIDED", decision: "reject", revision: 4 });
+  assert.equal(state.phase, AdminState.PHASES.REJECTED);
+  assert.equal(AdminState.deriveView(state).canSaveDraft, true);
 });
 
 test("Phase 6A runtime is emulator-guarded and contains no publication path", () => {
