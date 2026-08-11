@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="SL-Transit Greenfield Admin ERP1 contract preview">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <meta name="description" content="SL-Transit Greenfield Admin ERP1 Phase 6A integration review">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>SL-Transit · Greenfield Admin ERP1</title>
   <link rel="stylesheet" href="assets/admin-erp1-greenfield.css">
   <script defer src="admin-erp1-greenfield-state.js"></script>
@@ -14,7 +14,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
-  <div id="greenfield-preview-badge" class="preview-banner" role="status">Contract Preview · Backend not connected · No production writes</div>
+  <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A · Backend integration review · No production writes</div>
 
   <header class="topbar">
     <div class="brand-lockup">
@@ -24,7 +24,7 @@
         <h1>Admin ERP1</h1>
       </div>
     </div>
-    <div class="environment-chip"><span aria-hidden="true"></span> GREENFIELD · PREVIEW</div>
+    <div class="environment-chip"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
   </header>
 
   <div class="app-shell">
@@ -47,14 +47,14 @@
     <main id="main-content">
       <section id="overview" class="hero panel">
         <div>
-          <p class="eyebrow">PHASE 3 · ADMIN WORKFLOW CONTRACT</p>
+          <p class="eyebrow">PHASE 6A · ADMIN BACKEND INTEGRATION</p>
           <h2>จัดข้อมูลขนส่งให้พร้อมตรวจ ก่อนส่งต่อให้ระบบกลาง</h2>
-          <p class="lead">หน้าใหม่สำหรับลำดับ Import → Draft → Validate → Review → Approve โดยทุกการเปลี่ยนสถานะต้องผ่าน API ฝั่งเซิร์ฟเวอร์ในอนาคต</p>
+          <p class="lead">หน้าใหม่สำหรับลำดับ Import → Draft → Validate → Review → Approve โดย Upload, Import, Review และ Approval ผ่าน API ฝั่งเซิร์ฟเวอร์ พร้อม revision และ audit</p>
         </div>
         <div class="hero-metric" aria-label="สถานะการเชื่อมต่อ">
           <span>BACKEND</span>
-          <strong>OFFLINE</strong>
-          <small>Contract only</small>
+          <strong>SAFE MODE</strong>
+          <small>Runtime config required</small>
         </div>
       </section>
 
@@ -70,18 +70,18 @@
         <section id="import" class="panel primary-card">
           <div class="section-heading">
             <div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div>
-            <span class="status-pill">LOCAL METADATA ONLY</span>
+            <span class="status-pill">AUTHORIZED STAGING</span>
           </div>
-          <p>เลือกไฟล์เพื่อทดสอบหน้าจอ ระบบจะแสดงเฉพาะชื่อ ชนิด และขนาดไฟล์ในหน่วยความจำของเบราว์เซอร์</p>
+          <p>เลือก Canonical JSON ที่ผ่านการ Mapping แล้ว ระบบจะขอสิทธิ์ Upload แบบจำกัดอายุ ก่อนส่งตรวจใน Backend</p>
           <label class="dropzone" for="import-file">
             <span class="upload-icon" aria-hidden="true">↑</span>
             <strong>เลือกไฟล์ข้อมูลต้นทาง</strong>
-            <span>CSV, XLSX หรือ ZIP · สูงสุด 25 MB</span>
-            <input id="import-file" type="file" accept=".csv,.xlsx,.zip,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip">
+            <span>Canonical JSON · สูงสุด 25 MB</span>
+            <input id="import-file" type="file" accept=".json,application/json">
           </label>
           <dl class="file-meta">
             <div><dt>ชื่อไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div>
-            <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>
+            <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>`n            <div class="scope-field"><dt><label for="operator-scope">Stable Operator IDs</label></dt><dd><input id="operator-scope" type="text" value="OPR-BUS01" maxlength="512" autocomplete="off" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายบริษัทด้วยเครื่องหมายจุลภาค</small></dd></div>
           </dl>
           <div class="actions">
             <button id="validate-file" type="button" class="button primary" disabled>ตรวจสอบผ่าน Backend</button>
@@ -94,8 +94,8 @@
           <div class="runtime-orbit" aria-hidden="true"><span></span></div>
           <dl class="runtime-list">
             <div><dt>Phase</dt><dd id="workflow-phase">idle</dd></div>
-            <div><dt>Backend</dt><dd class="offline">Not connected</dd></div>
-            <div><dt>Write access</dt><dd>Disabled</dd></div>
+            <div><dt>Backend</dt><dd id="backend-status" class="offline">Not configured</dd></div>
+            <div><dt>Write access</dt><dd>Emulator only</dd></div>`n            <div><dt>Job ID</dt><dd id="job-id">—</dd></div>
             <div><dt>Error code</dt><dd id="error-code">none</dd></div>
           </dl>
           <div id="action-notice" class="notice" data-kind="neutral">
@@ -123,6 +123,6 @@
     </main>
   </div>
 
-  <footer><span>SL-Transit Greenfield ERP</span><span>Contract Preview · Phase 3</span></footer>
+  <footer><span>SL-Transit Greenfield ERP</span><span>Integration Review · Phase 6A</span></footer>
 </body>
 </html>
