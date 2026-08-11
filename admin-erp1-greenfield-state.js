@@ -12,6 +12,7 @@
     VALIDATING: "validating",
     QUEUED: "queued",
     DRAFT: "draft",
+    REVALIDATING: "revalidating",
     INVALID: "invalid",
     REVIEW_REQUESTED: "reviewRequested",
     APPROVED: "approved",
@@ -25,6 +26,8 @@
       operatorScope: [],
       job: null,
       draft: null,
+      draftPage: null,
+      validationJob: null,
       validation: null,
       review: null,
       approval: null,
@@ -41,7 +44,7 @@
     const current = state || initialState();
     const action = event || {};
     if (action.type === "PUBLISH") {
-      return { ...current, error: issue("unsupported_command", "Phase 6A does not expose publication.") };
+      return { ...current, error: issue("unsupported_command", "Phase 6A.1 does not expose publication.") };
     }
     switch (action.type) {
       case "RESET":
@@ -95,10 +98,11 @@
           validation: action.report || { errors: [], warnings: [] },
           error: null
         };
-      case "VALIDATION_SUCCEEDED":
+      case "VALIDATION_SUCCEEDED": {
         if (![PHASES.VALIDATING, PHASES.QUEUED].includes(current.phase)) {
           return { ...current, busy: false, error: issue("invalid_transition", "สถานะไม่พร้อมรับผลตรวจสอบ") };
         }
+        const revision = Number.isInteger(action.revision) ? action.revision : 1;
         return {
           ...current,
           phase: PHASES.DRAFT,
@@ -106,17 +110,101 @@
           draft: {
             id: String(action.draftId || ""),
             status: "draft",
-            revision: Number.isInteger(action.revision) ? action.revision : 1
+            revision,
+            validationStatus: "valid",
+            validatedRevision: revision
           },
-          validation: action.report || { errors: [], warnings: [] },
+          validation: action.report || { errors: [], warnings: [], errorCount: 0, warningCount: 0 },
           error: null
         };
+      }
+      case "DRAFT_PAGE_LOADED":
+        return {
+          ...current,
+          draft: {
+            ...(current.draft || {}),
+            id: action.page.draftId,
+            status: action.page.status,
+            revision: action.page.revision,
+            validationStatus: action.page.validationStatus,
+            validatedRevision: action.page.validatedRevision
+          },
+          draftPage: action.page,
+          busy: false,
+          error: null
+        };
+      case "DRAFT_SAVED":
+        return {
+          ...current,
+          phase: PHASES.DRAFT,
+          busy: false,
+          draft: {
+            ...(current.draft || {}),
+            status: "draft",
+            revision: action.revision,
+            validationStatus: "required",
+            validatedRevision: null
+          },
+          draftPage: null,
+          validationJob: null,
+          validation: null,
+          error: null
+        };
+      case "DRAFT_VALIDATION_QUEUED":
+        return {
+          ...current,
+          phase: PHASES.REVALIDATING,
+          busy: true,
+          validationJob: { id: action.jobId, status: action.status || "queued" },
+          draft: { ...(current.draft || {}), validationStatus: "queued", validatedRevision: null },
+          validation: null,
+          error: null
+        };
+      case "DRAFT_VALIDATION_STATUS": {
+        const job = action.job || {};
+        if (["queued", "processing", "retryable"].includes(job.status)) {
+          return {
+            ...current,
+            phase: PHASES.REVALIDATING,
+            busy: true,
+            validationJob: { id: job.jobId, status: job.status },
+            error: null
+          };
+        }
+        if (job.status === "failed") {
+          return {
+            ...current,
+            phase: PHASES.DRAFT,
+            busy: false,
+            validationJob: { id: job.jobId, status: job.status },
+            draft: { ...(current.draft || {}), validationStatus: "required", validatedRevision: null },
+            error: issue(job.resultCode || "draft_validation_failed", "การตรวจ Draft ไม่สำเร็จ กรุณาตรวจรหัสข้อผิดพลาด")
+          };
+        }
+        const report = job.validation || { errors: [], warnings: [], errorCount: 0, warningCount: 0 };
+        const valid = job.resultCode === "draft_valid" && Number(report.errorCount || 0) === 0;
+        return {
+          ...current,
+          phase: valid ? PHASES.DRAFT : PHASES.INVALID,
+          busy: false,
+          validationJob: { id: job.jobId, status: job.status },
+          validation: report,
+          draft: {
+            ...(current.draft || {}),
+            validationStatus: valid ? "valid" : "invalid",
+            validatedRevision: current.draft && current.draft.revision
+          },
+          error: null
+        };
+      }
       case "COMMAND_STARTED":
         return { ...current, busy: true, error: null };
       case "REQUEST_REVIEW": {
-        const errors = current.validation && Array.isArray(current.validation.errors) ? current.validation.errors.length : 0;
-        if (current.phase !== PHASES.DRAFT || errors > 0) {
-          return { ...current, busy: false, error: issue("review_blocked", "ต้องมี Draft ที่ผ่าน Validation ก่อนส่ง Review") };
+        const validationReady = current.draft &&
+          current.draft.validationStatus === "valid" &&
+          current.draft.validatedRevision === current.draft.revision;
+        if (current.phase !== PHASES.DRAFT || !validationReady) {
+          return { ...current, busy: false, error: issue("review_blocked", "ต้องมี Draft ที่ผ่าน Validation ใน revision ปัจจุบันก่อนส่ง Review") };
         }
         return {
           ...current,
@@ -156,12 +244,18 @@
 
   function deriveView(state) {
     const current = state || initialState();
+    const editable = [PHASES.DRAFT, PHASES.INVALID, PHASES.REJECTED].includes(current.phase);
+    const validationReady = current.draft &&
+      current.draft.validationStatus === "valid" &&
+      current.draft.validatedRevision === current.draft.revision;
     return {
       canValidate: current.phase === PHASES.FILE_SELECTED && !current.busy,
-      canRequestReview: current.phase === PHASES.DRAFT &&
-        !(current.validation && current.validation.errors && current.validation.errors.length) &&
-        !current.busy,
+      canLoadDraft: Boolean(current.draft) && !current.busy,
+      canSaveDraft: Boolean(current.draft) && editable && !current.busy,
+      canValidateDraft: Boolean(current.draft) && editable && !current.busy,
+      canRequestReview: current.phase === PHASES.DRAFT && validationReady && !current.busy,
       canApprove: current.phase === PHASES.REVIEW_REQUESTED && !current.busy,
+      canReject: current.phase === PHASES.REVIEW_REQUESTED && !current.busy,
       isBusy: current.busy,
       backendBlocked: Boolean(current.error && current.error.code === "greenfield_backend_not_connected")
     };
