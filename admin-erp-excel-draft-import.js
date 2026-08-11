@@ -107,6 +107,16 @@
     var source = raw && raw.values && typeof raw.values === 'object' ? raw.values : raw;
     return headers.reduce(function (out, header) { out[header] = source && source[header]; return out; }, {});
   }
+  function applyWorkbookDefaults(values, definition) {
+    var result = values;
+    if (definition && definition.kind === 'trips' && Array.isArray(definition.headers)) {
+      var bookingField = definition.headers[6];
+      var capacityField = definition.headers[7];
+      if (text(result[bookingField]) === '') result[bookingField] = 'ใช่';
+      if (text(result[capacityField]) === '') result[capacityField] = 3;
+    }
+    return result;
+  }
   function keyValueFromRow(raw) {
     if (Array.isArray(raw)) return { key: raw[0], value: raw[1] };
     var source = raw && raw.values && typeof raw.values === 'object' ? raw.values : raw;
@@ -141,6 +151,7 @@
     var rawRows = Array.isArray(sheet && sheet.rows) ? sheet.rows : [];
     return rawRows.map(function (raw, index) {
       var values = definition.headerMode === 'keyValue' ? keyValueFromRow(raw) : valuesFromRow(raw, definition.headers);
+      values = applyWorkbookDefaults(values, definition);
       return {
         values: values,
         sourceRowNumber: sourceRowNumber(raw, index, definition),
