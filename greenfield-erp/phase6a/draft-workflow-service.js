@@ -15,7 +15,7 @@ function workflowError(code, status) {
 }
 
 function safeId(value) {
-  return typeof value === "string" && value.length > 0 && value.length <= 128 && !/[.#$[]/]/.test(value);
+  return typeof value === "string" && value.length > 0 && value.length <= 128 && ![".", "#", "$", "[", "]", "/"].some(function (character) { return value.includes(character); });
 }
 
 function assertDraftCommand(payload) {
