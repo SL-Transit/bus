@@ -18,7 +18,7 @@ function storeError(code, status) {
 }
 
 function safeSegment(value, label) {
-  if (typeof value !== "string" || !value || /[.#$[]/]/.test(value)) {
+  if (typeof value !== "string" || !value || [".", "#", "$", "[", "]", "/"].some(function (character) { return value.includes(character); })) {
     throw new Error("unsafe_workflow_segment:" + label);
   }
   return value;
