@@ -18,4 +18,6 @@ for (const required of [
   'onDisconnect().updateChildren'
 ]) if (!gps.includes(required)) throw new Error(`missing GPS uptime wiring: ${required}`);
 if (!workflow.includes('driver-uptime-history.test.js')) throw new Error('workflow does not run uptime test');
+if (!gps.includes('requestFirebaseRecovery') || !gps.includes('firebase_disconnected')) throw new Error('Firebase recovery wiring missing');
+if (gps.includes('goOffline') || gps.includes('goOnline')) throw new Error('recovery must not toggle Firebase connection');
 console.log('driver uptime history checks passed');
