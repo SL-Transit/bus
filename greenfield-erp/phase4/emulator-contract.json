@@ -1,5 +1,5 @@
 {
-  "phase": "6A",
+  "phase": "6A.1",
   "status": "emulator_only",
   "projectIdPattern": "^demo-",
   "commands": {
@@ -7,7 +7,10 @@
       "upload.authorize",
       "import.start",
       "import.status",
+      "draft.read",
       "draft.save",
+      "draft.validate",
+      "draft.validation.status",
       "review.request",
       "approval.decide"
     ],
@@ -32,6 +35,16 @@
       "maxConcurrentDispatches": 2,
       "maxAttempts": 5
     },
+    "greenfieldDraftValidationWorker": {
+      "type": "task",
+      "minInstances": 0,
+      "maxInstances": 2,
+      "concurrency": 1,
+      "timeoutSeconds": 540,
+      "memory": "512MiB",
+      "maxConcurrentDispatches": 2,
+      "maxAttempts": 5
+    },
     "greenfieldRetentionCleanup": {
       "type": "schedule",
       "minInstances": 0,
@@ -46,13 +59,17 @@
     "maxStagedSourceBytes": 26214400,
     "maxDraftSaveBytes": 524288,
     "maxDraftOperationsPerCommand": 100,
+    "maxDraftReadItems": 50,
+    "maxDraftReadBytes": 262144,
+    "maxValidationErrorsReturned": 100,
     "maxRequestsPerInstanceWindow": 20,
     "windowMilliseconds": 60000,
     "uploadAuthorizationTtlSeconds": 900,
     "workflowLockSeconds": 60
   },
   "retention": {
-    "resources": ["uploadAuthorizations", "importJobs", "abandonedDrafts"],
+    "resources": ["uploadAuthorizations", "importJobs", "draftValidationJobs", "abandonedDrafts"],
+    "validationJobRetentionHours": 24,
     "storageLifecycleStatus": "proposal_only"
   },
   "authorization": {
@@ -62,6 +79,7 @@
   },
   "browser": {
     "directRtdbWrite": false,
+    "directDraftRootRead": false,
     "quarantineUpload": "authorized target only",
     "productionEndpointConfigured": false
   },
