@@ -110,7 +110,8 @@ async function main() {
         ...authorizationResult.body.result.target.headers,
         authorization: "Bearer " + operatorToken
       },
-      body: bytes
+      body: bytes,
+      signal: AbortSignal.timeout(15000)
     });
     assert.equal(upload.ok, true, await upload.text());
 
