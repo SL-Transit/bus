@@ -43,7 +43,7 @@ async function main() {
     const source = { bucket: bucketName, objectPath, contentType: "application/json", sizeBytes: sourceBytes.length, checksumSha256: "sha256:" + crypto.createHash("sha256").update(sourceBytes).digest("hex") };
     const token = await signIn(email, password);
     const gatewayEndpoint = "http://" + functionsHost + "/" + projectId + "/asia-southeast1/greenfieldErpCommand";
-    const startEnvelope = { requestId: "REQ-20260811-4101", command: "import.start", payload: { operatorScope: ["OPR-BUS01"], source } };
+    const startEnvelope = { requestId: "REQ-20260811-4101", idempotencyKey: "IDM-REQ-20260811-4101", command: "import.start", payload: { operatorScope: ["OPR-BUS01"], source } };
 
     const queued = await post(gatewayEndpoint, token, startEnvelope);
     assert.equal(queued.response.status, 202); assert.equal(queued.body.result.status, "queued");
@@ -62,7 +62,7 @@ async function main() {
     const draft = (await database.ref(basePath + "/authoring/drafts/" + job.draftId + "/metadata").get()).val();
     assert.equal(draft.status, "draft"); assert.equal(draft.createdByUid, uid); assert.ok(draft.expiresAt);
 
-    const statusResult = await post(gatewayEndpoint, token, { requestId: "REQ-20260811-4102", command: "import.status", payload: { jobId } });
+    const statusResult = await post(gatewayEndpoint, token, { requestId: "REQ-20260811-4102", idempotencyKey: "IDM-REQ-20260811-4102", command: "import.status", payload: { jobId } });
     assert.equal(statusResult.response.status, 200); assert.equal(statusResult.body.result.status, "completed"); assert.equal(statusResult.body.result.source, undefined);
 
     const expiredDate = "2026-08-10"; const cleanupNow = "2026-08-15T00:00:00.000Z";
