@@ -46,9 +46,39 @@
 | Published Read Model / Journey core | DONE | PR #150 merged; CI `31460002078`; Pages `31460450126` | Emulator proof complete; ยังไม่ deploy Firebase/Production |
 | Admin ERP1 backend integration | DONE | PR #152 merged as `199e2e348abaaa748a6a1f9b8d778291acb66e4f`; CI `31493338953`; Pages `31493736824` | Emulator integration ผ่านและอยู่ใน `main`; Draft revalidation/editor ยังเป็นงานถัดไปแยก scope |
 | Admin Draft revalidation/editor | DONE | Owner อนุมัติ Merge PR #154; CI `31501263562` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Squash Merge เข้า `main` เท่านั้น |
+| Experimental ERP sandbox isolation | IN_PROGRESS | Branch `codex/erp-experimental-sandbox` | คัดลอก Greenfield/Admin/Contracts/Tests ไป `experimental/erp-sandbox/`; Emulator only; ไม่ Merge/Deploy |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
 ### Active file locks
+
+- Experimental ERP sandbox isolation — Owner: Primary AI (Greenfield); Status: 
+`
+IN_PROGRESS
+`
+; Branch: 
+`
+codex/erp-experimental-sandbox
+`
+; Draft PR pending
+  - Files/paths: 
+`
+experimental/erp-sandbox/**
+`
+, 
+`
+ai-handoffs/WORK-BOARD.md
+`
+  - Intended output: สำเนาโครงการ Greenfield ERP แบบ standalone review sandbox; Admin safe-mode; Data Contract; Emulator configs; tests/docs
+  - Tests: ตรวจ tree/import paths/Production URL/credential/deploy-workflow; CI เดิมและ Sandbox unit tests
+  - Dependencies: PR #154 merged; Excel 
+`
+new erp data.xlsx
+`
+ ยังเป็น source draft และไม่คัดลอกเข้า repository
+  - Cost risk: Emulator only; ไม่มี Firebase project creation/deploy; ไม่มี Production write; ไม่มี Consumer cutover
+  - Firebase writes: none; future demo Emulator only
+  - Started/last update: 2026-08-11
+
 
 - Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `DONE`; Branch: `codex/phase6a1-draft-revalidation-editor`; PR #154 อนุมัติให้ Squash Merge และปลดล็อกเมื่อ Merge สำเร็จ
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract,retention-service,rtdb-retention-store,retention-contract}.js|json`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `tests/admin-erp1-{integration,network-publish}.test.js`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
