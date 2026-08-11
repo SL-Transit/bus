@@ -193,7 +193,7 @@ async function main() {
         validationErrorCount: 0
       },
       entities: {
-        operators: { "OPR-BUS01": { operatorId: "OPR-BUS01", nameTh: "????????????????????" } },
+        operators: { "OPR-BUS01": { operatorId: "OPR-BUS01", nameTh: "ผู้ให้บริการตัวอย่าง" } },
         routes: { "RTE-BUS01-0001": { routeId: "RTE-BUS01-0001", operatorId: "OPR-BUS01", shortName: "F1", serviceMode: "fixed" } }
       }
     });
@@ -201,7 +201,7 @@ async function main() {
       draftId: editableDraftId,
       expectedRevision: 1,
       operatorScope,
-      changeSummary: "????????????????? Draft",
+      changeSummary: "แก้ชื่อย่อสายรถใน Draft",
       operations: [{
         entityType: "routes",
         entityId: "RTE-BUS01-0001",

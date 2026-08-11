@@ -157,7 +157,7 @@ test("Draft save validates stable target, revision scope and bounded changes", a
       draftId,
       expectedRevision: 1,
       operatorScope: ["OPR-BUS01"],
-      changeSummary: "????????????????????????????",
+      changeSummary: "แก้ชื่อสายรถเพื่อส่งตรวจใหม่",
       operations: [{
         entityType: "routes",
         entityId: "RTE-BUS01-0001",
