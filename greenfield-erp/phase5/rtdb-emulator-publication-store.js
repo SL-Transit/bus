@@ -117,7 +117,8 @@ function createRtdbEmulatorPublicationStore(options) {
         throw codedError("publication_finalize_rejected");
       }
       const result = await ref.transaction(function (current) {
-        if (!current || current.requestHash !== readyManifest.requestHash || current.status !== "building") return;
+        if (current === null) return readyManifest;
+        if (current.requestHash !== readyManifest.requestHash || current.status !== "building") return;
         return readyManifest;
       }, undefined, false);
       const finalized = snapshotValue(result.snapshot);
