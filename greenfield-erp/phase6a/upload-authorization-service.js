@@ -89,7 +89,7 @@ function createUploadAuthorizationService(options) {
       sizeBytes: upload.sizeBytes,
       expiresAt
     });
-    if (!target || typeof target.url !== "string" || !/^https?:///.test(target.url)) {
+    if (!target || typeof target.url !== "string" || !(target.url.startsWith("http://") || target.url.startsWith("https://"))) {
       throw uploadError("upload_target_unavailable", 503);
     }
     return Object.freeze({
