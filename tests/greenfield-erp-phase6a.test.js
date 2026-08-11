@@ -204,7 +204,7 @@ test("Phase 6A runtime is emulator-guarded and contains no publication path", ()
   const controller = fs.readFileSync(path.join(root, "admin-erp1-greenfield-controller.js"), "utf8");
   assert.match(entry, /assertDemoDatabaseEmulator/);
   assert.match(entry, /greenfield_storage_emulator_required/);
-  assert.match(entry, /maxInstances:s*3, concurrency:s*10/);
+  assert.ok(entry.includes("maxInstances: 3, concurrency: 10"));
   assert.match(store, /commandReceipts/);
   assert.match(store, /workflowLock/);
   assert.doesNotMatch([entry, store, controller].join(String.fromCharCode(10)), /publishedReadModels|publication.activate|firebase deploy/i);
