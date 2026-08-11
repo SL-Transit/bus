@@ -71,12 +71,13 @@ exports.greenfieldErpCommand = onRequest(GATEWAY_OPTIONS, handler);
 exports.greenfieldImportWorker = onTaskDispatched(WORKER_OPTIONS, async function (request) {
   const data = request && request.data || {};
   const probePath = "/data/erpDataCenter/importJobs/" + encodeURIComponent(data.jobId || "missing") + "/metadata.json?ns=";
-  const defaultProbe = await fetch("http://" + databaseEmulatorHost + probePath + encodeURIComponent(projectId + "-default-rtdb"));
-  const projectProbe = await fetch("http://" + databaseEmulatorHost + probePath + encodeURIComponent(projectId));
+  const probeOptions = { headers: { authorization: "Bearer owner" } };
+  const defaultProbe = await fetch("http://" + databaseEmulatorHost + probePath + encodeURIComponent(projectId + "-default-rtdb"), probeOptions);
+  const projectProbe = await fetch("http://" + databaseEmulatorHost + probePath + encodeURIComponent(projectId), probeOptions);
   const defaultProbeJob = defaultProbe.ok ? await defaultProbe.json() : null;
   const projectProbeJob = projectProbe.ok ? await projectProbe.json() : null;
   const result = await importJobService.process(data.jobId, systemRunId(request && request.id || data.jobId));
-  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true, defaultProbeStatus: defaultProbeJob && defaultProbeJob.status || "missing", projectProbeStatus: projectProbeJob && projectProbeJob.status || "missing", projectId, databaseEmulatorHost, databaseRef: database.ref("data/erpDataCenter").toString() });
+  console.info("greenfield_import_worker_result", { jobId: data.jobId || null, status: result.status, reused: result.reused === true, defaultProbeHttp: defaultProbe.status, defaultProbeStatus: defaultProbeJob && defaultProbeJob.status || "missing", projectProbeHttp: projectProbe.status, projectProbeStatus: projectProbeJob && projectProbeJob.status || "missing", projectId, databaseEmulatorHost, databaseRef: database.ref("data/erpDataCenter").toString() });
   return result;
 });
 exports.greenfieldRetentionCleanup = onSchedule(CLEANUP_OPTIONS, async function (event) {
