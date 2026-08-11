@@ -49,15 +49,20 @@ function createRtdbImportJobStore(options) {
     async claimJob(inputClaim) {
       safe(inputClaim.jobId, "jobId"); safe(inputClaim.workerId, "workerId");
       const ref = database.ref(basePath + "/importJobs/" + inputClaim.jobId + "/metadata");
-      const snapshot = await ref.get();
-      if (!snapshot.exists()) return { claimed: false, status: "missing", job: null };
+      const claimToken = crypto.randomBytes(16).toString("hex");
       const transaction = await ref.transaction(function (current) {
-        if (!current || current.status === "completed" || current.status === "failed") return;
-        if (current.status === "processing" && current.leaseExpiresAt && current.leaseExpiresAt > inputClaim.startedAt) return;
-        return { ...current, status: "processing", workerId: inputClaim.workerId, leaseExpiresAt: inputClaim.leaseExpiresAt, lastTouchedAt: inputClaim.startedAt, attempts: (current.attempts || 0) + 1 };
+        if (!current) return { jobId: inputClaim.jobId, status: "claim_pending", claimToken, createdAt: inputClaim.startedAt };
+        if (current.status === "completed" || current.status === "failed") return current;
+        if (current.status === "processing" && current.leaseExpiresAt && current.leaseExpiresAt > inputClaim.startedAt) return current;
+        return { ...current, status: "processing", workerId: inputClaim.workerId, claimToken, leaseExpiresAt: inputClaim.leaseExpiresAt, lastTouchedAt: inputClaim.startedAt, attempts: (current.attempts || 0) + 1 };
       }, undefined, false);
       const job = transaction && transaction.snapshot && transaction.snapshot.val();
-      return { claimed: Boolean(transaction && transaction.committed), status: job && job.status || "missing", job };
+      if (job && job.status === "claim_pending" && job.claimToken === claimToken) {
+        await ref.transaction(function (current) { return current && current.status === "claim_pending" && current.claimToken === claimToken ? null : current; }, undefined, false);
+        return { claimed: false, status: "missing", job: null };
+      }
+      const claimed = Boolean(job && job.status === "processing" && job.claimToken === claimToken);
+      return { claimed, status: job && job.status || "missing", job };
     },
     async finishJob(result) {
       safe(result.jobId, "jobId");
@@ -68,6 +73,7 @@ function createRtdbImportJobStore(options) {
       updates["importJobs/" + result.jobId + "/metadata/resultCode"] = result.resultCode;
       updates["importJobs/" + result.jobId + "/metadata/leaseExpiresAt"] = null;
       updates["importJobs/" + result.jobId + "/metadata/workerId"] = null;
+      updates["importJobs/" + result.jobId + "/metadata/claimToken"] = null;
       if (result.draftId) updates["importJobs/" + result.jobId + "/metadata/draftId"] = result.draftId;
       if (result.validationErrors) updates["importJobs/" + result.jobId + "/validation/errors"] = result.validationErrors;
       updates["taskOutbox/importValidation/" + result.jobId + "/status"] = result.status;
@@ -81,6 +87,7 @@ function createRtdbImportJobStore(options) {
       updates["importJobs/" + result.jobId + "/metadata/lastErrorCode"] = result.errorCode;
       updates["importJobs/" + result.jobId + "/metadata/leaseExpiresAt"] = null;
       updates["importJobs/" + result.jobId + "/metadata/workerId"] = null;
+      updates["importJobs/" + result.jobId + "/metadata/claimToken"] = null;
       updates["taskOutbox/importValidation/" + result.jobId + "/status"] = "retryable";
       await database.ref(basePath).update(updates);
     }
