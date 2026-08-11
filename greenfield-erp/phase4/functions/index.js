@@ -73,8 +73,15 @@ const storageReader = createStoragePackageReader({ storage: getStorage(app) });
 const draftStore = createRtdbEmulatorDraftStore({ database, projectId, databaseEmulatorHost });
 const accessReader = createRtdbAccessReader({ database, projectId, databaseEmulatorHost });
 const jobStore = createRtdbImportJobStore({ database, projectId, databaseEmulatorHost });
-const importJobService = createImportJobService({ jobStore, packageReader: storageReader, draftStore, retentionPolicy, createValidatedDraft });
 const uploadAuthorizationStore = createRtdbUploadAuthorizationStore({ database, projectId, databaseEmulatorHost });
+const importJobService = createImportJobService({
+  jobStore,
+  packageReader: storageReader,
+  draftStore,
+  retentionPolicy,
+  createValidatedDraft,
+  uploadAuthorizationStore
+});
 const uploadAuthorizationService = createUploadAuthorizationService({
   store: uploadAuthorizationStore,
   bucketName: projectId + ".appspot.com",
