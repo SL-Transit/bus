@@ -45,9 +45,19 @@
 | Async Import + Retention | DONE | PR #148 merged; CI `31456735953` | Canonical JSON + Emulator; ไม่ deploy Firebase |
 | Published Read Model / Journey core | DONE | PR #150 merged; CI `31460002078`; Pages `31460450126` | Emulator proof complete; ยังไม่ deploy Firebase/Production |
 | Admin ERP1 backend integration | DONE | PR #152 merged as `199e2e348abaaa748a6a1f9b8d778291acb66e4f`; CI `31493338953`; Pages `31493736824` | Emulator integration ผ่านและอยู่ใน `main`; Draft revalidation/editor ยังเป็นงานถัดไปแยก scope |
+| Admin Draft revalidation/editor | IN_PROGRESS | branch `codex/phase6a1-draft-revalidation-editor`; lock เริ่ม 2026-08-11 | Async revalidation, bounded Draft read/editor, Reject; Emulator only |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
 ### Active file locks
+
+- Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `IN_PROGRESS`; Branch: `codex/phase6a1-draft-revalidation-editor`
+  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract}.json|js`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
+  - Intended output: อ่าน Draft แบบแบ่งหน้า, บันทึกการแก้ไขแบบ bounded operations, ตรวจ Draft ใหม่ด้วย async worker, แสดงผล Validation และ Reject จาก Admin ERP1 โดยไม่มี Publish
+  - Tests: Unit + demo RTDB/Storage Emulator + existing regression; ตรวจ revision conflict, stale validation, scope, separation of duties, payload/result bounds และ direct browser write denial
+  - Dependencies: Data Contract v1, Phase 4 async import/retention, Phase 6A backend integration
+  - Cost risk: Gateway ห้ามโหลด Draft ทั้งก้อน; page size/response จำกัด; validation worker `maxInstances=2`, `concurrency=1`; error report จำกัด; retention ครอบคลุม validation jobs
+  - Firebase writes: demo Emulator only; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
+  - Started/last update: 2026-08-11
 
 - Phase 6A file lock ถูกปลดหลัง PR #152 merge; งานต่อยอดต้องเปิด branch/file lock ใหม่ตาม scope ของตน
 - Workstream 3 runtime lock ถูกปลดหลัง PR #150 merge
