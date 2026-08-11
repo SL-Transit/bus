@@ -53,11 +53,14 @@ function createRtdbRetentionStore(options) {
       const jobSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/importJobs").limitToFirst(limit).get();
       const jobs = snapshotKeys(jobSnapshot, "importJobs").map(function (item) { return { ...item, expiryDateKey }; });
       if (jobs.length >= limit) return jobs;
-      const uploadSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/uploadAuthorizations").limitToFirst(limit - jobs.length).get();
+      const validationSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/validationJobs").limitToFirst(limit - jobs.length).get();
+      const validations = snapshotKeys(validationSnapshot, "validationJobs").map(function (item) { return { ...item, expiryDateKey }; });
+      if (jobs.length + validations.length >= limit) return jobs.concat(validations);
+      const uploadSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/uploadAuthorizations").limitToFirst(limit - jobs.length - validations.length).get();
       const uploads = snapshotKeys(uploadSnapshot, "uploadAuthorizations").map(function (item) { return { ...item, expiryDateKey }; });
-      if (jobs.length + uploads.length >= limit) return jobs.concat(uploads);
-      const draftSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/drafts").limitToFirst(limit - jobs.length - uploads.length).get();
-      return jobs.concat(uploads, snapshotKeys(draftSnapshot, "drafts").map(function (item) { return { ...item, expiryDateKey }; }));
+      if (jobs.length + validations.length + uploads.length >= limit) return jobs.concat(validations, uploads);
+      const draftSnapshot = await database.ref(basePath + "/maintenance/expiryBuckets/" + expiryDateKey + "/drafts").limitToFirst(limit - jobs.length - validations.length - uploads.length).get();
+      return jobs.concat(validations, uploads, snapshotKeys(draftSnapshot, "drafts").map(function (item) { return { ...item, expiryDateKey }; }));
     },
     async cleanupImportJob(candidate) {
       safe(candidate.id, "jobId");
@@ -80,6 +83,36 @@ function createRtdbRetentionStore(options) {
       if (uploadMatch) updates["uploadAuthorizations/" + uploadMatch[1]] = null;
       updates["maintenance/expiryBuckets/" + candidate.expiryDateKey + "/importJobs/" + candidate.id] = null;
       updates["audit/events/" + auditId] = { eventId: auditId, eventType: "retention.import_job.deleted", entityId: candidate.id, actorUid: "system:retention", occurredAt: candidate.now };
+      await database.ref(basePath).update(updates);
+      return { action: "deleted" };
+    },
+    async cleanupValidationJob(candidate) {
+      safe(candidate.id, "validationJobId");
+      const path = basePath + "/draftValidationJobs/" + candidate.id + "/metadata";
+      const snapshot = await database.ref(path).get();
+      if (!snapshot.exists()) {
+        await database.ref(basePath + "/maintenance/expiryBuckets/" + candidate.expiryDateKey + "/validationJobs/" + candidate.id).remove();
+        return { action: "stale_index_removed" };
+      }
+      const job = snapshot.val();
+      if (job.protectedFromCleanup === true || !job.expiresAt || job.expiresAt > candidate.now || (job.status === "processing" && job.leaseExpiresAt > candidate.now)) {
+        return defer("validationJobs", candidate.id, candidate.expiryDateKey, candidate.now);
+      }
+      if (!["queued", "retryable", "failed", "completed"].includes(job.status)) {
+        return defer("validationJobs", candidate.id, candidate.expiryDateKey, candidate.now);
+      }
+      const auditId = "AUD-" + digest(candidate.id + ":cleanup:" + candidate.now).slice(0, 24).toUpperCase();
+      const updates = {};
+      updates["draftValidationJobs/" + candidate.id] = null;
+      updates["taskOutbox/draftValidation/" + candidate.id] = null;
+      updates["maintenance/expiryBuckets/" + candidate.expiryDateKey + "/validationJobs/" + candidate.id] = null;
+      updates["audit/events/" + auditId] = {
+        eventId: auditId,
+        eventType: "retention.validation_job.deleted",
+        entityId: candidate.id,
+        actorUid: "system:retention",
+        occurredAt: candidate.now
+      };
       await database.ref(basePath).update(updates);
       return { action: "deleted" };
     },
