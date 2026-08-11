@@ -45,12 +45,12 @@
 | Async Import + Retention | DONE | PR #148 merged; CI `31456735953` | Canonical JSON + Emulator; ไม่ deploy Firebase |
 | Published Read Model / Journey core | DONE | PR #150 merged; CI `31460002078`; Pages `31460450126` | Emulator proof complete; ยังไม่ deploy Firebase/Production |
 | Admin ERP1 backend integration | DONE | PR #152 merged as `199e2e348abaaa748a6a1f9b8d778291acb66e4f`; CI `31493338953`; Pages `31493736824` | Emulator integration ผ่านและอยู่ใน `main`; Draft revalidation/editor ยังเป็นงานถัดไปแยก scope |
-| Admin Draft revalidation/editor | REVIEW | Draft PR #154; CI `31500962439` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Owner review/อนุมัติ Merge |
+| Admin Draft revalidation/editor | DONE | Owner อนุมัติ Merge PR #154; CI `31501263562` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Squash Merge เข้า `main` เท่านั้น |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
 ### Active file locks
 
-- Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `REVIEW`; Branch: `codex/phase6a1-draft-revalidation-editor`; Draft PR #154
+- Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `DONE`; Branch: `codex/phase6a1-draft-revalidation-editor`; PR #154 อนุมัติให้ Squash Merge และปลดล็อกเมื่อ Merge สำเร็จ
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract,retention-service,rtdb-retention-store,retention-contract}.js|json`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `tests/admin-erp1-{integration,network-publish}.test.js`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
   - Intended output: อ่าน Draft แบบแบ่งหน้า, บันทึกการแก้ไขแบบ bounded operations, ตรวจ Draft ใหม่ด้วย async worker, แสดงผล Validation และ Reject จาก Admin ERP1 โดยไม่มี Publish
   - Tests: Unit + demo RTDB/Storage Emulator + existing regression; ตรวจ revision conflict, stale validation, scope, separation of duties, payload/result bounds และ direct browser write denial
@@ -139,17 +139,18 @@ NEXT_ACTION: open a separate lock/PR for Draft revalidation and Admin editor/Rej
 ## Completion Report — Phase 6A.1 / PR #154
 
 ```text
-STATUS: REVIEW
-COMMIT/PR: Draft PR #154; reviewed head before board closeout 03506db52d52ec06dd4194998b8a2a9ac53957cc
+STATUS: DONE
+OWNER_APPROVAL: Owner อนุมัติ Squash Merge PR #154 ใน Codex task เมื่อ 2026-08-11
+COMMIT/PR: PR #154 อนุมัติให้ Squash Merge; final merge SHA ตรวจสอบได้จาก GitHub history
 FILES_CHANGED: Admin ERP1 UI/client/state; Phase 4 gateway/auth/function/retention; Phase 6A.1 workflow/validation job store; contracts/docs/tests/board
 RESULTS: Draft read แบบแบ่งหน้า; save เฉพาะ bounded operations; validation job/worker ที่กัน stale revision และ superseded job; Review gate; Owner Reject/Approve; validation job retention
-TESTS: GitHub Actions run 31500962439 ผ่าน Unit/Regression, Phase 2/4/6A/5 Emulators และ Performance; Phase 6A.1 ทดสอบ edit -> revalidate -> review -> reject -> edit -> revalidate -> approve
+TESTS: GitHub Actions run 31501263562 ผ่าน Unit/Regression, Phase 2/4/6A/5 Emulators และ Performance; Phase 6A.1 ทดสอบ edit -> revalidate -> review -> reject -> edit -> revalidate -> approve
 ACTIONS/PAGES: ไม่มี Pages/Firebase deploy ในขอบเขตนี้
 FIREBASE_DEPLOY_EVIDENCE: none — demo project/Emulator only
 DATA/PRIVACY_IMPACT: ใช้ canonical fixture เท่านั้น; ไม่มี Booking, Passenger, Payment หรือข้อมูลส่วนตัว Production
 COST_IMPACT: ไม่มีค่า Firebase Production; Gateway ไม่อ่าน Draft ทั้งก้อน; read 50 records/256 KiB; worker maxInstances 2/concurrency 1; report 100 errors; validation job retention 24 ชั่วโมงใน Emulator
 KNOWN_RISKS: Production task dispatcher/upload signer/Storage lifecycle และ Production load/cost evidence ยังไม่มี; Actions มี dependency deprecation warnings เดิม
-NEXT_ACTION: Owner review Draft PR #154. Merge, Firebase/Rules deploy, Production write, Publish และ Consumer cutover ต้องอนุมัติแยก
+NEXT_ACTION: Squash Merge PR #154 เข้า main เท่านั้น; Firebase/Rules deploy, Production write, Publish และ Consumer cutover ยังต้องขอ Owner approval แยก
 ```
 ## Work Lock Template
 
