@@ -307,6 +307,19 @@ function canonicalWorkbookReady(source) {
     Number(manifestCounts.scheduleRows) === scheduleCount;
 }
 
+function bookingStopMatches(requestedKey, requestedLabel, rowKey, rowLabel) {
+  const key = String(requestedKey || "").trim().toLowerCase();
+  const rowStopKey = String(rowKey || "").trim().toLowerCase();
+  if (key && rowStopKey) return key === rowStopKey;
+  if (!requestedLabel) return true;
+  const normalize = (value) => String(value || "")
+    .replace(/\s*\([^)]*\)\s*/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  return normalize(requestedLabel) === normalize(rowLabel);
+}
+
 function findCanonicalWorkbookPair(source, booking) {
   const fareRows = Object.values(source.routeFareRows || {});
   const scheduleRows = Object.values(source.scheduleRows || {});
@@ -314,8 +327,8 @@ function findCanonicalWorkbookPair(source, booking) {
   const fare = fareRows.find((row) => {
     if (!row || !wantedPairIds.includes(String(row.sourceRowId || ""))) return false;
     if (booking.routeId && String(row.routeId || "") !== String(booking.routeId)) return false;
-    if (booking.origin && String(row.fromNameTh || "") !== String(booking.origin)) return false;
-    if (booking.destination && String(row.toNameTh || "") !== String(booking.destination)) return false;
+    if (!bookingStopMatches(booking.originKey, booking.origin, row.fromStopKey, row.fromNameTh)) return false;
+    if (!bookingStopMatches(booking.destKey, booking.destination, row.toStopKey, row.toNameTh)) return false;
     return String(row.status == null ? "" : row.status).toLowerCase() !== "false";
   });
   if (!fare) return null;
@@ -324,8 +337,8 @@ function findCanonicalWorkbookPair(source, booking) {
     if (!row || String(row.routeId || "") !== String(fare.routeId || "")) return false;
     if (wantedTripIds.length && !wantedTripIds.includes(String(row.scheduleOfferId || ""))) return false;
     if (booking.pickupTime && String(row.departureTime || "") !== String(booking.pickupTime)) return false;
-    if (String(row.originNameTh || "") !== String(fare.fromNameTh || "")) return false;
-    if (String(row.destinationNameTh || "") !== String(fare.toNameTh || "")) return false;
+    if (!bookingStopMatches(fare.fromStopKey, fare.fromNameTh, row.fromStopKey, row.originNameTh)) return false;
+    if (!bookingStopMatches(fare.toStopKey, fare.toNameTh, row.toStopKey, row.destinationNameTh)) return false;
     return row.bookingEnabled !== false && String(row.bookingEnabled || "").toLowerCase() !== "false";
   });
   if (!trip) return null;
