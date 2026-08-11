@@ -1,0 +1,27 @@
+{
+  "metadata":{"packageId":"IPK-20260810-000001","schemaVersion":"greenfield-erp-v1","templateVersion":"3.1.5","sourceChecksumSha256":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","mode":"validate_only","operatorScope":["OPR-BUS01"],"idempotencyKey":"import-20260810-000001"},
+  "operators":[{"operatorId":"OPR-BUS01","nameTh":"ผู้ให้บริการตัวอย่าง","timezone":"Asia/Bangkok"}],
+  "locations":[
+    {"locationId":"HUB-TH-24-00001","locationType":"hub","nameTh":"ศูนย์เปลี่ยนรถ"},
+    {"locationId":"STP-TH-24-00002","locationType":"stop","nameTh":"ป้ายตัวอย่าง 2","parentLocationId":"HUB-TH-24-00001"},
+    {"locationId":"STP-TH-24-00003","locationType":"stop","nameTh":"ป้ายตัวอย่าง 3"}
+  ],
+  "routes":[
+    {"routeId":"RTE-BUS01-0001","operatorId":"OPR-BUS01","shortName":"F1","serviceMode":"fixed"},
+    {"routeId":"RTE-BUS01-0002","operatorId":"OPR-BUS01","shortName":"Q1","serviceMode":"frequency"}
+  ],
+  "journeyPatterns":[
+    {"journeyPatternId":"JPT-BUS01-0001","routeId":"RTE-BUS01-0001","direction":"outbound","stops":[{"stopSequence":1,"locationId":"HUB-TH-24-00001"},{"stopSequence":2,"locationId":"STP-TH-24-00002"}]},
+    {"journeyPatternId":"JPT-BUS01-0002","routeId":"RTE-BUS01-0002","direction":"outbound","stops":[{"stopSequence":1,"locationId":"HUB-TH-24-00001"},{"stopSequence":2,"locationId":"STP-TH-24-00003"}]}
+  ],
+  "serviceCalendars":[{"serviceCalendarId":"CAL-BUS01-0001","startDate":"2026-01-01","endDate":"2026-12-31","weekdays":{"monday":true,"tuesday":true,"wednesday":true,"thursday":true,"friday":true,"saturday":true,"sunday":true}}],
+  "fixedTrips":[{"fixedTripId":"TRP-BUS01-0001","routeId":"RTE-BUS01-0001","journeyPatternId":"JPT-BUS01-0001","serviceCalendarId":"CAL-BUS01-0001","departureTime":"09:00:00"}],
+  "stopTimes":[
+    {"stopTimeId":"STM-BUS01-0001","fixedTripId":"TRP-BUS01-0001","stopSequence":1,"locationId":"HUB-TH-24-00001","arrivalTime":"09:00:00","departureTime":"09:00:00"},
+    {"stopTimeId":"STM-BUS01-0002","fixedTripId":"TRP-BUS01-0001","stopSequence":2,"locationId":"STP-TH-24-00002","arrivalTime":"09:30:00","departureTime":"09:31:00"}
+  ],
+  "frequencyServices":[{"frequencyServiceId":"FRQ-BUS01-0001","routeId":"RTE-BUS01-0002","journeyPatternId":"JPT-BUS01-0002","serviceCalendarId":"CAL-BUS01-0001","startTime":"06:00:00","endTime":"20:00:00","headwaySeconds":600,"boardingModel":"queue","exactTimes":false}],
+  "fareProducts":[{"fareProductId":"FPR-BUS01-0001","nameTh":"ค่าโดยสารปกติ","currency":"THB"}],
+  "fareRules":[{"fareRuleId":"FAR-BUS01-0001","fareProductId":"FPR-BUS01-0001","routeId":"RTE-BUS01-0001","originLocationId":"HUB-TH-24-00001","destinationLocationId":"STP-TH-24-00002","amountMinor":4000}],
+  "transferRules":[{"transferRuleId":"TRF-TH-24-0001","fromLocationId":"HUB-TH-24-00001","toLocationId":"HUB-TH-24-00001","minimumTransferSeconds":600,"maximumTransferSeconds":3600,"throughBooking":false,"baggageTransfer":false}]
+}
