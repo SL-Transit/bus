@@ -53,7 +53,7 @@ const demoRetentionPolicy = Object.freeze({
 });
 const retentionPolicy = parseRetentionPolicy(process.env.GREENFIELD_RETENTION_POLICY_JSON || demoRetentionPolicy);
 const appName = "greenfield-phase4-command-gateway";
-const databaseUrl = "http://" + databaseEmulatorHost + "?ns=" + projectId + "-default-rtdb";
+const databaseUrl = "https://" + projectId + "-default-rtdb.firebaseio.com";
 const existingApp = getApps().find(function (candidate) { return candidate.name === appName; });
 const app = existingApp || initializeApp({ projectId, storageBucket: projectId + ".appspot.com", databaseURL: databaseUrl }, appName);
 const database = getDatabaseWithUrl(databaseUrl, app);
