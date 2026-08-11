@@ -1,0 +1,20 @@
+{
+    "sourceRepository":  "SL-Transit/bus",
+    "sourceCommit":  "55cecbdf650fe984bbf548bad64c229f581928ea",
+    "copiedAt":  "2026-08-11",
+    "mode":  "emulator-only",
+    "copiedAreas":  [
+                        "admin-erp1 safe-mode",
+                        "greenfield-erp phases 2, 4, 5, 6a",
+                        "contracts/greenfield-erp/v1",
+                        "docs/greenfield-erp",
+                        "greenfield and Admin integration tests"
+                    ],
+    "excludedAreas":  [
+                          "new erp data.xlsx",
+                          "legacy production Admin integrations",
+                          "root Firebase configs",
+                          "deployment workflows",
+                          "Production credentials and data"
+                      ]
+}

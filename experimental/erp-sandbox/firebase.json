@@ -1,0 +1,32 @@
+{
+    "functions":  {
+                      "source":  "greenfield-erp/phase4/functions",
+                      "codebase":  "erp-sandbox",
+                      "runtime":  "nodejs22"
+                  },
+    "database":  {
+                     "rules":  "greenfield-erp/phase4/rules/database.rules.emulator.json"
+                 },
+    "storage":  {
+                    "rules":  "greenfield-erp/phase4/rules/storage.rules.emulator"
+                },
+    "emulators":  {
+                      "auth":  {
+                                   "port":  9199
+                               },
+                      "database":  {
+                                       "port":  9100
+                                   },
+                      "functions":  {
+                                        "port":  5002
+                                    },
+                      "storage":  {
+                                      "port":  9299
+                                  },
+                      "ui":  {
+                                 "port":  4002,
+                                 "enabled":  true
+                             },
+                      "singleProjectMode":  true
+                  }
+}
