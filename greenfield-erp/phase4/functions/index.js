@@ -47,7 +47,7 @@ function buildEmulatorUploadTarget(input) {
   return {
     url: origin + "/v0/b/" + encodeURIComponent(input.bucket) + "/o?name=" + encodeURIComponent(input.objectPath),
     method: "POST",
-    uploadProtocol: "firebase-multipart-v1",
+    uploadProtocol: "storage-multipart-v1",
     objectPath: input.objectPath,
     objectContentType: input.contentType,
     headers: { "x-goog-upload-protocol": "multipart" }

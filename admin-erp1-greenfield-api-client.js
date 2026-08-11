@@ -47,7 +47,7 @@
 
   function prepareUploadRequest(file, target) {
     const headers = { ...(target && target.headers || {}) };
-    if (!target || target.uploadProtocol !== "firebase-multipart-v1") {
+    if (!target || target.uploadProtocol !== "storage-multipart-v1") {
       return Object.freeze({ body: file, headers: Object.freeze(headers) });
     }
     const BlobConstructor = root && root.Blob;

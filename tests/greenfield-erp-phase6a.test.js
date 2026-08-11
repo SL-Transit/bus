@@ -54,7 +54,7 @@ test("Admin client builds the Firebase multipart upload used by the browser", as
   await client.upload(new Blob(["{}"], { type: "application/json" }), {
     url: "http://127.0.0.1:9299/v0/b/demo.appspot.com/o?name=staged.json",
     method: "POST",
-    uploadProtocol: "firebase-multipart-v1",
+    uploadProtocol: "storage-multipart-v1",
     objectPath: "erp-import-quarantine/owner-001/UPL-AAAAAAAAAAAAAAAAAAAAAAAA.json",
     objectContentType: "application/json",
     headers: { "x-goog-upload-protocol": "multipart" }
@@ -95,7 +95,7 @@ test("upload authorization is canonical-JSON only, bounded and idempotent", asyn
       return {
         url: "http://127.0.0.1:9299/v0/b/" + input.bucket + "/o?name=" + encodeURIComponent(input.objectPath),
         method: "POST",
-        uploadProtocol: "firebase-multipart-v1",
+        uploadProtocol: "storage-multipart-v1",
         objectPath: input.objectPath,
         objectContentType: input.contentType,
         headers: { "x-goog-upload-protocol": "multipart" }
@@ -120,7 +120,7 @@ test("upload authorization is canonical-JSON only, bounded and idempotent", asyn
   assert.equal(first.source.objectPath, second.source.objectPath);
   assert.equal(second.reused, true);
   assert.equal(first.source.contentType, "application/json");
-  assert.equal(first.target.uploadProtocol, "firebase-multipart-v1");
+  assert.equal(first.target.uploadProtocol, "storage-multipart-v1");
   assert.equal(first.target.objectPath, first.source.objectPath);
   assert.equal(first.target.headers["x-goog-upload-protocol"], "multipart");
   assert.throws(() => validateUploadRequest({ ...payload, contentType: "application/xlsx" }), /upload_content_type_not_supported/);
