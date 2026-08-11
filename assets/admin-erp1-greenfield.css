@@ -15,8 +15,8 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; color: var(--ink); background: radial-gradient(circle at 80% 10%, #18302d 0, transparent 30rem), var(--ground); min-height: 100vh; }
-button, input { font: inherit; }
-button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+button, input, select, textarea { font: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
 .skip-link { position: fixed; left: 1rem; top: -4rem; z-index: 20; padding: .7rem 1rem; color: #061012; background: var(--acid); border-radius: 8px; }
 .skip-link:focus { top: 1rem; }
 .preview-banner { padding: .55rem 1rem; color: #162000; background: var(--acid); text-align: center; font-size: .78rem; font-weight: 800; letter-spacing: .08em; }
@@ -97,6 +97,23 @@ dd { margin: .3rem 0 0; overflow-wrap: anywhere; font-size: .88rem; }
 .stage-card p { margin-bottom: .7rem; font-size: .87rem; }
 .locked { align-self: start; }
 footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.2rem 2rem; color: #6f7b7f; border-top: 1px solid var(--line); font-size: .72rem; }
+.stage-card-wide { align-items: start; }
+.editor-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; margin: 1rem 0; }
+.editor-toolbar label, .editor-grid label, .approval-comment { display: grid; gap: .4rem; color: var(--muted); font-size: .72rem; font-weight: 700; }
+.editor-toolbar select, .editor-grid select, .editor-fields input, .editor-fields textarea, .approval-comment input {
+  width: 100%; padding: .68rem .75rem; color: var(--ink); background: #0b1315; border: 1px solid #35444a; border-radius: 8px;
+}
+.editor-toolbar select { min-width: 220px; }
+.editor-grid { display: grid; grid-template-columns: minmax(210px, .7fr) minmax(0, 1.8fr); gap: 1rem; }
+.editor-grid > label select { min-height: 20rem; }
+.editor-fields { display: grid; gap: .8rem; }
+.editor-fields textarea { min-height: 13rem; resize: vertical; font: .78rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.button.danger { color: #ffd9d2; border-color: #8c453b; background: #301713; }
+.button.danger:disabled { color: #647075; background: #192124; border-color: #2b3539; }
+.validation-summary { display: grid; grid-template-columns: minmax(180px, .5fr) minmax(0, 1.5fr); gap: 1px; margin: 1rem 0 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--line); }
+.validation-summary div { padding: .75rem; background: #0d1416; }
+.validation-summary dd { white-space: pre-wrap; }
+.approval-comment { max-width: 720px; margin-top: .8rem; }
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { min-height: auto; padding: .8rem 1rem; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -105,6 +122,7 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.2r
   .content-grid { grid-template-columns: 1fr; }
   .workflow-strip { grid-template-columns: 1fr; }
   .workflow-strip > div { grid-template-columns: auto 1fr auto; }
+  .editor-grid { grid-template-columns: 1fr; }
   .workflow-strip small { align-self: center; }
 }
 @media (max-width: 620px) {
