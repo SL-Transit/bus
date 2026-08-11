@@ -354,7 +354,7 @@ test("Admin state blocks Review after edit, then enables Reject and another edit
   state = AdminState.reduce(state, { type: "DRAFT_VALIDATION_QUEUED", jobId: "DVJ-" + "A".repeat(24), status: "queued" });
   state = AdminState.reduce(state, {
     type: "DRAFT_VALIDATION_STATUS",
-    job: { jobId: "DVJ-" + "A".repeat(24), status: "completed", resultCode: "draft_valid", validation: { errors: [], warnings: [], errorCount: 0, warningCount: 0 } }
+    job: { jobId: "DVJ-" + "A".repeat(24), expectedRevision: 2, status: "completed", resultCode: "draft_valid", validation: { errors: [], warnings: [], errorCount: 0, warningCount: 0 } }
   });
   assert.equal(AdminState.deriveView(state).canRequestReview, true);
   state = AdminState.reduce(state, { type: "REQUEST_REVIEW", revision: 3 });
