@@ -76,6 +76,32 @@ function createRtdbUploadAuthorizationStore(options) {
         await database.ref(basePath).update(updates);
       }
       return { uploadId: record.uploadId, reused, expiresAt: stored.expiresAt };
+    },
+    async consumeAuthorization(inputConsume) {
+      const match = typeof inputConsume.source.objectPath === "string" && inputConsume.source.objectPath.match(/\/(UPL-[A-F0-9]{24})[.]json$/);
+      if (!match) throw new Error("upload_authorization_not_found");
+      const uploadId = match[1];
+      const ref = database.ref(basePath + "/uploadAuthorizations/" + uploadId);
+      const transaction = await ref.transaction(function (current) {
+        if (!current) return current;
+        if (current.actorUid !== inputConsume.actorUid || current.bucket !== inputConsume.source.bucket ||
+            current.objectPath !== inputConsume.source.objectPath || current.sizeBytes !== inputConsume.source.sizeBytes ||
+            current.checksumSha256 !== inputConsume.source.checksumSha256 || current.contentType !== inputConsume.source.contentType) return current;
+        if (current.status === "consumed") return current;
+        if (current.status !== "authorized" || current.expiresAt <= inputConsume.consumedAt) return current;
+        return { ...current, status: "consumed", consumedAt: inputConsume.consumedAt };
+      }, undefined, false);
+      const stored = transaction && transaction.snapshot && transaction.snapshot.val();
+      if (!stored) throw new Error("upload_authorization_not_found");
+      if (stored.actorUid !== inputConsume.actorUid || stored.objectPath !== inputConsume.source.objectPath ||
+          stored.checksumSha256 !== inputConsume.source.checksumSha256 || stored.status !== "consumed") {
+        const error = new Error("upload_authorization_invalid");
+        error.code = "upload_authorization_invalid";
+        error.httpStatus = 403;
+        throw error;
+      }
+      await database.ref(basePath + "/maintenance/expiryBuckets/" + stored.expiresAt.slice(0, 10) + "/uploadAuthorizations/" + uploadId).remove();
+      return { uploadId, reused: stored.consumedAt !== inputConsume.consumedAt };
     }
   });
 }
