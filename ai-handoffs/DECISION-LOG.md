@@ -60,3 +60,13 @@
 
 - Decision: Import Job, staged source และ Draft ชั่วคราวต้องมี Owner-defined retention policy, `expiresAt`, expiry-bucket index และ scheduled cleanup ที่ใช้ lease, cursor, day window และ batch limit.
 - Consequence: ห้ามสแกน RTDB root; ต้องปกป้องงาน processing/review/approved/published/rollback/legal hold และ `protectedFromCleanup`; Storage lifecycle และค่า Production ต้องขอ Owner approval แยก.
+
+## D-013 — Integration Order And Shadow Cutover
+
+- Decision: เชื่อม Admin ERP1 กับ Authenticated Backend/Draft/Review/Approve ให้ผ่าน Emulator ก่อน แล้วจึงย้าย Consumer ตามลำดับ Map/Reports shadow -> Passenger shadow/cutover -> Booking shadow/cutover.
+- Consequence: Booking เป็น Consumer สุดท้าย; ทุก Consumer ต้อง pin `versionId`, ใช้ feature flag, มี mismatch evidence และ rollback ก่อนเปลี่ยนผลจริง.
+
+## D-014 — Frequency Runtime Is Required Data
+
+- Decision: Journey ของ Frequency/Queue ต้องมีเวลาเดินทางรายช่วงที่อนุมัติแล้ว นอกเหนือจาก `headwaySeconds`; ห้ามเดา runtime จากชื่อกลุ่ม ระยะทาง หรือค่า default.
+- Consequence: หาก segment runtime ไม่ครบ Publication ต้อง fail validation และห้ามเปิด Passenger/Booking route result สำหรับสายนั้น.
