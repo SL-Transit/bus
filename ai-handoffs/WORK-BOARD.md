@@ -51,7 +51,7 @@
 ### Active file locks
 
 - Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `IN_PROGRESS`; Branch: `codex/phase6a1-draft-revalidation-editor`
-  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract}.json|js`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
+  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract,retention-service,rtdb-retention-store,retention-contract}.js|json`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
   - Intended output: อ่าน Draft แบบแบ่งหน้า, บันทึกการแก้ไขแบบ bounded operations, ตรวจ Draft ใหม่ด้วย async worker, แสดงผล Validation และ Reject จาก Admin ERP1 โดยไม่มี Publish
   - Tests: Unit + demo RTDB/Storage Emulator + existing regression; ตรวจ revision conflict, stale validation, scope, separation of duties, payload/result bounds และ direct browser write denial
   - Dependencies: Data Contract v1, Phase 4 async import/retention, Phase 6A backend integration
