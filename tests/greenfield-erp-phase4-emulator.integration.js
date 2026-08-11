@@ -36,13 +36,20 @@ async function main() {
   await database.ref(basePath).remove();
   try {
     await auth.createUser({ uid, email, password }); await auth.setCustomUserClaims(uid, { role: "admin" });
-    await database.ref(basePath + "/access/accounts/" + uid).set({ active: true, allowedCommands: ["import.start", "import.status"], resourceScopes: { operatorIds: ["OPR-BUS01"] } });
+    await database.ref(basePath + "/access/accounts/" + uid).set({ active: true, allowedCommands: ["upload.authorize", "import.start", "import.status"], resourceScopes: { operatorIds: ["OPR-BUS01"] } });
     const sourceBytes = Buffer.from(JSON.stringify(valid));
-    const objectPath = "erp-import-quarantine/" + uid + "/network-package.json";
-    await storage.bucket(bucketName).file(objectPath).save(sourceBytes, { metadata: { contentType: "application/json" } });
-    const source = { bucket: bucketName, objectPath, contentType: "application/json", sizeBytes: sourceBytes.length, checksumSha256: "sha256:" + crypto.createHash("sha256").update(sourceBytes).digest("hex") };
+    const checksumSha256 = "sha256:" + crypto.createHash("sha256").update(sourceBytes).digest("hex");
     const token = await signIn(email, password);
     const gatewayEndpoint = "http://" + functionsHost + "/" + projectId + "/asia-southeast1/greenfieldErpCommand";
+    const authorized = await post(gatewayEndpoint, token, {
+      requestId: "REQ-20260811-4100",
+      idempotencyKey: "IDM-REQ-20260811-4100",
+      command: "upload.authorize",
+      payload: { fileName: "network.json", contentType: "application/json", sizeBytes: sourceBytes.length, checksumSha256, operatorScope: ["OPR-BUS01"] }
+    });
+    assert.equal(authorized.response.status, 200);
+    const source = authorized.body.result.source;
+    await storage.bucket(source.bucket).file(source.objectPath).save(sourceBytes, { metadata: { contentType: source.contentType } });
     const startEnvelope = { requestId: "REQ-20260811-4101", idempotencyKey: "IDM-REQ-20260811-4101", command: "import.start", payload: { operatorScope: ["OPR-BUS01"], source } };
 
     const queued = await post(gatewayEndpoint, token, startEnvelope);
