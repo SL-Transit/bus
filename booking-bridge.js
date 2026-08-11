@@ -28,6 +28,7 @@
     readyForReview: false,
     productionReady: false,
     writesEnabled: false,
+    workbookSourceReady: false,
     publicationStatus: '',
     originOptions: [],
     destinationOptionsByOrigin: {},
@@ -128,6 +129,7 @@
         sourceCommitSha: manifest.sourceCommitSha || '',
         dryRun: manifest.dryRun !== false,
         writesEnabled: manifest.writesEnabled === true,
+        workbookSourceReady: _workbookIndex.routeFareRowCount > 0 && _workbookIndex.scheduleRowCount > 0,
         readyForReview: manifest.readyForReview === true,
         readyForApply: manifest.readyForApply === true,
         publicationStatus: manifest.publicationStatus || 'workbook_source',
@@ -585,7 +587,7 @@
   }
 
   function canCreateProductionBookings() {
-    return _preview.readyForApply === true && _preview.productionReady === true && _preview.writesEnabled === true;
+    return _preview.workbookSourceReady === true;
   }
 
   function getLastFareContractStatus() {

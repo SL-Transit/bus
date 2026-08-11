@@ -44,6 +44,10 @@ jobs:
       - name: รันชุดตรวจเดิมทั้งหมด
         run: node --test tests/*.test.js
 
+      - name: รัน Greenfield Phase 2 กับ RTDB Emulator แบบ demo
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules
+        run: firebase emulators:exec --only database --project demo-sl-transit-greenfield --config greenfield-erp/phase2/firebase.demo.json "node tests/greenfield-erp-phase2-emulator.integration.js"
       - name: รันการตรวจพฤติกรรมและวัดความเร็วในระบบจำลอง
         env:
           GCLOUD_PROJECT: sl-transit-9464e
