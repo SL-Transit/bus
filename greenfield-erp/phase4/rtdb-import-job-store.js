@@ -49,6 +49,8 @@ function createRtdbImportJobStore(options) {
     async claimJob(inputClaim) {
       safe(inputClaim.jobId, "jobId"); safe(inputClaim.workerId, "workerId");
       const ref = database.ref(basePath + "/importJobs/" + inputClaim.jobId + "/metadata");
+      const snapshot = await ref.get();
+      if (!snapshot.exists()) return { claimed: false, status: "missing", job: null };
       const transaction = await ref.transaction(function (current) {
         if (!current || current.status === "completed" || current.status === "failed") return;
         if (current.status === "processing" && current.leaseExpiresAt && current.leaseExpiresAt > inputClaim.startedAt) return;

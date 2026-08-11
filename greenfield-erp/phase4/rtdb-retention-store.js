@@ -31,14 +31,18 @@ function createRtdbRetentionStore(options) {
   return Object.freeze({
     async acquireLease(lease) {
       safe(lease.runId, "runId");
-      const result = await database.ref(basePath + "/maintenance/cleanupLease").transaction(function (current) {
+      const leaseRef = database.ref(basePath + "/maintenance/cleanupLease");
+      await leaseRef.get();
+      const result = await leaseRef.transaction(function (current) {
         if (current && current.leaseExpiresAt > lease.startedAt && current.runId !== lease.runId) return;
         return lease;
       }, undefined, false);
       return Boolean(result && result.committed);
     },
     async releaseLease(runId) {
-      await database.ref(basePath + "/maintenance/cleanupLease").transaction(function (current) { return current && current.runId === runId ? null : current; }, undefined, false);
+      const leaseRef = database.ref(basePath + "/maintenance/cleanupLease");
+      await leaseRef.get();
+      await leaseRef.transaction(function (current) { return current && current.runId === runId ? null : current; }, undefined, false);
     },
     async getCursor() {
       const snapshot = await database.ref(basePath + "/maintenance/cleanupState/nextDate").get();
