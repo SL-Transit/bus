@@ -20,17 +20,18 @@ function createRtdbImportJobStore(options) {
       const jobId = safe(job.jobId, "jobId");
       const metadataRef = database.ref(basePath + "/importJobs/" + jobId + "/metadata");
       const requestHash = digest(job.requestId + ":" + job.actorUid);
-      let created = false;
+      const creationToken = crypto.randomBytes(16).toString("hex");
       const transaction = await metadataRef.transaction(function (current) {
         if (current) return current;
-        created = true;
         return {
           jobId, requestId: job.requestId, requestHash, actorUid: job.actorUid, status: "queued", attempts: 0,
-          operatorScope: job.operatorScope, source: job.source, retentionClass: "import_job",
+          operatorScope: job.operatorScope, source: job.source, retentionClass: "import_job", creationToken,
           createdAt: job.createdAt, lastTouchedAt: job.lastTouchedAt, expiresAt: job.expiresAt
         };
       }, undefined, false);
-      const reused = !created;
+      const metadata = transaction && transaction.snapshot && transaction.snapshot.val();
+      const reused = !metadata || metadata.creationToken !== creationToken;
+      if (reused) return { ok: true, reused: true, jobId, status: metadata && metadata.status || "queued", expiresAt: metadata && metadata.expiresAt || null };
       const auditId = "AUD-" + digest(jobId + ":queued").slice(0, 24).toUpperCase();
       const updates = {};
       updates["importJobsByRequest/" + requestHash] = jobId;
@@ -38,7 +39,7 @@ function createRtdbImportJobStore(options) {
       updates["taskOutbox/importValidation/" + jobId] = { jobId, status: "ready", createdAt: job.createdAt };
       updates["audit/events/" + auditId] = { eventId: auditId, eventType: "import.job.queued", entityId: jobId, actorUid: job.actorUid, occurredAt: job.createdAt };
       await database.ref(basePath).update(updates);
-      return { ok: true, reused, jobId, status: "queued", expiresAt: job.expiresAt };
+      return { ok: true, reused: false, jobId, status: "queued", expiresAt: metadata.expiresAt };
     },
     async getJob(jobId) {
       safe(jobId, "jobId");
