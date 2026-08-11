@@ -182,7 +182,10 @@
           };
         }
         const report = job.validation || { errors: [], warnings: [], errorCount: 0, warningCount: 0 };
-        const valid = job.resultCode === "draft_valid" && Number(report.errorCount || 0) === 0;
+        const valid = job.resultCode === "draft_valid" &&
+          Number(report.errorCount || 0) === 0 &&
+          current.draft &&
+          job.expectedRevision === current.draft.revision;
         return {
           ...current,
           phase: valid ? PHASES.DRAFT : PHASES.INVALID,
@@ -192,7 +195,7 @@
           draft: {
             ...(current.draft || {}),
             validationStatus: valid ? "valid" : "invalid",
-            validatedRevision: current.draft && current.draft.revision
+            validatedRevision: job.expectedRevision || null
           },
           error: null
         };
