@@ -1,0 +1,41 @@
+{
+  "phase": "5",
+  "status": "emulator_only",
+  "projectIdPattern": "^demo-",
+  "paths": {
+    "authoring": "data/erpDataCenter",
+    "versions": "publishedReadModels/versions/{versionId}",
+    "currentPointer": "publishedReadModels/current",
+    "history": "data/erpDataCenter/publication/history/{eventId}",
+    "audit": "data/erpDataCenter/audit/events/{eventId}"
+  },
+  "limits": {
+    "operationalChunkBytes": 4194304,
+    "operationalChunkLeafPaths": 4500,
+    "physicalChunkBytes": 5242880,
+    "physicalChunkLeafPaths": 5000,
+    "maxServiceDatesPerVersion": 31,
+    "maxVisitedJourneyStates": 10000
+  },
+  "atomicPointerSwitch": {
+    "locations": 3,
+    "maxBytes": 65536,
+    "containsVersionPayload": false
+  },
+  "routing": {
+    "fixed": "exact stop times",
+    "frequencyExpectedWait": "headwaySeconds / 2",
+    "missingSegmentRuntime": "publication error",
+    "cacheKey": "versionId",
+    "cacheScope": "module/global function instance",
+    "invalidation": "event plus request-time pointer self-heal"
+  },
+  "forbidden": [
+    "production project id",
+    "production credential",
+    "firebase deploy",
+    "rules deploy",
+    "production write",
+    "consumer cutover"
+  ]
+}
