@@ -129,8 +129,20 @@ function createDraftValidationJobService(options) {
       return { jobId, status: result.status, resultCode: result.resultCode, reused: result.reused === true };
     } catch (error) {
       const code = error && error.code || "validation_worker_failed";
-      if (["stale_draft_revision", "draft_not_found", "workflow_state_invalid"].includes(code)) {
-        await input.store.finishFailedJob({ jobId, failedAt: now(), resultCode: code });
+      if ([
+        "stale_draft_revision",
+        "draft_not_found",
+        "workflow_state_invalid",
+        "draft_package_too_large",
+        "draft_entity_limit_exceeded"
+      ].includes(code)) {
+        await input.store.finishFailedJob({
+          jobId,
+          draftId: claim.job.draftId,
+          expectedRevision: claim.job.expectedRevision,
+          failedAt: now(),
+          resultCode: code
+        });
         return { jobId, status: "failed", resultCode: code };
       }
       await input.store.markRetryableFailure({ jobId, failedAt: now(), errorCode: code });
