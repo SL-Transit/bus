@@ -45,6 +45,33 @@
     return data;
   }
 
+  function prepareUploadRequest(file, target) {
+    const headers = { ...(target && target.headers || {}) };
+    if (!target || target.uploadProtocol !== "firebase-multipart-v1") {
+      return Object.freeze({ body: file, headers: Object.freeze(headers) });
+    }
+    const BlobConstructor = root && root.Blob;
+    if (typeof BlobConstructor !== "function") {
+      throw clientError("upload_blob_unavailable", "This browser cannot build the authorized upload body.");
+    }
+    if (typeof target.objectPath !== "string" || !target.objectPath) {
+      throw clientError("upload_target_invalid", "The authorized upload path is missing.");
+    }
+    const objectContentType = target.objectContentType || "application/octet-stream";
+    const boundary = "sltransit" + randomToken().toLowerCase();
+    const metadata = JSON.stringify({ name: target.objectPath, contentType: objectContentType });
+    const prefix = "--" + boundary + "\r\n" +
+      "Content-Type: application/json; charset=utf-8\r\n\r\n" + metadata +
+      "\r\n--" + boundary + "\r\nContent-Type: " + objectContentType + "\r\n\r\n";
+    const suffix = "\r\n--" + boundary + "--";
+    const body = new BlobConstructor([prefix, file, suffix], {
+      type: "multipart/related; boundary=" + boundary
+    });
+    headers["x-goog-upload-protocol"] = "multipart";
+    headers["content-type"] = body.type;
+    return Object.freeze({ body, headers: Object.freeze(headers) });
+  }
+
   function createClient(options) {
     const settings = options || {};
     const transport = settings.transport;
@@ -94,14 +121,15 @@
         throw clientError("upload_target_invalid");
       }
       const bearer = await token();
+      const prepared = prepareUploadRequest(file, target);
       const response = await uploadTransport({
         method: target.method || "POST",
         url: target.url,
         headers: {
-          ...(target.headers || {}),
+          ...prepared.headers,
           ...(bearer ? { Authorization: "Bearer " + bearer } : {})
         },
-        body: file
+        body: prepared.body
       });
       if (!response || response.ok !== true) {
         throw clientError("upload_failed", "The staged upload failed.", response && response.status);
@@ -151,6 +179,7 @@
     commandIds,
     createClient,
     createFetchTransport,
-    createFetchUploadTransport
+    createFetchUploadTransport,
+    prepareUploadRequest
   });
 });

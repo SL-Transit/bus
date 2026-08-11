@@ -42,6 +42,31 @@ test("Admin client sends requestId and idempotencyKey without exposing Publish",
   assert.equal(Api.ALLOWED_COMMANDS.includes("publication.activate"), false);
 });
 
+test("Admin client builds the Firebase multipart upload used by the browser", async () => {
+  let request;
+  const client = Api.createClient({
+    getToken: async () => "demo-token",
+    uploadTransport: async function (input) {
+      request = input;
+      return { ok: true, status: 200 };
+    }
+  });
+  await client.upload(new Blob(["{}"], { type: "application/json" }), {
+    url: "http://127.0.0.1:9299/v0/b/demo.appspot.com/o?name=staged.json",
+    method: "POST",
+    uploadProtocol: "firebase-multipart-v1",
+    objectPath: "erp-import-quarantine/owner-001/UPL-AAAAAAAAAAAAAAAAAAAAAAAA.json",
+    objectContentType: "application/json",
+    headers: { "x-goog-upload-protocol": "multipart" }
+  });
+  assert.equal(request.headers.Authorization, "Bearer demo-token");
+  assert.equal(request.headers["x-goog-upload-protocol"], "multipart");
+  assert.match(request.headers["content-type"], /^multipart\/related; boundary=sltransit/);
+  const body = await request.body.text();
+  assert.match(body, /Content-Type: application\/json; charset=utf-8/);
+  assert.match(body, /"name":"erp-import-quarantine\/owner-001\/UPL-AAAAAAAAAAAAAAAAAAAAAAAA.json"/);
+  assert.match(body, /\r\n\{\}\r\n--sltransit/);
+});
 test("command envelope rejects missing idempotency and oversized payload", () => {
   assert.throws(
     () => assertEnvelope({ requestId: "REQ-20260811-6001", command: "import.status", payload: {} }),
@@ -69,7 +94,11 @@ test("upload authorization is canonical-JSON only, bounded and idempotent", asyn
     buildUploadTarget(input) {
       return {
         url: "http://127.0.0.1:9299/v0/b/" + input.bucket + "/o?name=" + encodeURIComponent(input.objectPath),
-        method: "POST"
+        method: "POST",
+        uploadProtocol: "firebase-multipart-v1",
+        objectPath: input.objectPath,
+        objectContentType: input.contentType,
+        headers: { "x-goog-upload-protocol": "multipart" }
       };
     }
   });
@@ -91,6 +120,9 @@ test("upload authorization is canonical-JSON only, bounded and idempotent", asyn
   assert.equal(first.source.objectPath, second.source.objectPath);
   assert.equal(second.reused, true);
   assert.equal(first.source.contentType, "application/json");
+  assert.equal(first.target.uploadProtocol, "firebase-multipart-v1");
+  assert.equal(first.target.objectPath, first.source.objectPath);
+  assert.equal(first.target.headers["x-goog-upload-protocol"], "multipart");
   assert.throws(() => validateUploadRequest({ ...payload, contentType: "application/xlsx" }), /upload_content_type_not_supported/);
   assert.throws(() => validateUploadRequest({ ...payload, sizeBytes: 25 * 1024 * 1024 + 1 }), /upload_size_invalid/);
 });
@@ -125,7 +157,7 @@ test("Draft save validates stable target, revision scope and bounded changes", a
       draftId,
       expectedRevision: 1,
       operatorScope: ["OPR-BUS01"],
-      changeSummary: "แก้ชื่อสายรถเพื่อส่งตรวจใหม่",
+      changeSummary: "????????????????????????????",
       operations: [{
         entityType: "routes",
         entityId: "RTE-BUS01-0001",

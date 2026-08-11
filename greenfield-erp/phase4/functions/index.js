@@ -45,9 +45,12 @@ function systemRunId(value) { return "RUN-" + crypto.createHash("sha256").update
 function buildEmulatorUploadTarget(input) {
   const origin = "http://" + process.env.FIREBASE_STORAGE_EMULATOR_HOST;
   return {
-    url: origin + "/v0/b/" + encodeURIComponent(input.bucket) + "/o?uploadType=media&name=" + encodeURIComponent(input.objectPath),
+    url: origin + "/v0/b/" + encodeURIComponent(input.bucket) + "/o?name=" + encodeURIComponent(input.objectPath),
     method: "POST",
-    headers: { "content-type": input.contentType }
+    uploadProtocol: "firebase-multipart-v1",
+    objectPath: input.objectPath,
+    objectContentType: input.contentType,
+    headers: { "x-goog-upload-protocol": "multipart" }
   };
 }
 

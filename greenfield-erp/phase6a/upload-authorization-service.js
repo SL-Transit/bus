@@ -99,7 +99,10 @@ function createUploadAuthorizationService(options) {
       target: {
         url: target.url,
         method: target.method || "POST",
-        headers: Object.freeze({ ...(target.headers || {}), "content-type": upload.contentType })
+        uploadProtocol: target.uploadProtocol || null,
+        objectPath: target.objectPath || objectPath,
+        objectContentType: target.objectContentType || upload.contentType,
+        headers: Object.freeze({ ...(target.headers || {}) })
       },
       source: Object.freeze({
         bucket: input.bucketName,

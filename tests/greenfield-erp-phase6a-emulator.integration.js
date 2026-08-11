@@ -104,16 +104,14 @@ async function main() {
     assert.match(authorizationResult.body.result.uploadId, /^UPL-/);
     assert.equal(authorizationResult.body.result.source.objectPath.startsWith("erp-import-quarantine/" + operatorUid + "/"), true);
 
-    const upload = await fetch(authorizationResult.body.result.target.url, {
-      method: authorizationResult.body.result.target.method,
-      headers: {
-        ...authorizationResult.body.result.target.headers,
-        authorization: "Bearer " + operatorToken
-      },
-      body: bytes,
-      signal: AbortSignal.timeout(15000)
+    const uploadClient = require("../admin-erp1-greenfield-api-client.js").createClient({
+      getToken: async function () { return operatorToken; },
+      uploadTransport: require("../admin-erp1-greenfield-api-client.js").createFetchUploadTransport({})
     });
-    assert.equal(upload.ok, true, await upload.text());
+    await uploadClient.upload(
+      new Blob([bytes], { type: "application/json" }),
+      authorizationResult.body.result.target
+    );
 
     const startCommand = envelope("6A02", "import.start", {
       operatorScope,
@@ -195,7 +193,7 @@ async function main() {
         validationErrorCount: 0
       },
       entities: {
-        operators: { "OPR-BUS01": { operatorId: "OPR-BUS01", nameTh: "ผู้ให้บริการตัวอย่าง" } },
+        operators: { "OPR-BUS01": { operatorId: "OPR-BUS01", nameTh: "????????????????????" } },
         routes: { "RTE-BUS01-0001": { routeId: "RTE-BUS01-0001", operatorId: "OPR-BUS01", shortName: "F1", serviceMode: "fixed" } }
       }
     });
@@ -203,7 +201,7 @@ async function main() {
       draftId: editableDraftId,
       expectedRevision: 1,
       operatorScope,
-      changeSummary: "แก้ชื่อย่อสายรถใน Draft",
+      changeSummary: "????????????????? Draft",
       operations: [{
         entityType: "routes",
         entityId: "RTE-BUS01-0001",
