@@ -207,6 +207,5 @@ test("Phase 6A runtime is emulator-guarded and contains no publication path", ()
   assert.match(entry, /maxInstances:s*3, concurrency:s*10/);
   assert.match(store, /commandReceipts/);
   assert.match(store, /workflowLock/);
-  assert.doesNotMatch([entry, store, controller].join("
-"), /publishedReadModels|publication.activate|firebase deploy/i);
+  assert.doesNotMatch([entry, store, controller].join(String.fromCharCode(10)), /publishedReadModels|publication.activate|firebase deploy/i);
 });
