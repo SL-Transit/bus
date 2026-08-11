@@ -10,7 +10,7 @@ const JOB_ID_PATTERN = /^JOB-[A-F0-9]{24}$/;
 
 function digest(value) { return crypto.createHash("sha256").update(String(value), "utf8").digest("hex"); }
 function jobError(code, status) { const error = new Error(code); error.code = code; error.httpStatus = status || 400; return error; }
-function jobIdFor(requestId, actorUid) { return "JOB-" + digest(requestId + ":" + actorUid).slice(0, 24).toUpperCase(); }
+function jobIdFor(idempotencyKey, actorUid) { return "JOB-" + digest(idempotencyKey + ":" + actorUid).slice(0, 24).toUpperCase(); }
 
 function validateSource(source, actorUid) {
   if (!source || typeof source !== "object") throw jobError("staged_source_required");
@@ -38,7 +38,7 @@ function createImportJobService(options) {
     const source = validateSource(command.payload && command.payload.source, command.actorUid);
     const operatorScope = command.payload && Array.isArray(command.payload.operatorScope) ? Array.from(new Set(command.payload.operatorScope)) : [];
     if (operatorScope.length === 0 || operatorScope.some(function (id) { return typeof id !== "string" || !id; })) throw jobError("operator_scope_required");
-    const jobId = jobIdFor(command.requestId, command.actorUid);
+    const jobId = jobIdFor(command.idempotencyKey || command.requestId, command.actorUid);
     return input.jobStore.createQueuedJob({
       jobId, requestId: command.requestId, actorUid: command.actorUid, source, operatorScope,
       createdAt, lastTouchedAt: createdAt,
