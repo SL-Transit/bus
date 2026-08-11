@@ -76,6 +76,8 @@ function createRtdbRetentionStore(options) {
       updates["importJobs/" + candidate.id] = null;
       updates["taskOutbox/importValidation/" + candidate.id] = null;
       if (job.requestHash) updates["importJobsByRequest/" + job.requestHash] = null;
+      const uploadMatch = job.source && typeof job.source.objectPath === "string" && job.source.objectPath.match(/\/(UPL-[A-F0-9]{24})[.]json$/);
+      if (uploadMatch) updates["uploadAuthorizations/" + uploadMatch[1]] = null;
       updates["maintenance/expiryBuckets/" + candidate.expiryDateKey + "/importJobs/" + candidate.id] = null;
       updates["audit/events/" + auditId] = { eventId: auditId, eventType: "retention.import_job.deleted", entityId: candidate.id, actorUid: "system:retention", occurredAt: candidate.now };
       await database.ref(basePath).update(updates);
