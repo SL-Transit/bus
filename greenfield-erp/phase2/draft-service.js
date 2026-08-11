@@ -44,6 +44,9 @@ async function createValidatedDraft(input) {
   if (records > MAX_ENTITY_RECORDS) {
     return { ok: false, code: "import_package_too_many_records", errors: [] };
   }
+  if (options.draftExpiresAt !== undefined && (typeof options.draftExpiresAt !== "string" || Number.isNaN(Date.parse(options.draftExpiresAt)))) {
+    throw new Error("greenfield_draft_expiry_invalid");
+  }
   const errors = validateNetworkPackage(pkg);
   if (errors.length) {
     return { ok: false, code: "validation_failed", errors };
@@ -71,7 +74,8 @@ async function createValidatedDraft(input) {
     createdAt,
     idempotencyHash,
     packageBytes: bytes,
-    entityCount: records
+    entityCount: records,
+    expiresAt: options.draftExpiresAt || null
   });
   return {
     ok: true,
@@ -80,6 +84,7 @@ async function createValidatedDraft(input) {
     packageId: pkg.metadata.packageId,
     packageBytes: bytes,
     entityCount: records,
+    expiresAt: options.draftExpiresAt || null,
     validationErrors: []
   };
 }

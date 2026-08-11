@@ -1,0 +1,19 @@
+{
+  "phase": "4.1",
+  "status": "emulator_only",
+  "projectIdPattern": "^demo-",
+  "commands": {
+    "implemented": ["import.start", "import.status"],
+    "reserved": ["draft.save", "review.request", "approval.decide"],
+    "forbidden": ["publish", "publication.activate"]
+  },
+  "functions": {
+    "greenfieldErpCommand": { "type": "https", "minInstances": 0, "maxInstances": 3, "concurrency": 10, "timeoutSeconds": 30, "memory": "256MiB" },
+    "greenfieldImportWorker": { "type": "task", "minInstances": 0, "maxInstances": 2, "concurrency": 1, "timeoutSeconds": 540, "memory": "512MiB", "maxConcurrentDispatches": 2, "maxAttempts": 5 },
+    "greenfieldRetentionCleanup": { "type": "schedule", "minInstances": 0, "maxInstances": 1, "concurrency": 1, "timeoutSeconds": 120, "memory": "256MiB" }
+  },
+  "limits": { "maxGatewayCommandBytes": 1048576, "maxStagedSourceBytes": 26214400, "maxRequestsPerInstanceWindow": 20, "windowMilliseconds": 60000 },
+  "retentionPolicyRequiredFields": ["importJobRetentionHours", "abandonedDraftRetentionDays", "cleanupStartDate", "batchSize", "maxDaysPerRun", "leaseSeconds"],
+  "authorization": { "customClaims": ["role"], "fineGrainedPath": "data/erpDataCenter/access/accounts/{uid}" },
+  "forbiddenEnvironment": ["production project id", "production credential", "direct browser database write", "firebase deploy"]
+}

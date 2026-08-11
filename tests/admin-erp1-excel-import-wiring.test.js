@@ -36,7 +36,7 @@ test('ผล Validation ที่ผิดไม่ผ่านไป Review', (
 
 test('API client fail closed เมื่อยังไม่มี transport', async () => {
   const client = Api.createClient();
-  await assert.rejects(client.send('import.validate', { file: {} }), (error) => error.code === 'greenfield_backend_not_connected');
+  await assert.rejects(client.send('import.start', { file: {} }), (error) => error.code === 'greenfield_backend_not_connected');
 });
 
 test('API client ส่ง command envelope ผ่าน transport ที่ inject เท่านั้น', async () => {
@@ -45,10 +45,10 @@ test('API client ส่ง command envelope ผ่าน transport ที่ inj
     getToken: async () => 'preview-token',
     transport: async (input) => { request = input; return { ok: true, data: { valid: true } }; }
   });
-  const result = await client.send('import.validate', { file: { name: 'network.csv' } });
+  const result = await client.send('import.start', { file: { name: 'network.csv' } });
   assert.equal(result.valid, true);
   assert.equal(request.method, 'POST');
   assert.equal(request.url, '/api/greenfield-erp/commands');
   assert.equal(request.headers.Authorization, 'Bearer preview-token');
-  assert.equal(request.body.command, 'import.validate');
+  assert.equal(request.body.command, 'import.start');
 });
