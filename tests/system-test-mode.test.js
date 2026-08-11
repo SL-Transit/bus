@@ -17,7 +17,7 @@ test('ทุกหน้าหลักโหลดตัวประกาศ�
 
 test('Admin ERP1 Greenfield ใช้โหมด Preview แบบไม่เปิดสิทธิ์เขียน', () => {
   const source = read('admin-erp1-greenfield-system-mode.js');
-  assert.match(source, /contract-preview/);
+  assert.match(source, /phase6a-integration-review/);
   assert.match(source, /writesEnabled: false/);
   assert.match(source, /textContent/);
 });
