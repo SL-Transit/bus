@@ -92,6 +92,17 @@ missing.sheets[3].rows[0][5] = '';
 const missingPreview = contract.buildDraftPreview(missing);
 assert(missingPreview.preview.blockers.some((item) => item.code === 'missing-required-field' && item.field === 'เวลาออก'));
 
+const scheduleDefaults = validWorkbook();
+scheduleDefaults.sheets[3].rows[0][6] = '';
+scheduleDefaults.sheets[3].rows[0][7] = '';
+scheduleDefaults.sheets[3].rows[0][8] = '';
+const scheduleDefaultsPreview = contract.buildDraftPreview(scheduleDefaults);
+assert(!scheduleDefaultsPreview.preview.blockers.some((item) => item.code === 'missing-required-field' && item.sheet === contract.SHEET_ORDER[3]));
+const defaultTrip = scheduleDefaultsPreview.draft.records[contract.SHEET_ORDER[3]][0].sourceValues;
+assert.strictEqual(defaultTrip[contract.SHEETS[contract.SHEET_ORDER[3]].headers[6]], 'ใช่');
+assert.strictEqual(defaultTrip[contract.SHEETS[contract.SHEET_ORDER[3]].headers[7]], 3);
+assert.strictEqual(defaultTrip[contract.SHEETS[contract.SHEET_ORDER[3]].headers[8]], '');
+
 const foreignKey = validWorkbook();
 foreignKey.sheets[2].rows[0][3] = 'missing_stop';
 const foreignKeyPreview = contract.buildDraftPreview(foreignKey);
