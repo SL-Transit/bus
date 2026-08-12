@@ -34,10 +34,13 @@
   }
 
   function findFareSource(pair, segment, timeEntry, option) {
+    // The fare row on the route pair is the authoritative owner-workbook
+    // price. Schedule/segment/option values are compatibility fallbacks only
+    // and must never override the canonical route fare.
     var sources = [
-      { scope: 'time', value: timeEntry || {} },
-      { scope: 'segment', value: segment || {} },
       { scope: 'pair', value: pair || {} },
+      { scope: 'segment', value: segment || {} },
+      { scope: 'time', value: timeEntry || {} },
       { scope: 'destinationOption', value: option || {} }
     ];
     var fields = ['fareAmount', 'fare', 'amount', 'price'];

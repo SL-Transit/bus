@@ -27,6 +27,15 @@ assert.equal(pairFare.status, 'ready');
 assert.equal(pairFare.fareAmount, 55);
 assert.equal(pairFare.sourceScope, 'pair');
 
+const canonicalPairWins = center.decideFare({
+  pair: { fareAmount: 90 },
+  segment: { fareAmount: 100 },
+  timeEntry: { fareAmount: 100 },
+  option: { fareAmount: 100 }
+});
+assert.equal(canonicalPairWins.fareAmount, 90);
+assert.equal(canonicalPairWins.sourceScope, 'pair');
+
 const external = center.decideFare({
   pair: { passengerDisplayMode: 'external_reference', slTransitFareCollection: false, paymentOwnership: 'external_pay' },
   segment: {},
