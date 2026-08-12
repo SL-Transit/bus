@@ -46,38 +46,12 @@
 | Published Read Model / Journey core | DONE | PR #150 merged; CI `31460002078`; Pages `31460450126` | Emulator proof complete; ยังไม่ deploy Firebase/Production |
 | Admin ERP1 backend integration | DONE | PR #152 merged as `199e2e348abaaa748a6a1f9b8d778291acb66e4f`; CI `31493338953`; Pages `31493736824` | Emulator integration ผ่านและอยู่ใน `main`; Draft revalidation/editor ยังเป็นงานถัดไปแยก scope |
 | Admin Draft revalidation/editor | DONE | Owner อนุมัติ Merge PR #154; CI `31501263562` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Squash Merge เข้า `main` เท่านั้น |
-| Experimental ERP sandbox isolation | IN_PROGRESS | Branch `codex/erp-experimental-sandbox` | คัดลอก Greenfield/Admin/Contracts/Tests ไป `experimental/erp-sandbox/`; Emulator only; ไม่ Merge/Deploy |
+| Experimental ERP sandbox isolation | REVIEW | Draft PR #155; Isolation CI `31573732367`; full CI `31573732222` ผ่าน | Sandbox แยกจาก main; รอ Owner review; ไม่ Merge/Deploy |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
 ### Active file locks
 
-- Experimental ERP sandbox isolation — Owner: Primary AI (Greenfield); Status: 
-`
-IN_PROGRESS
-`
-; Branch: 
-`
-codex/erp-experimental-sandbox
-`
-; Draft PR pending
-  - Files/paths: 
-`
-experimental/erp-sandbox/**
-`
-, 
-`
-ai-handoffs/WORK-BOARD.md
-`
-  - Intended output: สำเนาโครงการ Greenfield ERP แบบ standalone review sandbox; Admin safe-mode; Data Contract; Emulator configs; tests/docs
-  - Tests: ตรวจ tree/import paths/Production URL/credential/deploy-workflow; CI เดิมและ Sandbox unit tests
-  - Dependencies: PR #154 merged; Excel 
-`
-new erp data.xlsx
-`
- ยังเป็น source draft และไม่คัดลอกเข้า repository
-  - Cost risk: Emulator only; ไม่มี Firebase project creation/deploy; ไม่มี Production write; ไม่มี Consumer cutover
-  - Firebase writes: none; future demo Emulator only
-  - Started/last update: 2026-08-11
+- Experimental ERP sandbox isolation — Owner: Primary AI (Greenfield); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`; Draft PR #155   - Files/paths: `experimental/erp-sandbox/**`, `ai-handoffs/WORK-BOARD.md`   - Intended output: สำเนาโครงการ Greenfield ERP แบบ standalone review sandbox; Admin safe-mode; Data Contract; Emulator configs; tests/docs   - Tests: Isolation CI `31573732367` และ full CI `31573732222` ผ่าน   - Dependencies: PR #154 merged; Excel `new erp data.xlsx` ยังเป็น source draft และไม่คัดลอกเข้า repository   - Cost risk: Emulator only; ไม่มี Firebase project creation/deploy; ไม่มี Production write; ไม่มี Consumer cutover   - Firebase writes: none; future demo Emulator only   - Started/last update: 2026-08-12
 
 
 - Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `DONE`; Branch: `codex/phase6a1-draft-revalidation-editor`; PR #154 อนุมัติให้ Squash Merge และปลดล็อกเมื่อ Merge สำเร็จ
@@ -182,6 +156,26 @@ COST_IMPACT: ไม่มีค่า Firebase Production; Gateway ไม่อ�
 KNOWN_RISKS: Production task dispatcher/upload signer/Storage lifecycle และ Production load/cost evidence ยังไม่มี; Actions มี dependency deprecation warnings เดิม
 NEXT_ACTION: Squash Merge PR #154 เข้า main เท่านั้น; Firebase/Rules deploy, Production write, Publish และ Consumer cutover ยังต้องขอ Owner approval แยก
 ```
+## Completion Report — Experimental ERP Sandbox / PR #155
+
+`
+`
+`
+text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #155; reviewed head before board closeout b3a7db2cf4432154c89a94581ecd8e5329e064c9
+FILES_CHANGED: experimental/erp-sandbox/**; .github/workflows/erp-sandbox-validation.yml; ai-handoffs/WORK-BOARD.md
+RESULTS: copied Greenfield ERP/Admin safe-mode/Data Contract/docs/tests into standalone sandbox; 79 source blobs match; demo Emulator project only
+TESTS: Isolation run 31573732367 passed; full regression/Phase 2/4/6A/5 Emulator/performance run 31573732222 passed
+FIREBASE_DEPLOY_EVIDENCE: none — no project creation, deploy command, hosting config or Production write
+DATA/PRIVACY_IMPACT: Excel and Production data excluded; no Booking/Passenger/Payment data copied
+COST_IMPACT: no Firebase Production cost; tests use GitHub Actions and demo Emulator only
+KNOWN_RISKS: Sandbox is a source snapshot and may drift from future main changes; Excel mapping/import is not connected
+NEXT_ACTION: Owner reviews Draft PR #155. Merge, Firebase project creation/deploy, Excel import and Consumer connection require separate approval.
+`
+`
+`
+
 ## Work Lock Template
 
 ```text
