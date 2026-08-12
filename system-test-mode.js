@@ -18,6 +18,7 @@
     overlay.setAttribute('role', 'alertdialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(3,18,36,.82);display:grid;place-items:center;padding:20px;font-family:system-ui,-apple-system,sans-serif;';
+    if (config.allowBookingsDuringTest === true) overlay.style.pointerEvents = 'none';
     var card = document.createElement('section');
     card.style.cssText = 'width:min(560px,100%);background:#fff;border-radius:18px;padding:26px;box-shadow:0 20px 70px rgba(0,0,0,.35);color:#172033;text-align:center;';
     var title = document.createElement('h1');

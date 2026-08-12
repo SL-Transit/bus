@@ -423,6 +423,7 @@ exports.readSystemTestModeStatus = onRequest({
     const config = await readSystemTestMode();
     sendJson(res, 200, {
       enabled: config.enabled === true,
+      allowBookingsDuringTest: config.allowBookingsDuringTest === true,
       title: typeof config.title === "string" ? config.title.slice(0, 200) : "",
       message: typeof config.message === "string" ? config.message.slice(0, 500) : "",
       reason: typeof config.reason === "string" ? config.reason.slice(0, 500) : ""
@@ -447,7 +448,8 @@ exports.reserveBookingCapacity = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
-    if ((await readSystemTestMode()).enabled === true) { testModeResponse(res); return; }
+    const systemTestMode = await readSystemTestMode();
+    if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { testModeResponse(res); return; }
     const body = parseJsonRequest(req);
     const action = body.action || "reserve";
     const path = capacityCounterPath(body.serviceDate, body.capacityKey);
@@ -551,7 +553,8 @@ exports.createBooking = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
-    if ((await readSystemTestMode()).enabled === true) { testModeResponse(res); return; }
+    const systemTestMode = await readSystemTestMode();
+    if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { testModeResponse(res); return; }
     const body = parseJsonRequest(req);
     const input = body.booking && typeof body.booking === "object" ? body.booking : {};
     const code = cleanBookingText(input.code || input.bookingCode, 80);
@@ -594,7 +597,7 @@ exports.createBooking = onRequest({
       pairKey: cleanBookingText(input.pairKey, 160), pairId: cleanBookingText(input.pairId, 160), canonicalPairKey: cleanBookingText(input.canonicalPairKey, 160),
       fare: expectedTotal, price: expectedTotal, fareAmount: serverFare, fareContract: pair.fareContract || null,
       paymentMode, paymentStatus, slipUploaded: paymentStatus === "slip_uploaded", paymentOwnership: "sl_transit",
-      externalPaymentRequired: false, testMode: false, mockPayment: false, status: "awaiting_payment",
+      externalPaymentRequired: false, testMode: systemTestMode.enabled === true, mockPayment: systemTestMode.enabled === true, mockOnly: systemTestMode.enabled === true, status: "awaiting_payment",
       passengerIdentity: input.passengerIdentity || null, notificationPreference: input.notificationPreference || null,
       consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
       publishedSchedule: { readyForApply: false, schemaVersion: source.manifest.schemaVersion || "erpWorkbookSource.v1" }, createdAt: SERVER_TIMESTAMP
@@ -693,6 +696,7 @@ exports.updateSystemTestMode = onRequest({
       message: cleanBookingText(body.message, 500) || "ทีมงานกำลังทดสอบระบบเพื่อให้บริการได้มั่นคงขึ้น",
       reason: cleanBookingText(body.reason, 500) || "ระหว่างนี้จะไม่สามารถสร้างรายการจองหรือส่งข้อความแจ้งเตือนได้",
       mockOnly: enabled,
+      allowBookingsDuringTest: body.allowBookingsDuringTest === true,
       noPaidConnections: enabled,
       updatedBy: decoded.uid,
       updatedAt: SERVER_TIMESTAMP
@@ -1186,7 +1190,10 @@ exports.processNotificationJob = onValueCreated({ ref: "/operations/notification
   const jobId = event.params.jobId; const job = event.data.val() || {}; const db = admin.database(); const dispatchRef = db.ref(`operations/notificationDispatch/${jobId}`);
   const claim = await dispatchRef.transaction((current) => { const decision = notificationCenter.claimDecision(current, Date.now()); if (!decision.claim) return; return { ...(current || {}), status: "processing", attempts: decision.attempts, createdAt: (current && current.createdAt) || SERVER_TIMESTAMP, processingStartedAt: Date.now(), retryKey: job.retryKey, recipient: job.recipient, channelKind: job.channelKind || notificationCenter.channelKind(job.recipient?.type), tokenKind: job.tokenKind || notificationCenter.tokenKind(job.recipient?.type), eventType: job.eventType, bookingCode: job.bookingCode }; });
   if (!claim.committed) return;
-  if (job.testMode === true || job.mockOnly === true || (await readSystemTestMode()).enabled === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: SERVER_TIMESTAMP }); return; }
+  const systemTestMode = await readSystemTestMode();
+  const staffPaused = systemTestMode.enabled === true && (job.channelKind === "staff" || job.tokenKind === "staff");
+  const isStaffJob = job.channelKind === "staff" || job.tokenKind === "staff";
+  if ((isStaffJob && (job.testMode === true || job.mockOnly === true || staffPaused))) { await dispatchRef.update({ status: "mock_skipped", sentAt: SERVER_TIMESTAMP }); return; }
   const token = (job.tokenKind || notificationCenter.tokenKind(job.recipient?.type)) === "staff" ? staffLineToken.value() : lineToken.value();
   let attempt = Number((claim.snapshot && claim.snapshot.val() || {}).attempts || 1);
   while (attempt <= 3) {
