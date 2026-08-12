@@ -369,16 +369,22 @@ async function resolvePublishedCapacity({ serviceDate, pairKey, tripKey, routeKe
   const source = await readCanonicalWorkbookSource();
   if (!canonicalWorkbookReady(source)) return null;
   const rows = source.scheduleRows;
+  const fare = Object.values(source.routeFareRows || {}).find((candidate) => String(candidate && candidate.sourceRowId || "") === String(pairKey || ""));
   const wantedTrip = String(tripKey || "");
   const wantedRoute = String(routeKey || "");
   const wantedTime = String(pickupTime || "");
-  const row = Object.values(rows).find((candidate) => {
+  const candidates = Object.values(rows).filter((candidate) => {
     if (!candidate || candidate.bookingEnabled === false || String(candidate.bookingEnabled || "").toLowerCase() === "false") return false;
-    const sameTrip = wantedTrip && String(candidate.scheduleOfferId || "") === wantedTrip;
     const sameRoute = !wantedRoute || String(candidate.routeId || "") === wantedRoute;
     const sameTime = !wantedTime || String(candidate.departureTime || "") === wantedTime;
-    return sameTrip && sameRoute && sameTime;
+    const samePair = !fare || (
+      String(candidate.fromStopKey || "") === String(fare.fromStopKey || "") &&
+      String(candidate.toStopKey || "") === String(fare.toStopKey || "")
+    );
+    return sameRoute && sameTime && samePair;
   });
+  const row = candidates.find((candidate) => wantedTrip && String(candidate.scheduleOfferId || "") === wantedTrip) ||
+    (!wantedTrip && candidates.length === 1 ? candidates[0] : null);
   if (!row) return null;
   const configuredLimit = Number(row.capacity);
   const limit = Number.isInteger(configuredLimit) && configuredLimit > 0
