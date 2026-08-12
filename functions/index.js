@@ -1089,17 +1089,53 @@ async function createCancellationJobs(code, booking) {
   })));
 }
 
+// A booking may arrive before the nightly driver-work scheduler has generated
+// the service-date contracts. Build the contracts on demand from ERP data so
+// a valid booking is never silently reduced to an admin-only notification.
+async function ensureDriverWorkForServiceDate(serviceDate) {
+  const db = admin.database();
+  const existingSnap = await db.ref(`operations/driverWorkByServiceDate/${serviceDate}`).get();
+  if (existingSnap.exists()) return existingSnap.val() || {};
+
+  const [erpSnap, dailyAssignmentsSnap, manualOverridesSnap, configSnap] = await Promise.all([
+    db.ref("data/erpDataCenter").get(),
+    db.ref(`operations/driverDailyAssignments/${serviceDate}`).get(),
+    db.ref(`operations/driverManualOverrides/${serviceDate}`).get(),
+    db.ref("operations/driverWorkGenerationConfig").get()
+  ]);
+  const config = configSnap.val() || {};
+  const plan = driverWorkAutoCenter.buildUpdates({
+    erpDataCenter: erpSnap.val() || {},
+    serviceDate,
+    currentTime: "00:00",
+    dailyAssignments: dailyAssignmentsSnap.val() || {},
+    manualOverrides: manualOverridesSnap.val() || {},
+    rotationConfig: config.rotation,
+    generatedAt: SERVER_TIMESTAMP
+  });
+
+  const workUpdates = {};
+  Object.keys(plan.updates || {}).forEach((path) => {
+    if (path.startsWith(`operations/driverWorkByServiceDate/${serviceDate}/`)
+      || path === `operations/driverWorkGenerationStatus/${serviceDate}`) {
+      workUpdates[path] = plan.updates[path];
+    }
+  });
+  if (Object.keys(workUpdates).length) await db.ref().update(workUpdates);
+  return plan.result.contractsByRuntimeVehicleId || {};
+}
+
 exports.handleBookingCreated = onValueCreated({ ref: "/bookings/{code}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken, staffLineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
   let booking = event.data.val() || {};
   const code = event.params.code || booking.code || "";
   if (!driverTicketCenter.plannedVehicleId(booking)) {
     const serviceDate = driverTicketCenter.serviceDate(booking);
     if (serviceDate) {
-      const [workSnap, groupStopsSnap] = await Promise.all([
-        admin.database().ref(`operations/driverWorkByServiceDate/${serviceDate}`).get(),
+      const [workByVehicle, groupStopsSnap] = await Promise.all([
+        ensureDriverWorkForServiceDate(serviceDate),
         admin.database().ref("data/erpDataCenter/groupStops").get()
       ]);
-      booking = driverTicketCenter.enrichBookingFromDriverWork(booking, workSnap.val() || {}, groupStopsSnap.val() || {});
+      booking = driverTicketCenter.enrichBookingFromDriverWork(booking, workByVehicle || {}, groupStopsSnap.val() || {});
     }
   }
   const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, null, booking);
