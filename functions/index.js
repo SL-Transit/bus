@@ -440,6 +440,14 @@ exports.reserveBookingCapacity = onRequest({
         pickupTime: body.pickupTime
       });
       if (!initialCapacity) {
+        console.warn("booking_capacity_rejected", {
+          reason: "published_trip_not_found",
+          serviceDate: body.serviceDate,
+          pairKey: body.pairKey,
+          tripKey: body.tripKey,
+          routeKey: body.routeKey,
+          pickupTime: body.pickupTime
+        });
         sendJson(res, 409, { status: "error", error: "capacity_full_or_not_ready" });
         return;
       }
@@ -481,6 +489,14 @@ exports.reserveBookingCapacity = onRequest({
     if (!result.committed) {
       const snapshot = await ref.get();
       const existing = snapshot.child(`bookings/${bookingCode}`).val();
+      console.warn("booking_capacity_rejected", {
+        reason: existing ? "capacity_already_reserved" : "capacity_transaction_not_committed",
+        serviceDate: body.serviceDate,
+        pairKey: body.pairKey,
+        tripKey: body.tripKey,
+        routeKey: body.routeKey,
+        pickupTime: body.pickupTime
+      });
       sendJson(res, existing && existing.ownerUid === decoded.uid ? 200 : 409, { status: "error", error: existing ? "capacity_already_reserved" : "capacity_full_or_not_ready" });
       return;
     }
