@@ -310,7 +310,11 @@ function canonicalWorkbookReady(source) {
 function bookingStopMatches(inputKey, inputName, rowKey, rowName) {
   const key = String(inputKey || "").trim();
   const rowStopKey = String(rowKey || "").trim();
-  if (key && rowStopKey) return key === rowStopKey;
+  if (key && rowStopKey && key === rowStopKey) return true;
+  // Some older clients accidentally put the display label in the *Key*
+  // field. Only fall back to the display name for non-canonical values;
+  // a real-looking but incorrect canonical key must still be rejected.
+  if (key && rowStopKey && /^[A-Za-z0-9_-]+$/.test(key)) return false;
   const normalize = (value) => String(value || "")
     .trim()
     .replace(/\s*\([^)]*\)\s*/g, "")
