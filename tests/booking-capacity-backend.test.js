@@ -19,6 +19,7 @@ assert.match(index, /function bookingStopMatches/, 'backend must match booking s
 assert.match(index, /booking\.originKey \|\| booking\.originStopKey/, 'backend must use canonical origin identity when resolving a booking');
 assert.match(index, /booking\.destKey \|\| booking\.destinationStopKey/, 'backend must use canonical destination identity when resolving a booking');
 assert.match(index, /older clients accidentally put the display label/, 'backend must document the legacy display-label fallback');
+assert.match(index, /booking_capacity_rejected/, 'capacity failures must record a safe reason code for diagnosis');
 assert.match(index, /ownerUid: decoded\.uid/, 'backend must assign booking ownership from the verified token');
 assert.match(bridge, /cloudfunctions\.net\/createBooking/, 'booking flow must call the backend creation endpoint');
 assert.doesNotMatch(adapter, /db\.ref\('bookings\//, 'Booking1 must not write booking records directly');
