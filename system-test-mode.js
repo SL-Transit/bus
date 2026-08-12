@@ -1,8 +1,7 @@
 (function (global) {
   'use strict';
 
-  var DATABASE_URL = 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app';
-  var CHECK_URL = DATABASE_URL + '/settings/systemTestMode.json';
+  var CHECK_URL = 'https://asia-southeast1-sl-transit-9464e.cloudfunctions.net/readSystemTestModeStatus';
   var overlayId = 'slTransitSystemTestOverlay';
 
   function safeText(value, fallback) {
