@@ -48,7 +48,7 @@ assert(!bridge.includes('LEG2_DEST'), 'Booking1 bridge must not use static leg2 
 assert(!bridge.includes('TRANSFER_BUFFER'), 'Booking1 bridge must not use static transfer buffers');
 assert(!bridge.includes('|| 55'), 'Booking1 bridge must not hardcode 55-baht fare fallback');
 assert(booking1.includes('booking-availability-center.js'), 'Booking1 must load Booking Availability Center');
-assert(booking1.includes('fare-decision-center.js'), 'Booking1 must load Fare Decision Center');
+assert(booking1.includes('fare-decision-center.js?v=20260812b'), 'Booking1 must load the refreshed Fare Decision Center');
 assert(booking1.includes('erp-calculator-center.js'), 'Booking1 must load ERP Calculator Center for trip recommendation ordering');
 assert(booking1.includes('https://static.line-scdn.net/liff/edge/2/sdk.js'), 'Booking1 must load the official LINE LIFF SDK for optional passenger login');
 assert(booking1.includes('window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID ||'), 'Booking1 must expose a single LIFF ID config slot');
