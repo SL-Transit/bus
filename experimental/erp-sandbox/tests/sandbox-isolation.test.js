@@ -39,12 +39,15 @@ function runtimeFiles() {
 test("sandbox uses demo Firebase project only", () => {
   const projects = JSON.parse(read(".firebaserc")).projects;
   assert.equal(projects.default, "demo-sl-transit-erp-sandbox");
-  assert.match(projects.default, /^demo-/);
+  assert.equal(projects.default.startsWith("demo-"), true);
 });
 
 test("sandbox has no deploy surface", () => {
   const packageJson = JSON.parse(read("package.json"));
-  assert.equal(Object.keys(packageJson.scripts).some((name) => /deploy/i.test(name)), false);
+  assert.equal(
+    Object.keys(packageJson.scripts).some((name) => name.toLowerCase().includes("deploy")),
+    false
+  );
   assert.equal(fs.existsSync(path.join(root, ".github", "workflows")), false);
   const firebase = JSON.parse(read("firebase.json"));
   assert.equal(Object.prototype.hasOwnProperty.call(firebase, "hosting"), false);
@@ -52,15 +55,23 @@ test("sandbox has no deploy surface", () => {
 
 test("Admin stays disconnected and localhost-only by default", () => {
   const html = read("admin-erp1.html");
-  assert.match(html, /connect-src 'self' http://127.0.0.1:* http://localhost:*/);
-  assert.doesNotMatch(html, /admin-erp1-(?:integration|network-integration).js/);
-  assert.doesNotMatch(html, /SLTransitGreenfieldRuntimeConfigs*=/);
+  assert.equal(
+    html.includes("connect-src 'self' http://127.0.0.1:* http://localhost:*"),
+    true
+  );
+  assert.equal(html.includes("admin-erp1-integration.js"), false);
+  assert.equal(html.includes("admin-erp1-network-integration.js"), false);
+  assert.equal(html.includes("SLTransitGreenfieldRuntimeConfig ="), false);
 });
 
 test("runtime copy contains no known Production endpoint", () => {
   const forbidden = ["sl-transit-9464e", "cloudfunctions.net", "publishedSchedule"];
+  const scannedExtensions = new Set([".js", ".json", ".html", ".rules"]);
   for (const file of runtimeFiles()) {
-    if (!/.(?:js|json|html|rules)$/.test(file) && !file.endsWith(".env.demo-sl-transit-greenfield")) continue;
+    if (
+      !scannedExtensions.has(path.extname(file)) &&
+      !file.endsWith(".env.demo-sl-transit-greenfield")
+    ) continue;
     const content = fs.readFileSync(file, "utf8");
     for (const token of forbidden) {
       assert.equal(content.includes(token), false, path.relative(root, file) + " contains " + token);
@@ -79,6 +90,15 @@ test("Excel source and credential files are excluded", () => {
     }
   }
   visit(root);
-  assert.equal(paths.some((name) => /.(?:xlsx|xls)$/i.test(name)), false);
-  assert.equal(paths.some((name) => /service-account|firebase-adminsdk/i.test(name)), false);
+  assert.equal(
+    paths.some((name) => [".xlsx", ".xls"].includes(path.extname(name).toLowerCase())),
+    false
+  );
+  assert.equal(
+    paths.some((name) => {
+      const normalized = name.toLowerCase();
+      return normalized.includes("service-account") || normalized.includes("firebase-adminsdk");
+    }),
+    false
+  );
 });
