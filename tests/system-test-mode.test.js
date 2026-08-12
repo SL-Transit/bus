@@ -26,7 +26,7 @@ test('โหมดทดสอบระบบเดิมมีการแจ�
   const source = read('system-test-mode.js');
   assert.match(source, /slTransitSystemTestOverlay/);
   assert.match(source, /textContent/);
-  assert.match(source, /settings\/systemTestMode\.json/);
+  assert.match(source, /readSystemTestModeStatus/);
 });
 
 test('ฐานข้อมูลเปิดให้อ่านเฉพาะธงโหมดทดสอบและยังล็อกการเขียนไว้', () => {
@@ -37,6 +37,7 @@ test('ฐานข้อมูลเปิดให้อ่านเฉพา�
 
 test('เซิร์ฟเวอร์หยุดการจองและการส่งแจ้งเตือนเมื่อเปิดโหมดทดสอบ', () => {
   const source = read('functions/index.js');
+  assert.match(source, /exports\.readSystemTestModeStatus/);
   assert.match(source, /exports\.updateSystemTestMode/);
   assert.match(source, /system_test_mode_enabled/);
   assert.match(source, /mock_skipped/);

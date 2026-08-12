@@ -410,6 +410,28 @@ async function readSystemTestMode() {
   return snap.val() || {};
 }
 
+exports.readSystemTestModeStatus = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 10,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "GET") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  try {
+    const config = await readSystemTestMode();
+    sendJson(res, 200, {
+      enabled: config.enabled === true,
+      title: typeof config.title === "string" ? config.title.slice(0, 200) : "",
+      message: typeof config.message === "string" ? config.message.slice(0, 500) : "",
+      reason: typeof config.reason === "string" ? config.reason.slice(0, 500) : ""
+    });
+  } catch (error) {
+    sendJson(res, 503, { status: "error", error: "system_test_mode_unavailable" });
+  }
+});
+
 function testModeResponse(res) {
   sendJson(res, 503, { status: "blocked", error: "system_test_mode_enabled", message: "ระบบกำลังทดสอบ จึงยังไม่รับรายการนี้" });
 }
