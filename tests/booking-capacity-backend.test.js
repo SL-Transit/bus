@@ -15,6 +15,9 @@ assert.match(bridge, /reserveBookingCapacity/, 'booking flow must still reserve 
 assert.match(bridge, /cloudfunctions\.net\/reserveBookingCapacity/, 'booking flow must call the backend reservation endpoint');
 assert.match(index, /exports\.createBooking\s*=\s*onRequest/, 'booking creation must be handled by the backend');
 assert.match(index, /authoritative_price_mismatch/, 'backend must reject client price tampering');
+assert.match(index, /function bookingStopMatches/, 'backend must match booking stops by canonical stop keys');
+assert.match(index, /booking\.originKey \|\| booking\.originStopKey/, 'backend must use canonical origin identity when resolving a booking');
+assert.match(index, /booking\.destKey \|\| booking\.destinationStopKey/, 'backend must use canonical destination identity when resolving a booking');
 assert.match(index, /ownerUid: decoded\.uid/, 'backend must assign booking ownership from the verified token');
 assert.match(bridge, /cloudfunctions\.net\/createBooking/, 'booking flow must call the backend creation endpoint');
 assert.doesNotMatch(adapter, /db\.ref\('bookings\//, 'Booking1 must not write booking records directly');

@@ -307,6 +307,17 @@ function canonicalWorkbookReady(source) {
     Number(manifestCounts.scheduleRows) === scheduleCount;
 }
 
+function bookingStopMatches(inputKey, inputName, rowKey, rowName) {
+  const key = String(inputKey || "").trim();
+  const rowStopKey = String(rowKey || "").trim();
+  if (key && rowStopKey) return key === rowStopKey;
+  const normalize = (value) => String(value || "")
+    .trim()
+    .replace(/\s*\([^)]*\)\s*/g, "")
+    .replace(/\s+/g, "");
+  return !!inputName && !!rowName && normalize(inputName) === normalize(rowName);
+}
+
 function findCanonicalWorkbookPair(source, booking) {
   const fareRows = Object.values(source.routeFareRows || {});
   const scheduleRows = Object.values(source.scheduleRows || {});
@@ -314,8 +325,12 @@ function findCanonicalWorkbookPair(source, booking) {
   const fare = fareRows.find((row) => {
     if (!row || !wantedPairIds.includes(String(row.sourceRowId || ""))) return false;
     if (booking.routeId && String(row.routeId || "") !== String(booking.routeId)) return false;
-    if (booking.origin && String(row.fromNameTh || "") !== String(booking.origin)) return false;
-    if (booking.destination && String(row.toNameTh || "") !== String(booking.destination)) return false;
+    if (booking.originKey || booking.originStopKey) {
+      if (!bookingStopMatches(booking.originKey || booking.originStopKey, booking.origin, row.fromStopKey, row.fromNameTh)) return false;
+    } else if (booking.origin && !bookingStopMatches("", booking.origin, row.fromStopKey, row.fromNameTh)) return false;
+    if (booking.destKey || booking.destinationStopKey) {
+      if (!bookingStopMatches(booking.destKey || booking.destinationStopKey, booking.destination, row.toStopKey, row.toNameTh)) return false;
+    } else if (booking.destination && !bookingStopMatches("", booking.destination, row.toStopKey, row.toNameTh)) return false;
     return String(row.status == null ? "" : row.status).toLowerCase() !== "false";
   });
   if (!fare) return null;
