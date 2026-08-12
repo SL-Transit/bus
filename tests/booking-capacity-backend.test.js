@@ -18,6 +18,7 @@ assert.match(index, /authoritative_price_mismatch/, 'backend must reject client 
 assert.match(index, /function bookingStopMatches/, 'backend must match booking stops by canonical stop keys');
 assert.match(index, /booking\.originKey \|\| booking\.originStopKey/, 'backend must use canonical origin identity when resolving a booking');
 assert.match(index, /booking\.destKey \|\| booking\.destinationStopKey/, 'backend must use canonical destination identity when resolving a booking');
+assert.match(index, /older clients accidentally put the display label/, 'backend must document the legacy display-label fallback');
 assert.match(index, /ownerUid: decoded\.uid/, 'backend must assign booking ownership from the verified token');
 assert.match(bridge, /cloudfunctions\.net\/createBooking/, 'booking flow must call the backend creation endpoint');
 assert.doesNotMatch(adapter, /db\.ref\('bookings\//, 'Booking1 must not write booking records directly');
