@@ -50,6 +50,17 @@
 
 ### Active file locks
 
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2) — Owner: Admin ERP1 UI agent; Status: `IN_PROGRESS`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+  - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
+  - Base SHA: `7f4c80f6bff0199395de0c2691ddd69ff2143a22`; visual/functional reference only: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`
+  - Files/paths: `admin-erp1.html`, `admin-erp-ui.css`, `admin-erp1-ui.js`, `tests/admin-erp1-ui-contract.test.js`, `tests/admin-erp1-integration.test.js`, `tests/admin-erp1-live-entry.test.js`, `tests/admin-erp1-network-publish.test.js`, safety-preserving UI tests if required, and this lock/report section only
+  - Intended output: one classic, modern and human-friendly `admin-erp1.html` entry with four navigation groups; familiar old work areas; profile/account/logout; separate Test Center and Published Versions; current Greenfield Import -> Draft -> Validate -> Review -> Approve hooks composed in Data Center; Publish shown as locked step only
+  - Runtime contract: preserve script order `state -> API client -> system mode -> bundled XLSX -> row mapper -> Excel 3.3.x -> controller -> UI module`; unsupported modules remain locked; no fake KPI, rows, actions or business data
+  - Tests: single entry and real DOM IDs; script order; classic IA plus Greenfield-only runtime; no CDN/Firebase compat/gstatic/legacy adapters; no direct RTDB/browser Draft storage/Publish path; validation and Review gate; hash/back-forward; responsive/accessibility; GitHub Actions `node --test tests/*.test.js`
+  - Dependencies: PR #167, D-016, current Phase 6A.1 state/API/controller, Excel 3.3.x converter and canonical mapping; Auth/Backend contract expansion is explicitly out of scope
+  - Cost risk: UI/static assets only; no new network polling/listeners, Production reads/writes, Firebase instance or deployment
+  - Firebase writes: none; no Firebase/Rules/Functions/Production/Preview deploy, Publish command, pointer switch or Consumer cutover
+  - Started/last update: 2026-08-13; Gate B corrective R1+R2
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
