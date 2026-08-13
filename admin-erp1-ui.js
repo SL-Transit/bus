@@ -284,9 +284,9 @@
     }
 
     var mirrorPairs = [
-      ["backend-status", "dashboard-backend-status"],
-      ["workflow-phase", "dashboard-phase-status"],
-      ["validation-result", "dashboard-validation-status"]
+      ["backend-status", "dashboard-backend"],
+      ["workflow-phase", "dashboard-phase"],
+      ["validation-result", "dashboard-validation"]
     ];
     function mirrorContractStatus() {
       mirrorPairs.forEach(function mirror(pair) {
