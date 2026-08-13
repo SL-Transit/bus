@@ -50,14 +50,14 @@
 
 ### Active file locks
 
-- ERP Sandbox Excel 3.3.5 safety adapter — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
+- ERP Sandbox Excel 3.3.5 safety adapter — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
   - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
   - Intended output: ซิงก์ตัวรับ Excel 3.3.5 จาก main เข้า Sandbox โดยไม่สร้างงานซ้ำ; อ่านกติกาตารางเวลา/คิว; ตรวจ Fixed/Frequency และข้อมูลต่อรถ; หยุดที่ validate-only/Draft
   - Tests: generated fixtures + sandbox unit/CI; อ่านไฟล์จริงใน Downloads แบบ read-only และห้ามแนบไฟล์ Excel/ข้อมูลส่วนตัวเข้า GitHub
   - Dependencies: PR #166, Data Contract v1, Sandbox PR #155
   - Cost risk: แปลงไฟล์ฝั่ง Admin แบบจำกัด 25 MiB; ไม่ส่งไฟล์ Excel เข้า Function; worker/Emulator limits เดิม
   - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
-  - Started/last update: 2026-08-13
+  - Started/last update: 2026-08-13; CI ผ่าน; ไฟล์จริง 3.3.5 ถูกหยุดที่ validate-only ด้วย safety errors 17 จุด
 
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
@@ -217,4 +217,20 @@ DATA/PRIVACY_IMPACT:
 COST_IMPACT:
 KNOWN_RISKS:
 NEXT_ACTION:
+```
+
+## Completion Report — ERP Sandbox Excel 3.3.5 safety adapter / PR #155
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #155; implementation/CI-fix head 4f46687cf3b0b47742633b1fe80f277c8df73403
+FILES_CHANGED: experimental/erp-sandbox/**; .github/workflows/erp-sandbox-validation.yml; ai-handoffs/WORK-BOARD.md
+RESULTS: ซิงก์ Adapter 3.3.5 จาก main; เพิ่ม mapping ชีต 05A และ 23; เพิ่มสัญญา Frequency sheet 24; บล็อก GRP-001 แบบ Fixed และบล็อกเครือข่ายหลายกลุ่มที่ไม่มี transfer rule
+REAL_WORKBOOK_CHECK: อ่าน new erp data.xlsx 3.3.5 แบบ local read-only; พบ 2 route mode conflicts, 1 schedule conflict, 12 fixed-trip conflicts, 1 missing frequency data และ 1 missing transfer rule รวม 17 จุด
+TESTS: Sandbox Actions run 31661996038 ผ่าน 72/72; full unit/regression + Phase 2/4/6A/5 Emulator + performance run 31661996028 ผ่าน
+FIREBASE_DEPLOY_EVIDENCE: none — ไม่มี Deploy, Production write, Rules change, Publish หรือ pointer switch
+DATA/PRIVACY_IMPACT: ไม่แนบหรืออัปโหลด Excel; ไม่มี Booking/Passenger/Payment/ข้อมูลส่วนตัวใน GitHub
+COST_IMPACT: ไม่มีค่า Firebase Production; จำกัด Excel 25 MiB; ไม่ส่งไฟล์ xlsx เข้า Cloud Function; ใช้ worker/Emulator limits เดิม
+KNOWN_RISKS: ไฟล์จริงยังสร้าง Draft ที่ผ่าน validation ไม่ได้จนกว่า Owner จะแก้ GRP-001 ให้เป็น Frequency พร้อม headway/open-close และกรอกจุดต่อเที่ยว
+NEXT_ACTION: ให้เจ้าของข้อมูลแก้ Excel ต้นทางแล้วตรวจซ้ำใน Sandbox; ห้าม Merge PR #155 หรือ Deploy จนได้รับอนุมัติแยก
 ```
