@@ -70,3 +70,8 @@
 
 - Decision: Journey ของ Frequency/Queue ต้องมีเวลาเดินทางรายช่วงที่อนุมัติแล้ว นอกเหนือจาก `headwaySeconds`; ห้ามเดา runtime จากชื่อกลุ่ม ระยะทาง หรือค่า default.
 - Consequence: หาก segment runtime ไม่ครบ Publication ต้อง fail validation และห้ามเปิด Passenger/Booking route result สำหรับสายนั้น.
+## D-015 — Modernize Existing Admin ERP1 Only
+
+- Decision: ใช้ `admin-erp1.html` เดิมเป็น Admin ERP entry เพียงหน้าเดียว และปรับ UI/UX ภายในหน้าเดิม; ห้ามสร้างหน้า Admin ERP1 ใหม่หรือ control plane คู่ขนาน.
+- Consequence: งาน UI ต้องรักษา Auth, Data Adapter, Read Model, Excel และ safety hooks เดิม; แยก CSS/JS เป็นโมดูลได้แต่ห้ามเพิ่ม HTML entry ใหม่. AI สาย UI และ Primary AI ต้องถือ file lock คนละขอบเขต รายงานผ่าน `WORK-BOARD.md` และ Draft PR เดียวของสายงานนั้น. การเริ่มเขียนโค้ด, Preview deploy, Merge และ Production deploy เป็นคนละ approval gate.
+- Owner direction date: 2026-08-13.

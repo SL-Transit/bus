@@ -209,3 +209,51 @@ COST_IMPACT:
 KNOWN_RISKS:
 NEXT_ACTION:
 ```
+
+## Owner Direction Override — Admin ERP1 UI — 2026-08-13
+
+คำสั่งนี้มีผลเหนือคำอธิบาย UI ใน Completion Report เดิม แต่ไม่ลบประวัติ:
+
+- ใช้ `admin-erp1.html` เดิมเป็น Admin ERP entry เพียงหน้าเดียว
+- ห้ามสร้างหน้า Admin ERP1 ใหม่หรือ control plane คู่ขนาน
+- ให้ AI สาย UI รับผิดชอบเฉพาะ Information Architecture, UX, responsive layout และการย้ายโค้ด UI อย่างรักษาพฤติกรรม
+- ให้ Primary AI รับผิดชอบ Data Contract, Import/Validation, Draft workflow, Published Read Model, Journey Engine และ Firebase safety boundaries
+- แกนข้อมูลและ Backend บน `main` เป็นแหล่งอ้างอิง ห้าม AI สาย UI สร้าง Schema, Adapter, Importer, Journey Engine หรือ Backend ซ้ำ
+- PR #155 เป็นหลักฐาน Sandbox/ทดลองเท่านั้น ห้าม Merge เพื่อใช้หน้า Admin คู่ขนาน
+- สัญญาส่งงานและช่องทางประสานงานอยู่ที่ `ai-handoffs/ADMIN-ERP1-UI-HANDOFF.md`
+
+### Active lock — Admin ERP1 existing-page UI modernization
+
+```text
+WORKSTREAM: Admin ERP1 existing-page UI modernization
+OWNER: AI สาย UI/UX
+REVIEWER: Primary AI; Owner เป็นผู้อนุมัติแต่ละ gate
+STATUS: IN_PROGRESS — DESIGN AND SCOPE ONLY
+COORDINATION_BRANCH: agent/admin-erp1-ui-coordination
+IMPLEMENTATION_BRANCH: ยังไม่อนุมัติ; เสนอ agent/admin-erp1-ui-modernization หลังผ่าน Gate A
+FILES/PATHS: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js (เสนอใหม่เฉพาะ JS module); tests/admin-erp1-ui-contract.test.js; UI tests ที่ Owner อนุมัติ
+INTENDED_OUTPUT: ใช้ entry เดิมหน้าเดียว; ปรับ shell/navigation/list-detail/import/review UI ให้ทันสมัยและใช้ง่ายโดยรักษา Auth/Data/Excel hooks เดิม
+CURRENT_PERMISSION: อ่าน วิเคราะห์ ทำ IA/wireframe/mapping/test plan และรายงานเท่านั้น; ห้ามแก้ implementation
+TESTS_REQUIRED: single-entry; auth/session; no direct Firebase write; navigation/back-forward; Excel mapping; validation gates; responsive 360/768/1440; accessibility; existing Admin regression
+DEPENDENCIES: main ปัจจุบัน; D-001/D-015; ADMIN-ERP1-UI-HANDOFF.md; contracts/greenfield-erp/**; greenfield-erp/**
+COST_RISK: UI static assets only; ห้ามเพิ่ม Firebase workload หรือ external runtime dependency โดยไม่อนุมัติ
+FIREBASE_WRITES: none
+PRODUCTION: ห้าม deploy/merge/cutover จนกว่า Owner อนุมัติแยก
+REPORT_CHANNEL: หัวข้อนี้ใน WORK-BOARD + Draft PR Conversation หลัง Gate A
+LAST_UPDATE: 2026-08-13
+```
+
+### Active lock — ERP data and backend core
+
+```text
+WORKSTREAM: ERP data and backend core
+OWNER: Primary AI
+STATUS: IN_PROGRESS
+FILES/PATHS: contracts/greenfield-erp/**; greenfield-erp/phase2/**; greenfield-erp/phase4/**; greenfield-erp/phase5/**; greenfield-erp/phase6a/**; tests ที่เกี่ยวกับแกนข้อมูล/Backend; เอกสาร architecture/safety
+INTENDED_OUTPUT: รักษา Data Contract, Import/Validation, bounded Draft workflow, Two-Phase Publish, fixed/frequency journey, transfer rules, retention, authorization และ cost guards
+EXCLUDED: ห้ามแก้ admin-erp1.html, admin-erp-ui.css หรือ admin-erp1-ui.js ระหว่าง AI สาย UI ถือ lock โดยไม่ตกลงในบอร์ดก่อน
+TESTS_REQUIRED: Unit/contract; Emulator; version switch/rollback; authorization; privacy; bounds; performance/cost evidence
+FIREBASE_WRITES: emulator only; Production ต้องขอ Owner approval แยก
+REPORT_CHANNEL: หัวข้องานแกนระบบใน WORK-BOARD; PR ของแกนระบบห้ามรวม UI modernization
+LAST_UPDATE: 2026-08-13
+```
