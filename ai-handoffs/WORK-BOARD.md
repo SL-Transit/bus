@@ -228,19 +228,19 @@ NEXT_ACTION:
 WORKSTREAM: Admin ERP1 existing-page UI modernization
 OWNER: AI สาย UI/UX
 REVIEWER: Primary AI; Owner เป็นผู้อนุมัติแต่ละ gate
-STATUS: IN_PROGRESS — GATE B IMPLEMENTATION
+STATUS: IN_PROGRESS — GATE B CORRECTIVE IMPLEMENTATION; PR #168 CLOSED BLOCKED
 COORDINATION_BRANCH: agent/admin-erp1-ui-coordination
-IMPLEMENTATION_BRANCH: agent/admin-erp1-ui-modernization — Owner อนุมัติ Gate B เมื่อ 2026-08-13
-FILES/PATHS: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js (เสนอใหม่เฉพาะ JS module); tests/admin-erp1-ui-contract.test.js; UI tests ที่ Owner อนุมัติ
-INTENDED_OUTPUT: ใช้ entry เดิมหน้าเดียว; ปรับ shell/navigation/list-detail/import/review UI ให้ทันสมัยและใช้ง่ายโดยรักษา Auth/Data/Excel hooks เดิม
-CURRENT_PERMISSION: ปรับไฟล์ UI ที่ล็อกไว้และเพิ่ม UI tests ตาม B1-B3; ห้าม Preview/Deploy/Merge และห้ามแตะ Backend/Firebase/Production
+IMPLEMENTATION_BRANCH: agent/admin-erp1-classic-greenfield-ui — fresh from main; PR #168/agent-admin-erp1-ui-modernization ห้าม Merge
+FILES/PATHS: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; tests/admin-erp1-integration.test.js; tests/admin-erp1-live-entry.test.js; tests/admin-erp1-network-publish.test.js; safety-preserving UI tests ที่จำเป็น
+INTENDED_OUTPUT: คืนประสบการณ์/เมนู Admin ERP1 เดิมตาม f0bdb33 บน entry เดียว แต่ใช้ Greenfield runtime ปัจจุบัน; Rewire Data Center และล็อกโมดูลที่ยังไม่มี command
+CURRENT_PERMISSION: ทำ corrective R1-R2 ในไฟล์ที่ล็อกไว้; ห้ามคืน Firebase compat/legacy adapter/browser Draft; ห้าม Preview/Deploy/Merge และห้ามแตะ Backend/Firebase/Production
 TESTS_REQUIRED: single-entry; auth/session; no direct Firebase write; navigation/back-forward; Excel mapping; validation gates; responsive 360/768/1440; accessibility; existing Admin regression
 DEPENDENCIES: main ปัจจุบัน; D-001/D-015; ADMIN-ERP1-UI-HANDOFF.md; contracts/greenfield-erp/**; greenfield-erp/**
 COST_RISK: UI static assets only; ห้ามเพิ่ม Firebase workload หรือ external runtime dependency โดยไม่อนุมัติ
 FIREBASE_WRITES: none
 PRODUCTION: ห้าม deploy/merge/cutover จนกว่า Owner อนุมัติแยก
-REPORT_CHANNEL: หัวข้อนี้ใน WORK-BOARD + PR #167 สำหรับ Coordination/Owner decisions; Implementation Draft PR ใช้รีวิว diff/screenshot/CI ใน Gate B
-LAST_UPDATE: 2026-08-13 — Owner approved Gate B
+REPORT_CHANNEL: หัวข้อนี้ใน WORK-BOARD + PR #167 สำหรับ corrective decision; เปิด Implementation Draft PR ใหม่จาก branch corrective เท่านั้น
+LAST_UPDATE: 2026-08-13 — PR #168 blocked; corrective baseline D-016
 ```
 
 ### Active lock — ERP data and backend core
