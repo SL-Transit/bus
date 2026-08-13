@@ -51,12 +51,6 @@
 ### Active file locks
 
 - ERP Sandbox Excel readiness review UI — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
-- ERP Sandbox Hybrid Transfer Contract — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
-  - Files: `experimental/erp-sandbox/contracts/greenfield-erp/v1/**`; `experimental/erp-sandbox/admin-erp1-excel-3-3-x.js`; `experimental/erp-sandbox/greenfield-erp/phase5/**`; `experimental/erp-sandbox/tests/**`; root/sandbox `WORK-BOARD.md`
-  - Intended output: รองรับ Fixed → Frequency, Frequency → Fixed และ Frequency → Frequency ที่ป้ายกลาง; Trip ID เป็นตัวกรองเสริม; Operator/Service Mode เป็นตัวกรองหลัก; ทดสอบที่จุดฉะเชิงเทรา
-  - Tests: Contract/Excel/Phase 5 unit; RTDB Emulator regression; real Excel read-only compatibility check
-  - Firebase writes: none; Emulator only; no Publish/Deploy/pointer switch
-  - Cost risk: ไม่เพิ่ม Production reads/writes; matching ใช้ Published Read Model ในหน่วยความจำและ bounded transfer rules
   - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
   - Intended output: แสดงสรุปจำนวนข้อมูลและข้อผิดพลาดตามชีต/แถว/คอลัมน์; แยก blocking/warning; ตรวจ Frequency ของ GRP-001 และ Transfer; ใช้ fixture และ Excel จริงแบบ read-only; หยุดที่ validate-only/Draft
   - Tests: generated fixtures + sandbox unit/CI; อ่านไฟล์จริงใน Downloads แบบ read-only และห้ามแนบไฟล์ Excel/ข้อมูลส่วนตัวเข้า GitHub
@@ -64,6 +58,16 @@
   - Cost risk: แปลงไฟล์ฝั่ง Admin แบบจำกัด 25 MiB; ไม่ส่งไฟล์ Excel เข้า Function; worker/Emulator limits เดิม
   - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
   - Started/last update: 2026-08-13; CI ผ่าน; ไฟล์จริง 3.3.5 ถูกหยุดที่ validate-only ด้วย safety errors 17 จุด
+
+- ERP Sandbox Hybrid Transfer Contract — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
+  - Files: `experimental/erp-sandbox/contracts/greenfield-erp/v1/**`; `experimental/erp-sandbox/admin-erp1-excel-3-3-x.js`; `experimental/erp-sandbox/greenfield-erp/phase5/**`; `experimental/erp-sandbox/tests/**`; root/sandbox `WORK-BOARD.md`
+  - Result: รองรับ Fixed → Frequency, Frequency → Fixed และ Frequency → Frequency; Operator/Service Mode เป็นตัวกรองหลัก; Fixed Trip/Frequency Service ID เป็นตัวกรองเสริม
+  - Tests: GitHub Actions `sandbox-unit` และ `validate` ผ่านที่ commit `202603a`; ครอบคลุม mapping, semantic validator, exact service selector และ Journey Engine ทั้ง 3 รูปแบบ
+  - Real Excel read-only: รุ่น 3.3.5, SHA-256 `1a96bf8fd9e6d5b85bb2f6c7f606a96827b6884438028732794c80559b80ac1f`, ไฟล์ไม่เปลี่ยน; 17 blocking issues เดิม (Frequency 16, Transfer 1), 0 warnings
+  - Impact: ไม่มี Production read/write; ไม่มี Firebase Rules/Deploy/Publish/pointer switch/consumer cutover; main ไม่เปลี่ยน
+  - Cost risk: ไม่เพิ่มการอ่าน RTDB ต่อคำขอ; matching ใช้ Published Read Model ในหน่วยความจำและกฎต่อรถแบบจำกัด
+  - Next: Owner review ใน Draft PR #155; ต้องกรอก Frequency Service ของ GRP-001 และ Transfer Rule ที่ฉะเชิงเทราก่อนสร้าง Draft ที่ผ่าน Validate
+  - Updated: 2026-08-13; commits `83bc8e8`, `202603a`
 
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
