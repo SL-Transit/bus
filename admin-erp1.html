@@ -7,6 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>SL-Transit · Greenfield Admin ERP1</title>
   <link rel="stylesheet" href="assets/admin-erp1-greenfield.css">
+  <link rel="stylesheet" href="admin-erp-ui.css">
   <script defer src="admin-erp1-greenfield-state.js"></script>
   <script defer src="admin-erp1-greenfield-api-client.js"></script>
   <script defer src="admin-erp1-greenfield-system-mode.js"></script>
@@ -14,45 +15,35 @@
   <script defer src="greenfield-erp/phase2/excel-row-mapper.js"></script>
   <script defer src="admin-erp1-excel-3-3-x.js"></script>
   <script defer src="admin-erp1-greenfield-controller.js"></script>
+  <script defer src="admin-erp1-ui.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
   <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A.1 · Draft editor + async revalidation · No production writes</div>
 
-  <header class="topbar">
-    <div class="brand-lockup">
-      <span class="brand-mark" aria-hidden="true">SL</span>
-      <div>
-        <p class="eyebrow">SL-TRANSIT CONTROL PLANE</p>
-        <h1>Admin ERP1</h1>
-      </div>
-    </div>
-    <div class="environment-chip"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
+  <header class="topbar" id="admin-topbar">
+    <button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="false" aria-label="เปิดเมนูหลัก"><span aria-hidden="true">☰</span></button>
+    <a class="brand-lockup" href="#dashboard/overview" aria-label="SL-Transit Admin ERP1 แดชบอร์ด"><span class="brand-mark" aria-hidden="true">SL</span><div><p class="eyebrow">SL-TRANSIT BACKOFFICE</p><h1>Admin ERP1</h1></div></a>
+    <div class="topbar-tools"><label class="global-search" for="global-search"><span class="sr-only">ค้นหาเมนูและงาน</span><span aria-hidden="true">⌕</span><input id="global-search" type="search" autocomplete="off" placeholder="ค้นหาเมนูและงาน" aria-describedby="global-search-status"></label><span id="global-search-status" class="sr-only" aria-live="polite"></span><div class="environment-chip" title="ยังไม่อนุญาตให้เขียน Production"><span aria-hidden="true"></span> EMULATOR REVIEW</div><div class="profile-control"><button id="profile-menu-button" class="profile-button" type="button" aria-haspopup="menu" aria-controls="profile-menu" aria-expanded="false"><span class="profile-avatar" aria-hidden="true">A</span><span class="profile-copy"><strong>ผู้ดูแลระบบ</strong><small>บัญชีและการออกจากระบบ</small></span><span aria-hidden="true">⌄</span></button><div id="profile-menu" class="profile-menu" role="menu" hidden><button type="button" role="menuitem" data-ui-route="account">บัญชีของฉัน</button><button type="button" role="menuitem" data-ui-action="logout" aria-describedby="logout-availability">ออกจากระบบ</button><p id="logout-availability">คำสั่งออกจากระบบจะทำงานเมื่อ Auth contract เปิดใช้</p></div></div></div>
   </header>
 
   <div class="app-shell">
-    <aside class="sidebar" aria-label="เมนูระบบ">
-      <p class="nav-label">WORKSPACE</p>
-      <nav>
-        <button type="button" data-section-target="overview" aria-label="ไปภาพรวม"><span>01</span> ภาพรวม</button>
-        <button type="button" data-section-target="import"><span>02</span> Import Package</button>
-        <button type="button" data-section-target="draft"><span>03</span> Draft</button>
-        <button type="button" data-section-target="validation"><span>04</span> Validation</button>
-        <button type="button" data-section-target="review"><span>05</span> Review</button>
-        <button type="button" data-section-target="approval"><span>06</span> Approval</button>
-      </nav>
-      <div class="sidebar-note">
-        <strong>Safe by design</strong>
-        <p>หน้านี้ไม่มีช่องทาง Publish และไม่เขียนฐานข้อมูลจริง</p>
-      </div>
-    </aside>
+    <aside id="admin-sidebar" class="sidebar" aria-label="เมนูระบบ">
+      <nav id="primary-navigation" aria-label="พื้นที่ทำงาน Admin ERP1">
+        <section class="nav-group" aria-labelledby="nav-overview-label"><p id="nav-overview-label" class="nav-label">ภาพรวม</p><button type="button" data-ui-route="dashboard" data-section-target="overview"><span class="nav-icon" aria-hidden="true">OV</span><span>แดชบอร์ด</span></button><button type="button" data-ui-route="today"><span class="nav-icon" aria-hidden="true">TD</span><span>งานที่ต้องจัดการวันนี้</span></button></section>
+        <section class="nav-group" aria-labelledby="nav-service-label"><p id="nav-service-label" class="nav-label">งานบริการ</p><button type="button" data-ui-route="operations"><span class="nav-icon" aria-hidden="true">OP</span><span>คิวรถและตารางเวลา</span></button><button type="button" data-ui-route="bookings"><span class="nav-icon" aria-hidden="true">BK</span><span>เปิดรับจองและความจุ</span></button><button type="button" data-ui-route="finance"><span class="nav-icon" aria-hidden="true">FN</span><span>การเงินและการชำระ</span></button><button type="button" data-ui-route="content"><span class="nav-icon" aria-hidden="true">NW</span><span>ข่าวสารและประกาศ</span></button></section>
+        <section class="nav-group" aria-labelledby="nav-data-label"><p id="nav-data-label" class="nav-label">ข้อมูลกลาง</p><button type="button" data-ui-route="data-center" data-section-target="data-center"><span class="nav-icon" aria-hidden="true">DC</span><span>ศูนย์ข้อมูล ERP</span></button><button type="button" data-ui-route="data-center" data-ui-target="import" data-section-target="import"><span class="nav-icon" aria-hidden="true">IM</span><span>นำเข้า Excel</span></button><button type="button" data-ui-route="data-center" data-ui-target="validation" data-section-target="validation"><span class="nav-icon" aria-hidden="true">VA</span><span>ตรวจสอบและ Review</span></button><button type="button" data-ui-route="publications"><span class="nav-icon" aria-hidden="true">VR</span><span>เวอร์ชันเผยแพร่</span></button></section>
+        <section class="nav-group" aria-labelledby="nav-system-label"><p id="nav-system-label" class="nav-label">ดูแลระบบ</p><button type="button" data-ui-route="users"><span class="nav-icon" aria-hidden="true">US</span><span>ผู้ใช้และสิทธิ์</span></button><button type="button" data-ui-route="test-center"><span class="nav-icon" aria-hidden="true">TS</span><span>ศูนย์ทดสอบ</span></button><button type="button" data-ui-route="system-status"><span class="nav-icon" aria-hidden="true">ST</span><span>สถานะระบบและ Audit</span></button></section>
+      </nav><div class="sidebar-note"><strong>Safe by design</strong><p>ไม่มีคำสั่ง Publish หรือการเขียนฐานข้อมูล Production ใน Gate B</p></div>
+    </aside><button id="sidebar-overlay" class="sidebar-overlay" type="button" aria-label="ปิดเมนูหลัก" tabindex="-1"></button>
 
-    <main id="main-content">
-      <section id="overview" class="hero panel">
+    <main id="main-content" tabindex="-1">
+      <div id="ui-live-region" class="sr-only" aria-live="polite"></div>
+      <section id="overview" class="hero panel workspace-view" data-ui-view="dashboard">
         <div>
           <p class="eyebrow">PHASE 6A.1 · DRAFT CONTROL</p>
           <h2>จัดข้อมูลขนส่งให้พร้อมตรวจ ก่อนส่งต่อให้ระบบกลาง</h2>
-          <p class="lead">หน้าใหม่สำหรับลำดับ Import → Draft → Validate → Review → Approve โดย Upload, Import, Review และ Approval ผ่าน API ฝั่งเซิร์ฟเวอร์ พร้อม revision และ audit</p>
+          <p class="lead">หน้า Admin ERP1 เดิมรองรับลำดับ Import → Draft → Validate → Review → Approve โดย Upload, Import, Review และ Approval ผ่าน API ฝั่งเซิร์ฟเวอร์ พร้อม revision และ audit</p>
         </div>
         <div class="hero-metric" aria-label="สถานะการเชื่อมต่อ">
           <span>BACKEND</span>
@@ -60,8 +51,13 @@
           <small>Runtime config required</small>
         </div>
       </section>
-
-      <section class="workflow-strip" aria-label="ลำดับงาน">
+      <section id="dashboard-summary" class="dashboard-layout workspace-view" data-ui-view="dashboard" aria-labelledby="dashboard-title">
+        <div class="workspace-heading"><div><p class="eyebrow">OVERVIEW</p><h2 id="dashboard-title">แดชบอร์ดศูนย์ควบคุม</h2><p>แสดงสถานะจาก workflow และ backend contract โดยไม่สร้างตัวเลขธุรกิจจำลอง</p></div><button type="button" class="button primary" data-ui-route="data-center" data-ui-target="import">นำเข้าข้อมูลเพื่อสร้าง Draft</button></div>
+        <div class="dashboard-kpis"><article class="metric-card"><span>Backend</span><strong id="dashboard-backend">—</strong><small>สถานะการเชื่อมต่อ</small></article><article class="metric-card"><span>Workflow</span><strong id="dashboard-phase">—</strong><small>ขั้นตอนปัจจุบัน</small></article><article class="metric-card"><span>Validation</span><strong id="dashboard-validation">—</strong><small>ผลตรวจล่าสุด</small></article><article class="metric-card safe"><span>Production write</span><strong>ปิดใช้งาน</strong><small>Gate B · UI only</small></article></div>
+        <div class="dashboard-columns"><section class="panel task-panel" aria-labelledby="dashboard-task-title"><div class="panel-heading"><div><p class="eyebrow">NEXT ACTION</p><h2 id="dashboard-task-title">งานที่ต้องจัดการ</h2></div></div><ul class="task-list"><li><button type="button" data-ui-route="data-center" data-ui-target="import"><span><strong>ตรวจ Import Package</strong><small>เลือกไฟล์และตรวจ Mapping ก่อนสร้าง Draft</small></span><span>เปิดงาน</span></button></li><li><button type="button" data-ui-route="data-center" data-ui-target="draft"><span><strong>ตรวจข้อมูล Draft</strong><small>อ่านและแก้ผ่าน bounded backend เท่านั้น</small></span><span>เปิดงาน</span></button></li><li><button type="button" data-ui-route="data-center" data-ui-target="validation"><span><strong>แก้ Validation blocker</strong><small>ห้ามส่ง Review ขณะยังมีข้อผิดพลาด</small></span><span>เปิดงาน</span></button></li></ul></section><section class="panel safety-panel" aria-labelledby="dashboard-safety-title"><div class="panel-heading"><div><p class="eyebrow">SAFETY</p><h2 id="dashboard-safety-title">ขอบเขตรอบนี้</h2></div></div><dl><div><dt>Admin entry</dt><dd>admin-erp1.html</dd></div><div><dt>ข้อมูลจริง</dt><dd>ไม่เขียน</dd></div><div><dt>Publish</dt><dd>ไม่มีคำสั่ง</dd></div><div><dt>Firebase/Rules</dt><dd>ไม่เปลี่ยน</dd></div></dl></section></div>
+      </section>
+      <section id="data-center" class="workspace-header workspace-view" data-ui-view="data-center" aria-labelledby="data-center-title"><div><p class="eyebrow">ERP DATA CENTER</p><h2 id="data-center-title">ศูนย์ข้อมูล ERP</h2><p>จัดการบริษัท ป้ายกลาง เส้นทาง รูปแบบการเดินทาง เที่ยว เวลา ความถี่ ราคา และกฎต่อรถ ผ่าน Draft ชุดเดียว</p></div><div class="workspace-badges" aria-label="สถานะข้อมูล"><span>Draft / Review only</span><span>Published version —</span></div></section>
+      <section class="workflow-strip workspace-view" data-ui-view="data-center" aria-label="ลำดับงาน">
         <div data-phase="fileSelected"><span>1</span><strong>Import</strong><small>รับ Package</small></div>
         <div data-phase="draft"><span>2</span><strong>Draft</strong><small>สร้างฉบับร่าง</small></div>
         <div data-phase="invalid"><span>3</span><strong>Validate</strong><small>ตรวจโครงสร้าง</small></div>
@@ -69,7 +65,7 @@
         <div data-phase="approved"><span>5</span><strong>Approve</strong><small>เจ้าของอนุมัติ</small></div>
       </section>
 
-      <div class="content-grid">
+      <div class="content-grid workspace-view" data-ui-view="data-center">
         <section id="import" class="panel primary-card">
           <div class="section-heading">
             <div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div>
@@ -112,7 +108,7 @@
         </aside>
       </div>
 
-      <section id="draft" class="panel stage-card stage-card-wide">
+      <section id="draft" data-ui-view="data-center" class="workspace-view panel stage-card stage-card-wide">
         <div class="stage-index">02</div>
         <div>
           <p class="eyebrow">DRAFT EDITOR</p>
@@ -178,7 +174,7 @@
         <span class="locked">BOUNDED API</span>
       </section>
 
-      <section id="validation" class="panel stage-card">
+      <section id="validation" data-ui-view="data-center" class="workspace-view panel stage-card">
         <div class="stage-index">03</div>
         <div>
           <p class="eyebrow">ASYNC VALIDATION</p>
@@ -195,11 +191,11 @@
         <span class="locked">WORKER · MAX 2</span>
       </section>
 
-      <section id="review" class="panel stage-card">
+      <section id="review" data-ui-view="data-center" class="workspace-view panel stage-card">
         <div class="stage-index">04</div><div><p class="eyebrow">REVIEW</p><h2>ส่ง Draft ที่ผ่านการตรวจให้ผู้ทบทวน</h2><p>ระบบจะบันทึกผู้ส่ง เวลา และผลการตรวจผ่านคำสั่งที่ตรวจสิทธิ์จากฝั่งเซิร์ฟเวอร์</p><button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button></div><span class="locked">LOCKED</span>
       </section>
 
-      <section id="approval" class="panel stage-card">
+      <section id="approval" data-ui-view="data-center" class="workspace-view panel stage-card">
         <div class="stage-index">05</div>
         <div>
           <p class="eyebrow">OWNER APPROVAL</p>
@@ -215,9 +211,11 @@
         </div>
         <span class="locked">OWNER ONLY</span>
       </section>
+
+      <section id="ui-unavailable" class="panel unavailable-view" data-ui-view="unavailable" hidden aria-labelledby="ui-unavailable-title"><p class="eyebrow">WORK AREA</p><h2 id="ui-unavailable-title">พื้นที่งาน</h2><p id="ui-unavailable-description">โมดูลนี้ยังคงอยู่ในแผนย้าย UI และยังไม่เปิดการทำรายการใน Gate B รอบแรก</p><div class="unavailable-actions"><button type="button" class="button secondary" data-ui-route="dashboard">กลับแดชบอร์ด</button><button type="button" class="button primary" data-ui-route="data-center">เปิดศูนย์ข้อมูล ERP</button></div><div class="notice"><strong>ไม่มีข้อมูลจำลอง</strong><p>หน้านี้ไม่สร้างตัวเลข รายการ หรือสถานะธุรกิจขึ้นเอง และไม่เรียก Backend เพิ่ม</p></div></section>
     </main>
   </div>
 
-  <footer><span>SL-Transit Greenfield ERP</span><span>Integration Review · Phase 6A.1</span></footer>
+  <footer><span>SL-Transit Admin ERP1</span><span>Integration Review · Phase 6A.1</span></footer>
 </body>
 </html>
