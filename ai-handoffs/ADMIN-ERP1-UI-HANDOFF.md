@@ -5,9 +5,9 @@
 ## 1. สถานะการอนุญาตปัจจุบัน
 
 ```text
-CURRENT_GATE: B — IMPLEMENTATION
-AUTHORIZED: สร้าง implementation branch, ปรับ UI ในไฟล์ที่ล็อกไว้, เพิ่ม UI tests และเปิด Implementation Draft PR ตามแผน B1-B3
-NOT_AUTHORIZED: Deploy Preview/Production, Merge, แก้ Firebase/Rules/Functions/ข้อมูลจริง, Backend/Data Contract/Importer/Journey/Consumer หรือไฟล์นอก lock
+CURRENT_GATE: C — PREVIEW EVIDENCE
+AUTHORIZED: สร้าง GitHub Actions artifact preview อายุ 7 วัน พร้อมภาพ Desktop/Tablet/Mobile และ static bundle ของ PR #169
+NOT_AUTHORIZED: Live Hosting/GitHub Pages/Firebase Preview หรือ Production, Merge, แก้ Firebase/Rules/Functions/ข้อมูลจริง, Backend/Data Contract/Importer/Journey/Consumer หรือ Publish
 ```
 
 การอนุมัติ Gate หนึ่งไม่ถือเป็นการอนุมัติ Gate ถัดไป.
@@ -48,7 +48,7 @@ admin.html / admin-console.html -> redirect -> admin-erp1.html เพียง�
 - ห้ามแก้ Booking/Passenger consumer, Firebase Rules/Functions/credentials หรือ Production data
 - ห้ามให้ UI เขียน RTDB โดยตรง ตัดสินราคา เวลา การต่อรถ หรือ Publish เอง
 - ห้ามขยายไฟล์/ขอบเขตนอก lock; ถ้าจำเป็นต้องหยุดและเสนอ Primary AI ใน WORK-BOARD ก่อน
-- Gate B ได้รับ Owner approval เมื่อ 2026-08-13; ห้ามเริ่ม Gate C/D/E จนมี Owner approval ระบุชัด
+- Gate B และ Gate C artifact-preview ได้รับ Owner approval เมื่อ 2026-08-13; ห้ามเริ่ม Gate D/E จนมี Owner approval ระบุชัด
 ```
 
 ## 4. การแบ่งเจ้าของงาน
