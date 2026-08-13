@@ -239,7 +239,7 @@ DEPENDENCIES: main ปัจจุบัน; D-001/D-015; ADMIN-ERP1-UI-HANDOFF.
 COST_RISK: UI static assets only; ห้ามเพิ่ม Firebase workload หรือ external runtime dependency โดยไม่อนุมัติ
 FIREBASE_WRITES: none
 PRODUCTION: ห้าม deploy/merge/cutover จนกว่า Owner อนุมัติแยก
-REPORT_CHANNEL: หัวข้อนี้ใน WORK-BOARD + Draft PR Conversation หลัง Gate A
+REPORT_CHANNEL: หัวข้อนี้ใน WORK-BOARD + PR #167 สำหรับ Coordination/Design ใน Gate A; Implementation Draft PR และการรีวิว diff/screenshot/CI เริ่มได้หลัง Owner อนุมัติเข้า Gate B เท่านั้น
 LAST_UPDATE: 2026-08-13
 ```
 
