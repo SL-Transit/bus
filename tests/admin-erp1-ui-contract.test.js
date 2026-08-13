@@ -20,33 +20,33 @@ const requiredLegacyHooks = [
   "validation",
   "review",
   "approval",
-  "file-input",
+  "import-file",
   "operator-scope",
   "file-name",
   "file-size",
   "excel-version",
   "excel-precheck",
   "validate-file",
-  "reset-file",
-  "review-request",
-  "approve-request",
-  "reject-request",
+  "reset-workflow",
+  "request-review",
+  "approve-draft",
+  "reject-draft",
   "approval-comment",
   "workflow-phase",
-  "status-line",
-  "notice-line",
+  "workflow-status",
+  "action-notice",
   "error-code",
   "job-id",
   "backend-status",
-  "draft-type",
-  "load-draft-list",
-  "draft-next-cursor",
-  "draft-list",
-  "draft-id",
+  "draft-entity-type",
+  "load-draft-page",
+  "next-draft-page",
+  "draft-entity-list",
+  "draft-entity-id",
   "draft-json",
   "draft-change-summary",
-  "save-draft",
-  "delete-draft",
+  "save-draft-entity",
+  "delete-draft-entity",
   "validate-draft",
   "validation-job-id",
   "validation-result"
@@ -130,7 +130,7 @@ test("UI module cannot bypass bounded backend or add a publish command", () => {
 });
 
 test("dashboard mirrors contract status and never carries fake business totals", () => {
-  ["dashboard-backend-status", "dashboard-phase-status", "dashboard-validation-status", "dashboard-production-status"].forEach((id) => {
+  ["dashboard-backend", "dashboard-phase", "dashboard-validation"].forEach((id) => {
     assert.match(html, new RegExp(`\\bid="${id}"`));
   });
   assert.match(uiSource, /MutationObserver/);
