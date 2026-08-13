@@ -75,3 +75,11 @@
 - Decision: ใช้ `admin-erp1.html` เดิมเป็น Admin ERP entry เพียงหน้าเดียว และปรับ UI/UX ภายในหน้าเดิม; ห้ามสร้างหน้า Admin ERP1 ใหม่หรือ control plane คู่ขนาน.
 - Consequence: งาน UI ต้องรักษา Auth, Data Adapter, Read Model, Excel และ safety hooks เดิม; แยก CSS/JS เป็นโมดูลได้แต่ห้ามเพิ่ม HTML entry ใหม่. AI สาย UI และ Primary AI ต้องถือ file lock คนละขอบเขต รายงานผ่าน `WORK-BOARD.md` และ Draft PR เดียวของสายงานนั้น. การเริ่มเขียนโค้ด, Preview deploy, Merge และ Production deploy เป็นคนละ approval gate.
 - Owner direction date: 2026-08-13.
+## D-016 — Restore classic Admin ERP1 experience on Greenfield runtime
+
+- Decision: The Owner's instruction to use the existing Admin ERP1 refers to the visual/functional experience represented by `admin-erp1.html` at commit `f0bdb33bfab7b2b1575ea067c983197105280996`, not the smaller Greenfield contract-preview page introduced by PR #147.
+- Implementation: Keep one `admin-erp1.html` entry; reconstruct the classic IA and work areas with semantic, maintainable UI while retaining current Greenfield state/API/system-mode/Excel/controller contracts.
+- Safety: Do not restore Firebase compat, direct RTDB reads/writes, CDN runtime dependencies, legacy adapters, browser Draft persistence, duplicated inline view overrides, fake KPIs or Publish actions.
+- Unsupported modules: Show as locked until bounded backend/read contracts, tests and separate Owner approval exist.
+- Evidence: PR #168 was closed as wrong-baseline and failed CI; its branch remains as audit evidence only.
+- Status: APPROVED DIRECTION — derived from the Owner's explicit instruction to use the old Admin ERP1 and the Owner's Gate B approval on 2026-08-13.
