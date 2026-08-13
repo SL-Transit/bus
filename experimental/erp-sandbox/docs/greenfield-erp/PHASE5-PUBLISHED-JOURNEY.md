@@ -32,3 +32,6 @@ Function instance ต้องสร้าง cache ใน module/global scope. 
 - Journey จำกัดจำนวน state ต่อ request
 - min/max instances, rate limit และ Production retention ยังต้องวัดและขอ Owner approval
 - ไม่มี Firebase deploy, Rules deploy, seed, Production write หรือ Consumer cutoverใน PR นี้
+## Hybrid transfer matching
+
+Journey Engine จับคู่กฎตามลำดับ `location → operator → service mode → optional service id → transfer window` โดยคำนวณจาก Published Read Model ในหน่วยความจำเท่านั้น รองรับ Fixed → Frequency, Frequency → Fixed และ Frequency → Frequency และจะปฏิเสธการต่อรถเมื่อ Service ID แบบเจาะจงไม่ตรงกับบริการจริง

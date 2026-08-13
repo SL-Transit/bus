@@ -78,6 +78,14 @@
     return "fixed";
   }
 
+  function transferServiceMode(value) {
+    const normalized = text(value).toLowerCase();
+    if (!normalized) return "";
+    if (/frequency|dynamic|ความถี่|ไม่ประจำ|กรอกทุก/.test(normalized)) return "frequency";
+    if (/fixed|scheduled|ประจำ|ตารางเวลา/.test(normalized)) return "fixed";
+    return normalized;
+  }
+
   function shaHex(buffer, cryptoRef) {
     if (!cryptoRef || !cryptoRef.subtle) return Promise.reject(excelError("excel_checksum_unavailable", "เครื่องมือตรวจลายนิ้วมือไฟล์ไม่พร้อมใช้งาน"));
     return cryptoRef.subtle.digest("SHA-256", buffer).then(function (digest) {
@@ -247,7 +255,7 @@
     const transferRules = (grouped.transferRule || []).map(function (row) {
       const minimum = integer(row.minimumTransferMinutes);
       const maximum = integer(row.maximumTransferMinutes);
-      return {
+      const value = {
         transferRuleId: row.connectionId,
         fromLocationId: row.hubLocationId,
         toLocationId: row.hubLocationId,
@@ -257,6 +265,13 @@
         throughBooking: yes(row.throughBooking),
         baggageTransfer: yes(row.baggageTransfer)
       };
+      addIf(value, "fromOperatorId", text(row.inboundOperatorId));
+      addIf(value, "toOperatorId", text(row.outboundOperatorId));
+      addIf(value, "fromServiceMode", transferServiceMode(row.inboundServiceMode));
+      addIf(value, "toServiceMode", transferServiceMode(row.outboundServiceMode));
+      addIf(value, "fromServiceId", text(row.inboundServiceId) || text(row.inboundTripTemplateId));
+      addIf(value, "toServiceId", text(row.outboundServiceId) || text(row.outboundTripTemplateId));
+      return value;
     });
     const operationalRecords = {};
     Object.keys(OPERATIONAL_ENTITIES).forEach(function (sourceEntity) {
@@ -420,16 +435,83 @@
 
     const operatorIds = new Set((pkg.operators || []).map(function (item) { return item.operatorId; }));
     const locationIds = new Set((pkg.locations || []).map(function (item) { return item.locationId; }));
-    const tripIds = new Set((pkg.fixedTrips || []).map(function (item) { return item.fixedTripId; }));
+    const routeById = new Map((pkg.routes || []).map(function (item) { return [item.routeId, item]; }));
+    const serviceById = new Map();
+    (pkg.fixedTrips || []).forEach(function (item) {
+      const route = routeById.get(item.routeId);
+      serviceById.set(item.fixedTripId, { mode: "fixed", operatorId: route && route.operatorId });
+    });
+    (pkg.frequencyServices || []).forEach(function (item) {
+      const route = routeById.get(item.routeId);
+      serviceById.set(item.frequencyServiceId, { mode: "frequency", operatorId: route && route.operatorId });
+    });
     transferRecords.forEach(function (record) {
       const row = record.value || {};
-      if (!locationIds.has(row.hubLocationId) || !operatorIds.has(row.inboundOperatorId) || !operatorIds.has(row.outboundOperatorId) || !tripIds.has(row.inboundTripTemplateId) || !tripIds.has(row.outboundTripTemplateId)) {
+      if (!locationIds.has(row.hubLocationId) || !operatorIds.has(row.inboundOperatorId) || !operatorIds.has(row.outboundOperatorId)) {
         errors.push(validationError(
           "excel.transfer_reference_missing",
-          "จุดต่อเที่ยว " + text(row.connectionId) + " อ้างอิงจุด บริษัท หรือเที่ยวไม่ครบ",
+          "จุดต่อเที่ยว " + text(row.connectionId) + " อ้างอิงจุดหรือบริษัทไม่ครบ",
           record, "connection_id", "19_จุดต่อเที่ยว"
         ));
       }
+      const inboundMode = transferServiceMode(row.inboundServiceMode);
+      const outboundMode = transferServiceMode(row.outboundServiceMode);
+      if (rules.requireTransferServiceModes && (!inboundMode || !outboundMode)) {
+        errors.push(validationError(
+          "excel.transfer_service_mode_required",
+          "จุดต่อเที่ยว " + text(row.connectionId) + " ต้องระบุโหมดขาเข้าและขาออกเป็น fixed หรือ frequency",
+          record, !inboundMode ? "inbound_service_mode" : "outbound_service_mode", "19_จุดต่อเที่ยว"
+        ));
+      }
+      [["inbound", inboundMode], ["outbound", outboundMode]].forEach(function (side) {
+        if (side[1] && !["fixed", "frequency"].includes(side[1])) {
+          errors.push(validationError(
+            "excel.transfer_service_mode_invalid",
+            "จุดต่อเที่ยว " + text(row.connectionId) + " ระบุโหมด " + side[1] + " ซึ่งระบบไม่รองรับ",
+            record, side[0] + "_service_mode", "19_จุดต่อเที่ยว"
+          ));
+        }
+      });
+      const selectors = [
+        { side: "inbound", mode: inboundMode, operatorId: text(row.inboundOperatorId), genericId: text(row.inboundServiceId), legacyId: text(row.inboundTripTemplateId) },
+        { side: "outbound", mode: outboundMode, operatorId: text(row.outboundOperatorId), genericId: text(row.outboundServiceId), legacyId: text(row.outboundTripTemplateId) }
+      ];
+      selectors.forEach(function (selector) {
+        if (selector.genericId && selector.legacyId && selector.genericId !== selector.legacyId) {
+          errors.push(validationError(
+            "excel.transfer_service_selector_conflict",
+            "จุดต่อเที่ยว " + text(row.connectionId) + " ระบุ Service ID กับ Trip ID ไม่ตรงกัน",
+            record, selector.side + "_service_id", "19_จุดต่อเที่ยว"
+          ));
+          return;
+        }
+        if (selector.legacyId && selector.mode === "frequency") {
+          errors.push(validationError(
+            "excel.transfer_service_selector_conflict",
+            "จุดต่อเที่ยว " + text(row.connectionId) + " ใช้ Trip ID กับโหมด frequency ไม่ได้",
+            record, selector.side + "_trip_template_id", "19_จุดต่อเที่ยว"
+          ));
+          return;
+        }
+        const serviceId = selector.genericId || selector.legacyId;
+        if (!serviceId) return;
+        const service = serviceById.get(serviceId);
+        if (!service) {
+          errors.push(validationError(
+            "excel.transfer_service_reference_missing",
+            "จุดต่อเที่ยว " + text(row.connectionId) + " อ้างถึงบริการ " + serviceId + " ที่ไม่มีในไฟล์",
+            record, selector.side + "_service_id", "19_จุดต่อเที่ยว"
+          ));
+          return;
+        }
+        if ((selector.mode && service.mode !== selector.mode) || (selector.operatorId && service.operatorId !== selector.operatorId)) {
+          errors.push(validationError(
+            "excel.transfer_service_selector_conflict",
+            "จุดต่อเที่ยว " + text(row.connectionId) + " ระบุ Service ID ไม่ตรงกับโหมดหรือบริษัท",
+            record, selector.side + "_service_id", "19_จุดต่อเที่ยว"
+          ));
+        }
+      });
     });
     return errors;
   }

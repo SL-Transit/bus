@@ -157,3 +157,8 @@ Consumer ต้องประกาศ node ที่อ่าน ห้าม�
 - Backend-generated audit fields
 
 ข้อมูลไม่ครบต้องเป็น validation error ไม่ใช่ค่า default ที่เดาเอง
+## Hybrid Transfer Selector
+
+จุดต่อเที่ยวใช้ `fromOperatorId` / `toOperatorId` และ `fromServiceMode` / `toServiceMode` (`fixed` หรือ `frequency`) เป็นเงื่อนไขหลัก เพื่อรองรับ Fixed → Frequency, Frequency → Fixed และ Frequency → Frequency ที่ป้ายกลางเดียวกัน
+
+`fromServiceId` / `toServiceId` เป็นตัวกรองเสริมและอ้างได้ทั้ง Fixed Trip ID หรือ Frequency Service ID โดยชนิดของ ID ต้องตรงกับ Service Mode หากไม่ระบุ Service ID ระบบจะจับคู่ทุกบริการที่ตรงกับบริษัท โหมด และช่วงเวลาต่อรถ ห้ามใช้ชื่อบริษัท ชื่อป้าย หรือชื่อเที่ยวเป็นรหัสเชื่อม

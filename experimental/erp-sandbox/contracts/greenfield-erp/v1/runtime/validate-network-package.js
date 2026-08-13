@@ -77,7 +77,7 @@ function validateNetworkPackage(pkg) {
   const calendarById = uniqueIndex(calendars, "serviceCalendarId", "serviceCalendars", errors);
   const tripById = uniqueIndex(fixedTrips, "fixedTripId", "fixedTrips", errors);
   uniqueIndex(stopTimes, "stopTimeId", "stopTimes", errors);
-  uniqueIndex(frequencies, "frequencyServiceId", "frequencyServices", errors);
+  const frequencyById = uniqueIndex(frequencies, "frequencyServiceId", "frequencyServices", errors);
   const fareProductById = uniqueIndex(fareProducts, "fareProductId", "fareProducts", errors);
   uniqueIndex(fareRules, "fareRuleId", "fareRules", errors);
   uniqueIndex(transfers, "transferRuleId", "transferRules", errors);
@@ -147,8 +147,36 @@ function validateNetworkPackage(pkg) {
     if (!Number.isInteger(rule.amountMinor) || rule.amountMinor < 0) issue(errors, "fare.amountMinor", "fareRules[" + i + "].amountMinor", "amountMinor must be non-negative integer");
   });
   transfers.forEach(function (rule, i) {
-    if (!locationById.has(rule.fromLocationId) || !locationById.has(rule.toLocationId)) issue(errors, "foreignKey.transfer.location", "transferRules[" + i + "]", "transfer locations must exist");
-    if (!Number.isInteger(rule.minimumTransferSeconds) || !Number.isInteger(rule.maximumTransferSeconds) || rule.maximumTransferSeconds < rule.minimumTransferSeconds) issue(errors, "transfer.window", "transferRules[" + i + "]", "maximum must be >= minimum");
+    const path = "transferRules[" + i + "]";
+    if (!locationById.has(rule.fromLocationId) || !locationById.has(rule.toLocationId)) issue(errors, "foreignKey.transfer.location", path, "transfer locations must exist");
+    if (!Number.isInteger(rule.minimumTransferSeconds) || rule.minimumTransferSeconds < 0 || !Number.isInteger(rule.maximumTransferSeconds) || rule.maximumTransferSeconds < rule.minimumTransferSeconds) issue(errors, "transfer.window", path, "maximum must be >= a non-negative minimum");
+    [["from", rule.fromOperatorId], ["to", rule.toOperatorId]].forEach(function (side) {
+      if (side[1] && !operatorById.has(side[1])) issue(errors, "foreignKey.transfer.operator", path + "." + side[0] + "OperatorId", "operator does not exist");
+    });
+    [["from", rule.fromServiceMode, rule.fromServiceId, rule.fromOperatorId], ["to", rule.toServiceMode, rule.toServiceId, rule.toOperatorId]].forEach(function (side) {
+      const name = side[0];
+      const mode = side[1];
+      const serviceId = side[2];
+      const operatorId = side[3];
+      if (mode && !["fixed", "frequency"].includes(mode)) issue(errors, "transfer.serviceMode", path + "." + name + "ServiceMode", "transfer service mode must be fixed or frequency");
+      if (!serviceId) return;
+      const fixed = tripById.get(serviceId);
+      const frequency = frequencyById.get(serviceId);
+      if (!fixed && !frequency) {
+        issue(errors, "foreignKey.transfer.service", path + "." + name + "ServiceId", "fixed trip or frequency service does not exist");
+        return;
+      }
+      if (fixed && frequency) {
+        issue(errors, "transfer.serviceSelector", path + "." + name + "ServiceId", "service id is ambiguous across fixed and frequency services");
+        return;
+      }
+      const service = fixed || frequency;
+      const actualMode = fixed ? "fixed" : "frequency";
+      const route = routeById.get(service.routeId);
+      if ((mode && mode !== actualMode) || (operatorId && route && operatorId !== route.operatorId)) {
+        issue(errors, "transfer.serviceSelector", path + "." + name + "ServiceId", "service id does not match transfer mode or operator");
+      }
+    });
   });
   return errors;
 }

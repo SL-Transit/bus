@@ -1,39 +1,70 @@
 {
-  "mappingVersion": "excel-3.3.4-to-greenfield-erp-v1",
-  "templateVersion": "3.3.4",
-  "sourceWorkbook": "new erp data.xlsx",
-  "extends": "excel-mapping-3.1.5.json",
-  "versionLocation": {
-    "sheetName": "91_ควบคุมการนำเข้า",
-    "cell": "C5"
-  },
-  "requiredSheets": [
-    "91_ควบคุมการนำเข้า",
-    "02_จุดบริการ",
-    "03_เส้นทาง",
-    "04_รูปแบบเส้นทาง",
-    "05_ปฏิทินบริการ",
-    "07_แม่แบบเที่ยว",
-    "08_เวลารายป้าย",
-    "09_ค่าโดยสาร"
-  ],
-  "optionalSourceFields": {
-    "02_จุดบริการ": ["latitude", "longitude", "coordinate_source", "verified_by"],
-    "02B_สำรวจจุดบริการ": [
-      "address_text", "province_name", "latitude", "longitude",
-      "coordinate_source", "coordinate_accuracy_m", "entrance_description",
-      "wheelchair_accessible", "shelter_available", "lighting_available",
-      "owner_operator_id", "station_access_required", "photo_reference",
-      "surveyed_by", "surveyed_at", "verified_by", "change_reason"
-    ],
-    "04A_เรียงลำดับป้าย": ["distance_from_start_km", "travel_minutes_from_previous", "verified_by"],
-    "04_รูปแบบเส้นทาง": ["distance_from_start_km"],
-    "11_รถ": ["seat_capacity"],
-    "12_คนขับ": ["license_class", "license_expiry"]
-  },
-  "routeRules": {
-    "allowMissingCoordinates": true,
-    "allowMissingDistance": true,
-    "allowRepeatedLocationAtDifferentSequence": true
-  }
+    "mappingVersion":  "excel-3.3.4-to-greenfield-erp-v1-hybrid-transfer-1",
+    "templateVersion":  "3.3.4",
+    "sourceWorkbook":  "new erp data.xlsx",
+    "extends":  "excel-mapping-3.1.5.json",
+    "versionLocation":  {
+                            "sheetName":  "91_ควบคุมการนำเข้า",
+                            "cell":  "C5"
+                        },
+    "requiredSheets":  [
+                           "91_ควบคุมการนำเข้า",
+                           "02_จุดบริการ",
+                           "03_เส้นทาง",
+                           "04_รูปแบบเส้นทาง",
+                           "05_ปฏิทินบริการ",
+                           "07_แม่แบบเที่ยว",
+                           "08_เวลารายป้าย",
+                           "09_ค่าโดยสาร"
+                       ],
+    "optionalSourceFields":  {
+                                 "02_จุดบริการ":  [
+                                                      "latitude",
+                                                      "longitude",
+                                                      "coordinate_source",
+                                                      "verified_by"
+                                                  ],
+                                 "02B_สำรวจจุดบริการ":  [
+                                                            "address_text",
+                                                            "province_name",
+                                                            "latitude",
+                                                            "longitude",
+                                                            "coordinate_source",
+                                                            "coordinate_accuracy_m",
+                                                            "entrance_description",
+                                                            "wheelchair_accessible",
+                                                            "shelter_available",
+                                                            "lighting_available",
+                                                            "owner_operator_id",
+                                                            "station_access_required",
+                                                            "photo_reference",
+                                                            "surveyed_by",
+                                                            "surveyed_at",
+                                                            "verified_by",
+                                                            "change_reason"
+                                                        ],
+                                 "04A_เรียงลำดับป้าย":  [
+                                                            "distance_from_start_km",
+                                                            "travel_minutes_from_previous",
+                                                            "verified_by"
+                                                        ],
+                                 "04_รูปแบบเส้นทาง":  [
+                                                          "distance_from_start_km"
+                                                      ],
+                                 "11_รถ":  [
+                                               "seat_capacity"
+                                           ],
+                                 "12_คนขับ":  [
+                                                  "license_class",
+                                                  "license_expiry"
+                                              ]
+                             },
+    "routeRules":  {
+                       "allowMissingCoordinates":  true,
+                       "allowMissingDistance":  true,
+                       "allowRepeatedLocationAtDifferentSequence":  true
+                   },
+    "safetyRules":  {
+                        "requireTransferServiceModes":  true
+                    }
 }

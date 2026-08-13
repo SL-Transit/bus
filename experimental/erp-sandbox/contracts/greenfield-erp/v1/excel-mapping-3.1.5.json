@@ -4609,14 +4609,34 @@
           "notes": null
         },
         {
+          "sourceColumn": "inbound_service_mode",
+          "targetField": "inboundServiceMode",
+          "required": false,
+          "sourceType": "ข้อความ",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": "fixed หรือ frequency; ต้องระบุเมื่อมีจุดต่อเที่ยว"
+        },
+        {
+          "sourceColumn": "inbound_service_id",
+          "targetField": "inboundServiceId",
+          "required": false,
+          "sourceType": "ข้อความ",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": "Fixed Trip ID หรือ Frequency Service ID เป็นตัวกรองเสริม"
+        },
+        {
           "sourceColumn": "inbound_trip_template_id",
           "targetField": "inboundTripTemplateId",
-          "required": true,
+          "required": false,
           "sourceType": "ข้อความ",
           "targetType": "string",
           "enumSource": null,
           "reference": "07_แม่แบบเที่ยว.trip_template_id",
-          "notes": null
+          "notes": "ตัวกรอง Fixed Trip แบบเดิม ใช้ได้เมื่อ service mode เป็น fixed เท่านั้น"
         },
         {
           "sourceColumn": "outbound_operator_id",
@@ -4629,14 +4649,34 @@
           "notes": null
         },
         {
+          "sourceColumn": "outbound_service_mode",
+          "targetField": "outboundServiceMode",
+          "required": false,
+          "sourceType": "ข้อความ",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": "fixed หรือ frequency; ต้องระบุเมื่อมีจุดต่อเที่ยว"
+        },
+        {
+          "sourceColumn": "outbound_service_id",
+          "targetField": "outboundServiceId",
+          "required": false,
+          "sourceType": "ข้อความ",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": "Fixed Trip ID หรือ Frequency Service ID เป็นตัวกรองเสริม"
+        },
+        {
           "sourceColumn": "outbound_trip_template_id",
           "targetField": "outboundTripTemplateId",
-          "required": true,
+          "required": false,
           "sourceType": "ข้อความ",
           "targetType": "string",
           "enumSource": null,
           "reference": "07_แม่แบบเที่ยว.trip_template_id",
-          "notes": null
+          "notes": "ตัวกรอง Fixed Trip แบบเดิม ใช้ได้เมื่อ service mode เป็น fixed เท่านั้น"
         },
         {
           "sourceColumn": "minimum_transfer_minutes",
