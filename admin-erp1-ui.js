@@ -204,7 +204,7 @@
     Array.prototype.slice.call(doc.querySelectorAll('[data-ui-action="logout"]')).forEach(function bindLogout(button) {
       button.addEventListener("click", function onLogoutLocked() {
         closeProfile(false);
-        openDrawer("ออกจากระบบยังล็อก", "รอ Auth contract จากระบบหลังบ้าน หน้า UI จะไม่จำลองว่า session สิ้นสุดแล้ว", button);
+        openDrawer("ออกจากระบบยังล็อก", "รอ Auth contract จากระบบหลังบ้าน หน้า UI จะไม่จำลองว่า session สิ้นสุดแล้ว", profileButton || button);
       });
     });
 
