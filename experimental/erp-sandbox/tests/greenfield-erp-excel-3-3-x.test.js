@@ -30,7 +30,7 @@ function valueFor(field, rowNumber) {
   if (field.enumSource === "direction") return "outbound";
   if (field.sourceColumn === "record_status") return "active";
   if (field.sourceColumn === "approval_state") return "approved";
-  if (field.sourceColumn === "change_reason") return "เตรียมข้อมูลทดสอบ";
+  if (field.sourceColumn === "change_reason") return "?????????????????";
   if (field.sourceColumn === "source_row_id") return "SRC-" + rowNumber;
   return "TEST";
 }
@@ -38,7 +38,7 @@ function valueFor(field, rowNumber) {
 function matrixFor(mapping, sheetName, rows) {
   const sheet = mapping.sheets[sheetName];
   const headers = sheet.fields.map(function (field) { return field.sourceColumn; });
-  const matrix = [[], [], headers, headers.map(function () { return "ชื่อช่อง"; })];
+  const matrix = [[], [], headers, headers.map(function () { return "????????"; })];
   rows.forEach(function (overrides, rowIndex) {
     matrix.push(sheet.fields.map(function (field) {
       return Object.prototype.hasOwnProperty.call(overrides, field.sourceColumn)
@@ -52,46 +52,53 @@ function matrixFor(mapping, sheetName, rows) {
 function workbookFor(version) {
   const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
   const sheets = {};
-  sheets["91_ควบคุมการนำเข้า"] = [[], [], [], [], [null, null, version]];
-  sheets["01_หน่วยงาน"] = matrixFor(activeMapping, "01_หน่วยงาน", [{
-    operator_id: "OPR-BUS01", operator_name_th: "แพลตฟอร์มรถโดยสาร", timezone: "Asia/Bangkok"
+  sheets["91_???????????????"] = [[], [], [], [], [null, null, version]];
+  sheets["01_????????"] = matrixFor(activeMapping, "01_????????", [{
+    operator_id: "OPR-BUS01", operator_name_th: "?????????????????", timezone: "Asia/Bangkok"
   }]);
-  sheets["02_จุดบริการ"] = matrixFor(activeMapping, "02_จุดบริการ", [
-    { location_id: "LOC-001", location_name_th: "ฉะเชิงเทรา", location_type: "terminal", latitude: null, longitude: null, coordinate_source: null, verified_by: null },
-    { location_id: "LOC-002", location_name_th: "สี่แยกโคนม", location_type: "stop", latitude: null, longitude: null, coordinate_source: null, verified_by: null }
+  sheets["02_?????????"] = matrixFor(activeMapping, "02_?????????", [
+    { location_id: "LOC-001", location_name_th: "??????????", location_type: "terminal", latitude: null, longitude: null, coordinate_source: null, verified_by: null },
+    { location_id: "LOC-002", location_name_th: "??????????", location_type: "stop", latitude: null, longitude: null, coordinate_source: null, verified_by: null }
   ]);
-  sheets["03_เส้นทาง"] = matrixFor(activeMapping, "03_เส้นทาง", [{
-    route_id: "RTE-001", operator_id: "OPR-BUS01", route_short_name: "สายทดสอบ",
-    route_long_name_th: "ฉะเชิงเทรา–คลองหาด", service_type: "fixed",
+  sheets["03_???????"] = matrixFor(activeMapping, "03_???????", [{
+    route_id: "RTE-001", operator_id: "OPR-BUS01", route_short_name: "????????",
+    route_long_name_th: "??????????????????", service_type: "fixed",
     origin_location_id: "LOC-001", destination_location_id: "LOC-002"
   }]);
-  sheets["04_รูปแบบเส้นทาง"] = matrixFor(activeMapping, "04_รูปแบบเส้นทาง", [
+  sheets["04_?????????????"] = matrixFor(activeMapping, "04_?????????????", [
     { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 1, location_id: "LOC-001" },
     { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 2, location_id: "LOC-002" },
     { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 3, location_id: "LOC-001" }
   ]);
-  sheets["05_ปฏิทินบริการ"] = matrixFor(activeMapping, "05_ปฏิทินบริการ", [{
-    service_calendar_id: "CAL-001", service_name_th: "ทุกวัน",
+  sheets["05_????????????"] = matrixFor(activeMapping, "05_????????????", [{
+    service_calendar_id: "CAL-001", service_name_th: "??????",
     monday: "yes", tuesday: "yes", wednesday: "yes", thursday: "yes", friday: "yes", saturday: "yes", sunday: "yes",
     start_date: "2026-01-01", end_date: "2026-12-31"
   }]);
-  sheets["07_แม่แบบเที่ยว"] = matrixFor(activeMapping, "07_แม่แบบเที่ยว", [{
+  sheets["07_????????????"] = matrixFor(activeMapping, "07_????????????", [{
     trip_template_id: "TRP-001", route_id: "RTE-001", journey_pattern_id: "PAT-001",
     service_calendar_id: "CAL-001", departure_time: "09:00", default_capacity: 3, booking_enabled: "yes"
   }]);
-  sheets["08_เวลารายป้าย"] = matrixFor(activeMapping, "08_เวลารายป้าย", [
+  sheets["08_???????????"] = matrixFor(activeMapping, "08_???????????", [
     { stop_time_id: "STM-001", trip_template_id: "TRP-001", stop_sequence: 1, location_id: "LOC-001", arrival_time: "09:00", departure_time: "09:00" },
     { stop_time_id: "STM-002", trip_template_id: "TRP-001", stop_sequence: 2, location_id: "LOC-002", arrival_time: "09:20", departure_time: "09:20" },
     { stop_time_id: "STM-003", trip_template_id: "TRP-001", stop_sequence: 3, location_id: "LOC-001", arrival_time: "09:40", departure_time: "09:40" }
   ]);
-  sheets["09_ค่าโดยสาร"] = matrixFor(activeMapping, "09_ค่าโดยสาร", [{
+  sheets["09_?????????"] = matrixFor(activeMapping, "09_?????????", [{
     fare_rule_id: "FAR-001", fare_product_id: "FPR-001", route_id: "RTE-001",
     origin_location_id: "LOC-001", destination_location_id: "LOC-002", currency: "THB", base_fare: 0
   }]);
-  sheets["11_รถ"] = matrixFor(activeMapping, "11_รถ", [{
+  sheets["11_??"] = matrixFor(activeMapping, "11_??", [{
     vehicle_id: "VEH-001", operator_id: "OPR-BUS01", vehicle_type: "van", capacity: 6
   }]);
   return { sheets };
+}
+
+function parserFor(workbook) {
+  return {
+    read() { return { SheetNames: Object.keys(workbook.sheets), Sheets: workbook.sheets }; },
+    utils: { sheet_to_json(sheet) { return sheet; } }
+  };
 }
 
 function convert(version, workbook) {
@@ -105,7 +112,7 @@ function convert(version, workbook) {
   });
 }
 
-test("รองรับ Excel 3.3.4 และ 3.3.5 โดยอ่านรุ่นจากชีต 91 ช่อง C5", function () {
+test("?????? Excel 3.3.4 ??? 3.3.5 ????????????????? 91 ???? C5", function () {
   ["3.3.4", "3.3.5"].forEach(function (version) {
     const result = convert(version);
     assert.equal(result.ok, true);
@@ -116,14 +123,34 @@ test("รองรับ Excel 3.3.4 และ 3.3.5 โดยอ่านรุ
   });
 });
 
-test("ไม่มีพิกัดและระยะทางก็สร้างข้อมูลเครือข่ายได้", function () {
+test("??????????????????????????????????????????? Backend", function () {
+  const result = convert("3.3.5");
+  assert.equal(result.report.status, "ready");
+  assert.equal(result.report.blockingCount, 0);
+  assert.equal(result.report.warningCount, 0);
+  assert.deepEqual(result.report.summary, {
+    operators: 1,
+    locations: 2,
+    routes: 1,
+    journeyPatterns: 1,
+    fixedTrips: 1,
+    stopTimes: 3,
+    frequencyServices: 0,
+    fareRules: 1,
+    transferRules: 0
+  });
+  assert.equal(result.report.gates.frequency.status, "ready");
+  assert.equal(result.report.gates.transfers.status, "ready");
+});
+
+test("?????????????????????????????????????????????", function () {
   const result = convert("3.3.5");
   assert.equal(result.ok, true);
   assert.equal("latitude" in result.package.locations[0], false);
   assert.equal("longitude" in result.package.locations[0], false);
 });
 
-test("ข้อมูลรถและข้อมูลปฏิบัติการไม่สูญหาย และถูกเก็บใน Draft แยกหมวด", function () {
+test("???????????????????????????????????? ???????????? Draft ???????", function () {
   const result = convert("3.3.5");
   assert.equal(result.package.operationalRecords.vehicles.length, 1);
   assert.equal(result.package.operationalRecords.vehicles[0].vehicleId, "VEH-001");
@@ -134,21 +161,21 @@ test("ข้อมูลรถและข้อมูลปฏิบัติ�
   }));
 });
 
-test("จุดเชื่อมต่อเดิมซ้ำได้เมื่ออยู่คนละลำดับในเส้นทางแยก", function () {
+test("????????????????????????????????????????????????????", function () {
   const result = convert("3.3.5");
   assert.deepEqual(result.package.journeyPatterns[0].stops.map(function (stop) { return stop.locationId; }), ["LOC-001", "LOC-002", "LOC-001"]);
   assert.equal(result.errors.some(function (error) { return error.code === "excel.id_duplicate"; }), false);
 });
 
-test("ปฏิเสธรุ่นไม่รองรับและหัวตารางที่หายไปด้วยข้อความที่อ่านรู้เรื่อง", function () {
+test("?????????????????????????????????????????????????????????????????", function () {
   const wrongVersion = workbookFor("3.3.5");
-  wrongVersion.sheets["91_ควบคุมการนำเข้า"][4][2] = "3.2.0";
+  wrongVersion.sheets["91_???????????????"][4][2] = "3.2.0";
   assert.throws(function () { convert("3.3.5", wrongVersion); }, function (error) {
     return error.code === "excel_version_not_supported";
   });
 
   const missingHeader = workbookFor("3.3.5");
-  const headers = missingHeader.sheets["03_เส้นทาง"][2];
+  const headers = missingHeader.sheets["03_???????"][2];
   headers[headers.indexOf("route_id")] = "";
   const result = convert("3.3.5", missingHeader);
   assert.equal(result.ok, false);
@@ -157,21 +184,21 @@ test("ปฏิเสธรุ่นไม่รองรับและหั�
   }));
 });
 
-test("ปฏิเสธรหัสอ้างอิงที่ไม่มีจริงก่อนส่ง Backend", function () {
+test("???????????????????????????????????? Backend", function () {
   const workbook = workbookFor("3.3.5");
   const mapping = mapper.applyMappingProfile(baseMapping, profile("3.3.5"));
-  const headers = workbook.sheets["03_เส้นทาง"][2];
-  workbook.sheets["03_เส้นทาง"][4][headers.indexOf("operator_id")] = "OPR-MISSING";
+  const headers = workbook.sheets["03_???????"][2];
+  workbook.sheets["03_???????"][4][headers.indexOf("operator_id")] = "OPR-MISSING";
   const result = excel.convertWorkbook({
     workbook, baseMapping, profile: profile("3.3.5"), mapper,
     operatorScope: ["OPR-BUS01"], sourceChecksumSha256: "sha256:" + "b".repeat(64)
   });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some(function (error) { return /หน่วยงานที่ไม่มี/.test(error.message); }));
-  assert.ok(mapping.sheets["02_จุดบริการ"].fields.find(function (field) { return field.sourceColumn === "latitude"; }).required === false);
+  assert.ok(result.errors.some(function (error) { return /????????????????/.test(error.message); }));
+  assert.ok(mapping.sheets["02_?????????"].fields.find(function (field) { return field.sourceColumn === "latitude"; }).required === false);
 });
 
-test("หน้า Admin รับ xlsx แปลงเป็น JSON และยังไม่มีคำสั่ง Publish", function () {
+test("???? Admin ??? xlsx ???????? JSON ????????????????? Publish", function () {
   const html = fs.readFileSync(path.join(repositoryRoot, "admin-erp1.html"), "utf8");
   const controller = fs.readFileSync(path.join(repositoryRoot, "admin-erp1-greenfield-controller.js"), "utf8");
   assert.match(html, /assets\/vendor\/xlsx\.full\.min\.js/);
@@ -185,16 +212,10 @@ test("หน้า Admin รับ xlsx แปลงเป็น JSON และ�
   assert.ok(fs.readFileSync(path.join(repositoryRoot, "assets/vendor/XLSX-LICENSE.txt"), "utf8").includes("Apache License"));
 });
 
-test("ไฟล์ xlsx ถูกแปลงเป็นไฟล์ JSON สำหรับเขตกักกันก่อนอัปโหลด", async function () {
+test("???? xlsx ??????????????? JSON ??????????????????????????", async function () {
   const workbook = workbookFor("3.3.5");
-  const parser = {
-    read() {
-      return { SheetNames: Object.keys(workbook.sheets), Sheets: workbook.sheets };
-    },
-    utils: {
-      sheet_to_json(sheet) { return sheet; }
-    }
-  };
+  const parser = parserFor(workbook);
+
   const source = new File([new Uint8Array([1, 2, 3])], "new erp data.xlsx", {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   });
@@ -211,9 +232,11 @@ test("ไฟล์ xlsx ถูกแปลงเป็นไฟล์ JSON ส�
   const payload = JSON.parse(await converted.file.text());
   assert.equal(payload.metadata.mode, "validate_only");
   assert.equal(payload.operationalRecords.vehicles[0].vehicleId, "VEH-001");
+  assert.equal(converted.report.status, "ready");
+  assert.equal(converted.report.summary.stopTimes, 3);
 });
 
-test("ใช้ชื่อป้ายจากชีตสำรวจได้เมื่อชีตจุดบริการยังไม่มี และไม่บังคับข้อมูลสำรวจ รถ หรือใบขับขี่ที่ยังไม่ทราบ", function () {
+test("?????????????????????????????????????????????????? ??????????????????????? ?? ?????????????????????????", function () {
   const version = "3.3.5";
   const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
   const workbook = workbookFor(version);
@@ -223,7 +246,7 @@ test("ใช้ชื่อป้ายจากชีตสำรวจได�
   const driverSheet = Object.keys(activeMapping.sheets).find(function (name) { return name.startsWith("12_"); });
 
   workbook.sheets[surveySheet] = matrixFor(activeMapping, surveySheet, [{
-    survey_id: "SRV-003", location_id: "LOC-003", location_name_th: "ป้ายตัวอย่าง",
+    survey_id: "SRV-003", location_id: "LOC-003", location_name_th: "????????????",
     location_type: "stop", country_code: "TH", public_visible: "yes",
     approval_state: "approved", record_status: "active", effective_from: "2026-01-01",
     source_row_id: "SRC-SRV-003"
@@ -238,34 +261,34 @@ test("ใช้ชื่อป้ายจากชีตสำรวจได�
     vehicle_id: "VEH-001", operator_id: "OPR-BUS01", fleet_number: "1",
     registration_number: "TEST-1", vehicle_type: "van", seat_capacity: null,
     vehicle_status: "active", record_status: "active", effective_from: "2026-01-01",
-    change_reason: "ทดสอบ", source_row_id: "SRC-VEH-001"
+    change_reason: "?????", source_row_id: "SRC-VEH-001"
   }]);
   workbook.sheets[driverSheet] = matrixFor(activeMapping, driverSheet, [{
     driver_id: "DRV-001", operator_id: "OPR-BUS01", employee_number: "1",
-    display_name_th: "คนขับตัวอย่าง", license_class: null, license_expiry: null,
+    display_name_th: "?????????????", license_class: null, license_expiry: null,
     qualified_vehicle_types: "van", driver_status: "active", record_status: "active",
-    effective_from: "2026-01-01", change_reason: "ทดสอบ", source_row_id: "SRC-DRV-001"
+    effective_from: "2026-01-01", change_reason: "?????", source_row_id: "SRC-DRV-001"
   }]);
 
   const result = convert(version, workbook);
   assert.equal(result.ok, true);
-  assert.equal(result.package.locations.find(function (item) { return item.locationId === "LOC-003"; }).nameTh, "ป้ายตัวอย่าง");
-  assert.equal(result.package.journeyPatterns[0].stops[3].locationNameTh, "ป้ายตัวอย่าง");
+  assert.equal(result.package.locations.find(function (item) { return item.locationId === "LOC-003"; }).nameTh, "????????????");
+  assert.equal(result.package.journeyPatterns[0].stops[3].locationNameTh, "????????????");
   assert.equal(result.package.operationalRecords.locationSurveys.length, 1);
   assert.equal("seatCapacity" in result.package.operationalRecords.vehicles[0], false);
   assert.equal("licenseClass" in result.package.operationalRecords.drivers[0], false);
 });
 
 
-test("อ่านกติกาตารางเวลาและกฎคิวรายวันเข้า Draft operational records", function () {
+test("???????????????????????????????????? Draft operational records", function () {
   const version = "3.3.5";
   const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
   const workbook = workbookFor(version);
-  workbook.sheets["05A_กติกาตารางเวลา"] = matrixFor(activeMapping, "05A_กติกาตารางเวลา", [{
+  workbook.sheets["05A_??????????????"] = matrixFor(activeMapping, "05A_??????????????", [{
     schedule_rule_id: "RUL-002-01", service_group_id: "GRP-002", day_scope: "all_days",
     schedule_mode: "fixed_recurring", service_calendar_id: "CAL-001", admin_entry_cycle: "daily"
   }]);
-  workbook.sheets["23_กฎจัดคิวรายวัน"] = matrixFor(activeMapping, "23_กฎจัดคิวรายวัน", [{
+  workbook.sheets["23_??????????????"] = matrixFor(activeMapping, "23_??????????????", [{
     queue_rule_id: "QRL-001", assignment_mode: "rotation", vehicle_ids: "VEH-001",
     queue_ids: "QUE-001", rotate_daily: "yes", generation_time: "23:45",
     manual_override_supported: "yes", active: "yes"
@@ -276,45 +299,51 @@ test("อ่านกติกาตารางเวลาและกฎค�
   assert.equal(result.package.operationalRecords.dailyQueueRules[0].queueRuleId, "QRL-001");
 });
 
-test("หยุด Draft เมื่อ GRP-001 ยังเป็นเที่ยวเวลาคงที่และไม่มีข้อมูล headway", function () {
+test("???? Draft ????? GRP-001 ???????????????????????????????????? headway", function () {
   const version = "3.3.5";
   const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
   const workbook = workbookFor(version);
-  workbook.sheets["02C_กลุ่มบริการ"] = matrixFor(activeMapping, "02C_กลุ่มบริการ", [{
-    service_group_id: "GRP-001", service_group_name_th: "รถคิว", display_order: 1
+  workbook.sheets["02C_???????????"] = matrixFor(activeMapping, "02C_???????????", [{
+    service_group_id: "GRP-001", service_group_name_th: "?????", display_order: 1
   }]);
-  const routeHeaders = workbook.sheets["03_เส้นทาง"][2];
-  workbook.sheets["03_เส้นทาง"][4][routeHeaders.indexOf("service_group_id")] = "GRP-001";
-  workbook.sheets["03_เส้นทาง"][4][routeHeaders.indexOf("service_type")] = "scheduled";
-  workbook.sheets["05A_กติกาตารางเวลา"] = matrixFor(activeMapping, "05A_กติกาตารางเวลา", [{
+  const routeHeaders = workbook.sheets["03_???????"][2];
+  workbook.sheets["03_???????"][4][routeHeaders.indexOf("service_group_id")] = "GRP-001";
+  workbook.sheets["03_???????"][4][routeHeaders.indexOf("service_type")] = "scheduled";
+  workbook.sheets["05A_??????????????"] = matrixFor(activeMapping, "05A_??????????????", [{
     schedule_rule_id: "RUL-001", service_group_id: "GRP-001", day_scope: "all_days",
     schedule_mode: "fixed_recurring", service_calendar_id: "CAL-001", admin_entry_cycle: "not_required"
   }]);
   const result = convert(version, workbook);
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_mode_required" && error.sheetName === "03_เส้นทาง"; }));
-  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_schedule_mode_conflict" && error.sheetName === "05A_กติกาตารางเวลา"; }));
-  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_fixed_trip_conflict" && error.sheetName === "07_แม่แบบเที่ยว"; }));
-  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_data_required" && error.sheetName === "24_บริการตามความถี่"; }));
+  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_mode_required" && error.sheetName === "03_???????"; }));
+  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_schedule_mode_conflict" && error.sheetName === "05A_??????????????"; }));
+  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_fixed_trip_conflict" && error.sheetName === "07_????????????"; }));
+  assert.ok(result.errors.some(function (error) { return error.code === "excel.frequency_data_required" && error.sheetName === "24_????????????????"; }));
+  assert.equal(result.report.status, "blocked");
+  assert.equal(result.report.gates.frequency.status, "blocked");
+  const frequencyIssue = result.report.errors.find(function (error) { return error.code === "excel.frequency_mode_required"; });
+  assert.equal(frequencyIssue.sheetName, "03_???????");
+  assert.equal(frequencyIssue.rowNumber, 5);
+  assert.equal(frequencyIssue.sourceColumn, "service_type");
 });
 
-test("สร้าง Frequency Service ได้เมื่อมี headway จริงและไม่เดาเวลาจาก Fixed Trip", function () {
+test("????? Frequency Service ?????????? headway ???????????????????? Fixed Trip", function () {
   const version = "3.3.5";
   const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
   const workbook = workbookFor(version);
-  workbook.sheets["02C_กลุ่มบริการ"] = matrixFor(activeMapping, "02C_กลุ่มบริการ", [{
-    service_group_id: "GRP-001", service_group_name_th: "รถคิว", display_order: 1
+  workbook.sheets["02C_???????????"] = matrixFor(activeMapping, "02C_???????????", [{
+    service_group_id: "GRP-001", service_group_name_th: "?????", display_order: 1
   }]);
-  const routeHeaders = workbook.sheets["03_เส้นทาง"][2];
-  workbook.sheets["03_เส้นทาง"][4][routeHeaders.indexOf("service_group_id")] = "GRP-001";
-  workbook.sheets["03_เส้นทาง"][4][routeHeaders.indexOf("service_type")] = "frequency";
-  workbook.sheets["07_แม่แบบเที่ยว"] = matrixFor(activeMapping, "07_แม่แบบเที่ยว", []);
-  workbook.sheets["08_เวลารายป้าย"] = matrixFor(activeMapping, "08_เวลารายป้าย", []);
-  workbook.sheets["05A_กติกาตารางเวลา"] = matrixFor(activeMapping, "05A_กติกาตารางเวลา", [{
+  const routeHeaders = workbook.sheets["03_???????"][2];
+  workbook.sheets["03_???????"][4][routeHeaders.indexOf("service_group_id")] = "GRP-001";
+  workbook.sheets["03_???????"][4][routeHeaders.indexOf("service_type")] = "frequency";
+  workbook.sheets["07_????????????"] = matrixFor(activeMapping, "07_????????????", []);
+  workbook.sheets["08_???????????"] = matrixFor(activeMapping, "08_???????????", []);
+  workbook.sheets["05A_??????????????"] = matrixFor(activeMapping, "05A_??????????????", [{
     schedule_rule_id: "RUL-001", service_group_id: "GRP-001", day_scope: "all_days",
     schedule_mode: "frequency", service_calendar_id: "CAL-001", admin_entry_cycle: "not_required"
   }]);
-  workbook.sheets["24_บริการตามความถี่"] = matrixFor(activeMapping, "24_บริการตามความถี่", [{
+  workbook.sheets["24_????????????????"] = matrixFor(activeMapping, "24_????????????????", [{
     frequency_service_id: "FRQ-001", route_id: "RTE-001", journey_pattern_id: "PAT-001",
     service_calendar_id: "CAL-001", start_time: "06:00", end_time: "18:00",
     headway_secs: 600, boarding_model: "queue", exact_times: "no"
@@ -327,17 +356,43 @@ test("สร้าง Frequency Service ได้เมื่อมี headway �
   assert.equal(result.package.fixedTrips.length, 0);
 });
 
-test("ต้องมีจุดต่อเที่ยวเมื่อข้อมูลมีหลายกลุ่มบริการ", function () {
+test("??????????????????????????????????????????????", function () {
   const version = "3.3.5";
   const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
   const workbook = workbookFor(version);
-  workbook.sheets["02C_กลุ่มบริการ"] = matrixFor(activeMapping, "02C_กลุ่มบริการ", [
-    { service_group_id: "GRP-002", service_group_name_th: "กลุ่มสอง", display_order: 2 },
-    { service_group_id: "GRP-003", service_group_name_th: "กลุ่มสาม", display_order: 3 }
+  workbook.sheets["02C_???????????"] = matrixFor(activeMapping, "02C_???????????", [
+    { service_group_id: "GRP-002", service_group_name_th: "????????", display_order: 2 },
+    { service_group_id: "GRP-003", service_group_name_th: "????????", display_order: 3 }
   ]);
   const result = convert(version, workbook);
   assert.equal(result.ok, false);
   assert.ok(result.errors.some(function (error) {
-    return error.code === "excel.transfer_rule_required" && error.sheetName === "19_จุดต่อเที่ยว" && error.rowNumber === 5;
+    return error.code === "excel.transfer_rule_required" && error.sheetName === "19_????????????" && error.rowNumber === 5;
   }));
+  assert.equal(result.report.gates.transfers.status, "blocked");
+  assert.equal(result.report.gates.transfers.issueCount, 1);
+});
+
+test("?????????????????????????????????? Admin ??????????????????", async function () {
+  const version = "3.3.5";
+  const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
+  const workbook = workbookFor(version);
+  workbook.sheets["02C_???????????"] = matrixFor(activeMapping, "02C_???????????", [
+    { service_group_id: "GRP-002", service_group_name_th: "????????", display_order: 2 },
+    { service_group_id: "GRP-003", service_group_name_th: "????????", display_order: 3 }
+  ]);
+  const source = new File([new Uint8Array([1, 2, 3])], "blocked.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+  await assert.rejects(excel.convertFileToCanonical(source, {
+    parser: parserFor(workbook),
+    crypto: webcrypto,
+    mapper,
+    operatorScope: ["OPR-BUS01"],
+    mapping: { base: baseMapping, profile: profile(version) }
+  }), function (error) {
+    return error.code === "excel_validation_failed" &&
+      error.report && error.report.status === "blocked" &&
+      error.report.gates.transfers.status === "blocked";
+  });
 });
