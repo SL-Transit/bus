@@ -173,3 +173,17 @@ AI สาย UI ต้องหยุดและรายงาน `BLOCKED` �
 1. อนุมัติเมนู 4 กลุ่ม: ภาพรวม / งานบริการ / ข้อมูลกลาง / ดูแลระบบ และย้ายบัญชี/ออกจากระบบไปเมนูโปรไฟล์.
 2. อนุมัติให้รอบแรกทำ Shell + Dashboard + ERP Data Center/Import ก่อน.
 3. อนุมัติแยก “ศูนย์ทดสอบ” ออกจาก “เวอร์ชันเผยแพร่”.
+## 13. Corrective Baseline — Owner means the pre-Greenfield Admin ERP1 experience
+
+Primary review on 2026-08-13 found that PR #147 had replaced the prior `admin-erp1.html` with a small Greenfield contract-preview page before this UI work began. Therefore:
+
+- Visual and functional reference: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`.
+- Runtime and safety reference: current `main` Greenfield state/API/system-mode/Excel/controller modules.
+- Restore the old Admin ERP1 information architecture, work areas and familiar interaction model; do not copy the historical 222 KB file wholesale.
+- Never restore Firebase compat SDKs, CDN XLSX, old data/integration adapters, browser-stored Drafts, direct RTDB access, duplicated inline views or fake business data.
+- Current commands remain the only permitted business actions: upload/import, bounded Draft read/save/validate, Review and Approval. Unsupported Operations/Booking/Finance/Content/Users/Test actions stay visibly locked until a separate contract and Owner approval exist.
+- Publish may be shown as a locked workflow step only. No Publish button, command, pointer switch or Production write is allowed.
+- PR #168 is closed as `BLOCKED — wrong baseline` and must never be merged. CI run `31710636642` also failed two UI contract tests.
+- Corrective implementation must use a fresh branch from `main`, a new Draft PR, and an explicit file lock that includes only the entry, UI assets and safety-preserving tests.
+
+Interpretation: preserve the old Admin ERP1 experience while replacing its unsafe internals with the Greenfield command boundary. This is still the same `admin-erp1.html` entry, not a new or parallel Admin page.
