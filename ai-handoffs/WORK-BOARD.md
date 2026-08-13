@@ -255,5 +255,5 @@ EXCLUDED: ห้ามแก้ admin-erp1.html, admin-erp-ui.css หรือ a
 TESTS_REQUIRED: Unit/contract; Emulator; version switch/rollback; authorization; privacy; bounds; performance/cost evidence
 FIREBASE_WRITES: emulator only; Production ต้องขอ Owner approval แยก
 REPORT_CHANNEL: หัวข้องานแกนระบบใน WORK-BOARD; PR ของแกนระบบห้ามรวม UI modernization
-LAST_UPDATE: 2026-08-13 — Owner approved Gate B
+LAST_UPDATE: 2026-08-13
 ```
