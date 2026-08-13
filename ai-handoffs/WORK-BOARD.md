@@ -50,17 +50,17 @@
 
 ### Active file locks
 
-- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2) — Owner: Admin ERP1 UI agent; Status: `REVIEW`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `IN_PROGRESS`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
   - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
   - Base SHA: `7f4c80f6bff0199395de0c2691ddd69ff2143a22`; visual/functional reference only: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`
-  - Files/paths: `admin-erp1.html`, `admin-erp-ui.css`, `admin-erp1-ui.js`, `tests/admin-erp1-ui-contract.test.js`, `tests/admin-erp1-integration.test.js`, `tests/admin-erp1-live-entry.test.js`, `tests/admin-erp1-network-publish.test.js`, safety-preserving UI tests if required, and this lock/report section only
-  - Intended output: one classic, modern and human-friendly `admin-erp1.html` entry with four navigation groups; familiar old work areas; profile/account/logout; separate Test Center and Published Versions; current Greenfield Import -> Draft -> Validate -> Review -> Approve hooks composed in Data Center; Publish shown as locked step only
+  - Files/paths: existing Gate B UI/tests, `.github/workflows/admin-erp1-artifact-preview.yml`, generated Actions artifact only, and this lock/report section; UI implementation changes are forbidden unless preview produces evidence and Primary is notified first
+  - Intended output: Gate B classic UI plus Owner-approved Gate C artifact-only preview: bounded screenshots at 1440x900, 768x1024 and 390x844, Data Center desktop/mobile views, and a seven-day static safe-mode bundle; no live hosting
   - Runtime contract: preserve script order `state -> API client -> system mode -> bundled XLSX -> row mapper -> Excel 3.3.x -> controller -> UI module`; unsupported modules remain locked; no fake KPI, rows, actions or business data
-  - Tests: single entry and real DOM IDs; script order; classic IA plus Greenfield-only runtime; no CDN/Firebase compat/gstatic/legacy adapters; no direct RTDB/browser Draft storage/Publish path; validation and Review gate; hash/back-forward; responsive/accessibility; GitHub Actions `node --test tests/*.test.js`
+  - Tests: existing single-entry/runtime/safety/UI contracts first; pinned Playwright/Chromium in GitHub runner; bounded local HTTP server on `127.0.0.1`; dashboard desktop/tablet/mobile and Data Center desktop/mobile screenshots; generated bundle dependency check
   - Dependencies: PR #167, D-016, current Phase 6A.1 state/API/controller, Excel 3.3.x converter and canonical mapping; Auth/Backend contract expansion is explicitly out of scope
-  - Cost risk: UI/static assets only; no new network polling/listeners, Production reads/writes, Firebase instance or deployment
-  - Firebase writes: none; no Firebase/Rules/Functions/Production/Preview deploy, Publish command, pointer switch or Consumer cutover
-  - Started/last update: 2026-08-13; Draft PR #169; Actions run `31713087914` passed; awaiting Primary/Owner review; no Gate C
+  - Cost risk: GitHub Actions runner and seven-day artifact storage only; concurrency cancels superseded preview runs; no new network polling/listeners, live hosting, Production reads/writes, Firebase instance or deployment
+  - Firebase writes: none; artifact preview only; no live Preview/Hosting/Pages, Firebase/Rules/Functions/Production deploy or write, Merge, Publish command, pointer switch, Consumer cutover or Gate D
+  - Owner approval / last update: Gate C artifact preview approved by Owner and recorded through PR #167 coordination on 2026-08-13; PR #169 remains Draft; no live hosting/Firebase/Merge/Gate D
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
