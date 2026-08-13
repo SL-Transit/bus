@@ -24,3 +24,8 @@
 ## Status
 
 เป็น prototype สำหรับ contract/emulator tests เท่านั้น ไม่ใช่ Production importer และยังไม่เชื่อม `admin-erp1.html`
+## Memory-only Draft Review
+
+หน้า `admin-erp1.html` สามารถนำ Canonical Package ที่ผ่าน validator ชุดเดียวกับ Backend มาสร้าง Draft สำหรับรีวิวในหน่วยความจำเมื่อยังไม่กำหนด Command Endpoint ได้ โหมดนี้อ่านเฉพาะข้อมูลเครือข่าย, ซ่อน `operationalRecords`, ไม่ใช้ localStorage/IndexedDB, ไม่อัปโหลดไฟล์ และข้อมูลจะหายเมื่อรีเฟรช
+
+นี่เป็นหลักฐาน UI สำหรับ Owner review เท่านั้น ไม่ใช่ RTDB Draft, Owner Approval, Publish หรือ Production integration เมื่อเชื่อม Backend จริง Controller จะกลับไปใช้ flow `upload.authorize → import.start → draft.read → review.request` เดิม

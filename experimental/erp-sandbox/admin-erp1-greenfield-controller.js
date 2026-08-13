@@ -4,6 +4,7 @@
   const State = root.SLTransitGreenfieldState;
   const Api = root.SLTransitGreenfieldApi;
   const Excel33x = root.SLTransitAdminErpExcel33x;
+  const DraftPreview = root.SLTransitGreenfieldDraftPreview;
   if (!State || !Api) return;
 
   function createController(options) {
@@ -16,6 +17,7 @@
     const uploadTransport = settings.uploadTransport ||
       (runtime.commandEndpoint ? Api.createFetchUploadTransport({}) : null);
     const client = Api.createClient({ transport, uploadTransport, getToken });
+    const sandboxPreviewEnabled = !transport && DraftPreview && typeof DraftPreview.createDraftReview === "function";
     const sleep = settings.sleep || function (milliseconds) {
       return new Promise(function (resolve) { root.setTimeout(resolve, milliseconds); });
     };
@@ -25,6 +27,7 @@
     let selectedFile = null;
     let workflowGeneration = 0;
     let renderedPage = null;
+    let previewDraft = null;
 
     const byId = function (id) { return documentRef.getElementById(id); };
     const elements = {
@@ -78,7 +81,16 @@
       deleteEntity: byId("delete-draft-entity"),
       validateDraft: byId("validate-draft"),
       validationJobId: byId("validation-job-id"),
-      validationResult: byId("validation-result")
+      validationResult: byId("validation-result"),
+      reviewMode: byId("draft-review-mode"),
+      reviewDraftId: byId("draft-review-id"),
+      reviewStatus: byId("draft-review-status"),
+      reviewSchema: byId("draft-review-schema"),
+      reviewMapping: byId("draft-review-mapping"),
+      reviewChecksum: byId("draft-review-checksum"),
+      reviewEntityCount: byId("draft-review-entity-count"),
+      reviewCounts: byId("draft-review-counts"),
+      reviewPrivacy: byId("draft-review-privacy")
     };
 
     function formatBytes(bytes) {
@@ -202,8 +214,10 @@
       if (state.phase === State.PHASES.QUEUED) return "Backend รับงานแล้ว กำลังตรวจสอบและสร้าง Draft";
       if (state.phase === State.PHASES.REVALIDATING) return "Worker กำลังตรวจ Draft revision ปัจจุบัน";
       if (state.phase === State.PHASES.DRAFT && state.draft && state.draft.validationStatus === "required") return "Draft ถูกแก้แล้ว ต้องตรวจใหม่ก่อนส่ง Review";
+      if (sandboxPreviewEnabled && state.phase === State.PHASES.DRAFT) return "สร้าง Draft ทดลองในหน่วยความจำแล้ว พร้อมตรวจรายละเอียดและส่งสถานะ Review";
       if (state.phase === State.PHASES.DRAFT) return "Draft ผ่าน Validation พร้อมส่ง Review";
       if (state.phase === State.PHASES.INVALID) return "Draft ยังมีข้อผิดพลาด ให้แก้ข้อมูลและสั่งตรวจใหม่";
+      if (sandboxPreviewEnabled && state.phase === State.PHASES.REVIEW_REQUESTED) return "บันทึกสถานะ Review ใน Sandbox แล้ว ข้อมูลจะหายเมื่อรีเฟรชและยังไม่ใช่ Owner Approval";
       if (state.phase === State.PHASES.REVIEW_REQUESTED) return "ส่ง Review แล้ว ต้องใช้บัญชีผู้อนุมัติที่ไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด";
       if (state.phase === State.PHASES.APPROVED) return "อนุมัติ Draft แล้ว แต่ยังไม่มีการ Publish";
       if (state.phase === State.PHASES.REJECTED) return "Draft ถูกส่งกลับ แก้ไขและตรวจใหม่ก่อน Review";
@@ -259,6 +273,10 @@
       elements.entityId.value = "";
       elements.entityJson.value = "";
       const entries = state.draftPage && state.draftPage.entries || [];
+      if (state.draftPage && state.draftPage.redacted) {
+        elements.entityJson.value = "ข้อมูลปฏิบัติการและข้อมูลส่วนตัวถูกซ่อนจาก Memory-only Review";
+        return;
+      }
       entries.forEach(function (entry) {
         const option = documentRef.createElement("option");
         option.value = entry.entityId;
@@ -270,6 +288,33 @@
         fillEditorFromSelection();
       }
     }
+    function renderDraftReview() {
+      const review = previewDraft && DraftPreview && DraftPreview.publicReview(previewDraft);
+      const counts = review && review.summary || {};
+      const labels = [
+        ["operators", "บริษัท"], ["locations", "ป้าย"], ["routes", "เส้นทาง"],
+        ["journeyPatterns", "รูปแบบ"], ["fixedTrips", "Fixed"],
+        ["frequencyServices", "Frequency"], ["fareRules", "ค่าโดยสาร"],
+        ["transferRules", "จุดต่อรถ"]
+      ];
+      if (elements.reviewMode) elements.reviewMode.textContent = review ? "Memory-only Sandbox" : "รอสร้าง Draft";
+      if (elements.reviewDraftId) elements.reviewDraftId.textContent = review && review.draftId || "—";
+      if (elements.reviewStatus) elements.reviewStatus.textContent = review && review.status || "—";
+      if (elements.reviewSchema) elements.reviewSchema.textContent = review ? review.schemaVersion + " · Excel " + review.templateVersion : "—";
+      if (elements.reviewMapping) elements.reviewMapping.textContent = review && review.mappingVersion || "—";
+      if (elements.reviewChecksum) elements.reviewChecksum.textContent = review && review.sourceChecksumSha256 || "—";
+      if (elements.reviewEntityCount) elements.reviewEntityCount.textContent = review ? String(review.entityCount) : "0";
+      if (elements.reviewCounts) {
+        elements.reviewCounts.textContent = review
+          ? labels.map(function (item) { return item[1] + " " + String(counts[item[0]] || 0); }).join(" · ")
+          : "ยังไม่มีข้อมูล";
+      }
+      if (elements.reviewPrivacy) {
+        elements.reviewPrivacy.textContent = review && review.operationalRecordsExcluded
+          ? "ซ่อนข้อมูลปฏิบัติการ บัญชีผู้ใช้ สิทธิ์ คนขับ และข้อมูลส่วนตัว"
+          : "รอสร้าง Draft";
+      }
+    }
 
     function render() {
       const view = State.deriveView(state);
@@ -278,20 +323,21 @@
       elements.fileSize.textContent = state.file ? formatBytes(state.file.size) : "—";
       elements.validate.disabled = !view.canValidate;
       elements.review.disabled = !view.canRequestReview;
-      elements.approve.disabled = !view.canApprove;
-      elements.reject.disabled = !view.canReject;
+      elements.review.textContent = sandboxPreviewEnabled ? "บันทึกสถานะ Review ใน Sandbox" : "ส่ง Review";
+      elements.approve.disabled = Boolean(previewDraft) || !view.canApprove;
+      elements.reject.disabled = Boolean(previewDraft) || !view.canReject;
       elements.loadDraft.disabled = !view.canLoadDraft;
       elements.nextDraft.disabled = !view.canLoadDraft || !(state.draftPage && state.draftPage.hasMore);
-      elements.saveEntity.disabled = !view.canSaveDraft;
-      elements.deleteEntity.disabled = !view.canSaveDraft;
-      elements.validateDraft.disabled = !view.canValidateDraft;
+      elements.saveEntity.disabled = Boolean(previewDraft) || !view.canSaveDraft;
+      elements.deleteEntity.disabled = Boolean(previewDraft) || !view.canSaveDraft;
+      elements.validateDraft.disabled = Boolean(previewDraft) || !view.canValidateDraft;
       elements.status.textContent = statusText();
       elements.errorCode.textContent = state.error ? state.error.code : "none";
       const activeJob = state.validationJob && state.validationJob.id || state.job && state.job.id;
       if (elements.jobId) elements.jobId.textContent = activeJob || "—";
       if (elements.backendStatus) {
-        elements.backendStatus.textContent = runtime.commandEndpoint ? "Configured" : "Not configured";
-        elements.backendStatus.className = runtime.commandEndpoint ? "online" : "offline";
+        elements.backendStatus.textContent = runtime.commandEndpoint ? "Configured" : (sandboxPreviewEnabled ? "Memory-only Sandbox" : "Not configured");
+        elements.backendStatus.className = runtime.commandEndpoint || sandboxPreviewEnabled ? "online" : "offline";
       }
       elements.notice.dataset.kind = state.error ? "warning" : "neutral";
       documentRef.querySelectorAll("[data-phase]").forEach(function (item) {
@@ -301,6 +347,7 @@
       });
       renderDraftPage();
       renderValidation();
+      renderDraftReview();
     }
 
     async function checksumSha256(file) {
@@ -383,6 +430,8 @@
       if (state.phase !== State.PHASES.VALIDATING) return;
       try {
         let uploadFile = selectedFile;
+        let canonicalPackage = null;
+        let mappingVersion = "canonical-json";
         if (isExcel) {
           if (!Excel33x || typeof Excel33x.convertFileToCanonical !== "function") {
             const unavailable = new Error("ตัวอ่าน Excel ยังไม่พร้อมใช้งาน");
@@ -393,6 +442,8 @@
           const converted = await Excel33x.convertFileToCanonical(selectedFile, { operatorScope: scope });
           renderExcelReadiness(converted.report);
           uploadFile = converted.file;
+          canonicalPackage = converted.package;
+          mappingVersion = converted.mappingVersion;
           if (elements.excelVersion) elements.excelVersion.textContent = converted.version;
           if (elements.excelPrecheck) {
             elements.excelPrecheck.textContent = converted.warnings.length
@@ -401,7 +452,33 @@
           }
         } else {
           if (elements.excelVersion) elements.excelVersion.textContent = "Canonical JSON";
-          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ส่งให้ Backend ตรวจ";
+          if (sandboxPreviewEnabled) {
+            try {
+              canonicalPackage = JSON.parse(await selectedFile.text());
+            } catch (_error) {
+              const invalidJson = new Error("Canonical JSON อ่านไม่ได้");
+              invalidJson.code = "excel_canonical_json_invalid";
+              throw invalidJson;
+            }
+          }
+          if (elements.excelPrecheck) elements.excelPrecheck.textContent = sandboxPreviewEnabled ? "กำลังตรวจ Canonical JSON" : "ส่งให้ Backend ตรวจ";
+        }
+        if (sandboxPreviewEnabled) {
+          const preview = DraftPreview.createDraftReview({ package: canonicalPackage, mappingVersion });
+          if (!preview.ok) {
+            if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ไม่ผ่าน Validation จึงไม่สร้าง Draft";
+            dispatch({ type: "VALIDATION_FAILED", report: preview.report || { errors: preview.errors || [], warnings: [] } });
+            return;
+          }
+          previewDraft = preview.draft;
+          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ผ่าน · สร้าง Draft ทดลองในหน่วยความจำแล้ว";
+          dispatch({
+            type: "VALIDATION_SUCCEEDED",
+            draftId: previewDraft.draftId,
+            revision: previewDraft.revision,
+            report: preview.report
+          });
+          return;
         }
         const checksum = await checksumSha256(uploadFile);
         const authorization = await client.send("upload.authorize", {
@@ -437,6 +514,15 @@
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
       dispatch({ type: "COMMAND_STARTED" });
       try {
+        if (previewDraft) {
+          const previewPage = DraftPreview.readPage(previewDraft, {
+            entityType: elements.draftType.value,
+            cursor: cursor || null,
+            limit: 25
+          });
+          dispatch({ type: "DRAFT_PAGE_LOADED", page: previewPage });
+          return;
+        }
         const page = await client.send("draft.read", {
           draftId: state.draft.id,
           expectedRevision: state.draft.revision,
@@ -452,6 +538,7 @@
     }
 
     async function saveDraftOperation(value) {
+      if (previewDraft) return dispatch({ type: "COMMAND_FAILED", code: "sandbox_preview_read_only", message: "Memory-only Review เปิดให้อ่านเท่านั้น" });
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
       const entityId = elements.entityId.value.trim();
       const changeSummary = elements.changeSummary.value.trim();
@@ -492,6 +579,7 @@
     }
 
     async function validateDraft() {
+      if (previewDraft) return dispatch({ type: "COMMAND_FAILED", code: "sandbox_preview_already_validated", message: "Draft ทดลองผ่าน Canonical Validation แล้ว" });
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
       const generation = ++workflowGeneration;
       dispatch({ type: "COMMAND_STARTED" });
@@ -512,6 +600,11 @@
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "review_blocked" });
       dispatch({ type: "COMMAND_STARTED" });
       try {
+        if (previewDraft) {
+          const previewResult = DraftPreview.requestReview(previewDraft);
+          dispatch({ type: "REQUEST_REVIEW", revision: previewResult.revision });
+          return;
+        }
         const result = await client.send("review.request", {
           draftId: state.draft.id,
           expectedRevision: state.draft.revision,
@@ -524,6 +617,7 @@
     }
 
     async function decideApproval(decision) {
+      if (previewDraft) return dispatch({ type: "COMMAND_FAILED", code: "sandbox_owner_approval_disabled", message: "Sandbox ไม่อนุญาต Owner Approval หรือ Publish" });
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "approval_blocked" });
       const comment = elements.approvalComment.value.trim();
       if (decision === "reject" && comment.length < 3) {
@@ -556,6 +650,7 @@
     elements.file.addEventListener("change", function () {
       const file = elements.file.files && elements.file.files[0];
       selectedFile = file || null;
+      previewDraft = null;
       if (!file) return dispatch({ type: "RESET" });
       if (elements.excelVersion) elements.excelVersion.textContent = /\.xlsx$/i.test(file.name) ? "รอตรวจจากชีต 91 ช่อง C5" : "Canonical JSON";
       if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
@@ -571,6 +666,7 @@
       workflowGeneration += 1;
       selectedFile = null;
       renderedPage = null;
+      previewDraft = null;
       elements.file.value = "";
       elements.changeSummary.value = "";
       elements.approvalComment.value = "";
@@ -603,6 +699,7 @@
       decideApproval,
       dispatch,
       getState: function () { return state; },
+      getDraftReview: function () { return previewDraft && DraftPreview.publicReview(previewDraft); },
       loadDraftPage,
       pollDraftValidation,
       pollImport,

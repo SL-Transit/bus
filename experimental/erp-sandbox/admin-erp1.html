@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="SL-Transit Greenfield Admin ERP1 Phase 6A.1 Draft revalidation review">
+  <meta name="description" content="SL-Transit Greenfield Admin ERP1 Phase 6A.2 Canonical Draft review">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>SL-Transit · Greenfield Admin ERP1</title>
   <link rel="stylesheet" href="assets/admin-erp1-greenfield.css">
@@ -13,11 +13,13 @@
   <script defer src="assets/vendor/xlsx.full.min.js"></script>
   <script defer src="greenfield-erp/phase2/excel-row-mapper.js"></script>
   <script defer src="admin-erp1-excel-3-3-x.js"></script>
+  <script defer src="contracts/greenfield-erp/v1/runtime/validate-network-package.js"></script>
+  <script defer src="admin-erp1-greenfield-draft-preview.js"></script>
   <script defer src="admin-erp1-greenfield-controller.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
-  <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A.1 · Draft editor + async revalidation · No production writes</div>
+  <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A.2 · Canonical Draft review · No production writes</div>
 
   <header class="topbar">
     <div class="brand-lockup">
@@ -158,6 +160,8 @@
                 <option value="fareRules">กฎค่าโดยสาร</option>
                 <option value="transferRules">กฎการต่อรถ</option>
                 <option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option>
+                <option value="scheduleRules">กติกาตารางเวลา</option>
+                <option value="dailyQueueRules">กฎจัดคิวรายวัน</option>
                 <option value="queues">คิวและจุดจอด</option>
                 <option value="vehicles">รถ</option>
                 <option value="drivers">คนขับ</option>
@@ -220,8 +224,26 @@
         <span class="locked">WORKER · MAX 2</span>
       </section>
 
-      <section id="review" class="panel stage-card">
-        <div class="stage-index">04</div><div><p class="eyebrow">REVIEW</p><h2>ส่ง Draft ที่ผ่านการตรวจให้ผู้ทบทวน</h2><p>ระบบจะบันทึกผู้ส่ง เวลา และผลการตรวจผ่านคำสั่งที่ตรวจสิทธิ์จากฝั่งเซิร์ฟเวอร์</p><button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button></div><span class="locked">LOCKED</span>
+      <section id="review" class="panel stage-card stage-card-wide">
+        <div class="stage-index">04</div>
+        <div>
+          <p class="eyebrow">REVIEW</p>
+          <h2>ตรวจ Draft ที่ผ่าน Canonical Validation</h2>
+          <p>หากยังไม่กำหนด Backend หน้านี้จะสร้าง Draft ทดลองในหน่วยความจำเท่านั้น ข้อมูลจะหายเมื่อรีเฟรช และจะไม่ส่งไฟล์หรือข้อมูลส่วนตัวออกจากเครื่อง</p>
+          <dl class="validation-summary">
+            <div><dt>โหมดจัดเก็บ</dt><dd id="draft-review-mode">รอสร้าง Draft</dd></div>
+            <div><dt>Draft ID</dt><dd id="draft-review-id">—</dd></div>
+            <div><dt>สถานะ</dt><dd id="draft-review-status">—</dd></div>
+            <div><dt>Schema / Excel</dt><dd id="draft-review-schema">—</dd></div>
+            <div><dt>Mapping</dt><dd id="draft-review-mapping">—</dd></div>
+            <div><dt>Checksum</dt><dd id="draft-review-checksum">—</dd></div>
+            <div><dt>จำนวนข้อมูลเครือข่าย</dt><dd id="draft-review-entity-count">0</dd></div>
+            <div><dt>สรุปข้อมูล</dt><dd id="draft-review-counts">ยังไม่มีข้อมูล</dd></div>
+            <div><dt>ความเป็นส่วนตัว</dt><dd id="draft-review-privacy">รอสร้าง Draft</dd></div>
+          </dl>
+          <button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button>
+        </div>
+        <span class="locked">VALIDATED ONLY</span>
       </section>
 
       <section id="approval" class="panel stage-card">

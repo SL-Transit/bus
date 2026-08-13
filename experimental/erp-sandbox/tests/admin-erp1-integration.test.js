@@ -12,6 +12,8 @@ test('Admin ERP1 เป็นหน้า Greenfield ที่โหลดเฉ
   assert.match(page, /admin-erp1-greenfield-state\.js/);
   assert.match(page, /admin-erp1-greenfield-api-client\.js/);
   assert.match(page, /admin-erp1-greenfield-system-mode\.js/);
+  assert.match(page, /validate-network-package\.js/);
+  assert.match(page, /admin-erp1-greenfield-draft-preview\.js/);
   assert.match(page, /admin-erp1-greenfield-controller\.js/);
   assert.match(page, /assets\/admin-erp1-greenfield\.css/);
   assert.doesNotMatch(page, /admin-erp1-integration\.js|admin-erp1-network-integration\.js/);
@@ -22,7 +24,7 @@ test('หน้า Greenfield มี CSP และขอบเขต Preview ช
   const page = read('admin-erp1.html');
   assert.match(page, /Content-Security-Policy/);
   assert.match(page, /default-src 'self'/);
-  assert.match(page, /Phase 6A\.1 · Draft editor \+ async revalidation · No production writes/);
+  assert.match(page, /Phase 6A\.2 · Canonical Draft review · No production writes/);
   assert.match(page, /id="overview"/);
   assert.match(page, /id="import"/);
   assert.match(page, /id="draft"/);
@@ -35,4 +37,20 @@ test('หน้า Phase 3 ไม่มีปุ่มหรือคำสั�
   const page = read('admin-erp1.html');
   assert.doesNotMatch(page, /<button[^>]+(?:id|data-command)="[^"]*publish/i);
   assert.doesNotMatch(page, /publishedReadModels\/current|erpDataCenter\/publication/);
+});
+test('หน้า Review แสดงหลักฐาน Draft โดยไม่เพิ่มคำสั่ง Publish', () => {
+  const page = read('admin-erp1.html');
+  const controller = read('admin-erp1-greenfield-controller.js');
+  const preview = read('admin-erp1-greenfield-draft-preview.js');
+  [
+    'draft-review-mode', 'draft-review-id', 'draft-review-status', 'draft-review-schema',
+    'draft-review-mapping', 'draft-review-checksum', 'draft-review-entity-count',
+    'draft-review-counts', 'draft-review-privacy'
+  ].forEach((id) => assert.match(page, new RegExp('id="' + id + '"')));
+  assert.match(controller, /createDraftReview/);
+  assert.match(controller, /sandboxPreviewEnabled/);
+  assert.match(preview, /storageMode: "memory_only"/);
+  assert.match(preview, /operationalRecordsExcluded: true/);
+  assert.doesNotMatch(preview, /localStorage|indexedDB|fetch\(/);
+  assert.equal(controller.includes('client.send("publish'), false);
 });
