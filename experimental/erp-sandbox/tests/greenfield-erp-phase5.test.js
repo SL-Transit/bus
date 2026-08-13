@@ -139,6 +139,10 @@ function journeyModel() {
           toLocationId: "LOC-H",
           fromOperatorId: "OPR-A",
           toOperatorId: "OPR-B",
+          fromServiceMode: "fixed",
+          toServiceMode: "frequency",
+          fromServiceId: "TRP-A",
+          toServiceId: "FRQ-B",
           minimumTransferSeconds: 300,
           maximumTransferSeconds: 3600,
           throughBooking: false,
@@ -152,6 +156,50 @@ function journeyModel() {
       }
     }
   };
+}
+function transferCombinationModel(fromMode, toMode) {
+  const model = journeyModel();
+  const rule = model.transfersByLocationId["LOC-H"]["TRF-H"];
+  rule.fromServiceMode = fromMode;
+  rule.toServiceMode = toMode;
+  rule.fromServiceId = fromMode === "fixed" ? "TRP-A" : "FRQ-A";
+  rule.toServiceId = toMode === "fixed" ? "TRP-B" : "FRQ-B";
+
+  if (fromMode === "frequency") {
+    model.routesById["RTE-A"].serviceMode = "frequency";
+    delete model.fixedTripsByRouteDate["RTE-A"];
+    delete model.stopTimesByTripId["TRP-A"];
+    model.frequenciesByRouteDate["RTE-A"] = {
+      "2026-08-11": {
+        "FRQ-A": {
+          frequencyServiceId: "FRQ-A",
+          routeId: "RTE-A",
+          journeyPatternId: "PAT-A",
+          startTime: "06:00:00",
+          endTime: "20:00:00",
+          headwaySeconds: 600,
+          boardingModel: "queue",
+          exactTimes: false
+        }
+      }
+    };
+    model.networkIndexes.segmentTravelSecondsByPatternId["PAT-A"] = { "1": 1800 };
+  }
+
+  if (toMode === "fixed") {
+    model.routesById["RTE-B"].serviceMode = "fixed";
+    delete model.frequenciesByRouteDate["RTE-B"];
+    model.fixedTripsByRouteDate["RTE-B"] = {
+      "2026-08-11": {
+        "TRP-B": { fixedTripId: "TRP-B", routeId: "RTE-B", journeyPatternId: "PAT-B" }
+      }
+    };
+    model.stopTimesByTripId["TRP-B"] = {
+      "000001": { stopSequence: 1, locationId: "LOC-H", arrivalTime: "09:40:00", departureTime: "09:40:00" },
+      "000002": { stopSequence: 2, locationId: "LOC-B", arrivalTime: "10:00:00", departureTime: "10:00:00" }
+    };
+  }
+  return model;
 }
 
 test("read model builder creates immutable consumer nodes and date indexes", function () {
@@ -267,6 +315,44 @@ test("hybrid journey connects fixed and queue services across operators", functi
   assert.equal(journey.legs.length, 3);
   assert.equal(journey.legs[2].serviceMode, "frequency");
   assert.equal(journey.legs[2].expectedWaitSeconds, 300);
+});
+test("hybrid journey connects frequency to fixed service", function () {
+  const journey = createJourneyEngine(transferCombinationModel("frequency", "fixed")).findJourney({
+    originLocationId: "LOC-A",
+    destinationLocationId: "LOC-B",
+    serviceDate: "2026-08-11",
+    departureTime: "08:50:00",
+    maxTransfers: 2
+  });
+  assert.equal(journey.found, true);
+  assert.equal(journey.arrivalTime, "10:00:00");
+  assert.deepEqual(journey.legs.filter(function (leg) { return leg.kind === "ride"; }).map(function (leg) { return leg.serviceMode; }), ["frequency", "fixed"]);
+});
+
+test("hybrid journey connects frequency to frequency service", function () {
+  const journey = createJourneyEngine(transferCombinationModel("frequency", "frequency")).findJourney({
+    originLocationId: "LOC-A",
+    destinationLocationId: "LOC-B",
+    serviceDate: "2026-08-11",
+    departureTime: "08:50:00",
+    maxTransfers: 2
+  });
+  assert.equal(journey.found, true);
+  assert.equal(journey.arrivalTime, "09:55:00");
+  assert.deepEqual(journey.legs.filter(function (leg) { return leg.kind === "ride"; }).map(function (leg) { return leg.serviceMode; }), ["frequency", "frequency"]);
+});
+
+test("journey rejects a transfer whose exact service selector does not match", function () {
+  const model = journeyModel();
+  model.transfersByLocationId["LOC-H"]["TRF-H"].toServiceId = "FRQ-B-OTHER";
+  const result = createJourneyEngine(model).findJourney({
+    originLocationId: "LOC-A",
+    destinationLocationId: "LOC-B",
+    serviceDate: "2026-08-11",
+    departureTime: "08:50:00",
+    maxTransfers: 2
+  });
+  assert.equal(result.found, false);
 });
 
 test("journey does not invent an unapproved transfer", function () {

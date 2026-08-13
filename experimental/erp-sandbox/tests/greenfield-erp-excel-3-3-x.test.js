@@ -111,6 +111,51 @@ function convert(version, workbook) {
     sourceChecksumSha256: "sha256:" + "a".repeat(64)
   });
 }
+test("แปลงจุดต่อรถแบบ fixed ไป frequency โดยใช้ Service ID เป็นตัวกรองเสริม", function () {
+  const pkg = excel.makePackage({
+    operator: [
+      { operatorId: "OPR-A", operatorNameTh: "บริษัท A" },
+      { operatorId: "OPR-B", operatorNameTh: "บริษัท B" }
+    ],
+    location: [{ locationId: "LOC-H", locationType: "hub", locationNameTh: "ฉะเชิงเทรา" }],
+    route: [
+      { routeId: "RTE-A", operatorId: "OPR-A", routeShortName: "A", serviceType: "fixed" },
+      { routeId: "RTE-B", operatorId: "OPR-B", routeShortName: "B", serviceType: "frequency" }
+    ],
+    fixedTrip: [{ tripTemplateId: "TRP-A", routeId: "RTE-A" }],
+    frequencyService: [{ frequencyServiceId: "FRQ-B", routeId: "RTE-B" }],
+    transferRule: [{
+      connectionId: "TRF-H",
+      hubLocationId: "LOC-H",
+      inboundOperatorId: "OPR-A",
+      outboundOperatorId: "OPR-B",
+      inboundServiceMode: "fixed",
+      outboundServiceMode: "frequency",
+      inboundServiceId: "TRP-A",
+      outboundServiceId: "FRQ-B",
+      minimumTransferMinutes: 5,
+      maximumTransferMinutes: 60,
+      throughBooking: "no",
+      baggageTransfer: "no"
+    }]
+  }, { schemaVersion: "greenfield-erp-v1" });
+  assert.deepEqual(pkg.transferRules[0], {
+    transferRuleId: "TRF-H",
+    fromLocationId: "LOC-H",
+    toLocationId: "LOC-H",
+    locationNameTh: "ฉะเชิงเทรา",
+    minimumTransferSeconds: 300,
+    maximumTransferSeconds: 3600,
+    throughBooking: false,
+    baggageTransfer: false,
+    fromOperatorId: "OPR-A",
+    toOperatorId: "OPR-B",
+    fromServiceMode: "fixed",
+    toServiceMode: "frequency",
+    fromServiceId: "TRP-A",
+    toServiceId: "FRQ-B"
+  });
+});
 
 test("รองรับ Excel 3.3.4 และ 3.3.5 โดยอ่านรุ่นจากชีต 91 ช่อง C5", function () {
   ["3.3.4", "3.3.5"].forEach(function (version) {

@@ -14,6 +14,10 @@ const mapping = JSON.parse(fs.readFileSync(path.join(root, "excel-mapping-3.1.5.
 
 test("greenfield valid package passes semantic contract", function () {
   assert.deepEqual(validator.validateNetworkPackage(valid), []);
+  assert.equal(valid.transferRules[0].fromServiceMode, "fixed");
+  assert.equal(valid.transferRules[0].toServiceMode, "frequency");
+  assert.equal(valid.transferRules[0].fromServiceId, "TRP-BUS01-0001");
+  assert.equal(valid.transferRules[0].toServiceId, "FRQ-BUS01-0001");
 });
 
 test("greenfield invalid package fails closed", function () {
@@ -26,6 +30,27 @@ test("greenfield invalid package fails closed", function () {
   ].forEach(function (code) {
     assert.equal(codes.has(code), true, "missing validation error " + code);
   });
+});
+test("transfer selector rejects a service id whose mode does not match", function () {
+  const conflict = JSON.parse(JSON.stringify(valid));
+  conflict.transferRules[0].toServiceMode = "fixed";
+  const codes = new Set(validator.validateNetworkPackage(conflict).map(function (item) { return item.code; }));
+  assert.equal(codes.has("transfer.serviceSelector"), true);
+});
+
+test("transfer schema and Excel mapping expose optional hybrid service selectors", function () {
+  const properties = schema.$defs.transferRule.properties;
+  ["fromOperatorId", "toOperatorId", "fromServiceMode", "toServiceMode", "fromServiceId", "toServiceId"].forEach(function (field) {
+    assert.ok(properties[field], "missing transfer property " + field);
+  });
+  const fields = mapping.sheets["19_จุดต่อเที่ยว"].fields;
+  function field(sourceColumn) { return fields.find(function (item) { return item.sourceColumn === sourceColumn; }); }
+  assert.equal(field("inbound_trip_template_id").required, false);
+  assert.equal(field("outbound_trip_template_id").required, false);
+  assert.equal(field("inbound_service_mode").required, false);
+  assert.equal(field("outbound_service_mode").required, false);
+  assert.equal(field("inbound_service_id").required, false);
+  assert.equal(field("outbound_service_id").required, false);
 });
 
 test("frequency expected wait is half headway", function () {

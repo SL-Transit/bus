@@ -31,19 +31,21 @@ function routeOperator(model, routeId) {
   return route ? route.operatorId : null;
 }
 
-function transferMatches(rule, state, targetRoute, model) {
-  const targetOperator = routeOperator(model, targetRoute.routeId);
+function transferMatches(rule, state, targetRoute, targetEdge, model) {
+  const targetOperator = targetEdge.operatorId || routeOperator(model, targetRoute.routeId);
   if (rule.fromOperatorId && rule.fromOperatorId !== state.lastOperatorId) return false;
   if (rule.toOperatorId && rule.toOperatorId !== targetOperator) return false;
   if (rule.fromServiceMode && rule.fromServiceMode !== state.lastMode) return false;
-  if (rule.toServiceMode && rule.toServiceMode !== targetRoute.serviceMode) return false;
+  if (rule.toServiceMode && rule.toServiceMode !== targetEdge.serviceMode) return false;
+  if (rule.fromServiceId && rule.fromServiceId !== state.lastServiceId) return false;
+  if (rule.toServiceId && rule.toServiceId !== targetEdge.serviceId) return false;
   return true;
 }
 
-function sameLocationTransfer(model, state, targetRoute) {
+function sameLocationTransfer(model, state, targetRoute, targetEdge) {
   const rules = values(model.transfersByLocationId && model.transfersByLocationId[state.locationId]);
   return rules.filter(function (rule) {
-    return rule.toLocationId === state.locationId && transferMatches(rule, state, targetRoute, model);
+    return rule.toLocationId === state.locationId && transferMatches(rule, state, targetRoute, targetEdge, model);
   }).sort(function (a, b) {
     return a.minimumTransferSeconds - b.minimumTransferSeconds;
   })[0] || null;
@@ -189,6 +191,7 @@ function createJourneyEngine(readModel) {
       time: departureSeconds,
       ridesTaken: 0,
       lastRouteId: null,
+      lastServiceId: null,
       lastOperatorId: null,
       lastMode: null,
       lastAlightTime: null,
@@ -207,6 +210,7 @@ function createJourneyEngine(readModel) {
         state.locationId,
         state.ridesTaken,
         state.lastRouteId || "-",
+        state.lastServiceId || "-",
         state.pendingTransferRule && state.pendingTransferRule.transferRuleId || "-"
       ].join("|");
       if (best.has(key) && best.get(key) <= state.time) continue;
@@ -239,10 +243,10 @@ function createJourneyEngine(readModel) {
         if (state.ridesTaken > 0) {
           let rule = state.pendingTransferRule;
           if (rule) {
-            if (!transferMatches(rule, state, targetRoute, model)) return;
+            if (!transferMatches(rule, state, targetRoute, edge, model)) return;
             if (state.lastAlightTime + rule.maximumTransferSeconds < state.time) return;
           } else {
-            rule = sameLocationTransfer(model, state, targetRoute);
+            rule = sameLocationTransfer(model, state, targetRoute, edge);
             if (!rule) return;
             readyTime += rule.minimumTransferSeconds;
             if (readyTime > state.lastAlightTime + rule.maximumTransferSeconds) return;
@@ -277,6 +281,7 @@ function createJourneyEngine(readModel) {
           time: timing.arrivalSeconds,
           ridesTaken: state.ridesTaken + 1,
           lastRouteId: edge.routeId,
+          lastServiceId: edge.serviceId,
           lastOperatorId: edge.operatorId,
           lastMode: edge.serviceMode,
           lastAlightTime: timing.arrivalSeconds,
@@ -292,6 +297,7 @@ function createJourneyEngine(readModel) {
           if (rule.toLocationId === state.locationId) return;
           if (rule.fromOperatorId && rule.fromOperatorId !== state.lastOperatorId) return;
           if (rule.fromServiceMode && rule.fromServiceMode !== state.lastMode) return;
+          if (rule.fromServiceId && rule.fromServiceId !== state.lastServiceId) return;
           queue.push({
             ...state,
             locationId: rule.toLocationId,
