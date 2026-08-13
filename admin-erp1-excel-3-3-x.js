@@ -131,12 +131,20 @@
     const operators = (grouped.operator || []).map(function (row) {
       return { operatorId: row.operatorId, nameTh: row.operatorNameTh || row.legalNameTh || row.operatorId, timezone: row.timezone || "Asia/Bangkok" };
     });
-    const locations = (grouped.location || []).map(function (row) {
+    function locationFromRow(row) {
       const value = { locationId: row.locationId, locationType: row.locationType || "stop", nameTh: row.locationNameTh || row.locationCode || row.locationId };
       addIf(value, "parentLocationId", row.parentLocationId);
       addIf(value, "latitude", number(row.latitude));
       addIf(value, "longitude", number(row.longitude));
       return value;
+    }
+    const locations = (grouped.location || []).map(locationFromRow);
+    const locationIds = new Set(locations.map(function (item) { return item.locationId; }));
+    (grouped.locationSurvey || []).forEach(function (row) {
+      const locationId = text(row && row.locationId);
+      if (!locationId || locationIds.has(locationId)) return;
+      locations.push(locationFromRow(row));
+      locationIds.add(locationId);
     });
     const locationNames = new Map(locations.map(function (item) { return [item.locationId, item.nameTh]; }));
     const routes = (grouped.route || []).map(function (row) {
