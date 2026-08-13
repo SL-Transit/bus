@@ -50,6 +50,14 @@
 
 ### Active file locks
 
+- ERP Sandbox Firebase Hosting Preview — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
+  - Files/paths: `.github/workflows/erp-sandbox-hosting-preview.yml`; `.github/firebase/erp-sandbox-preview.json`; `experimental/erp-sandbox/{README.md,SAFETY-GUARDS.md,tests/**}`; `ai-handoffs/WORK-BOARD.md`
+  - Intended output: Deploy เฉพาะ Admin ERP1 static allowlist ไป Firebase Hosting Preview Channel `pr-155` แบบ manual; ไม่แตะ Live Hosting
+  - Tests: sandbox unit/isolation; GitHub Actions exact-branch guard; เปิด Preview URL และตรวจ Safe Mode/ไม่มี Backend
+  - Dependencies: Owner-approved project `sl-transit-erp-sandbox`; GitHub OIDC แบบไม่มี Service Account key
+  - Cost risk: Spark plan; static filesเท่านั้น; channel หมดอายุ 7 วัน; ไม่มี Functions/RTDB/Storage reads หรือ writes
+  - Firebase writes: Hosting Preview Channel only; ห้าม Live deploy, RTDB, Rules, Functions, Publish, pointer switch, merge และ consumer cutover
+  - Started/last update: 2026-08-13
 - ERP Sandbox Excel readiness review UI — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
   - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
   - Intended output: แสดงสรุปจำนวนข้อมูลและข้อผิดพลาดตามชีต/แถว/คอลัมน์; แยก blocking/warning; ตรวจ Frequency ของ GRP-001 และ Transfer; ใช้ fixture และ Excel จริงแบบ read-only; หยุดที่ validate-only/Draft
