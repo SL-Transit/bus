@@ -88,7 +88,7 @@ admin.html / admin-console.html -> redirect -> admin-erp1.html เพียง�
 
 1. `ai-handoffs/WORK-BOARD.md` — แหล่งความจริงของ scope, file lock, status, blocker และ next action.
 2. `ai-handoffs/ADMIN-ERP1-UI-HANDOFF.md` — ข้อกำหนดถาวรของงาน UI; ห้ามเปลี่ยนเองเพื่อขยายสิทธิ์.
-3. Draft PR ของสาย UI — ใช้คุยเรื่อง diff, screenshot, CI และ review thread หลัง Gate B เท่านั้น.
+3. PR แบ่งเป็น 2 ประเภท: PR #167 เป็น Coordination/Design-doc PR สำหรับ Gate A; Implementation Draft PR เปิดได้เมื่อ Owner อนุมัติเข้า Gate B แล้ว และใช้คุย diff โค้ด, screenshot, CI และ review thread เท่านั้น.
 4. Primary AI — อ่านบอร์ดและ PR แล้วตรวจเทียบ contract; สรุปให้ Owner ไม่ให้ AI สาย UIประกาศว่าอนุมัติตัวเอง.
 5. Owner — ตัดสินใจ Gate A-E ในบทสนทนาหรือ PR comment ที่อ้างอิงได้.
 
