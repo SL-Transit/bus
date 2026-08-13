@@ -81,7 +81,7 @@ jobs:
           Then open `http://127.0.0.1:4173/admin-erp1.html#dashboard` or `#data-center`.
           README
           find "$output" -type f -print | sort > preview-output/bundle-files.txt
-          test "$(find "$output" -type f | wc -l)" -eq 13
+          test "$(find "$output" -type f | wc -l)" -eq 12
 
       - name: Capture bounded responsive screenshots
         shell: bash
