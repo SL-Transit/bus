@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .firebase-preview-site
-          while IFS= read -r source; do
+          while IFS= read -r source || [ -n "$source" ]; do
             test -n "$source"
             case "$source" in
               experimental/erp-sandbox/*) ;;
@@ -62,7 +62,9 @@ jobs:
             cp "$source" "$target"
           done < experimental/erp-sandbox/hosting-preview-files.txt
           cp experimental/erp-sandbox/admin-erp1.html .firebase-preview-site/index.html
-          test "$(find .firebase-preview-site -type f | wc -l)" -eq 16
+          staged_count="$(find .firebase-preview-site -type f | wc -l)"
+          echo "Staged file count: $staged_count"
+          test "$staged_count" -eq 16
           ! find .firebase-preview-site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' \) -print -quit | grep -q .
           find .firebase-preview-site -type f -print | sort
 
