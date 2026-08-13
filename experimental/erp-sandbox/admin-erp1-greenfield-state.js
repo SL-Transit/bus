@@ -52,10 +52,10 @@
       case "SELECT_FILE": {
         const file = action.file || {};
         if (!file.name || !Number.isFinite(file.size) || file.size < 0) {
-          return { ...current, error: issue("invalid_file_metadata", "ข้อมูลไฟล์ไม่สมบูรณ์") };
+          return { ...current, error: issue("invalid_file_metadata", "????????????????????") };
         }
         if (file.size > MAX_IMPORT_BYTES) {
-          return { ...initialState(), error: issue("file_too_large", "ไฟล์ต้องมีขนาดไม่เกิน 25 MB") };
+          return { ...initialState(), error: issue("file_too_large", "????????????????????? 25 MB") };
         }
         return {
           ...initialState(),
@@ -66,7 +66,7 @@
       }
       case "START_VALIDATION":
         if (current.phase !== PHASES.FILE_SELECTED) {
-          return { ...current, error: issue("invalid_transition", "กรุณาเลือกไฟล์ก่อนตรวจสอบ") };
+          return { ...current, error: issue("invalid_transition", "?????????????????????????") };
         }
         return { ...current, phase: PHASES.VALIDATING, busy: true, error: null };
       case "IMPORT_QUEUED":
@@ -88,7 +88,7 @@
           ...current,
           phase: current.file ? PHASES.FILE_SELECTED : PHASES.IDLE,
           busy: false,
-          error: issue("greenfield_backend_not_connected", "ยังไม่ได้กำหนด Backend/Authentication สำหรับสภาพแวดล้อมนี้")
+          error: issue("greenfield_backend_not_connected", "?????????????? Backend/Authentication ????????????????????")
         };
       case "VALIDATION_FAILED":
         return {
@@ -96,11 +96,13 @@
           phase: PHASES.INVALID,
           busy: false,
           validation: action.report || { errors: [], warnings: [] },
-          error: null
+          error: action.code
+            ? issue(action.code, action.message || "????????????? Validation")
+            : null
         };
       case "VALIDATION_SUCCEEDED": {
         if (![PHASES.VALIDATING, PHASES.QUEUED].includes(current.phase)) {
-          return { ...current, busy: false, error: issue("invalid_transition", "สถานะไม่พร้อมรับผลตรวจสอบ") };
+          return { ...current, busy: false, error: issue("invalid_transition", "?????????????????????????") };
         }
         const revision = Number.isInteger(action.revision) ? action.revision : 1;
         return {
@@ -178,7 +180,7 @@
             busy: false,
             validationJob: { id: job.jobId, status: job.status },
             draft: { ...(current.draft || {}), validationStatus: "required", validatedRevision: null },
-            error: issue(job.resultCode || "draft_validation_failed", "การตรวจ Draft ไม่สำเร็จ กรุณาตรวจรหัสข้อผิดพลาด")
+            error: issue(job.resultCode || "draft_validation_failed", "??????? Draft ????????? ???????????????????????")
           };
         }
         const report = job.validation || { errors: [], warnings: [], errorCount: 0, warningCount: 0 };
@@ -207,7 +209,7 @@
           current.draft.validationStatus === "valid" &&
           current.draft.validatedRevision === current.draft.revision;
         if (current.phase !== PHASES.DRAFT || !validationReady) {
-          return { ...current, busy: false, error: issue("review_blocked", "ต้องมี Draft ที่ผ่าน Validation ใน revision ปัจจุบันก่อนส่ง Review") };
+          return { ...current, busy: false, error: issue("review_blocked", "?????? Draft ??????? Validation ?? revision ??????????????? Review") };
         }
         return {
           ...current,
@@ -220,7 +222,7 @@
       }
       case "APPROVAL_DECIDED":
         if (current.phase !== PHASES.REVIEW_REQUESTED || !["approve", "reject"].includes(action.decision)) {
-          return { ...current, busy: false, error: issue("approval_blocked", "อนุมัติหรือส่งกลับได้หลังส่ง Review เท่านั้น") };
+          return { ...current, busy: false, error: issue("approval_blocked", "???????????????????????????? Review ????????") };
         }
         return {
           ...current,
@@ -238,7 +240,7 @@
         return {
           ...current,
           busy: false,
-          error: issue(action.code || "command_failed", action.message || "Backend ปฏิเสธคำสั่ง")
+          error: issue(action.code || "command_failed", action.message || "Backend ????????????")
         };
       default:
         return current;
