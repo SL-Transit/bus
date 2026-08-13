@@ -261,10 +261,14 @@ COST_IMPACT: ไม่มีค่าใช้จ่าย Firebase Production; 
 KNOWN_RISKS: Excel จริงยังไม่มี frequency service/headway สำหรับ GRP-001 และยังไม่มีกฎต่อรถ จึงถูกหยุดก่อนสร้าง Draft ตามที่ออกแบบ
 NEXT_ACTION: เจ้าของข้อมูลแก้ GRP-001 เป็น Frequency พร้อม start_time/end_time/headway_secs และกรอกกฎต่อรถ แล้วตรวจซ้ำใน Sandbox; ห้าม Merge/Deploy จนได้รับ Owner approval แยก
 ```
-- ERP Sandbox Canonical Draft Review Flow — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
-  - Files: `experimental/erp-sandbox/admin-erp1.html`; `experimental/erp-sandbox/admin-erp1-greenfield-controller.js`; `experimental/erp-sandbox/admin-erp1-*.js`; `experimental/erp-sandbox/greenfield-erp/phase2/**`; `experimental/erp-sandbox/tests/**`; root/sandbox `WORK-BOARD.md`
-  - Intended output: เมื่อ Excel ผ่าน Validation ให้สร้าง Canonical Draft ในเขตกักกันและแสดงหน้า Review ที่สรุปข้อมูล, ข้อผิดพลาด, checksum, mapping version และสถานะ Draft โดยไม่มีคำสั่ง Publish
-  - Tests: generated workbook/unit tests; invalid data must fail before Draft; Draft review must not expose source file bytes or private operational fields; GitHub Actions
-  - Firebase writes: Emulator/in-memory adapter only; no Production, Rules, Deploy, Publish, pointer switch, merge or consumer cutover
-  - Cost risk: ไม่ส่งไฟล์ Excel เข้า Cloud Functions; ส่งเฉพาะ Canonical JSON หลังผ่าน Validation; จำกัดไฟล์ 25 MiB และใช้ chunk limits เดิม
-  - Started: 2026-08-13; dependency: Hybrid Transfer Contract in PR #155
+- ERP Sandbox Canonical Draft Review Flow — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
+  - Files: `experimental/erp-sandbox/admin-erp1.html`; `experimental/erp-sandbox/admin-erp1-greenfield-controller.js`; `experimental/erp-sandbox/admin-erp1-greenfield-draft-preview.js`; Canonical validator; Phase 2 Draft service/store; tests; root/sandbox `WORK-BOARD.md`
+  - Result: Excel/Canonical JSON ที่ผ่าน Validation สร้าง Draft ทดลองในหน่วยความจำและแสดง Draft ID, status, schema/template, mapping version, checksum, จำนวนข้อมูล และรายการเครือข่ายแบบแบ่งหน้า
+  - Privacy: Memory-only Review ไม่ใช้ localStorage/IndexedDB/Fetch, ซ่อน `operationalRecords` และไม่แสดงบัญชีผู้ใช้ สิทธิ์ คนขับ หรือข้อมูลส่วนตัว; Owner Approval ถูกปิดในโหมดนี้
+  - Data retention fix: Phase 2 Draft เก็บ `scheduleRules` และ `dailyQueueRules` ครบแล้วเมื่อใช้ RTDB Emulator backend
+  - Tests: GitHub Actions `sandbox-unit` และ `validate` ผ่านที่ commit `995523e`; ทดสอบ valid Excel → Canonical → Draft → Review, invalid Canonical ไม่สร้าง Draft, redaction และ Review gate
+  - Real Excel read-only: รุ่น 3.3.5, SHA-256 `1a96bf8fd9e6d5b85bb2f6c7f606a96827b6884438028732794c80559b80ac1f`, ไฟล์ไม่เปลี่ยน; 17 blocking issues เดิม, Draft ไม่ถูกสร้าง
+  - Firebase writes: none ใน Memory-only Review; ไม่มี Production, Rules, Deploy, Publish, pointer switch, merge หรือ consumer cutover
+  - Cost risk: ไฟล์และ Canonical Package อยู่ใน browser memory; จำกัด 25 MiB; เมื่อเชื่อม Backend จริงยังใช้ quarantine/chunk limits และ command flow เดิม
+  - Next: Owner review หน้า Admin ERP1 ใน Draft PR #155; หลัง Excel แก้ครบ 17 จุดจึงทดสอบ Draft จากข้อมูลจริงได้
+  - Updated: 2026-08-13; commits `d2fd5cb`, `b8b9902`, `995523e`
