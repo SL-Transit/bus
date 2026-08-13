@@ -10,6 +10,9 @@
   <script defer src="admin-erp1-greenfield-state.js"></script>
   <script defer src="admin-erp1-greenfield-api-client.js"></script>
   <script defer src="admin-erp1-greenfield-system-mode.js"></script>
+  <script defer src="assets/vendor/xlsx.full.min.js"></script>
+  <script defer src="greenfield-erp/phase2/excel-row-mapper.js"></script>
+  <script defer src="admin-erp1-excel-3-3-x.js"></script>
   <script defer src="admin-erp1-greenfield-controller.js"></script>
 </head>
 <body>
@@ -72,16 +75,18 @@
             <div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div>
             <span class="status-pill">AUTHORIZED STAGING</span>
           </div>
-          <p>เลือก Canonical JSON ที่ผ่านการ Mapping แล้ว ระบบจะขอสิทธิ์ Upload แบบจำกัดอายุ ก่อนส่งตรวจใน Backend</p>
+          <p>เลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON ระบบจะตรวจรุ่น ชีต หัวตาราง รหัส และความสัมพันธ์ก่อนสร้าง Draft</p>
           <label class="dropzone" for="import-file">
             <span class="upload-icon" aria-hidden="true">↑</span>
             <strong>เลือกไฟล์ข้อมูลต้นทาง</strong>
-            <span>Canonical JSON · สูงสุด 25 MB</span>
-            <input id="import-file" type="file" accept=".json,application/json">
+            <span>Excel 3.3.4–3.3.5 หรือ Canonical JSON · สูงสุด 25 MB</span>
+            <input id="import-file" type="file" accept=".xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json">
           </label>
           <dl class="file-meta">
             <div><dt>ชื่อไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div>
             <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>
+            <div><dt>รุ่น Excel</dt><dd id="excel-version">รอตรวจ</dd></div>
+            <div><dt>ผลตรวจก่อนส่ง</dt><dd id="excel-precheck">ยังไม่ได้ตรวจ</dd></div>
             <div class="scope-field"><dt><label for="operator-scope">Stable Operator IDs</label></dt><dd><input id="operator-scope" type="text" value="OPR-BUS01" maxlength="512" autocomplete="off" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายบริษัทด้วยเครื่องหมายจุลภาค</small></dd></div>
           </dl>
           <div class="actions">
@@ -127,6 +132,23 @@
                 <option value="fareProducts">ผลิตภัณฑ์ค่าโดยสาร</option>
                 <option value="fareRules">กฎค่าโดยสาร</option>
                 <option value="transferRules">กฎการต่อรถ</option>
+                <option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option>
+                <option value="queues">คิวและจุดจอด</option>
+                <option value="vehicles">รถ</option>
+                <option value="drivers">คนขับ</option>
+                <option value="vehicleBlocks">กะรถ</option>
+                <option value="driverDuties">กะคนขับ</option>
+                <option value="assignments">การจัดสรร</option>
+                <option value="bookingPolicies">กฎการจอง</option>
+                <option value="platformAssignments">การใช้ชานชาลา</option>
+                <option value="calendarExceptions">วันพิเศษ</option>
+                <option value="routeDrafts">ร่างเส้นทาง</option>
+                <option value="routeDraftStops">ลำดับป้ายร่าง</option>
+                <option value="locationSurveys">แบบสำรวจจุดบริการ</option>
+                <option value="locationAccesses">สิทธิ์ใช้จุด</option>
+                <option value="accounts">บัญชีผู้ใช้</option>
+                <option value="accountAccesses">สิทธิ์ผู้ใช้</option>
+                <option value="incidents">เหตุขัดข้อง</option>
               </select>
             </label>
             <button id="load-draft-page" type="button" class="button secondary" disabled>โหลดข้อมูล</button>

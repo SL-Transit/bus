@@ -3,6 +3,7 @@
 
   const State = root.SLTransitGreenfieldState;
   const Api = root.SLTransitGreenfieldApi;
+  const Excel33x = root.SLTransitAdminErpExcel33x;
   if (!State || !Api) return;
 
   function createController(options) {
@@ -31,6 +32,8 @@
       operatorScope: byId("operator-scope"),
       fileName: byId("file-name"),
       fileSize: byId("file-size"),
+      excelVersion: byId("excel-version"),
+      excelPrecheck: byId("excel-precheck"),
       validate: byId("validate-file"),
       reset: byId("reset-workflow"),
       review: byId("request-review"),
@@ -123,6 +126,13 @@
       elements.entityJson.value = JSON.stringify(entry.value, null, 2);
     }
 
+    function draftEntryLabel(entry) {
+      const value = entry && entry.value || {};
+      const label = value.nameTh || value.locationNameTh || value.destinationNameTh ||
+        value.shortName || value.routeId || value.locationId || "";
+      return label ? entry.entityId + " · " + label : entry.entityId;
+    }
+
     function renderDraftPage() {
       if (!elements.entityList || state.draftPage === renderedPage) return;
       renderedPage = state.draftPage;
@@ -133,7 +143,7 @@
       entries.forEach(function (entry) {
         const option = documentRef.createElement("option");
         option.value = entry.entityId;
-        option.textContent = entry.entityId;
+        option.textContent = draftEntryLabel(entry);
         elements.entityList.appendChild(option);
       });
       if (entries.length) {
@@ -228,19 +238,23 @@
       dispatch({
         type: "COMMAND_FAILED",
         code: error && error.code || fallback || "command_failed",
-        message: "Backend ไม่สามารถดำเนินงานนี้ได้ กรุณาตรวจรหัสข้อผิดพลาด"
+        message: error && /^excel_/.test(error.code || "") && error.message
+          ? error.message + (Array.isArray(error.details) && error.details.length ? " — " + error.details.slice(0, 3).map(function (item) { return item.message; }).join(" | ") : "")
+          : "Backend ไม่สามารถดำเนินงานนี้ได้ กรุณาตรวจรหัสข้อผิดพลาด"
       });
     }
 
     async function validateSelectedFile() {
       const generation = ++workflowGeneration;
       const scope = operatorScope();
-      if (!selectedFile || !/.json$/i.test(selectedFile.name) || scope.length === 0) {
+      const isExcel = Boolean(selectedFile && /\.xlsx$/i.test(selectedFile.name));
+      const isJson = Boolean(selectedFile && /\.json$/i.test(selectedFile.name));
+      if (!selectedFile || (!isJson && !isExcel) || scope.length === 0) {
         dispatch({
           type: "COMMAND_FAILED",
-          code: !selectedFile || !/.json$/i.test(selectedFile.name) ? "canonical_json_required" : "operator_scope_required",
-          message: !selectedFile || !/.json$/i.test(selectedFile.name)
-            ? "Phase 6A.1 รับเฉพาะ Canonical JSON ที่ผ่านการ Mapping แล้ว"
+          code: !selectedFile || (!isJson && !isExcel) ? "excel_or_json_required" : "operator_scope_required",
+          message: !selectedFile || (!isJson && !isExcel)
+            ? "กรุณาเลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON"
             : "กรุณาระบุ Stable Operator ID อย่างน้อยหนึ่งรายการ"
         });
         return;
@@ -249,15 +263,35 @@
       render();
       if (state.phase !== State.PHASES.VALIDATING) return;
       try {
-        const checksum = await checksumSha256(selectedFile);
+        let uploadFile = selectedFile;
+        if (isExcel) {
+          if (!Excel33x || typeof Excel33x.convertFileToCanonical !== "function") {
+            const unavailable = new Error("ตัวอ่าน Excel ยังไม่พร้อมใช้งาน");
+            unavailable.code = "excel_converter_unavailable";
+            throw unavailable;
+          }
+          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "กำลังตรวจข้อมูลในไฟล์";
+          const converted = await Excel33x.convertFileToCanonical(selectedFile, { operatorScope: scope });
+          uploadFile = converted.file;
+          if (elements.excelVersion) elements.excelVersion.textContent = converted.version;
+          if (elements.excelPrecheck) {
+            elements.excelPrecheck.textContent = converted.warnings.length
+              ? "ผ่านสำหรับข้อมูลเครือข่าย · มีคำเตือน " + converted.warnings.length + " รายการ"
+              : "ผ่าน พร้อมสร้าง Draft";
+          }
+        } else {
+          if (elements.excelVersion) elements.excelVersion.textContent = "Canonical JSON";
+          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ส่งให้ Backend ตรวจ";
+        }
+        const checksum = await checksumSha256(uploadFile);
         const authorization = await client.send("upload.authorize", {
-          fileName: selectedFile.name,
+          fileName: uploadFile.name,
           contentType: "application/json",
-          sizeBytes: selectedFile.size,
+          sizeBytes: uploadFile.size,
           checksumSha256: checksum,
           operatorScope: scope
         });
-        await client.upload(selectedFile, authorization.target);
+        await client.upload(uploadFile, authorization.target);
         const queued = await client.send("import.start", { operatorScope: scope, source: authorization.source });
         dispatch({ type: "IMPORT_QUEUED", jobId: queued.jobId, status: queued.status });
         const job = await pollImport(queued.jobId, generation);
@@ -273,6 +307,7 @@
           dispatch({ type: "VALIDATION_FAILED", report: job.validation });
         }
       } catch (error) {
+        if (elements.excelPrecheck && isExcel) elements.excelPrecheck.textContent = "ไม่ผ่าน กรุณาตรวจรายละเอียด";
         commandFailure(error);
       }
     }
@@ -401,6 +436,8 @@
       const file = elements.file.files && elements.file.files[0];
       selectedFile = file || null;
       if (!file) return dispatch({ type: "RESET" });
+      if (elements.excelVersion) elements.excelVersion.textContent = /\.xlsx$/i.test(file.name) ? "รอตรวจจากชีต 91 ช่อง C5" : "Canonical JSON";
+      if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
       dispatch({
         type: "SELECT_FILE",
         file: { name: file.name, size: file.size, type: file.type },
@@ -415,6 +452,8 @@
       elements.file.value = "";
       elements.changeSummary.value = "";
       elements.approvalComment.value = "";
+      if (elements.excelVersion) elements.excelVersion.textContent = "รอตรวจ";
+      if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
       dispatch({ type: "RESET" });
     });
     elements.loadDraft.addEventListener("click", function () { loadDraftPage(null); });

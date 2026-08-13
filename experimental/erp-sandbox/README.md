@@ -43,3 +43,6 @@ Admin ERP1 จะอยู่ในสถานะ Not configured จนกว�
 - ห้ามคัดลอก Production credentials
 - ห้ามคัดลอก Excel เข้ามาใน Git
 - ห้าม Merge เข้าสู่ main จนกว่า Owner จะตรวจและอนุมัติแยก
+## Excel 3.3.5 safety gate
+
+The sandbox mirrors the browser-side 3.3.5 adapter from main, then adds stricter validate-only checks. Group 001 must provide explicit frequency/headway data and must not be converted from fixed trips. When multiple service groups exist, at least one reviewed transfer rule is required. The real workbook is read locally for verification only and is never committed or sent to Firebase.

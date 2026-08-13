@@ -1,0 +1,548 @@
+{
+  "mappingVersion": "excel-3.3.5-to-greenfield-erp-v1",
+  "templateVersion": "3.3.5",
+  "sourceWorkbook": "new erp data.xlsx",
+  "extends": "excel-mapping-3.1.5.json",
+  "versionLocation": {
+    "sheetName": "91_ควบคุมการนำเข้า",
+    "cell": "C5"
+  },
+  "requiredSheets": [
+    "91_ควบคุมการนำเข้า",
+    "02_จุดบริการ",
+    "03_เส้นทาง",
+    "04_รูปแบบเส้นทาง",
+    "05_ปฏิทินบริการ",
+    "07_แม่แบบเที่ยว",
+    "08_เวลารายป้าย",
+    "09_ค่าโดยสาร"
+  ],
+  "optionalSourceFields": {
+    "02_จุดบริการ": [
+      "latitude",
+      "longitude",
+      "coordinate_source",
+      "verified_by"
+    ],
+    "02B_สำรวจจุดบริการ": [
+      "address_text",
+      "province_name",
+      "latitude",
+      "longitude",
+      "coordinate_source",
+      "coordinate_accuracy_m",
+      "entrance_description",
+      "wheelchair_accessible",
+      "shelter_available",
+      "lighting_available",
+      "owner_operator_id",
+      "station_access_required",
+      "photo_reference",
+      "surveyed_by",
+      "surveyed_at",
+      "verified_by",
+      "change_reason"
+    ],
+    "04A_เรียงลำดับป้าย": [
+      "distance_from_start_km",
+      "travel_minutes_from_previous",
+      "verified_by"
+    ],
+    "04_รูปแบบเส้นทาง": [
+      "distance_from_start_km"
+    ],
+    "11_รถ": [
+      "seat_capacity"
+    ],
+    "12_คนขับ": [
+      "license_class",
+      "license_expiry"
+    ]
+  },
+  "routeRules": {
+    "allowMissingCoordinates": true,
+    "allowMissingDistance": true,
+    "allowRepeatedLocationAtDifferentSequence": true
+  },
+  "additionalSheets": {
+    "05A_กติกาตารางเวลา": {
+      "targetEntity": "scheduleRule",
+      "headerRow": 3,
+      "labelRow": 4,
+      "dataStartRow": 5,
+      "status": "mapped",
+      "fields": [
+        {
+          "sourceColumn": "schedule_rule_id",
+          "targetField": "scheduleRuleId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "service_group_id",
+          "targetField": "serviceGroupId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "day_scope",
+          "targetField": "dayScope",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "schedule_mode",
+          "targetField": "scheduleMode",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "service_calendar_id",
+          "targetField": "serviceCalendarId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "admin_entry_cycle",
+          "targetField": "adminEntryCycle",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "actual_trip_sheet",
+          "targetField": "actualTripSheet",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "fixed_template_sheet",
+          "targetField": "fixedTemplateSheet",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "service_every_day",
+          "targetField": "serviceEveryDay",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "holiday_closed",
+          "targetField": "holidayClosed",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "record_status",
+          "targetField": "recordStatus",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "effective_from",
+          "targetField": "effectiveFrom",
+          "required": true,
+          "sourceType": "date",
+          "targetType": "date",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "effective_to",
+          "targetField": "effectiveTo",
+          "required": false,
+          "sourceType": "date",
+          "targetType": "date",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "change_reason",
+          "targetField": "changeReason",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "source_row_id",
+          "targetField": "sourceRowId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "validation_status",
+          "targetField": "validationStatus",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        }
+      ]
+    },
+    "23_กฎจัดคิวรายวัน": {
+      "targetEntity": "dailyQueueRule",
+      "headerRow": 3,
+      "labelRow": 4,
+      "dataStartRow": 5,
+      "status": "mapped",
+      "fields": [
+        {
+          "sourceColumn": "queue_rule_id",
+          "targetField": "queueRuleId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "assignment_mode",
+          "targetField": "assignmentMode",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "vehicle_ids",
+          "targetField": "vehicleIds",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "queue_ids",
+          "targetField": "queueIds",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "fixed_vehicle_id",
+          "targetField": "fixedVehicleId",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "fixed_queue_id",
+          "targetField": "fixedQueueId",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "base_date",
+          "targetField": "baseDate",
+          "required": false,
+          "sourceType": "date",
+          "targetType": "date",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "base_assignments",
+          "targetField": "baseAssignments",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "rotate_daily",
+          "targetField": "rotateDaily",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "generation_time",
+          "targetField": "generationTime",
+          "required": true,
+          "sourceType": "service-time",
+          "targetType": "service-time",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "manual_override_supported",
+          "targetField": "manualOverrideSupported",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "active",
+          "targetField": "active",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "record_status",
+          "targetField": "recordStatus",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "change_reason",
+          "targetField": "changeReason",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "source_row_id",
+          "targetField": "sourceRowId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "validation_status",
+          "targetField": "validationStatus",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        }
+      ]
+    },
+    "24_บริการตามความถี่": {
+      "targetEntity": "frequencyService",
+      "headerRow": 3,
+      "labelRow": 4,
+      "dataStartRow": 5,
+      "status": "requires_owner_data",
+      "fields": [
+        {
+          "sourceColumn": "frequency_service_id",
+          "targetField": "frequencyServiceId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "route_id",
+          "targetField": "routeId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "journey_pattern_id",
+          "targetField": "journeyPatternId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "service_calendar_id",
+          "targetField": "serviceCalendarId",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "start_time",
+          "targetField": "startTime",
+          "required": true,
+          "sourceType": "service-time",
+          "targetType": "service-time",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "end_time",
+          "targetField": "endTime",
+          "required": true,
+          "sourceType": "service-time",
+          "targetType": "service-time",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "headway_secs",
+          "targetField": "headwaySeconds",
+          "required": true,
+          "sourceType": "integer",
+          "targetType": "integer",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "boarding_model",
+          "targetField": "boardingModel",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "exact_times",
+          "targetField": "exactTimes",
+          "required": true,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "record_status",
+          "targetField": "recordStatus",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "change_reason",
+          "targetField": "changeReason",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        },
+        {
+          "sourceColumn": "source_row_id",
+          "targetField": "sourceRowId",
+          "required": false,
+          "sourceType": "string",
+          "targetType": "string",
+          "enumSource": null,
+          "reference": null,
+          "notes": null
+        }
+      ]
+    }
+  },
+  "safetyRules": {
+    "frequencyServiceGroupId": "GRP-001",
+    "allowedFrequencyScheduleModes": [
+      "frequency",
+      "headway",
+      "queue",
+      "frequency_based",
+      "queue_based"
+    ],
+    "requireFrequencyServiceForGroup": true,
+    "minimumTransferRulesWhenMultipleGroups": 1
+  }
+}

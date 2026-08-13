@@ -9,6 +9,11 @@ const ENTITY_ARRAYS = [
   "operators", "locations", "routes", "journeyPatterns", "serviceCalendars",
   "fixedTrips", "stopTimes", "frequencyServices", "fareProducts", "fareRules", "transferRules"
 ];
+const OPERATIONAL_ENTITY_ARRAYS = [
+  "accounts", "accountAccesses", "locationAccesses", "locationSurveys", "routeDrafts",
+  "routeDraftStops", "calendarExceptions", "queues", "vehicles", "drivers", "vehicleBlocks",
+  "driverDuties", "assignments", "bookingPolicies", "incidents", "platformAssignments", "serviceGroups"
+];
 
 function hash(value) {
   return crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
@@ -17,9 +22,13 @@ function packageSizeBytes(pkg) {
   return Buffer.byteLength(JSON.stringify(pkg), "utf8");
 }
 function entityCount(pkg) {
-  return ENTITY_ARRAYS.reduce(function (total, key) {
+  const networkCount = ENTITY_ARRAYS.reduce(function (total, key) {
     return total + (Array.isArray(pkg[key]) ? pkg[key].length : 0);
   }, 0);
+  const operational = pkg && pkg.operationalRecords || {};
+  return OPERATIONAL_ENTITY_ARRAYS.reduce(function (total, key) {
+    return total + (Array.isArray(operational[key]) ? operational[key].length : 0);
+  }, networkCount);
 }
 function assertStore(store) {
   if (!store || typeof store.findExistingDraft !== "function" || typeof store.saveValidatedDraft !== "function") {
@@ -93,6 +102,7 @@ module.exports = {
   MAX_IMPORT_PACKAGE_BYTES,
   MAX_ENTITY_RECORDS,
   ENTITY_ARRAYS,
+  OPERATIONAL_ENTITY_ARRAYS,
   createValidatedDraft,
   packageSizeBytes,
   entityCount
