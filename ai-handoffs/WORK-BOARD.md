@@ -209,3 +209,31 @@ COST_IMPACT:
 KNOWN_RISKS:
 NEXT_ACTION:
 ```
+
+## Active lock — Admin ERP1 existing-page UI modernization — Gate B
+
+```text
+WORKSTREAM: Admin ERP1 existing-page UI modernization
+OWNER: AI สาย UI/UX
+REVIEWER: Primary AI; Owner เป็นผู้อนุมัติแต่ละ gate
+GATE: B — IMPLEMENTATION
+STATUS: IN_PROGRESS
+OWNER_APPROVAL: Owner อนุมัติคำถาม Gate A ทั้ง 3 ข้อและอนุมัติเข้า Gate B; อ้างอิง Coordination/Design-doc PR #167
+BASE_SHA: 7f4c80f6bff0199395de0c2691ddd69ff2143a22
+BRANCH: agent/admin-erp1-ui-modernization
+IMPLEMENTATION_PR: ยังไม่เปิด; ต้องเป็น Draft PR เข้า main เมื่อ diff/tests พร้อม
+FILES/PATHS: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; UI tests ที่จำเป็น; หัวข้อรายงานนี้ใน ai-handoffs/WORK-BOARD.md
+INTENDED_OUTPUT: Gate B1+B2 — รักษาพฤติกรรมและ hooks เดิม; ปรับ Shell + Dashboard + ERP Data Center/Import; เมนู 4 กลุ่ม; บัญชี/ออกจากระบบใน profile; แยกศูนย์ทดสอบจากเวอร์ชันเผยแพร่
+CURRENT_PERMISSION: แก้ implementation เฉพาะไฟล์ที่ lock และเปิด Implementation Draft PR; ห้าม Preview/Deploy/Merge/Firebase/Rules/Functions/Production
+DECISIONS_APPLIED: D-001, D-004, D-006, D-010, D-015 จาก Coordination/Design-doc PR #167
+TESTS_REQUIRED: single-entry; auth/session hooks; no direct Firebase write; navigation/back-forward; Excel/import/validation gates; responsive 360/768/1440; accessibility contracts; existing Admin regression; Thai UTF-8
+DEPENDENCIES: main/base SHA ที่ระบุ; Auth/Data Adapter/Read Model/Excel/System-mode hooks เดิม; Backend/Data/Import/Publish/Journey contracts เป็น read-only dependency
+COST_RISK: static UI assets only; ห้ามเพิ่ม Firebase workload หรือ external runtime dependency
+DIRECT_FIREBASE_WRITES: none
+PRODUCTION_IMPACT: none
+REPORT_CHANNEL: หัวข้อนี้ใน WORK-BOARD + Coordination PR #167 สำหรับมติ Gate A + Implementation Draft PR สำหรับ diff/tests หลังเปิด
+STOP_CONDITIONS: file lock ชน; main/base เปลี่ยนจนกระทบ; ต้องแก้ Backend/Data/Firebase; safety/auth/import/publish isolation test ล้ม
+STARTED_AT: 2026-08-13
+LAST_UPDATE: 2026-08-13
+NEXT_ACTION: ตรวจ hooks/DOM contract ที่ base SHA แล้วทำ Gate B1+B2 ในไฟล์ UI ที่ lock
+```
