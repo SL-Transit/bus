@@ -212,3 +212,46 @@ test("ไฟล์ xlsx ถูกแปลงเป็นไฟล์ JSON ส�
   assert.equal(payload.metadata.mode, "validate_only");
   assert.equal(payload.operationalRecords.vehicles[0].vehicleId, "VEH-001");
 });
+
+test("ใช้ชื่อป้ายจากชีตสำรวจได้เมื่อชีตจุดบริการยังไม่มี และไม่บังคับข้อมูลสำรวจ รถ หรือใบขับขี่ที่ยังไม่ทราบ", function () {
+  const version = "3.3.5";
+  const activeMapping = mapper.applyMappingProfile(baseMapping, profile(version));
+  const workbook = workbookFor(version);
+  const surveySheet = Object.keys(activeMapping.sheets).find(function (name) { return name.startsWith("02B_"); });
+  const patternSheet = Object.keys(activeMapping.sheets).find(function (name) { return name.startsWith("04_"); });
+  const vehicleSheet = Object.keys(activeMapping.sheets).find(function (name) { return name.startsWith("11_"); });
+  const driverSheet = Object.keys(activeMapping.sheets).find(function (name) { return name.startsWith("12_"); });
+
+  workbook.sheets[surveySheet] = matrixFor(activeMapping, surveySheet, [{
+    survey_id: "SRV-003", location_id: "LOC-003", location_name_th: "ป้ายตัวอย่าง",
+    location_type: "stop", country_code: "TH", public_visible: "yes",
+    approval_state: "approved", record_status: "active", effective_from: "2026-01-01",
+    source_row_id: "SRC-SRV-003"
+  }]);
+  workbook.sheets[patternSheet] = matrixFor(activeMapping, patternSheet, [
+    { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 1, location_id: "LOC-001" },
+    { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 2, location_id: "LOC-002" },
+    { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 3, location_id: "LOC-001" },
+    { journey_pattern_id: "PAT-001", route_id: "RTE-001", stop_sequence: 4, location_id: "LOC-003" }
+  ]);
+  workbook.sheets[vehicleSheet] = matrixFor(activeMapping, vehicleSheet, [{
+    vehicle_id: "VEH-001", operator_id: "OPR-BUS01", fleet_number: "1",
+    registration_number: "TEST-1", vehicle_type: "van", seat_capacity: null,
+    vehicle_status: "active", record_status: "active", effective_from: "2026-01-01",
+    change_reason: "ทดสอบ", source_row_id: "SRC-VEH-001"
+  }]);
+  workbook.sheets[driverSheet] = matrixFor(activeMapping, driverSheet, [{
+    driver_id: "DRV-001", operator_id: "OPR-BUS01", employee_number: "1",
+    display_name_th: "คนขับตัวอย่าง", license_class: null, license_expiry: null,
+    qualified_vehicle_types: "van", driver_status: "active", record_status: "active",
+    effective_from: "2026-01-01", change_reason: "ทดสอบ", source_row_id: "SRC-DRV-001"
+  }]);
+
+  const result = convert(version, workbook);
+  assert.equal(result.ok, true);
+  assert.equal(result.package.locations.find(function (item) { return item.locationId === "LOC-003"; }).nameTh, "ป้ายตัวอย่าง");
+  assert.equal(result.package.journeyPatterns[0].stops[3].locationNameTh, "ป้ายตัวอย่าง");
+  assert.equal(result.package.operationalRecords.locationSurveys.length, 1);
+  assert.equal("seatCapacity" in result.package.operationalRecords.vehicles[0], false);
+  assert.equal("licenseClass" in result.package.operationalRecords.drivers[0], false);
+});
