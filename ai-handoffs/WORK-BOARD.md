@@ -299,11 +299,14 @@ NEXT_ACTION: Owner reviews the Preview URL. Any Backend connection, Auth enablem
 ## Completion Report — Excel validation phase status / PR #155
 
 STATUS: REVIEW
-COMMIT/PR: Draft PR #155; branch `codex/erp-experimental-sandbox`
+COMMIT/PR: Draft PR #155; Greenfield Sandbox code commit `ef543ab0cabf7aba61088012d5e4412e19274e9b`
 FILES_CHANGED: Greenfield Admin ERP1 Sandbox controller/state; state regression test; central work board
-RESULTS: Structured Excel validation failures end at `invalid` instead of remaining at `validating`; `excel_validation_failed` remains visible; UTF-8 restored through Base64 Git blob transport
-TESTS: GitHub Actions and read-only Hosting Preview re-test required
-FIREBASE_IMPACT: Sandbox static preview only; no RTDB, Rules, Functions, Storage, Publish, pointer switch, Live Hosting or Production writes
+RESULTS: Structured Excel validation failures end at `invalid`; `excel_validation_failed` remains visible; Draft/Review/Approve remain blocked
+TESTS: ERP sandbox isolation run `31704710867` passed; full regression/emulator/performance run `31704710936` passed; Hosting Preview run `31704962637` passed
+PREVIEW_URL: https://sl-transit-erp-sandbox--pr-155-82mbzkza.web.app (expires 2026-08-20 13:27 UTC)
+RUNTIME_RESULT: `invalid`; Memory-only Sandbox; Blocking 17; Warning 0; Draft ID absent; Draft entity count 0
+FILE_INTEGRITY: `new erp data.xlsx` remained 913001 bytes with SHA-256 `1A96BF8FD9E6D5B85BB2F6C7F606A96827B6884438028732794C80559B80AC1F`
+FIREBASE_IMPACT: expiring Sandbox Hosting Preview only; no RTDB, Rules, Functions, Storage data, Publish, pointer switch, Live Hosting or Production writes
 LEGACY_IMPACT: no legacy `admin-erp1.html`, Booking, Passenger, Payment or consumer integration changes
-DATA_IMPACT: no Excel edit or upload; no Draft created
-NEXT_ACTION: wait for CI, refresh PR #155 Preview and re-run `new erp data.xlsx` read-only validation
+DATA_IMPACT: no Excel edit or upload to GitHub/Firebase; no Draft created
+NEXT_ACTION: data owner fixes the 17 Excel blockers, then repeat the same read-only Preview validation before any Draft creation
