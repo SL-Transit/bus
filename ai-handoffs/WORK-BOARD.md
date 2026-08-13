@@ -50,7 +50,7 @@
 
 ### Active file locks
 
-- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2) — Owner: Admin ERP1 UI agent; Status: `IN_PROGRESS`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2) — Owner: Admin ERP1 UI agent; Status: `REVIEW`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
   - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
   - Base SHA: `7f4c80f6bff0199395de0c2691ddd69ff2143a22`; visual/functional reference only: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`
   - Files/paths: `admin-erp1.html`, `admin-erp-ui.css`, `admin-erp1-ui.js`, `tests/admin-erp1-ui-contract.test.js`, `tests/admin-erp1-integration.test.js`, `tests/admin-erp1-live-entry.test.js`, `tests/admin-erp1-network-publish.test.js`, safety-preserving UI tests if required, and this lock/report section only
@@ -60,7 +60,7 @@
   - Dependencies: PR #167, D-016, current Phase 6A.1 state/API/controller, Excel 3.3.x converter and canonical mapping; Auth/Backend contract expansion is explicitly out of scope
   - Cost risk: UI/static assets only; no new network polling/listeners, Production reads/writes, Firebase instance or deployment
   - Firebase writes: none; no Firebase/Rules/Functions/Production/Preview deploy, Publish command, pointer switch or Consumer cutover
-  - Started/last update: 2026-08-13; Gate B corrective R1+R2
+  - Started/last update: 2026-08-13; Draft PR #169; Actions run `31713087914` passed; awaiting Primary/Owner review; no Gate C
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
@@ -187,6 +187,21 @@ DATA/PRIVACY_IMPACT: ชุดทดสอบเป็นข้อมูลจ�
 COST_IMPACT: ไม่มีค่า Production; เพิ่มตัวอ่าน Excel ฝั่งเบราว์เซอร์ประมาณ 952 KB; จำกัดไฟล์ 25 MB และแปลงเป็น JSON ก่อนส่ง
 KNOWN_RISKS: ยังไม่ได้ทดสอบกับไฟล์จริงของ Owner; การ deploy และการทดสอบ Emulator เต็มรูปแบบยังอยู่นอกขอบเขต; ข้อมูล Frequency/Fare Product ที่ไม่มีชีตต้นทางยังใช้กติกา Data Contract v1 เดิม
 NEXT_ACTION: Owner ตรวจ Draft PR #165; หลังอนุมัติ merge จึงทดสอบไฟล์จริงในสภาพแวดล้อมที่อนุมัติแยก โดยยังห้าม Production/Publish
+```
+## Completion Report — Corrective Admin ERP1 Classic UI / PR #169
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #169; branch agent/admin-erp1-classic-greenfield-ui; PR #167 / D-016; fresh base 7f4c80f6bff0199395de0c2691ddd69ff2143a22; PR #168 remains CLOSED/BLOCKED and was not reused
+FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; tests/admin-erp1-integration.test.js; tests/admin-erp1-network-publish.test.js; ai-handoffs/WORK-BOARD.md
+RESULTS: restored the familiar classic Admin ERP1 information architecture in the single existing entry; four navigation groups; old work areas visible but explicitly locked; account/logout remain in profile and locked; Test Center separated from Published Versions; current Import -> Draft -> Validate -> Review -> Approve hooks composed with Publish shown as a locked step only
+TESTS: in-memory JavaScript syntax and content checks passed; GitHub Actions run 31713087914 passed unit/regression, Phase 2/4/6A/5 Emulator and performance validation; final board-only head check pending after this report commit
+ACTIONS/PAGES: none — Draft PR only; no Preview, Pages deploy, Merge or Gate C
+FIREBASE_DEPLOY_EVIDENCE: none — existing demo Emulator tests only; no Firebase/Rules/Functions/Production deployment or write
+DATA/PRIVACY_IMPACT: no fake KPI/rows/actions/business records; blank operator scope; no Booking, Passenger, Payment or personal Production data
+COST_IMPACT: static UI/test changes only; no new listener, network polling, Firebase instance or Production cost; superseded Actions run 31713012825 was cancelled to avoid duplicate CI use
+KNOWN_RISKS: locked Operations, Booking, Finance, Content, User, Test, Published and Audit areas require separate bounded Auth/Backend/read contracts; no browser preview was deployed in this gate; classic source f0 was used only as UX/IA inventory and was not copied
+NEXT_ACTION: Primary reviews PR #169 diff and final Actions evidence, then asks Owner for the next gate; do not Preview/Deploy/Merge or claim Gate C from this workstream
 ```
 ## Work Lock Template
 
