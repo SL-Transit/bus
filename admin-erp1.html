@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="SL-Transit Greenfield Admin ERP1 Phase 6A.1 Draft revalidation review">
+  <meta name="description" content="SL-Transit Admin ERP1 classic workspace on the Greenfield command runtime">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
-  <title>SL-Transit · Greenfield Admin ERP1</title>
+  <title>SL-Transit · Admin ERP1</title>
   <link rel="stylesheet" href="assets/admin-erp1-greenfield.css">
+  <link rel="stylesheet" href="admin-erp-ui.css">
   <script defer src="admin-erp1-greenfield-state.js"></script>
   <script defer src="admin-erp1-greenfield-api-client.js"></script>
   <script defer src="admin-erp1-greenfield-system-mode.js"></script>
@@ -14,210 +15,248 @@
   <script defer src="greenfield-erp/phase2/excel-row-mapper.js"></script>
   <script defer src="admin-erp1-excel-3-3-x.js"></script>
   <script defer src="admin-erp1-greenfield-controller.js"></script>
+  <script defer src="admin-erp1-ui.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
-  <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A.1 · Draft editor + async revalidation · No production writes</div>
+  <div id="greenfield-preview-badge" class="preview-banner" role="status">CLASSIC UI · GREENFIELD RUNTIME · Phase 6A.1 · No production writes</div>
 
-  <header class="topbar">
-    <div class="brand-lockup">
-      <span class="brand-mark" aria-hidden="true">SL</span>
-      <div>
-        <p class="eyebrow">SL-TRANSIT CONTROL PLANE</p>
-        <h1>Admin ERP1</h1>
+  <header id="admin-topbar" class="topbar">
+    <div class="topbar-start">
+      <button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-label="เปิดเมนูระบบ" aria-controls="admin-sidebar" aria-expanded="false"><span aria-hidden="true">☰</span></button>
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">SL</span>
+        <div><strong>SL-TRANSIT</strong><span>ADMIN ERP CONSOLE</span></div>
       </div>
     </div>
-    <div class="environment-chip"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
+    <div class="topbar-tools">
+      <label class="global-search" for="global-search"><span aria-hidden="true">⌕</span><span class="sr-only">ค้นหาเมนูและพื้นที่งาน</span><input id="global-search" type="search" autocomplete="off" placeholder="ค้นหาในระบบ" aria-describedby="global-search-status"></label>
+      <span id="global-search-status" class="sr-only" aria-live="polite"></span>
+      <div class="environment-chip" title="ยังไม่อนุญาตให้เขียน Production"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
+      <div class="profile-control">
+        <button id="profile-menu-button" class="profile-button" type="button" aria-haspopup="menu" aria-controls="profile-menu" aria-expanded="false"><span class="profile-avatar" aria-hidden="true">A</span><span class="profile-copy"><strong>ผู้ดูแลระบบ</strong><small>บัญชีและการออกจากระบบ</small></span><span aria-hidden="true">⌄</span></button>
+        <div id="profile-menu" class="profile-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-ui-route="account">บัญชีของฉัน <span>LOCKED</span></button>
+          <button type="button" role="menuitem" data-ui-action="logout">ออกจากระบบ <span>LOCKED</span></button>
+          <p>รอ Auth contract จากระบบหลังบ้าน ไม่จำลองการออกจากระบบ</p>
+        </div>
+      </div>
+    </div>
   </header>
 
   <div class="app-shell">
-    <aside class="sidebar" aria-label="เมนูระบบ">
-      <p class="nav-label">WORKSPACE</p>
-      <nav>
-        <button type="button" data-section-target="overview" aria-label="ไปภาพรวม"><span>01</span> ภาพรวม</button>
-        <button type="button" data-section-target="import"><span>02</span> Import Package</button>
-        <button type="button" data-section-target="draft"><span>03</span> Draft</button>
-        <button type="button" data-section-target="validation"><span>04</span> Validation</button>
-        <button type="button" data-section-target="review"><span>05</span> Review</button>
-        <button type="button" data-section-target="approval"><span>06</span> Approval</button>
+    <aside id="admin-sidebar" class="sidebar" aria-label="เมนู Admin ERP1">
+      <nav id="primary-navigation" aria-label="พื้นที่งานหลัก">
+        <section class="nav-group" aria-labelledby="nav-overview-label">
+          <p id="nav-overview-label" class="nav-label">ภาพรวม</p>
+          <button type="button" data-ui-route="dashboard"><span class="nav-icon" aria-hidden="true">OV</span><span>แดชบอร์ด</span></button>
+          <button type="button" data-ui-route="today"><span class="nav-icon" aria-hidden="true">TD</span><span>งานที่ต้องจัดการวันนี้</span><span class="nav-lock">LOCKED</span></button>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-operations-label">
+          <p id="nav-operations-label" class="nav-label">งานบริการ</p>
+          <button type="button" data-ui-route="operations"><span class="nav-icon" aria-hidden="true">OP</span><span>คิวรถและตารางเวลา</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="bookings"><span class="nav-icon" aria-hidden="true">BK</span><span>ความจุและการเปิดขาย</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="finance"><span class="nav-icon" aria-hidden="true">FN</span><span>รายได้ จอง และยกเลิก</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="content"><span class="nav-icon" aria-hidden="true">NW</span><span>ข่าวสารและประกาศ</span><span class="nav-lock">LOCKED</span></button>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-data-label">
+          <p id="nav-data-label" class="nav-label">ข้อมูลกลาง</p>
+          <button type="button" data-ui-route="data-center" data-section-target="data-center"><span class="nav-icon" aria-hidden="true">DC</span><span>ศูนย์ข้อมูล ERP</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="import" data-section-target="import"><span class="nav-icon" aria-hidden="true">IM</span><span>นำเข้า Excel</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="draft" data-section-target="draft"><span class="nav-icon" aria-hidden="true">DR</span><span>ข้อมูลฉบับร่าง</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="validation" data-section-target="validation"><span class="nav-icon" aria-hidden="true">RV</span><span>ตรวจสอบและ Review</span></button>
+          <button type="button" data-ui-route="published"><span class="nav-icon" aria-hidden="true">PV</span><span>เวอร์ชันเผยแพร่</span><span class="nav-lock">LOCKED</span></button>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-system-label">
+          <p id="nav-system-label" class="nav-label">ดูแลระบบ</p>
+          <button type="button" data-ui-route="users"><span class="nav-icon" aria-hidden="true">US</span><span>ผู้ใช้งานและสิทธิ์</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="test-center"><span class="nav-icon" aria-hidden="true">TS</span><span>ศูนย์ทดสอบ</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="system-status"><span class="nav-icon" aria-hidden="true">ST</span><span>สถานะระบบและ Audit</span><span class="nav-lock">LOCKED</span></button>
+        </section>
       </nav>
-      <div class="sidebar-note">
-        <strong>Safe by design</strong>
-        <p>หน้านี้ไม่มีช่องทาง Publish และไม่เขียนฐานข้อมูลจริง</p>
-      </div>
+      <div class="sidebar-note"><strong>Safe by design</strong><p>แก้ได้เฉพาะ Draft ผ่านคำสั่งหลังบ้านที่อนุญาต ไม่มีคำสั่ง Publish และไม่เขียนฐานข้อมูลจริงโดยตรง</p></div>
     </aside>
+    <button id="sidebar-overlay" class="sidebar-overlay" type="button" aria-label="ปิดเมนูระบบ"></button>
 
-    <main id="main-content">
-      <section id="overview" class="hero panel">
-        <div>
-          <p class="eyebrow">PHASE 6A.1 · DRAFT CONTROL</p>
-          <h2>จัดข้อมูลขนส่งให้พร้อมตรวจ ก่อนส่งต่อให้ระบบกลาง</h2>
-          <p class="lead">หน้าใหม่สำหรับลำดับ Import → Draft → Validate → Review → Approve โดย Upload, Import, Review และ Approval ผ่าน API ฝั่งเซิร์ฟเวอร์ พร้อม revision และ audit</p>
+    <main id="main-content" tabindex="-1">
+      <div id="ui-live-region" class="sr-only" aria-live="polite"></div>
+
+      <section id="dashboard-workspace" class="workspace" data-ui-view="dashboard" aria-labelledby="dashboard-title">
+        <div class="workspace-header">
+          <div><p class="eyebrow">ภาพรวม</p><h1 id="dashboard-title">แดชบอร์ด SL-Transit</h1><p>ภาพรวมสถานะจาก workflow จริง โดยไม่สร้างยอดขาย จำนวนการจอง หรือข้อมูลปฏิบัติการจำลอง</p></div>
+          <button type="button" class="button primary" data-ui-route="data-center" data-ui-target="import">เปิดศูนย์ข้อมูล ERP</button>
         </div>
-        <div class="hero-metric" aria-label="สถานะการเชื่อมต่อ">
-          <span>BACKEND</span>
-          <strong>SAFE MODE</strong>
-          <small>Runtime config required</small>
+        <div class="status-overview" aria-label="สถานะระบบปัจจุบัน">
+          <article class="status-tile"><span>Backend</span><strong id="dashboard-backend">—</strong><small>สถานะจาก command runtime</small></article>
+          <article class="status-tile"><span>Workflow</span><strong id="dashboard-phase">—</strong><small>ขั้นตอนข้อมูลปัจจุบัน</small></article>
+          <article class="status-tile"><span>Validation</span><strong id="dashboard-validation">—</strong><small>ผลตรวจล่าสุดจาก Backend</small></article>
+          <article class="status-tile safe"><span>Production write</span><strong>ปิดใช้งาน</strong><small>Gate B · UI review only</small></article>
+        </div>
+        <div class="dashboard-grid">
+          <section class="panel dashboard-panel" aria-labelledby="quick-work-title">
+            <div class="panel-heading"><div><p class="eyebrow">งานข้อมูล</p><h2 id="quick-work-title">เริ่มงานจากข้อมูลกลาง</h2></div></div>
+            <div class="quick-work-list">
+              <button type="button" data-ui-route="data-center" data-ui-target="import"><span><strong>นำเข้า Package</strong><small>ตรวจ Excel/JSON ก่อนสร้าง Draft</small></span><span>เปิด</span></button>
+              <button type="button" data-ui-route="data-center" data-ui-target="draft"><span><strong>ตรวจข้อมูล Draft</strong><small>อ่านและแก้ผ่าน bounded API</small></span><span>เปิด</span></button>
+              <button type="button" data-ui-route="data-center" data-ui-target="validation"><span><strong>Validation และ Review</strong><small>ต้องผ่าน revision ปัจจุบันก่อนส่งตรวจ</small></span><span>เปิด</span></button>
+            </div>
+          </section>
+          <section class="panel dashboard-panel" aria-labelledby="classic-area-title">
+            <div class="panel-heading"><div><p class="eyebrow">พื้นที่เดิม</p><h2 id="classic-area-title">โมดูลงานที่คุ้นเคย</h2></div></div>
+            <div class="module-chip-list"><span>คิวรถและตารางเวลา</span><span>ความจุและการเปิดขาย</span><span>รายได้และการชำระ</span><span>ข่าวสารและประกาศ</span><span>ผู้ใช้งานและสิทธิ์</span></div>
+            <p class="locked-copy">พื้นที่เหล่านี้ยังเห็นได้ในเมนู แต่จะไม่ทำรายการจนกว่าจะมี Backend/Read contract และ Owner อนุมัติแยก</p>
+          </section>
         </div>
       </section>
 
-      <section class="workflow-strip" aria-label="ลำดับงาน">
-        <div data-phase="fileSelected"><span>1</span><strong>Import</strong><small>รับ Package</small></div>
-        <div data-phase="draft"><span>2</span><strong>Draft</strong><small>สร้างฉบับร่าง</small></div>
-        <div data-phase="invalid"><span>3</span><strong>Validate</strong><small>ตรวจโครงสร้าง</small></div>
-        <div data-phase="reviewRequested"><span>4</span><strong>Review</strong><small>ส่งผู้ตรวจ</small></div>
-        <div data-phase="approved"><span>5</span><strong>Approve</strong><small>เจ้าของอนุมัติ</small></div>
+      <section id="today-workspace" class="workspace locked-workspace" data-ui-view="today" hidden aria-labelledby="today-title">
+        <div class="workspace-header"><div><p class="eyebrow">งานวันนี้</p><h1 id="today-title">งานที่ต้องจัดการวันนี้</h1><p>พื้นที่เดิมสำหรับรวม Draft, Validation blocker และ Review ที่ต้องดำเนินการ</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>รอ Task summary contract</h2><p>รายการงานต้องมาจาก Backend ตามสิทธิ์และ revision จริง จึงยังไม่แสดงรายการหรือตัวเลขจำลอง</p><button type="button" class="button secondary" data-ui-locked data-lock-title="งานที่ต้องจัดการวันนี้" data-lock-copy="ต้องมี bounded task summary contract ที่ตรวจสิทธิ์ก่อนเปิดพื้นที่นี้">ดูเหตุผลที่ล็อก</button></div>
       </section>
 
-      <div class="content-grid">
-        <section id="import" class="panel primary-card">
-          <div class="section-heading">
-            <div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div>
-            <span class="status-pill">AUTHORIZED STAGING</span>
-          </div>
-          <p>เลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON ระบบจะตรวจรุ่น ชีต หัวตาราง รหัส และความสัมพันธ์ก่อนสร้าง Draft</p>
-          <label class="dropzone" for="import-file">
-            <span class="upload-icon" aria-hidden="true">↑</span>
-            <strong>เลือกไฟล์ข้อมูลต้นทาง</strong>
-            <span>Excel 3.3.4–3.3.5 หรือ Canonical JSON · สูงสุด 25 MB</span>
-            <input id="import-file" type="file" accept=".xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json">
-          </label>
-          <dl class="file-meta">
-            <div><dt>ชื่อไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div>
-            <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>
-            <div><dt>รุ่น Excel</dt><dd id="excel-version">รอตรวจ</dd></div>
-            <div><dt>ผลตรวจก่อนส่ง</dt><dd id="excel-precheck">ยังไม่ได้ตรวจ</dd></div>
-            <div class="scope-field"><dt><label for="operator-scope">Stable Operator IDs</label></dt><dd><input id="operator-scope" type="text" value="OPR-BUS01" maxlength="512" autocomplete="off" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายบริษัทด้วยเครื่องหมายจุลภาค</small></dd></div>
-          </dl>
-          <div class="actions">
-            <button id="validate-file" type="button" class="button primary" disabled>ตรวจสอบผ่าน Backend</button>
-            <button id="reset-workflow" type="button" class="button secondary">ล้างสถานะ</button>
-          </div>
+      <section id="operations-workspace" class="workspace locked-workspace" data-ui-view="operations" hidden aria-labelledby="operations-title">
+        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="operations-title">คิวรถและตารางเวลา</h1><p>พื้นที่เดิมสำหรับคิวรถ ตารางเที่ยว รูปแบบประจำวัน และงานรถรายวัน</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="familiar-grid">
+          <article class="panel familiar-card"><h2>คิวรถ</h2><p>ผู้ให้บริการ รถที่เข้าคิว และสถานะการปฏิบัติงาน</p><span>รอ Operations read contract</span></article>
+          <article class="panel familiar-card"><h2>ตารางเวลา</h2><p>Fixed schedule, Frequency service และรายละเอียดป้าย</p><span>รอ Published schedule contract</span></article>
+          <article class="panel familiar-card"><h2>ตารางงานรายวัน</h2><p>รูปแบบการให้บริการและการมอบหมายรถรายวัน</p><span>รอ command และสิทธิ์</span></article>
+        </div>
+        <button type="button" class="button secondary" data-ui-locked data-lock-title="คิวรถและตารางเวลา" data-lock-copy="หน้า Admin จะไม่อ่าน path ปฏิบัติการเดิมหรือคำนวณตารางเอง ต้องรอ contract จากระบบหลังบ้าน">ดูขอบเขตที่ยังล็อก</button>
+      </section>
+
+      <section id="bookings-workspace" class="workspace locked-workspace" data-ui-view="bookings" hidden aria-labelledby="bookings-title">
+        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="bookings-title">ความจุและการเปิดขาย</h1><p>พื้นที่เดิมสำหรับจำนวนที่นั่ง กฎเปิด–ปิดการจอง และช่วงเวลารับจองรายเที่ยว</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>Booking เป็นผู้ใช้ข้อมูล Published</h2><p>หน้านี้จะไม่คำนวณราคา เวลา หรือการต่อรถเอง และยังไม่เปิดสวิตช์การขายจนมี Booking command contract</p><button type="button" class="button secondary" data-ui-locked data-lock-title="ความจุและการเปิดขาย" data-lock-copy="ต้องรอ Booking consumer และ server revalidation contract พร้อมสิทธิ์และการทดสอบแยก">ดูเหตุผลที่ล็อก</button></div>
+      </section>
+
+      <section id="finance-workspace" class="workspace locked-workspace" data-ui-view="finance" hidden aria-labelledby="finance-title">
+        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="finance-title">รายได้ การจอง และการยกเลิก</h1><p>พื้นที่เดิมสำหรับธุรกรรม ค่าบริการ ช่องทางชำระ และการกระจายเงิน</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="familiar-grid">
+          <article class="panel familiar-card"><h2>ภาพรวมธุรกรรม</h2><p>ต้องอ่านจาก Payment/Booking contract ที่ได้รับอนุมัติ</p><span>ไม่มีข้อมูลจำลอง</span></article>
+          <article class="panel familiar-card"><h2>ช่องทางชำระ</h2><p>ไม่เปิด–ปิดช่องทางจากหน้า UI โดยไม่มี command</p><span>ไม่ทำรายการ</span></article>
+          <article class="panel familiar-card"><h2>การกระจายเงิน</h2><p>แยกจาก Master Data และต้องมี audit เฉพาะทาง</p><span>รอ Finance contract</span></article>
+        </div>
+        <button type="button" class="button secondary" data-ui-locked data-lock-title="รายได้และการชำระ" data-lock-copy="ข้อมูลการเงินต้องมีขอบเขตสิทธิ์และ Backend command แยกจากข้อมูลกลาง">ดูขอบเขตที่ยังล็อก</button>
+      </section>
+
+      <section id="content-workspace" class="workspace locked-workspace" data-ui-view="content" hidden aria-labelledby="content-title">
+        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="content-title">ข่าวสารและประกาศ</h1><p>พื้นที่เดิมสำหรับสร้าง Preview ส่ง Review ตั้งเวลา และเลือกช่องทางแสดงผล</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>รอ Content workflow contract</h2><p>ยังไม่มีตัวแก้ไขหรือปุ่มบันทึก เพื่อไม่ให้ดูเหมือนว่าข่าวสารถูกบันทึกหรือเผยแพร่แล้ว</p><button type="button" class="button secondary" data-ui-locked data-lock-title="ข่าวสารและประกาศ" data-lock-copy="ต้องมี Draft, asset, Review และ scheduling contract ที่ผ่านสิทธิ์ก่อนเปิด editor">ดูเหตุผลที่ล็อก</button></div>
+      </section>
+
+      <section id="data-center" class="workspace" data-ui-view="data-center" hidden aria-labelledby="data-center-title">
+        <div class="workspace-header">
+          <div><p class="eyebrow">ข้อมูลกลาง</p><h1 id="data-center-title">ศูนย์ข้อมูล ERP</h1><p>จัดข้อมูลบริษัท ป้ายกลาง เส้นทาง เที่ยว เวลา ความถี่ ราคา การต่อรถ คิว รถ และสิทธิ์ ผ่าน Draft ชุดเดียว</p></div>
+          <div class="workspace-badges"><span>Draft / Review only</span><span>Published version: ยังไม่เชื่อม</span></div>
+        </div>
+        <nav class="entity-map" aria-label="หมวดข้อมูล Canonical"><span>บริษัท</span><span>ป้ายกลาง</span><span>เส้นทาง</span><span>เที่ยวและเวลา</span><span>ความถี่</span><span>ราคา</span><span>การต่อรถ</span><span>คิวและรถ</span><span>บัญชีและสิทธิ์</span></nav>
+        <section class="workflow-strip" aria-label="ลำดับงานข้อมูลกลาง">
+          <div data-phase="fileSelected"><span>1</span><strong>Import</strong><small>รับ Package</small></div>
+          <div data-phase="draft"><span>2</span><strong>Draft</strong><small>สร้างฉบับร่าง</small></div>
+          <div data-phase="invalid"><span>3</span><strong>Validate</strong><small>ตรวจโครงสร้าง</small></div>
+          <div data-phase="reviewRequested"><span>4</span><strong>Review</strong><small>ส่งผู้ตรวจ</small></div>
+          <div data-phase="approved"><span>5</span><strong>Approve</strong><small>Owner อนุมัติ</small></div>
+          <div class="workflow-locked" aria-disabled="true"><span>6</span><strong>Publish</strong><small>LOCKED</small></div>
         </section>
 
-        <aside class="panel status-card" aria-labelledby="runtime-title">
-          <div class="section-heading"><div><p class="eyebrow">RUNTIME</p><h2 id="runtime-title">สถานะงาน</h2></div></div>
-          <div class="runtime-orbit" aria-hidden="true"><span></span></div>
-          <dl class="runtime-list">
-            <div><dt>Phase</dt><dd id="workflow-phase">idle</dd></div>
-            <div><dt>Backend</dt><dd id="backend-status" class="offline">Not configured</dd></div>
-            <div><dt>Write access</dt><dd>Emulator only</dd></div>
-            <div><dt>Job ID</dt><dd id="job-id">—</dd></div>
-            <div><dt>Error code</dt><dd id="error-code">none</dd></div>
-          </dl>
-          <div id="action-notice" class="notice" data-kind="neutral">
-            <strong>ระบบยังปลอดภัย</strong>
-            <p id="workflow-status">พร้อมรับข้อมูลในหน้า Preview — ยังไม่มีการบันทึก</p>
-          </div>
-        </aside>
-      </div>
+        <div class="content-grid">
+          <section id="import" class="panel primary-card">
+            <div class="section-heading"><div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div><span class="status-pill">AUTHORIZED STAGING</span></div>
+            <p>เลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON ระบบจะตรวจรุ่น ชีต หัวตาราง รหัส และความสัมพันธ์ก่อนสร้าง Draft</p>
+            <label class="dropzone" for="import-file"><span class="upload-icon" aria-hidden="true">↑</span><strong>เลือกไฟล์ข้อมูลต้นทาง</strong><span>Excel 3.3.4–3.3.5 หรือ Canonical JSON · สูงสุด 25 MB</span><input id="import-file" type="file" accept=".xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json"></label>
+            <dl class="file-meta">
+              <div><dt>ชื่อไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div>
+              <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>
+              <div><dt>รุ่น Excel</dt><dd id="excel-version">รอตรวจ</dd></div>
+              <div><dt>ผลตรวจก่อนส่ง</dt><dd id="excel-precheck">ยังไม่ได้ตรวจ</dd></div>
+              <div class="scope-field"><dt><label for="operator-scope">Stable Operator IDs</label></dt><dd><input id="operator-scope" type="text" value="OPR-BUS01" maxlength="512" autocomplete="off" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายบริษัทด้วยเครื่องหมายจุลภาค</small></dd></div>
+            </dl>
+            <div class="actions"><button id="validate-file" type="button" class="button primary" disabled>ตรวจสอบผ่าน Backend</button><button id="reset-workflow" type="button" class="button secondary">ล้างสถานะ</button></div>
+          </section>
 
-      <section id="draft" class="panel stage-card stage-card-wide">
-        <div class="stage-index">02</div>
-        <div>
-          <p class="eyebrow">DRAFT EDITOR</p>
-          <h2>แก้ข้อมูลร่างผ่าน Backend แบบแบ่งหน้า</h2>
-          <p>หน้าเว็บอ่านทีละชนิดข้อมูล ไม่เกิน 50 รายการและ 256 KiB ต่อครั้ง การบันทึกส่งเฉพาะรายการที่เปลี่ยน ไม่อ่านหรือเขียน RTDB โดยตรง</p>
-          <div class="editor-toolbar">
-            <label for="draft-entity-type">ชนิดข้อมูล
-              <select id="draft-entity-type">
-                <option value="operators">บริษัท</option>
-                <option value="locations">สถานที่/ป้ายกลาง</option>
-                <option value="routes" selected>เส้นทาง</option>
-                <option value="journeyPatterns">รูปแบบการเดินทาง</option>
-                <option value="serviceCalendars">วันให้บริการ</option>
-                <option value="fixedTrips">เที่ยวเวลาคงที่</option>
-                <option value="stopTimes">เวลาประจำป้าย</option>
-                <option value="frequencyServices">เที่ยวแบบความถี่</option>
-                <option value="fareProducts">ผลิตภัณฑ์ค่าโดยสาร</option>
-                <option value="fareRules">กฎค่าโดยสาร</option>
-                <option value="transferRules">กฎการต่อรถ</option>
-                <option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option>
-                <option value="queues">คิวและจุดจอด</option>
-                <option value="vehicles">รถ</option>
-                <option value="drivers">คนขับ</option>
-                <option value="vehicleBlocks">กะรถ</option>
-                <option value="driverDuties">กะคนขับ</option>
-                <option value="assignments">การจัดสรร</option>
-                <option value="bookingPolicies">กฎการจอง</option>
-                <option value="platformAssignments">การใช้ชานชาลา</option>
-                <option value="calendarExceptions">วันพิเศษ</option>
-                <option value="routeDrafts">ร่างเส้นทาง</option>
-                <option value="routeDraftStops">ลำดับป้ายร่าง</option>
-                <option value="locationSurveys">แบบสำรวจจุดบริการ</option>
-                <option value="locationAccesses">สิทธิ์ใช้จุด</option>
-                <option value="accounts">บัญชีผู้ใช้</option>
-                <option value="accountAccesses">สิทธิ์ผู้ใช้</option>
-                <option value="incidents">เหตุขัดข้อง</option>
-              </select>
-            </label>
-            <button id="load-draft-page" type="button" class="button secondary" disabled>โหลดข้อมูล</button>
-            <button id="next-draft-page" type="button" class="button secondary" disabled>หน้าถัดไป</button>
-          </div>
-          <div class="editor-grid">
-            <label for="draft-entity-list">รายการในหน้านี้
-              <select id="draft-entity-list" size="7" aria-label="รายการ Draft"></select>
-            </label>
-            <div class="editor-fields">
-              <label for="draft-entity-id">Stable ID
-                <input id="draft-entity-id" type="text" maxlength="128" autocomplete="off">
-              </label>
-              <label for="draft-json">ข้อมูล JSON
-                <textarea id="draft-json" rows="10" spellcheck="false" placeholder="เลือกข้อมูลจากรายการ หรือกรอก Stable ID และ JSON สำหรับรายการใหม่"></textarea>
-              </label>
-              <label for="draft-change-summary">เหตุผลที่แก้ไข
-                <input id="draft-change-summary" type="text" minlength="3" maxlength="500" autocomplete="off" placeholder="เช่น แก้ชื่อสายและเวลาตามเอกสารต้นทาง">
-              </label>
+          <aside class="panel runtime-card" aria-labelledby="runtime-title">
+            <div class="section-heading"><div><p class="eyebrow">RUNTIME</p><h2 id="runtime-title">สถานะงาน</h2></div></div>
+            <dl class="runtime-list">
+              <div><dt>Phase</dt><dd id="workflow-phase">idle</dd></div>
+              <div><dt>Backend</dt><dd id="backend-status" class="offline">Not configured</dd></div>
+              <div><dt>Write access</dt><dd>Emulator only</dd></div>
+              <div><dt>Job ID</dt><dd id="job-id">—</dd></div>
+              <div><dt>Error code</dt><dd id="error-code">none</dd></div>
+            </dl>
+            <div id="action-notice" class="notice" data-kind="neutral"><strong>ระบบยังปลอดภัย</strong><p id="workflow-status">พร้อมรับข้อมูลในหน้า Preview — ยังไม่มีการบันทึก</p></div>
+          </aside>
+        </div>
+
+        <section id="draft" class="panel stage-card stage-card-wide">
+          <div class="stage-index">02</div>
+          <div class="stage-content">
+            <p class="eyebrow">DRAFT EDITOR</p><h2>แก้ข้อมูลร่างผ่าน Backend แบบแบ่งหน้า</h2><p>อ่านทีละชนิดข้อมูลไม่เกินขอบเขตที่กำหนด การบันทึกส่งเฉพาะรายการที่เปลี่ยนและไม่อ่านหรือเขียนฐานข้อมูลโดยตรง</p>
+            <div class="editor-toolbar">
+              <label for="draft-entity-type">ชนิดข้อมูล<select id="draft-entity-type">
+                <option value="operators">บริษัท</option><option value="locations">สถานที่/ป้ายกลาง</option><option value="routes" selected>เส้นทาง</option><option value="journeyPatterns">รูปแบบการเดินทาง</option><option value="serviceCalendars">วันให้บริการ</option><option value="fixedTrips">เที่ยวเวลาคงที่</option><option value="stopTimes">เวลาประจำป้าย</option><option value="frequencyServices">เที่ยวแบบความถี่</option><option value="fareProducts">ผลิตภัณฑ์ค่าโดยสาร</option><option value="fareRules">กฎค่าโดยสาร</option><option value="transferRules">กฎการต่อรถ</option><option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option><option value="queues">คิวและจุดจอด</option><option value="vehicles">รถ</option><option value="drivers">คนขับ</option><option value="vehicleBlocks">กะรถ</option><option value="driverDuties">กะคนขับ</option><option value="assignments">การจัดสรร</option><option value="bookingPolicies">กฎการจอง</option><option value="platformAssignments">การใช้ชานชาลา</option><option value="calendarExceptions">วันพิเศษ</option><option value="routeDrafts">ร่างเส้นทาง</option><option value="routeDraftStops">ลำดับป้ายร่าง</option><option value="locationSurveys">แบบสำรวจจุดบริการ</option><option value="locationAccesses">สิทธิ์ใช้จุด</option><option value="accounts">บัญชีผู้ใช้</option><option value="accountAccesses">สิทธิ์ผู้ใช้</option><option value="incidents">เหตุขัดข้อง</option>
+              </select></label>
+              <button id="load-draft-page" type="button" class="button secondary" disabled>โหลดข้อมูล</button><button id="next-draft-page" type="button" class="button secondary" disabled>หน้าถัดไป</button>
             </div>
+            <div class="editor-grid">
+              <label for="draft-entity-list">รายการในหน้านี้<select id="draft-entity-list" size="7" aria-label="รายการ Draft"></select></label>
+              <div class="editor-fields"><label for="draft-entity-id">Stable ID<input id="draft-entity-id" type="text" maxlength="128" autocomplete="off"></label><label for="draft-json">ข้อมูล JSON<textarea id="draft-json" rows="10" spellcheck="false" placeholder="เลือกข้อมูลจากรายการ หรือกรอก Stable ID และ JSON สำหรับรายการใหม่"></textarea></label><label for="draft-change-summary">เหตุผลที่แก้ไข<input id="draft-change-summary" type="text" minlength="3" maxlength="500" autocomplete="off" placeholder="เช่น แก้ชื่อสายและเวลาตามเอกสารต้นทาง"></label></div>
+            </div>
+            <div class="actions"><button id="save-draft-entity" type="button" class="button primary" disabled>บันทึกลง Draft</button><button id="delete-draft-entity" type="button" class="button danger" disabled>ลบรายการจาก Draft</button></div>
           </div>
-          <div class="actions">
-            <button id="save-draft-entity" type="button" class="button primary" disabled>บันทึกลง Draft</button>
-            <button id="delete-draft-entity" type="button" class="button danger" disabled>ลบรายการจาก Draft</button>
-          </div>
+          <span class="stage-lock">BOUNDED API</span>
+        </section>
+
+        <div class="review-grid">
+          <section id="validation" class="panel stage-card">
+            <div class="stage-index">03</div><div class="stage-content"><p class="eyebrow">ASYNC VALIDATION</p><h2>ตรวจโครงสร้างและความสัมพันธ์</h2><p>หลังแก้ Draft ต้องสั่งตรวจใหม่ หน้า Admin ติดตามเฉพาะสถานะและผลตรวจที่จำกัดขนาด</p><div class="actions"><button id="validate-draft" type="button" class="button secondary" disabled>ตรวจ Draft ใหม่</button></div><dl class="validation-summary"><div><dt>Validation Job</dt><dd id="validation-job-id">—</dd></div><div><dt>ผลตรวจ</dt><dd id="validation-result">ยังไม่มีผลตรวจรอบใหม่</dd></div></dl></div><span class="stage-lock">WORKER · MAX 2</span>
+          </section>
+          <section id="review" class="panel stage-card">
+            <div class="stage-index">04</div><div class="stage-content"><p class="eyebrow">REVIEW</p><h2>ส่ง Draft ที่ผ่านการตรวจ</h2><p>ระบบบันทึกผู้ส่ง เวลา และ revision ผ่านคำสั่งฝั่งเซิร์ฟเวอร์</p><button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button></div><span class="stage-lock">VALIDATION GATE</span>
+          </section>
+          <section id="approval" class="panel stage-card">
+            <div class="stage-index">05</div><div class="stage-content"><p class="eyebrow">OWNER APPROVAL</p><h2>อนุมัติหรือส่ง Draft กลับ</h2><p>ผู้อนุมัติต้องไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด การอนุมัติยังไม่ใช่การเผยแพร่</p><label class="approval-comment" for="approval-comment">ความเห็นผู้อนุมัติ<input id="approval-comment" type="text" maxlength="1000" autocomplete="off" placeholder="ระบุเหตุผลเมื่อส่งกลับ"></label><div class="actions"><button id="approve-draft" type="button" class="button secondary" disabled>อนุมัติ Draft</button><button id="reject-draft" type="button" class="button danger" disabled>ส่งกลับให้แก้ไข</button></div></div><span class="stage-lock">OWNER ONLY</span>
+          </section>
+          <section id="publication-lock" class="panel stage-card locked-stage" aria-labelledby="publication-lock-title">
+            <div class="stage-index">06</div><div class="stage-content"><p class="eyebrow">PUBLISH</p><h2 id="publication-lock-title">เผยแพร่เวอร์ชัน</h2><p>ขั้นตอนนี้แสดงให้เห็นลำดับงานเท่านั้น ยังไม่มีปุ่ม คำสั่ง หรือ event สำหรับเผยแพร่</p><button type="button" class="button secondary" data-ui-locked data-lock-title="Publish ยังล็อก" data-lock-copy="ต้องผ่าน Publisher contract, Two-Phase Write, rollback test และ Owner approval แยกก่อนเปิดใช้งาน">ดูข้อกำหนดก่อนเปิดใช้</button></div><span class="stage-lock">LOCKED</span>
+          </section>
         </div>
-        <span class="locked">BOUNDED API</span>
       </section>
 
-      <section id="validation" class="panel stage-card">
-        <div class="stage-index">03</div>
-        <div>
-          <p class="eyebrow">ASYNC VALIDATION</p>
-          <h2>ตรวจบริษัท จุดเชื่อม เส้นทาง เที่ยว เวลา ราคา และการต่อรถ</h2>
-          <p>หลังแก้ Draft ต้องสั่งตรวจใหม่ งานหนักทำใน Worker ที่จำกัดจำนวนเครื่องและการทำงานพร้อมกัน หน้า Admin ติดตามเฉพาะสถานะและผลตรวจที่จำกัดขนาด</p>
-          <div class="actions">
-            <button id="validate-draft" type="button" class="button secondary" disabled>ตรวจ Draft ใหม่</button>
-          </div>
-          <dl class="validation-summary">
-            <div><dt>Validation Job</dt><dd id="validation-job-id">—</dd></div>
-            <div><dt>ผลตรวจ</dt><dd id="validation-result">ยังไม่มีผลตรวจรอบใหม่</dd></div>
-          </dl>
-        </div>
-        <span class="locked">WORKER · MAX 2</span>
+      <section id="published-workspace" class="workspace locked-workspace" data-ui-view="published" hidden aria-labelledby="published-title">
+        <div class="workspace-header"><div><p class="eyebrow">ข้อมูลกลาง</p><h1 id="published-title">เวอร์ชันเผยแพร่</h1><p>พื้นที่อ่านเวอร์ชันที่ได้รับอนุมัติ แยกออกจากศูนย์ทดสอบอย่างชัดเจน</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>รอ Published read contract</h2><p>ยังไม่อ่านเวอร์ชันจริง ไม่สลับเวอร์ชัน และไม่แสดงประวัติจำลอง การเผยแพร่ต้องทำผ่าน Publisher หลังบ้านเท่านั้น</p><button type="button" class="button secondary" data-ui-locked data-lock-title="เวอร์ชันเผยแพร่" data-lock-copy="พื้นที่นี้เปิดได้หลังมี bounded read contract และสิทธิ์ ส่วนการเผยแพร่ต้องขอ Owner approval แยก">ดูเหตุผลที่ล็อก</button></div>
       </section>
 
-      <section id="review" class="panel stage-card">
-        <div class="stage-index">04</div><div><p class="eyebrow">REVIEW</p><h2>ส่ง Draft ที่ผ่านการตรวจให้ผู้ทบทวน</h2><p>ระบบจะบันทึกผู้ส่ง เวลา และผลการตรวจผ่านคำสั่งที่ตรวจสิทธิ์จากฝั่งเซิร์ฟเวอร์</p><button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button></div><span class="locked">LOCKED</span>
+      <section id="users-workspace" class="workspace locked-workspace" data-ui-view="users" hidden aria-labelledby="users-title">
+        <div class="workspace-header"><div><p class="eyebrow">ดูแลระบบ</p><h1 id="users-title">ผู้ใช้งานและสิทธิ์</h1><p>พื้นที่เดิมสำหรับพนักงาน คำเชิญ ทีม บทบาท และสิทธิ์ตามหน้า</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="familiar-grid"><article class="panel familiar-card"><h2>สมาชิกและคำเชิญ</h2><p>รอ identity command และ Owner approval</p><span>ไม่สร้างบัญชีจำลอง</span></article><article class="panel familiar-card"><h2>ทีมและบทบาท</h2><p>Role หลักและขอบเขตทรัพยากรต้องมาจากระบบหลังบ้าน</p><span>รอ access contract</span></article><article class="panel familiar-card"><h2>สิทธิ์ตามหน้า</h2><p>การซ่อนปุ่มใน UI ไม่ใช่การตรวจสิทธิ์</p><span>Backend ต้องตรวจซ้ำ</span></article></div>
+        <button type="button" class="button secondary" data-ui-locked data-lock-title="ผู้ใช้งานและสิทธิ์" data-lock-copy="ต้องมี identity/access commands และ separation of duties test ก่อนเปิดทำรายการ">ดูขอบเขตที่ยังล็อก</button>
       </section>
 
-      <section id="approval" class="panel stage-card">
-        <div class="stage-index">05</div>
-        <div>
-          <p class="eyebrow">OWNER APPROVAL</p>
-          <h2>อนุมัติหรือส่ง Draft กลับ โดยไม่เผยแพร่</h2>
-          <p>ผู้อนุมัติต้องไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด หากส่งกลับ ผู้แก้ไขต้องบันทึก Draft และตรวจใหม่ก่อน Review รอบถัดไป</p>
-          <label class="approval-comment" for="approval-comment">ความเห็นผู้อนุมัติ
-            <input id="approval-comment" type="text" maxlength="1000" autocomplete="off" placeholder="ระบุเหตุผลเมื่อส่งกลับ">
-          </label>
-          <div class="actions">
-            <button id="approve-draft" type="button" class="button secondary" disabled>อนุมัติ Draft</button>
-            <button id="reject-draft" type="button" class="button danger" disabled>ส่งกลับให้แก้ไข</button>
-          </div>
-        </div>
-        <span class="locked">OWNER ONLY</span>
+      <section id="test-center-workspace" class="workspace locked-workspace" data-ui-view="test-center" hidden aria-labelledby="test-center-title">
+        <div class="workspace-header"><div><p class="eyebrow">ดูแลระบบ</p><h1 id="test-center-title">ศูนย์ทดสอบ</h1><p>พื้นที่เดิมสำหรับผลทดสอบ ประสิทธิภาพ และการตรวจสภาพแวดล้อม โดยแยกจากเวอร์ชันเผยแพร่</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>รอ Test evidence contract</h2><p>หน้านี้ไม่เปิดโหมดจำลอง ไม่สร้าง virtual users และไม่เปลี่ยนสถานะระบบจากเบราว์เซอร์</p><button type="button" class="button secondary" data-ui-locked data-lock-title="ศูนย์ทดสอบ" data-lock-copy="ต้องอ่านผลทดสอบที่ตรวจสอบย้อนกลับได้จากระบบหลังบ้าน และไม่ผูกกับคำสั่งเผยแพร่">ดูเหตุผลที่ล็อก</button></div>
       </section>
+
+      <section id="system-status-workspace" class="workspace locked-workspace" data-ui-view="system-status" hidden aria-labelledby="system-status-title">
+        <div class="workspace-header"><div><p class="eyebrow">ดูแลระบบ</p><h1 id="system-status-title">สถานะระบบและ Audit</h1><p>พื้นที่รวมสุขภาพระบบ ประวัติคำสั่ง และเหตุการณ์ตามสิทธิ์</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>รอ bounded status/audit reads</h2><p>หน้า Admin จะไม่ฟังข้อมูลทั้ง root และไม่สร้างรายการ audit จำลอง</p><button type="button" class="button secondary" data-ui-locked data-lock-title="สถานะระบบและ Audit" data-lock-copy="ต้องมี query ที่จำกัดขนาด ดัชนี และ permission contract ก่อนเปิดอ่านข้อมูล">ดูเหตุผลที่ล็อก</button></div>
+      </section>
+
+      <section id="account-workspace" class="workspace locked-workspace" data-ui-view="account" hidden aria-labelledby="account-title">
+        <div class="workspace-header"><div><p class="eyebrow">บัญชี</p><h1 id="account-title">บัญชีของฉัน</h1><p>พื้นที่เดิมสำหรับโปรไฟล์ ความปลอดภัย และการแจ้งเตือน อยู่ในเมนูผู้ใช้ด้านบน</p></div><span class="locked-badge">LOCKED</span></div>
+        <div class="panel locked-panel"><h2>รอ Auth profile contract</h2><p>ยังไม่อ่านบัญชี ไม่เปลี่ยน session และไม่จำลองว่าออกจากระบบสำเร็จ</p><button type="button" class="button secondary" data-ui-locked data-lock-title="บัญชีของฉัน" data-lock-copy="ต้องมี Auth/profile contract จาก Primary ก่อนเปิดข้อมูลหรือคำสั่งออกจากระบบ">ดูเหตุผลที่ล็อก</button></div>
+      </section>
+
+      <footer><span>SL-Transit Admin ERP1</span><span>Classic experience · Greenfield command runtime · Gate B</span></footer>
     </main>
   </div>
 
-  <footer><span>SL-Transit Greenfield ERP</span><span>Integration Review · Phase 6A.1</span></footer>
+  <button id="drawer-backdrop" class="drawer-backdrop" type="button" aria-label="ปิดรายละเอียด" hidden></button>
+  <aside id="context-drawer" class="context-drawer" aria-labelledby="drawer-title" aria-modal="true" role="dialog" hidden>
+    <div class="drawer-header"><div><p class="eyebrow">ขอบเขตระบบ</p><h2 id="drawer-title">รายละเอียด</h2></div><button id="drawer-close" class="icon-button drawer-close" type="button" aria-label="ปิดรายละเอียด">×</button></div>
+    <p id="drawer-description">พื้นที่นี้ยังไม่เชื่อมกับ Backend contract</p>
+    <div class="drawer-notice"><strong>ยังไม่ทำรายการ</strong><p>ไม่มีการบันทึกข้อมูล เรียกคำสั่งธุรกิจ หรือเปลี่ยนสถานะระบบจากรายละเอียดนี้</p></div>
+  </aside>
 </body>
 </html>
