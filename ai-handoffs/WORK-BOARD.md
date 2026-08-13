@@ -51,7 +51,7 @@
 ### Active file locks
 
 - Admin ERP Excel 3.3.x — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-excel-3-3-x`
-  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `greenfield-erp/phase2/excel-row-mapper.js`, `admin-erp1.html`, `admin-erp1-greenfield-controller.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
+  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `greenfield-erp/phase2/excel-row-mapper.js`, `admin-erp1.html`, `admin-erp1-greenfield-controller.js`, `admin-erp1-excel-3-3-x.js`, `assets/vendor/xlsx.full.min.js`, `assets/vendor/XLSX-LICENSE.txt`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: หน้า Admin ERP รับไฟล์ Excel รุ่น 3.3.4 และ 3.3.5, ตรวจรุ่น/ชีต/หัวตาราง/รหัส/ความสัมพันธ์, แสดงข้อผิดพลาดภาษาไทย และสร้าง Draft เท่านั้น โดยยังรองรับไฟล์รุ่นเดิม
   - Tests: Unit + regression บนข้อมูลตัวอย่างที่ตัดข้อมูลส่วนตัวออก; ตรวจกรณีไม่มีพิกัด, จุดเชื่อมต่อซ้ำในเส้นทางแยก, รุ่นไม่รองรับ และข้อมูลอ้างอิงไม่ครบ
   - Dependencies: Data Contract v1, Phase 2 Excel mapper, Phase 6A Admin integration
