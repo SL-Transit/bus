@@ -166,16 +166,16 @@ NEXT_ACTION: Squash Merge PR #154 เข้า main เท่านั้น; Fi
 
 ```text
 STATUS: REVIEW
-COMMIT/PR: branch agent/admin-erp-excel-3-3-x; Draft PR รอสร้างหลัง push
+COMMIT/PR: commit 037db78; Draft PR #165
 FILES_CHANGED: Admin ERP1 UI/controller; Excel 3.3.x converter; mapping profiles 3.3.4/3.3.5; Phase 2 mapper/Draft storage; SheetJS 0.20.3 + Apache-2.0 license; tests; board
 RESULTS: เลือก .xlsx ได้; อ่านรุ่นจาก 91_ควบคุมการนำเข้า!C5; ตรวจชีต/หัวตาราง/ช่องบังคับ/รหัส/ความสัมพันธ์; ยอมให้ไม่มีพิกัดและระยะทาง; ยอมให้จุดเดิมซ้ำคนละลำดับ; แปลงเป็น Canonical JSON ก่อน upload; เก็บข้อมูลปฏิบัติการที่มีรหัสลง Draft แยกหมวด; แสดงชื่อไทยคู่ Stable ID
-TESTS: Node syntax checks และ 47 unit/regression tests ผ่านทั้งหมด รวม 3.3.4/3.3.5, xlsx->JSON, missing coordinates, repeated junction, missing header/reference, operational Draft และ no-Publish regression
+TESTS: Node syntax checks และ 47 unit/regression tests ผ่านทั้งหมด; GitHub Actions run 31655624321 ผ่านชุดเดิม, Phase 2/4/5/6A Emulator และ performance ครบ
 ACTIONS/PAGES: none
 FIREBASE_DEPLOY_EVIDENCE: none — ไม่มี deploy, Rules change, Production write หรือ Publish
 DATA/PRIVACY_IMPACT: ชุดทดสอบเป็นข้อมูลจำลอง; ไม่อ่านหรือฝังไฟล์จริง/บัญชี/เบอร์โทร/UID; ข้อมูลปฏิบัติการจริงจะอยู่ใน Draft ที่ต้องผ่านสิทธิ์ Admin
 COST_IMPACT: ไม่มีค่า Production; เพิ่มตัวอ่าน Excel ฝั่งเบราว์เซอร์ประมาณ 952 KB; จำกัดไฟล์ 25 MB และแปลงเป็น JSON ก่อนส่ง
 KNOWN_RISKS: ยังไม่ได้ทดสอบกับไฟล์จริงของ Owner; การ deploy และการทดสอบ Emulator เต็มรูปแบบยังอยู่นอกขอบเขต; ข้อมูล Frequency/Fare Product ที่ไม่มีชีตต้นทางยังใช้กติกา Data Contract v1 เดิม
-NEXT_ACTION: เปิด Draft PR ให้ Owner ตรวจ; หลัง merge จึงทดสอบไฟล์จริงในสภาพแวดล้อมที่อนุมัติแยก โดยยังห้าม Production/Publish
+NEXT_ACTION: Owner ตรวจ Draft PR #165; หลังอนุมัติ merge จึงทดสอบไฟล์จริงในสภาพแวดล้อมที่อนุมัติแยก โดยยังห้าม Production/Publish
 ```
 ## Work Lock Template
 
