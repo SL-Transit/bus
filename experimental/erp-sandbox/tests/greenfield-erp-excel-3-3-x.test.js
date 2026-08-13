@@ -10,6 +10,7 @@ const repositoryRoot = path.join(__dirname, "..");
 const contractRoot = path.join(repositoryRoot, "contracts/greenfield-erp/v1");
 const mapper = require(path.join(repositoryRoot, "greenfield-erp/phase2/excel-row-mapper.js"));
 const excel = require(path.join(repositoryRoot, "admin-erp1-excel-3-3-x.js"));
+const draftPreview = require(path.join(repositoryRoot, "admin-erp1-greenfield-draft-preview.js"));
 const validator = require(path.join(contractRoot, "runtime/validate-network-package.js"));
 const draftService = require(path.join(repositoryRoot, "greenfield-erp/phase2/draft-service.js"));
 const draftStore = require(path.join(repositoryRoot, "greenfield-erp/phase2/rtdb-emulator-draft-store.js"));
@@ -155,6 +156,22 @@ test("แปลงจุดต่อรถแบบ fixed ไป frequency โ�
     fromServiceId: "TRP-A",
     toServiceId: "FRQ-B"
   });
+});
+test("Excel ที่ผ่าน Validation สร้าง Memory-only Draft พร้อมหลักฐาน Review ได้", function () {
+  const converted = convert("3.3.5");
+  assert.equal(converted.ok, true);
+  const created = draftPreview.createDraftReview({
+    package: converted.package,
+    mappingVersion: converted.mappingVersion
+  });
+  assert.equal(created.ok, true);
+  const review = draftPreview.publicReview(created.draft);
+  assert.equal(review.validationStatus, "valid");
+  assert.equal(review.mappingVersion, converted.mappingVersion);
+  assert.equal(review.sourceChecksumSha256, converted.package.metadata.sourceChecksumSha256);
+  assert.equal(review.summary.routes, converted.package.routes.length);
+  assert.equal(review.summary.transferRules, converted.package.transferRules.length);
+  assert.equal(review.storageMode, "memory_only");
 });
 
 test("รองรับ Excel 3.3.4 และ 3.3.5 โดยอ่านรุ่นจากชีต 91 ช่อง C5", function () {
