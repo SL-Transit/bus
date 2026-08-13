@@ -50,14 +50,14 @@
 
 ### Active file locks
 
-- Admin ERP Excel 3.3.x — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x`
-  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `greenfield-erp/phase2/{excel-row-mapper,draft-service,rtdb-emulator-draft-store}.js`, `admin-erp1.html`, `admin-erp1-greenfield-controller.js`, `admin-erp1-excel-3-3-x.js`, `assets/vendor/xlsx.full.min.js`, `assets/vendor/XLSX-LICENSE.txt`, `tests/greenfield-erp-excel-3-3-x.test.js`
-  - Intended output: หน้า Admin ERP รับไฟล์ Excel รุ่น 3.3.4 และ 3.3.5, ตรวจรุ่น/ชีต/หัวตาราง/รหัส/ความสัมพันธ์, เก็บทั้งข้อมูลเครือข่ายและข้อมูลปฏิบัติการที่มีรหัสลง Draft, แสดงข้อผิดพลาดภาษาไทย และยังรองรับไฟล์รุ่นเดิม
+- Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
+  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
+  - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
   - Tests: Unit + regression บนข้อมูลตัวอย่างที่ตัดข้อมูลส่วนตัวออก; ตรวจกรณีไม่มีพิกัด, จุดเชื่อมต่อซ้ำในเส้นทางแยก, รุ่นไม่รองรับ และข้อมูลอ้างอิงไม่ครบ
   - Dependencies: Data Contract v1, Phase 2 Excel mapper, Phase 6A Admin integration
   - Cost risk: อ่านไฟล์ในเบราว์เซอร์แบบจำกัดขนาด; จำกัดจำนวนแถว/ข้อผิดพลาด; ไม่เรียกบริการ Production
   - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
-  - Started/last update: 2026-08-13; implementation และ regression test เสร็จ รอตรวจใน Draft PR
+  - Started/last update: 2026-08-13; PR #165 merge แล้ว; ตรวจไฟล์จริงพบกติกาบังคับเกินจำเป็นและป้ายอ้างอิงที่มีข้อมูลอยู่ในชีตสำรวจ กำลังแก้เฉพาะจุดในสาขาใหม่
 
 - Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `DONE`; Branch: `codex/phase6a1-draft-revalidation-editor`; PR #154 อนุมัติให้ Squash Merge และปลดล็อกเมื่อ Merge สำเร็จ
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract,retention-service,rtdb-retention-store,retention-contract}.js|json`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `tests/admin-erp1-{integration,network-publish}.test.js`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
