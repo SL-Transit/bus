@@ -50,7 +50,7 @@
 
 ### Active file locks
 
-- ERP Sandbox Excel readiness review UI — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
+- ERP Sandbox Excel readiness review UI — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
   - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
   - Intended output: แสดงสรุปจำนวนข้อมูลและข้อผิดพลาดตามชีต/แถว/คอลัมน์; แยก blocking/warning; ตรวจ Frequency ของ GRP-001 และ Transfer; ใช้ fixture และ Excel จริงแบบ read-only; หยุดที่ validate-only/Draft
   - Tests: generated fixtures + sandbox unit/CI; อ่านไฟล์จริงใน Downloads แบบ read-only และห้ามแนบไฟล์ Excel/ข้อมูลส่วนตัวเข้า GitHub
@@ -233,4 +233,21 @@ DATA/PRIVACY_IMPACT: ไม่แนบหรืออัปโหลด Excel; 
 COST_IMPACT: ไม่มีค่า Firebase Production; จำกัด Excel 25 MiB; ไม่ส่งไฟล์ xlsx เข้า Cloud Function; ใช้ worker/Emulator limits เดิม
 KNOWN_RISKS: ไฟล์จริงยังสร้าง Draft ที่ผ่าน validation ไม่ได้จนกว่า Owner จะแก้ GRP-001 ให้เป็น Frequency พร้อม headway/open-close และกรอกจุดต่อเที่ยว
 NEXT_ACTION: ให้เจ้าของข้อมูลแก้ Excel ต้นทางแล้วตรวจซ้ำใน Sandbox; ห้าม Merge PR #155 หรือ Deploy จนได้รับอนุมัติแยก
+```
+
+## Completion Report — ERP Sandbox Excel readiness review UI / PR #155
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #155; implementation/UTF-8 fix head 534bad8ce7b96a17d954f011de5cb961421c969c
+FILES_CHANGED: experimental/erp-sandbox/admin-erp1.html; admin-erp1-greenfield-controller.js; admin-erp1-excel-3-3-x.js; assets/admin-erp1-greenfield.css; tests/greenfield-erp-excel-3-3-x.test.js; root/sandbox WORK-BOARD.md
+RESULTS: หน้า Admin แสดงยอดข้อมูล 9 หมวด; แยก blocking/warning; จัดข้อผิดพลาดตามชีต/แถว/คอลัมน์; มีด่าน GRP-001 Frequency/Queue และ Network Transfer; จำกัดการแสดงหน้าเว็บ 200 รายการเพื่อคุมหน่วยความจำ
+REAL_WORKBOOK_CHECK: new erp data.xlsx รุ่น 3.3.5 แบบ read-only; 2 บริษัท, 89 จุด, 6 เส้นทาง, 21 รูปแบบ, 60 fixed trips, 295 stop times, 0 frequency services, 210 fare rules, 0 transfer rules; blocked 17 รายการ (Frequency 16, Transfer 1)
+TESTS: Sandbox Actions run 31671263832 ผ่าน; full unit/regression + Emulator/performance run 31671263817 ผ่าน; syntax และ UTF-8 remote checks ผ่าน ไม่มี replacement character
+ACTIONS/PAGES: ไม่มี deploy; PR ยังเป็น Draft
+FIREBASE_DEPLOY_EVIDENCE: none — ไม่มี Firebase/Rules deploy, Production write, Publish หรือ pointer switch
+DATA/PRIVACY_IMPACT: อ่าน Excel ต้นทางเฉพาะในเครื่องแบบ read-only; ไม่อัปโหลด Excel; ไม่แตะ Booking/Passenger/Payment/ข้อมูลส่วนตัว
+COST_IMPACT: ไม่มีค่าใช้จ่าย Firebase Production; ตรวจ Excel ใน browser ก่อน Backend; จำกัดไฟล์ 25 MiB และจำกัด UI 200 issues
+KNOWN_RISKS: Excel จริงยังไม่มี frequency service/headway สำหรับ GRP-001 และยังไม่มีกฎต่อรถ จึงถูกหยุดก่อนสร้าง Draft ตามที่ออกแบบ
+NEXT_ACTION: เจ้าของข้อมูลแก้ GRP-001 เป็น Frequency พร้อม start_time/end_time/headway_secs และกรอกกฎต่อรถ แล้วตรวจซ้ำใน Sandbox; ห้าม Merge/Deploy จนได้รับ Owner approval แยก
 ```
