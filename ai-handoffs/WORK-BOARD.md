@@ -50,14 +50,14 @@
 
 ### Active file locks
 
-- Admin ERP Excel 3.3.x — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-excel-3-3-x`
+- Admin ERP Excel 3.3.x — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `greenfield-erp/phase2/{excel-row-mapper,draft-service,rtdb-emulator-draft-store}.js`, `admin-erp1.html`, `admin-erp1-greenfield-controller.js`, `admin-erp1-excel-3-3-x.js`, `assets/vendor/xlsx.full.min.js`, `assets/vendor/XLSX-LICENSE.txt`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: หน้า Admin ERP รับไฟล์ Excel รุ่น 3.3.4 และ 3.3.5, ตรวจรุ่น/ชีต/หัวตาราง/รหัส/ความสัมพันธ์, เก็บทั้งข้อมูลเครือข่ายและข้อมูลปฏิบัติการที่มีรหัสลง Draft, แสดงข้อผิดพลาดภาษาไทย และยังรองรับไฟล์รุ่นเดิม
   - Tests: Unit + regression บนข้อมูลตัวอย่างที่ตัดข้อมูลส่วนตัวออก; ตรวจกรณีไม่มีพิกัด, จุดเชื่อมต่อซ้ำในเส้นทางแยก, รุ่นไม่รองรับ และข้อมูลอ้างอิงไม่ครบ
   - Dependencies: Data Contract v1, Phase 2 Excel mapper, Phase 6A Admin integration
   - Cost risk: อ่านไฟล์ในเบราว์เซอร์แบบจำกัดขนาด; จำกัดจำนวนแถว/ข้อผิดพลาด; ไม่เรียกบริการ Production
   - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
-  - Started/last update: 2026-08-13
+  - Started/last update: 2026-08-13; implementation และ regression test เสร็จ รอตรวจใน Draft PR
 
 - Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `DONE`; Branch: `codex/phase6a1-draft-revalidation-editor`; PR #154 อนุมัติให้ Squash Merge และปลดล็อกเมื่อ Merge สำเร็จ
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract,retention-service,rtdb-retention-store,retention-contract}.js|json`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `tests/admin-erp1-{integration,network-publish}.test.js`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
@@ -160,6 +160,22 @@ DATA/PRIVACY_IMPACT: ใช้ canonical fixture เท่านั้น; ไ�
 COST_IMPACT: ไม่มีค่า Firebase Production; Gateway ไม่อ่าน Draft ทั้งก้อน; read 50 records/256 KiB; worker maxInstances 2/concurrency 1; report 100 errors; validation job retention 24 ชั่วโมงใน Emulator
 KNOWN_RISKS: Production task dispatcher/upload signer/Storage lifecycle และ Production load/cost evidence ยังไม่มี; Actions มี dependency deprecation warnings เดิม
 NEXT_ACTION: Squash Merge PR #154 เข้า main เท่านั้น; Firebase/Rules deploy, Production write, Publish และ Consumer cutover ยังต้องขอ Owner approval แยก
+```
+
+## Completion Report — Admin ERP Excel 3.3.x
+
+```text
+STATUS: REVIEW
+COMMIT/PR: branch agent/admin-erp-excel-3-3-x; Draft PR รอสร้างหลัง push
+FILES_CHANGED: Admin ERP1 UI/controller; Excel 3.3.x converter; mapping profiles 3.3.4/3.3.5; Phase 2 mapper/Draft storage; SheetJS 0.20.3 + Apache-2.0 license; tests; board
+RESULTS: เลือก .xlsx ได้; อ่านรุ่นจาก 91_ควบคุมการนำเข้า!C5; ตรวจชีต/หัวตาราง/ช่องบังคับ/รหัส/ความสัมพันธ์; ยอมให้ไม่มีพิกัดและระยะทาง; ยอมให้จุดเดิมซ้ำคนละลำดับ; แปลงเป็น Canonical JSON ก่อน upload; เก็บข้อมูลปฏิบัติการที่มีรหัสลง Draft แยกหมวด; แสดงชื่อไทยคู่ Stable ID
+TESTS: Node syntax checks และ 47 unit/regression tests ผ่านทั้งหมด รวม 3.3.4/3.3.5, xlsx->JSON, missing coordinates, repeated junction, missing header/reference, operational Draft และ no-Publish regression
+ACTIONS/PAGES: none
+FIREBASE_DEPLOY_EVIDENCE: none — ไม่มี deploy, Rules change, Production write หรือ Publish
+DATA/PRIVACY_IMPACT: ชุดทดสอบเป็นข้อมูลจำลอง; ไม่อ่านหรือฝังไฟล์จริง/บัญชี/เบอร์โทร/UID; ข้อมูลปฏิบัติการจริงจะอยู่ใน Draft ที่ต้องผ่านสิทธิ์ Admin
+COST_IMPACT: ไม่มีค่า Production; เพิ่มตัวอ่าน Excel ฝั่งเบราว์เซอร์ประมาณ 952 KB; จำกัดไฟล์ 25 MB และแปลงเป็น JSON ก่อนส่ง
+KNOWN_RISKS: ยังไม่ได้ทดสอบกับไฟล์จริงของ Owner; การ deploy และการทดสอบ Emulator เต็มรูปแบบยังอยู่นอกขอบเขต; ข้อมูล Frequency/Fare Product ที่ไม่มีชีตต้นทางยังใช้กติกา Data Contract v1 เดิม
+NEXT_ACTION: เปิด Draft PR ให้ Owner ตรวจ; หลัง merge จึงทดสอบไฟล์จริงในสภาพแวดล้อมที่อนุมัติแยก โดยยังห้าม Production/Publish
 ```
 ## Work Lock Template
 
