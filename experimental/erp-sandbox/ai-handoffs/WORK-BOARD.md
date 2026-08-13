@@ -51,6 +51,12 @@
 ### Active file locks
 
 - ERP Sandbox Excel readiness review UI — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
+- ERP Sandbox Hybrid Transfer Contract — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
+  - Files: `experimental/erp-sandbox/contracts/greenfield-erp/v1/**`; `experimental/erp-sandbox/admin-erp1-excel-3-3-x.js`; `experimental/erp-sandbox/greenfield-erp/phase5/**`; `experimental/erp-sandbox/tests/**`; root/sandbox `WORK-BOARD.md`
+  - Intended output: รองรับ Fixed → Frequency, Frequency → Fixed และ Frequency → Frequency ที่ป้ายกลาง; Trip ID เป็นตัวกรองเสริม; Operator/Service Mode เป็นตัวกรองหลัก; ทดสอบที่จุดฉะเชิงเทรา
+  - Tests: Contract/Excel/Phase 5 unit; RTDB Emulator regression; real Excel read-only compatibility check
+  - Firebase writes: none; Emulator only; no Publish/Deploy/pointer switch
+  - Cost risk: ไม่เพิ่ม Production reads/writes; matching ใช้ Published Read Model ในหน่วยความจำและ bounded transfer rules
   - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
   - Intended output: แสดงสรุปจำนวนข้อมูลและข้อผิดพลาดตามชีต/แถว/คอลัมน์; แยก blocking/warning; ตรวจ Frequency ของ GRP-001 และ Transfer; ใช้ fixture และ Excel จริงแบบ read-only; หยุดที่ validate-only/Draft
   - Tests: generated fixtures + sandbox unit/CI; อ่านไฟล์จริงใน Downloads แบบ read-only และห้ามแนบไฟล์ Excel/ข้อมูลส่วนตัวเข้า GitHub
