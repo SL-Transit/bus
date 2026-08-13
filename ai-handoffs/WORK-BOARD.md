@@ -46,13 +46,27 @@
 | Published Read Model / Journey core | DONE | PR #150 merged; CI `31460002078`; Pages `31460450126` | Emulator proof complete; ยังไม่ deploy Firebase/Production |
 | Admin ERP1 backend integration | DONE | PR #152 merged as `199e2e348abaaa748a6a1f9b8d778291acb66e4f`; CI `31493338953`; Pages `31493736824` | Emulator integration ผ่านและอยู่ใน `main`; Draft revalidation/editor ยังเป็นงานถัดไปแยก scope |
 | Admin Draft revalidation/editor | DONE | Owner อนุมัติ Merge PR #154; CI `31501263562` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Squash Merge เข้า `main` เท่านั้น |
-| Experimental ERP sandbox isolation | REVIEW | Draft PR #155; Isolation CI `31573732367`; full CI `31573732222` ผ่าน | Sandbox แยกจาก main; รอ Owner review; ไม่ Merge/Deploy |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
 ### Active file locks
 
-- Experimental ERP sandbox isolation — Owner: Primary AI (Greenfield); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`; Draft PR #155   - Files/paths: `experimental/erp-sandbox/**`, `ai-handoffs/WORK-BOARD.md`   - Intended output: สำเนาโครงการ Greenfield ERP แบบ standalone review sandbox; Admin safe-mode; Data Contract; Emulator configs; tests/docs   - Tests: Isolation CI `31573732367` และ full CI `31573732222` ผ่าน   - Dependencies: PR #154 merged; Excel `new erp data.xlsx` ยังเป็น source draft และไม่คัดลอกเข้า repository   - Cost risk: Emulator only; ไม่มี Firebase project creation/deploy; ไม่มี Production write; ไม่มี Consumer cutover   - Firebase writes: none; future demo Emulator only   - Started/last update: 2026-08-12
+- ERP Sandbox Excel 3.3.5 safety adapter ? Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
+  - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
+  - Intended output: ??????????? Excel 3.3.5 ??? main ???? Sandbox ?????????????????; ??????????????????/???; ???? Fixed/Frequency ??????????????; ??????? validate-only/Draft
+  - Tests: generated fixtures + sandbox unit/CI; ?????????????? Downloads ??? read-only ?????????????? Excel/????????????????? GitHub
+  - Dependencies: PR #166, Data Contract v1, Sandbox PR #155
+  - Cost risk: ???????????? Admin ???????? 25 MiB; ?????????? Excel ???? Function; worker/Emulator limits ????
+  - Firebase writes: none; ???? deploy/Production/Rules/Publish/pointer switch/consumer cutover
+  - Started/last update: 2026-08-13
 
+- Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
+  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
+  - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
+  - Tests: Unit + regression บนข้อมูลตัวอย่างที่ตัดข้อมูลส่วนตัวออก; ตรวจกรณีไม่มีพิกัด, จุดเชื่อมต่อซ้ำในเส้นทางแยก, รุ่นไม่รองรับ และข้อมูลอ้างอิงไม่ครบ
+  - Dependencies: Data Contract v1, Phase 2 Excel mapper, Phase 6A Admin integration
+  - Cost risk: อ่านไฟล์ในเบราว์เซอร์แบบจำกัดขนาด; จำกัดจำนวนแถว/ข้อผิดพลาด; ไม่เรียกบริการ Production
+  - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
+  - Started/last update: 2026-08-13; ไฟล์จริงรุ่น 3.3.5 ผ่านแบบ validate-only: 89 ป้าย, 6 เส้นทาง, 21 รูปแบบ, 60 เที่ยว, 295 เวลารายป้าย, 210 ค่าโดยสาร, รถ 5 และคนขับ 5; unit/regression 156 รายการผ่าน 150 และข้าม 6 เพราะ Emulator/ข้อมูลภายนอกไม่พร้อม
 
 - Phase 6A.1 Draft revalidation/editor — Owner: Primary AI (Greenfield); Status: `DONE`; Branch: `codex/phase6a1-draft-revalidation-editor`; PR #154 อนุมัติให้ Squash Merge และปลดล็อกเมื่อ Merge สำเร็จ
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `admin-erp1.html`, `admin-erp1-greenfield-{api-client,controller,state}.js`, `assets/admin-erp1-greenfield.css`, `greenfield-erp/phase4/{command-gateway,emulator-contract,retention-service,rtdb-retention-store,retention-contract}.js|json`, `greenfield-erp/phase4/functions/index.js`, `greenfield-erp/phase6a/**`, `tests/greenfield-erp-phase6a*`, `tests/admin-erp1-{integration,network-publish}.test.js`, `docs/greenfield-erp/PHASE6A-DRAFT-REVALIDATION.md`
@@ -156,26 +170,22 @@ COST_IMPACT: ไม่มีค่า Firebase Production; Gateway ไม่อ�
 KNOWN_RISKS: Production task dispatcher/upload signer/Storage lifecycle และ Production load/cost evidence ยังไม่มี; Actions มี dependency deprecation warnings เดิม
 NEXT_ACTION: Squash Merge PR #154 เข้า main เท่านั้น; Firebase/Rules deploy, Production write, Publish และ Consumer cutover ยังต้องขอ Owner approval แยก
 ```
-## Completion Report — Experimental ERP Sandbox / PR #155
 
-`
-`
-`
-text
+## Completion Report — Admin ERP Excel 3.3.x
+
+```text
 STATUS: REVIEW
-COMMIT/PR: Draft PR #155; reviewed head before board closeout b3a7db2cf4432154c89a94581ecd8e5329e064c9
-FILES_CHANGED: experimental/erp-sandbox/**; .github/workflows/erp-sandbox-validation.yml; ai-handoffs/WORK-BOARD.md
-RESULTS: copied Greenfield ERP/Admin safe-mode/Data Contract/docs/tests into standalone sandbox; 79 source blobs match; demo Emulator project only
-TESTS: Isolation run 31573732367 passed; full regression/Phase 2/4/6A/5 Emulator/performance run 31573732222 passed
-FIREBASE_DEPLOY_EVIDENCE: none — no project creation, deploy command, hosting config or Production write
-DATA/PRIVACY_IMPACT: Excel and Production data excluded; no Booking/Passenger/Payment data copied
-COST_IMPACT: no Firebase Production cost; tests use GitHub Actions and demo Emulator only
-KNOWN_RISKS: Sandbox is a source snapshot and may drift from future main changes; Excel mapping/import is not connected
-NEXT_ACTION: Owner reviews Draft PR #155. Merge, Firebase project creation/deploy, Excel import and Consumer connection require separate approval.
-`
-`
-`
-
+COMMIT/PR: commit 037db78; Draft PR #165
+FILES_CHANGED: Admin ERP1 UI/controller; Excel 3.3.x converter; mapping profiles 3.3.4/3.3.5; Phase 2 mapper/Draft storage; SheetJS 0.20.3 + Apache-2.0 license; tests; board
+RESULTS: เลือก .xlsx ได้; อ่านรุ่นจาก 91_ควบคุมการนำเข้า!C5; ตรวจชีต/หัวตาราง/ช่องบังคับ/รหัส/ความสัมพันธ์; ยอมให้ไม่มีพิกัดและระยะทาง; ยอมให้จุดเดิมซ้ำคนละลำดับ; แปลงเป็น Canonical JSON ก่อน upload; เก็บข้อมูลปฏิบัติการที่มีรหัสลง Draft แยกหมวด; แสดงชื่อไทยคู่ Stable ID
+TESTS: Node syntax checks และ 47 unit/regression tests ผ่านทั้งหมด; GitHub Actions run 31655624321 ผ่านชุดเดิม, Phase 2/4/5/6A Emulator และ performance ครบ
+ACTIONS/PAGES: none
+FIREBASE_DEPLOY_EVIDENCE: none — ไม่มี deploy, Rules change, Production write หรือ Publish
+DATA/PRIVACY_IMPACT: ชุดทดสอบเป็นข้อมูลจำลอง; ไม่อ่านหรือฝังไฟล์จริง/บัญชี/เบอร์โทร/UID; ข้อมูลปฏิบัติการจริงจะอยู่ใน Draft ที่ต้องผ่านสิทธิ์ Admin
+COST_IMPACT: ไม่มีค่า Production; เพิ่มตัวอ่าน Excel ฝั่งเบราว์เซอร์ประมาณ 952 KB; จำกัดไฟล์ 25 MB และแปลงเป็น JSON ก่อนส่ง
+KNOWN_RISKS: ยังไม่ได้ทดสอบกับไฟล์จริงของ Owner; การ deploy และการทดสอบ Emulator เต็มรูปแบบยังอยู่นอกขอบเขต; ข้อมูล Frequency/Fare Product ที่ไม่มีชีตต้นทางยังใช้กติกา Data Contract v1 เดิม
+NEXT_ACTION: Owner ตรวจ Draft PR #165; หลังอนุมัติ merge จึงทดสอบไฟล์จริงในสภาพแวดล้อมที่อนุมัติแยก โดยยังห้าม Production/Publish
+```
 ## Work Lock Template
 
 ```text

@@ -16,7 +16,24 @@ const ID_FIELDS = Object.freeze({
   frequencyServices: "frequencyServiceId",
   fareProducts: "fareProductId",
   fareRules: "fareRuleId",
-  transferRules: "transferRuleId"
+  transferRules: "transferRuleId",
+  accounts: "userId",
+  accountAccesses: "userAccessId",
+  locationAccesses: "locationAccessId",
+  locationSurveys: "surveyId",
+  routeDrafts: "draftRouteId",
+  routeDraftStops: "routeStopRowId",
+  calendarExceptions: "calendarExceptionId",
+  queues: "queueId",
+  vehicles: "vehicleId",
+  drivers: "driverId",
+  vehicleBlocks: "vehicleBlockId",
+  driverDuties: "driverDutyId",
+  assignments: "assignmentId",
+  bookingPolicies: "bookingPolicyId",
+  incidents: "incidentId",
+  platformAssignments: "platformAssignmentId",
+  serviceGroups: "serviceGroupId"
 });
 
 function digest(value) {
@@ -40,7 +57,8 @@ function entityRecords(draftId, pkg) {
   const records = [];
   Object.keys(ID_FIELDS).forEach(function (entityType) {
     const idField = ID_FIELDS[entityType];
-    (pkg[entityType] || []).forEach(function (value) {
+    const source = pkg[entityType] || pkg.operationalRecords && pkg.operationalRecords[entityType] || [];
+    source.forEach(function (value) {
       const id = safeSegment(value[idField], idField);
       records.push({
         path: "authoring/drafts/" + draftId + "/entities/" + entityType + "/" + id,

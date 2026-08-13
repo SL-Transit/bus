@@ -307,6 +307,21 @@ function canonicalWorkbookReady(source) {
     Number(manifestCounts.scheduleRows) === scheduleCount;
 }
 
+function bookingStopMatches(inputKey, inputName, rowKey, rowName) {
+  const key = String(inputKey || "").trim();
+  const rowStopKey = String(rowKey || "").trim();
+  if (key && rowStopKey && key === rowStopKey) return true;
+  // Some older clients accidentally put the display label in the *Key*
+  // field. Only fall back to the display name for non-canonical values;
+  // a real-looking but incorrect canonical key must still be rejected.
+  if (key && rowStopKey && /^[A-Za-z0-9_-]+$/.test(key)) return false;
+  const normalize = (value) => String(value || "")
+    .trim()
+    .replace(/\s*\([^)]*\)\s*/g, "")
+    .replace(/\s+/g, "");
+  return !!inputName && !!rowName && normalize(inputName) === normalize(rowName);
+}
+
 function findCanonicalWorkbookPair(source, booking) {
   const fareRows = Object.values(source.routeFareRows || {});
   const scheduleRows = Object.values(source.scheduleRows || {});
@@ -314,8 +329,12 @@ function findCanonicalWorkbookPair(source, booking) {
   const fare = fareRows.find((row) => {
     if (!row || !wantedPairIds.includes(String(row.sourceRowId || ""))) return false;
     if (booking.routeId && String(row.routeId || "") !== String(booking.routeId)) return false;
-    if (booking.origin && String(row.fromNameTh || "") !== String(booking.origin)) return false;
-    if (booking.destination && String(row.toNameTh || "") !== String(booking.destination)) return false;
+    if (booking.originKey || booking.originStopKey) {
+      if (!bookingStopMatches(booking.originKey || booking.originStopKey, booking.origin, row.fromStopKey, row.fromNameTh)) return false;
+    } else if (booking.origin && !bookingStopMatches("", booking.origin, row.fromStopKey, row.fromNameTh)) return false;
+    if (booking.destKey || booking.destinationStopKey) {
+      if (!bookingStopMatches(booking.destKey || booking.destinationStopKey, booking.destination, row.toStopKey, row.toNameTh)) return false;
+    } else if (booking.destination && !bookingStopMatches("", booking.destination, row.toStopKey, row.toNameTh)) return false;
     return String(row.status == null ? "" : row.status).toLowerCase() !== "false";
   });
   if (!fare) return null;
@@ -350,16 +369,22 @@ async function resolvePublishedCapacity({ serviceDate, pairKey, tripKey, routeKe
   const source = await readCanonicalWorkbookSource();
   if (!canonicalWorkbookReady(source)) return null;
   const rows = source.scheduleRows;
+  const fare = Object.values(source.routeFareRows || {}).find((candidate) => String(candidate && candidate.sourceRowId || "") === String(pairKey || ""));
   const wantedTrip = String(tripKey || "");
   const wantedRoute = String(routeKey || "");
   const wantedTime = String(pickupTime || "");
-  const row = Object.values(rows).find((candidate) => {
+  const candidates = Object.values(rows).filter((candidate) => {
     if (!candidate || candidate.bookingEnabled === false || String(candidate.bookingEnabled || "").toLowerCase() === "false") return false;
-    const sameTrip = wantedTrip && String(candidate.scheduleOfferId || "") === wantedTrip;
     const sameRoute = !wantedRoute || String(candidate.routeId || "") === wantedRoute;
     const sameTime = !wantedTime || String(candidate.departureTime || "") === wantedTime;
-    return sameTrip && sameRoute && sameTime;
+    const samePair = !fare || (
+      String(candidate.fromStopKey || "") === String(fare.fromStopKey || "") &&
+      String(candidate.toStopKey || "") === String(fare.toStopKey || "")
+    );
+    return sameRoute && sameTime && samePair;
   });
+  const row = candidates.find((candidate) => wantedTrip && String(candidate.scheduleOfferId || "") === wantedTrip) ||
+    (!wantedTrip && candidates.length === 1 ? candidates[0] : null);
   if (!row) return null;
   const configuredLimit = Number(row.capacity);
   const limit = Number.isInteger(configuredLimit) && configuredLimit > 0
@@ -385,6 +410,29 @@ async function readSystemTestMode() {
   return snap.val() || {};
 }
 
+exports.readSystemTestModeStatus = onRequest({
+  region: "asia-southeast1",
+  timeoutSeconds: 10,
+  memory: "256MiB",
+  maxInstances: 10
+}, async (req, res) => {
+  setCors(req, res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "GET") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
+  try {
+    const config = await readSystemTestMode();
+    sendJson(res, 200, {
+      enabled: config.enabled === true,
+      allowBookingsDuringTest: config.allowBookingsDuringTest === true,
+      title: typeof config.title === "string" ? config.title.slice(0, 200) : "",
+      message: typeof config.message === "string" ? config.message.slice(0, 500) : "",
+      reason: typeof config.reason === "string" ? config.reason.slice(0, 500) : ""
+    });
+  } catch (error) {
+    sendJson(res, 503, { status: "error", error: "system_test_mode_unavailable" });
+  }
+});
+
 function testModeResponse(res) {
   sendJson(res, 503, { status: "blocked", error: "system_test_mode_enabled", message: "ระบบกำลังทดสอบ จึงยังไม่รับรายการนี้" });
 }
@@ -400,7 +448,8 @@ exports.reserveBookingCapacity = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
-    if ((await readSystemTestMode()).enabled === true) { testModeResponse(res); return; }
+    const systemTestMode = await readSystemTestMode();
+    if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { testModeResponse(res); return; }
     const body = parseJsonRequest(req);
     const action = body.action || "reserve";
     const path = capacityCounterPath(body.serviceDate, body.capacityKey);
@@ -421,6 +470,14 @@ exports.reserveBookingCapacity = onRequest({
         pickupTime: body.pickupTime
       });
       if (!initialCapacity) {
+        console.warn("booking_capacity_rejected", {
+          reason: "published_trip_not_found",
+          serviceDate: body.serviceDate,
+          pairKey: body.pairKey,
+          tripKey: body.tripKey,
+          routeKey: body.routeKey,
+          pickupTime: body.pickupTime
+        });
         sendJson(res, 409, { status: "error", error: "capacity_full_or_not_ready" });
         return;
       }
@@ -462,6 +519,14 @@ exports.reserveBookingCapacity = onRequest({
     if (!result.committed) {
       const snapshot = await ref.get();
       const existing = snapshot.child(`bookings/${bookingCode}`).val();
+      console.warn("booking_capacity_rejected", {
+        reason: existing ? "capacity_already_reserved" : "capacity_transaction_not_committed",
+        serviceDate: body.serviceDate,
+        pairKey: body.pairKey,
+        tripKey: body.tripKey,
+        routeKey: body.routeKey,
+        pickupTime: body.pickupTime
+      });
       sendJson(res, existing && existing.ownerUid === decoded.uid ? 200 : 409, { status: "error", error: existing ? "capacity_already_reserved" : "capacity_full_or_not_ready" });
       return;
     }
@@ -488,7 +553,8 @@ exports.createBooking = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
-    if ((await readSystemTestMode()).enabled === true) { testModeResponse(res); return; }
+    const systemTestMode = await readSystemTestMode();
+    if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { testModeResponse(res); return; }
     const body = parseJsonRequest(req);
     const input = body.booking && typeof body.booking === "object" ? body.booking : {};
     const code = cleanBookingText(input.code || input.bookingCode, 80);
@@ -531,7 +597,7 @@ exports.createBooking = onRequest({
       pairKey: cleanBookingText(input.pairKey, 160), pairId: cleanBookingText(input.pairId, 160), canonicalPairKey: cleanBookingText(input.canonicalPairKey, 160),
       fare: expectedTotal, price: expectedTotal, fareAmount: serverFare, fareContract: pair.fareContract || null,
       paymentMode, paymentStatus, slipUploaded: paymentStatus === "slip_uploaded", paymentOwnership: "sl_transit",
-      externalPaymentRequired: false, testMode: false, mockPayment: false, status: "awaiting_payment",
+      externalPaymentRequired: false, testMode: systemTestMode.enabled === true, mockPayment: systemTestMode.enabled === true, mockOnly: systemTestMode.enabled === true, status: "awaiting_payment",
       passengerIdentity: input.passengerIdentity || null, notificationPreference: input.notificationPreference || null,
       consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
       publishedSchedule: { readyForApply: false, schemaVersion: source.manifest.schemaVersion || "erpWorkbookSource.v1" }, createdAt: SERVER_TIMESTAMP
@@ -630,6 +696,7 @@ exports.updateSystemTestMode = onRequest({
       message: cleanBookingText(body.message, 500) || "ทีมงานกำลังทดสอบระบบเพื่อให้บริการได้มั่นคงขึ้น",
       reason: cleanBookingText(body.reason, 500) || "ระหว่างนี้จะไม่สามารถสร้างรายการจองหรือส่งข้อความแจ้งเตือนได้",
       mockOnly: enabled,
+      allowBookingsDuringTest: body.allowBookingsDuringTest === true,
       noPaidConnections: enabled,
       updatedBy: decoded.uid,
       updatedAt: SERVER_TIMESTAMP
@@ -1026,17 +1093,53 @@ async function createCancellationJobs(code, booking) {
   })));
 }
 
+// A booking may arrive before the nightly driver-work scheduler has generated
+// the service-date contracts. Build the contracts on demand from ERP data so
+// a valid booking is never silently reduced to an admin-only notification.
+async function ensureDriverWorkForServiceDate(serviceDate) {
+  const db = admin.database();
+  const existingSnap = await db.ref(`operations/driverWorkByServiceDate/${serviceDate}`).get();
+  if (existingSnap.exists()) return existingSnap.val() || {};
+
+  const [erpSnap, dailyAssignmentsSnap, manualOverridesSnap, configSnap] = await Promise.all([
+    db.ref("data/erpDataCenter").get(),
+    db.ref(`operations/driverDailyAssignments/${serviceDate}`).get(),
+    db.ref(`operations/driverManualOverrides/${serviceDate}`).get(),
+    db.ref("operations/driverWorkGenerationConfig").get()
+  ]);
+  const config = configSnap.val() || {};
+  const plan = driverWorkAutoCenter.buildUpdates({
+    erpDataCenter: erpSnap.val() || {},
+    serviceDate,
+    currentTime: "00:00",
+    dailyAssignments: dailyAssignmentsSnap.val() || {},
+    manualOverrides: manualOverridesSnap.val() || {},
+    rotationConfig: config.rotation,
+    generatedAt: SERVER_TIMESTAMP
+  });
+
+  const workUpdates = {};
+  Object.keys(plan.updates || {}).forEach((path) => {
+    if (path.startsWith(`operations/driverWorkByServiceDate/${serviceDate}/`)
+      || path === `operations/driverWorkGenerationStatus/${serviceDate}`) {
+      workUpdates[path] = plan.updates[path];
+    }
+  });
+  if (Object.keys(workUpdates).length) await db.ref().update(workUpdates);
+  return plan.result.contractsByRuntimeVehicleId || {};
+}
+
 exports.handleBookingCreated = onValueCreated({ ref: "/bookings/{code}", instance: "sl-transit-9464e-default-rtdb", region: "asia-southeast1", secrets: [lineToken, staffLineToken], timeoutSeconds: 30, memory: "256MiB", minInstances: 0, maxInstances: 1, concurrency: 1, retry: false }, async (event) => {
   let booking = event.data.val() || {};
   const code = event.params.code || booking.code || "";
   if (!driverTicketCenter.plannedVehicleId(booking)) {
     const serviceDate = driverTicketCenter.serviceDate(booking);
     if (serviceDate) {
-      const [workSnap, groupStopsSnap] = await Promise.all([
-        admin.database().ref(`operations/driverWorkByServiceDate/${serviceDate}`).get(),
+      const [workByVehicle, groupStopsSnap] = await Promise.all([
+        ensureDriverWorkForServiceDate(serviceDate),
         admin.database().ref("data/erpDataCenter/groupStops").get()
       ]);
-      booking = driverTicketCenter.enrichBookingFromDriverWork(booking, workSnap.val() || {}, groupStopsSnap.val() || {});
+      booking = driverTicketCenter.enrichBookingFromDriverWork(booking, workByVehicle || {}, groupStopsSnap.val() || {});
     }
   }
   const updates = driverTicketCenter.buildDriverTicketMirrorUpdate(code, null, booking);
@@ -1087,7 +1190,10 @@ exports.processNotificationJob = onValueCreated({ ref: "/operations/notification
   const jobId = event.params.jobId; const job = event.data.val() || {}; const db = admin.database(); const dispatchRef = db.ref(`operations/notificationDispatch/${jobId}`);
   const claim = await dispatchRef.transaction((current) => { const decision = notificationCenter.claimDecision(current, Date.now()); if (!decision.claim) return; return { ...(current || {}), status: "processing", attempts: decision.attempts, createdAt: (current && current.createdAt) || SERVER_TIMESTAMP, processingStartedAt: Date.now(), retryKey: job.retryKey, recipient: job.recipient, channelKind: job.channelKind || notificationCenter.channelKind(job.recipient?.type), tokenKind: job.tokenKind || notificationCenter.tokenKind(job.recipient?.type), eventType: job.eventType, bookingCode: job.bookingCode }; });
   if (!claim.committed) return;
-  if (job.testMode === true || job.mockOnly === true || (await readSystemTestMode()).enabled === true) { await dispatchRef.update({ status: "mock_skipped", sentAt: SERVER_TIMESTAMP }); return; }
+  const systemTestMode = await readSystemTestMode();
+  const staffPaused = systemTestMode.enabled === true && (job.channelKind === "staff" || job.tokenKind === "staff");
+  const isStaffJob = job.channelKind === "staff" || job.tokenKind === "staff";
+  if ((isStaffJob && (job.testMode === true || job.mockOnly === true || staffPaused))) { await dispatchRef.update({ status: "mock_skipped", sentAt: SERVER_TIMESTAMP }); return; }
   const token = (job.tokenKind || notificationCenter.tokenKind(job.recipient?.type)) === "staff" ? staffLineToken.value() : lineToken.value();
   let attempt = Number((claim.snapshot && claim.snapshot.val() || {}).attempts || 1);
   while (attempt <= 3) {

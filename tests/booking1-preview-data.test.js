@@ -41,14 +41,14 @@ assert(bridge.includes(".child('scheduleRows').once('value')"), 'Booking1 must r
 assert(bridge.includes("db.ref('data/erpDataCenter/serviceGroups').once('value')"), 'Booking1 must read canonical service groups');
 assert(bridge.includes('SLTransitWorkbookBookingSource.build'), 'Booking1 must project selections from canonical workbook rows');
 assert(!bridge.includes("child('pairs')"), 'Booking1 must not read the retired 508-pair projection');
-assert(booking1.includes('erp-workbook-booking-source.js?v=20260803group1'), 'Booking1 must load the workbook booking source');
+assert(booking1.includes('erp-workbook-booking-source.js?v=20260812a'), 'Booking1 must load the current workbook booking source');
 assert(!bridge.includes("db.ref('routeData')"), 'Booking1 bridge must not read legacy routeData');
 assert(!bridge.includes('SLTransitCatalog.loadPublished'), 'Booking1 bridge must not load legacy publishedCatalog');
 assert(!bridge.includes('LEG2_DEST'), 'Booking1 bridge must not use static leg2 destination/fare table');
 assert(!bridge.includes('TRANSFER_BUFFER'), 'Booking1 bridge must not use static transfer buffers');
 assert(!bridge.includes('|| 55'), 'Booking1 bridge must not hardcode 55-baht fare fallback');
 assert(booking1.includes('booking-availability-center.js'), 'Booking1 must load Booking Availability Center');
-assert(booking1.includes('fare-decision-center.js'), 'Booking1 must load Fare Decision Center');
+assert(booking1.includes('fare-decision-center.js?v=20260812b'), 'Booking1 must load the refreshed Fare Decision Center');
 assert(booking1.includes('erp-calculator-center.js'), 'Booking1 must load ERP Calculator Center for trip recommendation ordering');
 assert(booking1.includes('https://static.line-scdn.net/liff/edge/2/sdk.js'), 'Booking1 must load the official LINE LIFF SDK for optional passenger login');
 assert(booking1.includes('window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID ||'), 'Booking1 must expose a single LIFF ID config slot');
@@ -101,7 +101,7 @@ assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calc
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
 
 assert(booking1.includes('booking1-preview-adapter.js'), 'Booking1 must load the preview adapter');
-assert(booking1.includes('booking1-preview-adapter.js?v=20260716a'), 'Booking1 must bust cached preview adapter versions after payment-step layout fixes');
+assert(booking1.includes('booking1-preview-adapter.js?v=20260812a'), 'Booking1 must bust cached preview adapter versions after canonical fare source fixes');
 assert(booking1.includes('var global = window;'), 'Booking1 inline scripts must use a browser-safe global alias');
 assert.deepStrictEqual(pageAncestors(booking1), { page1: [], page2: [], page3: [], page4: [] }, 'Booking1 pages must be sibling roots so page navigation cannot hide active pages inside inactive parents');
 assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone sanitizer for passenger form');
