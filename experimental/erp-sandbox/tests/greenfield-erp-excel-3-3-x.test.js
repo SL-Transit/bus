@@ -205,6 +205,14 @@ test("???? Admin ??? xlsx ???????? JSON ????????????????? Publish", function () 
   assert.match(html, /admin-erp1-excel-3-3-x\.js/);
   assert.match(html, /accept="\.xlsx,\.json/);
   assert.match(controller, /convertFileToCanonical/);
+  assert.match(controller, /renderExcelReadiness\(converted\.report\)/);
+  assert.match(controller, /error && error\.report/);
+  assert.match(html, /id="excel-readiness"/);
+  assert.match(html, /id="excel-blocking-list"/);
+  assert.match(html, /id="excel-warning-list"/);
+  assert.match(html, /id="excel-frequency-gate"/);
+  assert.match(html, /id="excel-transfer-gate"/);
+  assert.equal(controller.includes("innerHTML"), false);
   assert.match(controller, /contentType: "application\/json"/);
   assert.equal(controller.includes('client.send("publish'), false);
   const bundledReader = fs.readFileSync(path.join(repositoryRoot, "assets/vendor/xlsx.full.min.js"), "utf8");
