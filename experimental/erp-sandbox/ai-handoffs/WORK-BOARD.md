@@ -261,3 +261,10 @@ COST_IMPACT: ไม่มีค่าใช้จ่าย Firebase Production; 
 KNOWN_RISKS: Excel จริงยังไม่มี frequency service/headway สำหรับ GRP-001 และยังไม่มีกฎต่อรถ จึงถูกหยุดก่อนสร้าง Draft ตามที่ออกแบบ
 NEXT_ACTION: เจ้าของข้อมูลแก้ GRP-001 เป็น Frequency พร้อม start_time/end_time/headway_secs และกรอกกฎต่อรถ แล้วตรวจซ้ำใน Sandbox; ห้าม Merge/Deploy จนได้รับ Owner approval แยก
 ```
+- ERP Sandbox Canonical Draft Review Flow — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
+  - Files: `experimental/erp-sandbox/admin-erp1.html`; `experimental/erp-sandbox/admin-erp1-greenfield-controller.js`; `experimental/erp-sandbox/admin-erp1-*.js`; `experimental/erp-sandbox/greenfield-erp/phase2/**`; `experimental/erp-sandbox/tests/**`; root/sandbox `WORK-BOARD.md`
+  - Intended output: เมื่อ Excel ผ่าน Validation ให้สร้าง Canonical Draft ในเขตกักกันและแสดงหน้า Review ที่สรุปข้อมูล, ข้อผิดพลาด, checksum, mapping version และสถานะ Draft โดยไม่มีคำสั่ง Publish
+  - Tests: generated workbook/unit tests; invalid data must fail before Draft; Draft review must not expose source file bytes or private operational fields; GitHub Actions
+  - Firebase writes: Emulator/in-memory adapter only; no Production, Rules, Deploy, Publish, pointer switch, merge or consumer cutover
+  - Cost risk: ไม่ส่งไฟล์ Excel เข้า Cloud Functions; ส่งเฉพาะ Canonical JSON หลังผ่าน Validation; จำกัดไฟล์ 25 MiB และใช้ chunk limits เดิม
+  - Started: 2026-08-13; dependency: Hybrid Transfer Contract in PR #155
