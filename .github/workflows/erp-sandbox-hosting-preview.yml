@@ -50,23 +50,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .firebase-preview-site
+          mkdir -p .github/firebase/site
           while IFS= read -r source || [ -n "$source" ]; do
             test -n "$source"
             case "$source" in
               experimental/erp-sandbox/*) ;;
               *) echo "Blocked non-sandbox source: $source" >&2; exit 1 ;;
             esac
-            target=".firebase-preview-site/${source#experimental/erp-sandbox/}"
+            target=".github/firebase/site/${source#experimental/erp-sandbox/}"
             mkdir -p "$(dirname "$target")"
             cp "$source" "$target"
           done < experimental/erp-sandbox/hosting-preview-files.txt
-          cp experimental/erp-sandbox/admin-erp1.html .firebase-preview-site/index.html
-          staged_count="$(find .firebase-preview-site -type f | wc -l)"
+          cp experimental/erp-sandbox/admin-erp1.html .github/firebase/site/index.html
+          staged_count="$(find .github/firebase/site -type f | wc -l)"
           echo "Staged file count: $staged_count"
           test "$staged_count" -eq 16
-          ! find .firebase-preview-site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' \) -print -quit | grep -q .
-          find .firebase-preview-site -type f -print | sort
+          ! find .github/firebase/site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' \) -print -quit | grep -q .
+          find .github/firebase/site -type f -print | sort
 
       - name: Deploy expiring Firebase Hosting preview channel
         id: deploy

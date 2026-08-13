@@ -50,8 +50,8 @@ test("Hosting Preview is label-gated to PR 155 and cannot deploy Live", () => {
 test("Hosting Preview config is static-only and non-cacheable", () => {
   const config = JSON.parse(read(configPath));
   assert.equal(config.hosting.site, "sl-transit-erp-sandbox");
-  assert.equal(config.hosting.public, "../../.firebase-preview-site");
-  assert.equal(path.resolve(path.dirname(configPath), config.hosting.public), path.join(repoRoot, ".firebase-preview-site"));
+  assert.equal(config.hosting.public, "site");
+  assert.equal(path.resolve(path.dirname(configPath), config.hosting.public), path.join(repoRoot, ".github", "firebase", "site"));
   assert.equal(Object.prototype.hasOwnProperty.call(config, "database"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(config, "functions"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(config, "storage"), false);
