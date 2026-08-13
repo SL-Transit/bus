@@ -1,4 +1,9 @@
-"use strict";
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.SLTransitGreenfieldValidator = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
 
 const SCHEMA_VERSION = "greenfield-erp-v1";
 const INTERNAL_CHUNK_BYTES = 5 * 1024 * 1024;
@@ -204,4 +209,12 @@ function estimateChunks(records, options) {
   if (current.records.length) chunks.push(current);
   return chunks;
 }
-module.exports = { SCHEMA_VERSION, INTERNAL_CHUNK_BYTES, INTERNAL_CHUNK_PATHS, validateNetworkPackage, expectedWaitSeconds, estimateChunks };
+  return Object.freeze({
+    SCHEMA_VERSION,
+    INTERNAL_CHUNK_BYTES,
+    INTERNAL_CHUNK_PATHS,
+    validateNetworkPackage,
+    expectedWaitSeconds,
+    estimateChunks
+  });
+});

@@ -12,7 +12,8 @@ const ENTITY_ARRAYS = [
 const OPERATIONAL_ENTITY_ARRAYS = [
   "accounts", "accountAccesses", "locationAccesses", "locationSurveys", "routeDrafts",
   "routeDraftStops", "calendarExceptions", "queues", "vehicles", "drivers", "vehicleBlocks",
-  "driverDuties", "assignments", "bookingPolicies", "incidents", "platformAssignments", "serviceGroups"
+  "driverDuties", "assignments", "bookingPolicies", "incidents", "platformAssignments", "serviceGroups",
+  "scheduleRules", "dailyQueueRules"
 ];
 
 function hash(value) {

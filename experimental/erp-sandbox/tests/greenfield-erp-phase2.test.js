@@ -153,6 +153,21 @@ test("RTDB adapter writes only locked emulator namespace and finalizes after chu
   const serialized = JSON.stringify(calls);
   assert.equal(serialized.includes("publishedReadModels"), false);
 });
+test("Draft retains schedule and daily queue rules as operational records", function () {
+  const pkg = JSON.parse(JSON.stringify(valid));
+  pkg.operationalRecords = {
+    scheduleRules: [{ scheduleRuleId: "SCH-001", serviceGroupId: "GRP-001" }],
+    dailyQueueRules: [{ queueRuleId: "QRL-001", assignmentMode: "rotation" }]
+  };
+  assert.equal(draftService.entityCount(pkg), draftService.entityCount(valid) + 2);
+  const records = rtdbStore.entityRecords("DRF-ABCDEF0123456789ABCDEF01", pkg);
+  assert.ok(records.some(function (record) {
+    return record.path.endsWith("/entities/scheduleRules/SCH-001");
+  }));
+  assert.ok(records.some(function (record) {
+    return record.path.endsWith("/entities/dailyQueueRules/QRL-001");
+  }));
+});
 
 test("proposal rules and limits are deny-by-default and aligned", function () {
   assert.equal(rules.rules[".read"], false);

@@ -33,7 +33,9 @@ const ID_FIELDS = Object.freeze({
   bookingPolicies: "bookingPolicyId",
   incidents: "incidentId",
   platformAssignments: "platformAssignmentId",
-  serviceGroups: "serviceGroupId"
+  serviceGroups: "serviceGroupId",
+  scheduleRules: "scheduleRuleId",
+  dailyQueueRules: "queueRuleId"
 });
 
 function digest(value) {
