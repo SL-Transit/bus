@@ -50,14 +50,15 @@
 
 ### Active file locks
 
-- ERP Sandbox Firebase Hosting Preview — Owner: Primary AI (Sandbox); Status: `IN_PROGRESS`; Branch: `codex/erp-experimental-sandbox`
-  - Files/paths: `.github/workflows/erp-sandbox-hosting-preview.yml`; `.github/firebase/erp-sandbox-preview.json`; `experimental/erp-sandbox/{README.md,SAFETY-GUARDS.md,tests/**}`; `ai-handoffs/WORK-BOARD.md`
-  - Intended output: Deploy เฉพาะ Admin ERP1 static allowlist ไป Firebase Hosting Preview Channel `pr-155` แบบ manual; ไม่แตะ Live Hosting
-  - Tests: sandbox unit/isolation; GitHub Actions exact-branch guard; เปิด Preview URL และตรวจ Safe Mode/ไม่มี Backend
-  - Dependencies: Owner-approved project `sl-transit-erp-sandbox`; GitHub OIDC แบบไม่มี Service Account key
-  - Cost risk: Spark plan; static filesเท่านั้น; channel หมดอายุ 7 วัน; ไม่มี Functions/RTDB/Storage reads หรือ writes
-  - Firebase writes: Hosting Preview Channel only; ห้าม Live deploy, RTDB, Rules, Functions, Publish, pointer switch, merge และ consumer cutover
-  - Started/last update: 2026-08-13
+- ERP Sandbox Firebase Hosting Preview — Owner: Primary AI (Sandbox); Status: REVIEW; Branch: codex/erp-experimental-sandbox
+  - Files/paths: .github/workflows/erp-sandbox-hosting-preview.yml; .github/firebase/erp-sandbox-preview.json; experimental/erp-sandbox safety docs/tests; ai-handoffs/WORK-BOARD.md
+  - Result: Preview URL https://sl-transit-erp-sandbox--pr-155-82mbzkza.web.app; HTTP 200; Safe Mode/Memory-only; 16 static files; no Live deploy
+  - Tests: Sandbox run 31700200429, full validation run 31700200421 และ Preview deploy run 31700238252 ผ่าน
+  - Security: GitHub OIDC จำกัด repo/PR #155/head/base; ไม่มี Service Account key; response no-store/noindex/DENY
+  - Cost risk: Spark plan; static files only; ไม่มี Functions/RTDB/Storage workload
+  - Firebase writes: Hosting Preview Channel only; ไม่มี Live, RTDB, Rules, Functions, Publish, pointer switch, merge หรือ consumer cutover
+  - Expiry: 2026-08-20 12:29 UTC; Firebase Auth domain sync warning ไม่กระทบเพราะ Preview นี้ไม่เปิด Auth/Backend
+  - Started/last update: 2026-08-13; deploy commit b9f617c
 - ERP Sandbox Excel readiness review UI — Owner: Primary AI (Sandbox); Status: `REVIEW`; Branch: `codex/erp-experimental-sandbox`
   - Files/paths: `experimental/erp-sandbox/**`, `.github/workflows/erp-sandbox-validation.yml`, `ai-handoffs/WORK-BOARD.md`
   - Intended output: แสดงสรุปจำนวนข้อมูลและข้อผิดพลาดตามชีต/แถว/คอลัมน์; แยก blocking/warning; ตรวจ Frequency ของ GRP-001 และ Transfer; ใช้ fixture และ Excel จริงแบบ read-only; หยุดที่ validate-only/Draft
@@ -280,3 +281,18 @@ NEXT_ACTION: เจ้าของข้อมูลแก้ GRP-001 เป็�
   - Cost risk: ไฟล์และ Canonical Package อยู่ใน browser memory; จำกัด 25 MiB; เมื่อเชื่อม Backend จริงยังใช้ quarantine/chunk limits และ command flow เดิม
   - Next: Owner review หน้า Admin ERP1 ใน Draft PR #155; หลัง Excel แก้ครบ 17 จุดจึงทดสอบ Draft จากข้อมูลจริงได้
   - Updated: 2026-08-13; commits `d2fd5cb`, `b8b9902`, `995523e`
+
+## Completion Report — ERP Sandbox Firebase Hosting Preview / PR #155
+
+STATUS: REVIEW
+COMMIT/PR: Draft PR #155; deployed static source commit b9f617c5db1c49b56d4bfc3f27c04a228a707c56
+FILES_CHANGED: GitHub-only workflow/config; static allowlist; sandbox safety docs/tests; central board
+RESULTS: Created Spark project sl-transit-erp-sandbox; configured keyless GitHub OIDC; deployed Admin ERP1 to expiring Hosting Preview channel pr-155
+PREVIEW_URL: https://sl-transit-erp-sandbox--pr-155-82mbzkza.web.app
+TESTS: sandbox 31700200429 passed; full validation/emulator/performance 31700200421 passed; Hosting Preview 31700238252 passed; HTTP/assets/mapping checks returned 200
+ACTIONS/PAGES: Firebase Hosting Preview only; expires 2026-08-20 12:29 UTC
+FIREBASE_DEPLOY_EVIDENCE: 16 allowlisted static files; no Live channel, RTDB, Functions, Rules, Storage, Publish or pointer switch
+DATA/PRIVACY_IMPACT: no Excel upload; no Booking/Passenger/Payment/private records; page remains Memory-only Safe Mode
+COST_IMPACT: Spark plan; static preview; 7-day expiry; no Functions/RTDB/Storage workload
+KNOWN_RISKS: Firebase CLI could not sync the Preview domain to Firebase Auth; intentional and non-blocking because this Preview has no Auth/Backend
+NEXT_ACTION: Owner reviews the Preview URL. Any Backend connection, Auth enablement, Live deploy, merge or Production write requires separate approval.
