@@ -82,7 +82,7 @@
     };
 
     function formatBytes(bytes) {
-      if (!Number.isFinite(bytes)) return "?";
+      if (!Number.isFinite(bytes)) return "—";
       if (bytes < 1024) return bytes + " B";
       return (bytes / 1024 / 1024).toFixed(2) + " MB";
     }
@@ -106,7 +106,7 @@
       const visible = values.slice(0, 200);
       const groups = new Map();
       visible.forEach(function (issue) {
-        const sheetName = issue.sheetName || "??????????";
+        const sheetName = issue.sheetName || "ข้อมูลกลาง";
         if (!groups.has(sheetName)) groups.set(sheetName, []);
         groups.get(sheetName).push(issue);
       });
@@ -114,7 +114,7 @@
         const group = documentRef.createElement("section");
         group.className = "issue-sheet";
         const heading = documentRef.createElement("h5");
-        heading.textContent = sheetName + " ? " + sheetIssues.length + " ??????";
+        heading.textContent = sheetName + " · " + sheetIssues.length + " รายการ";
         const list = documentRef.createElement("ol");
         sheetIssues.forEach(function (issue) {
           const item = documentRef.createElement("li");
@@ -122,12 +122,12 @@
           const message = documentRef.createElement("p");
           const location = documentRef.createElement("small");
           code.textContent = issue.code || "excel.validation_error";
-          message.textContent = issue.message || "????????????????????";
+          message.textContent = issue.message || "ข้อมูลไม่ผ่านการตรวจ";
           const parts = [];
-          if (Number.isFinite(issue.rowNumber)) parts.push("??? " + issue.rowNumber);
-          if (issue.sourceColumn) parts.push("??????? " + issue.sourceColumn);
-          if (!parts.length && issue.path) parts.push("??????? " + issue.path);
-          location.textContent = parts.length ? parts.join(" ? ") : "??????????????";
+          if (Number.isFinite(issue.rowNumber)) parts.push("แถว " + issue.rowNumber);
+          if (issue.sourceColumn) parts.push("คอลัมน์ " + issue.sourceColumn);
+          if (!parts.length && issue.path) parts.push("ตำแหน่ง " + issue.path);
+          location.textContent = parts.length ? parts.join(" · ") : "ไม่ระบุตำแหน่ง";
           item.appendChild(code);
           item.appendChild(message);
           item.appendChild(location);
@@ -140,7 +140,7 @@
       if (values.length > visible.length) {
         const limited = documentRef.createElement("p");
         limited.className = "issue-limit";
-        limited.textContent = "???? 200 ??????????????????? " + values.length + " ??????";
+        limited.textContent = "แสดง 200 รายการแรกจากทั้งหมด " + values.length + " รายการ";
         container.appendChild(limited);
       }
     }
@@ -150,7 +150,7 @@
       const value = gate || { status: "ready", issueCount: 0 };
       container.dataset.kind = value.status;
       statusElement.textContent = value.status === "blocked"
-        ? blockedText + " " + value.issueCount + " ??????"
+        ? blockedText + " " + value.issueCount + " รายการ"
         : readyText;
     }
 
@@ -159,8 +159,8 @@
       elements.excelReadiness.dataset.kind = report.status || "idle";
       if (elements.excelReadinessStatus) {
         elements.excelReadinessStatus.textContent = report.status === "blocked"
-          ? "???????????????? Draft"
-          : (report.status === "ready_with_warnings" ? "?????????? Draft ????????????" : "?????????? Draft");
+          ? "ยังไม่พร้อมสร้าง Draft"
+          : (report.status === "ready_with_warnings" ? "พร้อมสร้าง Draft โดยมีคำเตือน" : "พร้อมสร้าง Draft");
       }
       if (elements.excelBlockingCount) elements.excelBlockingCount.textContent = String(report.blockingCount || 0);
       if (elements.excelWarningCount) elements.excelWarningCount.textContent = String(report.warningCount || 0);
@@ -169,39 +169,25 @@
         const target = elements.excelSummary[key];
         if (target) target.textContent = String(summary[key] || 0);
       });
-      renderReadinessGate(
-        elements.excelFrequencyGate,
-        elements.excelFrequencyGateStatus,
-        report.gates && report.gates.frequency,
-        "????: ?????????????/?????????????????????????",
-        "???????????? GRP-001"
-      );
-      renderReadinessGate(
-        elements.excelTransferGate,
-        elements.excelTransferGateStatus,
-        report.gates && report.gates.transfers,
-        "????: ???????????????????????????????",
-        "?????????????????"
-      );
-      renderIssueList(elements.excelBlockingList, report.errors, "?????????????????????????? Draft");
-      renderIssueList(elements.excelWarningList, report.warnings, "????????????");
+      renderReadinessGate(elements.excelFrequencyGate, elements.excelFrequencyGateStatus, report.gates && report.gates.frequency, "ผ่าน: รูปแบบความถี่/คิวสอดคล้องกับข้อมูลที่มี", "ต้องแก้กติกา GRP-001");
+      renderReadinessGate(elements.excelTransferGate, elements.excelTransferGateStatus, report.gates && report.gates.transfers, "ผ่าน: กฎการต่อรถเพียงพอตามข้อมูลที่มี", "ต้องแก้กฎการต่อรถ");
+      renderIssueList(elements.excelBlockingList, report.errors, "ไม่พบรายการที่ขวางการสร้าง Draft");
+      renderIssueList(elements.excelWarningList, report.warnings, "ไม่มีคำเตือน");
     }
 
     function clearExcelReadiness(message) {
       if (!elements.excelReadiness) return;
       elements.excelReadiness.dataset.kind = "idle";
-      if (elements.excelReadinessStatus) elements.excelReadinessStatus.textContent = message || "?????????? Excel";
+      if (elements.excelReadinessStatus) elements.excelReadinessStatus.textContent = message || "รอตรวจไฟล์ Excel";
       if (elements.excelBlockingCount) elements.excelBlockingCount.textContent = "0";
       if (elements.excelWarningCount) elements.excelWarningCount.textContent = "0";
-      Object.keys(elements.excelSummary).forEach(function (key) {
-        if (elements.excelSummary[key]) elements.excelSummary[key].textContent = "0";
-      });
+      Object.keys(elements.excelSummary).forEach(function (key) { if (elements.excelSummary[key]) elements.excelSummary[key].textContent = "0"; });
       if (elements.excelFrequencyGate) elements.excelFrequencyGate.dataset.kind = "idle";
       if (elements.excelTransferGate) elements.excelTransferGate.dataset.kind = "idle";
-      if (elements.excelFrequencyGateStatus) elements.excelFrequencyGateStatus.textContent = "???????????? Frequency/Queue";
-      if (elements.excelTransferGateStatus) elements.excelTransferGateStatus.textContent = "????????????????";
-      renderIssueList(elements.excelBlockingList, [], "??????????????");
-      renderIssueList(elements.excelWarningList, [], "??????????????");
+      if (elements.excelFrequencyGateStatus) elements.excelFrequencyGateStatus.textContent = "รอตรวจข้อมูล Frequency/Queue";
+      if (elements.excelTransferGateStatus) elements.excelTransferGateStatus.textContent = "รอตรวจกฎการต่อรถ";
+      renderIssueList(elements.excelBlockingList, [], "ยังไม่มีผลตรวจ");
+      renderIssueList(elements.excelWarningList, [], "ยังไม่มีผลตรวจ");
     }
 
     function dispatch(event) {
@@ -212,41 +198,41 @@
 
     function statusText() {
       if (state.error) return state.error.message;
-      if (state.phase === State.PHASES.VALIDATING) return "????????????? Upload ??????????????????????????????";
-      if (state.phase === State.PHASES.QUEUED) return "Backend ?????????? ???????????????????? Draft";
-      if (state.phase === State.PHASES.REVALIDATING) return "Worker ????????? Draft revision ????????";
-      if (state.phase === State.PHASES.DRAFT && state.draft && state.draft.validationStatus === "required") return "Draft ?????????? ??????????????????? Review";
-      if (state.phase === State.PHASES.DRAFT) return "Draft ???? Validation ???????? Review";
-      if (state.phase === State.PHASES.INVALID) return "Draft ??????????????? ???????????????????????????";
-      if (state.phase === State.PHASES.REVIEW_REQUESTED) return "??? Review ???? ???????????????????????????????????????????????????????";
-      if (state.phase === State.PHASES.APPROVED) return "??????? Draft ???? ?????????????? Publish";
-      if (state.phase === State.PHASES.REJECTED) return "Draft ?????????? ???????????????????? Review";
+      if (state.phase === State.PHASES.VALIDATING) return "กำลังขอสิทธิ์ Upload และส่งไฟล์เข้าพื้นที่พักข้อมูล";
+      if (state.phase === State.PHASES.QUEUED) return "Backend รับงานแล้ว กำลังตรวจสอบและสร้าง Draft";
+      if (state.phase === State.PHASES.REVALIDATING) return "Worker กำลังตรวจ Draft revision ปัจจุบัน";
+      if (state.phase === State.PHASES.DRAFT && state.draft && state.draft.validationStatus === "required") return "Draft ถูกแก้แล้ว ต้องตรวจใหม่ก่อนส่ง Review";
+      if (state.phase === State.PHASES.DRAFT) return "Draft ผ่าน Validation พร้อมส่ง Review";
+      if (state.phase === State.PHASES.INVALID) return "Draft ยังมีข้อผิดพลาด ให้แก้ข้อมูลและสั่งตรวจใหม่";
+      if (state.phase === State.PHASES.REVIEW_REQUESTED) return "ส่ง Review แล้ว ต้องใช้บัญชีผู้อนุมัติที่ไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด";
+      if (state.phase === State.PHASES.APPROVED) return "อนุมัติ Draft แล้ว แต่ยังไม่มีการ Publish";
+      if (state.phase === State.PHASES.REJECTED) return "Draft ถูกส่งกลับ แก้ไขและตรวจใหม่ก่อน Review";
       return runtime.commandEndpoint
-        ? "??????????? Backend ?????????????????????"
-        : "?????????????? Backend/Authentication ???????????????? Production";
+        ? "พร้อมเชื่อม Backend ในสภาพแวดล้อมที่กำหนด"
+        : "ยังไม่ได้กำหนด Backend/Authentication และไม่มีการเขียน Production";
     }
 
     function renderValidation() {
       if (elements.validationJobId) {
-        elements.validationJobId.textContent = state.validationJob && state.validationJob.id || "?";
+        elements.validationJobId.textContent = state.validationJob && state.validationJob.id || "—";
       }
       if (!elements.validationResult) return;
       const report = state.validation;
       if (!report) {
         elements.validationResult.textContent = state.draft && state.draft.validationStatus === "required"
-          ? "??????????????????????"
-          : "?????????????????????";
+          ? "รอตรวจใหม่หลังการแก้ไข"
+          : "ยังไม่มีผลตรวจรอบใหม่";
         return;
       }
       const errors = Array.isArray(report.errors) ? report.errors : [];
       const errorCount = Number.isFinite(report.errorCount) ? report.errorCount : errors.length;
       const warningCount = Number.isFinite(report.warningCount) ? report.warningCount :
         (Array.isArray(report.warnings) ? report.warnings.length : 0);
-      const lines = ["?????????? " + errorCount + " ? ??????? " + warningCount];
+      const lines = ["ข้อผิดพลาด " + errorCount + " · คำเตือน " + warningCount];
       errors.slice(0, 5).forEach(function (error) {
         lines.push(String(error.code || "validation_error") + " @ " + String(error.path || "$"));
       });
-      if (report.truncated === true || errorCount > errors.length) lines.push("?????????????? ????????????? Backend ????????");
+      if (report.truncated === true || errorCount > errors.length) lines.push("แสดงผลแบบจำกัด โปรดใช้รายงาน Backend ฉบับเต็ม");
       elements.validationResult.textContent = lines.join("\n");
     }
 
@@ -263,7 +249,7 @@
       const value = entry && entry.value || {};
       const label = value.nameTh || value.locationNameTh || value.destinationNameTh ||
         value.shortName || value.routeId || value.locationId || "";
-      return label ? entry.entityId + " ? " + label : entry.entityId;
+      return label ? entry.entityId + " · " + label : entry.entityId;
     }
 
     function renderDraftPage() {
@@ -288,8 +274,8 @@
     function render() {
       const view = State.deriveView(state);
       elements.phase.textContent = state.phase;
-      elements.fileName.textContent = state.file ? state.file.name : "??????????????????";
-      elements.fileSize.textContent = state.file ? formatBytes(state.file.size) : "?";
+      elements.fileName.textContent = state.file ? state.file.name : "ยังไม่ได้เลือกไฟล์";
+      elements.fileSize.textContent = state.file ? formatBytes(state.file.size) : "—";
       elements.validate.disabled = !view.canValidate;
       elements.review.disabled = !view.canRequestReview;
       elements.approve.disabled = !view.canApprove;
@@ -302,7 +288,7 @@
       elements.status.textContent = statusText();
       elements.errorCode.textContent = state.error ? state.error.code : "none";
       const activeJob = state.validationJob && state.validationJob.id || state.job && state.job.id;
-      if (elements.jobId) elements.jobId.textContent = activeJob || "?";
+      if (elements.jobId) elements.jobId.textContent = activeJob || "—";
       if (elements.backendStatus) {
         elements.backendStatus.textContent = runtime.commandEndpoint ? "Configured" : "Not configured";
         elements.backendStatus.className = runtime.commandEndpoint ? "online" : "offline";
@@ -372,8 +358,8 @@
         type: "COMMAND_FAILED",
         code: error && error.code || fallback || "command_failed",
         message: error && /^excel_/.test(error.code || "") && error.message
-          ? error.message + (Array.isArray(error.details) && error.details.length ? " ? " + error.details.slice(0, 3).map(function (item) { return item.message; }).join(" | ") : "")
-          : "Backend ???????????????????????? ???????????????????????"
+          ? error.message + (Array.isArray(error.details) && error.details.length ? " — " + error.details.slice(0, 3).map(function (item) { return item.message; }).join(" | ") : "")
+          : "Backend ไม่สามารถดำเนินงานนี้ได้ กรุณาตรวจรหัสข้อผิดพลาด"
       });
     }
 
@@ -387,8 +373,8 @@
           type: "COMMAND_FAILED",
           code: !selectedFile || (!isJson && !isExcel) ? "excel_or_json_required" : "operator_scope_required",
           message: !selectedFile || (!isJson && !isExcel)
-            ? "?????????? Excel ???? 3.3.4?3.3.5 ???? Canonical JSON"
-            : "????????? Stable Operator ID ????????????????????"
+            ? "กรุณาเลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON"
+            : "กรุณาระบุ Stable Operator ID อย่างน้อยหนึ่งรายการ"
         });
         return;
       }
@@ -399,23 +385,23 @@
         let uploadFile = selectedFile;
         if (isExcel) {
           if (!Excel33x || typeof Excel33x.convertFileToCanonical !== "function") {
-            const unavailable = new Error("??????? Excel ?????????????????");
+            const unavailable = new Error("ตัวอ่าน Excel ยังไม่พร้อมใช้งาน");
             unavailable.code = "excel_converter_unavailable";
             throw unavailable;
           }
-          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "?????????????????????";
+          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "กำลังตรวจข้อมูลในไฟล์";
           const converted = await Excel33x.convertFileToCanonical(selectedFile, { operatorScope: scope });
           renderExcelReadiness(converted.report);
           uploadFile = converted.file;
           if (elements.excelVersion) elements.excelVersion.textContent = converted.version;
           if (elements.excelPrecheck) {
             elements.excelPrecheck.textContent = converted.warnings.length
-              ? "????????????????????????? ? ????????? " + converted.warnings.length + " ??????"
-              : "???? ?????????? Draft";
+              ? "ผ่านสำหรับข้อมูลเครือข่าย · มีคำเตือน " + converted.warnings.length + " รายการ"
+              : "ผ่าน พร้อมสร้าง Draft";
           }
         } else {
           if (elements.excelVersion) elements.excelVersion.textContent = "Canonical JSON";
-          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "?????? Backend ????";
+          if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ส่งให้ Backend ตรวจ";
         }
         const checksum = await checksumSha256(uploadFile);
         const authorization = await client.send("upload.authorize", {
@@ -442,7 +428,7 @@
         }
       } catch (error) {
         if (error && error.report) renderExcelReadiness(error.report);
-        if (elements.excelPrecheck && isExcel) elements.excelPrecheck.textContent = "??????? ???????????????????";
+        if (elements.excelPrecheck && isExcel) elements.excelPrecheck.textContent = "ไม่ผ่าน กรุณาตรวจรายละเอียด";
         commandFailure(error);
       }
     }
@@ -473,7 +459,7 @@
         return dispatch({
           type: "COMMAND_FAILED",
           code: !entityId ? "draft_entity_target_invalid" : "change_summary_invalid",
-          message: "????????? Stable ID ?????????????????????????? 3 ????????"
+          message: "กรุณาระบุ Stable ID และเหตุผลการแก้ไขอย่างน้อย 3 ตัวอักษร"
         });
       }
       dispatch({ type: "COMMAND_STARTED" });
@@ -497,10 +483,10 @@
       try {
         value = JSON.parse(elements.entityJson.value);
       } catch (_error) {
-        return dispatch({ type: "COMMAND_FAILED", code: "draft_json_invalid", message: "JSON ?????????? ??????????????????????????????????" });
+        return dispatch({ type: "COMMAND_FAILED", code: "draft_json_invalid", message: "JSON ไม่ถูกต้อง กรุณาตรวจวงเล็บและเครื่องหมายคำพูด" });
       }
       if (!value || typeof value !== "object" || Array.isArray(value)) {
-        return dispatch({ type: "COMMAND_FAILED", code: "draft_entity_value_invalid", message: "???????????????????? JSON object" });
+        return dispatch({ type: "COMMAND_FAILED", code: "draft_entity_value_invalid", message: "ข้อมูลรายการต้องเป็น JSON object" });
       }
       return saveDraftOperation(value);
     }
@@ -541,7 +527,7 @@
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "approval_blocked" });
       const comment = elements.approvalComment.value.trim();
       if (decision === "reject" && comment.length < 3) {
-        return dispatch({ type: "COMMAND_FAILED", code: "rejection_comment_required", message: "?????????????????????????????????? 3 ????????" });
+        return dispatch({ type: "COMMAND_FAILED", code: "rejection_comment_required", message: "กรุณาระบุเหตุผลที่ส่งกลับอย่างน้อย 3 ตัวอักษร" });
       }
       dispatch({ type: "COMMAND_STARTED" });
       try {
@@ -571,9 +557,9 @@
       const file = elements.file.files && elements.file.files[0];
       selectedFile = file || null;
       if (!file) return dispatch({ type: "RESET" });
-      if (elements.excelVersion) elements.excelVersion.textContent = /\.xlsx$/i.test(file.name) ? "???????????? 91 ???? C5" : "Canonical JSON";
-      if (elements.excelPrecheck) elements.excelPrecheck.textContent = "?????????????";
-      clearExcelReadiness(/\.xlsx$/i.test(file.name) ? "?????????? Excel" : "Canonical JSON ????? Backend ????");
+      if (elements.excelVersion) elements.excelVersion.textContent = /\.xlsx$/i.test(file.name) ? "รอตรวจจากชีต 91 ช่อง C5" : "Canonical JSON";
+      if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
+      clearExcelReadiness(/\.xlsx$/i.test(file.name) ? "รอตรวจไฟล์ Excel" : "Canonical JSON จะให้ Backend ตรวจ");
       dispatch({
         type: "SELECT_FILE",
         file: { name: file.name, size: file.size, type: file.type },
@@ -588,8 +574,8 @@
       elements.file.value = "";
       elements.changeSummary.value = "";
       elements.approvalComment.value = "";
-      if (elements.excelVersion) elements.excelVersion.textContent = "??????";
-      if (elements.excelPrecheck) elements.excelPrecheck.textContent = "?????????????";
+      if (elements.excelVersion) elements.excelVersion.textContent = "รอตรวจ";
+      if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
       clearExcelReadiness();
       dispatch({ type: "RESET" });
     });
