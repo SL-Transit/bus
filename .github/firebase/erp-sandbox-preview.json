@@ -1,7 +1,7 @@
 {
   "hosting": {
     "site": "sl-transit-erp-sandbox",
-    "public": ".firebase-preview-site",
+    "public": "../../.firebase-preview-site",
     "ignore": [
       "**/.*",
       "**/node_modules/**"
