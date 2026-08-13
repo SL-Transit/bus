@@ -5,9 +5,9 @@
 ## 1. สถานะการอนุญาตปัจจุบัน
 
 ```text
-CURRENT_GATE: A — DESIGN REVIEW
-AUTHORIZED: อ่าน main/Git history, วิเคราะห์หน้าเดิม, ศึกษา ERP UI, ทำ IA, wireframe, mapping, migration plan และ test plan
-NOT_AUTHORIZED: แก้ implementation, สร้าง branch โค้ด, commit โค้ด, เปิด PR โค้ด, Deploy Preview/Production, Merge, แก้ Firebase/Rules/Functions/ข้อมูลจริง
+CURRENT_GATE: B — IMPLEMENTATION
+AUTHORIZED: สร้าง implementation branch, ปรับ UI ในไฟล์ที่ล็อกไว้, เพิ่ม UI tests และเปิด Implementation Draft PR ตามแผน B1-B3
+NOT_AUTHORIZED: Deploy Preview/Production, Merge, แก้ Firebase/Rules/Functions/ข้อมูลจริง, Backend/Data Contract/Importer/Journey/Consumer หรือไฟล์นอก lock
 ```
 
 การอนุมัติ Gate หนึ่งไม่ถือเป็นการอนุมัติ Gate ถัดไป.
@@ -48,7 +48,7 @@ admin.html / admin-console.html -> redirect -> admin-erp1.html เพียง�
 - ห้ามแก้ Booking/Passenger consumer, Firebase Rules/Functions/credentials หรือ Production data
 - ห้ามให้ UI เขียน RTDB โดยตรง ตัดสินราคา เวลา การต่อรถ หรือ Publish เอง
 - ห้ามขยายไฟล์/ขอบเขตนอก lock; ถ้าจำเป็นต้องหยุดและเสนอ Primary AI ใน WORK-BOARD ก่อน
-- ห้ามเริ่ม Gate B/C/D/E จนมี Owner approval ระบุชัด
+- Gate B ได้รับ Owner approval เมื่อ 2026-08-13; ห้ามเริ่ม Gate C/D/E จนมี Owner approval ระบุชัด
 ```
 
 ## 4. การแบ่งเจ้าของงาน
@@ -168,8 +168,8 @@ AI สาย UI ต้องหยุดและรายงาน `BLOCKED` �
 - Owner direction ไม่ชัดหรือขัดกับ Decision Log
 - มี AI อื่นถือ lock ไฟล์เดียวกัน
 
-## 12. คำถาม Gate A ที่รอ Owner
+## 12. Owner Decisions — 2026-08-13
 
-1. อนุมัติเมนู 4 กลุ่ม: ภาพรวม / งานบริการ / ข้อมูลกลาง / ดูแลระบบ และย้ายบัญชี/ออกจากระบบไปเมนูโปรไฟล์หรือไม่?
-2. รอบแรกทำ Shell + Dashboard + ERP Data Center/Import ก่อน หรือทำทุกโมดูลพร้อมกัน? คำแนะนำคือทำแกนหลักก่อน.
-3. อนุมัติแยก “ศูนย์ทดสอบ” ออกจาก “เวอร์ชันเผยแพร่” เพื่อลดโอกาสกดผิดหรือไม่?
+1. อนุมัติเมนู 4 กลุ่ม: ภาพรวม / งานบริการ / ข้อมูลกลาง / ดูแลระบบ และย้ายบัญชี/ออกจากระบบไปเมนูโปรไฟล์.
+2. อนุมัติให้รอบแรกทำ Shell + Dashboard + ERP Data Center/Import ก่อน.
+3. อนุมัติแยก “ศูนย์ทดสอบ” ออกจาก “เวอร์ชันเผยแพร่”.
