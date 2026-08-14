@@ -70,6 +70,8 @@
     var routeButtons = Array.prototype.slice.call(doc.querySelectorAll("[data-ui-route]"));
     var navigationButtons = sidebar ? Array.prototype.slice.call(sidebar.querySelectorAll("[data-ui-route]")) : [];
     var navGroups = sidebar ? Array.prototype.slice.call(sidebar.querySelectorAll(".nav-group")) : [];
+    var dataTabs = Array.prototype.slice.call(doc.querySelectorAll("[data-data-tab]"));
+    var dataPanels = Array.prototype.slice.call(doc.querySelectorAll("[data-data-panel]"));
     var drawer = doc.getElementById("context-drawer");
     var drawerBackdrop = doc.getElementById("drawer-backdrop");
     var drawerClose = doc.getElementById("drawer-close");
@@ -164,11 +166,25 @@
       });
     }
 
+    function updateDataPanels(state) {
+      var requested = state.route === "data-center" ? state.target : null;
+      var active = dataPanels.some(function hasPanel(panel) { return panel.getAttribute("data-data-panel") === requested; }) ? requested : "import";
+      dataPanels.forEach(function updatePanel(panel) {
+        panel.hidden = panel.getAttribute("data-data-panel") !== active;
+      });
+      dataTabs.forEach(function updateTab(tab) {
+        var selected = tab.getAttribute("data-data-tab") === active;
+        tab.dataset.tabActive = String(selected);
+        tab.setAttribute("aria-selected", String(selected));
+        tab.setAttribute("tabindex", selected ? "0" : "-1");
+      });
+    }
     function render(state, shouldMove) {
       var config = ROUTES[state.route] || ROUTES.dashboard;
       workspaces.forEach(function updateWorkspace(workspace) {
         workspace.hidden = workspace.getAttribute("data-ui-view") !== config.view;
-      });
+      });      updateDataPanels(state);
+
       navigationButtons.forEach(function updateNavigation(button) {
         var active = activeFor(button, state);
         button.classList.toggle("active", active);
