@@ -108,9 +108,9 @@
     if (entityType === "routes") Object.assign(value, { operatorId: "", shortName: "", serviceMode: "fixed" });
     if (entityType === "journeyPatterns") Object.assign(value, { routeId: "", direction: "outbound", stops: [] });
     if (entityType === "serviceCalendars") Object.assign(value, { startDate: "", endDate: "", weekdays: { monday: false, tuesday: false, wednesday: false, thursday: false, friday: false, saturday: false, sunday: false } });
-    if (entityType === "fixedTrips") Object.assign(value, { routeId: "", journeyPatternId: "", serviceCalendarId: "", departureTime: "06:00:00" });
-    if (entityType === "stopTimes") Object.assign(value, { fixedTripId: "", stopSequence: 1, locationId: "", arrivalTime: "06:00:00", departureTime: "06:00:00" });
-    if (entityType === "frequencyServices") Object.assign(value, { routeId: "", journeyPatternId: "", serviceCalendarId: "", startTime: "06:00:00", endTime: "18:00:00", headwaySeconds: 600, boardingModel: "queue", exactTimes: false });
+    if (entityType === "fixedTrips") Object.assign(value, { routeId: "", journeyPatternId: "", serviceCalendarId: "", departureTime: "" });
+    if (entityType === "stopTimes") Object.assign(value, { fixedTripId: "", stopSequence: 1, locationId: "", arrivalTime: "", departureTime: "" });
+    if (entityType === "frequencyServices") Object.assign(value, { routeId: "", journeyPatternId: "", serviceCalendarId: "", startTime: "", endTime: "", headwaySeconds: null, boardingModel: "queue", exactTimes: false });
     if (entityType === "fareProducts") Object.assign(value, { nameTh: "", currency: "THB" });
     if (entityType === "fareRules") Object.assign(value, { fareProductId: "", routeId: "", originLocationId: "", destinationLocationId: "", amountMinor: 0 });
     if (entityType === "transferRules") Object.assign(value, { fromLocationId: "", toLocationId: "", minimumTransferSeconds: 300, maximumTransferSeconds: 1800, throughBooking: false, baggageTransfer: false });
