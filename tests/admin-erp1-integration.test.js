@@ -15,7 +15,7 @@ test('Admin ERP1 ใช้ classic IA บน Greenfield runtime เท่าน�
   assert.match(page, /SL-Transit · Admin ERP1/);
   assert.match(page, /CLASSIC UI · GREENFIELD RUNTIME/);
   assert.equal((page.match(/class="nav-group"/g) || []).length, 4);
-  ['คิวรถและตารางเวลา', 'ความจุและการเปิดขาย', 'ศูนย์ข้อมูล ERP', 'ข่าวสารและประกาศ', 'ผู้ใช้งานและสิทธิ์'].forEach((label) => assert.match(page, new RegExp(label)));
+  ['คิวรถและตาราง', 'การจอง', 'ศูนย์ข้อมูล ERP', 'ข่าวสาร', 'ผู้ใช้งาน'].forEach((label) => assert.match(page, new RegExp(label)));
 
   const runtime = [
     'admin-erp1-greenfield-state.js',
@@ -51,7 +51,7 @@ test('หน้า classic มี CSP, Preview boundary และ workflow hooks
 
 test('Publish เป็น locked step และไม่มี browser command เผยแพร่', () => {
   const page = read('admin-erp1.html');
-  assert.match(page, /Publish<\/strong><small>LOCKED/);
+  assert.match(page, /id="publication-lock"[^>]*>[\s\S]*?icon-lock[\s\S]*?ยังไม่เปิดใช้งาน/);
   assert.doesNotMatch(page, /<button[^>]+(?:id|data-command)="[^"]*(?:publish|publication)/i);
   assert.doesNotMatch(page, /publishedReadModels\/current|erpDataCenter\/publication/);
 });
