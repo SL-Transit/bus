@@ -118,40 +118,25 @@
         </div></section>
       </section>
       <section id="today-workspace" class="workspace locked-workspace" data-ui-view="today" hidden aria-labelledby="today-title">
-        <div class="workspace-header"><div><p class="eyebrow">งานวันนี้</p><h1 id="today-title">งานที่ต้องจัดการวันนี้</h1><p>พื้นที่เดิมสำหรับรวม Draft, Validation blocker และ Review ที่ต้องดำเนินการ</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>รอ Task summary contract</h2><p>รายการงานต้องมาจาก Backend ตามสิทธิ์และ revision จริง จึงยังไม่แสดงรายการหรือตัวเลขจำลอง</p><button type="button" class="button secondary" data-ui-locked data-lock-title="งานที่ต้องจัดการวันนี้" data-lock-copy="ต้องมี bounded task summary contract ที่ตรวจสิทธิ์ก่อนเปิดพื้นที่นี้">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg></div><div><h1 id="today-title">งานวันนี้</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอระบบสรุปงานตามสิทธิ์</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="งานวันนี้" data-lock-copy="รายการงานต้องมาจาก Backend ตามสิทธิ์และ revision จริง จึงยังไม่แสดงรายการหรือตัวเลขจำลอง"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="operations-workspace" class="workspace locked-workspace" data-ui-view="operations" hidden aria-labelledby="operations-title">
-        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="operations-title">คิวรถและตารางเวลา</h1><p>พื้นที่เดิมสำหรับคิวรถ ตารางเที่ยว รูปแบบประจำวัน และงานรถรายวัน</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="familiar-grid">
-          <article class="panel familiar-card"><h2>คิวรถ</h2><p>ผู้ให้บริการ รถที่เข้าคิว และสถานะการปฏิบัติงาน</p><span>รอ Operations read contract</span></article>
-          <article class="panel familiar-card"><h2>ตารางเวลา</h2><p>Fixed schedule, Frequency service และรายละเอียดป้าย</p><span>รอ Published schedule contract</span></article>
-          <article class="panel familiar-card"><h2>ตารางงานรายวัน</h2><p>รูปแบบการให้บริการและการมอบหมายรถรายวัน</p><span>รอ command และสิทธิ์</span></article>
-        </div>
-        <button type="button" class="button secondary" data-ui-locked data-lock-title="คิวรถและตารางเวลา" data-lock-copy="หน้า Admin จะไม่อ่าน path ปฏิบัติการเดิมหรือคำนวณตารางเอง ต้องรอ contract จากระบบหลังบ้าน">ดูขอบเขตที่ยังล็อก</button>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-operations"></use></svg></div><div><h1 id="operations-title">คิวรถและตาราง</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาข้อมูลปฏิบัติการ</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="คิวรถและตาราง" data-lock-copy="หน้า Admin จะไม่อ่านข้อมูลปฏิบัติการเดิมหรือคำนวณตารางเอง ต้องรอ contract จากระบบหลังบ้าน"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="bookings-workspace" class="workspace locked-workspace" data-ui-view="bookings" hidden aria-labelledby="bookings-title">
-        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="bookings-title">ความจุและการเปิดขาย</h1><p>พื้นที่เดิมสำหรับจำนวนที่นั่ง กฎเปิด–ปิดการจอง และช่วงเวลารับจองรายเที่ยว</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>Booking เป็นผู้ใช้ข้อมูล Published</h2><p>หน้านี้จะไม่คำนวณราคา เวลา หรือการต่อรถเอง และยังไม่เปิดสวิตช์การขายจนมี Booking command contract</p><button type="button" class="button secondary" data-ui-locked data-lock-title="ความจุและการเปิดขาย" data-lock-copy="ต้องรอ Booking consumer และ server revalidation contract พร้อมสิทธิ์และการทดสอบแยก">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-booking"></use></svg></div><div><h1 id="bookings-title">การจอง</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาคำสั่งจอง</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="การจอง" data-lock-copy="ระบบจองต้องอ่านข้อมูล Published และตรวจซ้ำฝั่งเซิร์ฟเวอร์ หน้านี้ไม่คำนวณราคา เวลา หรือการต่อรถเอง"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="finance-workspace" class="workspace locked-workspace" data-ui-view="finance" hidden aria-labelledby="finance-title">
-        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="finance-title">รายได้ การจอง และการยกเลิก</h1><p>พื้นที่เดิมสำหรับธุรกรรม ค่าบริการ ช่องทางชำระ และการกระจายเงิน</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="familiar-grid">
-          <article class="panel familiar-card"><h2>ภาพรวมธุรกรรม</h2><p>ต้องอ่านจาก Payment/Booking contract ที่ได้รับอนุมัติ</p><span>ไม่มีข้อมูลจำลอง</span></article>
-          <article class="panel familiar-card"><h2>ช่องทางชำระ</h2><p>ไม่เปิด–ปิดช่องทางจากหน้า UI โดยไม่มี command</p><span>ไม่ทำรายการ</span></article>
-          <article class="panel familiar-card"><h2>การกระจายเงิน</h2><p>แยกจาก Master Data และต้องมี audit เฉพาะทาง</p><span>รอ Finance contract</span></article>
-        </div>
-        <button type="button" class="button secondary" data-ui-locked data-lock-title="รายได้และการชำระ" data-lock-copy="ข้อมูลการเงินต้องมีขอบเขตสิทธิ์และ Backend command แยกจากข้อมูลกลาง">ดูขอบเขตที่ยังล็อก</button>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-finance"></use></svg></div><div><h1 id="finance-title">การเงิน</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาข้อมูลการเงิน</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="การเงิน" data-lock-copy="ข้อมูลธุรกรรมและการชำระต้องมีสิทธิ์และคำสั่งหลังบ้านแยกจากข้อมูลกลาง"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="content-workspace" class="workspace locked-workspace" data-ui-view="content" hidden aria-labelledby="content-title">
-        <div class="workspace-header"><div><p class="eyebrow">งานบริการ</p><h1 id="content-title">ข่าวสารและประกาศ</h1><p>พื้นที่เดิมสำหรับสร้าง Preview ส่ง Review ตั้งเวลา และเลือกช่องทางแสดงผล</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>รอ Content workflow contract</h2><p>ยังไม่มีตัวแก้ไขหรือปุ่มบันทึก เพื่อไม่ให้ดูเหมือนว่าข่าวสารถูกบันทึกหรือเผยแพร่แล้ว</p><button type="button" class="button secondary" data-ui-locked data-lock-title="ข่าวสารและประกาศ" data-lock-copy="ต้องมี Draft, asset, Review และ scheduling contract ที่ผ่านสิทธิ์ก่อนเปิด editor">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg></div><div><h1 id="content-title">ข่าวสาร</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอกระบวนการร่างและตรวจข่าว</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="ข่าวสาร" data-lock-copy="ต้องมี Draft, asset, Review และ scheduling contract ที่ผ่านสิทธิ์ก่อนเปิดเครื่องมือแก้ไข"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="data-center" class="workspace" data-ui-view="data-center" hidden aria-labelledby="data-center-title">
         <div class="workspace-header">
           <div><p class="eyebrow">ข้อมูลกลาง</p><h1 id="data-center-title">ศูนย์ข้อมูล ERP</h1><p>จัดข้อมูลบริษัท ป้ายกลาง เส้นทาง เที่ยว เวลา ความถี่ ราคา การต่อรถ คิว รถ และสิทธิ์ ผ่าน Draft ชุดเดียว</p></div>
@@ -232,31 +217,25 @@
       </section>
 
       <section id="published-workspace" class="workspace locked-workspace" data-ui-view="published" hidden aria-labelledby="published-title">
-        <div class="workspace-header"><div><p class="eyebrow">ข้อมูลกลาง</p><h1 id="published-title">เวอร์ชันเผยแพร่</h1><p>พื้นที่อ่านเวอร์ชันที่ได้รับอนุมัติ แยกออกจากศูนย์ทดสอบอย่างชัดเจน</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>รอ Published read contract</h2><p>ยังไม่อ่านเวอร์ชันจริง ไม่สลับเวอร์ชัน และไม่แสดงประวัติจำลอง การเผยแพร่ต้องทำผ่าน Publisher หลังบ้านเท่านั้น</p><button type="button" class="button secondary" data-ui-locked data-lock-title="เวอร์ชันเผยแพร่" data-lock-copy="พื้นที่นี้เปิดได้หลังมี bounded read contract และสิทธิ์ ส่วนการเผยแพร่ต้องขอ Owner approval แยก">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-published"></use></svg></div><div><h1 id="published-title">เวอร์ชันเผยแพร่</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาอ่านเวอร์ชัน</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="เวอร์ชันเผยแพร่" data-lock-copy="ยังไม่อ่านหรือสลับเวอร์ชันจริง การเผยแพร่ต้องผ่าน Publisher และ Owner approval แยก"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="users-workspace" class="workspace locked-workspace" data-ui-view="users" hidden aria-labelledby="users-title">
-        <div class="workspace-header"><div><p class="eyebrow">ดูแลระบบ</p><h1 id="users-title">ผู้ใช้งานและสิทธิ์</h1><p>พื้นที่เดิมสำหรับพนักงาน คำเชิญ ทีม บทบาท และสิทธิ์ตามหน้า</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="familiar-grid"><article class="panel familiar-card"><h2>สมาชิกและคำเชิญ</h2><p>รอ identity command และ Owner approval</p><span>ไม่สร้างบัญชีจำลอง</span></article><article class="panel familiar-card"><h2>ทีมและบทบาท</h2><p>Role หลักและขอบเขตทรัพยากรต้องมาจากระบบหลังบ้าน</p><span>รอ access contract</span></article><article class="panel familiar-card"><h2>สิทธิ์ตามหน้า</h2><p>การซ่อนปุ่มใน UI ไม่ใช่การตรวจสิทธิ์</p><span>Backend ต้องตรวจซ้ำ</span></article></div>
-        <button type="button" class="button secondary" data-ui-locked data-lock-title="ผู้ใช้งานและสิทธิ์" data-lock-copy="ต้องมี identity/access commands และ separation of duties test ก่อนเปิดทำรายการ">ดูขอบเขตที่ยังล็อก</button>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-users"></use></svg></div><div><h1 id="users-title">ผู้ใช้งานและสิทธิ์</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอระบบบัญชีและสิทธิ์</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="ผู้ใช้งานและสิทธิ์" data-lock-copy="ต้องมี identity และ access commands พร้อมการทดสอบแยกหน้าที่ก่อนเปิดทำรายการ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="test-center-workspace" class="workspace locked-workspace" data-ui-view="test-center" hidden aria-labelledby="test-center-title">
-        <div class="workspace-header"><div><p class="eyebrow">ดูแลระบบ</p><h1 id="test-center-title">ศูนย์ทดสอบ</h1><p>พื้นที่เดิมสำหรับผลทดสอบ ประสิทธิภาพ และการตรวจสภาพแวดล้อม โดยแยกจากเวอร์ชันเผยแพร่</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>รอ Test evidence contract</h2><p>หน้านี้ไม่เปิดโหมดจำลอง ไม่สร้าง virtual users และไม่เปลี่ยนสถานะระบบจากเบราว์เซอร์</p><button type="button" class="button secondary" data-ui-locked data-lock-title="ศูนย์ทดสอบ" data-lock-copy="ต้องอ่านผลทดสอบที่ตรวจสอบย้อนกลับได้จากระบบหลังบ้าน และไม่ผูกกับคำสั่งเผยแพร่">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-test"></use></svg></div><div><h1 id="test-center-title">ศูนย์ทดสอบ</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาผลการทดสอบ</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="ศูนย์ทดสอบ" data-lock-copy="พื้นที่นี้ต้องอ่านหลักฐานทดสอบจากระบบหลังบ้าน และแยกจากเวอร์ชันเผยแพร่เสมอ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="system-status-workspace" class="workspace locked-workspace" data-ui-view="system-status" hidden aria-labelledby="system-status-title">
-        <div class="workspace-header"><div><p class="eyebrow">ดูแลระบบ</p><h1 id="system-status-title">สถานะระบบและ Audit</h1><p>พื้นที่รวมสุขภาพระบบ ประวัติคำสั่ง และเหตุการณ์ตามสิทธิ์</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>รอ bounded status/audit reads</h2><p>หน้า Admin จะไม่ฟังข้อมูลทั้ง root และไม่สร้างรายการ audit จำลอง</p><button type="button" class="button secondary" data-ui-locked data-lock-title="สถานะระบบและ Audit" data-lock-copy="ต้องมี query ที่จำกัดขนาด ดัชนี และ permission contract ก่อนเปิดอ่านข้อมูล">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-audit"></use></svg></div><div><h1 id="system-status-title">สถานะและประวัติระบบ</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอช่องทางอ่านแบบจำกัดขนาด</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="สถานะและประวัติระบบ" data-lock-copy="ข้อมูลสถานะและ Audit ต้องใช้ query ที่จำกัดขนาด มีดัชนี และผ่านการตรวจสิทธิ์"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <section id="account-workspace" class="workspace locked-workspace" data-ui-view="account" hidden aria-labelledby="account-title">
-        <div class="workspace-header"><div><p class="eyebrow">บัญชี</p><h1 id="account-title">บัญชีของฉัน</h1><p>พื้นที่เดิมสำหรับโปรไฟล์ ความปลอดภัย และการแจ้งเตือน อยู่ในเมนูผู้ใช้ด้านบน</p></div><span class="locked-badge">LOCKED</span></div>
-        <div class="panel locked-panel"><h2>รอ Auth profile contract</h2><p>ยังไม่อ่านบัญชี ไม่เปลี่ยน session และไม่จำลองว่าออกจากระบบสำเร็จ</p><button type="button" class="button secondary" data-ui-locked data-lock-title="บัญชีของฉัน" data-lock-copy="ต้องมี Auth/profile contract จาก Primary ก่อนเปิดข้อมูลหรือคำสั่งออกจากระบบ">ดูเหตุผลที่ล็อก</button></div>
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-account"></use></svg></div><div><h1 id="account-title">บัญชีของฉัน</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอการเชื่อมระบบบัญชี</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="บัญชีของฉัน" data-lock-copy="ยังไม่อ่านบัญชี ไม่เปลี่ยน session และไม่จำลองว่าออกจากระบบสำเร็จ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
       <footer><span>SL-Transit Admin ERP1</span><span>Classic experience · Greenfield command runtime · Gate B</span></footer>
     </main>
   </div>
