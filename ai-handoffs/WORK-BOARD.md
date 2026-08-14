@@ -64,7 +64,7 @@
   - Cost risk: GitHub Actions runner and seven-day artifact storage only; concurrency cancels superseded preview runs; no new network polling/listeners, live hosting, Production reads/writes, Firebase instance or deployment
   - Firebase writes: none; artifact preview only; no live Preview/Hosting/Pages, Firebase/Rules/Functions/Production deploy or write, Merge, Publish command, pointer switch, Consumer cutover or Gate D
   - Owner approval / last update: Owner UI revision complete at head `7540714a686825cb73038035fbf14e338bc7681e`; final artifact run `31758738210` and regression/Emulator run `31758738174` passed; PR remains Draft; no live hosting/Firebase/Merge/Deploy/Gate D
-- Admin ERP1 real-data editor — Owner: Primary AI; Status: IN_PROGRESS; Branch: agent/admin-erp1-real-data-editor; stacked on frozen PR #169
+- Admin ERP1 real-data editor — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp1-real-data-editor`; Draft PR #170; stacked on frozen PR #169
   - Lock handoff: PR #169 is frozen at REVIEW; the UI agent remains reviewer only and will not write the same files in parallel
   - Files/paths: ai-handoffs/WORK-BOARD.md, admin-erp1.html, admin-erp-ui.css, admin-erp1-ui.js, admin-erp1-data-editor.js, admin-erp1-greenfield-controller.js, .github/workflows/admin-erp1-{artifact-preview,firebase-preview}.yml, tests/admin-erp1-{real-data-editor,ui-contract,integration,network-publish}.test.js
   - Intended output: use the existing Excel 3.3.x converter and Phase 6A.1 commands to present real Draft records as list/table + human forms; Fixed/Frequency are separate; bounded bulk time shift; Excel/validation error grid; mobile drawer one item per row; no fake KPI/chart/data; Publish remains locked
@@ -266,6 +266,22 @@ KNOWN_RISKS: anyone with the preview URL can open the static Safe Mode UI; backe
 NEXT_ACTION: Owner reviews the live URL; do not Merge, deploy Live Hosting, enable backend/Firebase writes, Publish or advance consumer integration without separate Owner approval
 ```
 
+## Completion Report — Admin ERP1 Real-data Editor / PR #170
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #170; branch agent/admin-erp1-real-data-editor; implementation head before this report b954ba82a40ec0b725afbd876e7bae3e4e0ab0a1; stacked from frozen PR #169 UI
+FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-data-editor.js; admin-erp1-greenfield-controller.js; UI/safety tests; artifact/Firebase-preview static allowlists; ai-handoffs/WORK-BOARD.md
+RESULTS: existing Admin ERP1 now presents paged Draft records as a searchable table plus human field forms; Excel validation details show sheet/row/column; users can add only entity types with complete templates, edit/delete bounded Draft records, shift loaded Fixed-trip/stop-time pages, then request asynchronous revalidation; Frequency stays separate and Publish stays locked
+SAFETY: new service times/headway are blank until entered; no-op zero-minute shift is rejected; time shift is blocked while search hides records; bulk change uses only pageEntries() (UI limit 25) and backend draft.save limits remain 100 operations/512 KiB; direct browser Firebase access and Publish commands remain absent
+TESTS: artifact/UI run https://github.com/SL-Transit/bus/actions/runs/31763860393 passed 38/38 contracts, real browser editor interaction, five responsive captures and artifact build; regression/Emulator/performance run https://github.com/SL-Transit/bus/actions/runs/31763860429 passed existing unit, Phase 2/4/5/6A Auth/RTDB/Storage Emulator and performance suites; read-only UI audit closed all four blockers
+ACTIONS/PAGES: Draft PR https://github.com/SL-Transit/bus/pull/170 ; artifact https://github.com/SL-Transit/bus/actions/runs/31763860393/artifacts/9205577222 retained seven days; no live preview or deployment in this gate
+FIREBASE_DEPLOY_EVIDENCE: none — no Firebase/Rules/Functions/RTDB/Storage/Hosting deploy, real import, Production write, Publish, pointer switch or Consumer cutover
+DATA/PRIVACY_IMPACT: real workbook new erp data.xlsx remained read-only and off-repository; no workbook upload, Booking, Passenger, Payment, credential or personal Production data
+COST_IMPACT: GitHub Actions runner and approximately 784 KB seven-day artifact only; superseded workflow runs were cancelled; no Firebase database/function/storage invocation or Production cost
+KNOWN_RISKS: current Excel 3.3.x converter returns no frequencyServices, so the UI does not claim Frequency came from Excel; real workbook still has GRP-001 blockers until a separately approved mapping/data correction; whole-trip bulk shift is not promised because draft.read has no relationship filter—only the loaded page can be changed safely; Sandbox backend/runtime and real import are not active
+NEXT_ACTION: Owner reviews PR #170 and artifact. Sandbox Functions/Rules/RTDB/Storage deployment and importing the real workbook require separate explicit approval; Merge, Publish and Booking/Passenger integration remain unapproved
+```
 ## Work Lock Template
 
 ```text
