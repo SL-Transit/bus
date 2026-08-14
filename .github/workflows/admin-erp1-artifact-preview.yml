@@ -147,9 +147,15 @@ jobs:
                 );
                 await page.locator('#main-content').waitFor({ state: 'visible', timeout: 10000 });
                 if (capture.route === 'data-center') {
-                  await page.selectOption('#draft-entity-type', 'fixedTrips');
-                  await page.fill('#draft-record-search', 'TRIP');
-                  await page.selectOption('#draft-entity-type', 'vehicles');
+                  const setValueAndDispatch = async (selector, value, eventName) => {
+                    await page.locator(selector).evaluate((element, input) => {
+                      element.value = input.value;
+                      element.dispatchEvent(new Event(input.eventName, { bubbles: true }));
+                    }, { value, eventName });
+                  };
+                  await setValueAndDispatch('#draft-entity-type', 'fixedTrips', 'change');
+                  await setValueAndDispatch('#draft-record-search', 'TRIP', 'input');
+                  await setValueAndDispatch('#draft-entity-type', 'vehicles', 'change');
                   const contracts = await page.evaluate(() => ({
                     editorBound: Boolean(window.SLTransitAdminErpDataEditor),
                     vehicleCreateBlocked: !window.SLTransitAdminErpDataEditor.isCreatable('vehicles'),
