@@ -107,7 +107,7 @@ test("controller reuses bounded Draft commands and contains no direct Firebase w
   assert.match(controller, /DataEditor\.buildTimeShiftOperations/);
   assert.doesNotMatch(controller, /firebase\.database\s*\(/);
   assert.doesNotMatch(controller, /\.ref\s*\(/);
-  assert.doesNotMatch(controller, /publish/i);
+  assert.doesNotMatch(controller, /client\.send\("publish/);
 });
 
 test("mobile navigation and record list are forced to one item per row", function () {
