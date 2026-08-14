@@ -238,6 +238,24 @@ COST_IMPACT: GitHub Actions runner plus 774055-byte compressed artifact retained
 KNOWN_RISKS: Auth/profile/logout and unsupported modules remain locked until separately approved bounded contracts exist; artifact requires authenticated GitHub access and expires after seven days; no live deployment or real data was reviewed
 NEXT_ACTION: Primary/Owner reviews the revised artifact and PR #169 diff; do not Merge, Deploy, enable Firebase/Publish, live host or advance to Gate D without separate Owner approval
 ```
+## Completion Report  Owner-approved Firebase Sandbox Preview / PR #169
+
+```text
+STATUS: REVIEW  LIVE SANDBOX PREVIEW READY
+OWNER_APPROVAL: Owner approved the Firebase Sandbox Preview and the exact PR #169 WIF condition addition in the Codex thread on 2026-08-14.
+COMMIT/PR: Draft PR #169; preview source head a3fa0f7d6812ab9730d1f02b2e3af45dffa0376e; branch agent/admin-erp1-classic-greenfield-ui
+FILES_CHANGED: .github/workflows/admin-erp1-firebase-preview.yml; ai-handoffs/WORK-BOARD.md only in this gate; no Admin UI/runtime/backend/data change after the approved UI revision
+RESULTS: two-job least-privilege workflow validates and packages without Firebase identity; deploy job has no checkout and never executes PR JavaScript; exact 12 source files plus index alias are hash-verified; Firebase Hosting preview channel admin-erp1-pr-169 is live for seven days
+TESTS: GitHub Actions run 31760475938 passed all five Admin ERP1 UI/safety/import contract suites, exact allowlist/count, no-symlink check, SHA-256 manifest verification, index/admin equality, WIF authentication and Hosting deploy
+ACTIONS/PAGES: run https://github.com/SL-Transit/bus/actions/runs/31760475938 ; live preview https://sl-transit-erp-sandbox--admin-erp1-pr-169-mbvb1eya.web.app ; expires 2026-08-21 01:24:33 UTC
+FIREBASE_DEPLOY_EVIDENCE: Firebase Hosting preview channel only on site sl-transit-erp-sandbox; no Live channel deploy, RTDB, Rules, Functions, Storage, Auth configuration, data import, Publish command, pointer switch, Merge or Production write
+EXTERNAL_CONFIG_CHANGE: existing WIF provider condition retained exact PR #155 and added only refs/pull/169/merge plus head agent/admin-erp1-classic-greenfield-ui; repository/event/base restrictions remain; no role or service-account permission was added
+DATA/PRIVACY_IMPACT: public preview contains only the 13-file static allowlist and bundled Apache-2.0 license; no Firebase config, credential, backend config, business data, Booking, Passenger, Payment or personal data
+COST_IMPACT: one bounded GitHub Actions run, a one-day deployment artifact and approximately 1.1 MB of expiring static Hosting content; no database/function invocation or live-site traffic
+KNOWN_RISKS: anyone with the preview URL can open the static Safe Mode UI; backend remains Not configured; exact PR #169 WIF condition should be removed after preview refreshes are no longer needed
+NEXT_ACTION: Owner reviews the live URL; do not Merge, deploy Live Hosting, enable backend/Firebase writes, Publish or advance consumer integration without separate Owner approval
+```
+
 ## Work Lock Template
 
 ```text
