@@ -40,6 +40,7 @@ jobs:
         run: >-
           node --test
           tests/admin-erp1-ui-contract.test.js
+          tests/admin-erp1-real-data-editor.test.js
           tests/admin-erp1-integration.test.js
           tests/admin-erp1-live-entry.test.js
           tests/admin-erp1-network-publish.test.js
@@ -57,6 +58,7 @@ jobs:
             'admin-erp1.html'
             'admin-erp-ui.css'
             'admin-erp1-ui.js'
+            'admin-erp1-data-editor.js'
             'admin-erp1-greenfield-state.js'
             'admin-erp1-greenfield-api-client.js'
             'admin-erp1-greenfield-system-mode.js'
@@ -70,7 +72,7 @@ jobs:
 
           for source in "${sources[@]}"; do
             case "$source" in
-              admin-erp1.html|admin-erp-ui.css|admin-erp1-ui.js|admin-erp1-greenfield-state.js|admin-erp1-greenfield-api-client.js|admin-erp1-greenfield-system-mode.js|admin-erp1-greenfield-controller.js|admin-erp1-excel-3-3-x.js|assets/admin-erp1-greenfield.css|assets/vendor/XLSX-LICENSE.txt|assets/vendor/xlsx.full.min.js|greenfield-erp/phase2/excel-row-mapper.js) ;;
+              admin-erp1.html|admin-erp-ui.css|admin-erp1-ui.js|admin-erp1-data-editor.js|admin-erp1-greenfield-state.js|admin-erp1-greenfield-api-client.js|admin-erp1-greenfield-system-mode.js|admin-erp1-greenfield-controller.js|admin-erp1-excel-3-3-x.js|assets/admin-erp1-greenfield.css|assets/vendor/XLSX-LICENSE.txt|assets/vendor/xlsx.full.min.js|greenfield-erp/phase2/excel-row-mapper.js) ;;
               *) echo "Blocked source outside the Admin ERP1 allowlist: $source" >&2; exit 1 ;;
             esac
             test -f "$source"
@@ -81,14 +83,14 @@ jobs:
 
           cp admin-erp1.html "$output/index.html"
           cmp admin-erp1.html "$output/index.html"
-          test "$(find "$output" -type f | wc -l)" -eq 13
+          test "$(find "$output" -type f | wc -l)" -eq 14
           ! find "$output" -type l -print -quit | grep -q .
           ! find "$output" -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' -o -iname 'firebase.json' -o -iname '*rules*' \) -print -quit | grep -q .
           (
             cd preview-package
             find site -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
           )
-          test "$(wc -l < preview-package/SHA256SUMS)" -eq 13
+          test "$(wc -l < preview-package/SHA256SUMS)" -eq 14
           find preview-package -type f -print | sort
 
       - name: Upload the bounded one-day deployment package
@@ -121,8 +123,8 @@ jobs:
         working-directory: firebase-deploy
         run: |
           set -euo pipefail
-          test "$(find package/site -type f | wc -l)" -eq 13
-          test "$(find package -type f | wc -l)" -eq 14
+          test "$(find package/site -type f | wc -l)" -eq 14
+          test "$(find package -type f | wc -l)" -eq 15
           ! find package -type l -print -quit | grep -q .
           cmp package/site/admin-erp1.html package/site/index.html
           ! find package/site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' -o -iname 'firebase.json' -o -iname '*rules*' \) -print -quit | grep -q .
@@ -137,7 +139,8 @@ jobs:
             'admin-erp1-greenfield-controller.js' \
             'admin-erp1-greenfield-state.js' \
             'admin-erp1-greenfield-system-mode.js' \
-            'admin-erp1-ui.js' \
+            'admin-erp1-ui.js'
+            'admin-erp1-data-editor.js' \
             'admin-erp1.html' \
             'assets/admin-erp1-greenfield.css' \
             'assets/vendor/XLSX-LICENSE.txt' \
