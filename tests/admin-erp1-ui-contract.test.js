@@ -108,7 +108,10 @@ test("unsupported work areas remain visible, concise and locked", () => {
   assert.equal((html.match(/class="button secondary detail-button"/g) || []).length, 10);
   assert.match(html, /ไม่แสดงรายการหรือตัวเลขจำลอง/);
   assert.match(html, /ไม่จำลองว่าออกจากระบบสำเร็จ/);
-  assert.doesNotMatch(html, /<tbody\b/i);
+  ["draft-record-body", "excel-error-body", "validation-error-body"].forEach((id) => {
+    assert.match(html, new RegExp('<tbody id="' + id + '"></tbody>'), id + " must be an empty runtime target");
+  });
+  assert.doesNotMatch(html, /<tbody[^>]*>\s*<tr\b/i);
   assert.doesNotMatch(html, /value="OPR-BUS01"/);
 });
 
