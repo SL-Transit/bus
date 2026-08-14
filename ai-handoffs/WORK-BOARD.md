@@ -50,17 +50,19 @@
 
 ### Active file locks
 
-- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `REVIEW`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `IN_PROGRESS — OWNER UI REVISION`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
   - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
+  - Owner feedback: PR #169 comment `#issuecomment-5287954543` requests a simpler human ERP, much less visible copy and one original embedded SVG icon system; remove emoji, two-letter initials and font-symbol glyphs; regenerate the five Gate C artifact screenshots
+  - Revision head/base before UI changes: head `d3eb930b06f117b8546909033f9da3d4ec0ca503`; base `7f4c80f6bff0199395de0c2691ddd69ff2143a22`
   - Base SHA: `7f4c80f6bff0199395de0c2691ddd69ff2143a22`; visual/functional reference only: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`
-  - Files/paths: existing Gate B UI/tests, `.github/workflows/admin-erp1-artifact-preview.yml`, generated Actions artifact only, and this lock/report section; UI implementation changes are forbidden unless preview produces evidence and Primary is notified first
-  - Intended output: Gate B classic UI plus Owner-approved Gate C artifact-only preview: bounded screenshots at 1440x900, 768x1024 and 390x844, Data Center desktop/mobile views, and a seven-day static safe-mode bundle; no live hosting
+  - Revision files/paths: `admin-erp1.html`, `admin-erp-ui.css`, `admin-erp1-ui.js` only if interaction requires it, `tests/admin-erp1-ui-contract.test.js`, already-approved safety tests only if required, generated Gate C artifact, and this lock/report section; preview workflow remains unchanged unless screenshots cannot run
+  - Revision output: concise classic ERP shell with one inline SVG symbol sprite and accessible `<use>` icons; simplified Dashboard, locked modules and Data Center while preserving all controller hooks/runtime order; regenerate Dashboard 1440/768/390 and Data Center 1440/390 artifact screenshots; no live hosting
   - Runtime contract: preserve script order `state -> API client -> system mode -> bundled XLSX -> row mapper -> Excel 3.3.x -> controller -> UI module`; unsupported modules remain locked; no fake KPI, rows, actions or business data
-  - Tests: existing single-entry/runtime/safety/UI contracts first; pinned Playwright/Chromium in GitHub runner; bounded local HTTP server on `127.0.0.1`; dashboard desktop/tablet/mobile and Data Center desktop/mobile screenshots; generated bundle dependency check
+  - Revision tests: inline custom SVG sprite; every nav item uses SVG; forbidden glyphs/two-letter icon initials/external icon assets absent; 30 real controller hooks and unique IDs; runtime script order; Publish safety; accessibility; existing UI/safety suite; final-head artifact preview and regression/Emulator Actions
   - Dependencies: PR #167, D-016, current Phase 6A.1 state/API/controller, Excel 3.3.x converter and canonical mapping; Auth/Backend contract expansion is explicitly out of scope
   - Cost risk: GitHub Actions runner and seven-day artifact storage only; concurrency cancels superseded preview runs; no new network polling/listeners, live hosting, Production reads/writes, Firebase instance or deployment
   - Firebase writes: none; artifact preview only; no live Preview/Hosting/Pages, Firebase/Rules/Functions/Production deploy or write, Merge, Publish command, pointer switch, Consumer cutover or Gate D
-  - Owner approval / last update: Gate C artifact preview approved by Owner through PR #167 coordination; artifact run `31721510449` and regression run `31721510400` passed on head `61fe5816888e2710efc77baae527e3ff4a6652d5`; artifact `9189496894` expires 2026-08-20; PR #169 remains Draft; no live hosting/Firebase/Merge/Gate D
+  - Owner approval / last update: Gate C artifact-only scope remains approved; Owner UI revision requested on 2026-08-14 in PR #169; PR remains Draft; no live hosting/Firebase/Merge/Deploy/Gate D
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
