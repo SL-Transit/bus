@@ -104,33 +104,19 @@
       <div id="ui-live-region" class="sr-only" aria-live="polite"></div>
 
       <section id="dashboard-workspace" class="workspace" data-ui-view="dashboard" aria-labelledby="dashboard-title">
-        <div class="workspace-header">
-          <div><p class="eyebrow">ภาพรวม</p><h1 id="dashboard-title">แดชบอร์ด SL-Transit</h1><p>ภาพรวมสถานะจาก workflow จริง โดยไม่สร้างยอดขาย จำนวนการจอง หรือข้อมูลปฏิบัติการจำลอง</p></div>
-          <button type="button" class="button primary" data-ui-route="data-center" data-ui-target="import">เปิดศูนย์ข้อมูล ERP</button>
-        </div>
+        <div class="workspace-header compact-header"><div><p class="eyebrow">ภาพรวม</p><h1 id="dashboard-title">แดชบอร์ด</h1></div><button type="button" class="button primary" data-ui-route="data-center" data-ui-target="import"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้าข้อมูล</span></button></div>
         <div class="status-overview" aria-label="สถานะระบบปัจจุบัน">
-          <article class="status-tile"><span>Backend</span><strong id="dashboard-backend">—</strong><small>สถานะจาก command runtime</small></article>
-          <article class="status-tile"><span>Workflow</span><strong id="dashboard-phase">—</strong><small>ขั้นตอนข้อมูลปัจจุบัน</small></article>
-          <article class="status-tile"><span>Validation</span><strong id="dashboard-validation">—</strong><small>ผลตรวจล่าสุดจาก Backend</small></article>
-          <article class="status-tile safe"><span>Production write</span><strong>ปิดใช้งาน</strong><small>Gate B · UI review only</small></article>
+          <article class="status-tile"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-database"></use></svg><span>Backend</span><strong id="dashboard-backend">—</strong></article>
+          <article class="status-tile"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg><span>ขั้นตอน</span><strong id="dashboard-phase">—</strong></article>
+          <article class="status-tile"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ผลตรวจ</span><strong id="dashboard-validation">—</strong></article>
         </div>
-        <div class="dashboard-grid">
-          <section class="panel dashboard-panel" aria-labelledby="quick-work-title">
-            <div class="panel-heading"><div><p class="eyebrow">งานข้อมูล</p><h2 id="quick-work-title">เริ่มงานจากข้อมูลกลาง</h2></div></div>
-            <div class="quick-work-list">
-              <button type="button" data-ui-route="data-center" data-ui-target="import"><span><strong>นำเข้า Package</strong><small>ตรวจ Excel/JSON ก่อนสร้าง Draft</small></span><span>เปิด</span></button>
-              <button type="button" data-ui-route="data-center" data-ui-target="draft"><span><strong>ตรวจข้อมูล Draft</strong><small>อ่านและแก้ผ่าน bounded API</small></span><span>เปิด</span></button>
-              <button type="button" data-ui-route="data-center" data-ui-target="validation"><span><strong>Validation และ Review</strong><small>ต้องผ่าน revision ปัจจุบันก่อนส่งตรวจ</small></span><span>เปิด</span></button>
-            </div>
-          </section>
-          <section class="panel dashboard-panel" aria-labelledby="classic-area-title">
-            <div class="panel-heading"><div><p class="eyebrow">พื้นที่เดิม</p><h2 id="classic-area-title">โมดูลงานที่คุ้นเคย</h2></div></div>
-            <div class="module-chip-list"><span>คิวรถและตารางเวลา</span><span>ความจุและการเปิดขาย</span><span>รายได้และการชำระ</span><span>ข่าวสารและประกาศ</span><span>ผู้ใช้งานและสิทธิ์</span></div>
-            <p class="locked-copy">พื้นที่เหล่านี้ยังเห็นได้ในเมนู แต่จะไม่ทำรายการจนกว่าจะมี Backend/Read contract และ Owner อนุมัติแยก</p>
-          </section>
-        </div>
+        <div class="safe-mode-indicator" role="status"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><strong>โหมดปลอดภัย</strong><span>ไม่เขียน Production</span></div>
+        <section class="panel quick-panel" aria-labelledby="quick-work-title"><div class="panel-heading"><h2 id="quick-work-title">งานด่วน</h2></div><div class="quick-work-list">
+          <button type="button" data-ui-route="data-center" data-ui-target="import"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้าข้อมูล</span><svg class="ui-icon action-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="draft"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-draft"></use></svg><span>แก้ข้อมูลร่าง</span><svg class="ui-icon action-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="validation"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจและอนุมัติ</span><svg class="ui-icon action-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+        </div></section>
       </section>
-
       <section id="today-workspace" class="workspace locked-workspace" data-ui-view="today" hidden aria-labelledby="today-title">
         <div class="workspace-header"><div><p class="eyebrow">งานวันนี้</p><h1 id="today-title">งานที่ต้องจัดการวันนี้</h1><p>พื้นที่เดิมสำหรับรวม Draft, Validation blocker และ Review ที่ต้องดำเนินการ</p></div><span class="locked-badge">LOCKED</span></div>
         <div class="panel locked-panel"><h2>รอ Task summary contract</h2><p>รายการงานต้องมาจาก Backend ตามสิทธิ์และ revision จริง จึงยังไม่แสดงรายการหรือตัวเลขจำลอง</p><button type="button" class="button secondary" data-ui-locked data-lock-title="งานที่ต้องจัดการวันนี้" data-lock-copy="ต้องมี bounded task summary contract ที่ตรวจสิทธิ์ก่อนเปิดพื้นที่นี้">ดูเหตุผลที่ล็อก</button></div>
