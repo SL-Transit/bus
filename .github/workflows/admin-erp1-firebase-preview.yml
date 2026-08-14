@@ -63,13 +63,14 @@ jobs:
             'admin-erp1-greenfield-controller.js'
             'admin-erp1-excel-3-3-x.js'
             'assets/admin-erp1-greenfield.css'
+            'assets/vendor/XLSX-LICENSE.txt'
             'assets/vendor/xlsx.full.min.js'
             'greenfield-erp/phase2/excel-row-mapper.js'
           )
 
           for source in "${sources[@]}"; do
             case "$source" in
-              admin-erp1.html|admin-erp-ui.css|admin-erp1-ui.js|admin-erp1-greenfield-state.js|admin-erp1-greenfield-api-client.js|admin-erp1-greenfield-system-mode.js|admin-erp1-greenfield-controller.js|admin-erp1-excel-3-3-x.js|assets/admin-erp1-greenfield.css|assets/vendor/xlsx.full.min.js|greenfield-erp/phase2/excel-row-mapper.js) ;;
+              admin-erp1.html|admin-erp-ui.css|admin-erp1-ui.js|admin-erp1-greenfield-state.js|admin-erp1-greenfield-api-client.js|admin-erp1-greenfield-system-mode.js|admin-erp1-greenfield-controller.js|admin-erp1-excel-3-3-x.js|assets/admin-erp1-greenfield.css|assets/vendor/XLSX-LICENSE.txt|assets/vendor/xlsx.full.min.js|greenfield-erp/phase2/excel-row-mapper.js) ;;
               *) echo "Blocked source outside the Admin ERP1 allowlist: $source" >&2; exit 1 ;;
             esac
             test -f "$source"
@@ -79,14 +80,15 @@ jobs:
           done
 
           cp admin-erp1.html "$output/index.html"
-          test "$(find "$output" -type f | wc -l)" -eq 12
+          cmp admin-erp1.html "$output/index.html"
+          test "$(find "$output" -type f | wc -l)" -eq 13
           ! find "$output" -type l -print -quit | grep -q .
           ! find "$output" -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' -o -iname 'firebase.json' -o -iname '*rules*' \) -print -quit | grep -q .
           (
             cd preview-package
             find site -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
           )
-          test "$(wc -l < preview-package/SHA256SUMS)" -eq 12
+          test "$(wc -l < preview-package/SHA256SUMS)" -eq 13
           find preview-package -type f -print | sort
 
       - name: Upload the bounded one-day deployment package
@@ -119,9 +121,10 @@ jobs:
         working-directory: firebase-deploy
         run: |
           set -euo pipefail
-          test "$(find package/site -type f | wc -l)" -eq 12
-          test "$(find package -type f | wc -l)" -eq 13
+          test "$(find package/site -type f | wc -l)" -eq 13
+          test "$(find package -type f | wc -l)" -eq 14
           ! find package -type l -print -quit | grep -q .
+          cmp package/site/admin-erp1.html package/site/index.html
           ! find package/site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' -o -iname 'firebase.json' -o -iname '*rules*' \) -print -quit | grep -q .
           (
             cd package
@@ -137,6 +140,7 @@ jobs:
             'admin-erp1-ui.js' \
             'admin-erp1.html' \
             'assets/admin-erp1-greenfield.css' \
+            'assets/vendor/XLSX-LICENSE.txt' \
             'assets/vendor/xlsx.full.min.js' \
             'greenfield-erp/phase2/excel-row-mapper.js' \
             'index.html')"
@@ -170,6 +174,7 @@ jobs:
                     {"key": "Cache-Control", "value": "no-store, max-age=0"},
                     {"key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive"},
                     {"key": "X-Frame-Options", "value": "DENY"},
+                    {"key": "X-Content-Type-Options", "value": "nosniff"},
                     {"key": "Referrer-Policy", "value": "no-referrer"},
                     {"key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()"}
                   ]
