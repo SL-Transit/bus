@@ -50,7 +50,7 @@
 
 ### Active file locks
 
-- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `IN_PROGRESS — OWNER UI REVISION`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `REVIEW — OWNER UI REVISION ARTIFACT READY`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
   - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
   - Owner feedback: PR #169 comment `#issuecomment-5287954543` requests a simpler human ERP, much less visible copy and one original embedded SVG icon system; remove emoji, two-letter initials and font-symbol glyphs; regenerate the five Gate C artifact screenshots
   - Revision head/base before UI changes: head `d3eb930b06f117b8546909033f9da3d4ec0ca503`; base `7f4c80f6bff0199395de0c2691ddd69ff2143a22`
@@ -62,7 +62,7 @@
   - Dependencies: PR #167, D-016, current Phase 6A.1 state/API/controller, Excel 3.3.x converter and canonical mapping; Auth/Backend contract expansion is explicitly out of scope
   - Cost risk: GitHub Actions runner and seven-day artifact storage only; concurrency cancels superseded preview runs; no new network polling/listeners, live hosting, Production reads/writes, Firebase instance or deployment
   - Firebase writes: none; artifact preview only; no live Preview/Hosting/Pages, Firebase/Rules/Functions/Production deploy or write, Merge, Publish command, pointer switch, Consumer cutover or Gate D
-  - Owner approval / last update: Gate C artifact-only scope remains approved; Owner UI revision requested on 2026-08-14 in PR #169; PR remains Draft; no live hosting/Firebase/Merge/Deploy/Gate D
+  - Owner approval / last update: Owner UI revision complete at head `7540714a686825cb73038035fbf14e338bc7681e`; final artifact run `31758738210` and regression/Emulator run `31758738174` passed; PR remains Draft; no live hosting/Firebase/Merge/Deploy/Gate D
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
@@ -221,6 +221,22 @@ DATA/PRIVACY_IMPACT: artifact contains static application files, Safe Mode READM
 COST_IMPACT: GitHub Actions runner plus approximately 1.29 MB compressed artifact retained seven days; pinned browser install only in ephemeral runner; no Firebase or live-hosting cost
 KNOWN_RISKS: artifact requires authenticated GitHub access and expires after seven days; browser action dependencies emit existing Node 20 deprecation warning; locked modules remain unconnected by design
 NEXT_ACTION: Primary/Owner downloads and reviews PR #169 artifact; do not live Preview, Deploy, Merge, enable Firebase/Publish or advance to Gate D without separate approval
+```
+## Completion Report — Owner UI Revision / PR #169
+
+```text
+STATUS: REVIEW — OWNER UI REVISION ARTIFACT READY
+COMMIT/PR: Draft PR #169; final implementation head 7540714a686825cb73038035fbf14e338bc7681e; base 7f4c80f6bff0199395de0c2691ddd69ff2143a22; Owner feedback issuecomment-5287954543; PR #167 / D-016 coordination
+FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; tests/admin-erp1-integration.test.js; tests/admin-erp1-network-publish.test.js; ai-handoffs/WORK-BOARD.md; preview workflow unchanged
+RESULTS: replaced text initials, emoji/font-like glyph controls and repeated LOCKED copy with one original inline 24x24 SVG sprite (26 symbols, currentColor, 1.8 round strokes); every primary navigation item uses SVG; Dashboard reduced to three real contract status cards, one Safe Mode indicator and three actions; ten unsupported classic work areas reduced to title, one-line locked state and one detail action; Data Center changed to concise accessible workflow tabs while retaining all 30 controller hooks, unique IDs and runtime order; Publish stays visibly locked with no action/event/path
+SCREENSHOTS: dashboard-1440x900.png; dashboard-768x1024.png; dashboard-390x844.png; data-center-1440x900.png; data-center-390x844.png
+TESTS: final artifact preview run https://github.com/SL-Transit/bus/actions/runs/31758738210 passed 28 UI/safety/import tests, pinned Playwright Chromium capture, five-file screenshot count and safe bundle upload; final regression/Emulator/performance run https://github.com/SL-Transit/bus/actions/runs/31758738174 passed; JavaScript syntax checked in memory from GitHub content without local files
+ACTIONS/PAGES: artifact https://github.com/SL-Transit/bus/actions/runs/31758738210/artifacts/9203759781 ; artifact name admin-erp1-safe-preview-pr-169-e29e11943e083705311c79da4a580b339c473477; 774055 bytes; expires 2026-08-21; artifact-only, no Pages/live preview
+FIREBASE_DEPLOY_EVIDENCE: none — no Firebase SDK/CLI, RTDB, Rules, Functions, Hosting, Production read/write, Publish command, pointer switch or credential
+DATA/PRIVACY_IMPACT: no fake KPI, rows, business data, Booking, Passenger, Payment, account data or credential; screenshots show only empty, Safe Mode and locked UI
+COST_IMPACT: GitHub Actions runner plus 774055-byte compressed artifact retained seven days; superseded runs cancelled by concurrency; no Firebase or live-hosting cost
+KNOWN_RISKS: Auth/profile/logout and unsupported modules remain locked until separately approved bounded contracts exist; artifact requires authenticated GitHub access and expires after seven days; no live deployment or real data was reviewed
+NEXT_ACTION: Primary/Owner reviews the revised artifact and PR #169 diff; do not Merge, Deploy, enable Firebase/Publish, live host or advance to Gate D without separate Owner approval
 ```
 ## Work Lock Template
 
