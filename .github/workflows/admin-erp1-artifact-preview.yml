@@ -7,6 +7,7 @@ on:
       - 'admin-erp1.html'
       - 'admin-erp-ui.css'
       - 'admin-erp1-ui.js'
+      - 'admin-erp1-data-editor.js'
       - 'assets/admin-erp1-greenfield.css'
       - 'admin-erp1-greenfield-*.js'
       - 'admin-erp1-excel-3-3-x.js'
@@ -42,6 +43,7 @@ jobs:
         run: >-
           node --test
           tests/admin-erp1-ui-contract.test.js
+          tests/admin-erp1-real-data-editor.test.js
           tests/admin-erp1-integration.test.js
           tests/admin-erp1-live-entry.test.js
           tests/admin-erp1-network-publish.test.js
@@ -58,7 +60,7 @@ jobs:
           set -euo pipefail
           output='preview-output/bundle'
           mkdir -p "$output/assets/vendor" "$output/greenfield-erp/phase2" preview-output/screenshots
-          cp admin-erp1.html admin-erp-ui.css admin-erp1-ui.js "$output/"
+          cp admin-erp1.html admin-erp-ui.css admin-erp1-ui.js admin-erp1-data-editor.js "$output/"
           cp admin-erp1-greenfield-state.js admin-erp1-greenfield-api-client.js admin-erp1-greenfield-system-mode.js admin-erp1-greenfield-controller.js admin-erp1-excel-3-3-x.js "$output/"
           cp assets/admin-erp1-greenfield.css "$output/assets/"
           cp assets/vendor/xlsx.full.min.js "$output/assets/vendor/"
@@ -81,7 +83,7 @@ jobs:
           Then open `http://127.0.0.1:4173/admin-erp1.html#dashboard` or `#data-center`.
           README
           find "$output" -type f -print | sort > preview-output/bundle-files.txt
-          test "$(find "$output" -type f | wc -l)" -eq 12
+          test "$(find "$output" -type f | wc -l)" -eq 13
 
       - name: Capture bounded responsive screenshots
         shell: bash
