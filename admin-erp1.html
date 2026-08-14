@@ -72,34 +72,33 @@
       <nav id="primary-navigation" aria-label="พื้นที่งานหลัก">
         <section class="nav-group" aria-labelledby="nav-overview-label">
           <p id="nav-overview-label" class="nav-label">ภาพรวม</p>
-          <button type="button" data-ui-route="dashboard"><span class="nav-icon" aria-hidden="true">OV</span><span>แดชบอร์ด</span></button>
-          <button type="button" data-ui-route="today"><span class="nav-icon" aria-hidden="true">TD</span><span>งานที่ต้องจัดการวันนี้</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="dashboard"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-dashboard"></use></svg><span>แดชบอร์ด</span></button>
+          <button type="button" data-ui-route="today"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg><span>งานวันนี้</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
         </section>
         <section class="nav-group" aria-labelledby="nav-operations-label">
           <p id="nav-operations-label" class="nav-label">งานบริการ</p>
-          <button type="button" data-ui-route="operations"><span class="nav-icon" aria-hidden="true">OP</span><span>คิวรถและตารางเวลา</span><span class="nav-lock">LOCKED</span></button>
-          <button type="button" data-ui-route="bookings"><span class="nav-icon" aria-hidden="true">BK</span><span>ความจุและการเปิดขาย</span><span class="nav-lock">LOCKED</span></button>
-          <button type="button" data-ui-route="finance"><span class="nav-icon" aria-hidden="true">FN</span><span>รายได้ จอง และยกเลิก</span><span class="nav-lock">LOCKED</span></button>
-          <button type="button" data-ui-route="content"><span class="nav-icon" aria-hidden="true">NW</span><span>ข่าวสารและประกาศ</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="operations"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-operations"></use></svg><span>คิวรถและตาราง</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="bookings"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-booking"></use></svg><span>การจอง</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="finance"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-finance"></use></svg><span>การเงิน</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="content"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg><span>ข่าวสาร</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
         </section>
         <section class="nav-group" aria-labelledby="nav-data-label">
           <p id="nav-data-label" class="nav-label">ข้อมูลกลาง</p>
-          <button type="button" data-ui-route="data-center" data-section-target="data-center"><span class="nav-icon" aria-hidden="true">DC</span><span>ศูนย์ข้อมูล ERP</span></button>
-          <button type="button" data-ui-route="data-center" data-ui-target="import" data-section-target="import"><span class="nav-icon" aria-hidden="true">IM</span><span>นำเข้า Excel</span></button>
-          <button type="button" data-ui-route="data-center" data-ui-target="draft" data-section-target="draft"><span class="nav-icon" aria-hidden="true">DR</span><span>ข้อมูลฉบับร่าง</span></button>
-          <button type="button" data-ui-route="data-center" data-ui-target="validation" data-section-target="validation"><span class="nav-icon" aria-hidden="true">RV</span><span>ตรวจสอบและ Review</span></button>
-          <button type="button" data-ui-route="published"><span class="nav-icon" aria-hidden="true">PV</span><span>เวอร์ชันเผยแพร่</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="data-center" data-section-target="data-center"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-database"></use></svg><span>ศูนย์ข้อมูล ERP</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="import" data-section-target="import"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้าข้อมูล</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="draft" data-section-target="draft"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-draft"></use></svg><span>ข้อมูลร่าง</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="validation" data-section-target="validation"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจและอนุมัติ</span></button>
+          <button type="button" data-ui-route="published"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-published"></use></svg><span>เวอร์ชันเผยแพร่</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
         </section>
         <section class="nav-group" aria-labelledby="nav-system-label">
           <p id="nav-system-label" class="nav-label">ดูแลระบบ</p>
-          <button type="button" data-ui-route="users"><span class="nav-icon" aria-hidden="true">US</span><span>ผู้ใช้งานและสิทธิ์</span><span class="nav-lock">LOCKED</span></button>
-          <button type="button" data-ui-route="test-center"><span class="nav-icon" aria-hidden="true">TS</span><span>ศูนย์ทดสอบ</span><span class="nav-lock">LOCKED</span></button>
-          <button type="button" data-ui-route="system-status"><span class="nav-icon" aria-hidden="true">ST</span><span>สถานะระบบและ Audit</span><span class="nav-lock">LOCKED</span></button>
+          <button type="button" data-ui-route="users"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-users"></use></svg><span>ผู้ใช้งาน</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="test-center"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-test"></use></svg><span>ศูนย์ทดสอบ</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="system-status"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-audit"></use></svg><span>สถานะและ Audit</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
         </section>
       </nav>
-      <div class="sidebar-note"><strong>Safe by design</strong><p>แก้ได้เฉพาะ Draft ผ่านคำสั่งหลังบ้านที่อนุญาต ไม่มีคำสั่ง Publish และไม่เขียนฐานข้อมูลจริงโดยตรง</p></div>
-    </aside>
-    <button id="sidebar-overlay" class="sidebar-overlay" type="button" aria-label="ปิดเมนูระบบ"></button>
+      <div class="sidebar-note"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><span>ทำงานกับ Draft เท่านั้น</span></div>
+    </aside>    <button id="sidebar-overlay" class="sidebar-overlay" type="button" aria-label="ปิดเมนูระบบ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg></button>
 
     <main id="main-content" tabindex="-1">
       <div id="ui-live-region" class="sr-only" aria-live="polite"></div>
