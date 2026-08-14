@@ -35,7 +35,7 @@ test('browser modules ไม่มี direct database SDK, browser Draft หร�
 
 test('classic entry แสดง Publish เป็น locked step โดยไม่มี action หรือ path', () => {
   const page = read('admin-erp1.html');
-  assert.match(page, /Publish<\/strong><small>LOCKED/);
+  assert.match(page, /id="publication-lock"[^>]*>[\s\S]*?icon-lock[\s\S]*?ยังไม่เปิดใช้งาน/);
   assert.doesNotMatch(page, /<button[^>]+(?:id|data-command)="[^"]*(?:publish|publication)/i);
   assert.doesNotMatch(page, /publishedReadModels\/current|erpDataCenter\/publication/);
 });
