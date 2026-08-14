@@ -63,6 +63,15 @@
   - Cost risk: GitHub Actions runner and seven-day artifact storage only; concurrency cancels superseded preview runs; no new network polling/listeners, live hosting, Production reads/writes, Firebase instance or deployment
   - Firebase writes: none; artifact preview only; no live Preview/Hosting/Pages, Firebase/Rules/Functions/Production deploy or write, Merge, Publish command, pointer switch, Consumer cutover or Gate D
   - Owner approval / last update: Owner UI revision complete at head `7540714a686825cb73038035fbf14e338bc7681e`; final artifact run `31758738210` and regression/Emulator run `31758738174` passed; PR remains Draft; no live hosting/Firebase/Merge/Deploy/Gate D
+- Admin ERP1 real-data editor — Owner: Primary AI; Status: IN_PROGRESS; Branch: agent/admin-erp1-real-data-editor; stacked on frozen PR #169
+  - Lock handoff: PR #169 is frozen at REVIEW; the UI agent remains reviewer only and will not write the same files in parallel
+  - Files/paths: ai-handoffs/WORK-BOARD.md, admin-erp1.html, admin-erp-ui.css, admin-erp1-ui.js, admin-erp1-data-editor.js, admin-erp1-greenfield-controller.js, .github/workflows/admin-erp1-{artifact-preview,firebase-preview}.yml, tests/admin-erp1-{real-data-editor,ui-contract,integration,network-publish}.test.js
+  - Intended output: use the existing Excel 3.3.x converter and Phase 6A.1 commands to present real Draft records as list/table + human forms; Fixed/Frequency are separate; bounded bulk time shift; Excel/validation error grid; mobile drawer one item per row; no fake KPI/chart/data; Publish remains locked
+  - Tests: pure data-editor contract, service time 00:00:00–47:59:59, bounded bulk operations, no direct Firebase write, no Publish action, existing unit/regression/Phase 2/4/5/6A Emulator and artifact screenshots
+  - Dependencies: merged PR #154 and #165; frozen PR #169 UI; real workbook new erp data.xlsx remains read-only/off-repo
+  - Cost risk: reuse paged Draft reads (25 UI / 50 backend max) and max 100 operations / 512 KiB; no unbounded listener, no full-Draft browser load, no fake aggregate query
+  - Firebase writes: none in this gate; no Firebase/Rules/Functions/RTDB/Storage deploy, real import, Production write, Publish, pointer switch or Consumer cutover
+  - Started/last update: 2026-08-14; Owner approved Excel → Draft → Edit/Revalidate implementation; Sandbox deploy and real-data import remain separate approval gates
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
