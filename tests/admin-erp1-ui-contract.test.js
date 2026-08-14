@@ -191,6 +191,7 @@ test("responsive and accessibility contracts are present", () => {
   assert.match(uiSource, /event\.key !== "Escape"/);
   assert.match(css, /@media \(max-width: 820px\)/);
   assert.match(css, /@media \(max-width: 560px\)/);
+  assert.match(css, /@media \(max-width: 390px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /min-width: 320px/);
