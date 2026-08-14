@@ -437,6 +437,7 @@
     MAX_BULK_OPERATIONS,
     MAX_SHIFT_MINUTES,
     SERVICE_TIME_PATTERN,
+    newRecord,
     buildTimeShiftOperations,
     entityConfig,
     fieldLabel,
@@ -449,6 +450,7 @@
     secondsToServiceTime,
     serviceTimeToSeconds,
     shiftedRecord,
-    shiftServiceTime
+    shiftServiceTime,
+    validateRecord
   });
 }));
