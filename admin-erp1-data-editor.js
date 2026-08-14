@@ -71,6 +71,11 @@
     boardingModel: ["queue", "frequency"]
   });
 
+  const CREATABLE_ENTITY_TYPES = Object.freeze([
+    "operators", "locations", "routes", "journeyPatterns", "serviceCalendars",
+    "fixedTrips", "stopTimes", "frequencyServices", "fareProducts", "fareRules", "transferRules"
+  ]);
+
   const WEEKDAYS = Object.freeze([
     ["monday", "จันทร์"], ["tuesday", "อังคาร"], ["wednesday", "พุธ"],
     ["thursday", "พฤหัสบดี"], ["friday", "ศุกร์"], ["saturday", "เสาร์"], ["sunday", "อาทิตย์"]
@@ -80,11 +85,20 @@
     return ENTITIES[entityType] || { label: entityType, idField: null };
   }
 
+  function isCreatable(entityType) {
+    return CREATABLE_ENTITY_TYPES.includes(entityType);
+  }
+
   function newRecord(entityType) {
     const config = entityConfig(entityType);
     if (!config.idField) {
       const error = new Error("draft_entity_type_invalid");
       error.code = "draft_entity_type_invalid";
+      throw error;
+    }
+    if (!isCreatable(entityType)) {
+      const error = new Error("draft_entity_create_unsupported");
+      error.code = "draft_entity_create_unsupported";
       throw error;
     }
     const value = {};
@@ -134,7 +148,7 @@
   }
 
   function shiftServiceTime(value, minutes) {
-    if (!Number.isInteger(minutes) || Math.abs(minutes) > MAX_SHIFT_MINUTES) {
+    if (!Number.isInteger(minutes) || minutes === 0 || Math.abs(minutes) > MAX_SHIFT_MINUTES) {
       const error = new Error("shift_minutes_invalid");
       error.code = "shift_minutes_invalid";
       throw error;
@@ -434,6 +448,7 @@
   return Object.freeze({
     ENTITIES,
     FIELD_LABELS,
+    CREATABLE_ENTITY_TYPES,
     MAX_BULK_OPERATIONS,
     MAX_SHIFT_MINUTES,
     SERVICE_TIME_PATTERN,
@@ -442,6 +457,7 @@
     entityConfig,
     fieldLabel,
     filterEntries,
+    isCreatable,
     readForm,
     recordDetail,
     recordName,
