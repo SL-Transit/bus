@@ -50,11 +50,12 @@
 
 ### Active file locks
 
-- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `REVIEW — OWNER UI REVISION ARTIFACT READY`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `REVIEW — FROZEN / LOCK HANDED OFF`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
   - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
   - Owner feedback: PR #169 comment `#issuecomment-5287954543` requests a simpler human ERP, much less visible copy and one original embedded SVG icon system; remove emoji, two-letter initials and font-symbol glyphs; regenerate the five Gate C artifact screenshots
   - Revision head/base before UI changes: head `d3eb930b06f117b8546909033f9da3d4ec0ca503`; base `7f4c80f6bff0199395de0c2691ddd69ff2143a22`
   - Base SHA: `7f4c80f6bff0199395de0c2691ddd69ff2143a22`; visual/functional reference only: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`
+  - Lock status: handed off to agent/admin-erp1-real-data-editor; UI agent is reviewer only and will not write these files in parallel
   - Revision files/paths: `admin-erp1.html`, `admin-erp-ui.css`, `admin-erp1-ui.js` only if interaction requires it, `tests/admin-erp1-ui-contract.test.js`, already-approved safety tests only if required, generated Gate C artifact, and this lock/report section; preview workflow remains unchanged unless screenshots cannot run
   - Revision output: concise classic ERP shell with one inline SVG symbol sprite and accessible `<use>` icons; simplified Dashboard, locked modules and Data Center while preserving all controller hooks/runtime order; regenerate Dashboard 1440/768/390 and Data Center 1440/390 artifact screenshots; no live hosting
   - Runtime contract: preserve script order `state -> API client -> system mode -> bundled XLSX -> row mapper -> Excel 3.3.x -> controller -> UI module`; unsupported modules remain locked; no fake KPI, rows, actions or business data
@@ -234,7 +235,7 @@ NEXT_ACTION: Primary/Owner downloads and reviews PR #169 artifact; do not live P
 ## Completion Report — Owner UI Revision / PR #169
 
 ```text
-STATUS: REVIEW — OWNER UI REVISION ARTIFACT READY
+STATUS: REVIEW — FROZEN / LOCK HANDED OFF
 COMMIT/PR: Draft PR #169; final implementation head 7540714a686825cb73038035fbf14e338bc7681e; base 7f4c80f6bff0199395de0c2691ddd69ff2143a22; Owner feedback issuecomment-5287954543; PR #167 / D-016 coordination
 FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; tests/admin-erp1-integration.test.js; tests/admin-erp1-network-publish.test.js; ai-handoffs/WORK-BOARD.md; preview workflow unchanged
 RESULTS: replaced text initials, emoji/font-like glyph controls and repeated LOCKED copy with one original inline 24x24 SVG sprite (26 symbols, currentColor, 1.8 round strokes); every primary navigation item uses SVG; Dashboard reduced to three real contract status cards, one Safe Mode indicator and three actions; ten unsupported classic work areas reduced to title, one-line locked state and one detail action; Data Center changed to concise accessible workflow tabs while retaining all 30 controller hooks, unique IDs and runtime order; Publish stays visibly locked with no action/event/path
