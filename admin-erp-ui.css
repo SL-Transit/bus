@@ -257,6 +257,12 @@ body.drawer-open { overflow: hidden; }
   footer { flex-direction: column; }
 }
 
+@media (max-width: 390px) {
+  .topbar { padding-inline: 10px; }
+  .global-search { width: 100px; }
+  .workflow-tabs { max-width: calc(100vw - 28px); }
+  .actions > .button { flex: 1 1 auto; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
