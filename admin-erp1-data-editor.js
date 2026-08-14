@@ -80,6 +80,29 @@
     return ENTITIES[entityType] || { label: entityType, idField: null };
   }
 
+  function newRecord(entityType) {
+    const config = entityConfig(entityType);
+    if (!config.idField) {
+      const error = new Error("draft_entity_type_invalid");
+      error.code = "draft_entity_type_invalid";
+      throw error;
+    }
+    const value = {};
+    value[config.idField] = "";
+    if (entityType === "operators") Object.assign(value, { nameTh: "", timezone: "Asia/Bangkok" });
+    if (entityType === "locations") Object.assign(value, { locationType: "stop", nameTh: "" });
+    if (entityType === "routes") Object.assign(value, { operatorId: "", shortName: "", serviceMode: "fixed" });
+    if (entityType === "journeyPatterns") Object.assign(value, { routeId: "", direction: "outbound", stops: [] });
+    if (entityType === "serviceCalendars") Object.assign(value, { startDate: "", endDate: "", weekdays: { monday: false, tuesday: false, wednesday: false, thursday: false, friday: false, saturday: false, sunday: false } });
+    if (entityType === "fixedTrips") Object.assign(value, { routeId: "", journeyPatternId: "", serviceCalendarId: "", departureTime: "06:00:00" });
+    if (entityType === "stopTimes") Object.assign(value, { fixedTripId: "", stopSequence: 1, locationId: "", arrivalTime: "06:00:00", departureTime: "06:00:00" });
+    if (entityType === "frequencyServices") Object.assign(value, { routeId: "", journeyPatternId: "", serviceCalendarId: "", startTime: "06:00:00", endTime: "18:00:00", headwaySeconds: 600, boardingModel: "queue", exactTimes: false });
+    if (entityType === "fareProducts") Object.assign(value, { nameTh: "", currency: "THB" });
+    if (entityType === "fareRules") Object.assign(value, { fareProductId: "", routeId: "", originLocationId: "", destinationLocationId: "", amountMinor: 0 });
+    if (entityType === "transferRules") Object.assign(value, { fromLocationId: "", toLocationId: "", minimumTransferSeconds: 300, maximumTransferSeconds: 1800, throughBooking: false, baggageTransfer: false });
+    return { entityId: "", value, isNew: true };
+  }
+
   function fieldLabel(fieldName) {
     if (FIELD_LABELS[fieldName]) return FIELD_LABELS[fieldName];
     return String(fieldName || "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, function (letter) {
@@ -324,7 +347,7 @@
       }
       control.dataset.editorField = field;
       control.dataset.editorKind = kind;
-      if (field === entityConfig(input.entityType).idField) control.readOnly = true;
+      if (field === entityConfig(input.entityType).idField && !entry.isNew) control.readOnly = true;
       label.appendChild(control);
       container.appendChild(label);
     });
