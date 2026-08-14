@@ -163,6 +163,41 @@
     throw error;
   }
 
+  function validateRecord(entityType, value) {
+    const item = value || {};
+    const config = entityConfig(entityType);
+    if (!config.idField || typeof item[config.idField] !== "string" || !item[config.idField].trim()) {
+      const idError = new Error("draft_entity_target_invalid");
+      idError.code = "draft_entity_target_invalid";
+      throw idError;
+    }
+    if (entityType === "fixedTrips") serviceTimeToSeconds(item.departureTime);
+    if (entityType === "stopTimes") {
+      const arrival = serviceTimeToSeconds(item.arrivalTime);
+      const departure = serviceTimeToSeconds(item.departureTime);
+      if (arrival > departure) {
+        const orderError = new Error("stop_time_order_invalid");
+        orderError.code = "stop_time_order_invalid";
+        throw orderError;
+      }
+    }
+    if (entityType === "frequencyServices") {
+      const start = serviceTimeToSeconds(item.startTime);
+      const end = serviceTimeToSeconds(item.endTime);
+      if (start >= end) {
+        const windowError = new Error("frequency_window_invalid");
+        windowError.code = "frequency_window_invalid";
+        throw windowError;
+      }
+      if (!Number.isInteger(item.headwaySeconds) || item.headwaySeconds < 60 || item.headwaySeconds > 86400) {
+        const headwayError = new Error("frequency_headway_invalid");
+        headwayError.code = "frequency_headway_invalid";
+        throw headwayError;
+      }
+    }
+    return value;
+  }
+
   function buildTimeShiftOperations(entityType, entries, minutes) {
     const list = Array.isArray(entries) ? entries : [];
     if (list.length < 1 || list.length > MAX_BULK_OPERATIONS) {
