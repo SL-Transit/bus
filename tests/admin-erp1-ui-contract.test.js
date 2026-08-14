@@ -170,7 +170,7 @@ test("browser entry excludes old runtime, direct data access and publish command
 test("dashboard has only three real status cards, one safe state and three actions", () => {
   ["dashboard-backend", "dashboard-phase", "dashboard-validation"].forEach((id) => assert.match(html, new RegExp(`\\bid="${id}"`)));
   assert.equal((html.match(/class="status-tile"/g) || []).length, 3);
-  assert.equal((html.match(/class="safe-mode-indicator"/g) || []).length, 2, "dashboard and Data Center each show one concise safe-state indicator");
+  assert.equal((html.match(/class="safe-mode-indicator(?:\\s[^\"]*)?"/g) || []).length, 2, "dashboard and Data Center each show one concise safe-state indicator");
   const quick = html.match(/<div class="quick-work-list">[\s\S]*?<\/div>/);
   assert.ok(quick);
   assert.equal((quick[0].match(/<button\b/g) || []).length, 3);
