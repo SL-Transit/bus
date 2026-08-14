@@ -4,7 +4,8 @@
   const State = root.SLTransitGreenfieldState;
   const Api = root.SLTransitGreenfieldApi;
   const Excel33x = root.SLTransitAdminErpExcel33x;
-  if (!State || !Api) return;
+  const DataEditor = root.SLTransitAdminErpDataEditor;
+  if (!State || !Api || !DataEditor) return;
 
   function createController(options) {
     const settings = options || {};
