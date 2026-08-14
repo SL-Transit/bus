@@ -113,12 +113,13 @@ test("controller reuses bounded Draft commands and contains no direct Firebase w
   assert.match(controller, /client\.send\("draft\.read"/);
   assert.match(controller, /client\.send\("draft\.save"/);
   assert.match(controller, /client\.send\("draft\.validate"/);
-  assert.match(controller, /DataEditor\.buildTimeShiftOperations/);  assert.match(controller, /DataEditor\.isCreatable\(entityType\)/);
+  assert.match(controller, /DataEditor\.buildTimeShiftOperations/);
+  assert.match(controller, /DataEditor\.isCreatable\(entityType\)/);
   assert.match(controller, /localExcelIssues = details\.length/);
   assert.match(controller, /renderExcelIssues\(\);/);
   assert.match(controller, /filterActive[\s\S]*elements\.shiftPage\.disabled/);
-  assert.match(controller, /const DataEditor = root\\.SLTransitAdminErpDataEditor;/);
-  assert.match(controller, /!State \\|\\| !Api \\|\\| !DataEditor/);
+  assert.match(controller, /const DataEditor = root\.SLTransitAdminErpDataEditor;/);
+  assert.match(controller, /!State \|\| !Api \|\| !DataEditor/);
   assert.doesNotMatch(controller, /firebase\.database\s*\(/);
   assert.doesNotMatch(controller, /\.ref\s*\(/);
   assert.doesNotMatch(controller, /client\.send\("publish/);
