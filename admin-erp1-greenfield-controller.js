@@ -190,9 +190,25 @@
     }
 
     function updateScheduleTools() {
-      const config = DataEditor.entityConfig(elements.draftType.value);
-      const shiftable = ["fixedTrips", "stopTimes"].includes(elements.draftType.value);
+      const entityType = elements.draftType.value;
+      const config = DataEditor.entityConfig(entityType);
+      const shiftable = ["fixedTrips", "stopTimes"].includes(entityType);
+      const view = State.deriveView(state);
+      const filterActive = Boolean(elements.recordSearch && elements.recordSearch.value.trim());
+      const minutes = Number(elements.shiftMinutes && elements.shiftMinutes.value);
+      const validShift = Number.isInteger(minutes) && minutes !== 0 && Math.abs(minutes) <= DataEditor.MAX_SHIFT_MINUTES;
       if (elements.shiftPanel) elements.shiftPanel.hidden = !shiftable;
+      if (elements.addEntity) {
+        const canCreate = DataEditor.isCreatable(entityType);
+        elements.addEntity.disabled = !view.canSaveDraft || !canCreate;
+        elements.addEntity.title = canCreate ? "เพิ่มรายการใหม่ใน Draft" : "ชนิดข้อมูลนี้แก้ไขรายการเดิมได้ แต่ยังเพิ่มจากหน้านี้ไม่ได้";
+      }
+      if (elements.shiftPage) {
+        elements.shiftPage.disabled = !view.canSaveDraft || !shiftable || pageEntries().length === 0 || !validShift || filterActive;
+        elements.shiftPage.title = filterActive
+          ? "ล้างคำค้นก่อน เพื่อให้เห็นทุกรายการที่จะถูกเลื่อนเวลา"
+          : validShift ? "เลื่อนเวลาเฉพาะรายการที่โหลดในหน้านี้" : "กรอกจำนวนนาทีที่ไม่ใช่ศูนย์";
+      }
       if (elements.scheduleKind) {
         elements.scheduleKind.hidden = !config.schedule;
         elements.scheduleKind.textContent = config.schedule === "frequency" ? "Frequency / Queue" :
@@ -274,7 +290,9 @@
         item.dataset.active = String(item.dataset.phase === state.phase || validationActive);
       });
       renderDraftPage();
+      updateScheduleTools();
       renderValidation();
+      renderExcelIssues();
     }
 
     async function checksumSha256(file) {
@@ -352,6 +370,8 @@
         });
         return;
       }
+      localExcelIssues = [];
+      renderExcelIssues();
       state = State.reduce(state, { type: "START_VALIDATION" });
       render();
       if (state.phase !== State.PHASES.VALIDATING) return;
@@ -402,6 +422,18 @@
         }
       } catch (error) {
         if (elements.excelPrecheck && isExcel) elements.excelPrecheck.textContent = "ไม่ผ่าน กรุณาตรวจรายละเอียด";
+        if (isExcel) {
+          const details = Array.isArray(error && error.details) ? error.details : [];
+          localExcelIssues = details.length ? details.map(function (detail) {
+            return {
+              sheetName: detail.sheetName || detail.sheet || "—",
+              sourceRowNumber: detail.sourceRowNumber || detail.rowNumber || detail.row || "—",
+              sourceColumn: detail.sourceColumn || detail.column || "—",
+              message: detail.message || detail.code || error.message || "ตรวจไฟล์ไม่ผ่าน"
+            };
+          }) : [{ sheetName: "—", sourceRowNumber: "—", sourceColumn: "—", message: error.message || error.code || "ตรวจไฟล์ไม่ผ่าน" }];
+          renderExcelIssues();
+        }
         commandFailure(error);
       }
     }
@@ -587,6 +619,8 @@
     elements.file.addEventListener("change", function () {
       const file = elements.file.files && elements.file.files[0];
       selectedFile = file || null;
+      localExcelIssues = [];
+      renderExcelIssues();
       if (!file) return dispatch({ type: "RESET" });
       if (elements.excelVersion) elements.excelVersion.textContent = /\.xlsx$/i.test(file.name) ? "รอตรวจจากชีต 91 ช่อง C5" : "Canonical JSON";
       if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
@@ -600,6 +634,7 @@
     elements.reset.addEventListener("click", function () {
       workflowGeneration += 1;
       selectedFile = null;
+      localExcelIssues = [];
       renderedPage = null;
       elements.file.value = "";
       elements.changeSummary.value = "";
@@ -625,7 +660,11 @@
       updateScheduleTools();
     });
     elements.entityList.addEventListener("change", function () { selectDraftEntry(elements.entityList.value); });
-    elements.recordSearch.addEventListener("input", renderDraftTable);
+    elements.recordSearch.addEventListener("input", function () {
+      renderDraftTable();
+      updateScheduleTools();
+    });
+    elements.shiftMinutes.addEventListener("input", updateScheduleTools);
     elements.addEntity.addEventListener("click", beginNewDraftEntity);
     elements.shiftPage.addEventListener("click", shiftLoadedTimes);
     elements.saveEntity.addEventListener("click", saveDraftEntity);
