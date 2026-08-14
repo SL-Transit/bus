@@ -41,7 +41,9 @@ test("bulk time shift is bounded and cannot target frequency records", function 
   const tooMany = Array.from({ length: 101 }, function (_item, index) {
     return { entityId: "TRIP-" + index, value: { fixedTripId: "TRIP-" + index, departureTime: "06:00:00" } };
   });
-  assert.throws(function () { Editor.buildTimeShiftOperations("fixedTrips", tooMany, 5); }, /bulk_operation_count_invalid/);
+  assert.throws(function () { Editor.buildTimeShiftOperations("fixedTrips", tooMany, 5); }, /bulk_operation_count_invalid/);  assert.throws(function () {
+    Editor.buildTimeShiftOperations("fixedTrips", [{ entityId: "TRIP-1", value: { fixedTripId: "TRIP-1", departureTime: "06:00:00" } }], 0);
+  }, /shift_minutes_invalid/);
   assert.throws(function () {
     Editor.buildTimeShiftOperations("frequencyServices", [{ entityId: "FREQ-1", value: { frequencyServiceId: "FREQ-1" } }], 5);
   }, /time_shift_entity_unsupported/);
@@ -79,6 +81,12 @@ test("Fixed and Frequency records use separate validation rules", function () {
   }, /frequency_headway_invalid/);
 });
 
+test("new records are allowed only where a complete human form template exists", function () {
+  assert.equal(Editor.isCreatable("fixedTrips"), true);
+  assert.equal(Editor.isCreatable("frequencyServices"), true);
+  assert.equal(Editor.isCreatable("vehicles"), false);
+  assert.throws(function () { Editor.newRecord("vehicles"); }, /draft_entity_create_unsupported/);
+});
 test("new Frequency template is explicit and does not pretend to come from Excel", function () {
   const entry = Editor.newRecord("frequencyServices");
   assert.equal(entry.isNew, true);
@@ -96,7 +104,8 @@ test("Admin ERP1 keeps one entry, loads the editor before controller, and hides 
   assert.ok(html.indexOf('src="admin-erp1-data-editor.js"') < html.indexOf('src="admin-erp1-greenfield-controller.js"'));
   assert.match(html, /id="excel-error-body"/);
   assert.match(html, /id="validation-error-body"/);
-  assert.match(html, /id="time-shift-panel"/);
+  assert.match(html, /id="time-shift-panel"/);  assert.match(html, /id="shift-draft-minutes"[^>]*placeholder="\+10 หรือ -5"/);
+  assert.doesNotMatch(html, /id="shift-draft-minutes"[^>]*value="0"/);
 });
 
 test("controller reuses bounded Draft commands and contains no direct Firebase write", function () {
@@ -104,7 +113,10 @@ test("controller reuses bounded Draft commands and contains no direct Firebase w
   assert.match(controller, /client\.send\("draft\.read"/);
   assert.match(controller, /client\.send\("draft\.save"/);
   assert.match(controller, /client\.send\("draft\.validate"/);
-  assert.match(controller, /DataEditor\.buildTimeShiftOperations/);
+  assert.match(controller, /DataEditor\.buildTimeShiftOperations/);  assert.match(controller, /DataEditor\.isCreatable\(entityType\)/);
+  assert.match(controller, /localExcelIssues = details\.length/);
+  assert.match(controller, /renderExcelIssues\(\);/);
+  assert.match(controller, /filterActive[\s\S]*elements\.shiftPage\.disabled/);
   assert.match(controller, /const DataEditor = root\\.SLTransitAdminErpDataEditor;/);
   assert.match(controller, /!State \\|\\| !Api \\|\\| !DataEditor/);
   assert.doesNotMatch(controller, /firebase\.database\s*\(/);
