@@ -206,11 +206,11 @@ jobs:
           test -n "$preview_url"
           echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
           {
-            echo '### Admin ERP1  Firebase Sandbox Preview'
+            echo '### Admin ERP1 - Firebase Sandbox Preview'
             echo
             echo "$preview_url"
             echo
-            echo 'Channel: admin-erp1-pr-169 ? expires in 7 days ? no Live deploy'
+            echo 'Channel: admin-erp1-pr-169 | expires in 7 days | no Live deploy'
             echo
             echo 'Scope: Hosting static files only; no RTDB, Rules, Functions, Publish, Merge, or Production write.'
           } >> "$GITHUB_STEP_SUMMARY"
