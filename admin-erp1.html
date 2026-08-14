@@ -51,27 +51,22 @@
 
   <header id="admin-topbar" class="topbar">
     <div class="topbar-start">
-      <button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-label="เปิดเมนูระบบ" aria-controls="admin-sidebar" aria-expanded="false"><span aria-hidden="true">☰</span></button>
-      <div class="brand-lockup">
-        <span class="brand-mark" aria-hidden="true">SL</span>
-        <div><strong>SL-TRANSIT</strong><span>ADMIN ERP CONSOLE</span></div>
-      </div>
+      <button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-label="เปิดเมนูระบบ" aria-controls="admin-sidebar" aria-expanded="false"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-menu"></use></svg></button>
+      <div class="brand-lockup"><svg class="brand-mark" aria-hidden="true" focusable="false"><use href="#icon-transit"></use></svg><strong>SL-Transit</strong><span>Admin ERP1</span></div>
     </div>
     <div class="topbar-tools">
-      <label class="global-search" for="global-search"><span aria-hidden="true">⌕</span><span class="sr-only">ค้นหาเมนูและพื้นที่งาน</span><input id="global-search" type="search" autocomplete="off" placeholder="ค้นหาในระบบ" aria-describedby="global-search-status"></label>
+      <label class="global-search" for="global-search"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-search"></use></svg><span class="sr-only">ค้นหาเมนู</span><input id="global-search" type="search" autocomplete="off" placeholder="ค้นหาเมนู" aria-describedby="global-search-status"></label>
       <span id="global-search-status" class="sr-only" aria-live="polite"></span>
-      <div class="environment-chip" title="ยังไม่อนุญาตให้เขียน Production"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
+      <div class="environment-chip" title="ยังไม่อนุญาตให้เขียน Production"><span aria-hidden="true"></span>GREENFIELD · EMULATOR REVIEW</div>
       <div class="profile-control">
-        <button id="profile-menu-button" class="profile-button" type="button" aria-haspopup="menu" aria-controls="profile-menu" aria-expanded="false"><span class="profile-avatar" aria-hidden="true">A</span><span class="profile-copy"><strong>ผู้ดูแลระบบ</strong><small>บัญชีและการออกจากระบบ</small></span><span aria-hidden="true">⌄</span></button>
+        <button id="profile-menu-button" class="profile-button" type="button" aria-label="เปิดเมนูบัญชี" aria-haspopup="menu" aria-controls="profile-menu" aria-expanded="false"><svg class="ui-icon profile-avatar" aria-hidden="true" focusable="false"><use href="#icon-account"></use></svg><span>ผู้ดูแลระบบ</span><svg class="ui-icon profile-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
         <div id="profile-menu" class="profile-menu" role="menu" hidden>
-          <button type="button" role="menuitem" data-ui-route="account">บัญชีของฉัน <span>LOCKED</span></button>
-          <button type="button" role="menuitem" data-ui-action="logout">ออกจากระบบ <span>LOCKED</span></button>
-          <p>รอ Auth contract จากระบบหลังบ้าน ไม่จำลองการออกจากระบบ</p>
+          <button type="button" role="menuitem" data-ui-route="account"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-account"></use></svg><span>บัญชีของฉัน</span><svg class="ui-icon menu-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" role="menuitem" data-ui-action="logout"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-logout"></use></svg><span>ออกจากระบบ</span><svg class="ui-icon menu-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
         </div>
       </div>
     </div>
   </header>
-
   <div class="app-shell">
     <aside id="admin-sidebar" class="sidebar" aria-label="เมนู Admin ERP1">
       <nav id="primary-navigation" aria-label="พื้นที่งานหลัก">
