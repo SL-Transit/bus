@@ -91,7 +91,9 @@ test("new Frequency template is explicit and does not pretend to come from Excel
   const entry = Editor.newRecord("frequencyServices");
   assert.equal(entry.isNew, true);
   assert.equal(entry.value.frequencyServiceId, "");
-  assert.equal(entry.value.headwaySeconds, 600);
+  assert.equal(entry.value.startTime, "");
+  assert.equal(entry.value.endTime, "");
+  assert.equal(entry.value.headwaySeconds, null);
   assert.equal(entry.value.boardingModel, "queue");
   assert.equal(entry.value.exactTimes, false);
 });
