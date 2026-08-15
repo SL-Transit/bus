@@ -1,0 +1,90 @@
+name: ERP sandbox Firebase Hosting preview
+
+on:
+  pull_request:
+    types: [labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: erp-sandbox-hosting-preview-pr-155
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    name: Deploy owner-approved PR 155 preview
+    if: >-
+      github.event.pull_request.number == 155 &&
+      github.event.label.name == 'erp-sandbox-preview-approved' &&
+      github.event.pull_request.head.ref == 'codex/erp-experimental-sandbox' &&
+      github.event.pull_request.head.repo.full_name == 'SL-Transit/bus'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v4
+
+      - name: Authenticate without a service-account key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: sl-transit-erp-sandbox
+          workload_identity_provider: projects/1000599808158/locations/global/workloadIdentityPools/github-actions/providers/sl-transit-bus
+          service_account: github-hosting-preview@sl-transit-erp-sandbox.iam.gserviceaccount.com
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify sandbox isolation
+        working-directory: experimental/erp-sandbox
+        run: npm test
+
+      - name: Install pinned Firebase CLI
+        run: npm install --global firebase-tools@15.18.0
+
+      - name: Stage the static allowlist only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/firebase/site
+          while IFS= read -r source || [ -n "$source" ]; do
+            test -n "$source"
+            case "$source" in
+              experimental/erp-sandbox/*) ;;
+              *) echo "Blocked non-sandbox source: $source" >&2; exit 1 ;;
+            esac
+            target=".github/firebase/site/${source#experimental/erp-sandbox/}"
+            mkdir -p "$(dirname "$target")"
+            cp "$source" "$target"
+          done < experimental/erp-sandbox/hosting-preview-files.txt
+          cp experimental/erp-sandbox/admin-erp1.html .github/firebase/site/index.html
+          staged_count="$(find .github/firebase/site -type f | wc -l)"
+          echo "Staged file count: $staged_count"
+          test "$staged_count" -eq 16
+          ! find .github/firebase/site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' \) -print -quit | grep -q .
+          find .github/firebase/site -type f -print | sort
+
+      - name: Deploy expiring Firebase Hosting preview channel
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          firebase hosting:channel:deploy pr-155 \
+            --project sl-transit-erp-sandbox \
+            --config .github/firebase/erp-sandbox-preview.json \
+            --expires 7d \
+            --non-interactive | tee /tmp/firebase-preview.log
+          preview_url="$(grep -Eo 'https://[^[:space:]]+\.web\.app' /tmp/firebase-preview.log | tail -n 1)"
+          test -n "$preview_url"
+          echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### ERP Sandbox Preview"
+            echo
+            echo "$preview_url"
+            echo
+            echo "Channel: pr-155 ? expires in 7 days ? no Live deploy"
+          } >> "$GITHUB_STEP_SUMMARY"

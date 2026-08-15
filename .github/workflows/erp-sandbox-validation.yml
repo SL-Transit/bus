@@ -1,0 +1,28 @@
+name: ERP sandbox isolation validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - experimental/erp-sandbox/**
+      - .github/workflows/erp-sandbox-validation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: experimental/erp-sandbox
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify copied project and isolation guards
+        run: npm test

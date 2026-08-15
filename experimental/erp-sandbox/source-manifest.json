@@ -1,0 +1,26 @@
+{
+  "sourceRepository": "SL-Transit/bus",
+  "sourceCommit": "7f4c80f6bff0199395de0c2691ddd69ff2143a22",
+  "copiedAt": "2026-08-13",
+  "mode": "emulator-only",
+  "copiedAreas": [
+    "admin-erp1 safe-mode",
+    "greenfield-erp phases 2, 4, 5, 6a",
+    "contracts/greenfield-erp/v1",
+    "docs/greenfield-erp",
+    "greenfield and Admin integration tests",
+    "Excel 3.3.5 browser adapter and mappings"
+  ],
+  "excludedAreas": [
+    "new erp data.xlsx",
+    "legacy production Admin integrations",
+    "root Firebase configs",
+    "deployment workflows",
+    "Production credentials and data"
+  ],
+  "validationOverrides": [
+    "Group 001 must use frequency/headway data",
+    "multiple service groups require at least one transfer rule",
+    "Excel remains validate-only and is never committed"
+  ]
+}
