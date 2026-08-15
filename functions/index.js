@@ -3,6 +3,7 @@ const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-fun
 const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
+const bookingTimeAuthority = require("./booking-time-authority.js");
 
 const ERP_DATA_CENTER_DATABASE_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
 const EMULATOR_DATABASE_URL = "http://127.0.0.1:9000?ns=sl-transit-9464e-default-rtdb";
@@ -338,15 +339,16 @@ function findCanonicalWorkbookPair(source, booking) {
     return String(row.status == null ? "" : row.status).toLowerCase() !== "false";
   });
   if (!fare) return null;
-  const wantedTripIds = [booking.tripId, booking.catalogTripId].filter(Boolean).map(String);
-  const trip = scheduleRows.find((row) => {
+  const wantedTripIds = [booking.tripId, booking.catalogTripId, booking.scheduleOfferId].filter(Boolean).map(String);
+  const tripCandidates = scheduleRows.filter((row) => {
     if (!row || String(row.routeId || "") !== String(fare.routeId || "")) return false;
-    if (wantedTripIds.length && !wantedTripIds.includes(String(row.scheduleOfferId || ""))) return false;
-    if (booking.pickupTime && String(row.departureTime || "") !== String(booking.pickupTime)) return false;
     if (String(row.originNameTh || "") !== String(fare.fromNameTh || "")) return false;
     if (String(row.destinationNameTh || "") !== String(fare.toNameTh || "")) return false;
     return row.bookingEnabled !== false && String(row.bookingEnabled || "").toLowerCase() !== "false";
   });
+  const trip = wantedTripIds.length
+    ? tripCandidates.find((row) => wantedTripIds.includes(String(row.scheduleOfferId || "")))
+    : tripCandidates.find((row) => String(row.departureTime || "") === String(booking.pickupTime || booking.time || ""));
   if (!trip) return null;
   const fareAmount = Number(fare.amount);
   if (!Number.isFinite(fareAmount) || fareAmount < 0) return null;
@@ -361,6 +363,7 @@ function findCanonicalWorkbookPair(source, booking) {
     fareContract: { status: "ready", fareAmount, serviceFeeAmount: 0, paymentOwnership: "sl_transit" },
     scheduleOfferId: String(trip.scheduleOfferId || ""),
     scheduleRowId: String(trip.sourceRowId || ""),
+    departureTime: String(trip.departureTime || ""),
     capacity: Number(trip.capacity) || DEFAULT_PUBLISHED_TRIP_CAPACITY
   };
 }
@@ -566,6 +569,10 @@ exports.createBooking = onRequest({
       return;
     }
     const source = await readCanonicalWorkbookSource();
+    if (![input.tripId, input.catalogTripId, input.scheduleOfferId].some((value) => String(value || "").trim())) {
+      sendJson(res, 409, { status: "error", error: "canonical_trip_identity_required" });
+      return;
+    }
     let pair = canonicalWorkbookReady(source) ? findCanonicalWorkbookPair(source, input) : null;
     if (!pair && process.env.FUNCTIONS_EMULATOR === "true") {
       const emulatorSchedule = (await admin.database().ref("publishedSchedule").get()).val() || {};
@@ -586,15 +593,24 @@ exports.createBooking = onRequest({
       sendJson(res, 409, { status: "error", error: "authoritative_price_mismatch" });
       return;
     }
+    const authoritativeTime = bookingTimeAuthority.resolveBookingTime(input, pair);
+    if (!authoritativeTime.ok) {
+      sendJson(res, 409, { status: "error", error: authoritativeTime.error });
+      return;
+    }
     const paymentMode = input.paymentMode === "onsite" ? "onsite" : "transfer";
     const paymentStatus = paymentMode === "onsite" ? "pay_on_site" : (input.slipUploaded === true ? "slip_uploaded" : "awaiting_payment");
     const booking = {
       code, bookingCode: code, ownerUid: decoded.uid, source: "booking1.html", sourceMode: "erp_data_center",
       name: cleanBookingText(input.name, 120), phone, pax, seats: pax, date, serviceDate: date,
-      time: cleanBookingText(input.time || input.pickupTime, 20), pickupTime: cleanBookingText(input.pickupTime || input.time, 20),
+      time: authoritativeTime.time, pickupTime: authoritativeTime.time, departTime: authoritativeTime.time,
+      canonicalDepartureTime: authoritativeTime.time,
       origin: cleanBookingText(input.origin, 120), destination: cleanBookingText(input.destination, 120),
       originKey: cleanBookingText(input.originKey, 120), destKey: cleanBookingText(input.destKey, 120),
       pairKey: cleanBookingText(input.pairKey, 160), pairId: cleanBookingText(input.pairId, 160), canonicalPairKey: cleanBookingText(input.canonicalPairKey, 160),
+      routeId: cleanBookingText(pair.routeId, 160),
+      tripId: cleanBookingText(pair.scheduleOfferId, 160), catalogTripId: cleanBookingText(pair.scheduleOfferId, 160),
+      scheduleOfferId: cleanBookingText(pair.scheduleOfferId, 160), scheduleRowId: cleanBookingText(pair.scheduleRowId, 160),
       fare: expectedTotal, price: expectedTotal, fareAmount: serverFare, fareContract: pair.fareContract || null,
       paymentMode, paymentStatus, slipUploaded: paymentStatus === "slip_uploaded", paymentOwnership: "sl_transit",
       externalPaymentRequired: false, testMode: systemTestMode.enabled === true, mockPayment: systemTestMode.enabled === true, mockOnly: systemTestMode.enabled === true, status: "awaiting_payment",

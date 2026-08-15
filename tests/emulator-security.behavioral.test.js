@@ -83,7 +83,7 @@ test.before(async (t) => {
   await adminSdk.database().ref('publishedSchedule').set({
     readyForApply: false,
     schemaVersion: 'emulator-test',
-    pairs: { 'pair-test': { pairKey: 'pair-test', fareAmount: 100, fareContract: { serviceFeeAmount: 10 } } }
+    pairs: { 'pair-test': { pairKey: 'pair-test', fareAmount: 100, fareContract: { serviceFeeAmount: 10 }, scheduleOfferId: 'trip-test-1130', departureTime: '11:30', routeId: 'route-test' } }
   });
   await adminSdk.database().ref(`bookings/${testCodes[0]}`).set({
     ownerUid: owner.localId, name: 'TEST_ONLY', phone: '0800000000', pax: 1, seats: 1,
@@ -177,7 +177,8 @@ test('เซิร์ฟเวอร์ไม่รับสถานะชำ�
   testCodes.push(code);
   const payload = { booking: {
     code, bookingCode: code, name: 'TEST_ONLY', phone: '0800000000', pax: 1, date: '2099-01-01',
-    pairKey: 'pair-test', fareAmount: 100, price: 110, fare: 110, paymentMode: 'onsite',
+    pairKey: 'pair-test', tripId: 'trip-test-1130', time: '11:30', pickupTime: '11:30',
+    fareAmount: 100, price: 110, fare: 110, paymentMode: 'onsite',
     status: 'confirmed', paymentStatus: 'paid'
   } };
   const first = await functionRequest('createBooking', payload, owner.idToken);

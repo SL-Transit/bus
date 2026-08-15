@@ -63,7 +63,7 @@ function legSchedule(booking) {
   const schedule = booking.legSchedule || {};
   return {
     leg1: clean(schedule.leg1 || booking.leg1Route),
-    leg1Time: clean(schedule.leg1Time || booking.leg1Time || booking.time || booking.pickupTime || booking.departTime),
+    leg1Time: clean(booking.canonicalDepartureTime || booking.pickupTime || schedule.leg1Time || booking.leg1Time || booking.time || booking.departTime),
     leg2: clean(schedule.leg2 || booking.leg2Route),
     leg2Time: clean(schedule.leg2Time || booking.leg2Time)
   };
@@ -80,7 +80,7 @@ function timeTextForRole(role, booking) {
   const legs = legSchedule(booking);
   if ((role === "driver" || role === "queue") && legs.leg1Time) return legs.leg1Time;
   if (role === "transfer_terminal" && legs.leg2Time) return legs.leg2Time;
-  return clean(booking && (booking.time || booking.pickupTime || booking.departTime));
+  return clean(booking && (booking.canonicalDepartureTime || booking.pickupTime || booking.time || booking.departTime));
 }
 
 function slipText(booking) {

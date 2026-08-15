@@ -36,8 +36,8 @@ window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID || '2010733143-x
 <script src="erp-calculator-center.js?v=20260715a"></script>
 <script src="passenger-identity-center.js?v=20260716a"></script>
 <script src="erp-workbook-booking-source.js?v=20260812a&encoding=20260812a"></script>
-<script src="booking-bridge.js?v=20260812a"></script>
-<script src="booking1-preview-adapter.js?v=20260812a" defer></script>
+<script src="booking-bridge.js?v=20260815a"></script>
+<script src="booking1-preview-adapter.js?v=20260815a" defer></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -3222,6 +3222,11 @@ function _hideUpdateOverlay() { var e = document.getElementById('_updateOverlay'
 /* ──────────────────────────────────────────────────────
    showTicketPage(booking) — populate ทุก ID ให้ตรงกับ repo
 ────────────────────────────────────────────────────── */
+function bookingTicketTime(booking) {
+  booking = booking || {};
+  return booking.canonicalDepartureTime || booking.pickupTime || booking.time || booking.departTime || state.tripTime || '-';
+}
+
 function showTicketPage(booking) {
   if (!booking) return;
   window.__booking1TicketSnapshot = booking;
@@ -3229,7 +3234,9 @@ function showTicketPage(booking) {
   state.bookingCode  = booking.code  || state.bookingCode;
   state.name         = booking.name  || state.name;
   state.phone        = booking.phone || state.phone;
-  state.tripLabel    = booking.time  ? booking.time + ' น.' : state.tripLabel;
+  var ticketTime     = bookingTicketTime(booking);
+  state.tripTime     = ticketTime;
+  state.tripLabel    = ticketTime !== '-' ? ticketTime + ' น.' : state.tripLabel;
   state.pax          = booking.seats || state.pax;
   state.isLeg2Dest   = booking.isLeg2 || false;
   state.transferInfo = booking.transferInfo || booking.transfer || null;
@@ -3243,7 +3250,7 @@ function showTicketPage(booking) {
   set('t-phone',       booking.phone);
   set('t-route',       booking.route || (state.originName + ' - ' + state.destName));
   set('t-origin',      booking.origin || state.originName);
-  set('t-trip-time',   booking.time || state.tripTime);
+  set('t-trip-time',   ticketTime);
   set('t-date',        booking.date || _serviceDateISO());
   set('t-pax',         (booking.seats||1) + ' คน');
   /* ticket lines leg1/leg2 */
@@ -3252,7 +3259,7 @@ function showTicketPage(booking) {
   if (ls.leg2) { set('ticketLeg2', ls.leg2); if (leg2Wrap) leg2Wrap.style.display = 'flex'; }
   else if (leg2Wrap) { leg2Wrap.style.display = 'none'; }
   /* time grid */
-  set('ticketMainTime', (booking.time || state.tripTime) + ' น.');
+  set('ticketMainTime', ticketTime + ' น.');
   var tl2W = document.getElementById('ticketLeg2TimeWrap');
   if (ls.leg2Time) { set('ticketLeg2Time', ls.leg2Time + ' น.'); if (tl2W) tl2W.style.display = 'block'; }
   else if (tl2W) { tl2W.style.display = 'none'; }
@@ -3588,7 +3595,7 @@ function downloadTicketImage() {
     ctx.fillStyle = '#0B1D3A'; ctx.font = '700 36px monospace';
     ctx.fillText(val + (val !== '-' ? ' น.' : ''), x + w/2, y + 78);
   };
-  drawTimeCard(120, cardW, 'เวลาออกเดินทาง', booking.time || '-');
+  drawTimeCard(120, cardW, 'เวลาออกเดินทาง', bookingTicketTime(booking));
   if (hasLeg2) drawTimeCard(465, 315, 'เวลาต่อรถ', legSchedule.leg2Time || '-');
   ctx.textAlign = 'left';
   y += cardH + 28;

@@ -58,7 +58,7 @@ export function bookOnce(data) {
     if (__VU === 1) console.log(`reserve_status=${reserve.status} reserve_body=${reserve.body}`);
     return;
   }
-  const booking = { code, bookingCode: code, name: 'TEST_ONLY', phone: '0800000000', pax: 1, date: '2099-01-01', time: '11:30', pickupTime: '11:30', origin: 'TEST_ONLY', destination: 'TEST_ONLY', pairKey: 'pair-test', fareAmount: 100, price: 110, fare: 110, paymentMode: 'onsite', testMode: true, mockOnly: true };
+  const booking = { code, bookingCode: code, name: 'TEST_ONLY', phone: '0800000000', pax: 1, date: '2099-01-01', time: '11:30', pickupTime: '11:30', origin: 'TEST_ONLY', destination: 'TEST_ONLY', pairKey: 'pair-test', tripId: 'trip-test-1130', fareAmount: 100, price: 110, fare: 110, paymentMode: 'onsite', testMode: true, mockOnly: true };
   const create = http.post(`${functionsBase}/${projectId}/asia-southeast1/createBooking`, JSON.stringify({ booking }), params);
   const createOk = check(create, { 'สร้างการจองพร้อมกันสำเร็จ': (r) => r.status === 201 });
   errors.add(!createOk);
