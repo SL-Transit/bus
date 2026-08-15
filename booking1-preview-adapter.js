@@ -532,6 +532,8 @@
 
   function legacyBookingPayload(state, snapshot) {
     var selected = state.selectedTrip || {};
+    var selectedTime = selected.canonicalDepartureTime || selected.pickupTime || '';
+    if (!selectedTime || snapshot.pickupTime !== selectedTime) throw new Error('booking_time_contract_mismatch');
     var total = global.getBookingTotal ? global.getBookingTotal(state.pax) : null;
     if (!total || total.status !== 'ready') throw new Error('booking_total_not_ready');
     var legSchedule = buildLegSchedule(state);
@@ -549,9 +551,10 @@
       origin: state.originName || '',
       destination: state.destName || '',
       date: snapshot.serviceDate,
-      time: snapshot.pickupTime,
-      departTime: snapshot.pickupTime,
-      pickupTime: snapshot.pickupTime,
+      time: selectedTime,
+      departTime: selectedTime,
+      pickupTime: selectedTime,
+      canonicalDepartureTime: selectedTime,
       seats: snapshot.pax,
       pax: snapshot.pax,
       price: total.totalAmount,
@@ -884,8 +887,8 @@
         return;
       }
       state.selectedTrip = trip;
-      state.tripTime = time;
-      state.tripLabel = label;
+      state.tripTime = trip.canonicalDepartureTime || trip.pickupTime;
+      state.tripLabel = trip.label;
       state.tripFare = trip.fareAmount || 0;
       state.tripAssignment = trip.assignment || null;
       state.isLeg2Dest = trip.isLeg2 || false;
@@ -995,11 +998,16 @@
         liveTrackingAvailable: false
       };
       state.bookingCode = bookingCode();
+      var selectedTime = state.selectedTrip.canonicalDepartureTime || state.selectedTrip.pickupTime || '';
+      if (!selectedTime || state.tripTime !== selectedTime) {
+        alert('ข้อมูลเวลาเที่ยวไม่ตรงกัน กรุณาเลือกเที่ยวใหม่');
+        return false;
+      }
       var capacityContract = global.SLBookingBridge.buildBookingCapacityContract({
         serviceDate: serviceDateISO(),
         trip: state.selectedTrip,
         requestedSeats: state.pax || 1,
-        pickupTime: state.tripTime,
+        pickupTime: selectedTime,
         pairKey: state.selectedTrip.pairKey || '',
         tripKey: state.selectedTrip.tripId || state.selectedTrip.catalogTripId || '',
         routeKey: state.selectedTrip.routeId || state.selectedTrip.catalogRouteId || ''
@@ -1012,7 +1020,12 @@
         pax: state.pax || 1,
         originStopKey: state.originKey,
         destStopKey: state.destKey,
-        pickupTime: state.tripTime,
+        pickupTime: selectedTime,
+        canonicalDepartureTime: selectedTime,
+        tripId: state.selectedTrip.tripId || state.selectedTrip.scheduleOfferId || '',
+        scheduleOfferId: state.selectedTrip.scheduleOfferId || state.selectedTrip.tripId || '',
+        scheduleRowId: state.selectedTrip.scheduleRowId || '',
+        routeId: state.selectedTrip.routeId || '',
         serviceDate: serviceDateISO(),
         pairKey: state.selectedTrip.pairKey || '',
         pairId: state.selectedTrip.pairId || '',

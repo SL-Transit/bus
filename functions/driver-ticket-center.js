@@ -70,7 +70,7 @@ function buildDriverTicket(code, booking) {
     phone: clean(booking.phone),
     seats: booking.seats == null ? booking.pax || 1 : booking.seats,
     pax: booking.pax == null ? booking.seats || 1 : booking.pax,
-    time: clean(booking.time || booking.pickupTime || booking.departTime),
+    time: clean(booking.canonicalDepartureTime || booking.pickupTime || booking.time || booking.departTime),
     route: clean(booking.route),
     origin: clean(booking.origin),
     destination: clean(booking.destination),
@@ -150,7 +150,7 @@ function stopMatches(stop, label, groupStopsById) {
 }
 
 function findTripMatch(workByVehicle, booking, groupStops) {
-  const targetTime = timeText(booking && (booking.time || booking.pickupTime || booking.departTime));
+  const targetTime = timeText(booking && (booking.canonicalDepartureTime || booking.pickupTime || booking.time || booking.departTime));
   const origin = clean(booking && (booking.origin || booking.originName || booking.originStopKey));
   const destination = clean(booking && (booking.destination || booking.destName || booking.destStopKey));
   if (!workByVehicle || !targetTime || !origin || !destination) return null;

@@ -15,6 +15,10 @@ assert.match(bridge, /reserveBookingCapacity/, 'booking flow must still reserve 
 assert.match(bridge, /cloudfunctions\.net\/reserveBookingCapacity/, 'booking flow must call the backend reservation endpoint');
 assert.match(index, /exports\.createBooking\s*=\s*onRequest/, 'booking creation must be handled by the backend');
 assert.match(index, /authoritative_price_mismatch/, 'backend must reject client price tampering');
+assert.match(index, /bookingTimeAuthority\.resolveBookingTime\(input, pair\)/, 'backend must resolve departure time from the canonical trip');
+assert.match(index, /canonical_trip_identity_required/, 'backend must reject clients that omit the canonical trip identity');
+assert.match(index, /time: authoritativeTime\.time, pickupTime: authoritativeTime\.time/, 'backend must persist one canonical departure time');
+assert.match(bridge, /tripId: timeEntry\.tripId \|\| timeEntry\.scheduleOfferId/, 'browser must preserve the canonical trip identity');
 assert.match(index, /function bookingStopMatches/, 'backend must match booking stops by canonical stop keys');
 assert.match(index, /booking\.originKey \|\| booking\.originStopKey/, 'backend must use canonical origin identity when resolving a booking');
 assert.match(index, /booking\.destKey \|\| booking\.destinationStopKey/, 'backend must use canonical destination identity when resolving a booking');

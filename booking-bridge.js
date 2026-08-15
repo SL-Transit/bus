@@ -195,8 +195,13 @@
   }
 
   function _timeLabel(timeEntry) {
-    var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
+    var time = _canonicalDepartureTime(timeEntry);
     return time ? time + ' น.' : (timeEntry.label || timeEntry.displayTimeTh || 'เวลาอ้างอิง');
+  }
+
+  function _canonicalDepartureTime(timeEntry) {
+    timeEntry = timeEntry || {};
+    return timeEntry.departureTime || timeEntry.time || timeEntry.departTime || '';
   }
 
   function _serviceFeeAmount() {
@@ -276,7 +281,7 @@
     var capacityKey = [
       serviceDate,
       pairKey || routeKey || 'pair_unknown',
-      tripKey || pickupTime || 'time_unknown'
+      pickupTime || tripKey || 'time_unknown'
     ].map(firebaseSafeKey).join('__');
     var capacityLimit = getBookingTripCapacityLimit(trip);
     var requestedSeats = Math.max(1, Number(params.requestedSeats || params.pax || 1));
@@ -462,10 +467,15 @@
     var isReference = availabilityDecision.status === 'reference_only';
     var isExternal = availabilityDecision.status === 'external_reference';
     var fareMissing = fareContract.status === 'NEEDS_CONTRACT_FIELD';
-    var time = timeEntry.time || timeEntry.departTime || timeEntry.departureTime || '';
+    var time = _canonicalDepartureTime(timeEntry);
     return {
       pickupTime: time,
+      canonicalDepartureTime: time,
       label: _timeLabel(timeEntry),
+      tripId: timeEntry.tripId || timeEntry.scheduleOfferId || '',
+      scheduleOfferId: timeEntry.scheduleOfferId || timeEntry.tripId || '',
+      scheduleRowId: timeEntry.scheduleRowId || timeEntry.sourceRowId || '',
+      routeId: timeEntry.routeId || segment.routeId || pair.routeId || '',
       queueNo: '',
       vehicleId: '',
       routeStops: [],
@@ -630,6 +640,11 @@
       originStopKey: params.originStopKey,
       destStopKey: params.destStopKey,
       pickupTime: params.pickupTime,
+      canonicalDepartureTime: params.canonicalDepartureTime || params.pickupTime,
+      tripId: params.tripId || params.scheduleOfferId || '',
+      scheduleOfferId: params.scheduleOfferId || params.tripId || '',
+      scheduleRowId: params.scheduleRowId || '',
+      routeId: params.routeId || '',
       serviceDate: params.serviceDate,
       pairKey: params.pairKey || '',
       pairId: params.pairId || '',

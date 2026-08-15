@@ -101,7 +101,7 @@ assert(!bridge.includes('function _extractFare'), 'Booking1 bridge must not calc
 assert(!bridge.includes('function _pairIsExternal'), 'Booking1 bridge must not decide external/reference status locally');
 
 assert(booking1.includes('booking1-preview-adapter.js'), 'Booking1 must load the preview adapter');
-assert(booking1.includes('booking1-preview-adapter.js?v=20260812a'), 'Booking1 must bust cached preview adapter versions after canonical fare source fixes');
+assert(booking1.includes('booking1-preview-adapter.js?v=20260815a'), 'Booking1 must bust cached preview adapter versions after booking time authority fixes');
 assert(booking1.includes('var global = window;'), 'Booking1 inline scripts must use a browser-safe global alias');
 assert.deepStrictEqual(pageAncestors(booking1), { page1: [], page2: [], page3: [], page4: [] }, 'Booking1 pages must be sibling roots so page navigation cannot hide active pages inside inactive parents');
 assert(booking1.includes('function sanitizePhone'), 'Booking1 must define phone sanitizer for passenger form');
