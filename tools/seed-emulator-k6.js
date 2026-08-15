@@ -10,7 +10,7 @@ admin.database().ref('settings/systemTestMode').set({ enabled: false, mockOnly: 
   .then(() => admin.database().ref('publishedSchedule').set({
     readyForApply: false,
     schemaVersion: 'k6-emulator-test',
-  pairs: { 'pair-test': { pairKey: 'pair-test', fareAmount: 100, fareContract: { serviceFeeAmount: 10 }, routeName: 'TEST_ONLY' } }
+  pairs: { 'pair-test': { pairKey: 'pair-test', fareAmount: 100, fareContract: { serviceFeeAmount: 10 }, routeName: 'TEST_ONLY', scheduleOfferId: 'trip-test-1130', departureTime: '11:30', routeId: 'route-test' } }
   }))
   .then(() => admin.database().ref('operations/bookingCapacityByServiceDate/2099-01-01/pair-test').set({
     contractVersion: 'booking_capacity_v1', capacityLimit: 20, bookedSeats: 0, seatsAvailable: 20, bookings: {}
