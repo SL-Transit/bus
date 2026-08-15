@@ -2336,12 +2336,13 @@ var _erpCoreReady = (window.SLTransit && window.SLTransit.core && typeof window.
     })
   : Promise.resolve(false); /* erp-core.js ยังไม่ได้โหลด → ข้ามไปเลย ไม่รอ */
 
-/* Bridge init (publishedSchedule -> populate UI) */
+/* Bridge init: Booking1PreviewAdapter is the only component allowed to
+   populate trips.  Starting the legacy renderer here created a race where
+   the time displayed to the passenger and the selected trip object could
+   come from different render passes. */
 SLBookingBridge.init(_db).then(function() {
   _applySettings({ payment: SLBookingBridge.getPaymentContact && SLBookingBridge.getPaymentContact() });
-  _populateStopPicker();
   _updateDateDisplay();
-  renderTrips();
 });
 
 /* ---------- STATE ---------- */

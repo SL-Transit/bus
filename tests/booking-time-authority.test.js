@@ -45,6 +45,7 @@ assert.strictEqual(
 const bridge = fs.readFileSync('booking-bridge.js', 'utf8');
 const adapter = fs.readFileSync('booking1-preview-adapter.js', 'utf8');
 const backend = fs.readFileSync('functions/index.js', 'utf8');
+const bookingPage = fs.readFileSync('booking1.html', 'utf8');
 assert(bridge.includes("tripId: timeEntry.tripId || timeEntry.scheduleOfferId"));
 assert(bridge.includes("scheduleRowId: timeEntry.scheduleRowId || timeEntry.sourceRowId"));
 assert(adapter.includes("state.tripTime = trip.canonicalDepartureTime || trip.pickupTime"));
@@ -52,5 +53,6 @@ assert(bridge.includes("pickupTime || tripKey || 'time_unknown'"), 'existing sea
 assert(backend.includes('bookingTimeAuthority.resolveBookingTime(input, pair)'));
 assert(backend.includes('canonical_trip_identity_required'));
 assert(backend.includes('time: authoritativeTime.time, pickupTime: authoritativeTime.time'));
+assert(!bookingPage.includes('  _populateStopPicker();\n  _updateDateDisplay();\n  renderTrips();'), 'legacy renderer must not race the ERP preview adapter');
 
 console.log('booking time authority behavioral contract ok');
