@@ -8,7 +8,8 @@
 2. `SYSTEM-DIRECTION.md`
 3. `WORK-BOARD.md`
 4. `DECISION-LOG.md`
-5. ตรวจ commit ล่าสุดของ `main` และไฟล์จริงที่จะทำงาน
+5. ถ้างานเกี่ยวกับ UI ของ Admin ERP1 ให้อ่าน `ADMIN-ERP1-UI-HANDOFF.md`
+6. ตรวจ commit ล่าสุดของ `main` และไฟล์จริงที่จะทำงาน
 
 เอกสารเก่าถูกนำออกจาก working tree เพื่อยุติคำสั่งที่ซ้ำหรือขัดกัน ประวัติเดิมยังตรวจสอบได้จาก Git history.
 
