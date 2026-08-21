@@ -1,0 +1,216 @@
+name: Admin ERP1 Firebase sandbox preview
+
+on:
+  pull_request:
+    types: [labeled]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: admin-erp1-firebase-preview-pr-169
+  cancel-in-progress: false
+
+jobs:
+  validate-package:
+    name: Validate and package PR 169 without Firebase access
+    if: >-
+      github.event.pull_request.number == 169 &&
+      github.event.label.name == 'erp-sandbox-preview-approved' &&
+      github.event.pull_request.head.ref == 'agent/admin-erp1-classic-greenfield-ui' &&
+      github.event.pull_request.head.repo.full_name == 'SL-Transit/bus'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout the exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify Admin ERP1 UI and safety contracts
+        run: >-
+          node --test
+          tests/admin-erp1-ui-contract.test.js
+          tests/admin-erp1-integration.test.js
+          tests/admin-erp1-live-entry.test.js
+          tests/admin-erp1-network-publish.test.js
+          tests/admin-erp1-excel-import-wiring.test.js
+
+      - name: Stage the exact Admin ERP1 static allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          output='preview-package/site'
+          test ! -e "$output"
+          mkdir -p "$output/assets/vendor" "$output/greenfield-erp/phase2"
+
+          sources=(
+            'admin-erp1.html'
+            'admin-erp-ui.css'
+            'admin-erp1-ui.js'
+            'admin-erp1-greenfield-state.js'
+            'admin-erp1-greenfield-api-client.js'
+            'admin-erp1-greenfield-system-mode.js'
+            'admin-erp1-greenfield-controller.js'
+            'admin-erp1-excel-3-3-x.js'
+            'assets/admin-erp1-greenfield.css'
+            'assets/vendor/XLSX-LICENSE.txt'
+            'assets/vendor/xlsx.full.min.js'
+            'greenfield-erp/phase2/excel-row-mapper.js'
+          )
+
+          for source in "${sources[@]}"; do
+            case "$source" in
+              admin-erp1.html|admin-erp-ui.css|admin-erp1-ui.js|admin-erp1-greenfield-state.js|admin-erp1-greenfield-api-client.js|admin-erp1-greenfield-system-mode.js|admin-erp1-greenfield-controller.js|admin-erp1-excel-3-3-x.js|assets/admin-erp1-greenfield.css|assets/vendor/XLSX-LICENSE.txt|assets/vendor/xlsx.full.min.js|greenfield-erp/phase2/excel-row-mapper.js) ;;
+              *) echo "Blocked source outside the Admin ERP1 allowlist: $source" >&2; exit 1 ;;
+            esac
+            test -f "$source"
+            target="$output/$source"
+            mkdir -p "$(dirname "$target")"
+            cp "$source" "$target"
+          done
+
+          cp admin-erp1.html "$output/index.html"
+          cmp admin-erp1.html "$output/index.html"
+          test "$(find "$output" -type f | wc -l)" -eq 13
+          ! find "$output" -type l -print -quit | grep -q .
+          ! find "$output" -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' -o -iname 'firebase.json' -o -iname '*rules*' \) -print -quit | grep -q .
+          (
+            cd preview-package
+            find site -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          )
+          test "$(wc -l < preview-package/SHA256SUMS)" -eq 13
+          find preview-package -type f -print | sort
+
+      - name: Upload the bounded one-day deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-erp1-firebase-preview-${{ github.event.pull_request.head.sha }}
+          path: preview-package/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 6
+
+  deploy-preview:
+    name: Deploy Hosting-only channel after package validation
+    needs: validate-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      id-token: write
+
+    steps:
+      - name: Download the validated package without checking out PR code
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-erp1-firebase-preview-${{ github.event.pull_request.head.sha }}
+          path: firebase-deploy/package
+
+      - name: Re-verify the package without executing its code
+        shell: bash
+        working-directory: firebase-deploy
+        run: |
+          set -euo pipefail
+          test "$(find package/site -type f | wc -l)" -eq 13
+          test "$(find package -type f | wc -l)" -eq 14
+          ! find package -type l -print -quit | grep -q .
+          cmp package/site/admin-erp1.html package/site/index.html
+          ! find package/site -type f \( -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.env' -o -iname '*service-account*' -o -iname 'firebase.json' -o -iname '*rules*' \) -print -quit | grep -q .
+          (
+            cd package
+            sha256sum --check SHA256SUMS
+          )
+          expected="$(printf '%s\n' \
+            'admin-erp-ui.css' \
+            'admin-erp1-excel-3-3-x.js' \
+            'admin-erp1-greenfield-api-client.js' \
+            'admin-erp1-greenfield-controller.js' \
+            'admin-erp1-greenfield-state.js' \
+            'admin-erp1-greenfield-system-mode.js' \
+            'admin-erp1-ui.js' \
+            'admin-erp1.html' \
+            'assets/admin-erp1-greenfield.css' \
+            'assets/vendor/XLSX-LICENSE.txt' \
+            'assets/vendor/xlsx.full.min.js' \
+            'greenfield-erp/phase2/excel-row-mapper.js' \
+            'index.html')"
+          actual="$(find package/site -type f -printf '%P\n' | sort)"
+          test "$actual" = "$expected"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install the pinned Firebase CLI
+        run: npm install --global firebase-tools@15.18.0 --no-audit --no-fund
+
+      - name: Create the Hosting-only sandbox config
+        shell: bash
+        working-directory: firebase-deploy
+        run: |
+          cat > firebase.json <<'JSON'
+          {
+            "hosting": {
+              "site": "sl-transit-erp-sandbox",
+              "public": "package/site",
+              "ignore": ["**/.*", "**/node_modules/**"],
+              "cleanUrls": false,
+              "trailingSlash": false,
+              "headers": [
+                {
+                  "source": "**",
+                  "headers": [
+                    {"key": "Cache-Control", "value": "no-store, max-age=0"},
+                    {"key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive"},
+                    {"key": "X-Frame-Options", "value": "DENY"},
+                    {"key": "X-Content-Type-Options", "value": "nosniff"},
+                    {"key": "Referrer-Policy", "value": "no-referrer"},
+                    {"key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()"}
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+
+      - name: Authenticate to the sandbox without a service-account key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: sl-transit-erp-sandbox
+          workload_identity_provider: projects/1000599808158/locations/global/workloadIdentityPools/github-actions/providers/sl-transit-bus
+          service_account: github-hosting-preview@sl-transit-erp-sandbox.iam.gserviceaccount.com
+
+      - name: Deploy an expiring Firebase Hosting preview channel
+        id: deploy
+        shell: bash
+        working-directory: firebase-deploy
+        run: |
+          set -euo pipefail
+          firebase hosting:channel:deploy admin-erp1-pr-169 \
+            --project sl-transit-erp-sandbox \
+            --config firebase.json \
+            --expires 7d \
+            --non-interactive | tee /tmp/firebase-admin-erp1-preview.log
+          preview_url="$(grep -Eo 'https://[^[:space:]]+\.web\.app' /tmp/firebase-admin-erp1-preview.log | tail -n 1)"
+          test -n "$preview_url"
+          echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Admin ERP1 - Firebase Sandbox Preview'
+            echo
+            echo "$preview_url"
+            echo
+            echo 'Channel: admin-erp1-pr-169 | expires in 7 days | no Live deploy'
+            echo
+            echo 'Scope: Hosting static files only; no RTDB, Rules, Functions, Publish, Merge, or Production write.'
+          } >> "$GITHUB_STEP_SUMMARY"
