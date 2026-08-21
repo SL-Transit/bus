@@ -4,7 +4,8 @@
   const State = root.SLTransitGreenfieldState;
   const Api = root.SLTransitGreenfieldApi;
   const Excel33x = root.SLTransitAdminErpExcel33x;
-  if (!State || !Api) return;
+  const DataEditor = root.SLTransitAdminErpDataEditor;
+  if (!State || !Api || !DataEditor) return;
 
   function createController(options) {
     const settings = options || {};
@@ -25,6 +26,9 @@
     let selectedFile = null;
     let workflowGeneration = 0;
     let renderedPage = null;
+    let selectedEntryId = null;
+    let newEntry = null;
+    let localExcelIssues = [];
 
     const byId = function (id) { return documentRef.getElementById(id); };
     const elements = {
@@ -57,7 +61,21 @@
       deleteEntity: byId("delete-draft-entity"),
       validateDraft: byId("validate-draft"),
       validationJobId: byId("validation-job-id"),
-      validationResult: byId("validation-result")
+      validationResult: byId("validation-result"),
+      validationErrorBody: byId("validation-error-body"),
+      excelErrorPanel: byId("excel-error-panel"),
+      excelErrorSummary: byId("excel-error-summary"),
+      excelErrorBody: byId("excel-error-body"),
+      recordSearch: byId("draft-record-search"),
+      recordBody: byId("draft-record-body"),
+      recordEmpty: byId("draft-record-empty"),
+      recordForm: byId("draft-record-form"),
+      detailTitle: byId("draft-detail-title"),
+      scheduleKind: byId("draft-schedule-kind"),
+      addEntity: byId("add-draft-entity"),
+      shiftPanel: byId("time-shift-panel"),
+      shiftMinutes: byId("shift-draft-minutes"),
+      shiftPage: byId("shift-draft-page")
     };
 
     function formatBytes(bytes) {
@@ -93,63 +111,152 @@
         : "ยังไม่ได้กำหนด Backend/Authentication และไม่มีการเขียน Production";
     }
 
+    function issueCell(row, value, className) {
+      const cell = documentRef.createElement("td");
+      if (className) cell.className = className;
+      cell.textContent = value == null || value === "" ? "—" : String(value);
+      row.appendChild(cell);
+    }
+
+    function renderExcelIssues() {
+      if (!elements.excelErrorPanel || !elements.excelErrorBody) return;
+      elements.excelErrorPanel.hidden = localExcelIssues.length === 0;
+      elements.excelErrorSummary.textContent = localExcelIssues.length ? localExcelIssues.length + " รายการ" : "";
+      elements.excelErrorBody.replaceChildren();
+      localExcelIssues.slice(0, 200).forEach(function (issue) {
+        const row = documentRef.createElement("tr");
+        issueCell(row, issue.sheetName);
+        issueCell(row, issue.sourceRowNumber || issue.rowNumber);
+        issueCell(row, issue.sourceColumn || issue.column);
+        issueCell(row, issue.message || issue.code, "issue-message");
+        elements.excelErrorBody.appendChild(row);
+      });
+    }
+
     function renderValidation() {
       if (elements.validationJobId) {
         elements.validationJobId.textContent = state.validationJob && state.validationJob.id || "—";
       }
-      if (!elements.validationResult) return;
       const report = state.validation;
       if (!report) {
         elements.validationResult.textContent = state.draft && state.draft.validationStatus === "required"
           ? "รอตรวจใหม่หลังการแก้ไข"
           : "ยังไม่มีผลตรวจรอบใหม่";
+        if (elements.validationErrorBody) elements.validationErrorBody.replaceChildren();
         return;
       }
       const errors = Array.isArray(report.errors) ? report.errors : [];
+      const warnings = Array.isArray(report.warnings) ? report.warnings : [];
       const errorCount = Number.isFinite(report.errorCount) ? report.errorCount : errors.length;
-      const warningCount = Number.isFinite(report.warningCount) ? report.warningCount :
-        (Array.isArray(report.warnings) ? report.warnings.length : 0);
-      const lines = ["ข้อผิดพลาด " + errorCount + " · คำเตือน " + warningCount];
-      errors.slice(0, 5).forEach(function (error) {
-        lines.push(String(error.code || "validation_error") + " @ " + String(error.path || "$"));
+      const warningCount = Number.isFinite(report.warningCount) ? report.warningCount : warnings.length;
+      elements.validationResult.textContent = "ข้อผิดพลาด " + errorCount + " · คำเตือน " + warningCount +
+        (report.truncated === true ? " · แสดงแบบจำกัด" : "");
+      if (!elements.validationErrorBody) return;
+      elements.validationErrorBody.replaceChildren();
+      errors.concat(warnings).slice(0, 200).forEach(function (issue) {
+        const row = documentRef.createElement("tr");
+        issueCell(row, issue.code || "validation_issue");
+        issueCell(row, issue.path || [issue.sheetName, issue.sourceRowNumber, issue.sourceColumn].filter(Boolean).join(" / "));
+        issueCell(row, issue.message || issue.code, "issue-message");
+        elements.validationErrorBody.appendChild(row);
       });
-      if (report.truncated === true || errorCount > errors.length) lines.push("แสดงผลแบบจำกัด โปรดใช้รายงาน Backend ฉบับเต็ม");
-      elements.validationResult.textContent = lines.join("\n");
     }
 
-    function fillEditorFromSelection() {
-      const page = state.draftPage;
-      const id = elements.entityList && elements.entityList.value;
-      const entry = page && page.entries && page.entries.find(function (item) { return item.entityId === id; });
+    function pageEntries() {
+      return state.draftPage && Array.isArray(state.draftPage.entries) ? state.draftPage.entries : [];
+    }
+
+    function entryForId(entityId) {
+      if (newEntry && entityId === "__new__") return newEntry;
+      return pageEntries().find(function (item) { return item.entityId === entityId; }) || null;
+    }
+
+    function renderDraftTable() {
+      const entries = DataEditor.renderRecordTable({
+        document: documentRef,
+        body: elements.recordBody,
+        entries: pageEntries(),
+        query: elements.recordSearch && elements.recordSearch.value,
+        selectedId: selectedEntryId,
+        entityType: elements.draftType.value,
+        onSelect: selectDraftEntry
+      });
+      if (elements.recordEmpty) {
+        elements.recordEmpty.hidden = entries.length > 0;
+        elements.recordEmpty.textContent = pageEntries().length
+          ? "ไม่พบรายการที่ตรงกับคำค้น"
+          : "ยังไม่มีข้อมูลชนิดนี้ใน Draft";
+      }
+    }
+
+    function updateScheduleTools() {
+      const entityType = elements.draftType.value;
+      const config = DataEditor.entityConfig(entityType);
+      const shiftable = ["fixedTrips", "stopTimes"].includes(entityType);
+      const view = State.deriveView(state);
+      const filterActive = Boolean(elements.recordSearch && elements.recordSearch.value.trim());
+      const minutes = Number(elements.shiftMinutes && elements.shiftMinutes.value);
+      const validShift = Number.isInteger(minutes) && minutes !== 0 && Math.abs(minutes) <= DataEditor.MAX_SHIFT_MINUTES;
+      if (elements.shiftPanel) elements.shiftPanel.hidden = !shiftable;
+      if (elements.addEntity) {
+        const canCreate = DataEditor.isCreatable(entityType);
+        elements.addEntity.disabled = !view.canSaveDraft || !canCreate;
+        elements.addEntity.title = canCreate ? "เพิ่มรายการใหม่ใน Draft" : "ชนิดข้อมูลนี้แก้ไขรายการเดิมได้ แต่ยังเพิ่มจากหน้านี้ไม่ได้";
+      }
+      if (elements.shiftPage) {
+        elements.shiftPage.disabled = !view.canSaveDraft || !shiftable || pageEntries().length === 0 || !validShift || filterActive;
+        elements.shiftPage.title = filterActive
+          ? "ล้างคำค้นก่อน เพื่อให้เห็นทุกรายการที่จะถูกเลื่อนเวลา"
+          : validShift ? "เลื่อนเวลาเฉพาะรายการที่โหลดในหน้านี้" : "กรอกจำนวนนาทีที่ไม่ใช่ศูนย์";
+      }
+      if (elements.scheduleKind) {
+        elements.scheduleKind.hidden = !config.schedule;
+        elements.scheduleKind.textContent = config.schedule === "frequency" ? "Frequency / Queue" :
+          config.schedule === "fixed" ? "Fixed schedule" : "";
+      }
+    }
+
+    function selectDraftEntry(entityId) {
+      const entry = entryForId(entityId);
       if (!entry) return;
-      elements.entityId.value = entry.entityId;
-      elements.entityJson.value = JSON.stringify(entry.value, null, 2);
-    }
-
-    function draftEntryLabel(entry) {
-      const value = entry && entry.value || {};
-      const label = value.nameTh || value.locationNameTh || value.destinationNameTh ||
-        value.shortName || value.routeId || value.locationId || "";
-      return label ? entry.entityId + " · " + label : entry.entityId;
+      selectedEntryId = entityId;
+      if (elements.entityList && entityId !== "__new__") elements.entityList.value = entityId;
+      elements.entityId.value = entry.entityId || "";
+      elements.entityJson.value = JSON.stringify(entry.value || {}, null, 2);
+      elements.detailTitle.textContent = entry.isNew ? "เพิ่มรายการใหม่" : DataEditor.recordName(entry);
+      DataEditor.renderForm({
+        document: documentRef,
+        container: elements.recordForm,
+        entityType: elements.draftType.value,
+        entry
+      });
+      updateScheduleTools();
+      renderDraftTable();
     }
 
     function renderDraftPage() {
       if (!elements.entityList || state.draftPage === renderedPage) return;
       renderedPage = state.draftPage;
+      selectedEntryId = null;
+      newEntry = null;
       elements.entityList.replaceChildren();
       elements.entityId.value = "";
       elements.entityJson.value = "";
-      const entries = state.draftPage && state.draftPage.entries || [];
+      elements.recordForm.replaceChildren();
+      const entries = pageEntries();
       entries.forEach(function (entry) {
         const option = documentRef.createElement("option");
         option.value = entry.entityId;
-        option.textContent = draftEntryLabel(entry);
+        option.textContent = entry.entityId;
         elements.entityList.appendChild(option);
       });
-      if (entries.length) {
-        elements.entityList.value = entries[0].entityId;
-        fillEditorFromSelection();
+      if (entries.length) selectDraftEntry(entries[0].entityId);
+      else {
+        elements.detailTitle.textContent = "เลือกรายการจากตาราง";
+        DataEditor.renderForm({ document: documentRef, container: elements.recordForm, entityType: elements.draftType.value, entry: null });
+        renderDraftTable();
       }
+      updateScheduleTools();
     }
 
     function render() {
@@ -166,6 +273,8 @@
       elements.saveEntity.disabled = !view.canSaveDraft;
       elements.deleteEntity.disabled = !view.canSaveDraft;
       elements.validateDraft.disabled = !view.canValidateDraft;
+      elements.addEntity.disabled = !view.canSaveDraft;
+      elements.shiftPage.disabled = !view.canSaveDraft || !["fixedTrips", "stopTimes"].includes(elements.draftType.value) || pageEntries().length === 0;
       elements.status.textContent = statusText();
       elements.errorCode.textContent = state.error ? state.error.code : "none";
       const activeJob = state.validationJob && state.validationJob.id || state.job && state.job.id;
@@ -181,7 +290,9 @@
         item.dataset.active = String(item.dataset.phase === state.phase || validationActive);
       });
       renderDraftPage();
+      updateScheduleTools();
       renderValidation();
+      renderExcelIssues();
     }
 
     async function checksumSha256(file) {
@@ -259,6 +370,8 @@
         });
         return;
       }
+      localExcelIssues = [];
+      renderExcelIssues();
       state = State.reduce(state, { type: "START_VALIDATION" });
       render();
       if (state.phase !== State.PHASES.VALIDATING) return;
@@ -272,6 +385,7 @@
           }
           if (elements.excelPrecheck) elements.excelPrecheck.textContent = "กำลังตรวจข้อมูลในไฟล์";
           const converted = await Excel33x.convertFileToCanonical(selectedFile, { operatorScope: scope });
+          localExcelIssues = [];
           uploadFile = converted.file;
           if (elements.excelVersion) elements.excelVersion.textContent = converted.version;
           if (elements.excelPrecheck) {
@@ -308,6 +422,18 @@
         }
       } catch (error) {
         if (elements.excelPrecheck && isExcel) elements.excelPrecheck.textContent = "ไม่ผ่าน กรุณาตรวจรายละเอียด";
+        if (isExcel) {
+          const details = Array.isArray(error && error.details) ? error.details : [];
+          localExcelIssues = details.length ? details.map(function (detail) {
+            return {
+              sheetName: detail.sheetName || detail.sheet || "—",
+              sourceRowNumber: detail.sourceRowNumber || detail.rowNumber || detail.row || "—",
+              sourceColumn: detail.sourceColumn || detail.column || "—",
+              message: detail.message || detail.code || error.message || "ตรวจไฟล์ไม่ผ่าน"
+            };
+          }) : [{ sheetName: "—", sourceRowNumber: "—", sourceColumn: "—", message: error.message || error.code || "ตรวจไฟล์ไม่ผ่าน" }];
+          renderExcelIssues();
+        }
         commandFailure(error);
       }
     }
@@ -330,15 +456,29 @@
       }
     }
 
-    async function saveDraftOperation(value) {
+    function editorErrorMessage(error) {
+      const messages = {
+        draft_entity_target_invalid: "กรุณาระบุ Stable ID",
+        service_time_invalid: "เวลาไม่ถูกต้อง ใช้รูปแบบ HH:MM:SS และรองรับถึง 47:59:59",
+        service_time_out_of_range: "เวลาใหม่อยู่นอกช่วง 00:00:00–47:59:59",
+        stop_time_order_invalid: "เวลาถึงต้องไม่ช้ากว่าเวลาออก",
+        frequency_window_invalid: "เวลาเริ่มบริการต้องมาก่อนเวลาสิ้นสุด",
+        frequency_headway_invalid: "ความถี่ต้องอยู่ระหว่าง 60–86,400 วินาที",
+        shift_minutes_invalid: "ปรับเวลาได้ครั้งละไม่เกิน 720 นาที",
+        structured_field_invalid: "ข้อมูลโครงสร้างไม่ถูกต้อง",
+        stops_editor_invalid: "ลำดับป้ายไม่ถูกต้อง โปรดใช้ ลำดับ | รหัสป้าย | ชื่อ"
+      };
+      return messages[error && error.code] || "ข้อมูลยังไม่ถูกต้อง กรุณาตรวจช่องที่แก้ไข";
+    }
+
+    async function saveDraftOperations(operations) {
       if (!state.draft) return dispatch({ type: "COMMAND_FAILED", code: "draft_required" });
-      const entityId = elements.entityId.value.trim();
       const changeSummary = elements.changeSummary.value.trim();
-      if (!entityId || changeSummary.length < 3) {
+      if (!Array.isArray(operations) || operations.length < 1 || changeSummary.length < 3) {
         return dispatch({
           type: "COMMAND_FAILED",
-          code: !entityId ? "draft_entity_target_invalid" : "change_summary_invalid",
-          message: "กรุณาระบุ Stable ID และเหตุผลการแก้ไขอย่างน้อย 3 ตัวอักษร"
+          code: !operations || operations.length < 1 ? "draft_operations_invalid" : "change_summary_invalid",
+          message: operations && operations.length ? "กรุณาระบุเหตุผลการแก้ไขอย่างน้อย 3 ตัวอักษร" : "ไม่พบรายการที่จะบันทึก"
         });
       }
       dispatch({ type: "COMMAND_STARTED" });
@@ -348,26 +488,70 @@
           expectedRevision: state.draft.revision,
           operatorScope: operatorScope(),
           changeSummary,
-          operations: [{ entityType: elements.draftType.value, entityId, value }]
+          operations
         });
         elements.changeSummary.value = "";
+        selectedEntryId = null;
+        newEntry = null;
+        renderedPage = null;
         dispatch({ type: "DRAFT_SAVED", revision: result.revision });
+        await loadDraftPage(null);
       } catch (error) {
         commandFailure(error);
       }
     }
 
     async function saveDraftEntity() {
-      let value;
+      const entry = entryForId(selectedEntryId);
+      if (!entry) return dispatch({ type: "COMMAND_FAILED", code: "draft_entity_target_invalid", message: "กรุณาเลือกรายการหรือกดเพิ่มรายการ" });
       try {
-        value = JSON.parse(elements.entityJson.value);
-      } catch (_error) {
-        return dispatch({ type: "COMMAND_FAILED", code: "draft_json_invalid", message: "JSON ไม่ถูกต้อง กรุณาตรวจวงเล็บและเครื่องหมายคำพูด" });
+        const value = DataEditor.readForm(elements.recordForm, entry.value);
+        DataEditor.validateRecord(elements.draftType.value, value);
+        const idField = DataEditor.entityConfig(elements.draftType.value).idField;
+        const entityId = String(value[idField] || "").trim();
+        elements.entityId.value = entityId;
+        elements.entityJson.value = JSON.stringify(value, null, 2);
+        return saveDraftOperations([{ entityType: elements.draftType.value, entityId, value }]);
+      } catch (error) {
+        return dispatch({ type: "COMMAND_FAILED", code: error.code || "draft_form_invalid", message: editorErrorMessage(error) });
       }
-      if (!value || typeof value !== "object" || Array.isArray(value)) {
-        return dispatch({ type: "COMMAND_FAILED", code: "draft_entity_value_invalid", message: "ข้อมูลรายการต้องเป็น JSON object" });
+    }
+
+    function beginNewDraftEntity() {
+      try {
+        newEntry = DataEditor.newRecord(elements.draftType.value);
+        selectedEntryId = "__new__";
+        selectDraftEntry(selectedEntryId);
+      } catch (error) {
+        dispatch({ type: "COMMAND_FAILED", code: error.code || "draft_entity_type_invalid", message: "ข้อมูลชนิดนี้ยังไม่รองรับการเพิ่มรายการ" });
       }
-      return saveDraftOperation(value);
+    }
+
+    async function deleteDraftEntity() {
+      const entry = entryForId(selectedEntryId);
+      if (!entry || entry.isNew) return;
+      const confirmFn = settings.confirm || root.confirm;
+      if (typeof confirmFn === "function" && !confirmFn("ลบ " + entry.entityId + " ออกจาก Draft ใช่หรือไม่")) return;
+      return saveDraftOperations([{ entityType: elements.draftType.value, entityId: entry.entityId, value: null }]);
+    }
+
+    async function shiftLoadedTimes() {
+      const minutes = Number(elements.shiftMinutes.value);
+      try {
+        const operations = DataEditor.buildTimeShiftOperations(elements.draftType.value, pageEntries(), minutes);
+        const examples = operations.slice(0, 3).map(function (operation, index) {
+          return pageEntries()[index].entityId + ": " +
+            DataEditor.recordDetail(elements.draftType.value, pageEntries()[index].value) + " → " +
+            DataEditor.recordDetail(elements.draftType.value, operation.value);
+        });
+        const confirmFn = settings.confirm || root.confirm;
+        const message = "จะเลื่อนเวลา " + operations.length + " รายการในหน้าที่โหลด " +
+          (minutes >= 0 ? "+" : "") + minutes + " นาที\n\n" + examples.join("\n");
+        if (typeof confirmFn === "function" && !confirmFn(message)) return;
+        return saveDraftOperations(operations);
+      } catch (error) {
+        return dispatch({ type: "COMMAND_FAILED", code: error.code || "time_shift_failed", message: editorErrorMessage(error) });
+      }
     }
 
     async function validateDraft() {
@@ -435,6 +619,8 @@
     elements.file.addEventListener("change", function () {
       const file = elements.file.files && elements.file.files[0];
       selectedFile = file || null;
+      localExcelIssues = [];
+      renderExcelIssues();
       if (!file) return dispatch({ type: "RESET" });
       if (elements.excelVersion) elements.excelVersion.textContent = /\.xlsx$/i.test(file.name) ? "รอตรวจจากชีต 91 ช่อง C5" : "Canonical JSON";
       if (elements.excelPrecheck) elements.excelPrecheck.textContent = "ยังไม่ได้ตรวจ";
@@ -448,6 +634,7 @@
     elements.reset.addEventListener("click", function () {
       workflowGeneration += 1;
       selectedFile = null;
+      localExcelIssues = [];
       renderedPage = null;
       elements.file.value = "";
       elements.changeSummary.value = "";
@@ -462,13 +649,26 @@
     });
     elements.draftType.addEventListener("change", function () {
       renderedPage = null;
+      selectedEntryId = null;
+      newEntry = null;
       elements.entityList.replaceChildren();
       elements.entityId.value = "";
       elements.entityJson.value = "";
+      if (elements.recordSearch) elements.recordSearch.value = "";
+      DataEditor.renderForm({ document: documentRef, container: elements.recordForm, entityType: elements.draftType.value, entry: null });
+      renderDraftTable();
+      updateScheduleTools();
     });
-    elements.entityList.addEventListener("change", fillEditorFromSelection);
+    elements.entityList.addEventListener("change", function () { selectDraftEntry(elements.entityList.value); });
+    elements.recordSearch.addEventListener("input", function () {
+      renderDraftTable();
+      updateScheduleTools();
+    });
+    elements.shiftMinutes.addEventListener("input", updateScheduleTools);
+    elements.addEntity.addEventListener("click", beginNewDraftEntity);
+    elements.shiftPage.addEventListener("click", shiftLoadedTimes);
     elements.saveEntity.addEventListener("click", saveDraftEntity);
-    elements.deleteEntity.addEventListener("click", function () { saveDraftOperation(null); });
+    elements.deleteEntity.addEventListener("click", deleteDraftEntity);
     elements.validateDraft.addEventListener("click", validateDraft);
     elements.review.addEventListener("click", requestReview);
     elements.approve.addEventListener("click", function () { decideApproval("approve"); });
