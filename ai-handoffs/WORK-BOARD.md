@@ -50,6 +50,15 @@
 
 ### Active file locks
 
+- LINE In-App Browser guard silent-bypass fix + unification — Owner: Coordination Agent; Status: `REVIEW`; Branch: `agent/fix-line-inapp-browser-silent-bypass`
+  - Files/paths: `ai-handoffs/WORK-BOARD.md`, `site-runtime.js`, `booking1.html`, `booking-pos.js`, `index.html`, `passenger.html`, `check_ticket.html`, `cancel_ticket.html`, `info.html`, `tests/booking1-line-browser-guard.test.js`, `tests/site-runtime-line-browser-guard.test.js`
+  - Intended output: ผู้โดยสารรายงานว่าจองตั๋วผ่าน LINE In-App Browser ได้ทั้งที่ตั้งค่าบังคับเปลี่ยนเป็นเบราว์เซอร์หลักไว้แล้ว ("หลุด") สาเหตุคือ (1) `booking1.html` ตรวจจับ UA แบบ `Line/x.x.x` เท่านั้น พลาด LIFF webview ที่ booking1 ใช้จริง (2) ทั้ง `site-runtime.js` และ `booking1.html` มีจุดที่ hand-off ไปเบราว์เซอร์หลักล้มเหลวแบบเงียบ (Android `intent://` ที่ไม่สำเร็จ, หรือ `setTimeout` รีโหลดหน้าเดิมพร้อม `ext=1` ไม่ว่าจะ hand-off สำเร็จหรือไม่) ทำให้ guard ปิดตัวเองถาวรสำหรับ session นั้น แก้โดยตรวจสอบด้วย `visibilitychange`/`pagehide` ว่าออกจาก LINE ได้จริงก่อนถือว่าสำเร็จ และรวม guard ทั้ง 3 ชุด (site-runtime.js, booking1.html inline, booking-pos.js ที่เป็นโค้ดซ้ำแต่ยังไม่ได้ wire เข้าใช้งานจริง) ให้เหลือ implementation เดียวคือ `site-runtime.js` ทุกหน้าโหลดจากไฟล์เดียวกัน
+  - Tests: `tests/booking1-line-browser-guard.test.js` (แก้ใหม่ ยืนยันว่า booking1.html ไม่มี guard โค้ดของตัวเองเหลืออยู่เลยและโหลด shared script), `tests/site-runtime-line-browser-guard.test.js` (ใหม่ ยืนยันทุกหน้าโหลด shared script เดียวกัน และ booking-pos.js ไม่มีโค้ดซ้ำ); รันเทสต์ทั้งหมด (`tests/*.test.js`) แล้ว ไม่มี regression ใหม่ — เทสต์ที่ fail 7 ตัวเป็นของเดิมบน `main` (ต้องต่อ Firebase/เน็ตซึ่งไม่มีในสภาพแวดล้อมที่ตรวจ)
+  - Dependencies: ไม่มี (client-side UX/browser-detection code เท่านั้น ไม่แตะ business logic/ERP)
+  - Cost risk: ไม่มี — ไม่มีการเรียก Firebase เพิ่ม
+  - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
+  - Started/last update: 2026-08-22; commits `ab3e0b7` (silent-bypass fix), `4d3996b` (รวม guard เป็นตัวเดียว) push ขึ้น branch แล้ว รอเปิด PR + Owner review
+
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
