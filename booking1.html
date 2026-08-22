@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+<script src="site-runtime.js?v=20260822a" data-sl-runtime></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>S.L.Transit - จองตั๋วรถโดยสาร</title>
@@ -1038,32 +1039,22 @@ body {
   width: auto !important; margin: 0 !important;
 }
 
-/* ===== LINE BROWSER / BOOKING CLOSED OVERLAYS ===== */
-.line-browser-overlay,.booking-closed-overlay {
+/* ===== BOOKING CLOSED OVERLAY =====
+   (LINE In-App Browser guard removed from here — booking1.html now shares
+   the single site-wide guard in site-runtime.js, same as every other page.) */
+.booking-closed-overlay {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.82); z-index: 9998;
+  background: rgba(15,23,42,.72); z-index: 9997;
   align-items: center; justify-content: center; padding: 20px;
 }
-.line-browser-overlay.show,.booking-closed-overlay.show { display: flex; }
-.booking-closed-overlay { background: rgba(15,23,42,.72); z-index: 9997; }
-.line-browser-box,.booking-closed-box {
+.booking-closed-overlay.show { display: flex; }
+.booking-closed-box {
   background: #fff; border-radius: 20px;
   padding: 28px 22px; max-width: 360px; width: 100%; text-align: center;
 }
-.line-browser-icon,.booking-closed-icon { font-size: 48px; margin-bottom: 10px; }
-.line-browser-title { font-size: 17px; font-weight: 700; color: #dc2626; margin-bottom: 8px; }
+.booking-closed-icon { font-size: 48px; margin-bottom: 10px; }
 .booking-closed-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
-.line-browser-desc,.booking-closed-desc { font-size: 13px; color: var(--body-text); line-height: 1.75; margin-bottom: 14px; }
-.line-browser-steps {
-  background: var(--teal-bg); border-radius: 10px;
-  padding: 12px; text-align: left; font-size: 12px; color: var(--navy);
-  line-height: 1.9; margin-bottom: 16px;
-}
-.line-browser-btn {
-  width: 100%; padding: 13px; border-radius: 12px; border: none;
-  background: linear-gradient(135deg, var(--navy), var(--teal));
-  color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
-}
+.booking-closed-desc { font-size: 13px; color: var(--body-text); line-height: 1.75; margin-bottom: 14px; }
 
 .drawer-backdrop {
   position: fixed; inset: 0; background: rgba(15,23,42,.46);
@@ -1176,20 +1167,9 @@ body {
 </head>
 <body>
 
-<!-- LINE IN-APP BROWSER OVERLAY -->
-<div class="line-browser-overlay" id="lineBrowserOverlay">
-  <div class="line-browser-box">
-    <div class="line-browser-icon">⚠️</div>
-    <div class="line-browser-title">กรุณาเปิดผ่านเบราว์เซอร์หลัก</div>
-    <div class="line-browser-desc">ตรวจพบว่าเปิดผ่าน <strong>LINE In-App Browser</strong><br>ซึ่งอาจทำให้การสำรองที่นั่งทำงานไม่สมบูรณ์</div>
-    <div class="line-browser-steps">
-      <strong>วิธีเปิดเบราว์เซอร์หลัก:</strong><br>
-      📱 <strong>iPhone:</strong> กด "..." มุมขวาล่าง → เปิดใน Safari<br>
-      🤖 <strong>Android:</strong> กด "⋮" → เปิดใน Chrome
-    </div>
-    <button class="line-browser-btn" onclick="tryOpenExternal()">🌐 เปิดใน Browser หลัก</button>
-  </div>
-</div>
+<!-- LINE In-App Browser guard now lives entirely in site-runtime.js (shared
+     with every other page); it builds its own overlay, so no page-specific
+     markup is needed here anymore. -->
 
 <!-- BOOKING CLOSED OVERLAY -->
 <div class="booking-closed-overlay" id="bookingClosedOverlay">
@@ -2115,35 +2095,9 @@ body {
 <script>
 var global = window;
 
-/* LINE In-App Browser guard. Booking requires a top-level browser for the
-   Firebase/LIFF/payment flow; keep the old explicit hand-off behavior. */
-(function initLineBrowserGuard() {
-  function isLineInAppBrowser() {
-    return /Line\/([\d.]+)/i.test(navigator.userAgent || '');
-  }
-  function detectLineBrowser() {
-    if (!isLineInAppBrowser()) return;
-    if (window.location.search.indexOf('ext=1') !== -1) return;
-    var overlay = document.getElementById('lineBrowserOverlay');
-    if (overlay) overlay.classList.add('show');
-  }
-  function tryOpenExternal() {
-    var url = window.location.href;
-    if (url.indexOf('ext=1') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'ext=1';
-    var ua = navigator.userAgent || '';
-    if (/iPhone|iPad|iPod/i.test(ua)) {
-      window.location.href = 'googlechrome://' + url.replace(/^https?:\/\//, '');
-      setTimeout(function () { window.location.href = url; }, 1500);
-    } else {
-      window.location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-      setTimeout(function () { window.location.href = url; }, 1500);
-    }
-  }
-  global.isLineInAppBrowser = isLineInAppBrowser;
-  global.tryOpenExternal = tryOpenExternal;
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', detectLineBrowser);
-  else detectLineBrowser();
-}());
+/* LINE In-App Browser guard: handled entirely by the shared
+   site-runtime.js include in <head> now (same script every other page
+   uses) — no page-local copy here anymore. */
 /* ============================================================
    FIREBASE INIT + ERP BRIDGE
    ============================================================ */
