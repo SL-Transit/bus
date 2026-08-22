@@ -2119,7 +2119,8 @@ var global = window;
    Firebase/LIFF/payment flow; keep the old explicit hand-off behavior. */
 (function initLineBrowserGuard() {
   function isLineInAppBrowser() {
-    return /Line\/([\d.]+)/i.test(navigator.userAgent || '');
+    var ua = navigator.userAgent || '';
+    return /\bLine\//i.test(ua) || /\bLIFF/i.test(ua);
   }
   function detectLineBrowser() {
     if (!isLineInAppBrowser()) return;
@@ -2131,13 +2132,19 @@ var global = window;
     var url = window.location.href;
     if (url.indexOf('ext=1') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'ext=1';
     var ua = navigator.userAgent || '';
+    // NOTE: do not auto-reload the current (LINE) page with ext=1 after a
+    // timeout. That used to run unconditionally, so a failed hand-off
+    // silently disabled this guard for the rest of the session and let
+    // bookings go through inside LINE with no further warning. ext=1 must
+    // only ever appear in the URL that actually loads in the real external
+    // browser — never written back into the LINE webview itself.
     if (/iPhone|iPad|iPod/i.test(ua)) {
       window.location.href = 'googlechrome://' + url.replace(/^https?:\/\//, '');
-      setTimeout(function () { window.location.href = url; }, 1500);
     } else {
       window.location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-      setTimeout(function () { window.location.href = url; }, 1500);
     }
+    // If the hand-off silently fails, the overlay (already showing, with
+    // manual "..." menu instructions) simply stays up instead of vanishing.
   }
   global.isLineInAppBrowser = isLineInAppBrowser;
   global.tryOpenExternal = tryOpenExternal;
