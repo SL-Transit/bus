@@ -978,6 +978,27 @@ public class GpsService extends Service implements SensorEventListener {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_START : intent.getAction();
         if (ACTION_STOP.equals(action)) { stopTracking(); return START_NOT_STICKY; }
+
+        // ✅ FIX: ต้องเรียก startForeground() ทันทีที่นี่ก่อนงานหนักอื่นใดทั้งหมด
+        // Android บังคับว่าเมื่อ service ถูกเริ่มด้วย startForegroundService() (เช่นจาก
+        // BootReceiver ตอน ACTION_MY_PACKAGE_REPLACED — ยิงทุกครั้งที่ติดตั้งแอปทับ ไม่ใช่แค่รีบูต)
+        // ต้อง promote ตัวเองเป็น foreground service ภายในไม่กี่วินาที ไม่งั้นระบบจะโยน
+        // ForegroundServiceDidNotStartInTimeException แล้วแครชทันที — เดิมโค้ดเรียก initFirebase()
+        // และงานหนักอื่นๆ ก่อน ทำให้เกินเวลาได้ง่ายโดยเฉพาะทันทีหลังติดตั้ง (ART ยัง compile
+        // ไม่เสร็จ, เน็ตยังไม่นิ่ง) → บางเครื่อง/บาง OEM ค้างจนต้องรีบูตเครื่องถึงจะเคลียร์
+        if (!ACTION_STOP.equals(action)) {
+            Notification placeholder = buildNotification("กำลังเริ่มระบบ...");
+            try {
+                if (Build.VERSION.SDK_INT >= 29) {
+                    startForeground(1, placeholder, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                } else {
+                    startForeground(1, placeholder);
+                }
+            } catch (Exception e) {
+                try { startForeground(1, placeholder); } catch (Exception ignored) {}
+            }
+        }
+
         startTracking();
         return START_STICKY;
     }
@@ -987,6 +1008,18 @@ public class GpsService extends Service implements SensorEventListener {
             sendHeartbeat();
             return;
         }
+        try {
+            startTrackingInternal();
+        } catch (Exception e) {
+            // ✅ กัน exception ระหว่าง init ทำให้ service ตายเงียบๆ โดยไม่มี startForeground
+            // (ตอนนี้ startForeground ถูกเรียกไปแล้วที่ onStartCommand ก่อนหน้านี้ ปลอดภัยแล้ว
+            // แต่ยังกัน crash ทั้ง process ไว้อีกชั้น จะได้ไม่กระทบ watchdog/alarm อื่นๆ)
+            prefs.edit().putString(MainActivity.KEY_LAST_ERROR,
+                    "startTracking init error: " + e.getMessage()).apply();
+        }
+    }
+
+    private void startTrackingInternal() {
         initFirebase();
         // ✅ Force reconnect Firebase WebSocket ทุกครั้งที่เริ่ม tracking
         // ป้องกัน stale connection ที่ค้างอยู่หลังแอปถูก kill

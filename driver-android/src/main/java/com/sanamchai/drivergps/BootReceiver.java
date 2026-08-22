@@ -26,11 +26,17 @@ public class BootReceiver extends BroadcastReceiver {
 
         Intent service = new Intent(context, GpsService.class);
         service.setAction(GpsService.ACTION_START);
-        if (Build.VERSION.SDK_INT >= 26) {
-            context.startForegroundService(service);
-        } else {
-            context.startService(service);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) {
+                context.startForegroundService(service);
+            } else {
+                context.startService(service);
+            }
+            GpsService.scheduleHealthCheck(context);
+        } catch (Exception e) {
+            // ✅ กันไม่ให้ exception ตรงนี้ (เช่น ตอนติดตั้งแอปทับ ระบบยังไม่นิ่ง) ทำให้
+            // BroadcastReceiver ทั้งตัวแครช — AlarmManager watchdog (scheduleHealthCheck ที่อื่น)
+            // จะลองใหม่ให้เองในรอบถัดไปอยู่แล้ว ไม่ต้องทำอะไรเพิ่มตรงนี้
         }
-        GpsService.scheduleHealthCheck(context);
     }
 }
