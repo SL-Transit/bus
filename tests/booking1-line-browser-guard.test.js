@@ -1,26 +1,28 @@
 const assert = require('assert');
 const fs = require('fs');
-const source = fs.readFileSync(require('path').join(__dirname, '..', 'booking1.html'), 'utf8');
+const path = require('path');
+const source = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'utf8');
 
-assert(source.includes('function isLineInAppBrowser()'), 'Booking1 must detect LINE In-App Browser');
-assert(source.includes('lineBrowserOverlay'), 'Booking1 must show the browser hand-off overlay');
-assert(source.includes('function tryOpenExternal()'), 'Booking1 must offer external browser hand-off');
-assert(source.includes("package=com.android.chrome"), 'Android hand-off must target Chrome');
-assert(source.includes("googlechrome://"), 'iOS hand-off must target an external browser');
-assert(source.includes("ext=1"), 'external browser hand-off must avoid reopening the guard');
-assert(/\\bLIFF\\b/.test(source) || source.includes('/\\bLIFF/i'), 'Booking1 must also detect LIFF in-app browsers, not just Line/x.x UA strings');
-
-// Regression guard for the silent-bypass bug: tryOpenExternal must never
-// unconditionally reload the current (LINE) page with ext=1 after a timeout,
-// since a failed hand-off would then permanently disable the overlay for the
-// rest of the session and let a booking go through inside LINE unwarned.
-const tryOpenExternalBody = source.slice(
-  source.indexOf('function tryOpenExternal()'),
-  source.indexOf('global.isLineInAppBrowser')
+// booking1.html must use the single shared LINE In-App Browser guard (same
+// script every other page loads) instead of its own page-local copy. A
+// second, slightly-different implementation is exactly how this guard
+// previously went stale (missed LIFF UAs) and shipped a silent-bypass bug
+// that only got fixed in one copy, not the other.
+assert(
+  /<script src="site-runtime\.js\?v=[^"]+" data-sl-runtime><\/script>/.test(source),
+  'Booking1 must load the shared site-runtime.js guard as the first script in <head>'
 );
 assert(
-  !/setTimeout\(function \(\) \{ window\.location\.href = url; \}, 1500\);/.test(tryOpenExternalBody),
-  'tryOpenExternal must not blindly reload the LINE page with ext=1 on a timeout — that silently disables the guard on failed hand-off'
+  source.indexOf('<script') === source.indexOf('<script src="site-runtime.js'),
+  'The shared guard must be the first script in booking1.html <head>, same as every other page'
 );
 
-console.log('booking1 LINE browser guard ok');
+// Regression guards: none of the old page-local implementation should exist
+// anymore. If any of these come back, someone re-introduced a duplicate.
+assert(!source.includes('function isLineInAppBrowser()'), 'Booking1 must not reimplement its own LINE UA detector');
+assert(!source.includes('function tryOpenExternal()'), 'Booking1 must not reimplement its own browser hand-off');
+assert(!source.includes('initLineBrowserGuard'), 'Booking1 must not keep a page-local LINE guard IIFE');
+assert(!source.includes('id="lineBrowserOverlay"'), 'Booking1 must not keep page-local overlay markup — the shared script builds its own');
+assert(!source.includes('.line-browser-overlay'), 'Booking1 must not keep page-local overlay CSS — the shared script builds its own');
+
+console.log('booking1 LINE browser guard (shared) ok');

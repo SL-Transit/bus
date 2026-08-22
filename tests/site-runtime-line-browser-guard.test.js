@@ -28,4 +28,27 @@ assert(
 assert(source.includes('showExitOverlay'), 'site-runtime.js must define a manual exit overlay renderer');
 assert(source.includes('rel="external noopener"'), 'manual exit link must be marked to open externally');
 
-console.log('site-runtime.js LINE browser guard ok');
+// Every passenger-facing page must load the ONE shared guard — no page may
+// keep (or reintroduce) its own separate copy. This is the single script
+// tag, first thing in <head>, on every page below.
+var PAGES = [
+  'index.html', 'passenger.html', 'check_ticket.html', 'cancel_ticket.html',
+  'info.html', 'booking1.html'
+];
+PAGES.forEach(function (page) {
+  var pageSource = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
+  assert(
+    /<script src="site-runtime\.js\?v=[^"]+" data-sl-runtime><\/script>/.test(pageSource),
+    page + ' must load the shared site-runtime.js LINE browser guard'
+  );
+});
+
+// booking-pos.js used to carry a third, independent copy of this guard
+// (with the same detection gap and the same silent-bypass bug). It must not
+// come back — any page that eventually loads booking-pos.js is expected to
+// load the shared site-runtime.js guard itself instead.
+var bookingPosSource = fs.readFileSync(path.join(__dirname, '..', 'booking-pos.js'), 'utf8');
+assert(!bookingPosSource.includes('function tryOpenExternal()'), 'booking-pos.js must not reimplement its own browser hand-off');
+assert(!bookingPosSource.includes('_detectLineBrowser'), 'booking-pos.js must not reimplement its own LINE browser detector');
+
+console.log('site-runtime.js LINE browser guard ok (shared across all pages)');

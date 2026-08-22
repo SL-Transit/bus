@@ -670,34 +670,19 @@
   global.goCheckin  = goCheckin;
   global.newBooking = newBooking;
 
-  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+
+  /* -----------------------------------------------------------
      [9] LINE IN-APP BROWSER DETECTION
-  โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
-  function _detectLineBrowser() {
-    var ua = navigator.userAgent || '';
-    if (!/Line\//i.test(ua)) return;
-    if (window.location.search.indexOf('ext=1') !== -1) return;
-    var overlay = document.getElementById('lineBrowserOverlay');
-    if (overlay) overlay.classList.add('show');
-  }
+     Removed the page-local copy that used to live here -- it had the same
+     detection gap (missed LIFF UAs) and the same silent-bypass bug the old
+     booking1.html/site-runtime.js copies had. Whatever page ends up loading
+     booking-pos.js must include the single shared guard instead of
+     reimplementing this here:
+       <script src="site-runtime.js?v=20260822a" data-sl-runtime></script>
+     as the first script in <head>, same as every other page.
+  ----------------------------------------------------------- */
 
-  function tryOpenExternal() {
-    var url = window.location.href;
-    if (url.indexOf('ext=1') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'ext=1';
-    var ua = navigator.userAgent || '';
-    if (/iPhone|iPad|iPod/.test(ua)) {
-      window.location.href = 'googlechrome://' + url.replace(/^https?:\/\//, '');
-      setTimeout(function() { window.location.href = url; }, 1500);
-    } else {
-      var intent = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-      window.location.href = intent;
-      setTimeout(function() { window.location.href = url; }, 1500);
-    }
-  }
-
-  global.tryOpenExternal = tryOpenExternal;
-
-  /* โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+  /* -----------------------------------------------------------
      [10] INIT โ€” เน€เธฃเธตเธขเธเธเธฒเธ booking.html เธซเธฅเธฑเธ Firebase init
   โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€ */
   function init(db, storage, authPromise) {
@@ -706,7 +691,6 @@
     _authReady      = authPromise || Promise.resolve(null);
 
     _initSettingsSync(db);
-    _detectLineBrowser();
 
     console.log('[POS] booking-pos.js initialized');
   }
