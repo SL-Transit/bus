@@ -1418,11 +1418,22 @@ public class MainActivity extends Activity {
         }
         serviceAvailable = available;
         prefs.edit().putString(KEY_SERVICE_STATUS, available ? "available" : "unavailable").apply();
+
+        // ✅ FIX (privacy): เดิม "ไม่ให้บริการ" เปลี่ยนแค่ label แต่ GPS ยังส่งต่อเนื่องอยู่จริง
+        // ตอนนี้ผูกเข้ากับตัวสตาร์ท/หยุด service จริง — ไม่ให้บริการ = ไม่ส่งตำแหน่งจริง
+        // ตรงตามหลัก data minimization (ส่งตำแหน่งเฉพาะตอนให้บริการเท่านั้น)
+        if (available) {
+            requestPermissionsThenStart();
+        } else {
+            stopGpsService();
+        }
+
         String vehicleId = authorizedRuntimeVehicleId();
-        if (vehicleId == null) return;
-        // เขียนขึ้น runtime live vehicle เพื่อให้แผนที่ผู้โดยสารรู้ว่ารถนี้ไม่พร้อมรับ แม้ GPS ยังส่งอยู่
-        FirebaseDatabase.getInstance().getReference("operations/liveVehicles/" + vehicleId + "/serviceStatus")
-                .setValue(available ? "available" : "unavailable");
+        if (vehicleId != null) {
+            // เขียนสถานะไว้ให้แผนที่ผู้โดยสารรู้ทันที แม้ระหว่างที่ service กำลังปิดตัวลง
+            FirebaseDatabase.getInstance().getReference("operations/liveVehicles/" + vehicleId + "/serviceStatus")
+                    .setValue(available ? "available" : "unavailable");
+        }
         updateServiceStatusPill();
     }
 
