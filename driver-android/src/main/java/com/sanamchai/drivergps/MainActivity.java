@@ -397,6 +397,20 @@ public class MainActivity extends Activity {
         titleLp.setMargins(0, 0, 0, dp(20));
         root.addView(title, titleLp);
 
+        // ✅ Privacy notice ตาม PDPA — แจ้งให้คนขับทราบก่อน login ว่าเก็บ/ใช้ตำแหน่งอย่างไร
+        TextView privacyNotice = new TextView(this);
+        privacyNotice.setText("แอปนี้จะแชร์ตำแหน่งรถของท่านให้ผู้โดยสารเห็นแบบเรียลไทม์ "
+                + "เฉพาะช่วงที่ท่านตั้งสถานะ \"กำลังให้บริการ\" เท่านั้น "
+                + "เมื่อกดเปลี่ยนเป็น \"ไม่ให้บริการ\" ระบบจะหยุดส่งตำแหน่งทันที "
+                + "ข้อมูลตำแหน่งจะไม่แสดงชื่อหรือเบอร์โทรของท่านต่อผู้โดยสาร");
+        privacyNotice.setTextColor(COLOR_TEXT_MUTED);
+        privacyNotice.setTextSize(13);
+        privacyNotice.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams privacyLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        privacyLp.setMargins(0, 0, 0, dp(20));
+        root.addView(privacyNotice, privacyLp);
+
         EditText accountInput = new EditText(this);
         accountInput.setHint("รหัสคนขับหรืออีเมล");
         accountInput.setSingleLine(true);
