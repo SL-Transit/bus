@@ -74,3 +74,9 @@
 
 - Decision: เมื่อ Owner อนุมัติเป็นงานเฉพาะ อนุญาตให้ `admin-erp.html` แก้เฉพาะ `data/erpDataCenter/workbookSource/routeFareRows/{sourceRowId}/amount` โดยตรง เพื่อให้ใช้งานปรับราคาได้เหมือนเครื่องมือ Quick Edit
 - Consequence: ต้องเขียน `data/erpDataCenter/meta/audit` ก่อนเขียนราคา ใช้ Auth/Rules เดิม และห้ามเขียน path อื่นจากข้อยกเว้นนี้; การแก้ Production และการ deploy ยังต้องมี Owner approval แยก
+
+
+## D-016 — Owner-approved schedule round edit exception
+
+- Decision: เมื่อ Owner อนุมัติเป็นงานเฉพาะ อนุญาตให้ `admin-erp.html` แก้เฉพาะ `departureTime`, `serviceDays` และ `bookingEnabled` ของ `data/erpDataCenter/workbookSource/scheduleRows/{scheduleOfferId}` โดยตรง เพื่อให้จัดการชีต 4 รอบเวลาได้เหมือนชีตราคา
+- Consequence: ต้องเขียน `data/erpDataCenter/meta/audit` ก่อนเขียนค่ารอบเวลา ใช้ Auth/Rules เดิม และห้ามเขียนฟิลด์อื่นหรือ path อื่นจากข้อยกเว้นนี้; การแก้ Production และการ deploy ยังต้องขอ Owner approval แยก

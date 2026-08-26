@@ -100,3 +100,8 @@ Journey Engine ต้องค้นหาเที่ยวตรงก่อ�
 ## Owner-approved narrow fare-edit exception
 
 เมื่อ Owner อนุมัติแยกเป็นรายการเฉพาะ `admin-erp.html` อาจเขียนค่า `amount` ของ `data/erpDataCenter/workbookSource/routeFareRows/{sourceRowId}` โดยตรงได้ โดยต้องเขียน Audit Log ที่ `data/erpDataCenter/meta/audit` ก่อนทุกครั้งและใช้ Firebase Auth/Rules เดิม. ข้อยกเว้นนี้ไม่เปิดการเขียน Master Data, Published Read Model, schedule, booking, payment, GPS, account หรือ path อื่นใด และไม่เปลี่ยนหลักการที่ Consumer ต้องอ่าน Published Read Model.
+
+
+## Owner-approved narrow schedule edit exception
+
+เมื่อ Owner อนุมัติแยกเป็นรายการเฉพาะ `admin-erp.html` อาจเขียนค่าเวลาของ `data/erpDataCenter/workbookSource/scheduleRows/{scheduleOfferId}` โดยตรงได้ เพื่อให้แก้ชีต 4 รอบเวลาได้เหมือนเครื่องมือราคา โดยจำกัดฟิลด์ที่แก้เป็น `departureTime`, `serviceDays` และ `bookingEnabled` พร้อมเขียน Audit Log ที่ `data/erpDataCenter/meta/audit` ก่อนทุกครั้ง และใช้ Firebase Auth/Rules เดิม. ข้อยกเว้นนี้ไม่เปิดการเขียนข้อมูลระบุตัวตนเส้นทาง/เที่ยว ค่า capacity หมายเหตุ หรือ path อื่นใด และไม่เปลี่ยนหลักการที่ Consumer ต้องอ่าน Published Read Model.

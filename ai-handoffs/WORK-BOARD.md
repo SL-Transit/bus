@@ -113,6 +113,14 @@
   - Cost risk: ไม่เพิ่ม library; ไม่เพิ่ม path หรือการอ่านข้อมูลนอก fare; ไม่มี Production write ระหว่างพัฒนา
   - Firebase writes: none during implementation; Production writes require separate Owner approval
   - Started/last update: 2026-08-26
+- Admin ERP Sheet 4 รอบเวลา — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-schedule-rounds`
+  - Files/paths: `admin-erp.html`, `tests/admin-console-safety.test.js`, `tests/admin-erp-legacy-adapter-migration.test.js`, `ai-handoffs/SYSTEM-DIRECTION.md`, `ai-handoffs/DECISION-LOG.md`
+  - Intended output: เพิ่มชีต 4 รอบเวลาใน `admin-erp.html` เดิม แสดงข้อมูล `scheduleRows` ครบทุกคอลัมน์/ทุกแถว แก้เวลาออก วันวิ่ง และสถานะเปิดจองได้ พร้อมปุ่มบันทึกด้านขวาและ Audit Log ก่อนเขียนจริง
+  - Tests: Static checks, full existing Node test suite, browser UI verification; Emulator/Production write ใช้เฉพาะเมื่อมีการทดสอบที่ได้รับอนุมัติ
+  - Dependencies: existing Firebase Auth/RTDB, `data/erpDataCenter/workbookSource/scheduleRows`, `data/erpDataCenter/meta/audit`, Owner-approved direct fare write pattern
+  - Cost risk: ไม่เพิ่ม library; อ่าน/เขียนเฉพาะ schedule row ที่เลือกและ audit; ไม่แก้ Rules และไม่ deploy ระหว่างพัฒนา
+  - Firebase writes: none during implementation; Production writes require explicit Owner approval at test time
+  - Started/last update: 2026-08-26
 ### Workstream 3 closeout
 
 - Owner อนุมัติ Merge PR #150 เมื่อ 2026-08-11
@@ -271,7 +279,7 @@ COST_IMPACT: เพิ่ม Firebase Database compat SDK; ไม่มี libra
 KNOWN_RISKS: ต้องยืนยัน Emulator rule/owner authorization ก่อน merge และทดสอบหน้าใช้งานจริงหลังอนุมัติ
 NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอัตโนมัติ
 ```
-- Owner-approved direct fare write safety-contract update — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-fare-edit`
+- Owner-approved direct fare write safety-contract update — Owner: Primary AI; Status: `DONE`; Branch: `agent/admin-erp-fare-edit`
   - Files/paths: `admin-erp.html`, `tests/admin-console-safety.test.js`, `tests/admin-erp-legacy-adapter-migration.test.js`, `ai-handoffs/SYSTEM-DIRECTION.md`, `ai-handoffs/DECISION-LOG.md`
   - Intended output: บันทึกข้อยกเว้นที่ Owner อนุมัติให้ Admin ERP แก้เฉพาะ fare amount โดยตรง พร้อม allowlist test; ทุก write อื่นยังถูกบล็อก
   - Tests: ชุด `node --test tests/*.test.js` ทั้งหมด; ตรวจ allowlist direct fare write และ audit-before-write
@@ -279,7 +287,7 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - Cost risk: ไม่มี library UI ใหม่; เพิ่มเฉพาะ direct fare/audit write ที่ผู้ดูแลกด; ห้าม Production test/deploy ในงานนี้
   - Firebase writes: emulator only; Production write requires separate Owner approval
   - Started/last update: 2026-08-26
-- Admin ERP fare renderer wiring — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/fix-admin-erp-fare-renderer`
+- Admin ERP fare renderer wiring — Owner: Primary AI; Status: `DONE`; Branch: `agent/fix-admin-erp-fare-renderer`
   - Files/paths: `admin-erp.html`
   - Intended output: ให้ renderer ที่ Production ใช้งานจริงแสดงตารางราคาและปุ่มแก้ไข/บันทึกในหน้า Admin ERP โดยใช้ fare path และ audit flow ที่ได้รับอนุมัติแล้ว
   - Tests: Static checks, full existing Node test suite, browser read-only verification of visible fare editor; no save during implementation
