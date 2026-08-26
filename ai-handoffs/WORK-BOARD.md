@@ -240,3 +240,34 @@ COST_IMPACT:
 KNOWN_RISKS:
 NEXT_ACTION:
 ```
+- Admin ERP fare editor — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-fare-edit`
+  - Files/paths: `admin-erp.html`
+  - Intended output: เพิ่มการแก้ไขราคา fare รายแถวในหน้า Admin ERP เดิม พร้อมตรวจสิทธิ์แอดมิน บันทึก Audit Log ก่อนเขียนค่าราคาจริง และแสดงสถานะบันทึก
+  - Tests: Static checks, Firebase Emulator/admin authorization and audit-before-write flow; existing regression suite
+  - Dependencies: Firebase Auth/RTDB config เดิม, `data/erpDataCenter/workbookSource/routeFareRows`, `data/erpDataCenter/meta/audit`
+  - Cost risk: ไม่เพิ่ม library ใหม่; อ่าน/เขียนเฉพาะ fare row และ audit ที่กดแก้; Production write ไม่ทำระหว่างพัฒนา
+  - Firebase writes: emulator only; Production writes require separate Owner approval
+  - Started/last update: 2026-08-26
+### Completion Report — Admin ERP fare editor
+
+```text
+STATUS: REVIEW
+COMMIT/PR: commit 949f1e90dd93ca8a6785e00f258e66373d2420a1; PR #178
+FILES_CHANGED: admin-erp.html, ai-handoffs/WORK-BOARD.md
+RESULTS: เพิ่มแท็บราคาใน Admin ERP ให้ใช้ routeFareRows จริง แก้ราคาได้รายแถว และเขียน audit ก่อน amount โดยไม่เปิดแก้หมวดอื่น
+TESTS: inline JavaScript syntax ผ่าน; diff ตรวจแล้ว; ยังไม่ได้ทดสอบ Emulator/Production write
+ACTIONS/PAGES: ยังไม่มี deploy; รอ Owner review/merge
+FIREBASE_DEPLOY_EVIDENCE: none
+DATA/PRIVACY_IMPACT: อ่าน/เขียนเฉพาะ fare row ที่เลือกและ audit metadata; ไม่แตะข้อมูลผู้โดยสาร
+COST_IMPACT: เพิ่ม Firebase Database compat SDK; ไม่มี library UI ใหม่; ไม่ทำ Production test
+KNOWN_RISKS: ต้องยืนยัน Emulator rule/owner authorization ก่อน merge และทดสอบหน้าใช้งานจริงหลังอนุมัติ
+NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอัตโนมัติ
+```
+- Owner-approved direct fare write safety-contract update — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-fare-edit`
+  - Files/paths: `admin-erp.html`, `tests/admin-console-safety.test.js`, `tests/admin-erp-legacy-adapter-migration.test.js`, `ai-handoffs/SYSTEM-DIRECTION.md`, `ai-handoffs/DECISION-LOG.md`
+  - Intended output: บันทึกข้อยกเว้นที่ Owner อนุมัติให้ Admin ERP แก้เฉพาะ fare amount โดยตรง พร้อม allowlist test; ทุก write อื่นยังถูกบล็อก
+  - Tests: ชุด `node --test tests/*.test.js` ทั้งหมด; ตรวจ allowlist direct fare write และ audit-before-write
+  - Dependencies: existing `data/erpDataCenter/workbookSource/routeFareRows`, `data/erpDataCenter/meta/audit`, Firebase Auth/RTDB rules
+  - Cost risk: ไม่มี library UI ใหม่; เพิ่มเฉพาะ direct fare/audit write ที่ผู้ดูแลกด; ห้าม Production test/deploy ในงานนี้
+  - Firebase writes: emulator only; Production write requires separate Owner approval
+  - Started/last update: 2026-08-26

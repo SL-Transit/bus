@@ -97,3 +97,6 @@ Journey Engine ต้องค้นหาเที่ยวตรงก่อ�
 ## ขอบเขต Production
 
 การแก้โค้ด เอกสาร หรือ merge PR ไม่ใช่การอนุมัติ deploy. Firebase Rules, Functions, Storage Rules, seed/import, Published pointer switch และข้อมูลจริงต้องมี Owner approval แยกเป็นรายการ พร้อมแผน rollback และหลักฐานตรวจสอบ.
+## Owner-approved narrow fare-edit exception
+
+เมื่อ Owner อนุมัติแยกเป็นรายการเฉพาะ `admin-erp.html` อาจเขียนค่า `amount` ของ `data/erpDataCenter/workbookSource/routeFareRows/{sourceRowId}` โดยตรงได้ โดยต้องเขียน Audit Log ที่ `data/erpDataCenter/meta/audit` ก่อนทุกครั้งและใช้ Firebase Auth/Rules เดิม. ข้อยกเว้นนี้ไม่เปิดการเขียน Master Data, Published Read Model, schedule, booking, payment, GPS, account หรือ path อื่นใด และไม่เปลี่ยนหลักการที่ Consumer ต้องอ่าน Published Read Model.
