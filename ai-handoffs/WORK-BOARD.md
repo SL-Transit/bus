@@ -105,7 +105,7 @@
 
 - Scope: Emulator only; no Firebase/Rules deploy, Production credential/write, Publish command, pointer switch, or Consumer cutover
 
-- Admin ERP fare table layout + complete fare rows — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/fix-admin-erp-table-layout`
+- Admin ERP fare table layout + complete fare rows — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/fix-admin-erp-table-layout`
   - Files/paths: `admin-erp.html`
   - Intended output: คงข้อมูลค่าโดยสารจาก `routeFareRows` ครบทุกแถว แสดงเป็นตารางจริง และให้คอลัมน์การทำงาน/ปุ่มบันทึกอยู่ด้านขวา พร้อมใช้งานบน desktop และมือถือ
   - Tests: Static checks, full existing Node test suite, browser read-only UI verification; no Production write during implementation
@@ -287,3 +287,19 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - Cost risk: ไม่เพิ่ม library; ไม่แก้ Rules; ไม่มี Production write ระหว่างพัฒนา
   - Firebase writes: none during implementation; Production write requires explicit Owner approval at test time
   - Started/last update: 2026-08-26
+
+### Completion Report — Admin ERP fare table layout + complete fare rows
+
+```text
+STATUS: REVIEW
+COMMIT/PR: PR #180; implementation commit 452288c1419ff51080e4f4163be4de83c07b1354
+FILES_CHANGED: admin-erp.html; ai-handoffs/WORK-BOARD.md
+RESULTS: คงข้อมูลค่าโดยสารจาก routeFareRows ครบทุกแถว; แสดงเป็นตารางจริง; คอลัมน์การทำงานและปุ่มบันทึกติดขอบขวาบน desktop/mobile
+TESTS: GitHub Actions validate ผ่าน; ชุดหลัก 158 รายการ ผ่าน 152 ข้าม 6 ล้มเหลว 0; Emulator Phase 2/4/5/6A ผ่าน; Performance/K6 ผ่าน 5 ข้าม 1 ล้มเหลว 0; Owner ทดสอบหน้าใช้งานจริงแล้วผ่าน
+ACTIONS/PAGES: PR ยังเปิดรอ Owner Merge; ยังไม่มี Pages deploy จาก PR นี้
+FIREBASE_DEPLOY_EVIDENCE: none — ไม่มี Firebase deploy หรือ Production write โดยงานนี้
+DATA/PRIVACY_IMPACT: อ่าน/แสดงข้อมูลค่าโดยสารเดิม; ไม่สร้างข้อมูลใหม่และไม่แตะข้อมูลผู้โดยสาร
+COST_IMPACT: ไม่เพิ่ม library หรือ Firebase path; ไม่มี Production cost จากการทดสอบ
+KNOWN_RISKS: ต้อง Merge PR และรอ GitHub Pages build ก่อนผู้ใช้ทุกคนเห็นการเปลี่ยนแปลง
+NEXT_ACTION: Owner ตรวจและ Merge PR #180; จากนั้นรอ Pages build และตรวจ cache หากจำเป็น
+```
