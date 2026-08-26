@@ -48,7 +48,17 @@
 | Admin Draft revalidation/editor | DONE | Owner อนุมัติ Merge PR #154; CI `31501263562` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Squash Merge เข้า `main` เท่านั้น |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
-### Active file locks
+### ### Active file locks
+
+- Firebase RTDB Audit Log Rules — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/rules-audit-log`
+  - Files/paths: `database.rules.json`
+  - Intended output: เพิ่มสิทธิ์อ่าน/เขียนเฉพาะ `data/erpDataCenter/meta/audit/$auditId` สำหรับบัญชีที่มีค่า `adminAccounts/{uid} === true`
+  - Tests: Firebase Emulator admin write succeeds; non-admin write remains `PERMISSION_DENIED`
+  - Dependencies: existing Firebase Auth and `data/erpDataCenter/adminAccounts` rule
+  - Cost risk: no new library or Production cost; no Firebase Rules deploy in this task
+  - Firebase writes: Emulator test only; no Production write/Rules deploy until Owner approval
+  - Started/last update: 2026-08-26
+
 
 - LINE In-App Browser guard silent-bypass fix + unification — Owner: Coordination Agent; Status: `REVIEW`; Branch: `agent/fix-line-inapp-browser-silent-bypass`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `site-runtime.js`, `booking1.html`, `booking-pos.js`, `index.html`, `passenger.html`, `check_ticket.html`, `cancel_ticket.html`, `info.html`, `tests/booking1-line-browser-guard.test.js`, `tests/site-runtime-line-browser-guard.test.js`
