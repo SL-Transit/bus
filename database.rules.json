@@ -67,7 +67,8 @@
               ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
             }
           }
-        },        "finance": {
+        },
+        "finance": {
           ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           ".write": false
         },
