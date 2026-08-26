@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>จัดการราคาและป้ายจอด | SL-Transit</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <style>
+    :root{
+      --navy:#0d1b3e;
+      --navy-dark:#081229;
+      --teal:#1a9b8c;
+      --gray-bg:#f2f4f8;
+      --ink:#172033;
+      --muted:#667085;
+      --line:#e4e7ec;
+      --warning-bg:#fffaeb;
+      --warning-line:#fedf89;
+      --warning-ink:#7a4b00;
+      --bad:#d92d20;
+      --good:#087f6f;
+    }
+
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--gray-bg);color:var(--ink);font-family:'Sarabun','Noto Sans Thai',sans-serif;min-height:100vh}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.58}
+    .topbar{background:linear-gradient(135deg,var(--navy),var(--navy-dark));color:#fff;padding:16px 20px;box-shadow:0 2px 12px rgba(8,18,41,.18)}
+    .topbar-inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{margin:0;font-size:20px;line-height:1.25;font-weight:700}
+    .user-line{margin:4px 0 0;color:#c9d4e6;font-size:13px}
+    .logout-button{min-height:42px;border:1px solid rgba(255,255,255,.34);border-radius:8px;background:transparent;color:#fff;padding:8px 16px;font-weight:700}
+    .logout-button:hover{background:rgba(255,255,255,.1)}
+    .page{max-width:1180px;margin:0 auto;padding:22px 16px 48px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px rgba(16,24,40,.05);padding:20px}
+    .login-card{max-width:420px;margin:44px auto}
+    .card-title{margin:0;font-size:18px;color:var(--navy)}
+    .card-subtitle{margin:5px 0 18px;color:var(--muted);font-size:13px;line-height:1.6}
+    .field{display:block;margin-bottom:14px}
+    .field span{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:700}
+    .field input{width:100%;border:1px solid var(--line);border-radius:7px;padding:11px 12px;min-height:44px;color:var(--ink);outline:none}
+    .field input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(26,155,140,.13)}
+    .primary-button,.save-button,.move-button{border:0;border-radius:7px;background:var(--teal);color:#fff;font-weight:700;min-height:42px;padding:9px 14px}
+    .primary-button{width:100%;margin-top:2px}
+    .save-button{min-width:88px}
+    .move-button{width:42px;height:42px;padding:0;font-size:20px;line-height:1}
+    .message{min-height:22px;margin:12px 0 0;font-size:13px;line-height:1.55}
+    .message.error{color:var(--bad)}
+    .message.success{color:var(--good);font-weight:700}
+    .message.info{color:var(--muted)}
+    .hidden{display:none!important}
+    .toolbar{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .toolbar h2{margin:0;color:var(--navy);font-size:18px}
+    .toolbar p{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .section-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,1fr);gap:18px;margin-top:18px}
+    .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:9px}
+    table{width:100%;border-collapse:collapse;min-width:720px;background:#fff}
+    th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;font-size:13px}
+    th{background:#f8fafc;color:var(--muted);font-size:12px;white-space:nowrap}
+    tr:last-child td{border-bottom:0}
+    .route-label{font-weight:700;color:var(--navy)}
+    .secondary{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+    .amount-input{width:112px;min-height:40px;border:1px solid var(--line);border-radius:6px;padding:8px 9px;text-align:right}
+    .amount-input:focus{border-color:var(--teal);outline:none;box-shadow:0 0 0 3px rgba(26,155,140,.13)}
+    .stop-order{font-weight:700;color:var(--navy);white-space:nowrap}
+    .warning{display:inline-block;margin-top:6px;background:var(--warning-bg);border:1px solid var(--warning-line);border-radius:5px;color:var(--warning-ink);padding:4px 7px;font-size:11px;line-height:1.45}
+    .move-actions{display:flex;gap:6px;align-items:center}
+    .empty{padding:24px;color:var(--muted);text-align:center;font-size:13px}
+    .loading{padding:20px;color:var(--muted);text-align:center}
+    .toast{position:fixed;right:18px;bottom:18px;z-index:10;max-width:min(420px,calc(100vw - 36px));padding:12px 15px;border-radius:8px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 28px rgba(16,24,40,.16);font-size:13px;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .toast.success{border-color:rgba(26,155,140,.36);color:var(--good)}
+    .toast.error{border-color:rgba(217,45,32,.3);color:var(--bad)}
+    @media (max-width:760px){
+      .topbar{padding:14px 14px}
+      .topbar-inner{align-items:flex-start}
+      .brand{font-size:18px}
+      .user-line{font-size:12px}
+      .logout-button{padding:8px 11px;white-space:nowrap}
+      .page{padding:14px 10px 38px}
+      .card{padding:15px}
+      .section-grid{display:block;margin-top:14px}
+      .section-grid>.card+ .card{margin-top:14px}
+      .toolbar{align-items:flex-start;display:block}
+      .toolbar p{margin-bottom:2px}
+      .login-card{margin:24px auto}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1 class="brand">จัดการราคาและป้ายจอด</h1>
+        <p id="userLine" class="user-line">กรุณาเข้าสู่ระบบเพื่อเริ่มใช้งาน</p>
+      </div>
+      <button id="logoutButton" class="logout-button hidden" type="button">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section id="loginCard" class="card login-card">
+      <h2 class="card-title">เข้าสู่ระบบผู้ดูแล</h2>
+      <p class="card-subtitle">ใช้บัญชี Firebase Authentication ที่มีสิทธิ์แอดมินอยู่แล้ว</p>
+      <form id="loginForm">
+        <label class="field">
+          <span>อีเมล</span>
+          <input id="emailInput" type="email" autocomplete="email" placeholder="admin@example.com" required>
+        </label>
+        <label class="field">
+          <span>รหัสผ่าน</span>
+          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="••••••••" required>
+        </label>
+        <button id="loginButton" class="primary-button" type="submit">เข้าสู่ระบบ</button>
+      </form>
+      <p id="loginMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="appContent" class="hidden">
+      <div class="toolbar">
+        <div>
+          <h2>แก้ไขข้อมูลอย่างรวดเร็ว</h2>
+          <p>บันทึกตรงเข้าข้อมูลจริง และเก็บค่าก่อนแก้ไว้ในประวัติทุกครั้ง</p>
+        </div>
+        <p id="loadMessage" class="message info" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="section-grid">
+        <section class="card">
+          <div class="toolbar">
+            <div>
+              <h2>ราคาเส้นทาง</h2>
+              <p>แก้ราคาได้ทีละแถว</p>
+            </div>
+            <span id="fareCount" class="secondary"></span>
+          </div>
+          <div id="fareTableWrap" class="table-scroll"></div>
+        </section>
+
+        <section class="card">
+          <div class="toolbar">
+            <div>
+              <h2>ลำดับป้ายจอด</h2>
+              <p>ใช้ค่า workbookOrder → displayOrder → order</p>
+            </div>
+            <span id="stopCount" class="secondary"></span>
+          </div>
+          <div id="stopTableWrap" class="table-scroll"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    var FIREBASE_CONFIG = {
+      apiKey: 'AIzaSyCuWN1RhTSnKjbg5vliTEXa8HtgY7j2spM',
+      authDomain: 'sl-transit-9464e.firebaseapp.com',
+      databaseURL: 'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
+      projectId: 'sl-transit-9464e',
+      storageBucket: 'sl-transit-9464e.firebasestorage.app',
+      messagingSenderId: '480076551107',
+      appId: '1:480076551107:web:0548531ec69327a2bfe376'
+    };
+
+    var PATHS = {
+      adminAccounts: 'data/erpDataCenter/adminAccounts',
+      fares: 'data/erpDataCenter/workbookSource/routeFareRows',
+      stops: 'data/erpDataCenter/stops',
+      audit: 'data/erpDataCenter/meta/audit'
+    };
+    // Authorization remains enforced by the existing RTDB rule:
+    // auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true
+    var firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+    var auth = firebaseApp.auth();
+    var db = firebaseApp.database();
+    var localTesting = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (localTesting) {
+      auth.useEmulator('http://127.0.0.1:9099');
+      db.useEmulator('127.0.0.1', 9000);
+    }
+    var currentUser = null;
+    var fareRows = [];
+    var stopRows = [];
+    var toastTimer = null;
+    var loginInProgress = false;
+
+    function byId(id){ return document.getElementById(id); }
+    function text(value, fallback){
+      if (value === null || value === undefined || value === '') return fallback || '-';
+      return String(value);
+    }
+    function escapeHtml(value){
+      return text(value, '').replace(/[&<>\"']/g, function(ch){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch];
+      });
+    }
+    function firstValue(record, fields, fallback){
+      for (var i = 0; i < fields.length; i += 1) {
+        if (record[fields[i]] !== null && record[fields[i]] !== undefined && record[fields[i]] !== '') return record[fields[i]];
+      }
+      return fallback;
+    }
+    function asRows(value){
+      if (!value) return [];
+      if (Array.isArray(value)) return value.map(function(record, index){ return {key:String(index), record:record || {}}; });
+      return Object.keys(value).map(function(key){ return {key:key, record:value[key] || {}}; });
+    }
+    function effectiveOrder(record){
+      var fields = ['workbookOrder','displayOrder','order'];
+      for (var i = 0; i < fields.length; i += 1) {
+        var value = record[fields[i]];
+        if (value !== null && value !== undefined && value !== '') {
+          var number = Number(value);
+          return {value:value, number:Number.isFinite(number) ? number : null, source:fields[i]};
+        }
+      }
+      return {value:null, number:null, source:null};
+    }
+    function stopLabel(item){
+      return firstValue(item.record, ['nameTh','displayNameTh','name','label'], item.key);
+    }
+    function routeLabel(record){
+      return firstValue(record, ['routeId','routeKey','serviceGroupId','groupId'], 'ไม่ระบุเส้นทาง');
+    }
+    function fromLabel(record){
+      return firstValue(record, ['fromNameTh','originNameTh','fromStopName','originName','fromStopKey','originKey'], '-');
+    }
+    function toLabel(record){
+      return firstValue(record, ['toNameTh','destinationNameTh','toStopName','destinationName','toStopKey','destinationKey'], '-');
+    }
+    function setMessage(element, value, kind){
+      element.textContent = value || '';
+      element.className = 'message' + (kind ? ' ' + kind : '');
+    }
+    function showToast(value, kind){
+      var toast = byId('toast');
+      window.clearTimeout(toastTimer);
+      toast.textContent = value;
+      toast.className = 'toast show ' + (kind || 'success');
+      toastTimer = window.setTimeout(function(){ toast.className = 'toast'; }, 2600);
+    }
+    function setBusy(button, busy, label){
+      button.disabled = busy;
+      if (busy) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = label || 'กำลังบันทึก...';
+      } else if (button.dataset.originalText) {
+        button.textContent = button.dataset.originalText;
+      }
+    }
+    function showLogin(message, kind){
+      byId('loginCard').classList.remove('hidden');
+      byId('appContent').classList.add('hidden');
+      byId('logoutButton').classList.add('hidden');
+      byId('userLine').textContent = 'กรุณาเข้าสู่ระบบเพื่อเริ่มใช้งาน';
+      if (message) setMessage(byId('loginMessage'), message, kind || 'error');
+    }
+    function showApp(user){
+      byId('loginCard').classList.add('hidden');
+      byId('appContent').classList.remove('hidden');
+      byId('logoutButton').classList.remove('hidden');
+      byId('userLine').textContent = user.email || 'เข้าสู่ระบบแล้ว';
+      setMessage(byId('loginMessage'), '', '');
+    }
+
+    function auditAndWrite(path, oldValue, newValue, uid){
+      var auditRef = db.ref(PATHS.audit).push();
+      var audit = {
+        path: path,
+        oldValue: oldValue === undefined ? null : oldValue,
+        newValue: newValue === undefined ? null : newValue,
+        uid: uid,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      };
+      return auditRef.set(audit).then(function(){
+        return db.ref(path).set(newValue);
+      });
+    }
+    function auditAndUpdate(changes, uid){
+      var auditWrites = changes.map(function(change){
+        var auditRef = db.ref(PATHS.audit).push();
+        return auditRef.set({
+          path: change.path,
+          oldValue: change.oldValue === undefined ? null : change.oldValue,
+          newValue: change.newValue === undefined ? null : change.newValue,
+          uid: uid,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+      });
+      var update = {};
+      changes.forEach(function(change){ update[change.path] = change.newValue; });
+      return Promise.all(auditWrites).then(function(){ return db.ref().update(update); });
+    }
+
+    function renderFares(){
+      var wrap = byId('fareTableWrap');
+      byId('fareCount').textContent = fareRows.length + ' รายการ';
+      if (!fareRows.length) { wrap.innerHTML = '<div class="empty">ยังไม่มีข้อมูลราคา</div>'; return; }
+      var html = '<table><thead><tr><th>เส้นทาง</th><th>ต้นทาง</th><th>ปลายทาง</th><th>ราคาปัจจุบัน</th><th>ราคาใหม่</th><th>การทำงาน</th></tr></thead><tbody>';
+      fareRows.forEach(function(item){
+        var record = item.record;
+        var amount = Number(record.amount);
+        var amountValue = Number.isFinite(amount) ? amount : '';
+        html += '<tr data-fare-row="' + escapeHtml(item.key) + '">' +
+          '<td><span class="route-label">' + escapeHtml(routeLabel(record)) + '</span><span class="secondary">' + escapeHtml(record.serviceGroupId || record.routeKey || '') + '</span></td>' +
+          '<td>' + escapeHtml(fromLabel(record)) + '</td>' +
+          '<td>' + escapeHtml(toLabel(record)) + '</td>' +
+          '<td class="current-amount">' + escapeHtml(amountValue === '' ? '-' : amountValue) + ' บาท</td>' +
+          '<td><input class="amount-input" type="number" min="0" step="0.01" value="' + escapeHtml(amountValue) + '" aria-label="ราคาใหม่"></td>' +
+          '<td><button class="save-button fare-save" type="button" data-key="' + escapeHtml(item.key) + '">บันทึก</button></td>' +
+          '</tr>';
+      });
+      wrap.innerHTML = html + '</tbody></table>';
+    }
+    function renderStops(){
+      var wrap = byId('stopTableWrap');
+      byId('stopCount').textContent = stopRows.length + ' รายการ';
+      if (!stopRows.length) { wrap.innerHTML = '<div class="empty">ยังไม่มีข้อมูลป้ายจอด</div>'; return; }
+      var html = '<table><thead><tr><th>ลำดับ</th><th>ป้ายจอด</th><th>จัดลำดับ</th></tr></thead><tbody>';
+      stopRows.forEach(function(item, index){
+        var order = effectiveOrder(item.record);
+        var hasOverride = order.source === 'workbookOrder' || order.source === 'displayOrder';
+        html += '<tr data-stop-row="' + escapeHtml(item.key) + '">' +
+          '<td class="stop-order">' + escapeHtml(order.value === null ? '-' : order.value) + '<span class="secondary">จาก ' + escapeHtml(order.source || 'ไม่มีค่า') + '</span></td>' +
+          '<td><span class="route-label">' + escapeHtml(stopLabel(item)) + '</span>' +
+          (hasOverride ? '<span class="warning">ป้ายนี้ถูกกำหนดลำดับจาก Excel import ไว้แล้ว แก้ที่นี่อาจไม่มีผล</span>' : '') +
+          '</td>' +
+          '<td><div class="move-actions">' +
+          '<button class="move-button stop-up" type="button" data-index="' + index + '" aria-label="เลื่อน ' + escapeHtml(stopLabel(item)) + ' ขึ้น"' + (index === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button class="move-button stop-down" type="button" data-index="' + index + '" aria-label="เลื่อน ' + escapeHtml(stopLabel(item)) + ' ลง"' + (index === stopRows.length - 1 ? ' disabled' : '') + '>↓</button>' +
+          '</div></td>' +
+          '</tr>';
+      });
+      wrap.innerHTML = html + '</tbody></table>';
+    }
+    function readData(){
+      setMessage(byId('loadMessage'), 'กำลังโหลดข้อมูล...', 'info');
+      return Promise.all([
+        db.ref(PATHS.fares).once('value'),
+        db.ref(PATHS.stops).once('value')
+      ]).then(function(snapshots){
+        fareRows = asRows(snapshots[0].val());
+        stopRows = asRows(snapshots[1].val());
+        stopRows.sort(function(a,b){
+          var left = effectiveOrder(a.record), right = effectiveOrder(b.record);
+          if (left.number !== null && right.number !== null && left.number !== right.number) return left.number - right.number;
+          if (left.number !== null && right.number === null) return -1;
+          if (left.number === null && right.number !== null) return 1;
+          return stopLabel(a).localeCompare(stopLabel(b), 'th');
+        });
+        renderFares();
+        renderStops();
+        setMessage(byId('loadMessage'), 'โหลดข้อมูลแล้ว', 'success');
+      }).catch(function(error){
+        setMessage(byId('loadMessage'), 'โหลดข้อมูลไม่สำเร็จ: ' + text(error && error.message, 'กรุณาลองใหม่'), 'error');
+        showToast('โหลดข้อมูลไม่สำเร็จ', 'error');
+      });
+    }
+    function saveFare(button){
+      var key = button.dataset.key;
+      var item = fareRows.find(function(row){ return row.key === key; });
+      var row = button.closest('tr');
+      var input = row && row.querySelector('.amount-input');
+      var newValue = Number(input && input.value);
+      if (!item || !input || !Number.isFinite(newValue) || newValue < 0) {
+        showToast('กรุณากรอกราคาเป็นตัวเลขตั้งแต่ 0 ขึ้นไป', 'error');
+        return;
+      }
+      setBusy(button, true);
+      var path = PATHS.fares + '/' + key + '/amount';
+      db.ref(path).once('value').then(function(snapshot){
+        var oldValue = snapshot.val();
+        if (Number(oldValue) === newValue) return {unchanged:true};
+        return auditAndWrite(path, oldValue, newValue, currentUser.uid).then(function(){ return {unchanged:false}; });
+      }).then(function(result){
+        if (result && result.unchanged) { showToast('ราคานี้ไม่มีการเปลี่ยนแปลง', 'success'); return; }
+        item.record.amount = newValue;
+        row.querySelector('.current-amount').textContent = newValue + ' บาท';
+        showToast('บันทึกราคาสำเร็จ', 'success');
+      }).catch(function(error){
+        showToast('บันทึกไม่สำเร็จ: ' + text(error && error.message, 'กรุณาลองใหม่'), 'error');
+      }).then(function(){ setBusy(button, false); });
+    }
+    function moveStop(index, direction){
+      var otherIndex = index + direction;
+      if (otherIndex < 0 || otherIndex >= stopRows.length) return;
+      var first = stopRows[index], second = stopRows[otherIndex];
+      var firstOrder = effectiveOrder(first.record), secondOrder = effectiveOrder(second.record);
+      if (firstOrder.number === null || secondOrder.number === null) {
+        showToast('คู่นี้ยังไม่มีลำดับตัวเลข จึงยังสลับอัตโนมัติไม่ได้', 'error');
+        return;
+      }
+      var firstPath = PATHS.stops + '/' + first.key + '/order';
+      var secondPath = PATHS.stops + '/' + second.key + '/order';
+      var buttons = Array.prototype.slice.call(document.querySelectorAll('.move-button'));
+      buttons.forEach(function(button){ button.disabled = true; });
+      Promise.all([db.ref(firstPath).once('value'), db.ref(secondPath).once('value')]).then(function(snapshots){
+        var changes = [
+          {path:firstPath, oldValue:snapshots[0].val(), newValue:secondOrder.value},
+          {path:secondPath, oldValue:snapshots[1].val(), newValue:firstOrder.value}
+        ];
+        return auditAndUpdate(changes, currentUser.uid);
+      }).then(function(){
+        var moved = stopRows.splice(index, 1)[0];
+        stopRows.splice(otherIndex, 0, moved);
+        showToast('บันทึกลำดับป้ายสำเร็จ', 'success');
+        renderStops();
+      }).catch(function(error){
+        showToast('บันทึกลำดับไม่สำเร็จ: ' + text(error && error.message, 'กรุณาลองใหม่'), 'error');
+        renderStops();
+      });
+    }
+
+    byId('loginForm').addEventListener('submit', function(event){
+      event.preventDefault();
+      var email = byId('emailInput').value.trim();
+      var password = byId('passwordInput').value;
+      var button = byId('loginButton');
+      loginInProgress = true;
+      setMessage(byId('loginMessage'), '', '');
+      setBusy(button, true, 'กำลังเข้าสู่ระบบ...');
+      auth.signInWithEmailAndPassword(email, password).then(function(credential){
+        loginInProgress = false;
+        currentUser = credential.user;
+        return verifyAdminAndLoad(credential.user);
+      }).catch(function(error){
+        loginInProgress = false;
+        setMessage(byId('loginMessage'), 'เข้าสู่ระบบไม่สำเร็จ: ' + text(error && error.message, 'กรุณาตรวจสอบข้อมูล'), 'error');
+      }).then(function(){ setBusy(button, false); });
+    });
+    byId('logoutButton').addEventListener('click', function(){ auth.signOut(); });
+    byId('fareTableWrap').addEventListener('click', function(event){
+      var button = event.target.closest('.fare-save');
+      if (button) saveFare(button);
+    });
+    byId('stopTableWrap').addEventListener('click', function(event){
+      var button = event.target.closest('.stop-up, .stop-down');
+      if (!button) return;
+      moveStop(Number(button.dataset.index), button.classList.contains('stop-up') ? -1 : 1);
+    });
+
+    function verifyAdminAndLoad(user){
+      setMessage(byId('loadMessage'), 'กำลังตรวจสอบสิทธิ์...', 'info');
+      db.ref(PATHS.adminAccounts + '/' + user.uid).once('value').then(function(snapshot){
+        if (snapshot.val() !== true) {
+          return auth.signOut().then(function(){ showLogin('บัญชีนี้ยังไม่มีสิทธิ์แอดมิน กรุณาติดต่อ Owner', 'error'); });
+        }
+        showApp(user);
+        return readData();
+      }).catch(function(error){
+        var noPermission = error && (error.code === 'PERMISSION_DENIED' || error.code === 'permission-denied');
+        auth.signOut().then(function(){
+          showLogin(noPermission ? 'บัญชีนี้ยังไม่มีสิทธิ์แอดมิน กรุณาติดต่อ Owner' : 'ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาติดต่อ Owner', 'error');
+        });
+        setMessage(byId('loadMessage'), noPermission ? '' : 'ตรวจสอบสิทธิ์ไม่สำเร็จ: ' + text(error && error.message, 'กรุณาลองใหม่'), noPermission ? '' : 'error');
+      });
+    }
+    auth.onAuthStateChanged(function(user){
+      currentUser = user;
+      if (!user) { if (!loginInProgress) showLogin(); return; }
+      if (loginInProgress) return;
+      verifyAdminAndLoad(user);
+    });
+  </script>
+</body>
+</html>

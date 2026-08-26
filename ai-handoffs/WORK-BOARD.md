@@ -48,7 +48,17 @@
 | Admin Draft revalidation/editor | DONE | Owner อนุมัติ Merge PR #154; CI `31501263562` ผ่านครบ | Bounded editor, async revalidation, Reject และ retention; รอ Squash Merge เข้า `main` เท่านั้น |
 | Consumer migration | TODO | Phase 6B scope | เริ่ม Read-only shadow mode; Booking เป็นลำดับสุดท้าย |
 
-### ### Active file locks
+### ### ### Active file locks
+
+- Admin Quick Edit UI (ราคา + ลำดับป้ายจอด) — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-quick-edit`
+  - Files/paths: `admin-quick-edit.html`
+  - Intended output: หน้า Admin Quick Edit ภาษาไทยสำหรับ login, แก้ราคา fare row รายแถว, สลับลำดับป้าย และบันทึก audit ก่อนเขียนค่าจริงโดยตรง
+  - Tests: Static checks, Emulator read/write/audit flow, responsive mobile UI และ browser evidence
+  - Dependencies: Firebase Auth/RTDB config เดิม, `data/erpDataCenter/workbookSource/routeFareRows`, `data/erpDataCenter/stops`, `data/erpDataCenter/meta/audit`
+  - Cost risk: อ่านเฉพาะสองรายการที่ใช้ในหน้า; ไม่เพิ่ม library; ไม่แตะ Production ระหว่างทดสอบ UI
+  - Firebase writes: Emulator only during implementation; Production writes require Owner approval
+  - Started/last update: 2026-08-26
+
 
 - - Firebase RTDB Audit Log Rules — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/rules-audit-log`
   - Files/paths: `database.rules.json`
