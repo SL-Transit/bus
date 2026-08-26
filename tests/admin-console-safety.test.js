@@ -15,7 +15,15 @@ assert.ok(html.includes('activeReadPath'));
 assert.ok(html.includes('fallbackReadPath'));
 assert.ok(html.includes('bus-booking-1d68c not used'));
 assert.ok(!/projectId:\s*['"]bus-booking-1d68c['"]/.test(html));
-assert.ok(!/\.ref\([^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
+assert.ok(html.includes('firebase-database-compat.js'));
+assert.ok(html.includes('function erpFareAuditAndWrite'));
+assert.ok(html.includes("data/erpDataCenter/meta/audit"));
+assert.ok(html.includes("data/erpDataCenter/workbookSource/routeFareRows"));
+const directFareWrites = html.match(/database\.ref\([^)]*\)\.(set|update|push|remove)\s*\(/g) || [];
+assert.deepStrictEqual(directFareWrites.sort(), [
+  "database.ref('data/erpDataCenter/meta/audit').push(",
+  'database.ref(path).set('
+].sort(), 'Admin ERP direct writes stay limited to audit-first fare amount updates');
 assert.ok(!/\.ref\([^)]*routeData[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(!/\.ref\([^)]*settings\/routes[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(!/\.ref\([^)]*routes[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
