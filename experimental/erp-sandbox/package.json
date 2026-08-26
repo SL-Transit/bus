@@ -1,0 +1,11 @@
+{
+    "name":  "sl-transit-erp-experimental-sandbox",
+    "version":  "0.0.0-sandbox",
+    "private":  true,
+    "description":  "Emulator-only isolated copy of SL-Transit Greenfield ERP",
+    "scripts":  {
+                    "test":  "node --test tests/*.test.js",
+                    "test:isolation":  "node --test tests/sandbox-isolation.test.js",
+                    "emulators":  "firebase emulators:start --project demo-sl-transit-erp-sandbox --config firebase.json"
+                }
+}
