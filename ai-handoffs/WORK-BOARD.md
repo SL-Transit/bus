@@ -263,3 +263,11 @@ COST_IMPACT: เพิ่ม Firebase Database compat SDK; ไม่มี libra
 KNOWN_RISKS: ต้องยืนยัน Emulator rule/owner authorization ก่อน merge และทดสอบหน้าใช้งานจริงหลังอนุมัติ
 NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอัตโนมัติ
 ```
+- Owner-approved direct fare write safety-contract update — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-fare-edit`
+  - Files/paths: `admin-erp.html`, `tests/admin-console-safety.test.js`, `tests/admin-erp-legacy-adapter-migration.test.js`, `ai-handoffs/SYSTEM-DIRECTION.md`, `ai-handoffs/DECISION-LOG.md`
+  - Intended output: บันทึกข้อยกเว้นที่ Owner อนุมัติให้ Admin ERP แก้เฉพาะ fare amount โดยตรง พร้อม allowlist test; ทุก write อื่นยังถูกบล็อก
+  - Tests: ชุด `node --test tests/*.test.js` ทั้งหมด; ตรวจ allowlist direct fare write และ audit-before-write
+  - Dependencies: existing `data/erpDataCenter/workbookSource/routeFareRows`, `data/erpDataCenter/meta/audit`, Firebase Auth/RTDB rules
+  - Cost risk: ไม่มี library UI ใหม่; เพิ่มเฉพาะ direct fare/audit write ที่ผู้ดูแลกด; ห้าม Production test/deploy ในงานนี้
+  - Firebase writes: emulator only; Production write requires separate Owner approval
+  - Started/last update: 2026-08-26
