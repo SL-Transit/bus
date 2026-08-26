@@ -70,3 +70,7 @@
 
 - Decision: Journey ของ Frequency/Queue ต้องมีเวลาเดินทางรายช่วงที่อนุมัติแล้ว นอกเหนือจาก `headwaySeconds`; ห้ามเดา runtime จากชื่อกลุ่ม ระยะทาง หรือค่า default.
 - Consequence: หาก segment runtime ไม่ครบ Publication ต้อง fail validation และห้ามเปิด Passenger/Booking route result สำหรับสายนั้น.
+## D-015 — Owner-approved fare edit exception
+
+- Decision: เมื่อ Owner อนุมัติเป็นงานเฉพาะ อนุญาตให้ `admin-erp.html` แก้เฉพาะ `data/erpDataCenter/workbookSource/routeFareRows/{sourceRowId}/amount` โดยตรง เพื่อให้ใช้งานปรับราคาได้เหมือนเครื่องมือ Quick Edit
+- Consequence: ต้องเขียน `data/erpDataCenter/meta/audit` ก่อนเขียนราคา ใช้ Auth/Rules เดิม และห้ามเขียน path อื่นจากข้อยกเว้นนี้; การแก้ Production และการ deploy ยังต้องมี Owner approval แยก
