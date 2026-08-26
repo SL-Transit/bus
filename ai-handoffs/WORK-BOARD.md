@@ -297,7 +297,7 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - Started/last update: 2026-08-26
 
 
-- Admin ERP Sheet 4 schedule read-path fix — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/fix-admin-erp-schedule-read`
+- Admin ERP Sheet 4 schedule read-path fix — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/fix-admin-erp-schedule-read`
   - FILES: `admin-erp.html`
   - Intended output: ให้ชีต 4 รอบเวลาอ่าน `scheduleRows` จาก RTDB โดยตรงเหมือนตารางราคา เมื่อ Adapter รวมข้อมูลล้มเหลว โดยไม่เปลี่ยน logic บันทึก/Audit/Rules
   - Tests: ตรวจ diff จำกัดจุด, full existing Node test suite ผ่าน GitHub CI, browser read-only verification; ไม่มี Production write
