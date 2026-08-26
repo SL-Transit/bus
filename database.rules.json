@@ -12,14 +12,7 @@
           ".read": true
         }
       },
-        "meta": {
-          "audit": {
-            "$auditId": {
-              ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
-              ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
-            }
-          }
-        },      "finance": {
+      "finance": {
         ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
         ".write": false
       },
@@ -67,7 +60,14 @@
             ".read": true
           }
         },
-        "finance": {
+        "meta": {
+          "audit": {
+            "$auditId": {
+              ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+              ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+            }
+          }
+        },        "finance": {
           ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
           ".write": false
         },
