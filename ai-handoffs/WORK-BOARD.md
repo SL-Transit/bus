@@ -105,6 +105,14 @@
 
 - Scope: Emulator only; no Firebase/Rules deploy, Production credential/write, Publish command, pointer switch, or Consumer cutover
 
+- Admin ERP fare table layout + complete fare rows — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/fix-admin-erp-table-layout`
+  - Files/paths: `admin-erp.html`
+  - Intended output: คงข้อมูลค่าโดยสารจาก `routeFareRows` ครบทุกแถว แสดงเป็นตารางจริง และให้คอลัมน์การทำงาน/ปุ่มบันทึกอยู่ด้านขวา พร้อมใช้งานบน desktop และมือถือ
+  - Tests: Static checks, full existing Node test suite, browser read-only UI verification; no Production write during implementation
+  - Dependencies: existing Firebase Auth/RTDB fare read and Owner-approved fare edit/audit flow
+  - Cost risk: ไม่เพิ่ม library; ไม่เพิ่ม path หรือการอ่านข้อมูลนอก fare; ไม่มี Production write ระหว่างพัฒนา
+  - Firebase writes: none during implementation; Production writes require separate Owner approval
+  - Started/last update: 2026-08-26
 ### Workstream 3 closeout
 
 - Owner อนุมัติ Merge PR #150 เมื่อ 2026-08-11
