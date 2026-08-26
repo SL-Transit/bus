@@ -240,3 +240,11 @@ COST_IMPACT:
 KNOWN_RISKS:
 NEXT_ACTION:
 ```
+- Admin ERP fare editor — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-fare-edit`
+  - Files/paths: `admin-erp.html`
+  - Intended output: เพิ่มการแก้ไขราคา fare รายแถวในหน้า Admin ERP เดิม พร้อมตรวจสิทธิ์แอดมิน บันทึก Audit Log ก่อนเขียนค่าราคาจริง และแสดงสถานะบันทึก
+  - Tests: Static checks, Firebase Emulator/admin authorization and audit-before-write flow; existing regression suite
+  - Dependencies: Firebase Auth/RTDB config เดิม, `data/erpDataCenter/workbookSource/routeFareRows`, `data/erpDataCenter/meta/audit`
+  - Cost risk: ไม่เพิ่ม library ใหม่; อ่าน/เขียนเฉพาะ fare row และ audit ที่กดแก้; Production write ไม่ทำระหว่างพัฒนา
+  - Firebase writes: emulator only; Production writes require separate Owner approval
+  - Started/last update: 2026-08-26
