@@ -271,3 +271,11 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - Cost risk: ไม่มี library UI ใหม่; เพิ่มเฉพาะ direct fare/audit write ที่ผู้ดูแลกด; ห้าม Production test/deploy ในงานนี้
   - Firebase writes: emulator only; Production write requires separate Owner approval
   - Started/last update: 2026-08-26
+- Admin ERP fare renderer wiring — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/fix-admin-erp-fare-renderer`
+  - Files/paths: `admin-erp.html`
+  - Intended output: ให้ renderer ที่ Production ใช้งานจริงแสดงตารางราคาและปุ่มแก้ไข/บันทึกในหน้า Admin ERP โดยใช้ fare path และ audit flow ที่ได้รับอนุมัติแล้ว
+  - Tests: Static checks, full existing Node test suite, browser read-only verification of visible fare editor; no save during implementation
+  - Dependencies: existing `erpFareTable`/fare audit flow, `data/erpDataCenter/workbookSource/routeFareRows`, `data/erpDataCenter/meta/audit`
+  - Cost risk: ไม่เพิ่ม library; ไม่แก้ Rules; ไม่มี Production write ระหว่างพัฒนา
+  - Firebase writes: none during implementation; Production write requires explicit Owner approval at test time
+  - Started/last update: 2026-08-26
