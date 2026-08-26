@@ -240,7 +240,7 @@ COST_IMPACT:
 KNOWN_RISKS:
 NEXT_ACTION:
 ```
-- Admin ERP fare editor — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-fare-edit`
+- Admin ERP fare editor — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-fare-edit`
   - Files/paths: `admin-erp.html`
   - Intended output: เพิ่มการแก้ไขราคา fare รายแถวในหน้า Admin ERP เดิม พร้อมตรวจสิทธิ์แอดมิน บันทึก Audit Log ก่อนเขียนค่าราคาจริง และแสดงสถานะบันทึก
   - Tests: Static checks, Firebase Emulator/admin authorization and audit-before-write flow; existing regression suite
@@ -248,3 +248,18 @@ NEXT_ACTION:
   - Cost risk: ไม่เพิ่ม library ใหม่; อ่าน/เขียนเฉพาะ fare row และ audit ที่กดแก้; Production write ไม่ทำระหว่างพัฒนา
   - Firebase writes: emulator only; Production writes require separate Owner approval
   - Started/last update: 2026-08-26
+### Completion Report — Admin ERP fare editor
+
+```text
+STATUS: REVIEW
+COMMIT/PR: commit 949f1e90dd93ca8a6785e00f258e66373d2420a1; PR #178
+FILES_CHANGED: admin-erp.html, ai-handoffs/WORK-BOARD.md
+RESULTS: เพิ่มแท็บราคาใน Admin ERP ให้ใช้ routeFareRows จริง แก้ราคาได้รายแถว และเขียน audit ก่อน amount โดยไม่เปิดแก้หมวดอื่น
+TESTS: inline JavaScript syntax ผ่าน; diff ตรวจแล้ว; ยังไม่ได้ทดสอบ Emulator/Production write
+ACTIONS/PAGES: ยังไม่มี deploy; รอ Owner review/merge
+FIREBASE_DEPLOY_EVIDENCE: none
+DATA/PRIVACY_IMPACT: อ่าน/เขียนเฉพาะ fare row ที่เลือกและ audit metadata; ไม่แตะข้อมูลผู้โดยสาร
+COST_IMPACT: เพิ่ม Firebase Database compat SDK; ไม่มี library UI ใหม่; ไม่ทำ Production test
+KNOWN_RISKS: ต้องยืนยัน Emulator rule/owner authorization ก่อน merge และทดสอบหน้าใช้งานจริงหลังอนุมัติ
+NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอัตโนมัติ
+```
