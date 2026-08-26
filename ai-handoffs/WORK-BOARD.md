@@ -50,14 +50,16 @@
 
 ### ### Active file locks
 
-- Firebase RTDB Audit Log Rules — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/rules-audit-log`
+- - Firebase RTDB Audit Log Rules — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/rules-audit-log`
   - Files/paths: `database.rules.json`
   - Intended output: เพิ่มสิทธิ์อ่าน/เขียนเฉพาะ `data/erpDataCenter/meta/audit/$auditId` สำหรับบัญชีที่มีค่า `adminAccounts/{uid} === true`
   - Tests: Firebase Emulator admin write succeeds; non-admin write remains `PERMISSION_DENIED`
   - Dependencies: existing Firebase Auth and `data/erpDataCenter/adminAccounts` rule
   - Cost risk: no new library or Production cost; no Firebase Rules deploy in this task
   - Firebase writes: Emulator test only; no Production write/Rules deploy until Owner approval
-  - Started/last update: 2026-08-26
+  -   - Started/last update: 2026-08-26
+  - Completion report: STATUS REVIEW; COMMIT 7bd8f894; PR #174; Emulator admin write succeeded; non-admin write was denied (HTTP 401 REST permission-denied equivalent); no Production write or Firebase Rules deploy
+  - Next action: Owner review PR #174; do not deploy Firebase Rules until separately approved
 
 
 - LINE In-App Browser guard silent-bypass fix + unification — Owner: Coordination Agent; Status: `REVIEW`; Branch: `agent/fix-line-inapp-browser-silent-bypass`
