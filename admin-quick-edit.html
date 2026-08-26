@@ -60,6 +60,15 @@
     table{width:100%;border-collapse:collapse;min-width:720px;background:#fff}
     th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;font-size:13px}
     th{background:#f8fafc;color:var(--muted);font-size:12px;white-space:nowrap}
+    #fareTableWrap th:last-child,
+    #fareTableWrap td:last-child{
+      position:sticky;
+      right:0;
+      z-index:1;
+      background:#fff;
+      box-shadow:-1px 0 0 var(--line);
+    }
+    #fareTableWrap th:last-child{z-index:2;background:#f8fafc}
     tr:last-child td{border-bottom:0}
     .route-label{font-weight:700;color:var(--navy)}
     .secondary{display:block;color:var(--muted);font-size:11px;margin-top:2px}
