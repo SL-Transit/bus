@@ -25,9 +25,10 @@ assert.ok(html.includes('function enterpriseScheduleEditor'));
 const directFareWrites = html.match(/database\.ref\([^)]*\)\.(set|update|push|remove)\s*\(/g) || [];
 assert.deepStrictEqual(directFareWrites.sort(), [
   "database.ref('data/erpDataCenter/meta/audit').push(",
+  "database.ref('data/erpDataCenter/meta/audit').push(",
+  'database.ref(path).set(',
   'database.ref(path).set('
-].sort(), 'Admin ERP direct writes stay limited to audit-first fare and schedule updates');
-assert.ok(!/\.ref\([^)]*routeData[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
+].sort(), 'Admin ERP direct writes include audit-first fare, schedule, and queue updates');assert.ok(!/\.ref\([^)]*routeData[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(!/\.ref\([^)]*settings\/routes[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(!/\.ref\([^)]*routes[^)]*\)\.(set|update|push|remove)\s*\(/.test(html));
 assert.ok(html.includes('ERP_SOURCE_REGISTRY'));
