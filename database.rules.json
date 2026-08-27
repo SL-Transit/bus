@@ -1,0 +1,302 @@
+{
+  "rules": {
+    "data": {
+      "catalog": {
+        ".read": true,
+        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+      },
+      "fleet": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        "vehicles": {
+          ".read": true
+        }
+      },
+      "finance": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        ".write": false
+      },
+      "erpDataCenter": {
+        "stops": {
+          ".read": true,
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        },
+        "serviceGroups": {
+          ".read": true,
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        },
+        "workbookSource": {
+          "manifest": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          },
+          "routeFareRows": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          },
+          "scheduleRows": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+          }
+        },
+        "catalog": {
+          ".read": true,
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        },
+        "fleet": {
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        },
+        "settings": {
+          ".read": false,
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          "passengerMap": {
+            ".read": true
+          },
+          "driverMap": {
+            ".read": true
+          },
+          "nearestStopMap": {
+            ".read": true
+          }
+        },
+        "meta": {
+          "audit": {
+            "$auditId": {
+              ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+              ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+            }
+          }
+        },
+        "finance": {
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          ".write": false
+        },
+        "adminAccounts": {
+          ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+          "$uid": {
+            ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || (!root.child('data/erpDataCenter/adminAccounts').exists() && auth.uid === $uid))"
+          }
+        }
+      },
+      "driverIdentityCenter": {
+        "accounts": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": false
+          }
+        }
+      },
+      "settings": {
+        ".read": false,
+        ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        "queueRotation": {
+          ".read": true
+        },
+        "appUpdate": {
+          ".read": "auth != null"
+        },
+        "testMode": {
+          ".read": "auth != null"
+        },
+        "vehicles": {
+          "$vehicleId": {
+            ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"
+          }
+        }
+      }
+    },
+    "operations": {
+      "bookings": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        ".write": false,
+        ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
+        "$bookingId": {
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+        }
+      },
+      "bookingCapacityByServiceDate": {
+        "$serviceDate": {
+          "$capacityKey": {
+            ".read": true,
+            ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+            "bookings": {
+              "$bookingId": {
+                ".validate": "newData.hasChildren(['seats', 'status', 'reservedAt']) && newData.child('seats').isNumber() && newData.child('seats').val() >= 1 && newData.child('seats').val() <= 10 && newData.child('status').val() === 'reserved'"
+              }
+            }
+          }
+        }
+      },
+      "passengers": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        ".write": false,
+        "$passengerId": {
+          ".write": false
+        }
+      },
+      "liveVehicles": {
+        ".read": true,
+        "$vehicleId": {
+          ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+        }
+      },
+    "ticketLocations": {
+      ".read": false,
+      ".write": false,
+      "$bookingId": {
+        ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
+      }
+    },
+    "driverLogs": {
+      ".read": false,
+      ".write": false,
+      "$vehicleId": {
+        ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)",
+        ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true)"
+      }
+      },
+      "sosAlerts": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        "$vehicleId": {
+          ".write": "auth != null && (root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId || root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true)"
+        }
+      },
+      "driverWorkByServiceDate": {
+        "$serviceDate": {
+          "$vehicleId": {
+            ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId",
+            ".write": false
+          }
+        }
+      },
+      "driverTicketsByServiceDate": {
+        "$serviceDate": {
+          "$vehicleId": {
+            ".read": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId",
+            ".write": false
+          }
+        }
+      }
+    },
+    "settings": {
+      ".read": false,
+      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      "queueRotation": {
+        ".read": true
+      },
+      "appUpdate": {
+        ".read": "auth != null"
+      },
+      "testMode": {
+        ".read": "auth != null"
+      },
+      "systemTestMode": {
+        ".read": true
+      },
+      "vehicles": {
+        "$vehicleId": {
+          ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"
+        }
+      }
+    },
+    "publishedSchedule": {
+      ".read": true,
+      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+    },
+    "bookings": {
+      ".read": false,
+      ".write": false,
+      ".indexOn": ["date", "serviceDate", "originKey", "destKey", "status", "ts", "cancelledAt", "refundedAt", "refundApprovedAt"],
+      "$bookingId": {
+        ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || data.child('ownerUid').val() === auth.uid || data.child('plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
+        ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || (data.child('plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() && newData.child('ownerUid').val() === data.child('ownerUid').val() && newData.child('name').val() === data.child('name').val() && newData.child('phone').val() === data.child('phone').val() && newData.child('pax').val() === data.child('pax').val() && newData.child('seats').val() === data.child('seats').val() && newData.child('price').val() === data.child('price').val() && newData.child('fare').val() === data.child('fare').val() && newData.child('fareAmount').val() === data.child('fareAmount').val() && newData.child('paymentStatus').val() === data.child('paymentStatus').val() && newData.child('status').val() === data.child('status').val() && newData.child('date').val() === data.child('date').val() && newData.child('serviceDate').val() === data.child('serviceDate').val() && newData.child('originCheckin').child('status').val() === 'boarded' && newData.child('originCheckin').child('vehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() && newData.child('originCheckin').child('farePaidToDriver').val() === data.child('price').val() && newData.child('passengerIdentity').child('vehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val()))",
+        ".validate": "newData.child('ownerUid').isString() && newData.child('ownerUid').val().length > 0 && newData.child('name').val().length <= 120 && newData.child('phone').val().matches(/^0[689][0-9]{8}$/) && newData.child('date').val().matches(/^\\d{4}-\\d{2}-\\d{2}$/) && newData.child('time').val().matches(/^\\d{2}:\\d{2}$/) && newData.child('price').val() >= 0 && newData.child('fareAmount').val() >= 0"
+      }
+    },
+    "analytics": {
+      "mainWeb": {
+        ".read": false,
+        "$day": {
+          ".indexOn": ["count", "pageViews"],
+          ".validate": "$day.matches(/^\\d{4}-\\d{2}-\\d{2}$/)",
+          "count": {
+            ".read": true,
+            ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+          },
+          "pageViews": {
+            ".read": true,
+            ".write": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+          },
+          "pageDeviceCounts": {
+            "$page": {
+              ".read": true,
+              ".write": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.isNumber() && newData.val() === data.val() + 1))"
+            }
+          },
+          "devices": {
+            "$deviceId": {
+              ".read": true,
+              ".write": "$deviceId.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.hasChildren(['firstSeenAt', 'lastSeenAt', 'pageViews', 'pages']) && newData.child('firstSeenAt').isNumber() && newData.child('lastSeenAt').isNumber() && newData.child('lastSeenAt').val() >= newData.child('firstSeenAt').val() && newData.child('pageViews').isNumber() && ((!data.exists() && newData.child('pageViews').val() === 1) || (data.exists() && data.child('pageViews').isNumber() && newData.child('pageViews').val() === data.child('pageViews').val() + 1))",
+              "pages": {
+                "$page": {
+                  ".validate": "$page.matches(/^[A-Za-z0-9_-]{1,80}$/) && newData.isNumber() && newData.val() >= 1 && (!data.exists() || newData.val() === data.val() + 1)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "driverCommands": {
+      "$vehicleId": {
+        "command": {
+          ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)",
+          ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true && (newData.val() === 'forceGpsRestart' || newData.val() === null)"
+        },
+        "lastResponse": {
+          ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)",
+          ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId)"
+        }
+      }
+    },
+    "admin": {
+      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      ".write": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"
+    },
+    "driverLogs": {
+      ".read": false,
+      "$vehicleId": {
+        ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+      }
+    },
+    "ticketLocations": {
+      ".read": false,
+      "$bookingId": {
+        ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
+        ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
+      }
+    },
+    "fcmTokensByVehicle": {
+      ".read": "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true",
+      "$vehicleId": {
+        ".write": "auth != null && root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val() === $vehicleId"
+      }
+    },
+    "passengerLiveLocations": {
+      ".read": false,
+      "$bookingId": {
+        ".read": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
+        ".write": "auth != null && (root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true || root.child('bookings/' + $bookingId + '/ownerUid').val() === auth.uid || root.child('bookings/' + $bookingId + '/plannedVehicleId').val() === root.child('data/driverIdentityCenter/accounts/' + auth.uid + '/runtimeVehicleId').val())",
+        ".validate": "newData.hasChildren(['lat', 'lng', 'ts']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('ts').isNumber()"
+      }
+    },
+    "meta": {
+      ".read": true,
+      ".write": false
+    }
+  }
+}

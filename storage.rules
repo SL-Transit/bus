@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /slips/{bookingId}/{fileName} {
+      allow read: if request.auth != null
+        && (request.auth.token.admin == true || request.auth.token.role == 'admin'
+          || resource.metadata.ownerUid == request.auth.uid);
+      allow create: if request.auth != null
+        && bookingId.matches('^(BK|TB)[0-9]{6}$')
+        && fileName.matches('^[A-Za-z0-9_-]{1,80}\\.(jpg|jpeg|png|webp)$')
+        && request.resource.metadata.ownerUid == request.auth.uid
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

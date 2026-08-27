@@ -1,0 +1,27 @@
+name: Admin Live Release Isolation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/admin-erp-live-owner-review]
+  pull_request:
+    branches: [release/admin-erp-live-owner-review]
+    paths:
+      - 'admin-erp.html'
+      - 'tests/admin-live-release-isolation.test.js'
+      - '.github/workflows/admin-live-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tests/admin-live-release-isolation.test.js

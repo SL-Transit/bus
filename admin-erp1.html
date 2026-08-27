@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SL-Transit Greenfield Admin ERP1 Phase 6A.1 Draft revalidation review">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <title>SL-Transit · Greenfield Admin ERP1</title>
+  <link rel="stylesheet" href="assets/admin-erp1-greenfield.css">
+  <script defer src="admin-erp1-greenfield-state.js"></script>
+  <script defer src="admin-erp1-greenfield-api-client.js"></script>
+  <script defer src="admin-erp1-greenfield-system-mode.js"></script>
+  <script defer src="assets/vendor/xlsx.full.min.js"></script>
+  <script defer src="greenfield-erp/phase2/excel-row-mapper.js"></script>
+  <script defer src="admin-erp1-excel-3-3-x.js"></script>
+  <script defer src="admin-erp1-greenfield-controller.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
+  <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A.1 · Draft editor + async revalidation · No production writes</div>
+
+  <header class="topbar">
+    <div class="brand-lockup">
+      <span class="brand-mark" aria-hidden="true">SL</span>
+      <div>
+        <p class="eyebrow">SL-TRANSIT CONTROL PLANE</p>
+        <h1>Admin ERP1</h1>
+      </div>
+    </div>
+    <div class="environment-chip"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="เมนูระบบ">
+      <p class="nav-label">WORKSPACE</p>
+      <nav>
+        <button type="button" data-section-target="overview" aria-label="ไปภาพรวม"><span>01</span> ภาพรวม</button>
+        <button type="button" data-section-target="import"><span>02</span> Import Package</button>
+        <button type="button" data-section-target="draft"><span>03</span> Draft</button>
+        <button type="button" data-section-target="validation"><span>04</span> Validation</button>
+        <button type="button" data-section-target="review"><span>05</span> Review</button>
+        <button type="button" data-section-target="approval"><span>06</span> Approval</button>
+      </nav>
+      <div class="sidebar-note">
+        <strong>Safe by design</strong>
+        <p>หน้านี้ไม่มีช่องทาง Publish และไม่เขียนฐานข้อมูลจริง</p>
+      </div>
+    </aside>
+
+    <main id="main-content">
+      <section id="overview" class="hero panel">
+        <div>
+          <p class="eyebrow">PHASE 6A.1 · DRAFT CONTROL</p>
+          <h2>จัดข้อมูลขนส่งให้พร้อมตรวจ ก่อนส่งต่อให้ระบบกลาง</h2>
+          <p class="lead">หน้าใหม่สำหรับลำดับ Import → Draft → Validate → Review → Approve โดย Upload, Import, Review และ Approval ผ่าน API ฝั่งเซิร์ฟเวอร์ พร้อม revision และ audit</p>
+        </div>
+        <div class="hero-metric" aria-label="สถานะการเชื่อมต่อ">
+          <span>BACKEND</span>
+          <strong>SAFE MODE</strong>
+          <small>Runtime config required</small>
+        </div>
+      </section>
+
+      <section class="workflow-strip" aria-label="ลำดับงาน">
+        <div data-phase="fileSelected"><span>1</span><strong>Import</strong><small>รับ Package</small></div>
+        <div data-phase="draft"><span>2</span><strong>Draft</strong><small>สร้างฉบับร่าง</small></div>
+        <div data-phase="invalid"><span>3</span><strong>Validate</strong><small>ตรวจโครงสร้าง</small></div>
+        <div data-phase="reviewRequested"><span>4</span><strong>Review</strong><small>ส่งผู้ตรวจ</small></div>
+        <div data-phase="approved"><span>5</span><strong>Approve</strong><small>เจ้าของอนุมัติ</small></div>
+      </section>
+
+      <div class="content-grid">
+        <section id="import" class="panel primary-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div>
+            <span class="status-pill">AUTHORIZED STAGING</span>
+          </div>
+          <p>เลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON ระบบจะตรวจรุ่น ชีต หัวตาราง รหัส และความสัมพันธ์ก่อนสร้าง Draft</p>
+          <label class="dropzone" for="import-file">
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <strong>เลือกไฟล์ข้อมูลต้นทาง</strong>
+            <span>Excel 3.3.4–3.3.5 หรือ Canonical JSON · สูงสุด 25 MB</span>
+            <input id="import-file" type="file" accept=".xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json">
+          </label>
+          <dl class="file-meta">
+            <div><dt>ชื่อไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div>
+            <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>
+            <div><dt>รุ่น Excel</dt><dd id="excel-version">รอตรวจ</dd></div>
+            <div><dt>ผลตรวจก่อนส่ง</dt><dd id="excel-precheck">ยังไม่ได้ตรวจ</dd></div>
+            <div class="scope-field"><dt><label for="operator-scope">Stable Operator IDs</label></dt><dd><input id="operator-scope" type="text" value="OPR-BUS01" maxlength="512" autocomplete="off" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายบริษัทด้วยเครื่องหมายจุลภาค</small></dd></div>
+          </dl>
+          <div class="actions">
+            <button id="validate-file" type="button" class="button primary" disabled>ตรวจสอบผ่าน Backend</button>
+            <button id="reset-workflow" type="button" class="button secondary">ล้างสถานะ</button>
+          </div>
+        </section>
+
+        <aside class="panel status-card" aria-labelledby="runtime-title">
+          <div class="section-heading"><div><p class="eyebrow">RUNTIME</p><h2 id="runtime-title">สถานะงาน</h2></div></div>
+          <div class="runtime-orbit" aria-hidden="true"><span></span></div>
+          <dl class="runtime-list">
+            <div><dt>Phase</dt><dd id="workflow-phase">idle</dd></div>
+            <div><dt>Backend</dt><dd id="backend-status" class="offline">Not configured</dd></div>
+            <div><dt>Write access</dt><dd>Emulator only</dd></div>
+            <div><dt>Job ID</dt><dd id="job-id">—</dd></div>
+            <div><dt>Error code</dt><dd id="error-code">none</dd></div>
+          </dl>
+          <div id="action-notice" class="notice" data-kind="neutral">
+            <strong>ระบบยังปลอดภัย</strong>
+            <p id="workflow-status">พร้อมรับข้อมูลในหน้า Preview — ยังไม่มีการบันทึก</p>
+          </div>
+        </aside>
+      </div>
+
+      <section id="draft" class="panel stage-card stage-card-wide">
+        <div class="stage-index">02</div>
+        <div>
+          <p class="eyebrow">DRAFT EDITOR</p>
+          <h2>แก้ข้อมูลร่างผ่าน Backend แบบแบ่งหน้า</h2>
+          <p>หน้าเว็บอ่านทีละชนิดข้อมูล ไม่เกิน 50 รายการและ 256 KiB ต่อครั้ง การบันทึกส่งเฉพาะรายการที่เปลี่ยน ไม่อ่านหรือเขียน RTDB โดยตรง</p>
+          <div class="editor-toolbar">
+            <label for="draft-entity-type">ชนิดข้อมูล
+              <select id="draft-entity-type">
+                <option value="operators">บริษัท</option>
+                <option value="locations">สถานที่/ป้ายกลาง</option>
+                <option value="routes" selected>เส้นทาง</option>
+                <option value="journeyPatterns">รูปแบบการเดินทาง</option>
+                <option value="serviceCalendars">วันให้บริการ</option>
+                <option value="fixedTrips">เที่ยวเวลาคงที่</option>
+                <option value="stopTimes">เวลาประจำป้าย</option>
+                <option value="frequencyServices">เที่ยวแบบความถี่</option>
+                <option value="fareProducts">ผลิตภัณฑ์ค่าโดยสาร</option>
+                <option value="fareRules">กฎค่าโดยสาร</option>
+                <option value="transferRules">กฎการต่อรถ</option>
+                <option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option>
+                <option value="queues">คิวและจุดจอด</option>
+                <option value="vehicles">รถ</option>
+                <option value="drivers">คนขับ</option>
+                <option value="vehicleBlocks">กะรถ</option>
+                <option value="driverDuties">กะคนขับ</option>
+                <option value="assignments">การจัดสรร</option>
+                <option value="bookingPolicies">กฎการจอง</option>
+                <option value="platformAssignments">การใช้ชานชาลา</option>
+                <option value="calendarExceptions">วันพิเศษ</option>
+                <option value="routeDrafts">ร่างเส้นทาง</option>
+                <option value="routeDraftStops">ลำดับป้ายร่าง</option>
+                <option value="locationSurveys">แบบสำรวจจุดบริการ</option>
+                <option value="locationAccesses">สิทธิ์ใช้จุด</option>
+                <option value="accounts">บัญชีผู้ใช้</option>
+                <option value="accountAccesses">สิทธิ์ผู้ใช้</option>
+                <option value="incidents">เหตุขัดข้อง</option>
+              </select>
+            </label>
+            <button id="load-draft-page" type="button" class="button secondary" disabled>โหลดข้อมูล</button>
+            <button id="next-draft-page" type="button" class="button secondary" disabled>หน้าถัดไป</button>
+          </div>
+          <div class="editor-grid">
+            <label for="draft-entity-list">รายการในหน้านี้
+              <select id="draft-entity-list" size="7" aria-label="รายการ Draft"></select>
+            </label>
+            <div class="editor-fields">
+              <label for="draft-entity-id">Stable ID
+                <input id="draft-entity-id" type="text" maxlength="128" autocomplete="off">
+              </label>
+              <label for="draft-json">ข้อมูล JSON
+                <textarea id="draft-json" rows="10" spellcheck="false" placeholder="เลือกข้อมูลจากรายการ หรือกรอก Stable ID และ JSON สำหรับรายการใหม่"></textarea>
+              </label>
+              <label for="draft-change-summary">เหตุผลที่แก้ไข
+                <input id="draft-change-summary" type="text" minlength="3" maxlength="500" autocomplete="off" placeholder="เช่น แก้ชื่อสายและเวลาตามเอกสารต้นทาง">
+              </label>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="save-draft-entity" type="button" class="button primary" disabled>บันทึกลง Draft</button>
+            <button id="delete-draft-entity" type="button" class="button danger" disabled>ลบรายการจาก Draft</button>
+          </div>
+        </div>
+        <span class="locked">BOUNDED API</span>
+      </section>
+
+      <section id="validation" class="panel stage-card">
+        <div class="stage-index">03</div>
+        <div>
+          <p class="eyebrow">ASYNC VALIDATION</p>
+          <h2>ตรวจบริษัท จุดเชื่อม เส้นทาง เที่ยว เวลา ราคา และการต่อรถ</h2>
+          <p>หลังแก้ Draft ต้องสั่งตรวจใหม่ งานหนักทำใน Worker ที่จำกัดจำนวนเครื่องและการทำงานพร้อมกัน หน้า Admin ติดตามเฉพาะสถานะและผลตรวจที่จำกัดขนาด</p>
+          <div class="actions">
+            <button id="validate-draft" type="button" class="button secondary" disabled>ตรวจ Draft ใหม่</button>
+          </div>
+          <dl class="validation-summary">
+            <div><dt>Validation Job</dt><dd id="validation-job-id">—</dd></div>
+            <div><dt>ผลตรวจ</dt><dd id="validation-result">ยังไม่มีผลตรวจรอบใหม่</dd></div>
+          </dl>
+        </div>
+        <span class="locked">WORKER · MAX 2</span>
+      </section>
+
+      <section id="review" class="panel stage-card">
+        <div class="stage-index">04</div><div><p class="eyebrow">REVIEW</p><h2>ส่ง Draft ที่ผ่านการตรวจให้ผู้ทบทวน</h2><p>ระบบจะบันทึกผู้ส่ง เวลา และผลการตรวจผ่านคำสั่งที่ตรวจสิทธิ์จากฝั่งเซิร์ฟเวอร์</p><button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button></div><span class="locked">LOCKED</span>
+      </section>
+
+      <section id="approval" class="panel stage-card">
+        <div class="stage-index">05</div>
+        <div>
+          <p class="eyebrow">OWNER APPROVAL</p>
+          <h2>อนุมัติหรือส่ง Draft กลับ โดยไม่เผยแพร่</h2>
+          <p>ผู้อนุมัติต้องไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด หากส่งกลับ ผู้แก้ไขต้องบันทึก Draft และตรวจใหม่ก่อน Review รอบถัดไป</p>
+          <label class="approval-comment" for="approval-comment">ความเห็นผู้อนุมัติ
+            <input id="approval-comment" type="text" maxlength="1000" autocomplete="off" placeholder="ระบุเหตุผลเมื่อส่งกลับ">
+          </label>
+          <div class="actions">
+            <button id="approve-draft" type="button" class="button secondary" disabled>อนุมัติ Draft</button>
+            <button id="reject-draft" type="button" class="button danger" disabled>ส่งกลับให้แก้ไข</button>
+          </div>
+        </div>
+        <span class="locked">OWNER ONLY</span>
+      </section>
+    </main>
+  </div>
+
+  <footer><span>SL-Transit Greenfield ERP</span><span>Integration Review · Phase 6A.1</span></footer>
+</body>
+</html>

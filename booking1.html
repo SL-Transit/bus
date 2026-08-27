@@ -1,0 +1,3615 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<script src="site-runtime.js?v=20260822a" data-sl-runtime></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S.L.Transit - จองตั๋วรถโดยสาร</title>
+
+<!-- Firebase SDK (compat v9) — เหมือน index.html ของ project -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script defer src="site-analytics.js?v=20260728a"></script>
+
+<!-- ══════════════════════════════════════════════════════════
+     [SCHEMA v3 PENDING] ERP Core Layer — ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 6
+     รอ AI ชุดหลัก push erp-data-adapter.js และ erp-core.js เข้า repo
+     สถานะล่าสุดที่ตรวจสอบ (2026-07-03): ยังไม่มีทั้งสองไฟล์ (HTTP 404)
+
+     เมื่อพร้อมแล้ว ให้ลบ comment 2 บรรทัดด้านล่างออก
+     ต้องอยู่ตำแหน่งนี้เท่านั้น — หลัง Firebase SDK
+     ══════════════════════════════════════════════════════════ -->
+<!-- <script src="erp-data-adapter.js"></script> -->
+<!-- <script src="erp-core.js"></script> -->
+
+<!-- QR Code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+window.SL_TRANSIT_LINE_LIFF_ID = window.SL_TRANSIT_LINE_LIFF_ID || '2010733143-xQFRzCsR';
+</script>
+
+<!-- S.L.Transit ERP booking adapter layer -->
+<script src="booking-assignment-center.js?v=20260713b"></script>
+<script src="booking-availability-center.js?v=20260715a"></script>
+<script src="fare-decision-center.js?v=20260812b"></script>
+<script src="erp-calculator-center.js?v=20260715a"></script>
+<script src="passenger-identity-center.js?v=20260716a"></script>
+<script src="erp-workbook-booking-source.js?v=20260812a&encoding=20260812a"></script>
+<script src="booking-bridge.js?v=20260815a"></script>
+<script src="booking1-preview-adapter.js?v=20260815a" defer></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===== TOKENS ===== */
+:root {
+  --navy:       #0d1b3e;
+  --navy-dark:  #081229;
+  --navy2:      #0f2647;
+  --teal:       #1a9b8c;
+  --teal-light: #22b5a4;
+  --teal-lt:    #5eead4;
+  --teal-bg:    #e8f7f6;
+  --orange:     #f5a623;
+  --white:      #ffffff;
+  --gray-bg:    #f2f4f8;
+  --gray-light: #e8ecf2;
+  --gray-text:  #8a94a6;
+  --gray-border:#dde3ed;
+  --dark-text:  #1a2340;
+  --body-text:  #3a4560;
+}
+
+/* ===== BASE ===== */
+body {
+  font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+  background: var(--gray-bg);
+  color: var(--dark-text);
+  min-height: 100vh;
+}
+
+/* ===== RESPONSIVE WRAPPER ===== */
+/* เนื้อหาหลักจำกัดความกว้างสูงสุด 900px แต่ขยายเต็มจอบนมือถือ */
+.page-container {
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+
+/* ===== ICON SYSTEM — PNG Assets =====
+   ไอคอนทั้งหมดใช้ไฟล์ PNG จาก assets/ ตามหมายเลขด้านล่าง
+   เมื่อมีไฟล์ภาพให้วางไว้ที่ assets/ ตามชื่อที่กำหนด
+
+   201.png  — โลโก้ S.L.Transit (38×38px)
+   202.png  — Hamburger Menu (22×22px)
+   203.png  — ค้นหา / Search (18×18px)
+   204.png  — ต้นทาง / Origin pin (24×24px)
+   205.png  — ปลายทาง / Destination pin (24×24px)
+   206.png  — ปฏิทิน / Calendar date (24×24px)
+   207.png  — ผู้โดยสาร / Passengers person (24×24px)
+   208.png  — สลับทิศทาง / Swap arrows (16×16px)
+   209.png  — เดินทาง / Passenger service (44×44px)
+   210.png  — ส่งของ / Send parcel (44×44px)
+   211.png  — รับของ / Receive parcel (44×44px)
+   212.png  — ฝากหิ้วของ / Carry bag (44×44px)
+   213.png  — แนะนำเส้นทางอัจฉริยะ / Smart route (18×18px)
+   214.png  — คำเตือน / Warning (18×18px)
+   215.png  — ตรวจสอบตั๋ว / Ticket check benefit (28×28px)
+   216.png  — ติดตามรถ benefit / Track bus (28×28px)
+   217.png  — แนะนำจุดต่อ / Route suggest (28×28px)
+   218.png  — บริการในอนาคต / Future service (32×32px)
+   219.png  — เส้นทาง / Route (ใน info row วงกลม) (20×20px)
+   220.png  — เวลา / Clock (ใน info row วงกลม) (20×20px)
+   221.png  — ป้ายรถ / Bus stop (ใน info row วงกลม) (20×20px)
+   222.png  — ปฏิทินวันที่ / Calendar2 (ใน info row วงกลม) (20×20px)
+   223.png  — กรอกข้อมูล / Passenger form (section title) (20×20px)
+   224.png  — ผู้โดยสาร2 / Passenger2 (ใน info row วงกลม) (20×20px)
+   225.png  — โทรศัพท์ / Phone (ใน info row วงกลม) (20×20px)
+   226.png  — กลุ่มคน / Group — ใช้กับแถวจำนวนที่นั่ง และแถวชื่อผู้โดยสาร (ใน info row วงกลม) (20×20px)
+   227.png  — ตั๋ว / Ticket (section title สรุปรายการ) (20×20px)
+   228.png  — ชำระเงิน / Payment (section title) (20×20px)
+   229.png  — ธนาคาร / Bank (วิธีชำระ) (28×28px)
+   230.png  — พร้อมเพย์ / PromptPay (วิธีชำระ) (28×28px)
+   231.png  — รอชำระ / Clock waiting (สถานะ) (18×18px)
+   232.png  — แนบไฟล์ / Upload (section title) (20×20px)
+   233.png  — กล้อง / Camera (upload area) (36×36px)
+   234.png  — เอกสาร / Document consent (18×18px)
+   235.png  — (ไม่มีไฟล์จริงใน assets/ — เลิกใช้ ใช้ 226.png แทนสำหรับชื่อผู้โดยสาร) (20×20px)
+   236.png  — ชำระแล้ว check / Paid check (ใน badge สีเขียว) (16×16px)
+   237.png  — (ไม่ได้ใช้แล้ว — ปุ่มดูตั๋ว/เช็คอิน ใช้ 251.png แทน) (22×22px)
+   238.png  — (ไม่ได้ใช้แล้ว — ปุ่มยกเลิกตั๋ว ใช้ 252.png แทน) (22×22px)
+   239.png  — (ไม่ได้ใช้แล้ว — ปุ่มกลับสู่เมนูหลัก ใช้ 253.png แทน) (22×22px)
+   240.png  — แสดง QR / Scan QR hint (20×20px)
+   241.png  — รถ meta / Bus meta (ใน trip card) (14×14px)
+   242.png  — เวลา meta / Time meta (ใน trip card) (14×14px)
+   243.png  — ที่นั่ง meta / Seat meta (ใน trip card) (14×14px)
+   244.png  — ไม่มีเที่ยว / No trips (54×54px)
+   245.png  — จุดต่อรถ / Transfer point (22×22px)
+   250.png  — บันทึกรูปตั๋ว / Save ticket image — badge วงกลมในตัว ไม่ต้องพันด้วย
+              .icon-circle-lg สี (action button, ticket page) (38×38px)
+   251.png  — ดูตั๋ว/เช็คอิน / View ticket-Check-in — badge วงกลมในตัว (38×38px)
+   252.png  — ยกเลิกตั๋ว / Cancel ticket — badge วงกลมในตัว (38×38px)
+   253.png  — กลับสู่เมนูหลัก / Back to main menu — badge วงกลมในตัว (38×38px)
+   ===================================================== */
+
+/* .icon-img ใช้แทน icon-placeholder ทุกที่ */
+.icon-img {
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* ขนาดเฉพาะที่ยังต้องการ fallback สี */
+.icon-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.04);
+  border-radius: 4px;
+}
+.icon-sm  { width: 18px; height: 18px; }
+.icon-md  { width: 24px; height: 24px; }
+.icon-lg  { width: 32px; height: 32px; }
+.icon-xl  { width: 40px; height: 40px; }
+/* วงกลม (ใช้ใน info-row) */
+.icon-circle {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.icon-circle > .icon-img {
+  width: 32px !important;
+  height: 32px !important;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  margin: 0;
+}
+/* action btn circle */
+.icon-circle-lg {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+}
+.icon-circle-lg.teal  { background: var(--teal); }
+.icon-circle-lg.red   { background: #ff4444; }
+.icon-circle-lg.navy  { background: var(--navy); }
+
+/* ===== HEADER ===== */
+.header {
+  background: var(--navy-dark);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.logo-wrap { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg,#1a9b8c,#0d7a6e);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; color: white; font-size: 17px;
+  font-style: italic; letter-spacing: -1px; flex-shrink: 0;
+}
+.logo-text-wrap { display: flex; flex-direction: column; }
+.logo-name { color: white; font-size: 15px; font-weight: 800; letter-spacing: .5px; line-height: 1; }
+.logo-name span { color: var(--orange); }
+.logo-tagline { color: rgba(255,255,255,.55); font-size: 10px; margin-top: 2px; }
+.hamburger { width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.10);border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px; }
+.hamburger span { display: block; width: 22px; height: 2px; background: white; border-radius: 2px; }
+
+/* ===== HERO ===== */
+.hero {
+  background: linear-gradient(135deg, var(--navy-dark) 0%, #0a1f4e 60%, #0d2d6e 100%);
+  padding: 28px 20px 30px;
+  position: relative;
+  overflow: hidden;
+  min-height: 130px;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 200px 120px at 85% 50%, rgba(26,155,140,.18) 0%, transparent 70%),
+    radial-gradient(ellipse 120px 80px at 70% 30%, rgba(30,100,200,.2) 0%, transparent 70%);
+}
+.hero-content { position: relative; z-index: 2; max-width: 55%; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px; padding: 3px 10px;
+  color: rgba(255,255,255,.85); font-size: 11px; margin-bottom: 8px;
+}
+.hero-title { font-size: 28px; font-weight: 800; color: white; line-height: 1.2; margin-bottom: 6px; text-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.hero-sub { font-size: 13px; color: rgba(255,255,255,.7); line-height: 1.4; }
+.bus-svg { position: absolute; right: 0; bottom: 0; width: 200px; opacity: .85; }
+
+.booking-ann-hero {
+  position: relative;
+  height: 220px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--navy);
+  width: 100%;
+  max-width: none;
+}
+.booking-ann-hero::before { display: none; }
+.ann-slides {
+  display: flex;
+  height: 100%;
+  transition: transform .5s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+}
+.ann-slide {
+  min-width: 100%;
+  height: 100%;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+.ann-slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.ann-slide.active .ann-slide-bg { transform: none; }
+.ann-slide-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(11,29,58,.30) 0%, rgba(11,29,58,.75) 70%, rgba(11,29,58,.92) 100%);
+}
+.ann-slide-text {
+  position: relative; z-index: 1;
+  padding: 0 20px 20px;
+  width: 100%;
+  display: none;
+}
+.ann-slide-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--teal-lt); margin-bottom: 6px;
+}
+.ann-slide-tag-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex-shrink: 0; }
+.ann-slide-title {
+  font-size: clamp(18px,5vw,26px); font-weight: 800;
+  color: #fff; line-height: 1.2; margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.ann-slide-body {
+  font-size: 13px; color: rgba(255,255,255,.72);
+  line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.ann-dots {
+  position: absolute; bottom: 12px; right: 16px;
+  display: flex; gap: 5px; z-index: 5;
+}
+.ann-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,.35);
+  transition: all .3s; cursor: pointer;
+}
+.ann-dot.active { background: #fff; width: 18px; border-radius: 3px; }
+.ann-progress {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 3px; background: rgba(255,255,255,.15); z-index: 5;
+}
+.ann-progress-fill {
+  height: 100%; background: var(--teal);
+  border-radius: 0 2px 2px 0; width: 0%;
+  transition: width linear;
+}
+.ann-tap-l,.ann-tap-r { position: absolute; top: 0; bottom: 0; width: 35%; z-index: 4; cursor: pointer; }
+.ann-tap-l { left: 0; }
+.ann-tap-r { right: 0; }
+.ann-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,#082040 100%);
+  display: flex; align-items: flex-end;
+  position: relative; overflow: hidden;
+}
+.ann-placeholder::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 85% 30%,rgba(0,184,169,.20),transparent 50%),
+    radial-gradient(ellipse at 10% 80%,rgba(255,138,0,.12),transparent 40%);
+}
+.ann-placeholder-bus {
+  position: absolute; right: -10px; top: 50%; transform: translateY(-50%);
+  width: 160px; opacity: .15; pointer-events: none;
+  filter: drop-shadow(0 0 24px rgba(0,184,169,.6));
+}
+.ann-placeholder-text { position: relative; z-index: 1; padding: 0 20px 20px; }
+.ann-placeholder-h1 {
+  font-size: clamp(22px,6vw,34px); font-weight: 800;
+  color: #fff; line-height: 1.15; margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+.ann-placeholder-h1 em { font-style: normal; color: var(--teal-lt); }
+.ann-placeholder-sub { font-size: 13px; color: rgba(255,255,255,.60); }
+
+/* ===== STEP BAR ===== */
+.step-bar {
+  background: white;
+  padding: 14px 16px 10px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  border-bottom: 1px solid var(--gray-light);
+}
+.step-item { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+.step-item:not(:last-child)::after {
+  content: ''; position: absolute;
+  top: 13px; left: 55%; width: 90%; height: 0;
+  border-top: 2px dashed var(--gray-border);
+}
+.step-item.done:not(:last-child)::after,
+.step-item.active:not(:last-child)::after { border-top-color: var(--teal); }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--gray-light); color: var(--gray-text);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; z-index: 1;
+  border: 2px solid var(--gray-border);
+}
+.step-item.active .step-num,
+.step-item.done .step-num { background: var(--teal); color: white; border-color: var(--teal); }
+.step-label { font-size: 9.5px; color: var(--gray-text); margin-top: 5px; text-align: center; white-space: nowrap; }
+.step-item.active .step-label { color: var(--teal); font-weight: 700; }
+
+/* ===== CONTENT ===== */
+.content { padding: 14px 16px 110px; }
+
+/* ===== CARD ===== */
+.card {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+/* ===== SERVICE GRID ===== */
+.service-section { background: white; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.07); margin-bottom: 14px; padding: 14px; }
+.section-label { font-size: 14px; font-weight: 700; color: var(--dark-text); margin-bottom: 12px; }
+.service-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.service-item {
+  background: white; border: 2px solid var(--gray-border);
+  border-radius: 10px; padding: 10px 6px; text-align: center;
+  cursor: pointer; transition: all .15s; position: relative;
+}
+.service-item.active { border-color: var(--teal); background: var(--teal-bg); }
+.service-item.disabled {
+  opacity: 1;
+  filter: none;
+  cursor: not-allowed;
+  background: #fff;
+}
+.service-item.disabled .service-icon-box,
+.service-item.disabled .service-name,
+.service-item.disabled .service-sub { opacity: .42; }
+.service-item.disabled.active { border-color: var(--gray-border); background: #fff; }
+.soon-badge {
+  position: absolute; top: -6px; right: -2px;
+  background: #fff7ed; color: #d97706;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, .16);
+  font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 8px; white-space: nowrap;
+}
+.service-icon-box {
+  width: 32px; height: 32px;
+  margin: 0 auto 6px;
+  background: var(--teal-bg); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.service-name { font-size: 11px; font-weight: 700; color: var(--dark-text); line-height: 1.2; }
+.service-sub { font-size: 9px; color: var(--gray-text); margin-top: 2px; }
+.service-item > img.icon-img { display: block; margin: 0 auto 6px; }
+
+/* ===== SEARCH SECTION ===== */
+.search-section {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  padding: 16px 14px 14px;
+  margin-bottom: 14px;
+}
+
+/* ── แถวบน: ต้นทาง + swap + ปลายทาง ── */
+.search-row-top {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 8px;
+}
+.search-row-top .search-field { flex: 1 1 0; min-width: 0; }
+
+/* ── swap button ตรงกลางแถวบน ── */
+.swap-btn {
+  flex-shrink: 0;
+  width: 32px;
+  align-self: center;
+  margin: 0 4px;
+  border: 1.5px solid var(--gray-border);
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  color: var(--teal);
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  transition: border-color .15s, background .15s;
+}
+.swap-btn:hover { border-color: var(--teal); background: var(--teal-bg); }
+
+/* swap arrow SVG */
+.swap-arrow {
+  display: block;
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+}
+
+/* ── แถวล่าง: วันที่ + ผู้โดยสาร ── */
+.search-row-bottom {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.search-row-bottom .search-field { flex: 1 1 0; min-width: 0; }
+
+/* ── กล่องแต่ละช่อง ── */
+.search-field {
+  border: 1.5px solid var(--gray-border);
+  border-radius: 10px;
+  padding: 10px 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: white;
+  min-height: 60px;
+  cursor: pointer;
+  transition: border-color .15s;
+  overflow: hidden;
+}
+.search-field:hover { border-color: var(--teal-light); }
+
+/* ── ไอคอนวงกลม ── */
+.sf-icon {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sf-icon.origin      { background: #e3f6f4; }
+.sf-icon.destination { background: #fff3e0; }
+.sf-icon.calendar    { background: #e3f6f4; }
+.sf-icon.passengers  { background: #e3f6f4; }
+
+/* dot / shape ใน icon placeholder */
+.sf-icon .dot {
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+.sf-icon.destination .dot { background: var(--orange); }
+
+/* ── ข้อความใน field ── */
+.sf-inner {
+  display: flex; flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.sf-label {
+  font-size: 10px;
+  color: var(--gray-text);
+  line-height: 1;
+  white-space: nowrap;
+}
+.sf-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dark-text);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.search-pax-value {
+  min-width: 46px;
+}
+
+/* ── ปุ่มค้นหา (เต็มความกว้าง) ── */
+.search-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--teal) 0%, #0d7a6e 100%);
+  color: white; border: none; border-radius: 10px;
+  padding: 13px 16px;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: inherit;
+}
+
+/* ===== SECTION HEAD ===== */
+.section-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 10px; }
+.section-head-title { font-size: 15px; font-weight: 700; color: var(--dark-text); }
+.section-head-link { font-size: 11px; color: var(--teal); display: flex; align-items: center; gap: 3px; }
+
+/* ===== TRIP CARD ===== */
+.trip-card {
+  border: 2px solid var(--gray-border); border-radius: 12px;
+  padding: 14px; margin-bottom: 10px; background: white;
+  cursor: pointer; transition: all .15s; position: relative;
+}
+.trip-card.selected { border-color: var(--teal); background: #f0fbfa; }
+.trip-time { font-size: 20px; font-weight: 800; color: var(--navy); margin-bottom: 2px; }
+.trip-time-badge {
+  display: inline-block; background: var(--teal-bg); color: var(--teal);
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+  margin-left: 8px; vertical-align: middle;
+}
+.trip-route { font-size: 13px; font-weight: 700; color: var(--dark-text); margin: 6px 0 4px; }
+.trip-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.trip-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--body-text); }
+.trip-meta-icon { width: 14px; height: 14px; background: var(--teal-bg); border-radius: 3px; flex-shrink: 0; }
+.trip-bottom { display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; }
+.trip-price { font-size: 16px; font-weight: 800; color: var(--teal); }
+.select-trip-btn {
+  background: var(--navy); color: white; border: none;
+  border-radius: 8px; padding: 8px 18px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: background .15s;
+}
+.select-trip-btn:disabled {
+  background: #cbd5e1; color: #64748b; cursor: not-allowed;
+}
+.trip-card.selected .select-trip-btn { background: var(--teal); }
+.no-trips-msg {
+  text-align: center; padding: 28px 16px;
+  background: white; border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  color: var(--body-text); margin-bottom: 14px;
+}
+.no-trips-msg .big-icon { font-size: 36px; margin-bottom: 10px; }
+.no-trips-msg strong { display: block; font-size: 15px; color: var(--dark-text); margin-bottom: 6px; }
+
+/* ===== BENEFIT CARD — โทนเดียวกับ trip selected ===== */
+.benefit-strip {
+  background: linear-gradient(180deg, #eefcff 0%, #f7fffe 100%);
+  border: 1px solid rgba(0,167,181,.25);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.benefit-strip-title { font-size: 13px; color: var(--body-text); text-align: center; margin-bottom: 14px; font-weight: 600; }
+.benefit-row { display: flex; justify-content: space-around; gap: 8px; }
+.benefit-item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+.benefit-icon-box {
+  width: 44px; height: 44px;
+  background: rgba(26,155,140,.12);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.benefit-label { font-size: 10px; font-weight: 600; color: var(--body-text); text-align: center; line-height: 1.3; }
+
+/* ===== FUTURE BANNER ===== */
+.future-banner {
+  background: white; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  padding: 14px 16px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 12px;
+  border-left: 4px solid var(--orange);
+}
+.future-banner-icon { width: 36px; height: 36px; background: rgba(245,166,35,.12); border-radius: 8px; flex-shrink: 0; }
+.future-banner-text { flex: 1; }
+.fb-title { font-size: 13px; font-weight: 700; color: var(--orange); margin-bottom: 3px; }
+.fb-sub { font-size: 11px; color: var(--gray-text); line-height: 1.4; }
+.future-btn {
+  background: white; border: 1.5px solid var(--orange); border-radius: 8px;
+  padding: 7px 12px; font-size: 12px; font-weight: 700; color: var(--orange);
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+}
+
+/* ===== INFO CARD (pages 2-4) ===== */
+.info-card {
+  background: white; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07); margin-bottom: 14px;
+}
+.info-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid var(--gray-light);
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { font-size: 13px; color: var(--gray-text); min-width: 90px; flex-shrink: 0; }
+.info-val { font-size: 14px; font-weight: 700; color: var(--dark-text); }
+
+/* ===== FORM ===== */
+.form-section {
+  background: white; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  padding: 16px; margin-bottom: 14px;
+}
+.form-section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 16px; font-weight: 700; color: var(--dark-text); margin-bottom: 16px;
+}
+.fst-icon { width: 24px; height: 24px; background: var(--teal-bg); border-radius: 6px; flex-shrink: 0; }
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 13px; color: var(--body-text); font-weight: 500; margin-bottom: 6px; display: block; }
+.form-input {
+  width: 100%; border: 1.5px solid var(--gray-border);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 14px; color: var(--dark-text); background: white;
+  font-family: inherit; outline: none; transition: border-color .15s;
+}
+.form-input:focus { border-color: var(--teal); }
+.counter-row { border: 1.5px solid var(--gray-border); border-radius: 10px; display: flex; align-items: center; overflow: hidden; }
+.counter-btn {
+  width: 48px; height: 48px; border: none; background: white;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: var(--teal); flex-shrink: 0; font-family: inherit;
+}
+.counter-val { flex: 1; text-align: center; font-size: 15px; font-weight: 700; color: var(--dark-text); }
+.checkbox-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+.checkbox-row input[type=checkbox] { width: 20px; height: 20px; border-radius: 5px; accent-color: var(--teal); flex-shrink: 0; margin-top: 1px; }
+.checkbox-label { font-size: 13px; color: var(--body-text); }
+.checkbox-label a { color: var(--teal); text-decoration: none; }
+.line-login-card {
+  border: 1.5px solid #d1fae5; border-radius: 12px;
+  background: #f0fdf4; padding: 12px; margin-bottom: 14px;
+}
+.line-login-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.line-login-copy { min-width: 0; }
+.line-login-title { font-size: 13px; font-weight: 800; color: #14532d; }
+.line-login-desc { font-size: 12px; color: #166534; line-height: 1.55; margin-top: 3px; }
+.line-login-btn {
+  border: none; border-radius: 10px; background: #06c755; color: white;
+  font-family: inherit; font-weight: 800; font-size: 13px; padding: 10px 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.line-login-btn:disabled { opacity: .6; cursor: wait; }
+.line-profile-row { display: none; align-items: center; gap: 8px; margin-top: 10px; }
+.line-profile-row img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: white; }
+.line-profile-name { font-size: 13px; font-weight: 800; color: #14532d; }
+.line-identity-status { font-size: 12px; color: #166534; margin-top: 8px; }
+.btn-main {
+  width: 100%; background: linear-gradient(135deg, var(--navy), #1a2d6e);
+  color: white; border: none; border-radius: 12px;
+  padding: 16px; font-size: 16px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-family: inherit; transition: opacity .15s;
+}
+.btn-main:hover { opacity: .92; }
+
+/* ===== PAYMENT ===== */
+.summary-card { background: white; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.07); padding: 14px 16px; margin-bottom: 14px; }
+.summary-section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--dark-text); margin-bottom: 12px; }
+.sst-icon { width: 24px; height: 24px; background: var(--teal-bg); border-radius: 6px; flex-shrink: 0; }
+.summary-line { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; color: var(--body-text); border-bottom: 1px solid var(--gray-light); }
+.summary-line:last-child { border-bottom: none; }
+.summary-line.total { font-weight: 800; color: var(--dark-text); font-size: 16px; border-top: 1.5px solid var(--gray-border); margin-top: 4px; padding-top: 12px; }
+.summary-line.total .total-amount { font-size: 22px; font-weight: 900; }
+.qr-title { font-size: 15px; font-weight: 800; color: var(--dark-text); margin-bottom: 14px; text-align: center; }
+.qr-wrap { border: 2px solid var(--teal-light); border-radius: 10px; padding: 12px; display: inline-block; margin-bottom: 8px; }
+.qr-code-svg { width: 160px; height: 160px; display: block; }
+.qr-note { font-size: 12px; color: var(--body-text); margin-bottom: 12px; text-align: center; }
+.payment-status { background: #eef5ff; border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; color: #3a7bd5; font-size: 14px; font-weight: 600; }
+.ps-icon { width: 18px; height: 18px; background: #c3d8f7; border-radius: 50%; flex-shrink: 0; }
+
+/* ===== TICKET ===== */
+.ticket-card { background: white; border-radius: 14px; box-shadow: 0 2px 14px rgba(0,0,0,.1); margin-bottom: 14px; overflow: hidden; }
+.ticket-header-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1.5px dashed var(--gray-light); }
+.paid-badge { background: #1ab26a; color: white; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.pb-check { width: 16px; height: 16px; background: rgba(255,255,255,.3); border-radius: 50%; flex-shrink: 0; }
+.booking-code { font-size: 13px; color: var(--body-text); }
+.booking-code strong { color: var(--navy); font-size: 15px; font-weight: 800; }
+.ticket-qr-section { padding: 14px 16px; text-align: center; border-top: 1.5px dashed var(--gray-light); }
+.ticket-qr-wrap { border: 2px solid var(--gray-border); border-radius: 10px; padding: 10px; display: inline-block; margin-bottom: 8px; }
+.scan-hint { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--body-text); }
+.scan-icon { width: 20px; height: 20px; background: var(--gray-light); border-radius: 4px; flex-shrink: 0; }
+
+/* ===== ACTION LIST (ticket) ===== */
+.action-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.action-btn {
+  background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; border: none; width: 100%; font-family: inherit;
+}
+.ab-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--dark-text); text-align: left; }
+.ab-arrow { color: var(--gray-text); font-size: 16px; }
+
+/* ===== NOTE ===== */
+.note-text { font-size: 11px; color: var(--gray-text); text-align: center; padding: 6px 0 2px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+/* ===== FOOTER ===== */
+.footer { background: var(--navy-dark); padding: 18px 20px 12px; text-align: center; }
+.footer-links { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+.footer-links a { color: rgba(255,255,255,.65); text-decoration: none; font-size: 11px; padding: 2px 10px; border-right: 1px solid rgba(255,255,255,.2); }
+.footer-links a:last-child { border-right: none; }
+.footer-copy { font-size: 10px; color: rgba(255,255,255,.35); }
+
+/* ===== PAYMENT METHOD CARDS ===== */
+.pay-method-card {
+  display: flex; align-items: center; gap: 12px;
+  border: 1.5px solid var(--gray-border);
+  border-radius: 12px; padding: 12px 14px;
+  margin-bottom: 8px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.pay-method-card.selected { border-color: var(--teal); background: var(--teal-bg); }
+.pm-radio {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--gray-border); flex-shrink: 0;
+  transition: border-color .15s; position: relative;
+}
+.pay-method-card.selected .pm-radio { border-color: var(--teal); }
+.pay-method-card.selected .pm-radio::after {
+  content: ''; position: absolute;
+  inset: 3px; border-radius: 50%; background: var(--teal);
+}
+.pm-icon { flex-shrink: 0; }
+.pm-text { flex: 1; min-width: 0; }
+.pm-name { font-size: 14px; font-weight: 700; color: var(--dark-text); }
+.pm-sub  { font-size: 11px; color: var(--gray-text); margin-top: 2px; }
+
+/* ===== PAYMENT DETAIL AREA ===== */
+.pay-detail { margin-top: 4px; margin-bottom: 4px; }
+.bank-info-box {
+  background: #f8fafc; border: 1px solid var(--gray-border);
+  border-radius: 10px; padding: 12px 14px;
+}
+.bank-info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--gray-light); font-size: 13px;
+}
+.bank-info-row:last-child { border-bottom: none; }
+.bi-label { color: var(--gray-text); font-weight: 600; }
+.bi-val   { font-weight: 700; color: var(--dark-text); text-align: right; }
+.bi-acc   { font-size: 16px; letter-spacing: 1.5px; color: var(--navy); }
+
+/* ===== SLIP UPLOAD ===== */
+.upload-area {
+  border: 2px dashed var(--gray-border); border-radius: 12px;
+  padding: 20px 14px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s; background: #fafbff;
+}
+.upload-area:hover { border-color: var(--teal); background: var(--teal-bg); }
+.upload-text { font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 3px; }
+.upload-sub  { font-size: 12px; color: var(--gray-text); }
+
+/* ===== CONSENT TRIGGER BUTTON ===== */
+.consent-trigger-btn {
+  width: 100%; padding: 13px 16px; border-radius: 12px;
+  border: 1.5px solid var(--teal); background: var(--teal-bg);
+  color: var(--navy); font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer; margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background .15s;
+}
+.consent-trigger-btn.accepted { background: #f0fdf4; border-color: #22c55e; color: #16a34a; }
+
+/* ===== CONSENT POPUP ===== */
+.consent-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(15,23,42,.65); z-index: 9000;
+  align-items: flex-end; justify-content: center;
+}
+.consent-overlay.show { display: flex; }
+.consent-box {
+  width: 100%; max-width: 480px; background: #fff;
+  border-radius: 22px 22px 0 0; max-height: 88vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 -8px 40px rgba(15,23,42,.22);
+}
+.consent-header {
+  padding: 18px 18px 12px; border-bottom: 1px solid var(--gray-border); flex-shrink: 0;
+}
+.consent-title { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+.consent-sub   { font-size: 12px; color: var(--gray-text); }
+.consent-body  {
+  overflow-y: auto; flex: 1; padding: 16px 18px;
+  font-size: 13px; color: #334155; line-height: 1.85;
+}
+.consent-body h3 { font-size: 13px; font-weight: 700; color: var(--navy); margin: 14px 0 5px; }
+.consent-body p  { margin: 0 0 8px; }
+.consent-footer  {
+  padding: 14px 18px 28px; border-top: 1px solid var(--gray-border); flex-shrink: 0;
+}
+.consent-scroll-hint { font-size: 11px; color: var(--gray-text); text-align: center; margin-bottom: 10px; }
+.consent-btn-accept {
+  width: 100%; padding: 14px; border-radius: 12px; border: none;
+  background: linear-gradient(135deg, var(--navy), var(--teal));
+  color: #fff; font-family: inherit; font-size: 15px; font-weight: 700;
+  cursor: pointer; margin-bottom: 8px; transition: opacity .2s;
+}
+.consent-btn-accept:disabled { background: #94a3b8; cursor: not-allowed; opacity: .8; }
+.consent-btn-cancel {
+  width: 100%; padding: 11px; border-radius: 12px;
+  border: 1.5px solid var(--gray-border); background: #fff;
+  color: var(--gray-text); font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===== TRIP STATUS BADGES + SEATS ===== */
+.trip-status-badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  border-radius: 8px; padding: 2px 7px; white-space: nowrap;
+}
+.badge-teal   { background: #d1fae5; color: #065f46; }
+.badge-orange { background: #eef2f7; color: #475569; }
+.badge-red    { background: #fee2e2; color: #991b1b; }
+
+.seats-ok   { font-size: 11px; font-weight: 600; color: var(--teal); }
+.seats-low  { font-size: 11px; font-weight: 700; color: #d97706; }
+.seats-full { font-size: 11px; font-weight: 700; color: #dc2626; }
+
+/* upload area locked state */
+.upload-area.locked {
+  border-color: var(--teal); background: var(--teal-bg);
+  pointer-events: none; opacity: .8;
+}
+
+/* upload progress */
+#uploadProgress { display:none; background:var(--gray-light); border-radius:6px; height:6px; margin-top:10px; overflow:hidden; }
+#uploadProgressBar { height:100%; width:0; background:var(--teal); border-radius:6px; transition:width .2s; }
+
+/* ===== TRIP CARD — RECOMMENDED (การ์ดแนะนำ) ===== */
+.trip-card-recommended {
+  border: 2px solid var(--teal) !important;
+  background: linear-gradient(180deg, #f0fdfb 0%, #ffffff 100%) !important;
+  padding: 14px 14px 12px !important;
+}
+.trip-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;
+  position: relative;
+}
+.trip-time-wrap {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex: 0 1 auto;
+}
+.trip-time {
+  font-size: 20px; font-weight: 800; color: var(--navy); line-height: 1;
+}
+.trip-time-badge {
+  font-size: 10px; font-weight: 700; border-radius: 10px;
+  padding: 2px 8px; white-space: nowrap;
+}
+.badge-recommend { background: #d1fae5; color: #065f46; }
+.badge-schedule   { background: #eef2f7; color: #475569; }
+
+/* ชื่อเส้นทาง (ต้นทาง → ปลายทาง) อยู่คอลัมน์ขวา แถวเดียวกับเวลา */
+.trip-head-route {
+  flex: 0 1 auto; text-align: right; max-width: 64%;
+}
+.trip-route-text { font-weight: 700; color: var(--dark-text); font-size: 12.5px; line-height: 1.3; }
+.trip-transfer-detail {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 8px 18px;
+  color: #334155;
+  font-size: 12px;
+}
+.trip-transfer-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.3;
+}
+.trip-transfer-line img {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+}
+
+/* ── โครงการ์ด 2 คอลัมน์: รายการจุดจอด (ซ้าย) + ข้อมูลเสริม (ขวา) ──
+   ใช้ร่วมกันทั้งการ์ดแนะนำและการ์ดอื่น ๆ ตามดีไซน์ใหม่ */
+.trip-card-body {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin: 0 0 8px;
+}
+/* กรณีต่อรถ (3 แถว): เส้นเชื่อมจุดจอด (บัส → เส้นประ → หมุด) ใช้ภาพเดียว
+   assets/2088.png ครอบทั้งความสูง — ภาพนี้มี 3 องค์ประกอบตายตัว จึงใช้กับ
+   การ์ด 3 แถวเท่านั้น */
+.trip-stops { display: grid; gap: 6px; flex: 1; min-width: 0; position: relative; }
+.trip-stops-linked { padding-left: 22px; }
+.trip-stops-linked::before {
+  content: '';
+  position: absolute; left: 0; top: 2px; bottom: 2px; width: 15px;
+  background-image: url('assets/2088.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+/* กรณีตรง/กลุ่มเดียวกัน (2 แถว): ไอคอนต้นทาง/ปลายทางแยกต่อแถวแทน เพื่อไม่ให้
+   เห็น "จุดกลาง" ของภาพ 2088.png ลอยขึ้นมาโดยไม่มีข้อความกำกับ */
+.trip-stops-simple .trip-stop-icon { width: 14px; height: 14px; flex: 0 0 14px; margin-right: 7px; }
+.trip-stop-row {
+  display: flex; align-items: center; flex-wrap: wrap;
+  font-size: 12px; color: var(--dark-text); font-weight: 600;
+  min-height: 16px; gap: 4px 6px;
+}
+.trip-stop-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trip-stop-row .trip-stop-time {
+  font-size: 10.5px; font-weight: 600; color: var(--teal, #1a9b8c);
+  background: var(--teal-bg, rgba(26, 155, 140, 0.09)); border-radius: 4px; padding: 1px 6px;
+  flex: 0 0 auto;
+}
+.trip-meta-col {
+  display: grid; gap: 5px; flex: 0 0 auto; text-align: left;
+}
+.trip-meta-row {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--body-text); white-space: nowrap;
+}
+.trip-meta-row img { width: 13px; height: 13px; flex: 0 0 13px; }
+.trip-meta-row b { color: var(--teal); font-weight: 800; }
+.trip-meta-full { color: #b91c1c; font-weight: 800; }
+
+/* ── กล่องข้อมูลต่อรถ (inline ในการ์ดแนะนำ) ── */
+.transfer-inline-box {
+  background: #f8fafc;
+  border: 1.5px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+}
+.transfer-inline-box.transfer-inline-warn {
+  background: #f8fafc; border-color: #cbd5e1;
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+}
+.ti-inline-head {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 7px;
+}
+.ti-inline-title { font-size: 12px; font-weight: 700; color: #475569; }
+.ti-inline-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; padding: 3px 0; border-bottom: 1px solid #fde8a0;
+}
+.ti-inline-row:last-of-type { border-bottom: none; }
+.ti-inline-label { color: #64748b; }
+.ti-inline-val   { font-weight: 700; color: #334155; }
+.ti-inline-note  {
+  font-size: 10px; color: #64748b; margin-top: 6px;
+  text-align: right; font-style: italic;
+}
+.trip-card-muted {
+  opacity: .58;
+  background: #f8fafc !important;
+  border-color: #dbe3ef !important;
+}
+.trip-card-muted .trip-time,
+.trip-card-muted .trip-time-compact,
+.trip-card-muted .trip-route-text,
+.trip-card-muted .trip-price,
+.trip-card-muted .trip-price-compact { color: #64748b !important; }
+
+/* ── ปุ่ม เลือกเที่ยวนี้ (recommended) ── */
+.btn-select-recommend {
+  background: var(--teal) !important;
+  font-size: 13px !important; padding: 9px 18px !important;
+}
+
+/* ===== หัวข้อคั่น "เที่ยวอื่น ๆ" ===== */
+.all-trips-label {
+  font-size: 12px; font-weight: 700;
+  color: var(--gray-text);
+  padding: 12px 4px 6px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+/* ===== TRIP CARD — COMPACT (การ์ดกะทัดรัด) ===== */
+.trip-card-compact {
+  padding: 14px 14px 12px !important;
+  margin-bottom: 10px !important;
+}
+.trip-compact-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.trip-compact-left  { flex: 1; min-width: 0; }
+.trip-compact-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.trip-time-compact  { font-size: 17px; font-weight: 800; color: var(--navy); display: block; }
+.trip-compact-route {
+  font-size: 11px; color: var(--gray-text); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trip-price-compact { font-size: 12px; font-weight: 700; color: var(--teal); }
+.btn-select-compact {
+  background: var(--navy) !important;
+  font-size: 12px !important; padding: 6px 12px !important;
+  width: auto !important; margin: 0 !important;
+}
+
+/* ===== BOOKING CLOSED OVERLAY =====
+   (LINE In-App Browser guard removed from here — booking1.html now shares
+   the single site-wide guard in site-runtime.js, same as every other page.) */
+.booking-closed-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(15,23,42,.72); z-index: 9997;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.booking-closed-overlay.show { display: flex; }
+.booking-closed-box {
+  background: #fff; border-radius: 20px;
+  padding: 28px 22px; max-width: 360px; width: 100%; text-align: center;
+}
+.booking-closed-icon { font-size: 48px; margin-bottom: 10px; }
+.booking-closed-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.booking-closed-desc { font-size: 13px; color: var(--body-text); line-height: 1.75; margin-bottom: 14px; }
+
+.drawer-backdrop {
+  position: fixed; inset: 0; background: rgba(15,23,42,.46);
+  z-index: 7990; display: none;
+}
+.drawer-backdrop.open { display: block; }
+.drawer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 8001;
+  background: #fff; border-radius: 18px 18px 0 0; max-height: 76vh;
+  transform: translateY(105%); transition: transform .28s ease;
+  box-shadow: 0 -12px 30px rgba(15,23,42,.22);
+}
+.drawer.open { transform: translateY(0); }
+.main-menu-drawer {
+  top: 0; right: 0; left: auto; bottom: 0; width: min(360px, 88vw);
+  max-height: none; border-radius: 0; transform: translateX(105%);
+}
+.main-menu-drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 12px; border-bottom: 1px solid var(--gray-border);
+}
+.drawer-title { font-size: 17px; font-weight: 800; color: var(--navy); }
+.drawer-sub { font-size: 12px; color: var(--gray-text); margin-top: 2px; }
+.drawer-close {
+  width: 34px; height: 34px; border: 0; border-radius: 10px;
+  background: #f1f5f9; color: var(--navy); font-size: 20px; cursor: pointer;
+}
+.drawer-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px 0 18px; }
+.main-menu-section { padding: 12px 18px 6px; border-top: 1px solid var(--gray-border); }
+.main-menu-section:first-child { border-top: 0; }
+.main-menu-title { font-size: 13px; font-weight: 800; color: var(--teal); margin: 0 0 8px; }
+.main-menu-link {
+  display: block; padding: 10px 0; color: var(--navy); text-decoration: none;
+  font-size: 14px; font-weight: 700; line-height: 1.35; border-bottom: 1px solid rgba(226,232,240,.72);
+}
+.main-menu-link:last-child { border-bottom: 0; }
+.main-menu-link small { display: block; color: var(--gray-text); font-size: 12px; font-weight: 500; margin-top: 2px; }
+
+/* ===== STOP PICKER POPUP ===== */
+.stop-picker-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 8000;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.stop-picker-box {
+  background: #fff; border-radius: 18px 18px 0 0;
+  width: 100%; max-width: 480px; max-height: 70vh;
+  overflow-y: auto; padding: 8px 0 24px;
+}
+.stop-picker-title {
+  font-size: 15px; font-weight: 700; color: var(--navy);
+  padding: 14px 18px 10px; border-bottom: 1px solid var(--gray-border);
+  position: sticky; top: 0; background: #fff;
+}
+.stop-picker-item {
+  padding: 14px 18px; font-size: 14px; color: var(--dark-text);
+  cursor: pointer; border-bottom: 1px solid var(--gray-light); transition: background .1s;
+}
+.stop-picker-item:hover { background: var(--teal-bg); color: var(--teal); }
+
+/* ===== TRANSFER INFO CARD (page 4) ===== */
+.transfer-info-card {
+  background: #fff8ee; border: 1.5px solid #fed7aa;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 2px;
+}
+.ti-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.ti-title { font-size: 14px; font-weight: 700; color: #475569; }
+.ti-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid #fde8cc; font-size: 13px;
+}
+.ti-row:last-child { border-bottom: none; }
+.ti-label { color: #a16207; font-weight: 600; }
+.ti-val   { font-weight: 700; color: #78350f; text-align: right; }
+
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 480px) {
+  .hero-title { font-size: 22px; }
+  .booking-ann-hero { height: 220px; }
+  .service-name { font-size: 10px; }
+  /* แถวบน: ถ้าจอแคบมาก ลด swap btn เล็กลง */
+  .swap-btn { width: 26px; margin: 0 2px; }
+  .sf-val { font-size: 12px; }
+}
+@media (min-width: 481px) and (max-width: 600px) {
+  .hero-title { font-size: 24px; }
+  .booking-ann-hero { height: 240px; }
+  .service-name { font-size: 10px; }
+}
+@media (min-width: 601px) {
+  .hero-content { max-width: 50%; }
+  .booking-ann-hero { height: 270px; }
+  .ann-slide-text,.ann-placeholder-text { padding: 28px 22px 50px; }
+}
+@media (min-width: 900px) {
+  .hero-title { font-size: 32px; }
+  .booking-ann-hero { height: 300px; }
+  .ann-placeholder-bus { right: 14px; width: 190px; opacity: .16; }
+  .content { padding: 20px 24px 80px; }
+  .step-label { font-size: 11px; }
+}
+</style>
+<script src="system-test-mode.js?v=20260812b"></script>
+</head>
+<body>
+
+<!-- LINE In-App Browser guard now lives entirely in site-runtime.js (shared
+     with every other page); it builds its own overlay, so no page-specific
+     markup is needed here anymore. -->
+
+<!-- BOOKING CLOSED OVERLAY -->
+<div class="booking-closed-overlay" id="bookingClosedOverlay">
+  <div class="booking-closed-box">
+    <div class="booking-closed-icon">⏸</div>
+    <div class="booking-closed-title">ปิดรับสำรองที่นั่งชั่วคราว</div>
+    <div class="booking-closed-desc">ขณะนี้เจ้าหน้าที่ปิดระบบสำรองที่นั่งออนไลน์ไว้ชั่วคราว กรุณากลับมาใหม่ภายหลัง</div>
+  </div>
+</div>
+
+<!-- SETTINGS UPDATE OVERLAY -->
+<div id="_updateOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:9996;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;text-align:center;max-width:300px;">
+    <div style="font-size:36px;margin-bottom:8px;">⚙️</div>
+    <div style="font-size:15px;font-weight:700;color:var(--navy);">กำลังอัปเดตระบบ</div>
+    <div style="font-size:13px;color:var(--gray-text);margin-top:6px;">กรุณารอสักครู่...</div>
+  </div>
+</div>
+
+<div class="drawer-backdrop" id="main-menu-backdrop" onclick="closeMainMenuDrawer()"></div>
+<div class="drawer main-menu-drawer" id="main-menu-drawer" role="dialog" aria-modal="true" aria-label="เมนูหลัก">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">เมนูหลัก</div>
+      <div class="drawer-sub">S.L. Transit</div>
+    </div>
+    <button class="drawer-close" onclick="closeMainMenuDrawer()" aria-label="ปิดเมนู">×</button>
+  </div>
+  <div class="drawer-body">
+    <section class="main-menu-section">
+      <h3 class="main-menu-title">การเดินทาง</h3>
+      <a class="main-menu-link" href="index.html">หน้าหลัก</a>
+      <a class="main-menu-link" href="booking1.html">เลือกเที่ยวและจองตั๋ว</a>
+      <a class="main-menu-link" href="track_trip.html">ติดตามรถของฉัน</a>
+      <a class="main-menu-link" href="passenger.html">ติดตามรถ</a>
+      <a class="main-menu-link" href="cancel_ticket.html">ยกเลิกตั๋ว</a>
+    </section>
+    <section class="main-menu-section">
+      <h3 class="main-menu-title">ข้อมูลบริการ</h3>
+      <a class="main-menu-link" href="info.html#services">เส้นทางที่ให้บริการ</a>
+      <a class="main-menu-link" href="info.html#services">จุดขึ้นรถ / จุดจอด</a>
+      <a class="main-menu-link" href="info.html#help">วิธีใช้งาน</a>
+      <a class="main-menu-link" href="info.html#contact">ติดต่อ / แจ้งปัญหา</a>
+    </section>
+    <section class="main-menu-section">
+      <h3 class="main-menu-title">เงื่อนไขและนโยบาย</h3>
+      <a class="main-menu-link" href="info.html#policy">เงื่อนไขการเดินทาง</a>
+      <a class="main-menu-link" href="info.html#privacy">นโยบายความเป็นส่วนตัว</a>
+      <a class="main-menu-link" href="admin.html">เจ้าหน้าที่<small>เข้าสู่ระบบสำหรับผู้ดูแลก่อนใช้งาน</small></a>
+    </section>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 1: เลือกเที่ยว (Step 1)
+     ============================================================ -->
+<div id="page1" class="page active">
+  <header class="header">
+    <div class="page-container" style="width:100%;max-width:none;display:flex;align-items:center;justify-content:space-between;">
+      <div class="logo-wrap">
+        <div class="logo-icon"><img class="icon-img" src="assets/201.png" alt="logo" style="width:26px;height:26px;"></div>
+        <div class="logo-text-wrap">
+          <div class="logo-name">S.<span>L.</span>TRANSIT</div>
+          <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
+        </div>
+      </div>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <section class="hero booking-ann-hero" id="hero-section">
+    <div class="ann-placeholder" id="ann-placeholder">
+      <div class="ann-placeholder-text">
+        <div class="hero-badge">✦ จองตั๋วออนไลน์</div>
+        <div class="ann-placeholder-h1">เลือกเที่ยว<br>และจองตั๋ว</div>
+        <div class="ann-placeholder-sub">ระบบช่วยเลือกเส้นทางและจุดต่อรถที่เหมาะสมให้คุณ</div>
+      </div>
+      <svg class="ann-placeholder-bus" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="130" cy="100" rx="90" ry="14" fill="rgba(26,155,140,0.15)"/>
+        <line x1="60" y1="98" x2="200" y2="98" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-dasharray="8,6"/>
+        <rect x="30" y="38" width="150" height="58" rx="8" fill="#1a5cb8" opacity="0.95"/>
+        <rect x="155" y="44" width="20" height="32" rx="4" fill="rgba(150,210,255,0.35)"/>
+        <rect x="45" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="70" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="95" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="120" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.3)"/>
+        <rect x="30" y="66" width="150" height="6" fill="rgba(26,155,140,0.6)"/>
+        <rect x="48" y="70" width="22" height="24" rx="3" fill="rgba(0,0,0,0.25)"/>
+        <circle cx="65" cy="98" r="10" fill="#1a2340"/><circle cx="65" cy="98" r="6" fill="#2d3a5e"/><circle cx="65" cy="98" r="2.5" fill="rgba(255,255,255,0.4)"/>
+        <circle cx="148" cy="98" r="10" fill="#1a2340"/><circle cx="148" cy="98" r="6" fill="#2d3a5e"/><circle cx="148" cy="98" r="2.5" fill="rgba(255,255,255,0.4)"/>
+      </svg>
+    </div>
+    <div class="ann-slides" id="ann-slides" style="display:none"></div>
+    <div class="ann-dots" id="ann-dots" style="display:none"></div>
+    <div class="ann-progress" id="ann-progress" style="display:none">
+      <div class="ann-progress-fill" id="ann-progress-fill"></div>
+    </div>
+    <div class="ann-tap-l" id="ann-tap-l" onclick="annStep(-1)"></div>
+    <div class="ann-tap-r" id="ann-tap-r" onclick="annStep(1)"></div>
+  </section>
+
+  <!-- STEP BAR -->
+  <div class="step-bar">
+    <div class="page-container" style="display:flex;width:100%;max-width:none;">
+      <div class="step-item active" style="flex:1;">
+        <div class="step-num">1</div>
+        <div class="step-label">เลือกเที่ยว</div>
+      </div>
+      <div class="step-item" style="flex:1;">
+        <div class="step-num">2</div>
+        <div class="step-label">ข้อมูลผู้โดยสาร</div>
+      </div>
+      <div class="step-item" style="flex:1;">
+        <div class="step-num">3</div>
+        <div class="step-label">ชำระเงิน</div>
+      </div>
+      <div class="step-item" style="flex:1;">
+        <div class="step-num">4</div>
+        <div class="step-label">ชำระเงินสำเร็จ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-container">
+
+      <!-- SERVICE TYPE -->
+      <div class="service-section">
+        <div class="section-label">คุณต้องการใช้บริการอะไร?</div>
+        <div class="service-grid">
+          <div class="service-item active" onclick="selectService(this)">
+            <img class="icon-img" src="assets/209.png" alt="เดินทาง" style="width:36px;height:36px;">
+            <div class="service-name">เดินทาง</div>
+            <div class="service-sub">จองตั๋วผู้โดยสาร</div>
+          </div>
+          <div class="service-item disabled" aria-disabled="true">
+            <span class="soon-badge">เร็วๆนี้</span>
+            <img class="icon-img" src="assets/210.png" alt="ส่งของ" style="width:36px;height:36px;">
+            <div class="service-name">ส่งของ</div>
+            <div class="service-sub">ฝากส่งพัสดุ</div>
+          </div>
+          <div class="service-item disabled" aria-disabled="true">
+            <span class="soon-badge">เร็วๆนี้</span>
+            <img class="icon-img" src="assets/211.png" alt="รับของ" style="width:36px;height:36px;">
+            <div class="service-name">รับของ</div>
+            <div class="service-sub">รับของที่ปลายทาง</div>
+          </div>
+          <div class="service-item disabled" aria-disabled="true">
+            <span class="soon-badge">เร็วๆนี้</span>
+            <img class="icon-img" src="assets/212.png" alt="ฝากหิ้ว" style="width:36px;height:36px;">
+            <div class="service-name">ฝากหิ้วของ</div>
+            <div class="service-sub">หิ้วของตามเส้นทาง</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE SEARCH — แถวบน 2 ช่อง + swap / แถวล่าง 2 ช่อง -->
+      <div class="search-section">
+        <div class="section-label">ค้นหาเส้นทาง</div>
+
+        <!-- แถวบน: ต้นทาง · swap · ปลายทาง -->
+        <div class="search-row-top">
+          <div class="search-field" onclick="openStopPicker('origin')" style="cursor:pointer;">
+            <div class="sf-icon origin"><img class="icon-img" src="assets/204.png" alt="origin" style="width:20px;height:20px;"></div>
+            <div class="sf-inner">
+              <span class="sf-label">ต้นทาง</span>
+              <span class="sf-val" id="field-origin">ท่ารถสนามชัยเขต</span>
+            </div>
+          </div>
+
+          <!-- swap button ตรงกลาง -->
+          <button class="swap-btn" title="สลับเส้นทาง" onclick="swapStops()">
+            <svg class="swap-arrow" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 5.5h12M11 3l3 2.5L11 8" stroke="#1a9b8c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 10.5H2M5 8l-3 2.5L5 13" stroke="#1a9b8c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <div class="search-field" onclick="openStopPicker('dest')" style="cursor:pointer;">
+            <div class="sf-icon destination"><img class="icon-img" src="assets/205.png" alt="destination" style="width:20px;height:20px;"></div>
+            <div class="sf-inner">
+              <span class="sf-label">ปลายทาง</span>
+              <span class="sf-val" id="field-dest">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- แถวล่าง: วันที่เดินทาง · ผู้โดยสาร -->
+        <div class="search-row-bottom">
+          <div class="search-field" style="cursor:pointer;position:relative;" onclick="this.querySelector('input').showPicker&&this.querySelector('input').showPicker()">
+            <div class="sf-icon calendar"><img class="icon-img" src="assets/206.png" alt="calendar" style="width:20px;height:20px;"></div>
+            <div class="sf-inner">
+              <span class="sf-label">วันที่เดินทาง</span>
+              <span class="sf-val" id="display-date">วันนี้</span>
+            </div>
+            <input type="date" id="travelDate" style="position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;" onchange="onDateChange(this.value)">
+          </div>
+
+          <div class="search-field" onclick="openPaxPicker()">
+            <div class="sf-icon passengers"><img class="icon-img" src="assets/207.png" alt="passengers" style="width:20px;height:20px;"></div>
+            <div class="sf-inner">
+              <span class="sf-label">ผู้โดยสาร</span>
+              <span class="sf-val search-pax-value" id="search-pax-count">1 คน ▾</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ปุ่มค้นหา เต็มความกว้าง -->
+        <button class="search-btn" onclick="renderTrips()">
+          <img class="icon-img" src="assets/203.png" alt="search" style="width:18px;height:18px;">
+          ค้นหาเที่ยวรถ
+        </button>
+      </div>
+
+      <!-- TRIP LIST -->
+      <div class="section-head">
+        <div class="section-head-title">เที่ยวรถที่แนะนำ</div>
+        <div class="section-head-link">
+          <img class="icon-img" src="assets/213.png" alt="แนะนำเส้นทาง" style="width:18px;height:18px;">
+          ระบบช่วยแนะนำจุดต่อรถที่เหมาะสม
+        </div>
+      </div>
+
+      <div id="tripList"></div>
+
+      <!-- BENEFIT STRIP -->
+      <div class="benefit-strip">
+        <div class="benefit-strip-title">เมื่อจองกับ S.L.Transit คุณจะได้รับ</div>
+        <div class="benefit-row">
+          <div class="benefit-item">
+            <img class="icon-img" src="assets/215.png" alt="ตรวจตั๋ว" style="width:30px;height:30px;">
+            <div class="benefit-label">ติดตามรถได้ทันที</div>
+          </div>
+          <div class="benefit-item">
+            <img class="icon-img" src="assets/216.png" alt="ติดตามรถ" style="width:30px;height:30px;">
+            <div class="benefit-label">ติดตามรถหลังจอง</div>
+          </div>
+          <div class="benefit-item">
+            <img class="icon-img" src="assets/217.png" alt="แนะนำจุดต่อ" style="width:30px;height:30px;">
+            <div class="benefit-label">ระบบช่วยแนะนำจุดต่อรถให้คุณ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FUTURE BANNER -->
+      <div class="future-banner">
+        <img class="icon-img" src="assets/218.png" alt="บริการในอนาคต" style="width:36px;height:36px;">
+        <div class="future-banner-text">
+          <div class="fb-title">บริการเพิ่มเติมในอนาคต</div>
+          <div class="fb-sub">ส่งของ • รับของ • ฝากหิ้วของ<br>ตามเส้นทางรถโดยสารท้องถิ่น</div>
+        </div>
+        <button class="future-btn">ดูรายละเอียด ›</button>
+      </div>
+
+    </div><!-- /page-container -->
+  </div><!-- /content -->
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="info.html#services">ข้อมูลผู้ประกอบการ</a>
+      <a href="info.html#privacy">นโยบายความเป็นส่วนตัว</a>
+      <a href="info.html#contact">ติดต่อเรา</a>
+      <a href="info.html#help">คำถามที่พบบ่อย</a>
+    </div>
+    <div class="footer-copy">© 2024 S.L.Transit All rights reserved.</div>
+  </footer>
+</div>
+
+
+<!-- ============================================================
+     PAGE 2: ข้อมูลผู้โดยสาร (Step 2)
+     ============================================================ -->
+<div id="page2" class="page">
+  <header class="header">
+    <div class="page-container" style="width:100%;max-width:none;display:flex;align-items:center;justify-content:space-between;">
+      <div class="logo-wrap">
+        <div class="logo-icon"><img class="icon-img" src="assets/201.png" alt="logo" style="width:26px;height:26px;"></div>
+        <div class="logo-text-wrap">
+          <div class="logo-name">S.<span>L.</span>TRANSIT</div>
+          <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
+        </div>
+      </div>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="page-container" style="position:relative;z-index:2;">
+      <div class="hero-content">
+        <h1 class="hero-title">ข้อมูลผู้โดยสาร</h1>
+        <p class="hero-sub">กรอกข้อมูลสำหรับการจอง</p>
+      </div>
+    </div>
+    <svg class="bus-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="130" cy="100" rx="90" ry="14" fill="rgba(26,155,140,0.15)"/>
+      <rect x="30" y="38" width="150" height="58" rx="8" fill="#1a5cb8" opacity="0.9"/>
+      <rect x="155" y="44" width="20" height="32" rx="4" fill="rgba(150,210,255,0.3)"/>
+      <rect x="45" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="70" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="95" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="120" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="30" y="66" width="150" height="6" fill="rgba(26,155,140,0.5)"/>
+      <circle cx="65" cy="98" r="10" fill="#1a2340"/><circle cx="65" cy="98" r="6" fill="#2d3a5e"/>
+      <circle cx="148" cy="98" r="10" fill="#1a2340"/><circle cx="148" cy="98" r="6" fill="#2d3a5e"/>
+    </svg>
+  </div>
+
+  <div class="step-bar">
+    <div class="page-container" style="display:flex;width:100%;max-width:none;">
+      <div class="step-item done" style="flex:1;"><div class="step-num">✓</div><div class="step-label">เลือกเที่ยว</div></div>
+      <div class="step-item active" style="flex:1;"><div class="step-num">2</div><div class="step-label">ข้อมูลผู้โดยสาร</div></div>
+      <div class="step-item" style="flex:1;"><div class="step-num">3</div><div class="step-label">ชำระเงิน</div></div>
+      <div class="step-item" style="flex:1;"><div class="step-num">4</div><div class="step-label">ชำระเงินสำเร็จ</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-container">
+
+      <!-- ADMIN TESTER STRIP -->
+      <div id="adminTesterStrip" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#475569;font-weight:600;">
+        🔧 ADMIN CHECK — เจ้าหน้าที่กำลังตรวจสอบระบบผ่านขั้นตอนผู้ใช้งานจริง
+      </div>
+
+      <!-- สรุปเที่ยวที่เลือก (read-only) -->
+      <div class="info-card">
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/219.png" alt="เส้นทาง" style="width:20px;height:20px;"></div>
+          <div class="info-label">เส้นทาง:</div>
+          <div class="info-val" id="p2-route">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/220.png" alt="เวลา" style="width:20px;height:20px;"></div>
+          <div class="info-label">เที่ยวรถ:</div>
+          <div class="info-val" id="p2-trip-time">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/221.png" alt="ป้ายรถ" style="width:20px;height:20px;"></div>
+          <div class="info-label">ขึ้นรถที่:</div>
+          <div class="info-val" id="p2-origin-name">ท่ารถสนามชัยเขต</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/222.png" alt="วันที่" style="width:20px;height:20px;"></div>
+          <div class="info-label">วันที่เดินทาง:</div>
+          <div class="info-val" id="p2-date">วันนี้</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/224.png" alt="ผู้โดยสาร" style="width:20px;height:20px;"></div>
+          <div class="info-label">ผู้โดยสาร:</div>
+          <div class="info-val" id="p2-pax">1 คน</div>
+        </div>
+      </div>
+
+      <!-- LEG2 SUMMARY (แสดงเฉพาะเส้นทางต่อรถ) -->
+      <div id="leg2SummaryCard" style="display:none;background:#f8faff;border:1.5px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <img class="icon-img" src="assets/245.png" alt="ต่อรถ" style="width:16px;height:16px;">
+          ข้อมูลการต่อรถ
+        </div>
+        <div id="leg2SummaryDetail" style="font-size:13px;color:#334155;line-height:2;"></div>
+      </div>
+
+      <!-- ฟอร์ม -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <img class="icon-img" src="assets/223.png" alt="กรอกข้อมูล" style="width:20px;height:20px;">
+          กรอกข้อมูลผู้โดยสาร
+        </div>
+
+        <div class="line-login-card" id="lineIdentityCard">
+          <div class="line-login-top">
+            <div class="line-login-copy">
+              <div class="line-login-title">เข้าสู่ระบบด้วย LINE (ไม่บังคับ)</div>
+              <div class="line-login-desc">รับการแจ้งเตือนสถานะตั๋วและแจ้งเตือนล่วงหน้าประมาณ 10 นาทีก่อนรถถึงป้าย ผ่าน LINE</div>
+            </div>
+            <button class="line-login-btn" id="lineLoginBtn" onclick="loginBookingLineIdentity(event)">LINE Login</button>
+          </div>
+          <div class="line-profile-row" id="lineIdentityProfile">
+            <img id="lineIdentityAvatar" alt="">
+            <div class="line-profile-name" id="lineIdentityName"></div>
+          </div>
+          <div class="line-identity-status" id="lineIdentityStatus">ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ชื่อ - นามสกุล</label>
+          <input class="form-input" type="text" id="inp-name" placeholder="กรอกชื่อ-นามสกุล" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">เบอร์โทรศัพท์</label>
+          <input class="form-input" type="tel" id="inp-phone" placeholder="0812345678" maxlength="10" inputmode="numeric"
+            oninput="validatePhoneInline(this)" onblur="validatePhoneInline(this)">
+          <div id="phoneError" class="field-error" style="display:none;font-size:11px;color:#dc2626;margin-top:4px;padding-left:2px;">
+            กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก ขึ้นต้น 06/08/09)
+          </div>
+          <div id="adminTesterNote" style="display:none;font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:5px 8px;margin-top:4px;">
+            ✅ เบอร์เจ้าหน้าที่ตรวจสอบ — การจองนี้จะถูกบันทึกแยก
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">หมายเหตุ (ถ้ามี)</label>
+          <input class="form-input" type="text" id="inp-note" placeholder="ไม่ระบุ">
+        </div>
+        <button class="btn-main" onclick="goToPayment()">ถัดไป ›</button>
+      </div>
+    </div><!-- /page-container -->
+  </div><!-- /content -->
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="info.html#services">ข้อมูลผู้ประกอบการ</a>
+      <a href="info.html#privacy">นโยบายความเป็นส่วนตัว</a>
+      <a href="info.html#contact">ติดต่อเรา</a>
+    </div>
+    <div class="footer-copy">© 2024 S.L.Transit All rights reserved.</div>
+  </footer>
+</div>
+
+
+<!-- ============================================================
+     PAGE 3: ชำระเงิน (Step 3)
+     ============================================================ -->
+<div id="page3" class="page">
+  <header class="header">
+    <div class="page-container" style="width:100%;max-width:none;display:flex;align-items:center;justify-content:space-between;">
+      <div class="logo-wrap">
+        <div class="logo-icon"><img class="icon-img" src="assets/201.png" alt="logo" style="width:26px;height:26px;"></div>
+        <div class="logo-text-wrap">
+          <div class="logo-name">S.<span>L.</span>TRANSIT</div>
+          <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
+        </div>
+      </div>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="page-container" style="position:relative;z-index:2;">
+      <div class="hero-content">
+        <h1 class="hero-title">ชำระเงิน</h1>
+        <p class="hero-sub">ตรวจสอบรายการและชำระเงิน</p>
+      </div>
+    </div>
+    <svg class="bus-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="130" cy="100" rx="90" ry="14" fill="rgba(26,155,140,0.15)"/>
+      <rect x="30" y="38" width="150" height="58" rx="8" fill="#1a5cb8" opacity="0.9"/>
+      <rect x="155" y="44" width="20" height="32" rx="4" fill="rgba(150,210,255,0.3)"/>
+      <rect x="45" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="70" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="95" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="120" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="30" y="66" width="150" height="6" fill="rgba(26,155,140,0.5)"/>
+      <circle cx="65" cy="98" r="10" fill="#1a2340"/><circle cx="65" cy="98" r="6" fill="#2d3a5e"/>
+      <circle cx="148" cy="98" r="10" fill="#1a2340"/><circle cx="148" cy="98" r="6" fill="#2d3a5e"/>
+    </svg>
+  </div>
+
+  <div class="step-bar">
+    <div class="page-container" style="display:flex;width:100%;max-width:none;">
+      <div class="step-item done" style="flex:1;"><div class="step-num">✓</div><div class="step-label">เลือกเที่ยว</div></div>
+      <div class="step-item done" style="flex:1;"><div class="step-num">✓</div><div class="step-label">ข้อมูลผู้โดยสาร</div></div>
+      <div class="step-item active" style="flex:1;"><div class="step-num">3</div><div class="step-label">ชำระเงิน</div></div>
+      <div class="step-item" style="flex:1;"><div class="step-num">4</div><div class="step-label">ชำระเงินสำเร็จ</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-container">
+
+      <!-- สรุปการจอง (repo IDs: sumRoute, sumDate, sumTime, sumSeat) -->
+      <div class="info-card">
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/219.png" alt="เส้นทาง" style="width:20px;height:20px;"></div>
+          <div class="info-label">เส้นทาง:</div>
+          <div class="info-val" id="sumRoute">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/222.png" alt="วันที่" style="width:20px;height:20px;"></div>
+          <div class="info-label">วันที่:</div>
+          <div class="info-val" id="sumDate">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/220.png" alt="เวลา" style="width:20px;height:20px;"></div>
+          <div class="info-label">เวลา:</div>
+          <div class="info-val" id="sumTime">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/224.png" alt="ผู้โดยสาร" style="width:20px;height:20px;"></div>
+          <div class="info-label">ชื่อ:</div>
+          <div class="info-val" id="p3-name">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/225.png" alt="โทรศัพท์" style="width:20px;height:20px;"></div>
+          <div class="info-label">เบอร์โทร:</div>
+          <div class="info-val" id="p3-phone">-</div>
+        </div>
+        <div class="info-row">
+          <div class="icon-circle"><img class="icon-img" src="assets/226.png" alt="จำนวน" style="width:20px;height:20px;"></div>
+          <div class="info-label">จำนวนที่นั่ง:</div>
+          <div class="info-val" id="sumSeat">-</div>
+        </div>
+      </div>
+
+      <!-- สรุปรายการ (repo IDs: p3-ticket-price, sumServiceFee, serviceFeeRow, sumTotal, sumTotal2) -->
+      <div class="summary-card">
+        <div class="summary-section-title">
+          <img class="icon-img" src="assets/227.png" alt="ตั๋ว" style="width:20px;height:20px;">
+          สรุปรายการ
+        </div>
+        <div class="summary-line"><span>ค่าตั๋วโดยสาร</span><span id="p3-ticket-price">-</span></div>
+        <div class="summary-line" id="serviceFeeRow"><span>ค่าบริการ</span><span id="sumServiceFee">0 บาท</span></div>
+        <div class="summary-line total"><span>รวมยอดชำระ</span><span class="total-amount" id="sumTotal">-</span></div>
+      </div>
+
+      <!-- วิธีชำระเงิน -->
+      <div class="summary-card">
+        <div class="summary-section-title">
+          <img class="icon-img" src="assets/228.png" alt="ชำระเงิน" style="width:20px;height:20px;">
+          วิธีชำระเงิน
+        </div>
+
+        <div class="pay-method-card" id="pm-onsite" onclick="selectPayMethod('onsite')">
+          <div class="pm-radio" id="pm-radio-onsite"></div>
+          <div class="pm-icon bank-icon"><img class="icon-img" src="assets/228.png" alt="จองหน้างาน" style="width:28px;height:28px;"></div>
+          <div class="pm-text">
+            <div class="pm-name">จองหน้างาน / ชำระที่ท่ารถหรือบนรถ</div>
+            <div class="pm-sub">ไม่ต้องแนบสลิป ยืนยันที่นั่งไว้ก่อนแล้วชำระเงินกับเจ้าหน้าที่</div>
+          </div>
+        </div>
+
+        <div class="pay-method-card" id="pm-bank" onclick="selectPayMethod('bank')">
+          <div class="pm-radio" id="pm-radio-bank"></div>
+          <div class="pm-icon bank-icon"><img class="icon-img" src="assets/229.png" alt="ธนาคาร" style="width:28px;height:28px;"></div>
+          <div class="pm-text">
+            <div class="pm-name">โอนเงินผ่านบัญชีธนาคาร</div>
+            <div class="pm-sub">กสิกรไทย / ไทยพาณิชย์ / กรุงไทย</div>
+          </div>
+        </div>
+
+        <!-- ปิดการชำระผ่านสแกน QR/PromptPay ไปก่อนตามคำขอเจ้าของระบบ (2026-07-23) —
+             ยังไม่ลบออก แค่ซ่อนไว้ เผื่อเปิดใช้อีกครั้งในอนาคต -->
+        <div class="pay-method-card" id="pm-promptpay" onclick="selectPayMethod('promptpay')" style="display:none;">
+          <div class="pm-radio" id="pm-radio-promptpay"></div>
+          <div class="pm-icon pp-icon"><img class="icon-img" src="assets/230.png" alt="พร้อมเพย์" style="width:28px;height:28px;"></div>
+          <div class="pm-text">
+            <div class="pm-name">พร้อมเพย์ (PromptPay)</div>
+            <div class="pm-sub">สแกน QR หรือโอนผ่าน PromptPay</div>
+          </div>
+        </div>
+
+        <!-- bank detail (repo IDs: bankBox, paymentBankName, paymentAccountNo, paymentAccountName, paymentInfo, paymentDescription) -->
+        <div id="pay-detail-bank" class="pay-detail" style="display:none;">
+          <div id="paymentInfo">
+            <p id="paymentDescription" style="font-size:13px;color:var(--body-text);margin-bottom:10px;">กรุณาโอนเงินไปยังบัญชีด้านล่าง จากนั้นถ่ายภาพหลักฐานการโอนเงินและแนบในช่องที่กำหนด</p>
+            <div class="bank-info-box" id="bankBox">
+              <div class="bank-info-row">
+                <span class="bi-label">ธนาคาร</span>
+                <span class="bi-val" id="paymentBankName">กสิกรไทย (KBank)</span>
+              </div>
+              <div class="bank-info-row">
+                <span class="bi-label">เลขบัญชี</span>
+                <span class="bi-val bi-acc" id="paymentAccountNo">232-8-93015-6</span>
+              </div>
+              <div class="bank-info-row">
+                <span class="bi-label">ชื่อบัญชี</span>
+                <span class="bi-val" id="paymentAccountName">บริษัท เอส.แอล. ทรานซิท จำกัด</span>
+              </div>
+              <div class="bank-info-row">
+                <span class="bi-label">เบอร์โทรศัพท์</span>
+                <span class="bi-val" id="paymentPhone">082-9860032</span>
+              </div>
+              <div class="bank-info-row">
+                <span class="bi-label">จำนวน</span>
+                <span class="bi-val" id="bank-amount">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- promptpay QR detail -->
+        <div id="pay-detail-promptpay" class="pay-detail" style="display:none;">
+          <div style="text-align:center;padding:8px 0;">
+            <div class="qr-title" style="margin-bottom:10px;">Thai QR Payment / PromptPay</div>
+            <div style="display:flex;justify-content:center;margin-bottom:8px;">
+              <div class="qr-wrap">
+                <div id="paymentQrCode" style="width:160px;height:160px;display:flex;align-items:center;justify-content:center;"></div>
+              </div>
+            </div>
+            <div class="qr-note">กรุณาชำระเงินภายใน 15 นาที</div>
+            <div class="payment-status" style="margin-top:10px;">
+              <img class="icon-img" src="assets/231.png" alt="รอชำระ" style="width:18px;height:18px;">
+              รอการชำระเงิน
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- แนบสลิป (repo ID: slipUploadCard, previewImg, previewWrap, previewName) -->
+      <div class="summary-card" id="slipUploadCard" style="display:none;">
+        <div class="summary-section-title">
+          <img class="icon-img" src="assets/232.png" alt="แนบไฟล์" style="width:20px;height:20px;">
+          แนบหลักฐานการโอนเงิน
+        </div>
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('slipFile').click()">
+          <input type="file" id="slipFile" accept="image/*" style="display:none;" onchange="onSlipSelectBooking1(this)">
+          <div class="upload-icon-wrap">
+            <img class="icon-img" src="assets/233.png" alt="กล้อง" style="width:36px;height:36px;margin:0 auto 8px;">
+          </div>
+          <div class="upload-text">กดเพื่อถ่ายภาพหรือเลือกภาพสลิป</div>
+          <div class="upload-sub">รองรับ JPG, PNG ขนาดไม่เกิน 5MB</div>
+        </div>
+        <div id="previewWrap" style="display:none;margin-top:10px;text-align:center;">
+          <img id="previewImg" src="" alt="สลิป" style="max-width:100%;max-height:180px;border-radius:10px;border:1px solid var(--gray-border);">
+          <div id="previewName" style="font-size:12px;color:var(--teal);margin-top:6px;font-weight:600;"></div>
+        </div>
+        <div id="uploadProgress"><div id="uploadProgressBar"></div></div>
+      </div>
+
+      <!-- ยอดรวมสุดท้าย (repo ID: sumTotal2) -->
+      <div class="summary-card">
+        <div class="summary-line total" style="border-top:none;padding-top:0;">
+          <span>💰 ยอดชำระทั้งหมด</span>
+          <span class="total-amount" id="sumTotal2">-</span>
+        </div>
+      </div>
+
+      <!-- consent status -->
+      <div id="consentStatusBar" style="display:none;background:#f0fdf4;border:1.5px solid #22c55e;border-radius:12px;padding:11px 14px;margin-bottom:12px;font-size:13px;color:#16a34a;font-weight:600;">
+        ✅ อ่านและยอมรับข้อตกลงแล้ว
+      </div>
+
+      <!-- consent trigger -->
+      <button class="consent-trigger-btn" id="consentTriggerBtn" onclick="openConsentPopup(event)">
+        <img class="icon-img" src="assets/234.png" alt="เงื่อนไข" style="width:18px;height:18px;">
+        อ่านและยอมรับข้อตกลงการใช้บริการ
+      </button>
+
+      <!-- confirm note (repo ID: confirmNote) -->
+      <p id="confirmNote" style="font-size:12px;color:var(--gray-text);text-align:center;margin-bottom:12px;line-height:1.7;">
+        เมื่อยืนยันแล้ว หลักฐานการโอนเงินและข้อมูลการเดินทางจะถูกส่งให้เจ้าหน้าที่ทันที
+      </p>
+
+      <button class="btn-main" id="btnConfirm" onclick="submitBooking()">ยืนยันการชำระเงิน ›</button>
+
+    </div>
+  </div>
+
+  <!-- ===== CONSENT POPUP ===== -->
+  <div class="consent-overlay" id="consentOverlay">
+    <div class="consent-box">
+      <div class="consent-header">
+        <div class="consent-title">ข้อตกลงและนโยบายการใช้บริการ</div>
+        <div class="consent-sub">กรุณาเลื่อนอ่านจนครบก่อนกดยืนยัน</div>
+      </div>
+      <div class="consent-body" id="consentBody" onscroll="onConsentScroll()">
+        <div id="consentLoading" style="text-align:center;padding:20px;color:var(--gray-text);font-size:13px;">⏳ กำลังโหลดข้อความนโยบาย...</div>
+        <div id="consentPolicyContent" style="display:none;"></div>
+        <!-- fallback hardcode (แสดงถ้า Firebase ไม่ได้ตั้งค่า consentPolicy) -->
+        <div id="consentFallback">
+        <h3>1. เงื่อนไขการจองตั๋ว</h3>
+        <p>การจองตั๋วผ่านระบบออนไลน์ของ S.L.Transit ถือเป็นการยืนยันการเดินทางในเที่ยวรถที่เลือก ผู้โดยสารต้องแสดง QR Code หรือรหัสการจองก่อนขึ้นรถทุกครั้ง</p>
+        <h3>2. การชำระเงิน</h3>
+        <p>ผู้โดยสารต้องชำระเงินค่าโดยสารให้ครบถ้วนก่อนวันเดินทาง โดยโอนเงินตามจำนวนที่ระบุและแนบหลักฐานการโอนเงินในระบบ ทีมงานจะตรวจสอบและยืนยันการจองภายใน 30 นาที</p>
+        <h3>3. การยกเลิกและคืนเงิน</h3>
+        <p>ผู้โดยสารสามารถยกเลิกการจองได้ก่อนเวลาเดินทางอย่างน้อย 2 ชั่วโมง โดยจะได้รับเงินคืน 80% ของราคาตั๋ว หากยกเลิกหลังจากนั้นจะไม่สามารถคืนเงินได้</p>
+        <h3>4. ความรับผิดชอบของผู้โดยสาร</h3>
+        <p>ผู้โดยสารต้องมาถึงจุดจอดรถก่อนเวลาออกเดินทางอย่างน้อย 10 นาที บริษัทไม่รับผิดชอบในกรณีที่ผู้โดยสารมาช้าและพลาดรถ</p>
+        <h3>5. นโยบายความเป็นส่วนตัว</h3>
+        <p>S.L.Transit เก็บรวบรวมข้อมูลส่วนบุคคลเพื่อใช้ในการให้บริการและปรับปรุงประสบการณ์การเดินทางเท่านั้น จะไม่เปิดเผยข้อมูลให้บุคคลภายนอกโดยไม่ได้รับความยินยอม</p>
+        <h3>6. การแก้ไขเงื่อนไข</h3>
+        <p>บริษัทขอสงวนสิทธิ์ในการแก้ไขเงื่อนไขและนโยบายการให้บริการโดยไม่ต้องแจ้งล่วงหน้า การใช้บริการต่อเนื่องหลังจากมีการแก้ไขถือว่าผู้โดยสารยอมรับเงื่อนไขใหม่แล้ว</p>
+        <p style="color:var(--gray-text);font-size:12px;margin-top:16px;">© 2024 S.L.Transit. สงวนลิขสิทธิ์ทุกประการ</p>
+        </div><!-- end consentFallback -->
+      </div><!-- end consentBody -->
+      <div class="consent-footer">
+        <button type="button" class="consent-scroll-hint" id="consentScrollHint" onclick="scrollConsentToBottom()" style="border:0;background:transparent;width:100%;cursor:pointer;text-decoration:underline;">⬇ แตะเพื่อเลื่อนอ่านจนสุดก่อนกดยืนยัน</button>
+        <label class="consent-check-label" style="display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:13px;line-height:1.5;">
+          <input type="checkbox" id="consentCheck" onchange="onConsentCheckChange()" style="margin-top:3px;accent-color:#0f766e;">
+          <span>ข้าพเจ้าอ่านและยอมรับนโยบายและเงื่อนไขการใช้บริการทั้งหมด</span>
+        </label>
+        <button class="consent-btn-accept" id="consentBtnAccept" onclick="acceptConsent()" disabled>
+          ✅ ข้าพเจ้าอ่านและยอมรับข้อตกลงทั้งหมด
+        </button>
+        <button class="consent-btn-cancel" onclick="closeConsentPopup()">← ปิดหน้าต่างนี้</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="info.html#services">ข้อมูลผู้ประกอบการ</a><a href="info.html#privacy">นโยบายความเป็นส่วนตัว</a><a href="info.html#contact">ติดต่อเรา</a>
+    </div>
+    <div class="footer-copy">© 2024 S.L.Transit All rights reserved.</div>
+  </footer>
+</div>
+
+
+<!-- ============================================================
+     PAGE 4: ตั๋วของคุณ (Step 4 — ชำระเงินสำเร็จ)
+     ============================================================ -->
+<div id="page4" class="page">
+  <header class="header">
+    <div class="page-container" style="width:100%;max-width:none;display:flex;align-items:center;justify-content:space-between;">
+      <div class="logo-wrap">
+        <div class="logo-icon"><img class="icon-img" src="assets/201.png" alt="logo" style="width:26px;height:26px;"></div>
+        <div class="logo-text-wrap">
+          <div class="logo-name">S.<span>L.</span>TRANSIT</div>
+          <div class="logo-tagline">เดินทางมั่นใจ ไปได้ไกลกว่า</div>
+        </div>
+      </div>
+      <button class="hamburger" aria-label="menu" onclick="openMainMenuDrawer()"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="page-container" style="position:relative;z-index:2;">
+      <div class="hero-content">
+        <div class="hero-badge">✦ ตั๋วของคุณ</div>
+        <h1 class="hero-title">ตั๋วของคุณ</h1>
+        <p class="hero-sub">ตรวจสอบข้อมูลตั๋วและใช้สำหรับการเดินทาง</p>
+      </div>
+    </div>
+    <svg class="bus-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="130" cy="100" rx="90" ry="14" fill="rgba(26,155,140,0.15)"/>
+      <rect x="30" y="38" width="150" height="58" rx="8" fill="#1a5cb8" opacity="0.9"/>
+      <rect x="155" y="44" width="20" height="32" rx="4" fill="rgba(150,210,255,0.3)"/>
+      <rect x="45" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="70" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="95" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="120" y="44" width="18" height="18" rx="3" fill="rgba(150,210,255,0.25)"/>
+      <rect x="30" y="66" width="150" height="6" fill="rgba(26,155,140,0.5)"/>
+      <circle cx="65" cy="98" r="10" fill="#1a2340"/><circle cx="65" cy="98" r="6" fill="#2d3a5e"/>
+      <circle cx="148" cy="98" r="10" fill="#1a2340"/><circle cx="148" cy="98" r="6" fill="#2d3a5e"/>
+    </svg>
+  </div>
+
+  <div class="step-bar">
+    <div class="page-container" style="display:flex;width:100%;max-width:none;">
+      <div class="step-item done" style="flex:1;"><div class="step-num">✓</div><div class="step-label">เลือกเที่ยว</div></div>
+      <div class="step-item done" style="flex:1;"><div class="step-num">✓</div><div class="step-label">ข้อมูลผู้โดยสาร</div></div>
+      <div class="step-item done" style="flex:1;"><div class="step-num">✓</div><div class="step-label">ชำระเงิน</div></div>
+      <div class="step-item active" style="flex:1;"><div class="step-num">4</div><div class="step-label">ชำระเงินสำเร็จ</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-container">
+
+      <!-- TICKET CARD (ตรงกับ repo booking.html ทุก ID) -->
+      <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);margin-bottom:14px;">
+
+        <!-- หัวตั๋ว gradient -->
+        <div style="background:linear-gradient(135deg,#0B1D3A,#00A7B5);padding:16px;text-align:center;color:#fff;">
+          <div style="font-size:12px;color:rgba(255,255,255,0.78);letter-spacing:2px;margin-bottom:4px;">S.L.Transit • ระบบสำรองที่นั่งรถโดยสารออนไลน์</div>
+          <div style="font-size:22px;font-weight:700;margin-bottom:4px;">ตั๋วโดยสาร</div>
+          <div style="font-size:24px;font-weight:700;letter-spacing:4px;background:rgba(255,255,255,0.15);padding:7px 18px;border-radius:10px;display:inline-block;margin-top:4px;" id="bookingCode">-</div>
+        </div>
+
+        <!-- เส้นปรุ -->
+        <div style="display:flex;align-items:center;">
+          <div style="width:18px;height:18px;background:#f0f4ff;border-radius:50%;border:2px solid #dde3f0;flex-shrink:0;margin-left:-9px;"></div>
+          <div style="flex:1;border-top:2px dashed #dde3f0;margin:0 8px;"></div>
+          <div style="width:18px;height:18px;background:#f0f4ff;border-radius:50%;border:2px solid #dde3f0;flex-shrink:0;margin-right:-9px;"></div>
+        </div>
+
+        <!-- รายละเอียดตั๋ว -->
+        <div style="padding:14px 16px;">
+
+          <!-- queue badge -->
+          <div id="ticketQueuePrize" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:12px;text-align:center;margin-bottom:12px;">
+            <div style="font-size:12px;color:#475569;font-weight:700;">ลำดับคิว</div>
+            <div style="font-size:32px;font-weight:800;color:#0B1D3A;font-family:monospace;margin-top:4px;" id="ticketQueuePrizeNum">-</div>
+          </div>
+
+          <!-- success detail grid (populated by showTicketPage) -->
+          <div id="successDetail"></div>
+
+          <!-- info rows — static + dynamic -->
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/226.png" alt="ชื่อ" style="width:20px;height:20px;"></div>
+            <div class="info-label">ชื่อผู้โดยสาร:</div>
+            <div class="info-val" id="t-name" id="pName">-</div>
+          </div>
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/225.png" alt="โทรศัพท์" style="width:20px;height:20px;"></div>
+            <div class="info-label">เบอร์โทร:</div>
+            <div class="info-val" id="t-phone" id="pPhone">-</div>
+          </div>
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/219.png" alt="เส้นทาง" style="width:20px;height:20px;"></div>
+            <div class="info-label">เส้นทาง:</div>
+            <div class="info-val" id="t-route">-</div>
+          </div>
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/221.png" alt="ป้ายรถ" style="width:20px;height:20px;"></div>
+            <div class="info-label">ขึ้นรถที่:</div>
+            <div class="info-val" id="t-origin">-</div>
+          </div>
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/220.png" alt="เวลา" style="width:20px;height:20px;"></div>
+            <div class="info-label">เที่ยวรถ:</div>
+            <div class="info-val" id="t-trip-time">-</div>
+          </div>
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/222.png" alt="วันที่" style="width:20px;height:20px;"></div>
+            <div class="info-label">วันที่เดินทาง:</div>
+            <div class="info-val" id="t-date">-</div>
+          </div>
+          <div class="info-row">
+            <div class="icon-circle"><img class="icon-img" src="assets/226.png" alt="จำนวน" style="width:20px;height:20px;"></div>
+            <div class="info-label">จำนวนที่นั่ง:</div>
+            <div class="info-val" id="t-pax">-</div>
+          </div>
+
+          <!-- ticket lines leg1/leg2 (ตรงกับ repo) -->
+          <div class="ticket-lines" style="margin:10px 0;border-top:1px solid var(--gray-light);padding-top:10px;">
+            <div class="ticket-line" style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;">
+              <div style="color:var(--gray-text);">เส้นทางแรก</div>
+              <div style="font-weight:700;color:var(--dark-text);" id="ticketLeg1">-</div>
+            </div>
+            <div class="ticket-line" id="ticketLeg2Wrap" style="display:none;justify-content:space-between;padding:5px 0;font-size:13px;">
+              <div style="color:var(--gray-text);">เส้นทางที่สอง</div>
+              <div style="font-weight:700;color:var(--dark-text);" id="ticketLeg2">-</div>
+            </div>
+          </div>
+
+          <!-- time mini grid (ตรงกับ repo) -->
+          <div class="ticket-mini-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+            <div style="background:#f8fafc;border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:11px;color:var(--gray-text);margin-bottom:4px;">เวลาออก</div>
+              <div style="font-size:20px;font-weight:800;color:var(--navy);font-family:monospace;" id="ticketMainTime">-</div>
+            </div>
+            <div id="ticketLeg2TimeWrap" style="display:none;background:#fff7ed;border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:11px;color:#475569;margin-bottom:4px;">เวลาต่อรถ</div>
+              <div style="font-size:20px;font-weight:800;color:#78350f;font-family:monospace;" id="ticketLeg2Time">-</div>
+            </div>
+          </div>
+
+          <!-- platform notice (ตรงกับ repo id: platform6Notice + platformNumberLabel) -->
+          <div id="platform6Notice" style="display:none;background:#0B1D3A;border-radius:12px;padding:14px;font-size:15px;color:#fff;font-weight:700;text-align:center;margin-bottom:12px;">
+            🚏 กรุณารอขึ้นรถ ณ <span id="platformNumberLabel" style="font-size:18px;">ชานชาลาหมายเลข 6</span>
+          </div>
+
+          <!-- queue display -->
+          <div id="queueDisplay" style="display:none;text-align:center;margin-bottom:12px;">
+            <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:10px;">
+              🎫 ลำดับที่ของคุณ <span style="font-size:22px;font-weight:800;color:#1e40af;font-family:monospace;" id="queueNumber">-</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-text);margin-top:4px;">ในเที่ยวนี้ (ต้นทาง + ปลายทาง + เวลา)</div>
+          </div>
+
+          <!-- green notice -->
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;font-size:13px;color:#166534;line-height:1.8;margin-bottom:12px;">
+            ✅ ข้อมูลการสำรองที่นั่งครบถ้วนเรียบร้อยแล้ว<br>
+            📱 กรุณาแสดงรูปตั๋วหรือรหัสตั๋วเมื่อขึ้นรถ
+          </div>
+
+          <!-- QR Code -->
+          <div style="text-align:center;padding:8px 0 14px;">
+            <div style="font-size:13px;color:var(--gray-text);margin-bottom:8px;">QR ตั๋วสำหรับคนขับสแกน</div>
+            <div id="ticketQrCode" style="width:160px;height:160px;margin:0 auto;display:flex;align-items:center;justify-content:center;"></div>
+            <div class="scan-hint" style="margin-top:8px;">
+              <img class="icon-img" src="assets/240.png" alt="สแกน" style="width:18px;height:18px;">
+              แสดงตั๋วนี้ก่อนขึ้นรถ
+            </div>
+          </div>
+
+        </div><!-- end ticket body -->
+      </div><!-- end ticket card -->
+
+      <!-- Ticket Save Modal (ตรงกับ repo id: ticketSaveModal) -->
+      <div id="ticketSaveModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8500;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:#fff;border-radius:20px;padding:28px 20px;max-width:360px;width:100%;text-align:center;">
+          <div style="font-size:48px;margin-bottom:10px;">🎫</div>
+          <div style="font-size:17px;font-weight:700;color:var(--navy);margin-bottom:8px;">กรุณาบันทึกตั๋วโดยสาร</div>
+          <div style="font-size:13px;color:var(--body-text);line-height:1.75;margin-bottom:18px;">
+            เพื่อใช้แสดงต่อเจ้าหน้าที่ ณ จุดขึ้นรถ<br>โปรดบันทึกภาพหน้าตั๋วหรือจดรหัสตั๋วไว้
+          </div>
+          <button onclick="downloadTicketImage()" style="width:100%;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--navy),var(--teal));color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">บันทึกตั๋ว</button>
+          <button onclick="closeTicketSavePopup()" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid var(--gray-border);background:#fff;color:var(--gray-text);font-family:inherit;font-size:14px;cursor:pointer;">ปิด</button>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="action-list">
+        <button class="action-btn" onclick="showTicketSavePopup()" style="border:1.5px solid var(--teal);">
+          <div class="icon-circle-lg" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/250.png" alt="บันทึกรูปตั๋ว" style="width:38px;height:38px;"></div>
+          <span class="ab-label" style="color:var(--teal);">บันทึกรูปตั๋ว</span>
+          <span class="ab-arrow" style="color:var(--teal);">›</span>
+        </button>
+        <button class="action-btn" id="btnCheckin" onclick="goCheckin()">
+          <div class="icon-circle-lg" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/251.png" alt="เช็คอิน" style="width:38px;height:38px;"></div>
+          <span class="ab-label">ดูตั๋ว / เช็คอิน</span>
+          <span class="ab-arrow">›</span>
+        </button>
+        <button class="action-btn">
+          <div class="icon-circle-lg" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/252.png" alt="ยกเลิก" style="width:38px;height:38px;"></div>
+          <span class="ab-label">ยกเลิกตั๋ว</span>
+          <span class="ab-arrow">›</span>
+        </button>
+        <button class="action-btn" onclick="window.location.href='index.html'">
+          <div class="icon-circle-lg" style="display:flex;align-items:center;justify-content:center;"><img class="icon-img" src="assets/253.png" alt="กลับสู่เมนูหลัก" style="width:38px;height:38px;"></div>
+          <span class="ab-label">กลับสู่เมนูหลัก</span>
+          <span class="ab-arrow">›</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="info.html#services">ข้อมูลผู้ประกอบการ</a><a href="info.html#privacy">นโยบายความเป็นส่วนตัว</a><a href="info.html#contact">ติดต่อเรา</a>
+    </div>
+    <div class="footer-copy">© 2024 S.L.Transit All rights reserved.</div>
+  </footer>
+</div>
+
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+var global = window;
+
+/* LINE In-App Browser guard: handled entirely by the shared
+   site-runtime.js include in <head> now (same script every other page
+   uses) — no page-local copy here anymore. */
+/* ============================================================
+   FIREBASE INIT + ERP BRIDGE
+   ============================================================ */
+
+/* ── [SCHEMA v3 PENDING] Firebase Config ──
+   ⚠️ ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 1: ต้องเปลี่ยนเป็นโปรเจกต์ใหม่
+      ใช้: sl-transit-9464e
+      ใหม่: sl-transit-9464e (Database URL: asia-southeast1)
+   สถานะ: ใช้ Firebase project จริง sl-transit-9464e แล้ว
+
+
+   วิธีสลับเมื่อพร้อม: แก้ค่าใน FIREBASE_CONFIG object นี้จุดเดียว
+   ไม่ต้องไล่หาที่อื่นในไฟล์ทั้งหมด */
+var FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyCuWN1RhTSnKjbg5vliTEXa8HtgY7j2spM',
+  authDomain:        'sl-transit-9464e.firebaseapp.com',
+  databaseURL:       'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId:         'sl-transit-9464e',
+  storageBucket:     'sl-transit-9464e.firebasestorage.app',
+  messagingSenderId: '480076551107',
+  appId:             '1:480076551107:web:0548531ec69327a2bfe376'
+};
+
+/* ── [SCHEMA v3 PENDING] ค่าไว้สลับพร้อมใช้ทันทีเมื่อ erp-core migrate เสร็จ ──
+var FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyCuWN1RhTSnKjbg5vliTEXa8HtgY7j2spM',
+  authDomain:        'sl-transit-9464e.firebaseapp.com',
+  databaseURL:       'https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId:         'sl-transit-9464e',
+  storageBucket:     'sl-transit-9464e.firebasestorage.app',
+  messagingSenderId: '480076551107',
+  appId:             '1:480076551107:web:0548531ec69327a2bfe376'
+};
+──────────────────────────────────────────────────────────── */
+
+var _fbApp   = firebase.initializeApp(FIREBASE_CONFIG);
+var _auth    = firebase.auth();
+var _db      = firebase.database();
+function _startBookingAuth() {
+  if (_auth.currentUser) return Promise.resolve(_auth.currentUser);
+  return _auth.signInAnonymously().then(function(cred) {
+    if (!cred || !cred.user || !cred.user.uid) {
+      var invalid = new Error('Firebase Auth returned no user');
+      invalid.code = 'auth/invalid-user';
+      throw invalid;
+    }
+    window._bookingAuthError = null;
+    return cred.user;
+  }).catch(function(err) {
+    window._bookingAuthError = {
+      code: err && err.code ? String(err.code) : 'auth/unknown',
+      message: err && err.message ? String(err.message) : ''
+    };
+    throw err;
+  });
+}
+var _authReady = _startBookingAuth();
+window._authReady = _authReady;
+window._ensureBookingAuth = function() {
+  if (_auth.currentUser) return Promise.resolve(_auth.currentUser);
+  return _authReady.catch(function() {
+    return _startBookingAuth();
+  });
+};
+var BOOKING1_PAYMENT_FALLBACK = {
+  bankName: 'กสิกรไทย (KBank)',
+  accountNo: '232-8-93015-6',
+  accountName: 'บริษัท เอส.แอล. ทรานซิท จำกัด',
+  phone: '082-9860032',
+  description: 'กรุณาโอนเงินไปยังบัญชีด้านล่าง จากนั้นถ่ายภาพหลักฐานการโอนเงินและแนบในช่องที่กำหนด'
+};
+
+var BOOKING_ANN = { items: [], cur: 0, timer: null, dur: 5000, paused: false };
+var BOOKING_ANN_TYPE_COLOR = {
+  info: 'rgba(11,29,58,0.75)',
+  warn: 'rgba(120,70,0,0.80)',
+  danger: 'rgba(120,10,10,0.82)'
+};
+var BOOKING_ANN_TYPE_TAG = {
+  info: 'ประกาศ',
+  warn: 'แจ้งเตือน',
+  danger: 'ด่วน'
+};
+
+function annEscHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function annSafeImageUrl(value) {
+  var url = String(value || '').trim();
+  if (url.length > 2 * 1024 * 1024) return '';
+  if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/i.test(url)) return url;
+  if (/^https:\/\/[^\s"'<>]+$/i.test(url)) return url;
+  return '';
+}
+
+function initBookingAnnouncements(items) {
+  if (!items || !items.length) return;
+  BOOKING_ANN.items = items;
+  BOOKING_ANN.cur = 0;
+  var slidesEl = document.getElementById('ann-slides');
+  var dotsEl = document.getElementById('ann-dots');
+  var progressEl = document.getElementById('ann-progress');
+  var placeholder = document.getElementById('ann-placeholder');
+  if (!slidesEl || !dotsEl || !progressEl) return;
+
+  slidesEl.innerHTML = items.map(function(a, i) {
+    var type = (a.type === 'warn' || a.type === 'danger') ? a.type : 'info';
+    var color = BOOKING_ANN_TYPE_COLOR[type] || BOOKING_ANN_TYPE_COLOR.info;
+    var tag = BOOKING_ANN_TYPE_TAG[type] || BOOKING_ANN_TYPE_TAG.info;
+    var safeImage = annSafeImageUrl(a.imageB64);
+    var bgStyle = safeImage
+      ? 'background-image:url("' + annEscHtml(safeImage) + '")'
+      : 'background:linear-gradient(135deg,#0B1D3A,#0f2647)';
+    return '<div class="ann-slide' + (i === 0 ? ' active' : '') + '" id="ann-s-' + i + '">' +
+      '<div class="ann-slide-bg" id="ann-bg-' + i + '" style="' + bgStyle + '"></div>' +
+      '<div class="ann-slide-overlay" style="background:linear-gradient(to bottom,rgba(11,29,58,0.20) 0%,' + color + ' 65%,rgba(11,29,58,0.95) 100%)"></div>' +
+      '<div class="ann-slide-text">' +
+        '<div class="ann-slide-tag"><span class="ann-slide-tag-dot"></span>' + annEscHtml(tag) + '</div>' +
+        '<div class="ann-slide-title">' + annEscHtml(a.title || '') + '</div>' +
+        (a.body ? '<div class="ann-slide-body">' + annEscHtml(a.body) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  dotsEl.innerHTML = items.map(function(_, i) {
+    return '<div class="ann-dot' + (i === 0 ? ' active' : '') + '" onclick="annGoto(' + i + ')"></div>';
+  }).join('');
+  if (placeholder) placeholder.style.display = 'none';
+  slidesEl.style.display = 'flex';
+  dotsEl.style.display = 'flex';
+  progressEl.style.display = 'block';
+  annGoto(0);
+}
+
+function annGoto(idx) {
+  var items = BOOKING_ANN.items;
+  if (!items.length) return;
+  idx = ((idx % items.length) + items.length) % items.length;
+  BOOKING_ANN.cur = idx;
+  var slidesEl = document.getElementById('ann-slides');
+  if (slidesEl) slidesEl.style.transform = 'translateX(-' + idx * 100 + '%)';
+  items.forEach(function(_, i) {
+    var el = document.getElementById('ann-s-' + i);
+    if (el) el.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.ann-dot').forEach(function(d, i) {
+    d.classList.toggle('active', i === idx);
+  });
+  var fill = document.getElementById('ann-progress-fill');
+  if (fill) {
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    void fill.offsetWidth;
+    fill.style.transition = 'width ' + BOOKING_ANN.dur + 'ms linear';
+    fill.style.width = '100%';
+  }
+  clearTimeout(BOOKING_ANN.timer);
+  if (!BOOKING_ANN.paused) {
+    BOOKING_ANN.timer = setTimeout(function() { annStep(1); }, BOOKING_ANN.dur);
+  }
+}
+
+function annStep(dir) {
+  annGoto(BOOKING_ANN.cur + dir);
+}
+
+window.annStep = annStep;
+window.annGoto = annGoto;
+
+/* ── [SCHEMA v3 PENDING] SLTransit.core.init() ──
+   ตาม BRIEFING_FOR_BOOKING_AI.md ข้อ 6: engine ต้อง init ผ่าน SLTransit.core
+   ก่อนเรียก catalog-engine / schedule-engine ตรงๆ
+
+   Safe-guard: เช็คว่า erp-core.js โหลดมาหรือยัง — ถ้ายังไม่มี (สถานะปัจจุบัน)
+   จะข้ามไปเรียก engine ตรงแบบเดิมทันที ไม่ throw error ไม่บล็อกการทำงาน
+   เมื่อ erp-core.js มาถึงและ uncomment <script> ด้านบนแล้ว โค้ดนี้จะเริ่ม
+   เดินอัตโนมัติโดยไม่ต้องแก้อะไรเพิ่ม */
+var _erpCoreReady = (window.SLTransit && window.SLTransit.core && typeof window.SLTransit.core.init === 'function')
+  ? window.SLTransit.core.init(_fbApp).then(function() {
+      console.log('[SLTransit.core] init สำเร็จ — erp-core.js พร้อมใช้งาน');
+      return true;
+    }).catch(function(err) {
+      console.warn('[SLTransit.core] init ล้มเหลว — fallback ไปใช้ engine เดิม', err);
+      return false;
+    })
+  : Promise.resolve(false); /* erp-core.js ยังไม่ได้โหลด → ข้ามไปเลย ไม่รอ */
+
+/* Bridge init: Booking1PreviewAdapter is the only component allowed to
+   populate trips.  Starting the legacy renderer here created a race where
+   the time displayed to the passenger and the selected trip object could
+   come from different render passes. */
+SLBookingBridge.init(_db).then(function() {
+  _applySettings({ payment: SLBookingBridge.getPaymentContact && SLBookingBridge.getPaymentContact() });
+  _updateDateDisplay();
+});
+
+/* ---------- STATE ---------- */
+var state = {
+  tripTime:         '',
+  tripLabel:        '',
+  tripFare:         0,
+  tripAssignment:   null,   // full assignment object จาก schedule-engine
+  originKey:        'sanamchai',
+  originName:       'ท่ารถสนามชัยเขต',
+  destKey:          'chachoengsao',
+  destName:         '',
+  name:             '',
+  phone:            '',
+  pax:              1,
+  selectedDate:     new Date(),
+  bookingCode:      (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now()),
+  consentAccepted:  false,
+  slipFile:         null,
+  isLeg2Dest:       false,
+  transferInfo:     null,
+  passengerIdentity: null,
+  notificationPreference: null,
+  consent:          null
+};
+
+/* ---------- HELPERS (time) ---------- */
+function timeToMinutes(t) {
+  var parts = String(t || '').split(':').map(Number);
+  return (parts[0] || 0) * 60 + (parts[1] || 0);
+}
+
+function _serviceDateISO() {
+  var d = state.selectedDate || new Date();
+  function pad(n) { return String(n).padStart(2, '0'); }
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+/* ---------- GET AVAILABLE TRIPS: delegate to ERP bridge ---------- */
+/* ห้ามคำนวณรอบรถเองในไฟล์นี้เด็ดขาด */
+function getAvailableTrips() {
+  return SLBookingBridge.getAvailableTrips(
+    state.originKey  || 'sanamchai',
+    state.destKey    || 'chachoengsao',
+    _serviceDateISO()
+  );
+}
+
+/* ── populate stop selector fields on click ── */
+function _populateStopPicker() {
+  var stops = SLBookingBridge.getBookableStops();
+  if (!stops.length) return;
+  var originStop = stops.filter(function(s) { return s.key === state.originKey; })[0];
+  var destStop   = stops.filter(function(s) { return s.key === state.destKey; })[0];
+  if (originStop) { state.originName = originStop.nameTh; }
+  if (destStop)   { state.destName   = destStop.nameTh; }
+  var fo = document.getElementById('field-origin');
+  var fd = document.getElementById('field-dest');
+  if (fo) fo.textContent = state.originName;
+  if (fd) fd.textContent = state.destName;
+}
+
+function openStopPicker(role) {
+  var stops = SLBookingBridge.getBookableStops();
+  var overlay = document.createElement('div');
+  overlay.id = 'stopPickerOverlay';
+  overlay.className = 'stop-picker-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeStopPicker(); };
+  overlay.innerHTML = '<div class="stop-picker-box">'
+    + '<div class="stop-picker-title">' + (role === 'origin' ? 'เลือกต้นทาง' : 'เลือกปลายทาง') + '</div>'
+    + stops.map(function(s) {
+        return '<div class="stop-picker-item" onclick="selectStop(\'' + role + '\',\'' + s.key + '\',\'' + s.nameTh.replace(/'/g,'&#39;') + '\')">'
+          + s.nameTh + '</div>';
+      }).join('')
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function closeStopPicker() {
+  var el = document.getElementById('stopPickerOverlay');
+  if (el) el.parentNode.removeChild(el);
+}
+
+function selectStop(role, key, nameTh) {
+  if (role === 'origin') {
+    state.originKey  = key;  state.originName = nameTh;
+    var fo = document.getElementById('field-origin');
+    if (fo) fo.textContent = nameTh;
+  } else {
+    state.destKey  = key;  state.destName = nameTh;
+    var fd = document.getElementById('field-dest');
+    if (fd) fd.textContent = nameTh;
+  }
+  closeStopPicker();
+}
+
+function swapStops() {
+  var tmpKey  = state.originKey;  var tmpName = state.originName;
+  state.originKey  = state.destKey;   state.originName = state.destName;
+  state.destKey    = tmpKey;          state.destName   = tmpName;
+  var fo = document.getElementById('field-origin');
+  var fd = document.getElementById('field-dest');
+  if (fo) fo.textContent = state.originName;
+  if (fd) fd.textContent = state.destName;
+}
+
+function _updateDateDisplay() {
+  var d = state.selectedDate || new Date();
+  var thMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  var txt = d.getDate() + ' ' + thMonths[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+  var el = document.getElementById('display-date');
+  if (el) el.textContent = txt;
+}
+
+/* ---------- RENDER TRIPS (data from ERP bridge, no local business decisions) ---------- */
+function renderTrips() {
+  var available = getAvailableTrips();   // [{pickupTime, label, fare, isLeg2, transferInfo, ...}]
+  var container = document.getElementById('tripList');
+  if (!container) return;
+  state._lastAvailable = available;    // cache เพื่อให้ selectTrip อ่าน transferInfo ได้
+
+  /* ── ไม่มีเที่ยวเหลือ ── */
+  if (available.length === 0) {
+    container.innerHTML =
+      '<div class="no-trips-msg">'
+      + '<img class="icon-img" src="assets/244.png" alt="ไม่มีเที่ยว" style="width:54px;height:54px;margin:0 auto 10px;">'
+      + '<strong>วันนี้ไม่มีเที่ยวที่เหลือแล้ว</strong>'
+      + '<span>กรุณาเลือกวันเดินทางถัดไป</span>'
+      + '</div>';
+    return;
+  }
+
+  /* ── trip แรก = แนะนำ (pre-select ไว้) ── */
+  var best = available[0];
+  state.tripTime       = best.pickupTime;
+  state.tripLabel      = best.label;
+  state.tripFare       = Number(best.fareAmount || best.fare) || 0;
+  state.tripAssignment = best.assignment || null;
+  state.isLeg2Dest     = best.isLeg2 || false;
+  state.transferInfo   = best.transferInfo || null;
+
+  function _tripBadge(trip) {
+    return '';
+  }
+
+  function _seatsText(trip) {
+    return '';
+  }
+
+  var html = '';
+
+  /* ══════════════════════════════════════════
+     การ์ดที่ 1 — เที่ยวแนะนำ (ขนาดใหญ่ขึ้น มีข้อมูล leg2)
+  ══════════════════════════════════════════ */
+  var ti = best.transferInfo;
+  var hasTransfer = best.isLeg2 && ti;
+  var transferPoint = hasTransfer ? (ti.point || ti.transferPoint || '-') : '';
+
+  html += '<div class="trip-card trip-card-recommended selected" '
+    + 'data-time="' + best.pickupTime + '" data-label="' + best.label + '" '
+    + 'data-fare="' + (best.fare||0) + '" '
+    + 'onclick="selectTrip(this)">'
+
+    /* row หัว: เวลา + badge */
+    + '<div class="trip-card-head">'
+    + '<div class="trip-time-wrap">'
+    + '<span class="trip-time">' + best.label + '</span>'
+    + '<span class="trip-time-badge badge-recommend">⭐ เที่ยวแนะนำ</span>'
+    + '</div>'
+    + '</div>'
+
+    /* เส้นทาง leg1 */
+    + '<div class="trip-route-row">'
+    + '<img class="icon-img" src="assets/221.png" alt="ป้าย" style="width:13px;height:13px;">'
+    + '<span class="trip-route-text">'
+    + (state.originName||'ต้นทาง') + ' → '
+    + (hasTransfer ? transferPoint : (state.destName||'ปลายทาง'))
+    + '</span>'
+    + '</div>'
+
+    /* ── กล่องต่อรถ (แสดงเฉพาะ leg2) ── */
+    + (hasTransfer && ti.hasMatch ? (
+        '<div class="transfer-inline-box">'
+        + '<div class="ti-inline-head">'
+        + '<img class="icon-img" src="assets/245.png" alt="ต่อรถ" style="width:14px;height:14px;">'
+        + '<span class="ti-inline-title">ต่อรถที่ ' + transferPoint + '</span>'
+        + '</div>'
+        + '<div class="ti-inline-row">'
+        + '<span class="ti-inline-label">ออกจาก ' + transferPoint + '</span>'
+        + '<span class="ti-inline-val">' + ti.leg2Time + ' น.</span>'
+        + '</div>'
+        + '<div class="ti-inline-row">'
+        + '<span class="ti-inline-label">ปลายทาง</span>'
+        + '<span class="ti-inline-val">' + (ti.destLabel||state.destName) + '</span>'
+        + '</div>'
+        + '<div class="ti-inline-note">⚡ ระบบจับคู่เวลาเหมาะสมที่สุด ณ ขณะนี้</div>'
+        + '</div>'
+      ) : hasTransfer && !ti.hasMatch ? (
+        '<div class="transfer-inline-box transfer-inline-warn">'
+        + '<img class="icon-img" src="assets/214.png" alt="warning" style="width:14px;height:14px;">'
+        + '<span style="font-size:12px;color:#475569;"> ยังไม่มีเที่ยวต่อในตารางเวลา — ตรวจสอบอีกครั้ง</span>'
+        + '</div>'
+      ) : '')
+
+    /* meta row */
+    + '<div class="trip-meta">'
+    + '<div class="trip-meta-item">'
+    + '<img class="icon-img" src="assets/241.png" alt="รถ" style="width:13px;height:13px;">'
+    + (hasTransfer ? ' ต่อรถที่ ' + transferPoint : (' ตรงถึง ' + (state.destName||'ปลายทาง')))
+    + '</div>'
+    + (best.queueNo ? '<div class="trip-meta-item"><img class="icon-img" src="assets/242.png" alt="คิว" style="width:13px;height:13px;"> คิวที่ ' + best.queueNo + '</div>' : '')
+    + '<div class="trip-meta-item">' + _seatsText(best) + '</div>'
+    + '<div class="trip-meta-item">' + _tripBadge(best) + '</div>'
+    + '</div>'
+
+    /* ราคา + ปุ่มเลือก */
+    + '<div class="trip-bottom">'
+    + '<div class="trip-price">' + (best.fare ? best.fare + ' บาท' : '-') + '</div>'
+    + '<button class="select-trip-btn btn-select-recommend" '
+    + 'onclick="goToPassenger(event,\'' + best.pickupTime + '\',\'' + best.label + '\',' + (best.fare||0) + ')">'
+    + 'เลือกเที่ยวนี้ ›</button>'
+    + '</div>'
+    + '</div>';
+
+  /* ══════════════════════════════════════════
+     การ์ดที่ 2+ — เที่ยวอื่นทั้งหมด (แบบกะทัดรัด)
+  ══════════════════════════════════════════ */
+  if (available.length > 1) {
+    html += '<div class="all-trips-label">เที่ยวอื่น ๆ ในวันนี้</div>';
+
+    available.slice(1).forEach(function(trip) {
+      var tTi = trip.transferInfo;
+      var tHasTransfer = trip.isLeg2 && tTi;
+      var tTransferPoint = tHasTransfer ? (tTi.point || tTi.transferPoint || '-') : '';
+
+      html += '<div class="trip-card trip-card-compact" '
+        + 'data-time="' + trip.pickupTime + '" data-label="' + trip.label + '" '
+        + 'data-fare="' + (trip.fare||0) + '" '
+        + 'onclick="selectTrip(this)">'
+
+        /* เวลา + badge */
+        + '<div class="trip-compact-row">'
+        + '<div class="trip-compact-left">'
+        + '<span class="trip-time-compact">' + trip.label + '</span>'
+        + '<div class="trip-compact-route">'
+        + (state.originName||'ต้นทาง') + ' → '
+        + (tHasTransfer ? tTransferPoint : (state.destName||'ปลายทาง'))
+        + (tHasTransfer && tTi && tTi.hasMatch ? (' → ' + (tTi.destLabel||state.destName) + ' (' + tTi.leg2Time + ' น.)') : '')
+        + '</div>'
+        + '</div>'
+        + '<div class="trip-compact-right">'
+        + '<span class="trip-price-compact">' + (trip.fare ? trip.fare + ' บาท' : '') + '</span>'
+        + '<button class="select-trip-btn btn-select-compact" '
+        + 'onclick="goToPassenger(event,\'' + trip.pickupTime + '\',\'' + trip.label + '\',' + (trip.fare||0) + ')">'
+        + 'เลือก ›</button>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    });
+  }
+
+  container.innerHTML = html;
+
+  setTimeout(function() {
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+
+/* ---------- QR CODE HELPERS ---------- */
+function getTicketQrText(code) {
+  return 'https://sl-transit.com/track_trip.html?code=' + encodeURIComponent(String(code || '').trim().toUpperCase());
+}
+
+function renderQr(targetId, text, size) {
+  var el = document.getElementById(targetId);
+  if (!el) return;
+  el.innerHTML = '';
+  if (typeof QRCode !== 'function') {
+    el.style.cssText = 'font-size:11px;color:#888;padding:10px;text-align:center;';
+    el.textContent = text;
+    return;
+  }
+  new QRCode(el, {
+    text: text,
+    width: size || 160,
+    height: size || 160,
+    colorDark: '#0B1D3A',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+/* ---------- DEV NAVIGATION ---------- */
+function devGoTo(n) {
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
+  if (!state.name)  state.name  = 'สมชาย ใจดี [ทดสอบ]';
+  if (!state.phone) state.phone = '0812345678';
+  if (!state.bookingCode) state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
+  state.consentAccepted = true; // bypass สำหรับ dev
+
+  if (n >= 2) {
+    updateSummary();  /* populate p2-route, p2-date, p2-trip-time, p2-origin-name */
+  }
+  if (n >= 3) {
+    var tot = getBookingTotal(state.pax);
+    if (tot.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
+    var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+    set('sumRoute',        (state.originName||'ต้นทาง') + ' - ' + (state.destName||'ปลายทาง'));
+    set('sumDate',         _dateThaiShort ? _dateThaiShort() : _serviceDateISO());
+    set('sumTime',         state.tripLabel);
+    set('sumSeat',         state.pax + ' ที่นั่ง');
+    set('p3-name',         state.name);
+    set('p3-phone',        state.phone);
+    set('p3-ticket-price', tot.fareSubtotal + ' บาท');
+    set('sumServiceFee',   tot.svcFee + ' บาท');
+    set('sumTotal',        tot.total + ' บาท');
+    set('sumTotal2',       tot.total + ' บาท');
+    set('bank-amount',     tot.total + ' บาท');
+    state._totalFare = tot.total;
+    selectPayMethod('onsite');
+  }
+  if (n >= 4) {
+    document.getElementById('t-name').textContent         = state.name;
+    document.getElementById('t-phone').textContent        = state.phone;
+    document.getElementById('t-trip-time').textContent    = state.tripLabel;
+    document.getElementById('t-pax').textContent          = state.pax + ' คน';
+    document.getElementById('t-booking-code').textContent = state.bookingCode;
+    document.getElementById('ticket-transfer-box').style.display   = 'none';
+    document.getElementById('ticket-platform-notice').style.display = 'none';
+  }
+
+  showPage(n);
+
+  if (n === 3) {
+    selectPayMethod('onsite');
+  }
+  if (n === 4) {
+    setTimeout(function() { renderQr('ticketQrCode', getTicketQrText(state.bookingCode), 160); }, 120);
+  }
+}
+
+/* ---------- PAGE NAVIGATION ---------- */
+function showPage(n) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('page' + n).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function selectService(el) {
+  if (el && el.classList && el.classList.contains('disabled')) return;
+  document.querySelectorAll('.service-item').forEach(function(i){ i.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+function openMainMenuDrawer() {
+  var drawer = document.getElementById('main-menu-drawer');
+  var backdrop = document.getElementById('main-menu-backdrop');
+  if (drawer) drawer.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+}
+
+function closeMainMenuDrawer() {
+  var drawer = document.getElementById('main-menu-drawer');
+  var backdrop = document.getElementById('main-menu-backdrop');
+  if (drawer) drawer.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
+function selectTrip(el) {
+  document.querySelectorAll('.trip-card').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+  state.tripTime  = el.dataset.time;
+  state.tripLabel = el.dataset.label;
+  state.tripFare  = Number(el.dataset.fare) || 0;
+  /* หา trip object ที่ตรงกับเวลาที่เลือก เพื่อเอา transferInfo */
+  var matched = (state._lastAvailable || []).filter(function(t){ return t.pickupTime === state.tripTime; })[0];
+  if (matched) {
+    state.isLeg2Dest   = matched.isLeg2 || false;
+    state.transferInfo = matched.transferInfo || null;
+    state.tripAssignment = matched.assignment || null;
+  }
+}
+
+/* [ทดสอบ] ข้ามไปหน้า 2 โดยใช้ค่า demo */
+function demoGoToPassenger() {
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
+  document.getElementById('p2-trip-time').textContent = state.tripLabel;
+  showPage(2);
+}
+
+/* เลือกเที่ยว → หน้า 2 ข้อมูลผู้โดยสาร */
+function goToPassenger(e, time, label, fare) {
+  e.stopPropagation();
+  state.tripTime  = time;
+  state.tripLabel = label;
+  state.tripFare  = Number(fare) || 0;
+  /* updateSummary จะ populate p2-route, p2-date, p2-trip-time, p2-origin-name */
+  updateSummary();
+  showPage(2);
+}
+
+/* กรอกข้อมูลผู้โดยสาร → หน้า 3 ชำระเงิน */
+function goToPayment() {
+  var nameVal  = document.getElementById('inp-name').value.trim();
+  var phoneVal = document.getElementById('inp-phone').value.trim();
+  if (!nameVal)  { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
+  if (!phoneVal) { alert('กรุณากรอกเบอร์โทรศัพท์'); return; }
+  if (!isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก ขึ้นต้น 06/08/09)'); return; }
+  state.name  = sanitizeText(nameVal);
+  state.phone = sanitizePhone(phoneVal);
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
+
+  var tot = getBookingTotal(state.pax);
+  if (tot.status !== 'ready') { alert('ERP Calculator Center ยังไม่พร้อมคำนวณยอดสำหรับรายการนี้'); return; }
+  state._totalFare = tot.total;
+
+  /* ── populate sum IDs (ตรงกับ repo) ── */
+  var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+  set('sumRoute',       (state.originName || 'ต้นทาง') + ' - ' + (state.destName || 'ปลายทาง'));
+  set('sumDate',        _dateThaiShort());
+  set('sumTime',        state.tripLabel);
+  set('sumSeat',        state.pax + ' ที่นั่ง');
+  set('p3-name',        state.name);
+  set('p3-phone',       state.phone);
+  set('p3-ticket-price', tot.fareSubtotal + ' บาท');
+  set('sumServiceFee',  tot.svcFee + ' บาท');
+  set('sumTotal',       tot.total + ' บาท');
+  set('sumTotal2',      tot.total + ' บาท');
+  set('bank-amount',    tot.total + ' บาท');
+
+  /* service fee row */
+  var sfRow = document.getElementById('serviceFeeRow');
+  if (sfRow) sfRow.style.display = tot.serviceFeeTotal > 0 ? 'flex' : 'none';
+
+  showPage(3);
+  updateSteps(3);
+  selectPayMethod('onsite');
+}
+
+/* วันที่ภาษาไทยแบบสั้น (เช่น จ. 29 มิ.ย. 2568) */
+function _dateThaiShort() {
+  var d = state.selectedDate || new Date();
+  var days   = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  var months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+}
+
+/* ยืนยันชำระเงิน → หน้า 4 ตั๋ว */
+function goToTicket() {
+  var nameEl = document.getElementById('inp-name');
+  var phoneEl = document.getElementById('inp-phone');
+  var nameVal = nameEl ? nameEl.value.trim() : state.name;
+  var phoneVal = phoneEl ? phoneEl.value.trim() : state.phone;
+  if (!nameVal) { alert('กรุณากรอกชื่อ-นามสกุล'); return; }
+  if (!phoneVal || !isValidThaiPhone(phoneVal)) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง'); return; }
+  state.name = sanitizeText(nameVal);
+  state.phone = sanitizePhone(phoneVal);
+  // validate consent
+  if (!state.consentAccepted) {
+    alert('กรุณาอ่านและยอมรับข้อตกลงการใช้บริการก่อน');
+    return;
+  }
+  if (!state.tripLabel) { alert('กรุณาเลือกเที่ยวจาก ERP ก่อน'); return; }
+  if (!currentPayMethod) selectPayMethod('onsite');
+  state.bookingCode = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
+
+  /* ── SNAPSHOT catalogVersion บังคับ (ห้ามหลุด) ── */
+  var assignmentPlan = window.SLTransitBookingAssignmentCenter
+    && typeof window.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract === 'function'
+    ? window.SLTransitBookingAssignmentCenter.buildBookingAssignmentContract({
+      resolvedAssignment: state.tripAssignment || {},
+      serviceDate: _serviceDateISO(),
+      departTime: state.tripTime,
+      originName: state.originName
+    })
+    : { assignment: null };
+  if (!assignmentPlan.assignment) {
+    alert('ยังไม่พบข้อมูลคิว เที่ยว และรถจากระบบกลาง กรุณาเลือกรอบใหม่หรือลองอีกครั้ง');
+    return;
+  }
+  var assignmentContract = assignmentPlan.assignment;
+  var bookingSnap = SLBookingBridge.buildBookingSnapshot({
+    bookingCode:   state.bookingCode,
+    name:          state.name,
+    phone:         state.phone,
+    pax:           state.pax,
+    originStopKey: state.originKey  || 'sanamchai',
+    destStopKey:   state.destKey    || 'chachoengsao',
+    pickupTime:    state.tripTime,
+    serviceDate:   _serviceDateISO(),
+    isLeg2:        state.isLeg2Dest || false,
+    transferInfo:  state.transferInfo || null,
+    queueNo:       assignmentContract.queueNo || '',
+    vehicleId:     assignmentContract.plannedVehicleId || '',
+    fare:          state._totalFare,
+    payMethod:     currentPayMethod || '',
+    slipUploaded:  currentPayMethod === 'onsite' ? false : !!state.slipFile,
+    assignment:    assignmentContract
+  });
+  /* bookingSnap.catalogVersion ← ถูก embed โดย bridge อัตโนมัติ */
+  console.log('[Booking] snapshot ready:', bookingSnap.bookingCode, 'catalogVersion:', bookingSnap.catalogVersion);
+
+  document.getElementById('t-name').textContent         = state.name;
+  document.getElementById('t-phone').textContent        = state.phone;
+  document.getElementById('t-trip-time').textContent    = state.tripLabel;
+  document.getElementById('t-pax').textContent          = state.pax + ' คน';
+  document.getElementById('t-booking-code').textContent = state.bookingCode;
+
+  // จุดต่อรถ: แสดงถ้าปลายทางเป็นกลุ่ม leg2
+  var isLeg2 = state.isLeg2Dest;
+  var transferBox = document.getElementById('ticket-transfer-box');
+  if (isLeg2 && state.transferInfo) {
+    var ti = state.transferInfo;
+    document.getElementById('t-transfer-point').textContent = ti.point || ti.transferPoint || '-';
+    document.getElementById('t-transfer-time').textContent  = (ti.time  || '-') + (ti.time ? ' น.' : '');
+    document.getElementById('t-transfer-leg2').textContent  = ti.leg2  || '-';
+    transferBox.style.display = 'block';
+  } else {
+    transferBox.style.display = 'none';
+  }
+
+  showPage(4);
+  setTimeout(function() {
+    renderQr('ticketQrCode', getTicketQrText(state.bookingCode), 160);
+  }, 100);
+}
+
+/* ---------- PAYMENT METHOD ---------- */
+var currentPayMethod = null;
+function selectPayMethod(method) {
+  currentPayMethod = method;
+  window.currentPayMethod = method;
+  ['onsite','bank','promptpay'].forEach(function(m) {
+    var card   = document.getElementById('pm-' + m);
+    var detail = document.getElementById('pay-detail-' + m);
+    if (card) card.classList.toggle('selected', m === method);
+    if (detail) detail.style.display = (m === method) ? 'block' : 'none';
+  });
+  /* ใช้ repo ID: slipUploadCard แทน slip-upload-section */
+  var slipCard = document.getElementById('slipUploadCard');
+  if (slipCard) slipCard.style.display = (method === 'bank' || method === 'promptpay') ? 'block' : 'none';
+  /* render QR ถ้าเลือก PromptPay */
+  if (method === 'promptpay') {
+    setTimeout(function() {
+      renderQr('paymentQrCode', 'https://sl-transit.com/pay?ref=' + state.bookingCode, 160);
+    }, 80);
+  }
+  /* confirmNote */
+  var note = document.getElementById('confirmNote');
+  if (note) {
+    note.textContent = (method === 'bank' || method === 'promptpay')
+      ? 'เมื่อยืนยันแล้ว หลักฐานการโอนเงินและข้อมูลการเดินทางจะถูกส่งให้เจ้าหน้าที่ทันที'
+      : 'จองหน้างานสำเร็จแล้วชำระเงินกับเจ้าหน้าที่ที่ท่ารถหรือบนรถ';
+  }
+}
+
+function onSlipSelectBooking1(input) {
+  var file = input && input.files && input.files[0];
+  state.slipFile = file || null;
+  var wrap = document.getElementById('previewWrap');
+  var img = document.getElementById('previewImg');
+  var name = document.getElementById('previewName');
+  if (!file) {
+    if (wrap) wrap.style.display = 'none';
+    if (img) img.removeAttribute('src');
+    if (name) name.textContent = '';
+    return;
+  }
+  if (name) name.textContent = file.name || '';
+  if (wrap) wrap.style.display = 'block';
+  if (img && window.URL && URL.createObjectURL) {
+    img.src = URL.createObjectURL(file);
+  }
+}
+
+/* ---------- CONSENT POPUP ---------- */
+var BOOKING1_LONG_POLICY_PROMISE = null;
+function loadBooking1LongPolicy() {
+  var policyEl = document.getElementById('consentPolicyContent');
+  var loadingEl = document.getElementById('consentLoading');
+  var fallbackEl = document.getElementById('consentFallback');
+  if (!policyEl) return Promise.resolve(false);
+  if (BOOKING1_LONG_POLICY_PROMISE) return BOOKING1_LONG_POLICY_PROMISE;
+  var existingPolicyHtml = policyEl.innerHTML.trim();
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  BOOKING1_LONG_POLICY_PROMISE = fetch('info.html', { credentials: 'same-origin' })
+    .then(function(response) { if (!response.ok) throw new Error('policy_http_' + response.status); return response.text(); })
+    .then(function(html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var section = doc.querySelector('#policy');
+      if (!section) throw new Error('policy_section_missing');
+      policyEl.innerHTML = section.innerHTML;
+      policyEl.style.display = 'block';
+      if (loadingEl) loadingEl.style.display = 'none';
+      onConsentCheckChange();
+      return true;
+    })
+    .catch(function(error) {
+      console.warn('[Booking1] long policy load failed; using fallback policy', error);
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (existingPolicyHtml) {
+        policyEl.innerHTML = existingPolicyHtml;
+        policyEl.style.display = 'block';
+        if (fallbackEl) fallbackEl.style.display = 'none';
+      } else if (fallbackEl) {
+        fallbackEl.style.display = 'block';
+      }
+      onConsentCheckChange();
+      return false;
+    });
+  return BOOKING1_LONG_POLICY_PROMISE;
+}
+
+function openConsentPopup(e) {
+  if (e) e.preventDefault();
+  var overlay = document.getElementById('consentOverlay');
+  overlay.classList.add('show');
+  var body = document.getElementById('consentBody');
+  body.scrollTop = 0;
+  document.getElementById('consentBtnAccept').disabled = true;
+  var consentCheck = document.getElementById('consentCheck');
+  if (consentCheck) consentCheck.checked = false;
+  document.getElementById('consentScrollHint').style.display = 'block';
+
+  /* Always prefer the canonical full policy from info.html; Firebase/embedded text is fallback only. */
+  var policyEl   = document.getElementById('consentPolicyContent');
+  var loadingEl  = document.getElementById('consentLoading');
+  var fallbackEl = document.getElementById('consentFallback');
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (policyEl) policyEl.style.display = 'none';
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  loadBooking1LongPolicy();
+}
+
+function closeConsentPopup() {
+  document.getElementById('consentOverlay').classList.remove('show');
+}
+
+function onConsentCheckChange() {
+  var body = document.getElementById('consentBody');
+  var check = document.getElementById('consentCheck');
+  var btn = document.getElementById('consentBtnAccept');
+  var atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
+  if (btn) btn.disabled = !(atBottom && check && check.checked);
+  if (atBottom) {
+    document.getElementById('consentScrollHint').style.display = 'none';
+  }
+}
+
+function onConsentScroll() {
+  onConsentCheckChange();
+}
+
+function scrollConsentToBottom() {
+  var body = document.getElementById('consentBody');
+  if (!body) return;
+  if (typeof body.scrollTo === 'function') {
+    body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+  } else {
+    body.scrollTop = body.scrollHeight;
+  }
+  setTimeout(onConsentCheckChange, 450);
+}
+
+function acceptConsent() {
+  var consentCheck = document.getElementById('consentCheck');
+  if (!consentCheck || !consentCheck.checked) return;
+  state.consentAccepted = true;
+  var total = typeof getBookingTotal === 'function' ? getBookingTotal(state.pax || 1) : null;
+  state.consent = {
+    contractVersion: 'booking1_consent_v2',
+    paymentMethod: currentPayMethod || 'onsite',
+    totalAmount: total && total.status === 'ready' ? total.total : null,
+    acceptedAt: Date.now()
+  };
+  closeConsentPopup();
+  // อัปเดต UI
+  document.getElementById('consentStatusBar').style.display = 'block';
+  var btn = document.getElementById('consentTriggerBtn');
+  if (btn) { btn.style.display = 'none'; btn.classList.add('accepted'); }
+}
+
+function goToPage1() { showPage(1); renderTrips(); }
+
+/* ──────────────────────────────────────────────────────
+   resetBookingState()
+────────────────────────────────────────────────────── */
+function resetBookingState() {
+  state.tripTime       = '';
+  state.tripLabel      = '';
+  state.tripFare       = 0;
+  state.tripAssignment = null;
+  state.name           = '';
+  state.phone          = '';
+  state.pax            = 1;
+  state.selectedDate   = new Date();
+  state.bookingCode    = (typeof generateBookingId === 'function' ? generateBookingId() : 'BK-' + Date.now());
+  state.consentAccepted= false;
+  state.slipFile       = null;
+  state.isLeg2Dest     = false;
+  state.transferInfo   = null;
+  state.passengerIdentity = null;
+  state.notificationPreference = null;
+  state.consent        = null;
+  state._lastAvailable = [];
+  state._totalFare     = 0;
+
+  /* รีเซ็ต form page 2 */
+  var nameEl  = document.getElementById('inp-name');
+  var phoneEl = document.getElementById('inp-phone');
+  var noteEl  = document.getElementById('inp-note');
+  var p2PaxEl = document.getElementById('p2-pax');
+  var searchPaxEl = document.getElementById('search-pax-count');
+  if (nameEl)  nameEl.value  = '';
+  if (phoneEl) phoneEl.value = '';
+  if (noteEl)  noteEl.value  = '';
+  if (chkEl)   chkEl.checked = false;
+  if (window.SLTransitPassengerIdentityCenter) window.SLTransitPassengerIdentityCenter.clearCurrentIdentity();
+  var lineProfile = document.getElementById('lineIdentityProfile');
+  var lineStatus = document.getElementById('lineIdentityStatus');
+  if (lineProfile) lineProfile.style.display = 'none';
+  if (lineStatus) lineStatus.textContent = 'ถ้าไม่ล็อกอิน สามารถกรอกชื่อและเบอร์โทรตามปกติได้';
+  if (p2PaxEl) p2PaxEl.textContent = '1 คน';
+  if (searchPaxEl) searchPaxEl.textContent = '1 คน ▾';
+
+  /* รีเซ็ต consent bar */
+  var cBar = document.getElementById('consentStatusBar');
+  var cBtn = document.getElementById('consentTriggerBtn');
+  if (cBar) cBar.style.display = 'none';
+  if (cBtn) { cBtn.style.display = ''; cBtn.textContent = 'อ่านและยอมรับข้อตกลงการใช้บริการ'; cBtn.classList.remove('accepted'); }
+
+  /* รีเซ็ต payment */
+  if (typeof selectPayMethod === 'function') selectPayMethod('onsite');
+  var confirmBtn = document.getElementById('btnConfirm');
+  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'ยืนยันการชำระเงิน ›'; }
+
+  /* อัปเดตวันที่ */
+  _updateDateDisplay();
+}
+
+/* ──────────────────────────────────────────────────────
+   updateSteps(n) — animate step bar
+────────────────────────────────────────────────────── */
+function updateSteps(n) {
+  ['page1','page2','page3','page4'].forEach(function(pid, idx) {
+    var items = document.querySelectorAll('#' + pid + ' .step-item');
+    items.forEach(function(item, si) {
+      var step = si + 1;
+      item.classList.remove('active','done');
+      if (step < n)       item.classList.add('done');
+      else if (step === n) item.classList.add('active');
+    });
+  });
+}
+
+/* ──────────────────────────────────────────────────────
+   getBookingTotal(pax) — ราคา + service fee
+────────────────────────────────────────────────────── */
+function getBookingTotal(pax) {
+  var selected = state.selectedTrip || {};
+  var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  var effectiveLimit = Number(limit) > 0
+    ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
+    : PUBLIC_BOOKING_PAX_LIMIT;
+  if (!global.SLTransitCalculatorCenter || typeof global.SLTransitCalculatorCenter.calculateBookingTotal !== 'function') {
+    return { status: 'missing_calculator_contract', total: null };
+  }
+  var result = global.SLTransitCalculatorCenter.calculateBookingTotal({
+    fareAmount: selected.fareAmount,
+    serviceFeeAmount: selected.fareContract && selected.fareContract.serviceFeeAmount,
+    passengerCount: pax || state.pax || 1,
+    maxPassengers: effectiveLimit
+  });
+  return Object.assign({}, result, {
+    basePrice: result.fareAmount,
+    svcFee: result.serviceFeeTotal,
+    total: result.totalAmount
+  });
+}
+
+/* ──────────────────────────────────────────────────────
+   changeSeat(delta) — +/- ผู้โดยสาร + live update price
+────────────────────────────────────────────────────── */
+function changeSeat(delta) {
+  var selected = state.selectedTrip || {};
+  var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  var effectiveLimit = Number(limit) > 0
+    ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
+    : PUBLIC_BOOKING_PAX_LIMIT;
+  var nextPax = (state.pax || 1) + delta;
+  if (delta > 0) nextPax = Math.min(effectiveLimit, nextPax);
+  state.pax = Math.max(1, nextPax);
+  var searchPaxEl = document.getElementById('search-pax-count');
+  if (searchPaxEl) searchPaxEl.textContent = state.pax + ' คน ▾';
+  var p2PaxEl = document.getElementById('p2-pax');
+  if (p2PaxEl) p2PaxEl.textContent = state.pax + ' คน';
+  var tot = getBookingTotal(state.pax);
+  if (tot.status !== 'ready') return;
+  state._totalFare = tot.total;
+  var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+  set('sumSeat',         state.pax + ' ที่นั่ง');
+  set('p3-ticket-price', tot.fareSubtotal + ' บาท');
+  set('sumServiceFee',   tot.svcFee + ' บาท');
+  set('sumTotal',        tot.total + ' บาท');
+  set('sumTotal2',       tot.total + ' บาท');
+  set('bank-amount',     tot.total + ' บาท');
+}
+
+function openPaxPicker() {
+  var selected = state.selectedTrip || {};
+  var limit = global.SLBookingBridge && global.SLBookingBridge.getBookingSeatLimit(selected);
+  var effectiveLimit = Number(limit) > 0
+    ? Math.min(Number(limit), PUBLIC_BOOKING_PAX_LIMIT)
+    : PUBLIC_BOOKING_PAX_LIMIT;
+  var max = Math.max(1, Math.floor(effectiveLimit));
+  var overlay = document.createElement('div');
+  overlay.id = 'paxPickerOverlay';
+  overlay.className = 'stop-picker-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closePaxPicker(); };
+  var html = '<div class="stop-picker-box"><div class="stop-picker-title">เลือกจำนวนผู้โดยสาร</div>';
+  for (var i = 1; i <= max; i++) {
+    html += '<div class="stop-picker-item" onclick="selectPaxCount(' + i + ')">' + i + ' คน</div>';
+  }
+  overlay.innerHTML = html + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function closePaxPicker() {
+  var el = document.getElementById('paxPickerOverlay');
+  if (el) el.parentNode.removeChild(el);
+}
+
+function selectPaxCount(count) {
+  state.pax = Math.max(1, Math.min(PUBLIC_BOOKING_PAX_LIMIT, Number(count) || 1));
+  changeSeat(0);
+  closePaxPicker();
+}
+
+/* ──────────────────────────────────────────────────────
+   showTicketSavePopup / closeTicketSavePopup
+────────────────────────────────────────────────────── */
+function showTicketSavePopup() {
+  var m = document.getElementById('ticketSaveModal');
+  if (m) m.style.display = 'flex';
+}
+function closeTicketSavePopup() {
+  var m = document.getElementById('ticketSaveModal');
+  if (m) m.style.display = 'none';
+}
+
+/* ──────────────────────────────────────────────────────
+   _applySettings - applies ERP-provided page settings only
+────────────────────────────────────────────────────── */
+function _applySettings(data) {
+  data = data || {};
+  data.payment = Object.assign({}, BOOKING1_PAYMENT_FALLBACK, data.payment || {});
+  var set = function(id, v) { var e = document.getElementById(id); if (e && v != null) e.textContent = v; };
+  set('paymentBankName',    data.payment && data.payment.bankName);
+  set('paymentAccountNo',   data.payment && data.payment.accountNo);
+  set('paymentAccountName', data.payment && data.payment.accountName);
+  set('paymentPhone',       data.payment && data.payment.phone);
+  set('paymentDescription', data.payment && data.payment.description);
+  /* service fee row: always visible now (matches target payment-summary design);
+     ERP serviceEnabled setting no longer hides it, just leaves the amount at 0 บาท */
+  /* consent policy */
+  var cEl = document.getElementById('consentPolicyContent');
+  var lEl = document.getElementById('consentLoading');
+  if (data.consentPolicy && cEl) {
+    cEl.innerHTML = String(data.consentPolicy).replace(/</g,'&lt;').replace(/\n/g,'<br>');
+    cEl.style.display = 'block';
+    if (lEl) lEl.style.display = 'none';
+  }
+}
+function _showUpdateOverlay() { var e = document.getElementById('_updateOverlay'); if (e) e.style.display = 'flex'; }
+function _hideUpdateOverlay() { var e = document.getElementById('_updateOverlay'); if (e) e.style.display = 'none'; }
+
+/* ──────────────────────────────────────────────────────
+   showTicketPage(booking) — populate ทุก ID ให้ตรงกับ repo
+────────────────────────────────────────────────────── */
+function bookingTicketTime(booking) {
+  booking = booking || {};
+  return booking.canonicalDepartureTime || booking.pickupTime || booking.time || booking.departTime || state.tripTime || '-';
+}
+
+function showTicketPage(booking) {
+  if (!booking) return;
+  window.__booking1TicketSnapshot = booking;
+  /* update state */
+  state.bookingCode  = booking.code  || state.bookingCode;
+  state.name         = booking.name  || state.name;
+  state.phone        = booking.phone || state.phone;
+  var ticketTime     = bookingTicketTime(booking);
+  state.tripTime     = ticketTime;
+  state.tripLabel    = ticketTime !== '-' ? ticketTime + ' น.' : state.tripLabel;
+  state.pax          = booking.seats || state.pax;
+  state.isLeg2Dest   = booking.isLeg2 || false;
+  state.transferInfo = booking.transferInfo || booking.transfer || null;
+  var ls = booking.legSchedule || {};
+
+  var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v || '-'; };
+  /* booking code */
+  set('bookingCode',   booking.code);
+  /* passenger */
+  set('t-name',        booking.name);
+  set('t-phone',       booking.phone);
+  set('t-route',       booking.route || (state.originName + ' - ' + state.destName));
+  set('t-origin',      booking.origin || state.originName);
+  set('t-trip-time',   ticketTime);
+  set('t-date',        booking.date || _serviceDateISO());
+  set('t-pax',         (booking.seats||1) + ' คน');
+  /* ticket lines leg1/leg2 */
+  set('ticketLeg1',    ls.leg1 || booking.leg1Route || (state.originName + ' - ' + (state.isLeg2Dest && state.transferInfo ? (state.transferInfo.point || state.transferInfo.transferPoint || '-') : state.destName)));
+  var leg2Wrap = document.getElementById('ticketLeg2Wrap');
+  if (ls.leg2) { set('ticketLeg2', ls.leg2); if (leg2Wrap) leg2Wrap.style.display = 'flex'; }
+  else if (leg2Wrap) { leg2Wrap.style.display = 'none'; }
+  /* time grid */
+  set('ticketMainTime', ticketTime + ' น.');
+  var tl2W = document.getElementById('ticketLeg2TimeWrap');
+  if (ls.leg2Time) { set('ticketLeg2Time', ls.leg2Time + ' น.'); if (tl2W) tl2W.style.display = 'block'; }
+  else if (tl2W) { tl2W.style.display = 'none'; }
+  /* platform notice */
+  var platform = booking.platform || '';
+  var p6n = document.getElementById('platform6Notice');
+  var p6l = document.getElementById('platformNumberLabel');
+  if (platform && p6n) { if (p6l) p6l.textContent = platform; p6n.style.display = 'block'; }
+  else if (p6n) { p6n.style.display = 'none'; }
+  /* queue */
+  if (booking.queueNumber) {
+    set('queueNumber',       String(booking.queueNumber));
+    set('ticketQueuePrizeNum', String(booking.queueNumber));
+    var qD = document.getElementById('queueDisplay');      if (qD) qD.style.display = 'block';
+    var qP = document.getElementById('ticketQueuePrize');  if (qP) qP.style.display = 'block';
+  }
+  /* QR */
+  setTimeout(function() { renderQr('ticketQrCode', getTicketQrText(booking.code), 160); }, 120);
+  showPage(4);
+  updateSteps(4);
+  /* show save modal after short delay */
+  setTimeout(showTicketSavePopup, 700);
+}
+
+/* ──────────────────────────────────────────────────────
+   window expose
+────────────────────────────────────────────────────── */
+window.showTicketPage     = showTicketPage;
+window.resetBookingState  = resetBookingState;
+window._serviceDateISO    = _serviceDateISO;
+window.showPage           = showPage;
+window.updateSteps        = updateSteps;
+window.getBookingTotal    = getBookingTotal;
+window.changeSeat         = changeSeat;
+window.openPaxPicker      = openPaxPicker;
+window.closePaxPicker     = closePaxPicker;
+window.selectPaxCount     = selectPaxCount;
+window.selectPayMethod    = selectPayMethod;
+window._applySettings     = _applySettings;
+window.showTicketSavePopup   = showTicketSavePopup;
+window.closeTicketSavePopup  = closeTicketSavePopup;
+
+/* ──────────────────────────────────────────────────────
+   DATE PICKER
+────────────────────────────────────────────────────── */
+function onDateChange(val) {
+  if (!val) return;
+  state.selectedDate = new Date(val + 'T00:00:00');
+  _updateDateDisplay();
+  renderTrips();
+}
+
+function _updateDateDisplay() {
+  var d = state.selectedDate || new Date();
+  var thMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  var isToday = _isToday(d);
+  var txt = isToday
+    ? 'วันนี้ — ' + d.getDate() + ' ' + thMonths[d.getMonth()] + ' ' + (d.getFullYear() + 543)
+    : d.getDate() + ' ' + thMonths[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+  var el = document.getElementById('display-date');
+  if (el) el.textContent = txt;
+  /* sync native input value */
+  var inp = document.getElementById('travelDate');
+  if (inp && !inp.value) inp.value = _serviceDateISO();
+}
+
+function _isToday(d) {
+  var now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+         d.getMonth()    === now.getMonth()    &&
+         d.getDate()     === now.getDate();
+}
+
+/* ──────────────────────────────────────────────────────
+   PHONE INLINE VALIDATION + ADMIN TESTER
+   ตรงกับ repo validatePhone() + updateAdminTesterNotice()
+────────────────────────────────────────────────────── */
+var ADMIN_TESTER_PHONE = '0929383999';
+var PUBLIC_BOOKING_PAX_LIMIT = 10;
+global.PUBLIC_BOOKING_PAX_LIMIT = PUBLIC_BOOKING_PAX_LIMIT;
+
+function sanitizeText(value) {
+  return String(value == null ? '' : value).replace(/[<>]/g, '').trim();
+}
+
+function sanitizePhone(value) {
+  return String(value == null ? '' : value).replace(/\D/g, '').slice(0, 10);
+}
+
+function isValidThaiPhone(value) {
+  return /^(06|08|09)\d{8}$/.test(sanitizePhone(value));
+}
+
+global.sanitizeText = sanitizeText;
+global.sanitizePhone = sanitizePhone;
+global.isValidThaiPhone = isValidThaiPhone;
+
+function validatePhoneInline(input) {
+  /* sanitize: ตัดอักขระที่ไม่ใช่ตัวเลขออก */
+  if (input) input.value = sanitizePhone(input.value);
+  var val = input ? input.value.trim() : '';
+  var errEl  = document.getElementById('phoneError');
+  var noteEl = document.getElementById('adminTesterNote');
+
+  if (val.length === 0) {
+    if (input) input.classList.remove('error');
+    if (errEl)  errEl.style.display  = 'none';
+    if (noteEl) noteEl.style.display = 'none';
+    _setAdminTester(false);
+    return true;
+  }
+
+  var ok = isValidThaiPhone(val);
+  if (input) input.classList.toggle('error', !ok);
+  if (errEl) errEl.style.display = (!ok) ? 'block' : 'none';
+
+  /* admin tester detection */
+  var isAdmin = (val === ADMIN_TESTER_PHONE);
+  if (noteEl) noteEl.style.display = (ok && isAdmin) ? 'block' : 'none';
+  _setAdminTester(ok && isAdmin);
+
+  return ok;
+}
+
+function _setAdminTester(on) {
+  var strip = document.getElementById('adminTesterStrip');
+  if (strip) strip.style.display = on ? 'block' : 'none';
+  if (typeof global !== 'undefined') global.ADMIN_TESTER_ACTIVE = on;
+  /* localStorage ตรงกับ repo */
+  try {
+    if (on) localStorage.setItem('adminTesterMode', '1');
+    else    localStorage.removeItem('adminTesterMode');
+  } catch(e) {}
+}
+
+/* ──────────────────────────────────────────────────────
+   UPDATE SUMMARY (page 2 — live summary ตามที่เลือก)
+   ตรงกับ repo updateSummary()
+────────────────────────────────────────────────────── */
+function updateSummary() {
+  var dateVal = _serviceDateISO();
+  var d       = new Date(dateVal + 'T00:00:00');
+  var days    = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  var months  = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  var dateStr = days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+
+  var fromName = state.originName || state.originKey || '-';
+  var toName   = state.destName   || state.destKey   || '-';
+  var ti       = state.transferInfo;
+
+  /* route label */
+  var p2route = document.getElementById('p2-route');
+  if (p2route) p2route.textContent = fromName + ' - ' + toName;
+
+  /* origin */
+  var p2origin = document.getElementById('p2-origin-name');
+  if (p2origin) p2origin.textContent = fromName;
+
+  /* date */
+  var p2date = document.getElementById('p2-date');
+  if (p2date) p2date.textContent = dateStr;
+
+  /* ผู้โดยสาร (read-only, เลือกไว้ตั้งแต่หน้าค้นหา) */
+  var p2pax = document.getElementById('p2-pax');
+  if (p2pax) p2pax.textContent = (state.pax || 1) + ' คน';
+
+  /* trip time + leg2 hint */
+  var p2time = document.getElementById('p2-trip-time');
+  if (p2time) {
+    p2time.innerHTML = state.tripLabel || '-';
+    if (ti && ti.leg2Time) {
+      p2time.innerHTML += '<br><span style="font-size:11px;color:#64748b;font-weight:500">ต่อรถ ' + (ti.destLabel||toName) + ': ' + ti.leg2Time + ' น.</span>';
+    }
+  }
+
+  /* leg2 summary card */
+  var leg2Card   = document.getElementById('leg2SummaryCard');
+  var leg2Detail = document.getElementById('leg2SummaryDetail');
+  if (state.isLeg2Dest && ti && ti.hasMatch) {
+    if (leg2Card)   leg2Card.style.display = 'block';
+    if (leg2Detail) leg2Detail.innerHTML =
+      'เส้นทางแรก: <strong>' + fromName + ' - ' + (ti.transferPoint || ti.point || '-') + '</strong><br>'
+      + 'ออกจาก ' + fromName + ': <strong>' + (state.tripTime||'-') + ' น.</strong><br>'
+      + 'เส้นทางที่สอง: <strong>' + (ti.transferPoint || ti.point || '-') + ' - ' + (ti.destLabel||toName) + '</strong><br>'
+      + 'ออกจาก ' + (ti.transferPoint || ti.point || '-') + ': <strong>' + ti.leg2Time + ' น.</strong><br>'
+      + 'ปลายทาง: <strong>' + (ti.destLabel||toName) + '</strong>';
+  } else {
+    if (leg2Card) leg2Card.style.display = 'none';
+  }
+}
+
+function submitBooking() {
+  if (typeof goToTicket === 'function') {
+    goToTicket();
+    return;
+  }
+  alert('ระบบจองยังไม่พร้อม กรุณาลองใหม่');
+}
+
+/* ──────────────────────────────────────────────────────
+   DOWNLOAD TICKET IMAGE (Canvas)
+   ตรงกับ repo downloadTicketImage()
+────────────────────────────────────────────────────── */
+function drawRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  var words = String(text || '').split('');
+  var line  = '';
+  words = String(text || '').split(' ');
+  for (var i = 0; i < words.length; i++) {
+    var test = line + (line ? ' ' : '') + words[i];
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, y);
+      y += lineHeight;
+      line = words[i];
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, x, y);
+  return y;
+}
+
+function downloadTicketImage() {
+  var booking = window.__booking1TicketSnapshot || null;
+  if (!booking) {
+    alert('ยังไม่มีข้อมูลตั๋ว กรุณาทำการจองให้เสร็จก่อน'); return;
+  }
+
+  var canvas = document.createElement('canvas');
+  canvas.width  = 900;
+  canvas.height = 1700;
+  var ctx = canvas.getContext('2d');
+  var legSchedule  = booking.legSchedule  || {};
+  var platform     = booking.platform || '';
+
+  /* background */
+  ctx.fillStyle = '#f0f4ff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  /* card shadow + body */
+  ctx.shadowColor = 'rgba(15,37,87,0.18)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+  ctx.fillStyle = '#ffffff';
+  drawRoundRect(ctx, 70, 70, 760, 1560, 28); ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  /* header gradient */
+  var grad = ctx.createLinearGradient(70, 70, 830, 300);
+  grad.addColorStop(0, '#0B1D3A'); grad.addColorStop(1, '#00A7B5');
+  ctx.fillStyle = grad;
+  drawRoundRect(ctx, 70, 70, 760, 250, 28); ctx.fill();
+  ctx.fillRect(70, 270, 760, 50);
+
+  /* header text */
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '600 24px Sarabun, sans-serif';
+  ctx.fillText('รถโดยสาร S.L.Transit', 450, 130);
+  ctx.fillStyle = '#fff'; ctx.font = '700 46px Sarabun, sans-serif';
+  ctx.fillText('สำรองที่นั่งสำเร็จ', 450, 196);
+
+  /* booking code badge */
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  drawRoundRect(ctx, 270, 224, 360, 72, 14); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = '700 40px monospace';
+  ctx.fillText(booking.code || '-', 450, 274);
+
+  /* dashed divider */
+  ctx.strokeStyle = '#dde3f0'; ctx.setLineDash([14, 12]);
+  ctx.beginPath(); ctx.moveTo(105, 360); ctx.lineTo(795, 360); ctx.stroke();
+  ctx.setLineDash([]);
+
+  var y = 410;
+  ctx.textAlign = 'left';
+
+  /* queue badge */
+  if (booking.queueNumber) {
+    ctx.fillStyle = '#fff7ed';
+    drawRoundRect(ctx, 160, y - 36, 580, 102, 22); ctx.fill();
+    ctx.strokeStyle = '#fed7aa'; ctx.lineWidth = 2;
+    drawRoundRect(ctx, 160, y - 36, 580, 102, 22); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#475569'; ctx.font = '700 22px Sarabun, sans-serif';
+    ctx.fillText('ลำดับคิว', 450, y);
+    ctx.fillStyle = '#0B1D3A'; ctx.font = '700 44px monospace';
+    ctx.fillText('คิวที่ ' + booking.queueNumber, 450, y + 46);
+    ctx.textAlign = 'left'; y += 116;
+  }
+
+  /* info rows */
+  var rows = [
+    ['ผู้โดยสาร',   'คุณ ' + (booking.name  || '-')],
+    ['วันเดินทาง',  booking.date    || '-'],
+    ['จำนวนที่นั่ง', (booking.seats || 1) + ' ที่นั่ง'],
+    ['ยอดชำระ',     '฿' + Number(booking.price || 0).toLocaleString() + ' บาท'],
+    ['เส้นทางแรก',  legSchedule.leg1 || (booking.origin + ' → ' + ((booking.transferInfo && (booking.transferInfo.point || booking.transferInfo.transferPoint)) || '-'))]
+  ];
+  if (legSchedule.leg2) rows.push(['เส้นทางที่สอง', legSchedule.leg2]);
+  if (platform)         rows.push(['ชานชาลา', platform]);
+
+  rows.forEach(function(row) {
+    ctx.fillStyle = '#64748b'; ctx.font = '500 22px Sarabun, sans-serif';
+    ctx.fillText(row[0], 120, y);
+    ctx.fillStyle = '#0f172a'; ctx.font = '700 26px Sarabun, sans-serif';
+    y = drawWrappedText(ctx, row[1], 300, y, 480, 34) + 28;
+  });
+
+  y += 8;
+  /* time cards */
+  var hasLeg2   = !!(legSchedule.leg2);
+  var cardW     = hasLeg2 ? 315 : 660;
+  var cardH     = 104;
+  var drawTimeCard = function(x, w, label, val) {
+    ctx.fillStyle = '#f8fafc';
+    drawRoundRect(ctx, x, y, w, cardH, 18); ctx.fill();
+    ctx.strokeStyle = '#dde3f0'; ctx.lineWidth = 2;
+    drawRoundRect(ctx, x, y, w, cardH, 18); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748b'; ctx.font = '700 20px Sarabun, sans-serif';
+    ctx.fillText(label, x + w/2, y + 36);
+    ctx.fillStyle = '#0B1D3A'; ctx.font = '700 36px monospace';
+    ctx.fillText(val + (val !== '-' ? ' น.' : ''), x + w/2, y + 78);
+  };
+  drawTimeCard(120, cardW, 'เวลาออกเดินทาง', bookingTicketTime(booking));
+  if (hasLeg2) drawTimeCard(465, 315, 'เวลาต่อรถ', legSchedule.leg2Time || '-');
+  ctx.textAlign = 'left';
+  y += cardH + 28;
+
+  /* green notice */
+  ctx.fillStyle = '#f0fdf4';
+  drawRoundRect(ctx, 120, y + 5, 660, 116, 18); ctx.fill();
+  ctx.strokeStyle = '#bbf7d0'; ctx.lineWidth = 2;
+  drawRoundRect(ctx, 120, y + 5, 660, 116, 18); ctx.stroke();
+  ctx.fillStyle = '#166534'; ctx.font = '600 24px Sarabun, sans-serif';
+  ctx.fillText('ข้อมูลการสำรองที่นั่งครบถ้วนเรียบร้อยแล้ว', 155, y + 52);
+  ctx.fillText('แสดงรูปตั๋วหรือรหัสเมื่อขึ้นรถ', 155, y + 92);
+  y += 144;
+
+  /* QR Code */
+  var qrCanvas = document.querySelector('#ticketQrCode canvas') || document.querySelector('#ticketQrCode img');
+  var qrY = Math.max(y + 20, 1120);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#0B1D3A'; ctx.font = '700 25px Sarabun, sans-serif';
+  ctx.fillText('QR ตั๋วสำหรับคนขับสแกน', 450, qrY - 30);
+  if (qrCanvas) {
+    ctx.fillStyle = '#fff'; ctx.fillRect(338, qrY - 12, 224, 224);
+    ctx.drawImage(qrCanvas, 340, qrY - 10, 220, 220);
+  }
+
+  /* footer */
+  ctx.fillStyle = '#94a3b8'; ctx.font = '500 20px Sarabun, sans-serif';
+  ctx.fillText('S.L.Transit • สนามชัยเขต - ฉะเชิงเทรา', 450, 1620);
+  ctx.font = '400 18px Sarabun, sans-serif';
+  ctx.fillText('sl-transit.com', 450, 1656);
+
+  /* download */
+  canvas.toBlob(function(blob) {
+    if (!blob) { alert('ไม่สามารถสร้างรูปตั๋วได้'); return; }
+    var url = URL.createObjectURL(blob);
+    var a   = document.createElement('a');
+    a.href  = url;
+    a.download = 'ticket-' + (booking.code || 'SLT') + '.png';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+  }, 'image/png');
+}
+
+window.downloadTicketImage  = downloadTicketImage;
+
+/* ---------- INIT ---------- */
+/* ตั้งค่าวันที่ default = วันนี้ */
+(function() {
+  var inp = document.getElementById('travelDate');
+  if (inp) {
+    var iso = _serviceDateISO();
+    inp.value = iso;
+    inp.min   = iso; /* ห้ามเลือกย้อนหลัง */
+  }
+  _updateDateDisplay();
+})();
+
+renderTrips();
+</script>
+</body>
+</html>

@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<script src="site-runtime.js?v=20260822a" data-sl-runtime></script>
+<link rel="manifest" href="manifest.webmanifest?v=20260621a">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/app-icon-192.png?v=20260621a">
+<link rel="apple-touch-icon" sizes="192x192" href="assets/app-icon-192.png?v=20260621a">
+<meta name="theme-color" content="#0b1d3a">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ข้อมูลเที่ยวรถและสถานะบริการ – Smart Transit</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script defer src="site-analytics.js?v=20260624a"></script>
+<script src="geo-engine.js?v=20260626geo2"></script>
+<script src="map-display-center.js?v=20260716center4"></script>
+<script src="user-location-center.js?v=20260716a"></script>
+<script src="erp-workbook-booking-source.js?v=20260809canonical"></script>
+<script src="https://api.longdo.com/map3/?key=e4d45f7c8530c60ffd190c6eadb7e48a"></script>
+<script src="erp-data-adapter.js?v=20260716live5"></script>
+<script src="erp-core.js?v=20260704a"></script>
+<script src="passenger-logic.js?v=20260804central8"></script>
+<link rel="stylesheet" href="assets/map-marker-styles.css?v=20260728d">
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:#f4f9fb;
+  --card:#ffffff;
+  --text:#17212b;
+  --muted:#5f7083;
+  --border:#d8e5ee;
+  --blue:#0f3a5f;
+  --blue-dark:#0f3a5f;
+  --blue-light:#eef8fb;
+  --teal:#18a999;
+  --teal-dark:#078f93;
+  --green:#159447;
+  --red:#d64545;
+}
+body { font-family:'Kanit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:16px; }
+
+/* ===== HEADER ===== */
+.topbar {
+  background:linear-gradient(135deg,#0f3a5f,#123f68);
+  padding:18px 20px 15px;
+  text-align:center;
+  border-bottom:3px solid var(--teal);
+}
+.header-main {
+  font-size:18px; font-weight:700; color:#ffffff;
+  letter-spacing:0.2px; line-height:1.35;
+}
+.header-sub {
+  font-size:11px; color:#b9f2ea; font-weight:400;
+  margin-top:4px; letter-spacing:1.2px; text-transform:uppercase;
+}
+
+/* ===== INFO STRIP ===== */
+.info-strip {
+  background:#123f68;
+  padding:9px 18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.info-strip .time { font-family:'Chakra Petch',sans-serif; font-size:18px; color:#ffffff; letter-spacing:2px; font-weight:700; }
+.info-strip .date { font-size:11px; color:#d7ecf7; font-weight:500; margin-top:2px; }
+.info-strip .right { font-size:11px; color:#b9f2ea; font-weight:600; text-align:right; }
+.live-dot { display:inline-block; width:7px; height:7px; background:var(--teal); border-radius:50%; margin-right:5px; animation:blink 1.4s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.test-mode-strip{display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;}
+.admin-test-strip{display:none;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;line-height:1.6;}
+
+.main { padding:16px 16px; max-width:480px; margin:0 auto; }
+
+/* ===== STATUS CARD ===== */
+.status-card {
+  background:var(--card); border-radius:12px;
+  padding:16px 18px; display:flex; align-items:center; gap:14px;
+  margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,0.07);
+  border-left:4px solid #d1dbe8;
+}
+.status-card.stopped  { border-left-color:#d97706; background:var(--card); }
+.status-card.arriving { border-left-color:var(--teal); background:#f0fffc; }
+.status-card.running  { border-left-color:var(--blue); background:#eef8fb; }
+.status-icon { font-size:28px; flex-shrink:0; }
+.status-text strong { display:block; font-size:16px; font-weight:700; color:var(--text); }
+.status-text span { font-size:13px; color:var(--muted); margin-top:3px; display:block; }
+
+/* ===== MAP ===== */
+#map { height:clamp(240px,40vh,300px); border-radius:16px; margin-bottom:12px; border:1px solid #cbd5e1; overflow:hidden; background:#dcebf7; position:relative; box-shadow:0 10px 24px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.08); }
+#map .ldmap-dpad, #map .ldmap-zoombar, #map .ldmap-toolbar,
+#map .ldmap-scale, #map .ldmap-fullscreen, #map .ldmap-layer-selector,
+#map .ldmap-crosshair { display:none !important; }
+/* .map-stop-icon / .map-stop-label moved to assets/map-marker-styles.css (shared with driver-map.html) */
+.map-bus-icon { width:40px; height:40px; border-radius:50%; background:var(--teal); border:4px solid #fff; box-shadow:0 6px 16px rgba(15,23,42,.38),0 0 0 4px rgba(24,169,153,.22); display:flex; align-items:center; justify-content:center; overflow:hidden; line-height:1; }
+.map-bus-icon img { width:36px; height:30px; object-fit:contain; display:block; }
+.map-bus-label { background:var(--teal-dark); color:#fff; font-size:12px; font-weight:700; padding:6px 11px; border-radius:16px; white-space:nowrap; box-shadow:0 3px 8px rgba(15,23,42,.3); border:1px solid rgba(255,255,255,.78); }
+.map-bus-label img { width:20px; height:14px; object-fit:contain; vertical-align:-2px; margin-right:4px; }
+.map-passenger-marker { width:26px; height:26px; border-radius:50%; background:#2563eb; border:4px solid #fff; box-shadow:0 0 0 5px rgba(37,99,235,.24),0 4px 12px rgba(15,23,42,.34); }
+.map-transfer-badges { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+.badge-active, .badge-soon { display:inline-block; font-size:11px; font-weight:600; padding:3px 8px; border-radius:10px; }
+.badge-active { background:#e6f7f0; color:#0f7a4f; }
+.badge-soon { background:#fff4e5; color:#a15c07; }
+.follow-user-btn { width:100%; border:1px solid #bceee7; background:#eefdfa; color:var(--teal-dark); border-radius:10px; padding:9px 12px; margin:-4px 0 12px; font-family:'Kanit',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.08); }
+.follow-user-btn.is-off { background:#fff; color:#5a6a7e; border-color:#d1dbe8; }
+
+/* ===== ROUTE STRIP ===== */
+.route-card {
+  background:var(--card); border-radius:12px; padding:14px 16px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06); margin-bottom:12px;
+  border:1px solid var(--border); overflow:hidden;
+}
+.route-card-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.route-label { font-size:12px; color:var(--muted); font-weight:600; letter-spacing:0.8px; text-transform:uppercase; }
+.route-dir-badge {
+  font-size:12px; font-weight:700; color:var(--teal-dark);
+  background:#eefdfa; border:1px solid #bceee7;
+  padding:4px 11px; border-radius:20px;
+}
+/* เลื่อนซ้ายขวาได้ — จุดไม่ล้น */
+.route-visual-scroll {
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  padding-bottom:6px; padding-top:28px;
+}
+.route-visual {
+  display:flex; align-items:flex-start;
+  min-width:max-content;
+}
+.stop-col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:72px; }
+.stop-dot-w { position:relative; width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+.stop-dot { width:14px; height:14px; border-radius:50%; background:#d1dbe8; border:2px solid #94a3b8; transition:all 0.3s; }
+.stop-dot.active { background:var(--teal); border-color:var(--teal); box-shadow:0 0 0 5px rgba(24,169,153,0.16); width:18px; height:18px; }
+.stop-dot.passed { background:#8de6da; border-color:var(--teal); }
+.bus-anim { position:absolute; top:-24px; animation:bob 1.8s ease-in-out infinite; }
+.bus-anim img { width:30px; height:22px; object-fit:contain; display:block; }
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.line-seg { flex:1; height:3px; background:#e2e8f0; margin-top:16px; border-radius:2px; }
+.line-seg.passed { background:var(--teal); }
+.sn { font-size:11px; font-weight:600; text-align:center; margin-top:6px; line-height:1.3; color:var(--muted); }
+.sn.active { color:var(--teal-dark); font-weight:700; }
+
+/* ===== NEXT BUS ===== */
+.next-bus {
+  background:var(--card); border:1px solid var(--border);
+  border-left:4px solid var(--teal);
+  border-radius:12px; padding:16px 18px; margin-bottom:12px;
+  display:flex; align-items:center; gap:16px;
+}
+.next-bus-left { flex:1; }
+.next-label { font-size:11px; color:var(--muted); font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+.next-time { font-family:'Chakra Petch',sans-serif; font-size:36px; font-weight:700; color:var(--blue); letter-spacing:2px; line-height:1; }
+.next-detail { font-size:13px; color:var(--muted); margin-top:5px; }
+.next-icon { font-size:32px; flex-shrink:0; opacity:0.7; }
+
+/* ===== ROUTE SELECTOR ===== */
+.route-select-card {
+  background:var(--card); border-radius:12px; padding:16px;
+  margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  border:1px solid var(--border);
+}
+.rs-title {
+  font-size:11px; font-weight:700; color:var(--muted);
+  letter-spacing:1px; text-transform:uppercase; margin-bottom:12px;
+}
+.rs-row { display:flex; align-items:flex-end; gap:10px; }
+.rs-group { flex:1; display:flex; flex-direction:column; gap:5px; min-width:0; }
+.rs-label { font-size:12px; font-weight:600; color:var(--muted); }
+.rs-select {
+  width:100%; padding:12px 12px; border-radius:8px;
+  border:1.5px solid var(--border); font-family:'Kanit',sans-serif;
+  font-size:15px; font-weight:600; color:var(--text);
+  background:#ffffff; cursor:pointer; outline:none;
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%235a6a7e' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center;
+  padding-right:34px; min-height:46px; line-height:1.35;
+}
+.rs-select:focus { border-color:var(--teal); }
+.rs-arrow { font-size:20px; font-weight:700; color:var(--teal-dark); padding-bottom:12px; flex-shrink:0; }
+
+/* ===== SECTION LABEL ===== */
+.sec-label {
+  font-size:11px; font-weight:700; color:var(--muted);
+  letter-spacing:1.5px; text-transform:uppercase;
+  margin-bottom:10px; padding-left:2px;
+}
+
+/* ===== SCHEDULE — DIRECT ROUTE ===== */
+.sched-card {
+  background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  margin-bottom:14px; border:1px solid var(--border);
+}
+.sched-route-header {
+  background:var(--blue-dark); padding:14px 18px;
+}
+.sched-route-from { font-size:11px; color:#b9f2ea; font-weight:500; margin-bottom:3px; letter-spacing:0.5px; text-transform:uppercase; }
+.sched-route-name { font-size:17px; font-weight:700; color:#ffffff; }
+
+/* กริด 3 คอลัมน์ — เวลาใหญ่ อ่านง่าย */
+.time-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+.time-cell {
+  padding:18px 10px; text-align:center;
+  border-right:1px solid var(--border); border-bottom:1px solid var(--border);
+  font-family:'Chakra Petch',sans-serif; font-size:22px;
+  font-weight:700; color:var(--text); letter-spacing:0;
+  min-width:0;
+}
+.time-cell:nth-child(3n) { border-right:none; }
+/* ลบ border bottom แถวสุดท้าย */
+.time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+1),
+.time-grid .time-cell:nth-last-child(-n+3):nth-child(3n+2),
+.time-grid .time-cell:nth-last-child(1),
+.time-grid .time-cell:nth-last-child(2),
+.time-grid .time-cell:nth-last-child(3) { border-bottom:none; }
+.now-badge {
+  display:block; font-family:'Kanit',sans-serif;
+  font-size:9px; font-weight:700; color:var(--teal-dark);
+  letter-spacing:0.5px; margin-top:4px;
+}
+.badge-estimated {
+  display:block; font-family:'Kanit',sans-serif;
+  font-size:9px; font-weight:700;
+  letter-spacing:0.3px; margin-top:2px;
+  color:#a15c07;
+}
+.time-cell.estimated-time { background:#fff8ec; }
+.leg2-time-item.estimated-time { background:#fff8ec; }
+.sched-disclaimers { padding:10px 14px; }
+.sched-disclaimer-line { font-size:11px; color:var(--muted); line-height:1.5; margin-top:4px; }
+.sched-disclaimer-line:first-child { margin-top:0; }
+
+/* ===== SCHEDULE — LEG2 (2 columns) ===== */
+.leg2-card {
+  background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  margin-bottom:14px; border:1px solid var(--border);
+}
+.leg2-header {
+  background:var(--blue-dark); padding:14px 18px;
+}
+.leg2-header-top { font-size:11px; color:#b9f2ea; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+.leg2-header-route { font-size:17px; font-weight:700; color:#ffffff; }
+
+/* Column headers */
+.leg2-cols { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid rgba(255,255,255,0.12); }
+.leg2-col-head {
+  padding:10px 14px;
+  border-right:1px solid rgba(255,255,255,0.12);
+}
+.leg2-col-head:last-child { border-right:none; }
+.leg2-col-sub { font-size:10px; color:#b9f2ea; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
+.leg2-col-name { font-size:13px; font-weight:700; color:#ffffff; margin-top:2px; }
+.leg2-col-note { font-size:10px; color:#d7ecf7; margin-top:2px; }
+
+/* Time rows side-by-side */
+.leg2-times { display:grid; grid-template-columns:1fr 1fr; }
+.leg2-time-col { border-right:1px solid var(--border); }
+.leg2-time-col:last-child { border-right:none; }
+.leg2-time-item {
+  padding:16px 12px; border-bottom:1px solid var(--border);
+  font-family:'Chakra Petch',sans-serif; font-size:22px;
+  font-weight:700; color:var(--text); letter-spacing:0;
+  text-align:center;
+  min-width:0;
+}
+.leg2-time-item:last-child { border-bottom:none; }
+  .time-cell.disabled-time,.leg2-time-item.disabled-time{text-decoration:line-through;color:#94a3b8;background:#f1f5f9;}
+.leg2-time-item.empty { background:#fafbfc; min-height:58px; }
+
+/* ===== BUS LIST (multi-bus) ===== */
+.bus-list { max-height:120px; overflow-y:auto; margin-bottom:10px; }
+.bus-list-item {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
+}
+.bus-list-item:last-child { border-bottom:none; }
+.bus-list-id { font-weight:700; color:var(--teal-dark); font-size:13px; min-width:55px; }
+.bus-list-loc { color:var(--text); font-weight:500; }
+.bus-list-dir { font-size:11px; color:var(--muted); margin-left:auto; }
+
+/* ===== BOOKING TAB ===== */
+.booking-tab {
+  display:flex; align-items:center; gap:12px;
+  background:linear-gradient(135deg,#0f3a5f,#078f93); color:#ffffff;
+  border-radius:12px; padding:16px 20px;
+  margin-bottom:14px; text-decoration:none;
+  box-shadow:0 2px 8px rgba(30,58,138,0.25);
+  transition:background 0.15s;
+}
+.booking-tab:active { filter:brightness(.92); }
+.booking-tab-icon { font-size:22px; flex-shrink:0; }
+.booking-tab-text { flex:1; font-size:16px; font-weight:700; letter-spacing:0.3px; }
+.booking-tab-arrow { font-size:18px; font-weight:700; color:#b9f2ea; flex-shrink:0; }
+
+/* ===== FOOTER ===== */
+.footer {
+  text-align:center; font-size:12px; color:var(--muted);
+  padding:12px 16px 32px; line-height:1.8;
+  border-top:1px solid var(--border); margin-top:4px;
+}
+.footer .note-title { color:var(--red); font-weight:700; }
+
+/* ===== DIRECT SCHED — 2-col time grid ===== */
+.time-grid-2col { display:grid; grid-template-columns:1fr 1fr; }
+.time-grid-2col .time-cell { border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+.time-grid-2col .time-cell:nth-child(2n) { border-right:none; }
+/* last row border-bottom none */
+.time-grid-2col .time-cell:nth-last-child(-n+2) { border-bottom:none; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:360px) {
+  body { font-size:15px; }
+  .topbar { padding:14px 14px 12px; }
+  .header-main { font-size:16px; }
+  .main { padding:10px 8px; }
+  .info-strip { padding:8px 12px; }
+  .route-select-card { padding:12px; }
+  .route-card { padding:12px; }
+  #map { height:230px; border-radius:14px; }
+  .route-select-card,
+  .sched-card,
+  .leg2-card,
+  .route-card,
+  .next-bus,
+  .status-card { border-radius:10px; }
+  .rs-row { display:grid; grid-template-columns:1fr; gap:9px; }
+  .rs-group { width:100%; }
+  .rs-select { font-size:15px; min-height:48px; padding:12px 34px 12px 12px; }
+  .rs-arrow {
+    width:34px; height:24px; padding:0; line-height:24px;
+    justify-self:center; align-self:center; text-align:center;
+    transform:rotate(90deg);
+  }
+  .sched-route-header,
+  .leg2-header { padding:12px 14px; }
+  .sched-route-name,
+  .leg2-header-route { font-size:15px; line-height:1.35; }
+  .leg2-cols { grid-template-columns:1fr; }
+  .leg2-col-head { padding:10px 12px; border-right:none; }
+  .leg2-col-head + .leg2-col-head { display:none; }
+  .leg2-col-name { font-size:12px; line-height:1.35; }
+  .time-grid,
+  .time-grid-2col,
+  .leg2-times { grid-template-columns:1fr; }
+
+  .time-cell,
+  .time-grid-2col .time-cell,
+  .leg2-time-item {
+    font-size:19px; padding:13px 10px;
+    border-right:none !important;
+    border-bottom:1px solid var(--border) !important;
+  }
+  .time-grid .time-cell:last-child,
+  .time-grid-2col .time-cell:last-child,
+  .leg2-time-item:last-child { border-bottom:none !important; }
+  .leg2-time-item.empty { display:none; }
+  .next-time { font-size:32px; }
+  .bus-list-item { align-items:flex-start; flex-wrap:wrap; gap:6px 8px; }
+  .bus-list-dir { width:100%; margin-left:0; }
+}
+
+/* ===== MODERN MOBILE MAP APP LAYOUT ===== */
+html, body { width:100%; min-height:100%; overflow:hidden; }
+body { background:#edf6f8; }
+.topbar, .info-strip, .test-mode-strip { display:none; }
+.map-page {
+  position:relative;
+  min-height:100vh;
+  height:100dvh;
+  overflow:hidden;
+  background:linear-gradient(180deg,#edf8fa,#d9eaf0);
+}
+.main {
+  max-width:none;
+  width:100%;
+  height:100%;
+  margin:0;
+  padding:0;
+}
+#map {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  min-height:100%;
+  margin:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+#map .ldc-map, #map canvas { border-radius:0; }
+.top-route-card {
+  position:absolute;
+  top:calc(14px + env(safe-area-inset-top));
+  left:50%;
+  z-index:20;
+  width:min(94vw,480px);
+  transform:translateX(-50%);
+  pointer-events:auto;
+}
+.route-select-card.top-route-card {
+  margin:0;
+  padding:14px;
+  border:1px solid rgba(226,232,240,.92);
+  border-radius:18px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 18px 38px rgba(15,58,95,.16),0 3px 10px rgba(15,58,95,.08);
+  backdrop-filter:blur(12px);
+}
+.rs-title { margin-bottom:10px; color:#0f3a5f; letter-spacing:.6px; }
+.rs-row { align-items:center; gap:9px; }
+.rs-group { gap:4px; }
+.rs-label { font-size:11px; color:#64748b; }
+.rs-select {
+  min-height:42px;
+  padding:9px 32px 9px 11px;
+  border-radius:12px;
+  border-color:#d8e5ee;
+  background-color:#f8fafc;
+  font-size:14px;
+}
+.rs-select:focus {
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(24,169,153,.14);
+}
+.rs-arrow { padding:18px 0 0; color:var(--teal-dark); }
+.follow-user-btn {
+  position:absolute;
+  right:16px;
+  bottom:calc(178px + env(safe-area-inset-bottom));
+  z-index:30;
+  width:auto;
+  min-width:46px;
+  height:46px;
+  padding:0 13px;
+  margin:0;
+  border:1px solid rgba(203,213,225,.9);
+  border-radius:999px;
+  background:#ffffff;
+  color:var(--teal-dark);
+  box-shadow:0 10px 24px rgba(15,23,42,.18);
+  font-size:0;
+  pointer-events:auto;
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.follow-user-btn::before { content:"◎"; font-size:23px; line-height:1; }
+.follow-user-btn.is-off { background:#ffffff; color:#64748b; }
+.follow-user-btn.is-locating { opacity:.72; cursor:wait; }
+.map-user-location-marker {
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:#0ea5e9;
+  border:3px solid #ffffff;
+  box-shadow:0 0 0 5px rgba(14,165,233,.24),0 4px 12px rgba(15,23,42,.28);
+}
+.location-consent-overlay {
+  position:fixed; inset:0; z-index:200;
+  background:rgba(15,23,42,.45);
+  display:flex; align-items:flex-end; justify-content:center;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.location-consent-card {
+  background:var(--card); border-radius:16px; padding:20px 18px 16px;
+  max-width:420px; width:100%; box-shadow:0 -8px 30px rgba(15,23,42,.25);
+  text-align:center;
+  max-height:calc(100dvh - 32px);
+  overflow-y:auto;
+  flex-shrink:0;
+}
+.location-consent-icon { font-size:30px; margin-bottom:6px; }
+.location-consent-title { font-weight:700; font-size:16px; color:var(--text); margin-bottom:8px; }
+.location-consent-body { font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:16px; }
+.location-consent-actions { display:flex; gap:10px; }
+.lc-btn { flex:1; padding:11px; border-radius:10px; font-family:'Kanit',sans-serif; font-size:14px; font-weight:700; cursor:pointer; border:1px solid transparent; text-align:center; }
+.lc-btn-primary { background:var(--teal-dark); color:#fff; }
+.lc-btn-secondary { background:#fff; color:var(--muted); border-color:var(--border); }
+.location-consent-note { font-size:11px; color:var(--muted); margin-top:12px; }
+.location-consent-note a { color:var(--teal-dark); text-decoration:underline; margin-left:4px; }
+.bottom-sheet {
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:19;
+  max-height:82dvh;
+  padding:0 14px calc(14px + env(safe-area-inset-bottom));
+  border-radius:24px 24px 0 0;
+  background:rgba(248,252,252,.98);
+  box-shadow:0 -18px 42px rgba(15,58,95,.20);
+  transform:translateY(calc(100% - var(--sheet-collapsed-height, 172px)));
+  transition:transform .28s ease;
+  touch-action:none;
+  overflow:hidden;
+}
+.bottom-sheet.sheet-expanded { transform:translateY(0); }
+.bottom-sheet-header {
+  position:sticky;
+  top:0;
+  z-index:2;
+  margin:0 -14px;
+  padding:9px 14px 10px;
+  background:rgba(248,252,252,.98);
+  border-radius:24px 24px 0 0;
+  border-bottom:1px solid rgba(226,232,240,.88);
+  cursor:pointer;
+}
+.sheet-handle {
+  width:42px;
+  height:5px;
+  margin:0 auto 10px;
+  border-radius:999px;
+  background:#cbd5e1;
+}
+.sheet-summary-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.sheet-route-name {
+  font-size:16px;
+  font-weight:800;
+  color:#0f3a5f;
+  line-height:1.25;
+}
+.sheet-route-sub {
+  margin-top:3px;
+  font-size:12px;
+  font-weight:500;
+  color:#64748b;
+  line-height:1.35;
+}
+.bottom-sheet-content {
+  max-height:calc(82dvh - 92px);
+  overflow-y:auto;
+  padding:12px 0 8px;
+  -webkit-overflow-scrolling:touch;
+}
+.bottom-sheet-content > .route-card,
+.bottom-sheet-content > .status-card,
+.bottom-sheet-content > .next-bus,
+.bottom-sheet-content > .sched-card,
+.bottom-sheet-content > .leg2-card,
+.bottom-sheet-content > .booking-tab,
+.bottom-sheet-content > .footer {
+  margin-left:0;
+  margin-right:0;
+}
+.bottom-sheet:not(.sheet-expanded) .sheet-expanded-only,
+.bottom-sheet:not(.sheet-expanded) .sec-label,
+.bottom-sheet:not(.sheet-expanded) #schedWrapper,
+.bottom-sheet:not(.sheet-expanded) .booking-tab,
+.bottom-sheet:not(.sheet-expanded) .footer {
+  display:none;
+}
+.bottom-sheet:not(.sheet-expanded) .route-card {
+  max-height:72px;
+  overflow:hidden;
+}
+.bottom-sheet:not(.sheet-expanded) .route-visual-scroll { display:none; }
+.bottom-sheet .route-card,
+.bottom-sheet .status-card,
+.bottom-sheet .next-bus,
+.bottom-sheet .sched-card,
+.bottom-sheet .leg2-card {
+  border-radius:16px;
+  box-shadow:0 1px 8px rgba(15,23,42,.08);
+}
+.bottom-sheet .route-card { margin-bottom:10px; }
+.bottom-sheet .status-card,
+.bottom-sheet .next-bus { margin-bottom:10px; }
+.bottom-sheet .sec-label { margin-top:2px; }
+.map-bus-icon, .map-bus-label { cursor:pointer; transition:opacity .4s ease, filter .4s ease; }
+.map-bus-icon.is-stale, .map-bus-label.is-stale { opacity:.45; filter:grayscale(70%); }
+@media (min-width:720px) {
+  .bottom-sheet {
+    left:50%;
+    right:auto;
+    width:min(520px,94vw);
+    transform:translate(-50%, calc(100% - var(--sheet-collapsed-height, 172px)));
+    border-radius:24px 24px 0 0;
+  }
+  .bottom-sheet.sheet-expanded { transform:translate(-50%,0); }
+}
+@media (max-width:360px) {
+  .route-select-card.top-route-card { padding:12px; border-radius:16px; }
+  .rs-row { display:grid; grid-template-columns:1fr; }
+  .rs-arrow { display:none; }
+  .bottom-sheet { --sheet-collapsed-height:166px; }
+  .sheet-route-name { font-size:15px; }
+}
+
+</style>
+<script src="system-test-mode.js?v=20260812b"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="header-main">ข้อมูลเที่ยวรถและสถานะบริการ</div>
+  <div class="header-sub">Smart Transit · ระบบบริการผู้โดยสารอัจฉริยะ</div>
+</div>
+
+<!-- ข้อ 5: วันเวลาซ้าย / อัปเดตขวา -->
+<div class="info-strip">
+  <div class="left">
+    <div class="time" id="clock">--:--:--</div>
+    <div class="date" id="dateText"></div>
+  </div>
+  <div class="right">
+    <span class="live-dot"></span>ข้อมูลอัปเดตแบบเรียลไทม์<br>
+    <span id="lastUpdate" style="font-weight:400;color:var(--muted)">รอข้อมูล</span>
+  </div>
+</div>
+
+<div class="test-mode-strip" id="testModeStrip">โหมดทดสอบเปิดอยู่ - ระบบจะไม่ส่งข้อความ LINE จริง</div>
+<div class="admin-test-strip" id="adminTesterStrip">ADMIN CHECK: กำลังตรวจสอบระบบในสถานะผู้โดยสารจริง</div>
+
+<div class="map-page">
+<div class="main">
+
+  <!-- ลำดับใหม่: เลือกเส้นทาง → แผนที่ -->
+  <div class="route-select-card top-route-card">
+    <div class="rs-title">เลือกเส้นทางการเดินทาง</div>
+    <div class="rs-row">
+      <div class="rs-group">
+        <div class="rs-label">ต้นทาง</div>
+        <select id="selOrigin" class="rs-select"></select>
+      </div>
+      <div class="rs-arrow">→</div>
+      <div class="rs-group">
+        <div class="rs-label">ปลายทาง</div>
+        <select id="selDest" class="rs-select"></select>
+      </div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <button type="button" id="followUserBtn" class="follow-user-btn">ติดตามตำแหน่งของฉัน</button>
+
+  <div class="location-consent-overlay" id="locationConsentOverlay" style="display:none;">
+    <div class="location-consent-card">
+      <div class="location-consent-icon">📍</div>
+      <div class="location-consent-title">ขอเข้าถึงตำแหน่งของคุณ</div>
+      <div class="location-consent-body" id="locationConsentText"></div>
+      <div class="location-consent-actions">
+        <button type="button" id="locationConsentAllow" class="lc-btn lc-btn-primary">อนุญาต</button>
+        <button type="button" id="locationConsentDeny" class="lc-btn lc-btn-secondary">ไม่อนุญาต</button>
+      </div>
+      <div class="location-consent-note">ดูรายละเอียดเพิ่มเติมได้ที่<a href="info.html#privacy" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a></div>
+    </div>
+  </div>
+
+  <!-- ตำแหน่งรถ — รองรับหลายคัน -->
+  <section class="bottom-sheet sheet-collapsed" id="routeBottomSheet" aria-live="polite">
+    <div class="bottom-sheet-header" id="bottomSheetHeader" role="button" tabindex="0" aria-expanded="false">
+      <div class="sheet-handle"></div>
+      <div class="sheet-summary-row">
+        <div>
+          <div class="sheet-route-name" id="sheetRouteName">ตารางเวลารถโดยสารประจำทาง</div>
+          <div class="sheet-route-sub" id="sheetRouteSub">ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ</div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-sheet-content">
+
+  <div id="schedWrapper"></div>
+
+  <a href="booking1.html" class="booking-tab">
+    <span class="booking-tab-icon">🎫</span>
+    <span class="booking-tab-text">จองตั๋วโดยสารออนไลน์</span>
+    <span class="booking-tab-arrow">→</span>
+  </a>
+
+    </div>
+  </section>
+</div>
+</div>
+
+<script>
+// ===== Firebase / ERP bootstrap (sl-transit-9464e) =====
+// Config + Firebase paths + ERP init live in passenger-logic.js — this page
+// is UX/UI only. SLPassengerLogic.init() sets up firebase.initializeApp(),
+// then erp-core / erp-data-adapter on top of the same app instance.
+const _erpReady = SLPassengerLogic.init(); // sets up firebase + db synchronously, ERP catalog loads async
+const db = SLPassengerLogic.getDb();
+_erpReady.then(function() {
+}).catch(function(err) {
+  console.error('SLPassengerLogic.init failed:', err && err.message ? err.message : err);
+});
+let TEST_MODE = false;
+function applyAdminTesterMode(){
+  let on = new URLSearchParams(location.search).get('admin') === '1';
+  try { on = on || localStorage.getItem('adminTesterMode') === '1'; } catch(e) {}
+  const el = document.getElementById('adminTesterStrip');
+  if (el) el.style.display = on ? 'block' : 'none';
+}
+
+// ===== STATE (owned by passenger-logic.js — this page is UX/UI only) =====
+// Stops, routes/fares, vehicle positions, map/GPS engine state, and all
+// Firebase reads now live in passenger-logic.js. See SLPassengerLogic.*.
+let selectedMapFocus = null;
+const USER_LOCATION_UNSUPPORTED_TEXT = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e08\u0e32\u0e01\u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e19\u0e35\u0e49\u0e44\u0e14\u0e49';
+const USER_LOCATION_FOCUS_LABEL = '\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e09\u0e31\u0e19';
+const USER_LOCATION_LOADING_TEXT = '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e04\u0e49\u0e19\u0e2b\u0e32\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13...';
+const USER_LOCATION_INVALID_TEXT = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19\u0e44\u0e14\u0e49 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48';
+const USER_LOCATION_DENIED_TEXT = '\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e1a\u0e2d\u0e19\u0e38\u0e0d\u0e32\u0e15\u0e43\u0e2b\u0e49\u0e43\u0e0a\u0e49\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07 \u0e2b\u0e23\u0e37\u0e2d\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2d\u0e48\u0e32\u0e19\u0e15\u0e33\u0e41\u0e2b\u0e19\u0e48\u0e07\u0e44\u0e14\u0e49';
+// ===== HELPERS =====
+
+function updateFollowUserButton() {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn) return;
+  var isOn = SLPassengerLogic.map.getFollowUser();
+  btn.classList.toggle('is-off', !isOn);
+  btn.textContent = isOn ? 'กำลังติดตามตำแหน่งของฉัน' : 'ติดตามตำแหน่งของฉัน';
+}
+
+function bindFollowUserButton() {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn || btn.dataset.bound === '1') return;
+  function stopMapGesture(e) {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  ['touchstart', 'touchmove', 'pointerdown', 'pointermove', 'mousedown'].forEach(function(eventName) {
+    btn.addEventListener(eventName, stopMapGesture, { passive: true });
+  });
+  btn.addEventListener('click', function(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    stopMapGesture(e);
+    focusCurrentUserPosition();
+  });
+  SLPassengerLogic.on('followChanged', updateFollowUserButton);
+  btn.dataset.bound = '1';
+  updateFollowUserButton();
+}
+
+function setUserLocationBusy(isBusy) {
+  var btn = document.getElementById('followUserBtn');
+  if (!btn) return;
+  btn.disabled = isBusy === true;
+  btn.setAttribute('aria-busy', isBusy === true ? 'true' : 'false');
+  btn.classList.toggle('is-locating', isBusy === true);
+}
+
+function setLocationConsentVisible(visible, message) {
+  var overlay = document.getElementById('locationConsentOverlay');
+  var text = document.getElementById('locationConsentText');
+  if (text && message) text.textContent = message;
+  if (overlay) overlay.style.display = visible ? 'flex' : 'none';
+}
+
+function focusCurrentUserPosition() {
+  var btn = document.getElementById('followUserBtn');
+  if (btn && btn.disabled) return;
+  requestPassengerUserLocation({ showErrors: true, setBusy: true });
+}
+
+var _userLocationWatchHandle = null;
+
+function startPassengerUserLocationWatch() {
+  if (_userLocationWatchHandle) return;
+  if (!window.SLTransitUserLocation || typeof window.SLTransitUserLocation.watchCurrentUser !== 'function') return;
+  _userLocationWatchHandle = window.SLTransitUserLocation.watchCurrentUser({
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 5000,
+    mapAdapter: {
+      updateUserLocation: function(point) {
+        point = { lat: point.lat, lon: point.lon };
+        if (typeof SLPassengerLogic.map.updateUserLocationPoint === 'function') {
+          SLPassengerLogic.map.updateUserLocationPoint(point);
+        }
+      }
+    },
+    onError: function() { /* silent: keep last known dot in place, don't interrupt the page with repeat errors */ }
+  });
+}
+
+function requestPassengerUserLocation(options) {
+  options = options || {};
+  if (!window.SLTransitUserLocation || typeof window.SLTransitUserLocation.focusCurrentUser !== 'function') {
+    if (options.showErrors) setLocationConsentVisible(true, USER_LOCATION_UNSUPPORTED_TEXT);
+    return Promise.resolve(false);
+  }
+  setLocationConsentVisible(false);
+  return window.SLTransitUserLocation.focusCurrentUser({
+    enableHighAccuracy: true,
+    timeout: options.timeout || 12000,
+    maximumAge: 30000,
+    setBusy: options.setBusy ? setUserLocationBusy : null,
+    mapAdapter: {
+      focusUserLocation: function(point) {
+        point = { lat: point.lat, lon: point.lon };
+      if (typeof SLPassengerLogic.map.focusUserLocation === 'function') {
+        SLPassengerLogic.map.focusUserLocation(point);
+      } else {
+        SLPassengerLogic.map.focusPoint(point, true);
+      }
+      }
+    },
+    onSuccess: function() {
+      setLocationConsentVisible(false);
+      selectedMapFocus = USER_LOCATION_FOCUS_LABEL;
+      updateBottomSheetSummary();
+      startPassengerUserLocationWatch();
+    },
+    onError: function(result) {
+      if (!options.showErrors) return;
+      var message = result && result.reason === 'invalid_position'
+        ? USER_LOCATION_INVALID_TEXT
+        : (result && result.reason === 'unsupported' ? USER_LOCATION_UNSUPPORTED_TEXT : USER_LOCATION_DENIED_TEXT);
+      setLocationConsentVisible(true, message);
+    }
+  }).then(function(result) {
+    return !!(result && result.ok);
+  });
+}
+
+function bindLocationConsentButtons() {
+  var allow = document.getElementById('locationConsentAllow');
+  var deny = document.getElementById('locationConsentDeny');
+  if (allow && allow.dataset.bound !== '1') {
+    allow.addEventListener('click', focusCurrentUserPosition);
+    allow.dataset.bound = '1';
+  }
+  if (deny && deny.dataset.bound !== '1') {
+    deny.addEventListener('click', function() {
+      setLocationConsentVisible(false);
+    });
+    deny.dataset.bound = '1';
+  }
+}
+
+function setBottomSheetState(expanded) {
+  var sheet = document.getElementById('routeBottomSheet');
+  var header = document.getElementById('bottomSheetHeader');
+  if (!sheet) return;
+  sheet.classList.toggle('sheet-expanded', expanded === true);
+  sheet.classList.toggle('sheet-collapsed', expanded !== true);
+  if (header) header.setAttribute('aria-expanded', expanded === true ? 'true' : 'false');
+  SLPassengerLogic.map.refreshSize();
+}
+
+function toggleBottomSheet() {
+  var sheet = document.getElementById('routeBottomSheet');
+  setBottomSheetState(!(sheet && sheet.classList.contains('sheet-expanded')));
+}
+
+function bindBottomSheet() {
+  var sheet = document.getElementById('routeBottomSheet');
+  var header = document.getElementById('bottomSheetHeader');
+  if (!sheet || !header || sheet.dataset.bound === '1') return;
+
+  var startY = 0;
+  var dragging = false;
+
+  header.addEventListener('click', toggleBottomSheet);
+  header.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleBottomSheet();
+    }
+  });
+  sheet.addEventListener('touchstart', function(e) {
+    if (!e.touches || !e.touches.length) return;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }, { passive:true });
+  sheet.addEventListener('touchend', function(e) {
+    if (!dragging || !e.changedTouches || !e.changedTouches.length) return;
+    var delta = e.changedTouches[0].clientY - startY;
+    dragging = false;
+    if (Math.abs(delta) < 26) return;
+    setBottomSheetState(delta < 0);
+  }, { passive:true });
+
+  sheet.dataset.bound = '1';
+}
+
+function updateBottomSheetSummary() {
+  var routeName = document.getElementById('sheetRouteName');
+  var routeSub = document.getElementById('sheetRouteSub');
+  if (!routeName || !routeSub) return;
+  var scheduleNote = 'ตารางเวลาในบางเส้นทางอาจปรับตามรอบเดินรถของแต่ละท่ารถในวันเดินทาง และขึ้นอยู่กับการยืนยันข้อมูลบริการ';
+
+  if (!SLPassengerLogic.state.getOrigin() || !SLPassengerLogic.state.getDest()) {
+    routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
+    routeSub.textContent = scheduleNote;
+    return;
+  }
+
+  routeName.textContent = 'ตารางเวลารถโดยสารประจำทาง';
+  routeSub.textContent = scheduleNote;
+}
+
+function applyTestModeUI() {
+  const strip = document.getElementById('testModeStrip');
+  if (strip) strip.style.display = TEST_MODE ? 'block' : 'none';
+}
+
+window.selectPassengerStop = function(stopIndex) {
+  var stop = SLPassengerLogic.map.getCurrentStops()[stopIndex];
+  if (!stop) return;
+  selectedMapFocus = 'ป้ายที่เลือก: ' + stop.name;
+  updateBottomSheetSummary();
+  setBottomSheetState(true);
+  SLPassengerLogic.map.focusPoint(stop);
+};
+
+window.selectPassengerBus = function(carId) {
+  var pos = SLPassengerLogic.vehicles.getAll()[carId];
+  if (!pos) return;
+  SLPassengerLogic.map.focusPoint(pos);
+};
+
+function timeEntryBadgesHtml(entry) {
+  var html = '';
+  if (entry.disabled) return '<span class="now-badge">งดให้บริการ</span>';
+  if (entry.isEstimated && entry.displayBadgeTh) html += '<span class="badge-estimated">'+entry.displayBadgeTh+'</span>';
+  return html;
+}
+
+function buildTimeCell(entry, extraClass='') {
+  if (!entry) return '';
+  const disabled = !!entry.disabled;
+  const cls = ['time-cell',disabled?'disabled-time':'',entry.isEstimated?'estimated-time':'',extraClass].filter(Boolean).join(' ');
+  const badges = timeEntryBadgesHtml(entry);
+  return '<div class="'+cls+'">'+entry.time+badges+'</div>';
+}
+
+function buildLeg2TimeItem(entry) {
+  if(!entry) return '<div class="leg2-time-item empty"></div>';
+  const disabled = !!entry.disabled;
+  const badges = timeEntryBadgesHtml(entry);
+  return '<div class="leg2-time-item'+(disabled?' disabled-time':'')+(entry.isEstimated?' estimated-time':'')+'">'+entry.time+badges+'</div>';
+}
+
+// รวบรวมข้อความ disclaimer จาก ERP มาแสดง 1 ครั้งต่อรายการ (ไม่ซ้ำ) — passenger
+// ไม่แต่งข้อความเอง แค่หยิบ pair.transferDisclaimerTh / entry.disclaimerTh ที่มากับข้อมูล
+function collectPairDisclaimers(pair) {
+  const notes = [];
+  function addNote(n) { if (n && notes.indexOf(n) === -1) notes.push(n); }
+  addNote(pair.transferDisclaimerTh);
+  addNote(pair.externalDisclaimerTh);
+  (pair.segments || []).forEach(function(seg) {
+    (seg.times || []).forEach(function(t) {
+      if (t.isEstimated) addNote(t.disclaimerTh);
+      if (t.externalReference) addNote(t.disclaimerTh);
+    });
+  });
+  if (!notes.length) return '';
+  return '<div class="sched-disclaimers">' + notes.map(function(n) {
+    return '<div class="sched-disclaimer-line">⚠️ ' + n + '</div>';
+  }).join('') + '</div>';
+}
+
+// แบ่ง array เป็น 2 คอลัมน์ สมดุล (ซ้ายมากกว่าได้ 1 ถ้าคี่)
+function splitBalanced(arr) {
+  const half = Math.ceil(arr.length / 2);
+  return [arr.slice(0, half), arr.slice(half)];
+}
+
+// Passenger only renders what ERP's precomputed schedule node says — it does
+// not decide transfers, hubs, disabled times, or which pairs are reference-only
+// itself. It reads the 244 fare rows and 881 timetable rows from ERP workbook source,
+// then projects only the selected route in memory.
+// See ai-handoffs/passenger-schedule-node-request.md.
+function renderSched() {
+  const wrapper = document.getElementById('schedWrapper');
+  const S = SLPassengerLogic.schedule;
+  const origin = SLPassengerLogic.state.getOrigin(), dest = SLPassengerLogic.state.getDest();
+  if (!wrapper) return;
+  if (typeof S.hasLoadError === 'function' && S.hasLoadError()) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div><div class="sched-route-name">ระบบไม่สามารถอ่านข้อมูลเส้นทางได้</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+  if (!S.isReady()) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดข้อมูลเส้นทาง...</div><div class="sched-route-name">ระบบกำลังอ่านข้อมูลจากระบบกลาง</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+  if (!origin) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">เลือกต้นทาง</div><div class="sched-route-name">กรุณาเลือกต้นทาง</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+  if (!dest) {
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กรุณาเลือกปลายทาง</div><div class="sched-route-name">กรุณาเลือกปลายทาง</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+
+  // getPair()/loadPair() resolve only a selected workbook fare row and its timetable rows.
+  const pair = S.getPair(origin, dest);
+  if (!pair || !Array.isArray(pair.segments) || !pair.segments.length) {
+    const pairStatus = typeof S.getPairLoadStatus === 'function' ? S.getPairLoadStatus(origin, dest) : 'missing';
+    if (pairStatus === 'error') {
+      wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+      return;
+    }
+    if (pairStatus !== 'missing' && typeof S.loadPair === 'function') {
+      wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">กำลังโหลดตารางเวลา...</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+      S.loadPair(origin, dest).then(function(){ renderSched(); }).catch(function(){ renderSched(); });
+      return;
+    }
+    wrapper.innerHTML = '<div class="sched-card"><div class="sched-route-header"><div class="sched-route-from">ไม่พบตารางเวลาสำหรับเส้นทางนี้</div><div class="sched-route-name">'+origin+' → '+dest+'</div></div><div class="time-grid"></div></div>';
+    return;
+  }
+
+  const referenceBadge = pair.displayBadgeTh
+    ? '<div class="leg2-header-top" style="color:#fde68a;">'+pair.displayBadgeTh+'</div>'
+    : '';
+  const disclaimersHtml = collectPairDisclaimers(pair);
+
+  if (pair.transfer) {
+    function buildTwoColItems(times) {
+      const parts = splitBalanced(times || []);
+      const a = parts[0], b = parts[1];
+      const maxR = Math.max(a.length, b.length);
+      let html = '';
+      for (let i=0;i<maxR;i++) html += buildLeg2TimeItem(a[i]||null) + buildLeg2TimeItem(b[i]||null);
+      return html;
+    }
+    const segHtml = pair.segments.map(function(seg, idx) {
+      const isFirst = idx === 0;
+      const isLast = idx === pair.segments.length - 1;
+      return `
+      <div class="leg2-cols"${isFirst?' style="background:#f8faff;"':''}>
+        <div class="leg2-col-head"${isFirst?' style="background:#f0f6ff;"':''}>
+          <div class="leg2-col-sub">${seg.label || ('เที่ยวที่ ' + (idx+1))}</div>
+          <div class="leg2-col-name"${isFirst?' style="color:#1e3a8a;"':''}>${seg.fromLabel} → ${seg.toLabel}</div>
+          ${seg.note ? '<div class="leg2-col-note">'+seg.note+'</div>' : ''}
+        </div>
+        <div class="leg2-col-head" style="border-right:none;">
+          <div class="leg2-col-sub">&nbsp;</div>
+          <div class="leg2-col-name">&nbsp;</div>
+        </div>
+      </div>
+      <div class="leg2-times">${buildTwoColItems(seg.times)}</div>
+      ${isLast ? '' : '<div style="height:1px;background:rgba(30,58,138,0.15);margin:0 14px;"></div>'}`;
+    }).join('');
+
+    wrapper.innerHTML = `
+      <div class="leg2-card">
+        <div class="leg2-header">
+          ${referenceBadge || '<div class="leg2-header-top">ข้อมูลเส้นทางต่อรถ</div>'}
+          <div class="leg2-header-route">${origin} → ${dest}</div>
+        </div>
+        ${segHtml}
+      </div>
+      ${disclaimersHtml}`;
+  } else {
+    const seg = pair.segments[0];
+    wrapper.innerHTML = `
+      <div class="sched-card">
+        <div class="sched-route-header">
+          <div class="sched-route-from">${pair.displayBadgeTh || 'เส้นทาง'}</div>
+          <div class="sched-route-name">${origin} → ${dest}</div>
+        </div>
+        <div class="time-grid">${(seg.times||[]).map(t=>buildTimeCell(t)).join('')}</div>
+      </div>
+      ${disclaimersHtml}`;
+  }
+}
+
+function updateLastUpdate(ts) {
+  document.getElementById('lastUpdate').textContent=
+    ts?`เมื่อ ${new Date(ts).toTimeString().slice(0,5)} น.`:'ยังไม่มีข้อมูลตำแหน่งรถแบบเรียลไทม์';
+}
+
+// ===== DROPDOWN INIT =====
+// Origins/destinations come straight from ERP's precomputed schedule node —
+// passenger just lists whatever it's given, in the order/grouping given.
+function buildDropdowns(){
+  const S = SLPassengerLogic.schedule;
+  const state = SLPassengerLogic.state;
+  const originSel = document.getElementById('selOrigin');
+  const destSel   = document.getElementById('selDest');
+  originSel.innerHTML = '';
+
+  const origins = S.getOrigins();
+
+  if (!origins.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'กำลังโหลดต้นทางจากระบบกลาง...';
+    originSel.appendChild(opt);
+  }
+  origins.forEach(o=>{
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o;
+    if(o===state.getOrigin()) opt.selected=true;
+    originSel.appendChild(opt);
+  });
+  if (originSel.value) state.setOrigin(originSel.value);
+
+  function appendDestinationUnavailable(message) {
+    const grp0 = document.createElement('optgroup');
+    grp0.label = 'ข้อมูลยังไม่พร้อม';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = message;
+    grp0.appendChild(opt);
+    destSel.appendChild(grp0);
+    state.setDest('');
+  }
+
+  function buildDestOptions(){
+    destSel.innerHTML = '';
+    const originValue = state.getOrigin() || originSel.value;
+    const contractStatus = typeof S.getDestinationContractStatus === 'function'
+      ? S.getDestinationContractStatus(originValue)
+      : 'missing_destination_options';
+    const destinationOptions = contractStatus === 'ready' && typeof S.getDestinationOptions === 'function'
+      ? S.getDestinationOptions(originValue)
+      : [];
+
+    if (contractStatus !== 'ready' || !destinationOptions.length) {
+      appendDestinationUnavailable(
+        S.isReady() && origins.length
+          ? 'ไม่พบข้อมูลปลายทาง'
+          : 'กำลังโหลดปลายทางจากระบบกลาง...'
+      );
+      return;
+    }
+
+    let currentGroup = null;
+    let currentParent = destSel;
+    destinationOptions.forEach(option=>{
+      const label = option.label || option.destinationLabel;
+      if (!label) return;
+      const group = option.group || null;
+      if (group !== currentGroup) {
+        currentGroup = group;
+        if (group) {
+          currentParent = document.createElement('optgroup');
+          currentParent.label = '[' + group + ']';
+          destSel.appendChild(currentParent);
+        } else {
+          currentParent = destSel;
+        }
+      }
+      const opt = document.createElement('option');
+      opt.value=label; opt.textContent=label;
+      if(label===state.getDest()) opt.selected=true;
+      currentParent.appendChild(opt);
+    });
+    if (destSel.value) state.setDest(destSel.value);
+    else state.setDest('');
+  }
+  buildDestOptions();
+
+  if (originSel.dataset.bound !== '1') {
+    originSel.addEventListener('change', function(){
+      state.setOrigin(this.value);
+      buildDestOptions();
+      selectedMapFocus = null;
+      renderSched();
+      SLPassengerLogic.map.refreshRoute();
+      SLPassengerLogic.map.focusOrigin();
+      updateBottomSheetSummary();
+    });
+    originSel.dataset.bound = '1';
+  }
+
+  if (destSel.dataset.bound !== '1') {
+    destSel.addEventListener('change', function(){
+      state.setDest(this.value);
+      selectedMapFocus = null;
+      renderSched();
+      SLPassengerLogic.map.refreshRoute();
+      SLPassengerLogic.map.focusOrigin();
+      updateBottomSheetSummary();
+    });
+    destSel.dataset.bound = '1';
+  }
+}
+buildDropdowns();
+applyAdminTesterMode();
+
+// ---- Firebase wiring: subscribe here, hand data to passenger-logic.js to process ----
+// Precomputed, ready-to-render schedule -- ERP Data Center active schedule.
+// Register this before map/catalog/vehicle feeds so dropdowns become usable as
+// soon as lightweight option data arrives; pair details are loaded on demand.
+(function initWorkbookSchedule() {
+  const scheduleBaseRef = db.ref('data/erpDataCenter/workbookSource');
+  const scheduleApi = SLPassengerLogic.schedule;
+
+  Promise.all([
+    scheduleBaseRef.child('manifest').once('value'),
+    scheduleBaseRef.child('routeFareRows').once('value'),
+    scheduleBaseRef.child('scheduleRows').once('value'),
+    db.ref('publishedSchedule/mapView').once('value')
+  ]).then(function(parts) {
+    const manifest = parts[0].val() || {};
+    const workbookIndex = SLTransitWorkbookBookingSource.build(parts[1].val() || {}, parts[2].val() || {}, manifest);
+    if (typeof scheduleApi.setPairLoader === 'function') {
+      scheduleApi.setPairLoader(function(rowId) { return Promise.resolve(workbookIndex.selectedRouteByRowId(rowId)); });
+    }
+    const optionNode = {
+      schemaVersion: manifest.schemaVersion || 'erp.workbook-source.v1',
+      generatedAt: manifest.generatedAt || '',
+      dryRun: manifest.dryRun !== false,
+      writesEnabled: manifest.writesEnabled === true,
+      readyForReview: manifest.readyForReview === true,
+      readyForApply: manifest.readyForApply === true,
+      productionReady: manifest.productionReady === true,
+      counts: { routeFareRows: workbookIndex.routeFareRowCount, scheduleRows: workbookIndex.scheduleRowCount },
+      originOptions: workbookIndex.originOptions,
+      destinationOptionsByOrigin: workbookIndex.destinationOptionsByOrigin,
+      firebaseKeyEncoding: {},
+      validation: manifest.validation || {}
+    };
+    optionNode.mapView = parts[3].val() || null;
+    scheduleApi.applyPublishedScheduleOptions(optionNode);
+  }).catch(function(err) {
+    console.error('Passenger workbook schedule load failed:', err && err.message ? err.message : err);
+    scheduleApi.applyPublishedScheduleOptions({ loadError: true, originOptions: [], destinationOptionsByOrigin: {} });
+  });
+})();
+
+SLPassengerLogic.on('scheduleUpdated', function() {
+  buildDropdowns();
+  renderSched();
+  SLPassengerLogic.map.refreshRoute();
+  SLPassengerLogic.map.updateVehicles(SLPassengerLogic.vehicles.getAll());
+  updateBottomSheetSummary();
+});
+
+// Clock
+function tick() {
+  const n=new Date();
+  document.getElementById('clock').textContent=n.toTimeString().slice(0,8);
+  const d=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const m=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  document.getElementById('dateText').textContent=
+    `${d[n.getDay()]} ${n.getDate()} ${m[n.getMonth()]} ${n.getFullYear()+543}`;
+  updateBottomSheetSummary();
+}
+tick(); setInterval(tick,1000);
+updateLastUpdate(null);
+
+// Map init — route/vehicle runtime views are not read from legacy paths.
+document.addEventListener('DOMContentLoaded', async function(){
+  bindFollowUserButton();
+  bindBottomSheet();
+  try {
+    await _erpReady;
+  } catch(e) {
+    console.warn('SLPassengerLogic.init() did not fully resolve:', e && e.message ? e.message : e);
+  }
+  await SLPassengerLogic.map.init();
+  const routeData = await SLPassengerLogic.map.loadRouteData();
+  await SLPassengerLogic.map.renderRoute(routeData);
+  SLPassengerLogic.map.renderStops(routeData);
+  // Re-check after map readiness in case the published map view arrived
+  // while the initial catalog fallback was still resolving.
+  SLPassengerLogic.map.refreshRoute();
+  // The live vehicle feed can arrive before the map is ready; replay it now.
+  SLPassengerLogic.map.updateVehicles(SLPassengerLogic.vehicles.getAll());
+  updateBottomSheetSummary();
+  SLPassengerLogic.map.refreshSize();
+  const initialUserLocation = await requestPassengerUserLocation({ showErrors: false, setBusy: false, timeout: 8000 });
+  if (!initialUserLocation) SLPassengerLogic.map.focusOrigin();
+
+  window.addEventListener('resize', SLPassengerLogic.map.refreshSize);
+});
+</script>
+</body>
+</html>

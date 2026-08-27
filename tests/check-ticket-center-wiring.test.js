@@ -1,0 +1,75 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'check_ticket.html'), 'utf8');
+const ticketDataCenter = fs.readFileSync(path.join(__dirname, '..', 'ticket-data-center.js'), 'utf8');
+
+assert(html.includes('erp-calculator-center.js'), 'Check Ticket must load ERP Calculator Center');
+assert(!html.includes('catalog-engine.js'), 'Check Ticket must not load legacy catalog engine');
+assert(!html.includes('schedule-engine.js'), 'Check Ticket must not load legacy schedule engine');
+assert(!html.includes("db.ref('data/settings')"), 'Check Ticket must not read legacy data/settings');
+assert(!html.includes("db.ref('catalogs/'"), 'Check Ticket must not read legacy catalog versions');
+assert(html.includes('map-display-center.js'), 'Check Ticket must load Map Display Center');
+assert(html.includes('erp-alert-center.js'), 'Check Ticket must load ERP Alert Center');
+assert(html.includes("db.ref('publishedSchedule/mapView')"), 'Check Ticket must read stop/map data from publishedSchedule mapView');
+assert(html.includes('TICKET_ERP_MAP_DISPLAY_POLICY = mapView.displayPolicy || null'), 'Check Ticket must consume ERP Map display policy from mapView');
+assert(html.includes('TICKET_ERP_MAP_DISPLAY_POLICY.stopMarkers.scaleMode'), 'Check Ticket stop marker behavior must follow ERP Map display policy');
+assert(html.includes("db.ref('data/erpDataCenter/workbookSource')"), 'Check Ticket must read canonical ERP workbook rows');
+assert(html.includes('SLTransitWorkbookBookingSource.build'), 'Check Ticket must project the booked route from fare and timetable rows');
+assert(!html.includes("child('pairs').child(storageKey)"), 'Check Ticket must not read the retired pair projection');
+assert(html.includes("db.ref('operations/liveVehicles')"), 'Check Ticket must read live vehicle data from operations/liveVehicles');
+assert(html.includes('normalizeTicketErpMapRoutes'), 'Check Ticket must normalize ERP Map route geometry');
+assert(html.includes('buildTrackingErpMapRouteCoords'), 'Check Ticket must build tracking route lines from ERP Map');
+assert(html.includes('sliceTicketErpMapRouteBetween'), 'Check Ticket must slice ERP Map road geometry between vehicle/origin/destination');
+assert(!html.includes("db.ref('routeData')"), 'Check Ticket must not read legacy routeData');
+assert(!html.includes("db.ref('publishedCatalog')"), 'Check Ticket must not read legacy publishedCatalog');
+assert(!html.includes("db.ref('bus')"), 'Check Ticket must not read legacy bus live feed');
+assert(!html.includes("db.ref('liveVehicles')"), 'Check Ticket must not read legacy top-level liveVehicles feed');
+assert(!html.includes('settings.routes'), 'Check Ticket must not use legacy settings.routes as schedule authority');
+assert(!html.includes('queueTemplates'), 'Check Ticket must not contain local queue timetable templates');
+assert(!html.includes('LEG2_TIMES_') && !html.includes('ORIGIN_TIMES'), 'Check Ticket must not contain local timetable arrays');
+assert(!html.includes('TRANSFER_BUFFER_MINUTES'), 'Check Ticket must not infer transfer timing from local buffers');
+assert(!html.includes('inferQueueNoFromBookingTrip'), 'Check Ticket must not infer a queue from route/time');
+assert(!html.includes('resolveTripAssignment({'), 'Check Ticket must not create a queue assignment locally');
+assert(!html.includes('13.692383') && !html.includes('13.692477') && !html.includes('101.054105'), 'Check Ticket must not contain hardcoded transfer coordinates');
+assert(html.includes('findStopLocationByKey(transfer.viaStopKey)'), 'Check Ticket transfer coordinates must use the ERP Data Center stop key');
+assert(!html.includes('แปดริ้ว'), 'Check Ticket must not hardcode the transfer point label');
+
+assert(html.includes('ticket-data-center.js'), 'Check Ticket must load Ticket Data Center for ticket lookup');
+assert(html.includes('SLTransitTicketDataCenter.findTicket(db, value'), 'Check Ticket lookup must go through Ticket Data Center');
+assert(ticketDataCenter.includes('/^(BK\\d{6,10}|TB\\d{6})$/i.test(clean(value))'), 'Ticket Data Center must accept Booking1 BK plus legacy ticket codes');
+assert(html.includes('placeholder="0812345678 หรือ BK1234567890"'), 'Check Ticket code placeholder must match Booking1 code length');
+assert(html.includes('function buildTicketDataCenterContract'), 'Check Ticket must build a display-ready ticket contract before using booking fields');
+assert(html.includes("contractVersion: 'check_ticket_data_center_v1'"), 'Check Ticket ticket data center contract must be versioned');
+assert(html.includes('TICKET_DATA_CENTER.ticket = buildTicketDataCenterContract(booking)'), 'Check Ticket must cache the central ticket contract for the current booking');
+assert(html.includes('ticketContract.assignment'), 'Check Ticket must prefer ticket data center assignment before legacy booking fields');
+
+function blockBetween(start, end) {
+  const startIndex = html.indexOf(start);
+  assert(startIndex !== -1, start + ' block missing');
+  const endIndex = html.indexOf(end, startIndex + start.length);
+  assert(endIndex !== -1, end + ' block boundary missing');
+  return html.slice(startIndex, endIndex);
+}
+
+const pickupEtaBlock = blockBetween('function calculateVehicleEtaToPickup', 'function isOriginBoarded');
+assert(pickupEtaBlock.includes('SLTransitCalculatorCenter.estimateEta'), 'pickup ETA must ask Calculator Center');
+assert(!pickupEtaBlock.includes('SLTransitGeo.estimateVehicleEta'), 'pickup ETA must not call Geo ETA directly');
+
+const journeyEtaBlock = blockBetween('function calculateTransferOrDestinationEta', 'function scheduledJourneyEtaMinutes');
+assert(journeyEtaBlock.includes('SLTransitCalculatorCenter.estimateEta'), 'journey ETA must ask Calculator Center');
+assert(!journeyEtaBlock.includes('SLTransitGeo.estimateVehicleEta'), 'journey ETA must not call Geo ETA directly');
+
+const transferTripBlock = blockBetween('function expectedTransferTripText', 'function maybeMarkServiceArrival');
+assert(transferTripBlock.includes('SLTransitCalculatorCenter.findCatchableTrip'), 'transfer trip matching must ask Calculator Center');
+
+const distanceStateBlock = blockBetween('function renderDistanceState', 'function estimateSpeedKmh');
+assert(distanceStateBlock.includes('SLTransitCalculatorCenter.estimateEta'), 'distance ETA must ask Calculator Center');
+assert(!distanceStateBlock.includes('SLTransitGeo.estimateEtaFromDistanceKm'), 'distance ETA must not call Geo ETA directly');
+
+const trackingRouteBlock = blockBetween('function updateTrackingRouteLine', 'function requestMapboxRouteGeometry');
+assert(trackingRouteBlock.includes('buildTrackingErpMapRouteCoords'), 'tracking route line must use ERP Map road geometry');
+assert(!trackingRouteBlock.includes('requestMapboxRouteGeometry(coords)'), 'tracking route line rendering must not request Mapbox Directions');
+
+console.log('check-ticket center wiring ok');

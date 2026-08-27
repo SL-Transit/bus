@@ -1,0 +1,47 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+
+const rules = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'database.rules.json'), 'utf8')).rules;
+const booking1 = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'utf8');
+const bookingAdapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-adapter.js'), 'utf8');
+const bookingPos = fs.readFileSync(path.join(__dirname, '..', 'booking-pos.js'), 'utf8');
+
+assert.match(rules.bookings['$bookingId']['.read'], /auth != null/, 'booking records must not be public-readable');
+assert.match(rules.bookings['$bookingId']['.validate'], /phone.*matches/, 'booking phone must be validated by rules');
+assert.match(rules.bookings['$bookingId']['.validate'], /date.*matches/, 'booking date must be validated by rules');
+assert.match(rules.ticketLocations['$bookingId']['.write'], /adminAccounts/ , 'ticket location writes must be admin/driver-scoped');
+assert.match(rules.passengerLiveLocations['$bookingId']['.write'], /plannedVehicleId/, 'passenger live location writes must be vehicle-scoped');
+assert.match(rules.operations.ticketLocations['$bookingId']['.write'], /ownerUid/, 'operational ticket locations must be owner-scoped');
+assert.strictEqual(rules.operations.driverLogs['.read'], false, 'driver logs parent must not be broadly readable');
+assert.match(rules.operations.driverLogs['$vehicleId']['.read'], /runtimeVehicleId/, 'driver logs must be vehicle-scoped');
+assert.match(rules.driverCommands['$vehicleId'].lastResponse['.read'], /runtimeVehicleId/, 'driver command responses must be vehicle-scoped');
+assert.strictEqual(rules.operations.ticketLocations['.read'], false, 'operational ticket locations parent must not be broadly readable');
+assert.match(rules.driverCommands['$vehicleId'].command['.read'], /runtimeVehicleId/, 'driver commands must be vehicle-scoped');
+assert.doesNotMatch(rules.operations.bookingCapacityByServiceDate['$serviceDate']['$capacityKey']['.write'], /auth != null \|\|/, 'capacity writes must not allow unauthenticated bypass');
+assert.match(rules.operations.bookingCapacityByServiceDate['$serviceDate']['$capacityKey']['.write'], /adminAccounts/, 'capacity counter writes must be backend/admin-only');
+assert.match(rules.ticketLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'ticket location payload must be bounded and timestamped');
+assert.match(rules.passengerLiveLocations['$bookingId']['.validate'], /lat.*lng.*ts/, 'shared location payload must be bounded and timestamped');
+assert.match(rules.data.settings['.write'], /adminAccounts/, 'settings writes must be admin-only');
+assert.strictEqual(rules.data.settings['.read'], false, 'ERP settings parent must not expose all settings publicly');
+assert.strictEqual(rules.settings['.read'], false, 'top-level settings parent must not expose vehicle settings publicly');
+assert.match(rules.settings.vehicles['$vehicleId']['.read'], /runtimeVehicleId/, 'vehicle settings must be driver/admin-scoped');
+assert.match(rules.data.fleet['.write'], /adminAccounts/, 'fleet writes must be admin-only');
+assert.strictEqual(rules.operations.bookings['$bookingId']['.write'], "auth != null && root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true", 'operational booking mirror writes must be admin-only');
+assert.strictEqual(rules.operations.driverLogs['.write'], false, 'driver log parent must not be broadly writable');
+assert.match(rules.bookings['$bookingId']['.read'], /ownerUid/, 'booking reads must be owner-scoped');
+assert.match(rules.bookings['$bookingId']['.read'], /plannedVehicleId/, 'assigned drivers must read only their bookings');
+assert.match(rules.bookings['$bookingId']['.write'], /adminAccounts/, 'booking updates must not be available to every authenticated user');
+assert.doesNotMatch(rules.bookings['$bookingId']['.write'], /!data\.exists\(\)/, 'browser must not have a direct create path');
+assert.match(rules.bookings['$bookingId']['.write'], /originCheckin/, 'assigned drivers may only perform the bounded check-in update');
+assert.match(rules.bookings['$bookingId']['.write'], /farePaidToDriver.*price/, 'driver check-in must use the stored booking price');
+assert.match(booking1, /firebase-auth-compat\.js/, 'Booking1 must load Firebase Auth');
+assert.match(booking1, /signInAnonymously/, 'Booking1 must establish an authenticated guest session');
+assert.match(bookingAdapter, /booking\.ownerUid = currentUser\.uid/, 'Booking1 must bind the created booking to the current auth UID');
+assert.doesNotMatch(bookingPos, /&phone=.*encodeURIComponent/, 'ticket navigation must not place phone numbers in URLs');
+assert.match(rules.data.catalog['.write'], /adminAccounts/, 'catalog writes must be admin-only');
+assert.match(rules.publishedSchedule['.write'], /adminAccounts/, 'published schedule writes must be admin-only');
+assert.match(rules.driverCommands['$vehicleId'].command['.write'], /adminAccounts/, 'driver commands must be admin-only');
+assert.match(rules.passengerLiveLocations['$bookingId']['.write'], /plannedVehicleId/, 'passenger live location writes must be vehicle-scoped');
+
+console.log('booking security rules contract ok');
