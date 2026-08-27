@@ -307,3 +307,12 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - Started/last update: 2026-08-26
 
   - Completion report: STATUS REVIEW; PR #182; direct scheduleRows loader and Sheet 4 wiring added; static JavaScript syntax PASS; direct RTDB path/state/status/load-call checks PASS; GitHub CI pending because automatic run was not created; no Firebase write or deploy
+- Admin ERP Sheet 5 — คิวรถและเวลา — Owner: Primary AI; Status: `IN_PROGRESS`; Branch: `agent/admin-erp-sheet5-queue-time`
+  - FILES/PATHS: `admin-erp.html`
+  - Intended output: เชื่อมข้อมูลจริง 84 รายการจาก `publishedSchedule/queueScheduleRows` เข้า Sheet 5 ในหน้า Admin ERP เป็นตารางแบบ Sheet ที่มีหัวคอลัมน์ชัดเจนและเลื่อนแนวนอนได้
+  - Tests: static checks, ตรวจจำนวน/ฟิลด์ข้อมูล 84 รายการ, full existing Node test suite; ไม่มี Firebase write/deploy
+  - Dependencies: Published Read Model `publishedSchedule/queueScheduleRows`, Firebase RTDB read-only และโครงสร้าง ERP UI เดิม
+  - Cost risk: ไม่เพิ่ม UI library; อ่านข้อมูลเฉพาะชุดคิวรถและเวลา; ไม่มี Production write
+  - FIREBASE_WRITES: none
+  - STARTED_AT: 2026-08-27
+  - LAST_UPDATE: 2026-08-27
