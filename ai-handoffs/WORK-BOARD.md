@@ -81,6 +81,29 @@
   - Firebase writes: none; ห้าม deploy/Production/Rules/Publish/pointer switch/consumer cutover
   - Started/last update: 2026-08-22; commits `ab3e0b7` (silent-bypass fix), `4d3996b` (รวม guard เป็นตัวเดียว) push ขึ้น branch แล้ว รอเปิด PR + Owner review
 
+- Corrective Admin ERP1 classic experience on Greenfield runtime (R1+R2 + Gate C artifact preview) — Owner: Admin ERP1 UI agent; Status: `REVIEW — FROZEN / LOCK HANDED OFF`; Branch: `agent/admin-erp1-classic-greenfield-ui`; Coordination: PR #167 / D-016
+  - Corrective evidence: PR #168 is `CLOSED/BLOCKED` because it used the wrong visual baseline; do not reuse or continue that branch
+  - Owner feedback: PR #169 comment `#issuecomment-5287954543` requests a simpler human ERP, much less visible copy and one original embedded SVG icon system; remove emoji, two-letter initials and font-symbol glyphs; regenerate the five Gate C artifact screenshots
+  - Revision head/base before UI changes: head `d3eb930b06f117b8546909033f9da3d4ec0ca503`; base `7f4c80f6bff0199395de0c2691ddd69ff2143a22`
+  - Base SHA: `7f4c80f6bff0199395de0c2691ddd69ff2143a22`; visual/functional reference only: `admin-erp1.html` at `f0bdb33bfab7b2b1575ea067c983197105280996`
+  - Lock status: handed off to agent/admin-erp1-real-data-editor; UI agent is reviewer only and will not write these files in parallel
+  - Revision files/paths: `admin-erp1.html`, `admin-erp-ui.css`, `admin-erp1-ui.js` only if interaction requires it, `tests/admin-erp1-ui-contract.test.js`, already-approved safety tests only if required, generated Gate C artifact, and this lock/report section; preview workflow remains unchanged unless screenshots cannot run
+  - Revision output: concise classic ERP shell with one inline SVG symbol sprite and accessible `<use>` icons; simplified Dashboard, locked modules and Data Center while preserving all controller hooks/runtime order; regenerate Dashboard 1440/768/390 and Data Center 1440/390 artifact screenshots; no live hosting
+  - Runtime contract: preserve script order `state -> API client -> system mode -> bundled XLSX -> row mapper -> Excel 3.3.x -> controller -> UI module`; unsupported modules remain locked; no fake KPI, rows, actions or business data
+  - Revision tests: inline custom SVG sprite; every nav item uses SVG; forbidden glyphs/two-letter icon initials/external icon assets absent; 30 real controller hooks and unique IDs; runtime script order; Publish safety; accessibility; existing UI/safety suite; final-head artifact preview and regression/Emulator Actions
+  - Dependencies: PR #167, D-016, current Phase 6A.1 state/API/controller, Excel 3.3.x converter and canonical mapping; Auth/Backend contract expansion is explicitly out of scope
+  - Cost risk: GitHub Actions runner and seven-day artifact storage only; concurrency cancels superseded preview runs; no new network polling/listeners, live hosting, Production reads/writes, Firebase instance or deployment
+  - Firebase writes: none; artifact preview only; no live Preview/Hosting/Pages, Firebase/Rules/Functions/Production deploy or write, Merge, Publish command, pointer switch, Consumer cutover or Gate D
+  - Owner approval / last update: Owner UI revision complete at head `7540714a686825cb73038035fbf14e338bc7681e`; final artifact run `31758738210` and regression/Emulator run `31758738174` passed; PR remains Draft; no live hosting/Firebase/Merge/Deploy/Gate D
+- Admin ERP1 real-data editor — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp1-real-data-editor`; Draft PR #170; stacked on frozen PR #169
+  - Lock handoff: PR #169 is frozen at REVIEW; the UI agent remains reviewer only and will not write the same files in parallel
+  - Files/paths: ai-handoffs/WORK-BOARD.md, admin-erp1.html, admin-erp-ui.css, admin-erp1-ui.js, admin-erp1-data-editor.js, admin-erp1-greenfield-controller.js, .github/workflows/admin-erp1-{artifact-preview,firebase-preview}.yml, tests/admin-erp1-{real-data-editor,ui-contract,integration,network-publish}.test.js
+  - Intended output: use the existing Excel 3.3.x converter and Phase 6A.1 commands to present real Draft records as list/table + human forms; Fixed/Frequency are separate; bounded bulk time shift; Excel/validation error grid; mobile drawer one item per row; no fake KPI/chart/data; Publish remains locked
+  - Tests: pure data-editor contract, service time 00:00:00–47:59:59, bounded bulk operations, no direct Firebase write, no Publish action, existing unit/regression/Phase 2/4/5/6A Emulator and artifact screenshots
+  - Dependencies: merged PR #154 and #165; frozen PR #169 UI; real workbook new erp data.xlsx remains read-only/off-repo
+  - Cost risk: reuse paged Draft reads (25 UI / 50 backend max) and max 100 operations / 512 KiB; no unbounded listener, no full-Draft browser load, no fake aggregate query
+  - Firebase writes: none in this gate; no Firebase/Rules/Functions/RTDB/Storage deploy, real import, Production write, Publish, pointer switch or Consumer cutover
+  - Started/last update: 2026-08-14; Owner approved Excel → Draft → Edit/Revalidate implementation; Sandbox deploy and real-data import remain separate approval gates
 - Admin ERP Excel 3.3.x real-file QA — Owner: Primary AI; Status: `REVIEW`; Branch: `agent/admin-erp-excel-3-3-x-real-file-qa`
   - Files/paths: `ai-handoffs/WORK-BOARD.md`, `contracts/greenfield-erp/v1/excel-mapping-3.3.4.json`, `contracts/greenfield-erp/v1/excel-mapping-3.3.5.json`, `admin-erp1-excel-3-3-x.js`, `tests/greenfield-erp-excel-3-3-x.test.js`
   - Intended output: ทดสอบไฟล์จริงรุ่น 3.3.5 แบบไม่ส่งขึ้นระบบ, ยอมรับป้ายที่ไม่มีพิกัดและข้อมูลรถ/คนขับที่ยังไม่ครบ, เติมข้อมูลป้ายหลักจากชีตสำรวจเมื่อชีตจุดบริการยังไม่มี และคงชื่อป้ายภาษาไทยใน Draft
@@ -223,6 +246,88 @@ DATA/PRIVACY_IMPACT: ชุดทดสอบเป็นข้อมูลจ�
 COST_IMPACT: ไม่มีค่า Production; เพิ่มตัวอ่าน Excel ฝั่งเบราว์เซอร์ประมาณ 952 KB; จำกัดไฟล์ 25 MB และแปลงเป็น JSON ก่อนส่ง
 KNOWN_RISKS: ยังไม่ได้ทดสอบกับไฟล์จริงของ Owner; การ deploy และการทดสอบ Emulator เต็มรูปแบบยังอยู่นอกขอบเขต; ข้อมูล Frequency/Fare Product ที่ไม่มีชีตต้นทางยังใช้กติกา Data Contract v1 เดิม
 NEXT_ACTION: Owner ตรวจ Draft PR #165; หลังอนุมัติ merge จึงทดสอบไฟล์จริงในสภาพแวดล้อมที่อนุมัติแยก โดยยังห้าม Production/Publish
+```
+## Completion Report — Corrective Admin ERP1 Classic UI / PR #169
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #169; branch agent/admin-erp1-classic-greenfield-ui; PR #167 / D-016; fresh base 7f4c80f6bff0199395de0c2691ddd69ff2143a22; PR #168 remains CLOSED/BLOCKED and was not reused
+FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; tests/admin-erp1-integration.test.js; tests/admin-erp1-network-publish.test.js; ai-handoffs/WORK-BOARD.md
+RESULTS: restored the familiar classic Admin ERP1 information architecture in the single existing entry; four navigation groups; old work areas visible but explicitly locked; account/logout remain in profile and locked; Test Center separated from Published Versions; current Import -> Draft -> Validate -> Review -> Approve hooks composed with Publish shown as a locked step only
+TESTS: in-memory JavaScript syntax and content checks passed; GitHub Actions run 31713087914 passed unit/regression, Phase 2/4/6A/5 Emulator and performance validation; final board-only head check pending after this report commit
+ACTIONS/PAGES: none — Draft PR only; no Preview, Pages deploy, Merge or Gate C
+FIREBASE_DEPLOY_EVIDENCE: none — existing demo Emulator tests only; no Firebase/Rules/Functions/Production deployment or write
+DATA/PRIVACY_IMPACT: no fake KPI/rows/actions/business records; blank operator scope; no Booking, Passenger, Payment or personal Production data
+COST_IMPACT: static UI/test changes only; no new listener, network polling, Firebase instance or Production cost; superseded Actions run 31713012825 was cancelled to avoid duplicate CI use
+KNOWN_RISKS: locked Operations, Booking, Finance, Content, User, Test, Published and Audit areas require separate bounded Auth/Backend/read contracts; no browser preview was deployed in this gate; classic source f0 was used only as UX/IA inventory and was not copied
+NEXT_ACTION: Primary reviews PR #169 diff and final Actions evidence, then asks Owner for the next gate; do not Preview/Deploy/Merge or claim Gate C from this workstream
+```
+## Completion Report — Gate C Admin ERP1 Artifact Preview / PR #169
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #169; workflow head 61fe5816888e2710efc77baae527e3ff4a6652d5; Owner Gate C approval recorded through PR #167 coordination
+FILES_CHANGED: .github/workflows/admin-erp1-artifact-preview.yml; ai-handoffs/WORK-BOARD.md only; no UI implementation change
+RESULTS: artifact-only preview built from PR head; one safe bundle plus five full-page screenshots; artifact name admin-erp1-safe-preview-pr-169-599e5fda77180919c9f023a480b5ff6f82145cc9; artifact ID 9189496894; expires 2026-08-20
+SCREENSHOTS: dashboard-1440x900.png (1440x934 full page); dashboard-768x1024.png (768x1105); dashboard-390x844.png (390x1534); data-center-1440x900.png (1440x2611); data-center-390x844.png (390x4731)
+BUNDLE: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; current Greenfield state/API/system-mode/controller; Excel 3.3.x; bundled XLSX; row mapper; base Greenfield CSS; README Safe Mode; no credential or real data
+TESTS: artifact preview run 31721510449 passed UI/safety tests, pinned Playwright 1.55.0 Chromium install, bounded loopback server, five screenshots, bundle count and upload; regression/Emulator/performance run 31721510400 passed; initial run 31721412491 failed only because bundle assertion expected 13 instead of actual 12 files and was corrected in workflow without UI changes
+ACTIONS/PAGES: run https://github.com/SL-Transit/bus/actions/runs/31721510449 ; artifact https://github.com/SL-Transit/bus/actions/runs/31721510449/artifacts/9189496894 ; retention 7 days; no Pages/live preview
+FIREBASE_DEPLOY_EVIDENCE: none — no Firebase CLI, Hosting, Rules, Functions, Production write, pages:write, id-token:write or external preview service
+DATA/PRIVACY_IMPACT: artifact contains static application files, Safe Mode README, manifests and screenshots of empty/locked UI only; no credential, real business record, Booking, Passenger, Payment or personal data
+COST_IMPACT: GitHub Actions runner plus approximately 1.29 MB compressed artifact retained seven days; pinned browser install only in ephemeral runner; no Firebase or live-hosting cost
+KNOWN_RISKS: artifact requires authenticated GitHub access and expires after seven days; browser action dependencies emit existing Node 20 deprecation warning; locked modules remain unconnected by design
+NEXT_ACTION: Primary/Owner downloads and reviews PR #169 artifact; do not live Preview, Deploy, Merge, enable Firebase/Publish or advance to Gate D without separate approval
+```
+## Completion Report — Owner UI Revision / PR #169
+
+```text
+STATUS: REVIEW — FROZEN / LOCK HANDED OFF
+COMMIT/PR: Draft PR #169; final implementation head 7540714a686825cb73038035fbf14e338bc7681e; base 7f4c80f6bff0199395de0c2691ddd69ff2143a22; Owner feedback issuecomment-5287954543; PR #167 / D-016 coordination
+FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-ui.js; tests/admin-erp1-ui-contract.test.js; tests/admin-erp1-integration.test.js; tests/admin-erp1-network-publish.test.js; ai-handoffs/WORK-BOARD.md; preview workflow unchanged
+RESULTS: replaced text initials, emoji/font-like glyph controls and repeated LOCKED copy with one original inline 24x24 SVG sprite (26 symbols, currentColor, 1.8 round strokes); every primary navigation item uses SVG; Dashboard reduced to three real contract status cards, one Safe Mode indicator and three actions; ten unsupported classic work areas reduced to title, one-line locked state and one detail action; Data Center changed to concise accessible workflow tabs while retaining all 30 controller hooks, unique IDs and runtime order; Publish stays visibly locked with no action/event/path
+SCREENSHOTS: dashboard-1440x900.png; dashboard-768x1024.png; dashboard-390x844.png; data-center-1440x900.png; data-center-390x844.png
+TESTS: final artifact preview run https://github.com/SL-Transit/bus/actions/runs/31758738210 passed 28 UI/safety/import tests, pinned Playwright Chromium capture, five-file screenshot count and safe bundle upload; final regression/Emulator/performance run https://github.com/SL-Transit/bus/actions/runs/31758738174 passed; JavaScript syntax checked in memory from GitHub content without local files
+ACTIONS/PAGES: artifact https://github.com/SL-Transit/bus/actions/runs/31758738210/artifacts/9203759781 ; artifact name admin-erp1-safe-preview-pr-169-e29e11943e083705311c79da4a580b339c473477; 774055 bytes; expires 2026-08-21; artifact-only, no Pages/live preview
+FIREBASE_DEPLOY_EVIDENCE: none — no Firebase SDK/CLI, RTDB, Rules, Functions, Hosting, Production read/write, Publish command, pointer switch or credential
+DATA/PRIVACY_IMPACT: no fake KPI, rows, business data, Booking, Passenger, Payment, account data or credential; screenshots show only empty, Safe Mode and locked UI
+COST_IMPACT: GitHub Actions runner plus 774055-byte compressed artifact retained seven days; superseded runs cancelled by concurrency; no Firebase or live-hosting cost
+KNOWN_RISKS: Auth/profile/logout and unsupported modules remain locked until separately approved bounded contracts exist; artifact requires authenticated GitHub access and expires after seven days; no live deployment or real data was reviewed
+NEXT_ACTION: Primary/Owner reviews the revised artifact and PR #169 diff; do not Merge, Deploy, enable Firebase/Publish, live host or advance to Gate D without separate Owner approval
+```
+## Completion Report  Owner-approved Firebase Sandbox Preview / PR #169
+
+```text
+STATUS: REVIEW  LIVE SANDBOX PREVIEW READY
+OWNER_APPROVAL: Owner approved the Firebase Sandbox Preview and the exact PR #169 WIF condition addition in the Codex thread on 2026-08-14.
+COMMIT/PR: Draft PR #169; preview source head a3fa0f7d6812ab9730d1f02b2e3af45dffa0376e; branch agent/admin-erp1-classic-greenfield-ui
+FILES_CHANGED: .github/workflows/admin-erp1-firebase-preview.yml; ai-handoffs/WORK-BOARD.md only in this gate; no Admin UI/runtime/backend/data change after the approved UI revision
+RESULTS: two-job least-privilege workflow validates and packages without Firebase identity; deploy job has no checkout and never executes PR JavaScript; exact 12 source files plus index alias are hash-verified; Firebase Hosting preview channel admin-erp1-pr-169 is live for seven days
+TESTS: GitHub Actions run 31760475938 passed all five Admin ERP1 UI/safety/import contract suites, exact allowlist/count, no-symlink check, SHA-256 manifest verification, index/admin equality, WIF authentication and Hosting deploy
+ACTIONS/PAGES: run https://github.com/SL-Transit/bus/actions/runs/31760475938 ; live preview https://sl-transit-erp-sandbox--admin-erp1-pr-169-mbvb1eya.web.app ; expires 2026-08-21 01:24:33 UTC
+FIREBASE_DEPLOY_EVIDENCE: Firebase Hosting preview channel only on site sl-transit-erp-sandbox; no Live channel deploy, RTDB, Rules, Functions, Storage, Auth configuration, data import, Publish command, pointer switch, Merge or Production write
+EXTERNAL_CONFIG_CHANGE: existing WIF provider condition retained exact PR #155 and added only refs/pull/169/merge plus head agent/admin-erp1-classic-greenfield-ui; repository/event/base restrictions remain; no role or service-account permission was added
+DATA/PRIVACY_IMPACT: public preview contains only the 13-file static allowlist and bundled Apache-2.0 license; no Firebase config, credential, backend config, business data, Booking, Passenger, Payment or personal data
+COST_IMPACT: one bounded GitHub Actions run, a one-day deployment artifact and approximately 1.1 MB of expiring static Hosting content; no database/function invocation or live-site traffic
+KNOWN_RISKS: anyone with the preview URL can open the static Safe Mode UI; backend remains Not configured; exact PR #169 WIF condition should be removed after preview refreshes are no longer needed
+NEXT_ACTION: Owner reviews the live URL; do not Merge, deploy Live Hosting, enable backend/Firebase writes, Publish or advance consumer integration without separate Owner approval
+```
+
+## Completion Report — Admin ERP1 Real-data Editor / PR #170
+
+```text
+STATUS: REVIEW
+COMMIT/PR: Draft PR #170; branch agent/admin-erp1-real-data-editor; implementation head before this report b954ba82a40ec0b725afbd876e7bae3e4e0ab0a1; stacked from frozen PR #169 UI
+FILES_CHANGED: admin-erp1.html; admin-erp-ui.css; admin-erp1-data-editor.js; admin-erp1-greenfield-controller.js; UI/safety tests; artifact/Firebase-preview static allowlists; ai-handoffs/WORK-BOARD.md
+RESULTS: existing Admin ERP1 now presents paged Draft records as a searchable table plus human field forms; Excel validation details show sheet/row/column; users can add only entity types with complete templates, edit/delete bounded Draft records, shift loaded Fixed-trip/stop-time pages, then request asynchronous revalidation; Frequency stays separate and Publish stays locked
+SAFETY: new service times/headway are blank until entered; no-op zero-minute shift is rejected; time shift is blocked while search hides records; bulk change uses only pageEntries() (UI limit 25) and backend draft.save limits remain 100 operations/512 KiB; direct browser Firebase access and Publish commands remain absent
+TESTS: artifact/UI run https://github.com/SL-Transit/bus/actions/runs/31763860393 passed 38/38 contracts, real browser editor interaction, five responsive captures and artifact build; regression/Emulator/performance run https://github.com/SL-Transit/bus/actions/runs/31763860429 passed existing unit, Phase 2/4/5/6A Auth/RTDB/Storage Emulator and performance suites; read-only UI audit closed all four blockers
+ACTIONS/PAGES: Draft PR https://github.com/SL-Transit/bus/pull/170 ; artifact https://github.com/SL-Transit/bus/actions/runs/31763860393/artifacts/9205577222 retained seven days; no live preview or deployment in this gate
+FIREBASE_DEPLOY_EVIDENCE: none — no Firebase/Rules/Functions/RTDB/Storage/Hosting deploy, real import, Production write, Publish, pointer switch or Consumer cutover
+DATA/PRIVACY_IMPACT: real workbook new erp data.xlsx remained read-only and off-repository; no workbook upload, Booking, Passenger, Payment, credential or personal Production data
+COST_IMPACT: GitHub Actions runner and approximately 784 KB seven-day artifact only; superseded workflow runs were cancelled; no Firebase database/function/storage invocation or Production cost
+KNOWN_RISKS: current Excel 3.3.x converter returns no frequencyServices, so the UI does not claim Frequency came from Excel; real workbook still has GRP-001 blockers until a separately approved mapping/data correction; whole-trip bulk shift is not promised because draft.read has no relationship filter—only the loaded page can be changed safely; Sandbox backend/runtime and real import are not active
+NEXT_ACTION: Owner reviews PR #170 and artifact. Sandbox Functions/Rules/RTDB/Storage deployment and importing the real workbook require separate explicit approval; Merge, Publish and Booking/Passenger integration remain unapproved
 ```
 ## Work Lock Template
 

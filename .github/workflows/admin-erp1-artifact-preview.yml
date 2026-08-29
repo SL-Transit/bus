@@ -1,0 +1,201 @@
+name: Admin ERP1 artifact preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'admin-erp1.html'
+      - 'admin-erp-ui.css'
+      - 'admin-erp1-ui.js'
+      - 'admin-erp1-data-editor.js'
+      - 'assets/admin-erp1-greenfield.css'
+      - 'admin-erp1-greenfield-*.js'
+      - 'admin-erp1-excel-3-3-x.js'
+      - 'assets/vendor/xlsx.full.min.js'
+      - 'greenfield-erp/phase2/excel-row-mapper.js'
+      - 'tests/admin-erp1-*.test.js'
+      - '.github/workflows/admin-erp1-artifact-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-erp1-artifact-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Build safe artifact preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Admin ERP1 UI and safety contracts
+        run: >-
+          node --test
+          tests/admin-erp1-ui-contract.test.js
+          tests/admin-erp1-real-data-editor.test.js
+          tests/admin-erp1-integration.test.js
+          tests/admin-erp1-live-entry.test.js
+          tests/admin-erp1-network-publish.test.js
+          tests/admin-erp1-excel-import-wiring.test.js
+
+      - name: Install pinned Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright@1.55.0 install --with-deps chromium
+
+      - name: Build static safe-mode bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          output='preview-output/bundle'
+          mkdir -p "$output/assets/vendor" "$output/greenfield-erp/phase2" preview-output/screenshots
+          cp admin-erp1.html admin-erp-ui.css admin-erp1-ui.js admin-erp1-data-editor.js "$output/"
+          cp admin-erp1-greenfield-state.js admin-erp1-greenfield-api-client.js admin-erp1-greenfield-system-mode.js admin-erp1-greenfield-controller.js admin-erp1-excel-3-3-x.js "$output/"
+          cp assets/admin-erp1-greenfield.css "$output/assets/"
+          cp assets/vendor/xlsx.full.min.js "$output/assets/vendor/"
+          cp greenfield-erp/phase2/excel-row-mapper.js "$output/greenfield-erp/phase2/"
+          cat > "$output/README.md" <<'README'
+          # SL-Transit Admin ERP1 — Safe Artifact Preview
+
+          This bundle is an offline review artifact from a Draft PR. It is not a live deployment.
+
+          - Safe Mode / ไม่มี Backend: commands remain fail-closed unless a separately approved runtime is configured.
+          - No Firebase SDK, credential, Production data, direct database write, Publish command, or live hosting is included.
+          - Unsupported work areas and Publish remain visibly locked.
+
+          To review locally after downloading the artifact, serve this `bundle` directory from loopback only, for example:
+
+          ```sh
+          python3 -m http.server 4173 --bind 127.0.0.1
+          ```
+
+          Then open `http://127.0.0.1:4173/admin-erp1.html#dashboard` or `#data-center`.
+          README
+          find "$output" -type f -print | sort > preview-output/bundle-files.txt
+          test "$(find "$output" -type f | wc -l)" -eq 13
+
+      - name: Capture bounded responsive screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          server_log="$RUNNER_TEMP/admin-erp1-preview-server.log"
+          python3 -m http.server 4173 --bind 127.0.0.1 >"$server_log" 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready='false'
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:4173/admin-erp1.html >/dev/null; then
+              ready='true'
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != 'true' ]; then
+            echo 'Preview server did not become ready within 30 seconds.' >&2
+            cat "$server_log" >&2
+            exit 1
+          fi
+
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const path = require('node:path');
+
+          const captures = [
+            { route: 'dashboard', width: 1440, height: 900, file: 'dashboard-1440x900.png' },
+            { route: 'dashboard', width: 768, height: 1024, file: 'dashboard-768x1024.png' },
+            { route: 'dashboard', width: 390, height: 844, file: 'dashboard-390x844.png' },
+            { route: 'data-center', width: 1440, height: 900, file: 'data-center-1440x900.png' },
+            { route: 'data-center', width: 390, height: 844, file: 'data-center-390x844.png' }
+          ];
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              for (const capture of captures) {
+                const context = await browser.newContext({
+                  viewport: { width: capture.width, height: capture.height },
+                  reducedMotion: 'reduce',
+                  colorScheme: 'light'
+                });
+                const page = await context.newPage();
+                const pageErrors = [];
+                page.on('pageerror', (error) => pageErrors.push(error.message));
+                await page.goto(`http://127.0.0.1:4173/admin-erp1.html#${capture.route}`, {
+                  waitUntil: 'networkidle',
+                  timeout: 30000
+                });
+                await page.waitForFunction(
+                  () => document.documentElement.dataset.adminErpUiReady === 'true',
+                  undefined,
+                  { timeout: 10000 }
+                );
+                await page.locator('#main-content').waitFor({ state: 'visible', timeout: 10000 });
+                if (capture.route === 'data-center') {
+                  const setValueAndDispatch = async (selector, value, eventName) => {
+                    await page.locator(selector).evaluate((element, input) => {
+                      element.value = input.value;
+                      element.dispatchEvent(new Event(input.eventName, { bubbles: true }));
+                    }, { value, eventName });
+                  };
+                  await setValueAndDispatch('#draft-entity-type', 'fixedTrips', 'change');
+                  await setValueAndDispatch('#draft-record-search', 'TRIP', 'input');
+                  await setValueAndDispatch('#draft-entity-type', 'vehicles', 'change');
+                  const contracts = await page.evaluate(() => ({
+                    editorBound: Boolean(window.SLTransitAdminErpDataEditor),
+                    vehicleCreateBlocked: !window.SLTransitAdminErpDataEditor.isCreatable('vehicles'),
+                    unsupportedCreateFails: (() => {
+                      try { window.SLTransitAdminErpDataEditor.newRecord('vehicles'); return false; }
+                      catch (error) { return error && error.code === 'draft_entity_create_unsupported'; }
+                    })(),
+                    zeroShiftFails: (() => {
+                      try { window.SLTransitAdminErpDataEditor.shiftServiceTime('06:00:00', 0); return false; }
+                      catch (error) { return error && error.code === 'shift_minutes_invalid'; }
+                    })()
+                  }));
+                  if (Object.values(contracts).some((value) => value !== true)) {
+                    throw new Error(`${capture.file}: real-data editor interaction contract failed`);
+                  }
+                }                if (pageErrors.length) throw new Error(`${capture.file}: ${pageErrors.join('; ')}`);
+                await page.screenshot({
+                  path: path.join('preview-output', 'screenshots', capture.file),
+                  fullPage: true,
+                  animations: 'disabled'
+                });
+                await context.close();
+              }
+            } finally {
+              await browser.close();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+          test "$(find preview-output/screenshots -maxdepth 1 -name '*.png' | wc -l)" -eq 5
+          find preview-output/screenshots -maxdepth 1 -name '*.png' -printf '%f\n' | sort > preview-output/screenshot-files.txt
+
+      - name: Upload seven-day review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-erp1-safe-preview-pr-${{ github.event.pull_request.number || github.run_number }}-${{ github.sha }}
+          path: preview-output/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
