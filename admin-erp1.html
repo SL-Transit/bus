@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="SL-Transit Greenfield Admin ERP1 Phase 6A.1 Draft revalidation review">
+  <meta name="description" content="SL-Transit Admin ERP1 classic workspace on the Greenfield command runtime">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
-  <title>SL-Transit · Greenfield Admin ERP1</title>
+  <title>SL-Transit · Admin ERP1</title>
   <link rel="stylesheet" href="assets/admin-erp1-greenfield.css">
+  <link rel="stylesheet" href="admin-erp-ui.css">
   <script defer src="admin-erp1-greenfield-state.js"></script>
   <script defer src="admin-erp1-greenfield-api-client.js"></script>
   <script defer src="admin-erp1-greenfield-system-mode.js"></script>
@@ -14,210 +15,193 @@
   <script defer src="greenfield-erp/phase2/excel-row-mapper.js"></script>
   <script defer src="admin-erp1-excel-3-3-x.js"></script>
   <script defer src="admin-erp1-greenfield-controller.js"></script>
+  <script defer src="admin-erp1-ui.js"></script>
 </head>
 <body>
+  <svg id="admin-icon-sprite" class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-transit" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.5h8.5a3 3 0 0 1 3 3v9H6z"/><path d="M8.5 4.5V3h6v1.5M8.5 9h6.5M8.5 13h6.5M6 16.5h12"/><circle cx="9" cy="18.5" r="1.5"/><circle cx="16" cy="18.5" r="1.5"/></g></symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></g></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m14.5 14.5 5 5"/></g></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 10 4 4 4-4"/></g></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></g></symbol>
+    <symbol id="icon-upload" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4M5 14v5h14v-5"/></g></symbol>
+    <symbol id="icon-dashboard" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v7H4zM14 4h6v4h-6zM14 12h6v8h-6zM4 15h6v5H4z"/></g></symbol>
+    <symbol id="icon-tasks" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v16H7zM9.5 3h5v3h-5zM9.5 11l1.5 1.5 3-3M9.5 16h5"/></g></symbol>
+    <symbol id="icon-operations" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="3"/><path d="M7 8h10v5H7zM8 18v2m8-2v2"/><circle cx="8" cy="15.5" r="1"/><circle cx="16" cy="15.5" r="1"/></g></symbol>
+    <symbol id="icon-booking" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14v4a2 2 0 0 0 0 4v4H5v-4a2 2 0 0 0 0-4zM12 8v1m0 3v1m0 3v1"/></g></symbol>
+    <symbol id="icon-finance" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h14a2 2 0 0 1 2 2v9H4zM4 7l3-3h10v3M15 11h5v4h-5a2 2 0 0 1 0-4z"/></g></symbol>
+    <symbol id="icon-news" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h12v14H7a2 2 0 0 1-2-2zM17 8h2v9a2 2 0 0 1-2 2M8 9h6M8 13h6M8 16h4"/></g></symbol>
+    <symbol id="icon-database" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6M5 11.5v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6"/></g></symbol>
+    <symbol id="icon-draft" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 13h6M9 17h4"/></g></symbol>
+    <symbol id="icon-validation" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 7v5c0 4.5-3 7.5-8 9-5-1.5-8-4.5-8-9V7zM8.5 12l2.2 2.2 4.8-5"/></g></symbol>
+    <symbol id="icon-published" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-5M12 4v2m0 12v2M4 12h2m12 0h2"/></g></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M4 19v-2a5 5 0 0 1 10 0v2M16 6.5a2.5 2.5 0 0 1 0 5M16 14a4 4 0 0 1 4 4v1"/></g></symbol>
+    <symbol id="icon-test" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3M7.5 16h9"/><circle cx="10" cy="13" r=".6" fill="currentColor" stroke="none"/></g></symbol>
+    <symbol id="icon-audit" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l2-5 4 10 2-5h4M5 4v3M5 17v3M19 4v3M19 17v3"/></g></symbol>
+    <symbol id="icon-account" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></g></symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></g></symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></g></symbol>
+    <symbol id="icon-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.7.3-.7 1-.7 1.6M12 17h.01"/></g></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></g></symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7v5h-5M5 17v-5h5M18 12a6 6 0 0 0-10.5-4M6 12a6 6 0 0 0 10.5 4"/></g></symbol>
+    <symbol id="icon-logout" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></g></symbol>
+  </svg>
   <a class="skip-link" href="#main-content">ข้ามไปเนื้อหาหลัก</a>
-  <div id="greenfield-preview-badge" class="preview-banner" role="status">Phase 6A.1 · Draft editor + async revalidation · No production writes</div>
+  <div id="greenfield-preview-badge" class="preview-banner" role="status">CLASSIC UI · GREENFIELD RUNTIME · Phase 6A.1 · No production writes</div>
 
-  <header class="topbar">
-    <div class="brand-lockup">
-      <span class="brand-mark" aria-hidden="true">SL</span>
-      <div>
-        <p class="eyebrow">SL-TRANSIT CONTROL PLANE</p>
-        <h1>Admin ERP1</h1>
+  <header id="admin-topbar" class="topbar">
+    <div class="topbar-start">
+      <button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-label="เปิดเมนูระบบ" aria-controls="admin-sidebar" aria-expanded="false"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-menu"></use></svg></button>
+      <div class="brand-lockup"><svg class="brand-mark" aria-hidden="true" focusable="false"><use href="#icon-transit"></use></svg><strong>SL-Transit</strong><span>Admin ERP1</span></div>
+    </div>
+    <div class="topbar-tools">
+      <label class="global-search" for="global-search"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-search"></use></svg><span class="sr-only">ค้นหาเมนู</span><input id="global-search" type="search" autocomplete="off" placeholder="ค้นหาเมนู" aria-describedby="global-search-status"></label>
+      <span id="global-search-status" class="sr-only" aria-live="polite"></span>
+      <div class="environment-chip" title="ยังไม่อนุญาตให้เขียน Production"><span aria-hidden="true"></span>GREENFIELD · EMULATOR REVIEW</div>
+      <div class="profile-control">
+        <button id="profile-menu-button" class="profile-button" type="button" aria-label="เปิดเมนูบัญชี" aria-haspopup="menu" aria-controls="profile-menu" aria-expanded="false"><svg class="ui-icon profile-avatar" aria-hidden="true" focusable="false"><use href="#icon-account"></use></svg><span>ผู้ดูแลระบบ</span><svg class="ui-icon profile-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+        <div id="profile-menu" class="profile-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-ui-route="account"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-account"></use></svg><span>บัญชีของฉัน</span><svg class="ui-icon menu-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" role="menuitem" data-ui-action="logout"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-logout"></use></svg><span>ออกจากระบบ</span><svg class="ui-icon menu-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+        </div>
       </div>
     </div>
-    <div class="environment-chip"><span aria-hidden="true"></span> GREENFIELD · EMULATOR REVIEW</div>
   </header>
-
   <div class="app-shell">
-    <aside class="sidebar" aria-label="เมนูระบบ">
-      <p class="nav-label">WORKSPACE</p>
-      <nav>
-        <button type="button" data-section-target="overview" aria-label="ไปภาพรวม"><span>01</span> ภาพรวม</button>
-        <button type="button" data-section-target="import"><span>02</span> Import Package</button>
-        <button type="button" data-section-target="draft"><span>03</span> Draft</button>
-        <button type="button" data-section-target="validation"><span>04</span> Validation</button>
-        <button type="button" data-section-target="review"><span>05</span> Review</button>
-        <button type="button" data-section-target="approval"><span>06</span> Approval</button>
+    <aside id="admin-sidebar" class="sidebar" aria-label="เมนู Admin ERP1">
+      <nav id="primary-navigation" aria-label="พื้นที่งานหลัก">
+        <section class="nav-group" aria-labelledby="nav-overview-label">
+          <p id="nav-overview-label" class="nav-label">ภาพรวม</p>
+          <button type="button" data-ui-route="dashboard"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-dashboard"></use></svg><span>แดชบอร์ด</span></button>
+          <button type="button" data-ui-route="today"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg><span>งานวันนี้</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-operations-label">
+          <p id="nav-operations-label" class="nav-label">งานบริการ</p>
+          <button type="button" data-ui-route="operations"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-operations"></use></svg><span>คิวรถและตาราง</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="bookings"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-booking"></use></svg><span>การจอง</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="finance"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-finance"></use></svg><span>การเงิน</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="content"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg><span>ข่าวสาร</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-data-label">
+          <p id="nav-data-label" class="nav-label">ข้อมูลกลาง</p>
+          <button type="button" data-ui-route="data-center" data-section-target="data-center"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-database"></use></svg><span>ศูนย์ข้อมูล ERP</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="import" data-section-target="import"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้าข้อมูล</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="draft" data-section-target="draft"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-draft"></use></svg><span>ข้อมูลร่าง</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="validation" data-section-target="validation"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจและอนุมัติ</span></button>
+          <button type="button" data-ui-route="published"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-published"></use></svg><span>เวอร์ชันเผยแพร่</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-system-label">
+          <p id="nav-system-label" class="nav-label">ดูแลระบบ</p>
+          <button type="button" data-ui-route="users"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-users"></use></svg><span>ผู้ใช้งาน</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="test-center"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-test"></use></svg><span>ศูนย์ทดสอบ</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+          <button type="button" data-ui-route="system-status"><svg class="nav-icon" aria-hidden="true" focusable="false"><use href="#icon-audit"></use></svg><span>สถานะและ Audit</span><svg class="nav-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg></button>
+        </section>
       </nav>
-      <div class="sidebar-note">
-        <strong>Safe by design</strong>
-        <p>หน้านี้ไม่มีช่องทาง Publish และไม่เขียนฐานข้อมูลจริง</p>
-      </div>
-    </aside>
+      <div class="sidebar-note"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><span>ทำงานกับ Draft เท่านั้น</span></div>
+    </aside>    <button id="sidebar-overlay" class="sidebar-overlay" type="button" aria-label="ปิดเมนูระบบ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg></button>
 
-    <main id="main-content">
-      <section id="overview" class="hero panel">
-        <div>
-          <p class="eyebrow">PHASE 6A.1 · DRAFT CONTROL</p>
-          <h2>จัดข้อมูลขนส่งให้พร้อมตรวจ ก่อนส่งต่อให้ระบบกลาง</h2>
-          <p class="lead">หน้าใหม่สำหรับลำดับ Import → Draft → Validate → Review → Approve โดย Upload, Import, Review และ Approval ผ่าน API ฝั่งเซิร์ฟเวอร์ พร้อม revision และ audit</p>
+    <main id="main-content" tabindex="-1">
+      <div id="ui-live-region" class="sr-only" aria-live="polite"></div>
+
+      <section id="dashboard-workspace" class="workspace" data-ui-view="dashboard" aria-labelledby="dashboard-title">
+        <div class="workspace-header compact-header"><div><p class="eyebrow">ภาพรวม</p><h1 id="dashboard-title">แดชบอร์ด</h1></div><button type="button" class="button primary" data-ui-route="data-center" data-ui-target="import"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้าข้อมูล</span></button></div>
+        <div class="status-overview" aria-label="สถานะระบบปัจจุบัน">
+          <article class="status-tile"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-database"></use></svg><span>Backend</span><strong id="dashboard-backend">—</strong></article>
+          <article class="status-tile"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg><span>ขั้นตอน</span><strong id="dashboard-phase">—</strong></article>
+          <article class="status-tile"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ผลตรวจ</span><strong id="dashboard-validation">—</strong></article>
         </div>
-        <div class="hero-metric" aria-label="สถานะการเชื่อมต่อ">
-          <span>BACKEND</span>
-          <strong>SAFE MODE</strong>
-          <small>Runtime config required</small>
+        <div class="safe-mode-indicator" role="status"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><strong>โหมดปลอดภัย</strong><span>ไม่เขียน Production</span></div>
+        <section class="panel quick-panel" aria-labelledby="quick-work-title"><div class="panel-heading"><h2 id="quick-work-title">งานด่วน</h2></div><div class="quick-work-list">
+          <button type="button" data-ui-route="data-center" data-ui-target="import"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้าข้อมูล</span><svg class="ui-icon action-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="draft"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-draft"></use></svg><span>แก้ข้อมูลร่าง</span><svg class="ui-icon action-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="validation"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจและอนุมัติ</span><svg class="ui-icon action-chevron" aria-hidden="true" focusable="false"><use href="#icon-chevron"></use></svg></button>
+        </div></section>
+      </section>
+      <section id="today-workspace" class="workspace locked-workspace" data-ui-view="today" hidden aria-labelledby="today-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg></div><div><h1 id="today-title">งานวันนี้</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอระบบสรุปงานตามสิทธิ์</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="งานวันนี้" data-lock-copy="รายการงานต้องมาจาก Backend ตามสิทธิ์และ revision จริง จึงยังไม่แสดงรายการหรือตัวเลขจำลอง"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <section id="operations-workspace" class="workspace locked-workspace" data-ui-view="operations" hidden aria-labelledby="operations-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-operations"></use></svg></div><div><h1 id="operations-title">คิวรถและตาราง</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาข้อมูลปฏิบัติการ</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="คิวรถและตาราง" data-lock-copy="หน้า Admin จะไม่อ่านข้อมูลปฏิบัติการเดิมหรือคำนวณตารางเอง ต้องรอ contract จากระบบหลังบ้าน"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <section id="bookings-workspace" class="workspace locked-workspace" data-ui-view="bookings" hidden aria-labelledby="bookings-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-booking"></use></svg></div><div><h1 id="bookings-title">การจอง</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาคำสั่งจอง</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="การจอง" data-lock-copy="ระบบจองต้องอ่านข้อมูล Published และตรวจซ้ำฝั่งเซิร์ฟเวอร์ หน้านี้ไม่คำนวณราคา เวลา หรือการต่อรถเอง"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <section id="finance-workspace" class="workspace locked-workspace" data-ui-view="finance" hidden aria-labelledby="finance-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-finance"></use></svg></div><div><h1 id="finance-title">การเงิน</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาข้อมูลการเงิน</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="การเงิน" data-lock-copy="ข้อมูลธุรกรรมและการชำระต้องมีสิทธิ์และคำสั่งหลังบ้านแยกจากข้อมูลกลาง"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <section id="content-workspace" class="workspace locked-workspace" data-ui-view="content" hidden aria-labelledby="content-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg></div><div><h1 id="content-title">ข่าวสาร</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอกระบวนการร่างและตรวจข่าว</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="ข่าวสาร" data-lock-copy="ต้องมี Draft, asset, Review และ scheduling contract ที่ผ่านสิทธิ์ก่อนเปิดเครื่องมือแก้ไข"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <section id="data-center" class="workspace" data-ui-view="data-center" hidden aria-labelledby="data-center-title">
+        <div class="workspace-header compact-header"><div><p class="eyebrow">ข้อมูลกลาง</p><h1 id="data-center-title">ศูนย์ข้อมูล ERP</h1></div><div class="safe-mode-indicator compact-safe"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><span>Draft เท่านั้น</span></div></div>
+        <nav class="workflow-tabs" role="tablist" aria-label="ขั้นตอนข้อมูลกลาง">
+          <button type="button" data-ui-route="data-center" data-ui-target="import" data-data-tab="import" role="tab" aria-controls="import" data-phase="fileSelected"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><span>นำเข้า</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="draft" data-data-tab="draft" role="tab" aria-controls="draft" data-phase="draft"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-draft"></use></svg><span>ข้อมูลร่าง</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="validation" data-data-tab="validation" role="tab" aria-controls="validation" data-phase="invalid"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจข้อมูล</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="review" data-data-tab="review" role="tab" aria-controls="review" data-phase="reviewRequested"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg><span>ส่งตรวจ</span></button>
+          <button type="button" data-ui-route="data-center" data-ui-target="approval" data-data-tab="approval" role="tab" aria-controls="approval" data-phase="approved"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-users"></use></svg><span>อนุมัติ</span></button>
+          <span class="workflow-tab-locked" aria-disabled="true"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><span>เผยแพร่</span></span>
+        </nav>
+
+        <div id="import" class="data-panel" data-data-panel="import">
+          <section class="panel primary-card" aria-labelledby="import-title">
+            <div class="section-heading"><div><p class="step-label">ขั้นที่ 1</p><h2 id="import-title">นำเข้าข้อมูล</h2></div><button id="reset-workflow" type="button" class="icon-button reset-button" aria-label="ล้างสถานะการทำงาน"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-refresh"></use></svg></button></div>
+            <label class="dropzone" for="import-file"><svg class="upload-icon" aria-hidden="true" focusable="false"><use href="#icon-upload"></use></svg><strong>เลือก Excel หรือ JSON</strong><span>รุ่น 3.3.4–3.3.5 · ไม่เกิน 25 MB</span><input id="import-file" type="file" accept=".xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json"></label>
+            <dl class="file-meta">
+              <div><dt>ไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div><div><dt>ขนาด</dt><dd id="file-size">—</dd></div><div><dt>รุ่น</dt><dd id="excel-version">รอตรวจ</dd></div><div><dt>ผลตรวจ</dt><dd id="excel-precheck">ยังไม่ได้ตรวจ</dd></div>
+              <div class="scope-field"><dt><label for="operator-scope">รหัสบริษัท</label></dt><dd><input id="operator-scope" type="text" value="" maxlength="512" autocomplete="off" placeholder="Stable Operator ID" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายรหัสด้วยจุลภาค</small></dd></div>
+            </dl>
+            <div class="actions"><button id="validate-file" type="button" class="button primary" disabled><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจและสร้าง Draft</span></button></div>
+          </section>
+          <aside class="panel runtime-card" aria-labelledby="runtime-title"><div class="section-heading"><h2 id="runtime-title">สถานะงาน</h2></div><dl class="runtime-list"><div><dt>ขั้นตอน</dt><dd id="workflow-phase">idle</dd></div><div><dt>Backend</dt><dd id="backend-status" class="offline">Not configured</dd></div><div><dt>Job</dt><dd id="job-id">—</dd></div><div><dt>ข้อผิดพลาด</dt><dd id="error-code">none</dd></div></dl><p class="runtime-hint"><span class="sr-only">Runtime config required</span>ยังไม่ได้เชื่อม Backend</p><div id="action-notice" class="notice" data-kind="neutral"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><p id="workflow-status">พร้อมรับข้อมูล — ยังไม่มีการบันทึก</p></div></aside>
         </div>
-      </section>
 
-      <section class="workflow-strip" aria-label="ลำดับงาน">
-        <div data-phase="fileSelected"><span>1</span><strong>Import</strong><small>รับ Package</small></div>
-        <div data-phase="draft"><span>2</span><strong>Draft</strong><small>สร้างฉบับร่าง</small></div>
-        <div data-phase="invalid"><span>3</span><strong>Validate</strong><small>ตรวจโครงสร้าง</small></div>
-        <div data-phase="reviewRequested"><span>4</span><strong>Review</strong><small>ส่งผู้ตรวจ</small></div>
-        <div data-phase="approved"><span>5</span><strong>Approve</strong><small>เจ้าของอนุมัติ</small></div>
-      </section>
-
-      <div class="content-grid">
-        <section id="import" class="panel primary-card">
-          <div class="section-heading">
-            <div><p class="eyebrow">STEP 01</p><h2>Import Package</h2></div>
-            <span class="status-pill">AUTHORIZED STAGING</span>
-          </div>
-          <p>เลือก Excel รุ่น 3.3.4–3.3.5 หรือ Canonical JSON ระบบจะตรวจรุ่น ชีต หัวตาราง รหัส และความสัมพันธ์ก่อนสร้าง Draft</p>
-          <label class="dropzone" for="import-file">
-            <span class="upload-icon" aria-hidden="true">↑</span>
-            <strong>เลือกไฟล์ข้อมูลต้นทาง</strong>
-            <span>Excel 3.3.4–3.3.5 หรือ Canonical JSON · สูงสุด 25 MB</span>
-            <input id="import-file" type="file" accept=".xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json">
-          </label>
-          <dl class="file-meta">
-            <div><dt>ชื่อไฟล์</dt><dd id="file-name">ยังไม่ได้เลือกไฟล์</dd></div>
-            <div><dt>ขนาด</dt><dd id="file-size">—</dd></div>
-            <div><dt>รุ่น Excel</dt><dd id="excel-version">รอตรวจ</dd></div>
-            <div><dt>ผลตรวจก่อนส่ง</dt><dd id="excel-precheck">ยังไม่ได้ตรวจ</dd></div>
-            <div class="scope-field"><dt><label for="operator-scope">Stable Operator IDs</label></dt><dd><input id="operator-scope" type="text" value="OPR-BUS01" maxlength="512" autocomplete="off" aria-describedby="operator-scope-help"><small id="operator-scope-help">คั่นหลายบริษัทด้วยเครื่องหมายจุลภาค</small></dd></div>
-          </dl>
-          <div class="actions">
-            <button id="validate-file" type="button" class="button primary" disabled>ตรวจสอบผ่าน Backend</button>
-            <button id="reset-workflow" type="button" class="button secondary">ล้างสถานะ</button>
-          </div>
+        <section id="draft" class="panel data-panel" data-data-panel="draft" hidden aria-labelledby="draft-title">
+          <div class="section-heading"><div><p class="step-label">ขั้นที่ 2</p><h2 id="draft-title">แก้ข้อมูลร่าง</h2></div></div>
+          <div class="editor-toolbar"><label for="draft-entity-type">ชนิดข้อมูล<select id="draft-entity-type"><option value="operators">บริษัท</option><option value="locations">สถานที่/ป้ายกลาง</option><option value="routes" selected>เส้นทาง</option><option value="journeyPatterns">รูปแบบการเดินทาง</option><option value="serviceCalendars">วันให้บริการ</option><option value="fixedTrips">เที่ยวเวลาคงที่</option><option value="stopTimes">เวลาประจำป้าย</option><option value="frequencyServices">เที่ยวแบบความถี่</option><option value="fareProducts">ผลิตภัณฑ์ค่าโดยสาร</option><option value="fareRules">กฎค่าโดยสาร</option><option value="transferRules">กฎการต่อรถ</option><option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option><option value="queues">คิวและจุดจอด</option><option value="vehicles">รถ</option><option value="drivers">คนขับ</option><option value="vehicleBlocks">กะรถ</option><option value="driverDuties">กะคนขับ</option><option value="assignments">การจัดสรร</option><option value="bookingPolicies">กฎการจอง</option><option value="platformAssignments">การใช้ชานชาลา</option><option value="calendarExceptions">วันพิเศษ</option><option value="routeDrafts">ร่างเส้นทาง</option><option value="routeDraftStops">ลำดับป้ายร่าง</option><option value="locationSurveys">แบบสำรวจจุดบริการ</option><option value="locationAccesses">สิทธิ์ใช้จุด</option><option value="accounts">บัญชีผู้ใช้</option><option value="accountAccesses">สิทธิ์ผู้ใช้</option><option value="incidents">เหตุขัดข้อง</option></select></label><button id="load-draft-page" type="button" class="button secondary" disabled>โหลดข้อมูล</button><button id="next-draft-page" type="button" class="button secondary" disabled>หน้าถัดไป</button></div>
+          <div class="editor-grid"><label for="draft-entity-list">รายการ<select id="draft-entity-list" size="7" aria-label="รายการ Draft"></select></label><div class="editor-fields"><label for="draft-entity-id">Stable ID<input id="draft-entity-id" type="text" maxlength="128" autocomplete="off"></label><label for="draft-json">ข้อมูล JSON<textarea id="draft-json" rows="10" spellcheck="false" placeholder="เลือกหรือเพิ่มรายการ"></textarea></label><label for="draft-change-summary">เหตุผลที่แก้<input id="draft-change-summary" type="text" minlength="3" maxlength="500" autocomplete="off" placeholder="ระบุเหตุผล"></label></div></div>
+          <div class="actions"><button id="save-draft-entity" type="button" class="button primary" disabled><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-draft"></use></svg><span>บันทึก Draft</span></button><button id="delete-draft-entity" type="button" class="icon-button danger" disabled aria-label="ลบรายการจาก Draft"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-trash"></use></svg></button></div>
         </section>
 
-        <aside class="panel status-card" aria-labelledby="runtime-title">
-          <div class="section-heading"><div><p class="eyebrow">RUNTIME</p><h2 id="runtime-title">สถานะงาน</h2></div></div>
-          <div class="runtime-orbit" aria-hidden="true"><span></span></div>
-          <dl class="runtime-list">
-            <div><dt>Phase</dt><dd id="workflow-phase">idle</dd></div>
-            <div><dt>Backend</dt><dd id="backend-status" class="offline">Not configured</dd></div>
-            <div><dt>Write access</dt><dd>Emulator only</dd></div>
-            <div><dt>Job ID</dt><dd id="job-id">—</dd></div>
-            <div><dt>Error code</dt><dd id="error-code">none</dd></div>
-          </dl>
-          <div id="action-notice" class="notice" data-kind="neutral">
-            <strong>ระบบยังปลอดภัย</strong>
-            <p id="workflow-status">พร้อมรับข้อมูลในหน้า Preview — ยังไม่มีการบันทึก</p>
-          </div>
-        </aside>
-      </div>
-
-      <section id="draft" class="panel stage-card stage-card-wide">
-        <div class="stage-index">02</div>
-        <div>
-          <p class="eyebrow">DRAFT EDITOR</p>
-          <h2>แก้ข้อมูลร่างผ่าน Backend แบบแบ่งหน้า</h2>
-          <p>หน้าเว็บอ่านทีละชนิดข้อมูล ไม่เกิน 50 รายการและ 256 KiB ต่อครั้ง การบันทึกส่งเฉพาะรายการที่เปลี่ยน ไม่อ่านหรือเขียน RTDB โดยตรง</p>
-          <div class="editor-toolbar">
-            <label for="draft-entity-type">ชนิดข้อมูล
-              <select id="draft-entity-type">
-                <option value="operators">บริษัท</option>
-                <option value="locations">สถานที่/ป้ายกลาง</option>
-                <option value="routes" selected>เส้นทาง</option>
-                <option value="journeyPatterns">รูปแบบการเดินทาง</option>
-                <option value="serviceCalendars">วันให้บริการ</option>
-                <option value="fixedTrips">เที่ยวเวลาคงที่</option>
-                <option value="stopTimes">เวลาประจำป้าย</option>
-                <option value="frequencyServices">เที่ยวแบบความถี่</option>
-                <option value="fareProducts">ผลิตภัณฑ์ค่าโดยสาร</option>
-                <option value="fareRules">กฎค่าโดยสาร</option>
-                <option value="transferRules">กฎการต่อรถ</option>
-                <option value="serviceGroups">กลุ่มบริการ/ท่ารถ</option>
-                <option value="queues">คิวและจุดจอด</option>
-                <option value="vehicles">รถ</option>
-                <option value="drivers">คนขับ</option>
-                <option value="vehicleBlocks">กะรถ</option>
-                <option value="driverDuties">กะคนขับ</option>
-                <option value="assignments">การจัดสรร</option>
-                <option value="bookingPolicies">กฎการจอง</option>
-                <option value="platformAssignments">การใช้ชานชาลา</option>
-                <option value="calendarExceptions">วันพิเศษ</option>
-                <option value="routeDrafts">ร่างเส้นทาง</option>
-                <option value="routeDraftStops">ลำดับป้ายร่าง</option>
-                <option value="locationSurveys">แบบสำรวจจุดบริการ</option>
-                <option value="locationAccesses">สิทธิ์ใช้จุด</option>
-                <option value="accounts">บัญชีผู้ใช้</option>
-                <option value="accountAccesses">สิทธิ์ผู้ใช้</option>
-                <option value="incidents">เหตุขัดข้อง</option>
-              </select>
-            </label>
-            <button id="load-draft-page" type="button" class="button secondary" disabled>โหลดข้อมูล</button>
-            <button id="next-draft-page" type="button" class="button secondary" disabled>หน้าถัดไป</button>
-          </div>
-          <div class="editor-grid">
-            <label for="draft-entity-list">รายการในหน้านี้
-              <select id="draft-entity-list" size="7" aria-label="รายการ Draft"></select>
-            </label>
-            <div class="editor-fields">
-              <label for="draft-entity-id">Stable ID
-                <input id="draft-entity-id" type="text" maxlength="128" autocomplete="off">
-              </label>
-              <label for="draft-json">ข้อมูล JSON
-                <textarea id="draft-json" rows="10" spellcheck="false" placeholder="เลือกข้อมูลจากรายการ หรือกรอก Stable ID และ JSON สำหรับรายการใหม่"></textarea>
-              </label>
-              <label for="draft-change-summary">เหตุผลที่แก้ไข
-                <input id="draft-change-summary" type="text" minlength="3" maxlength="500" autocomplete="off" placeholder="เช่น แก้ชื่อสายและเวลาตามเอกสารต้นทาง">
-              </label>
-            </div>
-          </div>
-          <div class="actions">
-            <button id="save-draft-entity" type="button" class="button primary" disabled>บันทึกลง Draft</button>
-            <button id="delete-draft-entity" type="button" class="button danger" disabled>ลบรายการจาก Draft</button>
-          </div>
-        </div>
-        <span class="locked">BOUNDED API</span>
+        <section id="validation" class="panel data-panel compact-step" data-data-panel="validation" hidden aria-labelledby="validation-title"><div class="section-heading"><div><p class="step-label">ขั้นที่ 3</p><h2 id="validation-title">ตรวจข้อมูล</h2></div></div><button id="validate-draft" type="button" class="button primary" disabled><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>ตรวจ Draft</span></button><dl class="validation-summary"><div><dt>Validation Job</dt><dd id="validation-job-id">—</dd></div><div><dt>ผลตรวจ</dt><dd id="validation-result">ยังไม่มีผลตรวจ</dd></div></dl></section>
+        <section id="review" class="panel data-panel compact-step" data-data-panel="review" hidden aria-labelledby="review-title"><div class="section-heading"><div><p class="step-label">ขั้นที่ 4</p><h2 id="review-title">ส่งตรวจ</h2></div></div><p>ส่ง Draft ที่ผ่านการตรวจให้ผู้รับผิดชอบ</p><button id="request-review" type="button" class="button primary" disabled><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-tasks"></use></svg><span>ส่ง Review</span></button></section>
+        <section id="approval" class="panel data-panel compact-step" data-data-panel="approval" hidden aria-labelledby="approval-title"><div class="section-heading"><div><p class="step-label">ขั้นที่ 5</p><h2 id="approval-title">อนุมัติข้อมูล</h2></div></div><label class="approval-comment" for="approval-comment">ความเห็น<input id="approval-comment" type="text" maxlength="1000" autocomplete="off" placeholder="ระบุเหตุผลเมื่อส่งกลับ"></label><div class="actions"><button id="approve-draft" type="button" class="button primary" disabled><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-validation"></use></svg><span>อนุมัติ Draft</span></button><button id="reject-draft" type="button" class="button danger" disabled>ส่งกลับแก้ไข</button></div></section>
+        <section id="publication-lock" class="panel publication-lock" aria-labelledby="publication-lock-title"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><div><p class="step-label">ขั้นที่ 6</p><h2 id="publication-lock-title">เผยแพร่เวอร์ชัน</h2><p>ยังไม่เปิดใช้งาน</p></div></section>
       </section>
-
-      <section id="validation" class="panel stage-card">
-        <div class="stage-index">03</div>
-        <div>
-          <p class="eyebrow">ASYNC VALIDATION</p>
-          <h2>ตรวจบริษัท จุดเชื่อม เส้นทาง เที่ยว เวลา ราคา และการต่อรถ</h2>
-          <p>หลังแก้ Draft ต้องสั่งตรวจใหม่ งานหนักทำใน Worker ที่จำกัดจำนวนเครื่องและการทำงานพร้อมกัน หน้า Admin ติดตามเฉพาะสถานะและผลตรวจที่จำกัดขนาด</p>
-          <div class="actions">
-            <button id="validate-draft" type="button" class="button secondary" disabled>ตรวจ Draft ใหม่</button>
-          </div>
-          <dl class="validation-summary">
-            <div><dt>Validation Job</dt><dd id="validation-job-id">—</dd></div>
-            <div><dt>ผลตรวจ</dt><dd id="validation-result">ยังไม่มีผลตรวจรอบใหม่</dd></div>
-          </dl>
-        </div>
-        <span class="locked">WORKER · MAX 2</span>
+      <section id="published-workspace" class="workspace locked-workspace" data-ui-view="published" hidden aria-labelledby="published-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-published"></use></svg></div><div><h1 id="published-title">เวอร์ชันเผยแพร่</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาอ่านเวอร์ชัน</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="เวอร์ชันเผยแพร่" data-lock-copy="ยังไม่อ่านหรือสลับเวอร์ชันจริง การเผยแพร่ต้องผ่าน Publisher และ Owner approval แยก"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
-      <section id="review" class="panel stage-card">
-        <div class="stage-index">04</div><div><p class="eyebrow">REVIEW</p><h2>ส่ง Draft ที่ผ่านการตรวจให้ผู้ทบทวน</h2><p>ระบบจะบันทึกผู้ส่ง เวลา และผลการตรวจผ่านคำสั่งที่ตรวจสิทธิ์จากฝั่งเซิร์ฟเวอร์</p><button id="request-review" type="button" class="button secondary" disabled>ส่ง Review</button></div><span class="locked">LOCKED</span>
+      <section id="users-workspace" class="workspace locked-workspace" data-ui-view="users" hidden aria-labelledby="users-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-users"></use></svg></div><div><h1 id="users-title">ผู้ใช้งานและสิทธิ์</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอระบบบัญชีและสิทธิ์</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="ผู้ใช้งานและสิทธิ์" data-lock-copy="ต้องมี identity และ access commands พร้อมการทดสอบแยกหน้าที่ก่อนเปิดทำรายการ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
-
-      <section id="approval" class="panel stage-card">
-        <div class="stage-index">05</div>
-        <div>
-          <p class="eyebrow">OWNER APPROVAL</p>
-          <h2>อนุมัติหรือส่ง Draft กลับ โดยไม่เผยแพร่</h2>
-          <p>ผู้อนุมัติต้องไม่ใช่ผู้สร้างหรือผู้แก้ล่าสุด หากส่งกลับ ผู้แก้ไขต้องบันทึก Draft และตรวจใหม่ก่อน Review รอบถัดไป</p>
-          <label class="approval-comment" for="approval-comment">ความเห็นผู้อนุมัติ
-            <input id="approval-comment" type="text" maxlength="1000" autocomplete="off" placeholder="ระบุเหตุผลเมื่อส่งกลับ">
-          </label>
-          <div class="actions">
-            <button id="approve-draft" type="button" class="button secondary" disabled>อนุมัติ Draft</button>
-            <button id="reject-draft" type="button" class="button danger" disabled>ส่งกลับให้แก้ไข</button>
-          </div>
-        </div>
-        <span class="locked">OWNER ONLY</span>
+      <section id="test-center-workspace" class="workspace locked-workspace" data-ui-view="test-center" hidden aria-labelledby="test-center-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-test"></use></svg></div><div><h1 id="test-center-title">ศูนย์ทดสอบ</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอสัญญาผลการทดสอบ</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="ศูนย์ทดสอบ" data-lock-copy="พื้นที่นี้ต้องอ่านหลักฐานทดสอบจากระบบหลังบ้าน และแยกจากเวอร์ชันเผยแพร่เสมอ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
       </section>
+      <section id="system-status-workspace" class="workspace locked-workspace" data-ui-view="system-status" hidden aria-labelledby="system-status-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-audit"></use></svg></div><div><h1 id="system-status-title">สถานะและประวัติระบบ</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอช่องทางอ่านแบบจำกัดขนาด</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="สถานะและประวัติระบบ" data-lock-copy="ข้อมูลสถานะและ Audit ต้องใช้ query ที่จำกัดขนาด มีดัชนี และผ่านการตรวจสิทธิ์"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <section id="account-workspace" class="workspace locked-workspace" data-ui-view="account" hidden aria-labelledby="account-title">
+        <div class="locked-hero"><div class="locked-hero-icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-account"></use></svg></div><div><h1 id="account-title">บัญชีของฉัน</h1><p><svg class="ui-icon inline-lock" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg>รอการเชื่อมระบบบัญชี</p></div></div>
+        <button type="button" class="button secondary detail-button" data-ui-locked data-lock-title="บัญชีของฉัน" data-lock-copy="ยังไม่อ่านบัญชี ไม่เปลี่ยน session และไม่จำลองว่าออกจากระบบสำเร็จ"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-info"></use></svg><span>ดูรายละเอียด</span></button>
+      </section>
+      <footer><span>SL-Transit Admin ERP1</span><span>Gate C · Artifact only</span></footer>
     </main>
   </div>
 
-  <footer><span>SL-Transit Greenfield ERP</span><span>Integration Review · Phase 6A.1</span></footer>
+  <button id="drawer-backdrop" class="drawer-backdrop" type="button" aria-label="ปิดรายละเอียด" hidden></button>
+  <aside id="context-drawer" class="context-drawer" aria-labelledby="drawer-title" aria-modal="true" role="dialog" hidden>
+    <div class="drawer-header"><div><p class="eyebrow">ข้อมูลเพิ่มเติม</p><h2 id="drawer-title">รายละเอียด</h2></div><button id="drawer-close" class="icon-button drawer-close" type="button" aria-label="ปิดรายละเอียด"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-close"></use></svg></button></div>
+    <p id="drawer-description">พื้นที่นี้ยังไม่เชื่อมกับ Backend contract</p>
+    <div class="drawer-notice"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-lock"></use></svg><div><strong>ยังไม่ทำรายการ</strong><p>รายละเอียดนี้ไม่บันทึกหรือเปลี่ยนสถานะระบบ</p></div></div>
+  </aside>
 </body>
 </html>
