@@ -134,7 +134,7 @@ assert.strictEqual(result.timezone, 'Asia/Bangkok');
 assert.strictEqual(result.bookings.createdCount, 3, 'today booking count uses created ts for the anchor day');
 assert.strictEqual(result.bookings.travelPassengerCount, 1, 'travel passenger count uses service date, not created ts');
 assert.strictEqual(result.bookings.cancelledCount, 1);
-assert.strictEqual(result.bookings.refundedCount, 1);
+assert.strictEqual(result.bookings.refundedCount, 0, 'refund event count remains disabled until a secure refund writer exists');
 assert.strictEqual(result.finance.grossAmount, 180, 'finance summary uses records created on the anchor day');
 assert.strictEqual(result.finance.fareAmount, 220);
 assert.strictEqual(result.finance.serviceFeeAmount, 20);
@@ -144,7 +144,7 @@ assert.strictEqual(result.finance.netAmount, 120);
 const todayPoint = result.bookings.points.find((point) => point.key === '2026-07-28');
 assert.strictEqual(todayPoint.bookings, 3, 'booking today/travel future counts by ts date');
 assert.strictEqual(todayPoint.cancellations, 1);
-assert.strictEqual(todayPoint.refunds, 1);
+assert.strictEqual(todayPoint.refunds, 0);
 const yesterdayPoint = result.bookings.points.find((point) => point.key === '2026-07-27');
 assert.strictEqual(yesterdayPoint.bookings, 1, 'booking yesterday/travel today stays yesterday');
 
@@ -162,11 +162,17 @@ assert.strictEqual(result.website.status, 'ready');
 assert.strictEqual(result.bookings.createdDateSource, 'ts');
 assert.strictEqual(result.bookings.travelDateSource, 'date/serviceDate');
 assert.strictEqual(result.bookings.cancellationContractStatus, 'ready');
-assert.strictEqual(result.bookings.refundContractStatus, 'ready');
+assert.strictEqual(result.bookings.cancellationDateSource, 'cancelledAt');
+assert.strictEqual(result.bookings.refundContractStatus, 'unsupported_missing_refund_timestamp');
 assert.strictEqual(result.diagnostic.tsQueryCount, Object.keys(records).length);
 assert.strictEqual(result.diagnostic.acceptedCount, 4);
 assert.strictEqual(result.diagnostic.rejectedCount, 2);
 assert.strictEqual(result.diagnostic.invalidRecordSummary.missing_ts, 1);
+assert.strictEqual(result.diagnostic.cancellationContractStatus, 'ready');
+assert.strictEqual(result.diagnostic.cancellationTimestampField, 'cancelledAt');
+assert.strictEqual(result.diagnostic.queriedCancellationEventCount, Object.keys(records).length);
+assert.strictEqual(result.diagnostic.acceptedCancellationEventCount, 1);
+assert.strictEqual(result.diagnostic.invalidCancellationTimestampCount, 0);
 assert.strictEqual(result.diagnostic.latestBookingShape.hasTs, true);
 assert.strictEqual(result.diagnostic.latestBookingShape.hasSource, true);
 assert.strictEqual(result.diagnostic.latestBookingShape.hasSourceMode, true);
@@ -176,9 +182,45 @@ assert.strictEqual(result.diagnostic.latestBookingShape.hasStatus, true);
 
 const unsupported = summary.aggregateDashboard({
   BK_CANCEL_NO_TS: Object.assign({}, records.BK_CANCEL, { cancelledAt: undefined })
-}, { range: 'daily', anchor, nowMs: day28, travelRecords: {}, cancelledRecords: { BK_CANCEL_NO_TS: Object.assign({}, records.BK_CANCEL, { cancelledAt: undefined }) }, refundedRecords: {}, generatedAt: 2 });
+}, { range: 'daily', anchor, nowMs: day28, travelRecords: {}, cancelledRecords: {}, refundedRecords: {}, generatedAt: 2 });
 assert.strictEqual(unsupported.bookings.cancelledCount, 0);
-assert.strictEqual(unsupported.bookings.cancellationContractStatus, 'unsupported_missing_cancelledAt');
+assert.strictEqual(unsupported.bookings.cancellationContractStatus, 'ready');
+assert.strictEqual(unsupported.bookings.cancellationDateSource, 'cancelledAt');
+assert.strictEqual(unsupported.diagnostic.invalidCancellationTimestampCount, 1);
+
+const zeroCancellation = summary.aggregateDashboard({
+  BK_NO_CANCEL: Object.assign({}, records.BK_TODAY_FUTURE)
+}, { range: 'daily', anchor, nowMs: day28, travelRecords: {}, cancelledRecords: {}, refundedRecords: {}, generatedAt: 3 });
+assert.strictEqual(zeroCancellation.bookings.cancellationContractStatus, 'ready');
+assert.strictEqual(zeroCancellation.bookings.cancellationDateSource, 'cancelledAt');
+assert.strictEqual(zeroCancellation.bookings.cancelledCount, 0);
+assert.strictEqual(zeroCancellation.bookings.points.find((point) => point.key === '2026-07-28').cancellations, 0);
+assert.strictEqual(zeroCancellation.diagnostic.queriedCancellationEventCount, 0);
+assert.strictEqual(zeroCancellation.diagnostic.acceptedCancellationEventCount, 0);
+
+const yesterdayCancellation = summary.aggregateDashboard({
+  BK_CANCEL_YESTERDAY: Object.assign({}, records.BK_CANCEL, { cancelledAt: day27 })
+}, { range: 'daily', anchor, nowMs: day28, travelRecords: {}, cancelledRecords: { BK_CANCEL_YESTERDAY: Object.assign({}, records.BK_CANCEL, { cancelledAt: day27 }) }, refundedRecords: {}, generatedAt: 4 });
+assert.strictEqual(yesterdayCancellation.bookings.cancelledCount, 0, 'cancelledAt yesterday must not count as cancellation today');
+assert.strictEqual(yesterdayCancellation.bookings.points.find((point) => point.key === '2026-07-27').cancellations, 1);
+
+const midnightCancellation = summary.aggregateDashboard({
+  BK_CANCEL_BEFORE_MIDNIGHT: Object.assign({}, records.BK_CANCEL, { cancelledAt: Date.parse('2026-07-27T16:59:59.999Z') }),
+  BK_CANCEL_AFTER_MIDNIGHT: Object.assign({}, records.BK_CANCEL, { code: 'BK_CANCEL_AFTER_MIDNIGHT', cancelledAt: Date.parse('2026-07-27T17:00:00.000Z') })
+}, {
+  range: 'daily',
+  anchor,
+  nowMs: day28,
+  travelRecords: {},
+  cancelledRecords: {
+    BK_CANCEL_BEFORE_MIDNIGHT: Object.assign({}, records.BK_CANCEL, { cancelledAt: Date.parse('2026-07-27T16:59:59.999Z') }),
+    BK_CANCEL_AFTER_MIDNIGHT: Object.assign({}, records.BK_CANCEL, { code: 'BK_CANCEL_AFTER_MIDNIGHT', cancelledAt: Date.parse('2026-07-27T17:00:00.000Z') })
+  },
+  refundedRecords: {},
+  generatedAt: 5
+});
+assert.strictEqual(midnightCancellation.bookings.cancelledCount, 1, 'Bangkok midnight boundary must count only events on the anchor day');
+assert.strictEqual(midnightCancellation.bookings.points.find((point) => point.key === '2026-07-28').cancellations, 1);
 
 const noWebsiteSource = summary.aggregateDashboard(records, {
   range: 'daily',

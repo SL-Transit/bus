@@ -6,6 +6,7 @@ const ALLOWED_RANGES = new Set(Object.keys(RANGE_SIZES));
 const ALLOWED_ORIGINS = new Set(["https://sl-transit.com", "https://www.sl-transit.com"]);
 const ALLOWED_BOOKING_SOURCES = new Set(["booking1.html"]);
 const ALLOWED_SOURCE_MODES = new Set(["erp_data_center"]);
+const CANCELLATION_TIMESTAMP_FIELD = "cancelledAt";
 const EXCLUDED_STATUSES = new Set(["draft", "failed", "invalid", "write_failed"]);
 const COUNTED_STATUSES = new Set([
   "awaiting_payment",
@@ -477,7 +478,12 @@ function aggregateDashboard(records, options) {
     acceptedCount: 0,
     rejectedCount: 0,
     invalidRecordSummary: invalidRecords,
-    latestBookingShape: null
+    latestBookingShape: null,
+    cancellationContractStatus: "ready",
+    cancellationTimestampField: CANCELLATION_TIMESTAMP_FIELD,
+    queriedCancellationEventCount: Object.keys(opts.cancelledRecords || {}).length,
+    acceptedCancellationEventCount: 0,
+    invalidCancellationTimestampCount: 0
   };
 
   let latestTs = -1;
@@ -506,6 +512,9 @@ function aggregateDashboard(records, options) {
     const pax = Number(record.pax || record.seats || 0) || 0;
     const amounts = bookingAmounts(record);
     const createdOnAnchorDay = bucketForMs("daily", created.ms) === anchorDayKey;
+    if (isCancelled(record) && !eventTimestamp(record, [CANCELLATION_TIMESTAMP_FIELD])) {
+      diagnostic.invalidCancellationTimestampCount += 1;
+    }
     if (createdOnAnchorDay) {
       totals.createdCount += 1;
       addFinance(finance, amounts);
@@ -561,33 +570,29 @@ function aggregateDashboard(records, options) {
     if (serviceDate === anchorDayKey) totals.travelPassengerCount += Number(record.pax || record.seats || 0) || 0;
   });
 
-  let cancellationTimestampSupported = false;
   Object.keys(opts.cancelledRecords || {}).forEach((id) => {
     const record = opts.cancelledRecords[id] || {};
     const valid = isRealBooking(id, record);
-    const cancelled = eventTimestamp(record, ["cancelledAt"]);
-    if (!valid.ok || !cancelled || !isCancelled(record) || !isInRange(range, opts.anchor, opts.nowMs, cancelled.ms)) return;
-    cancellationTimestampSupported = true;
+    const cancelled = eventTimestamp(record, [CANCELLATION_TIMESTAMP_FIELD]);
+    if (!valid.ok || !cancelled) {
+      if (isCancelled(record)) diagnostic.invalidCancellationTimestampCount += 1;
+      return;
+    }
+    if (!isCancelled(record) || !isInRange(range, opts.anchor, opts.nowMs, cancelled.ms)) return;
     const key = bucketForMs(range, cancelled.ms);
     if (byKey[key]) {
       if (bucketForMs("daily", cancelled.ms) === anchorDayKey) totals.cancelledCount += 1;
       byKey[key].booking.cancellations += 1;
+      diagnostic.acceptedCancellationEventCount += 1;
     }
   });
 
-  let refundTimestampSupported = false;
   Object.keys(opts.refundedRecords || {}).forEach((id) => {
     const record = opts.refundedRecords[id] || {};
     const valid = isRealBooking(id, record);
     const refunded = eventTimestamp(record, ["refundedAt", "refundApprovedAt"]);
     if (!valid.ok || !refunded || !isRefunded(record) || !isInRange(range, opts.anchor, opts.nowMs, refunded.ms)) return;
-    refundTimestampSupported = true;
-    const key = bucketForMs(range, refunded.ms);
-    if (byKey[key]) {
-      if (bucketForMs("daily", refunded.ms) === anchorDayKey) totals.refundedCount += 1;
-      byKey[key].booking.refunds += 1;
-      if (opts.includePrivateRefunds) recentRefunds.push(refundRow(id, record, refunded));
-    }
+    if (opts.includePrivateRefunds) recentRefunds.push(refundRow(id, record, refunded));
   });
 
   recentRefunds.sort((a, b) => b.refundedAt - a.refundedAt);
@@ -622,10 +627,10 @@ function aggregateDashboard(records, options) {
       points: bookingPoints,
       createdDateSource: "ts",
       travelDateSource: "date/serviceDate",
-      cancellationDateSource: cancellationTimestampSupported ? "cancelledAt" : null,
-      refundDateSource: refundTimestampSupported ? "refundedAt/refundApprovedAt" : null,
-      cancellationContractStatus: cancellationTimestampSupported ? "ready" : "unsupported_missing_cancelledAt",
-      refundContractStatus: refundTimestampSupported ? "ready" : "unsupported_missing_refund_timestamp"
+      cancellationDateSource: CANCELLATION_TIMESTAMP_FIELD,
+      refundDateSource: null,
+      cancellationContractStatus: "ready",
+      refundContractStatus: "unsupported_missing_refund_timestamp"
     }),
     refunds: {
       recent: recentRefunds.slice(0, 20),
