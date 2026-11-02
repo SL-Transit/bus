@@ -106,7 +106,7 @@ test("recognizes allowlisted buttons and safely handles unknown input", () => {
   const keys = ["menu", "book", "mine", "staff", "cancel"];
   keys.forEach((key, i) => assert.equal(boundary.classifyCommand({ type: "postback", postback: { data: "sl:v1:" + key } }), actions[i]));
   assert.equal(boundary.classifyCommand({ type: "postback", postback: { data: "sl:v1:book&price=1" } }), "help");
-  assert.equal(boundary.classifyCommand({ type: "message", message: { type: "text", text: "ข้อมูลส่วนตัวที่ไม่ควรสะท้อนกลับ" } }), "help");
+  assert.equal(boundary.classifyCommand({ type: "message", message: { type: "text", text: "ข้อมูลส่วนตัวที่ไม่ควรสะท้อนกลับ" } }), "input");
 });
 test("follow opens menu; image and unfollow need separate future handlers", () => {
   assert.equal(boundary.classifyCommand({ type: "follow" }), "menu");
@@ -119,4 +119,33 @@ test("public HTTP response contains no user ID, token, secret or text", () => {
   for (const sensitive of [USER, SECRET, "synthetic-reply-token", "จองตั๋ว"]) {
     assert.equal(JSON.stringify(out.publicBody).includes(sensitive), false);
   }
+});
+
+test("parses versioned opaque choices without accepting price/user fields", () => {
+  assert.deepEqual(boundary.parseCommand({ type: "postback", postback: { data: "sl:v1:choose:12:fixture_token_01" } }),
+    { action: "choose", revision: 12, choiceToken: "fixture_token_01" });
+  for (const data of ["sl:v1:choose:0:fixture_token_01", "sl:v1:choose:12:bad/id", "sl:v1:choose:12:fixture_token_01&price=1"]) {
+    assert.equal(boundary.parseCommand({ type: "postback", postback: { data } }).action, "help");
+  }
+});
+test("confirmation and terms acceptance carry revision but no client terms version", () => {
+  assert.deepEqual(boundary.parseCommand({ type: "postback", postback: { data: "sl:v1:confirm:4" } }), { action: "confirm", revision: 4 });
+  assert.deepEqual(boundary.parseCommand({ type: "postback", postback: { data: "sl:v1:accept:4" } }), { action: "accept_terms", revision: 4 });
+  assert.equal(boundary.parseCommand({ type: "postback", postback: { data: "sl:v1:accept:4:fake_terms" } }).action, "help");
+});
+test("page selection is revision bound and limited to bounded option pages", () => {
+  assert.deepEqual(boundary.parseCommand({ type: "postback", postback: { data: "sl:v1:page:2:12" } }), { action: "page", revision: 2, page: 12 });
+  for (const page of ["13", "-1", "1.5"]) assert.equal(boundary.parseCommand({ type: "postback", postback: { data: "sl:v1:page:2:" + page } }).action, "help");
+});
+test("private name/phone input is bounded and never appears in HTTP response", () => {
+  const text = "ชื่อจำลอง 0890000000";
+  const out = preview([event({ message: { type: "text", text } })]);
+  assert.equal(out.commands[0].action, "input"); assert.equal(out.commands[0].inputText, text);
+  assert.equal(JSON.stringify(out.publicBody).includes(text), false);
+  assert.equal(boundary.parseCommand({ type: "message", message: { type: "text", text: "x".repeat(501) } }).action, "help");
+});
+test("signed selection delivery retains the server-parsed choice and revision", () => {
+  const out = preview([event({ type: "postback", message: undefined, postback: { data: "sl:v1:choose:3:fixture_token_01" } })]);
+  assert.equal(out.commands[0].revision, 3); assert.equal(out.commands[0].choiceToken, "fixture_token_01");
+  assert.equal(out.commands[0].action, "choose");
 });
