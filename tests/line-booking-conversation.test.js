@@ -161,3 +161,40 @@ test("client terms version cannot substitute for presented policy", () => {
   const presented = chat.applyTerms(s, { revision: s.revision, version: "fixture_terms", text: "เงื่อนไขจำลอง" }, NOW).session;
   assert.equal(send(presented, { action: "accept_terms", termsVersion: "attacker_terms" }).session.consent.termsVersion, "fixture_terms");
 });
+
+test("LINE quick replies are bounded and use revision-bound opaque choices", () => {
+  const boundary = require("../functions/line-passenger-webhook.js");
+  const s = chat.applyOptions(start(), { step: "origin", revision: 1, publicationVersion: "v1", timezone: "Asia/Bangkok",
+    options: Array.from({ length: 100 }, (_, i) => ({ token: "fixture_token_" + i, id: "private_stop_" + i, label: "จุดทดสอบที่มีชื่อยาวมากเพื่อจำกัดความยาวปุ่ม " + i })) }, NOW).session;
+  const page = send(s, { action: "page", page: 1 }); const messages = chat.toLineMessages(page);
+  assert.equal(messages.length, 1); assert.ok(messages[0].text.includes("ยังไม่ใช่การจองจริง"));
+  assert.ok(messages[0].quickReply.items.length <= 13);
+  messages[0].quickReply.items.forEach(item => {
+    assert.ok(Array.from(item.action.label).length <= 20);
+    const parsed = boundary.parseCommand({ type: "postback", postback: { data: item.action.data } });
+    assert.equal(parsed.revision, s.revision); assert.notEqual(parsed.action, "help");
+  });
+  assert.equal(JSON.stringify(messages).includes("private_stop_"), false);
+  assert.equal(send(s, { action: "page", page: 13 }).effects.length, 0);
+});
+test("review shows trusted route, date, quantity, private details and server quote", () => {
+  const result = chat.applyQuote(quoting(), quote(quoting()), NOW);
+  const text = chat.toLineMessages(result)[0].text;
+  for (const value of ["2026-11-03", "จำนวน: 2 คน", "ผู้โดยสารจำลอง", "0890000000", "123.45", "ต้นทาง:", "ปลายทาง:"]) {
+    assert.ok(text.includes(value), value);
+  }
+  assert.ok(text.includes("\n"));
+  const confirm = chat.toLineMessages(result)[0].quickReply.items.find(x => x.action.label === "ยืนยันการจอง");
+  assert.equal(confirm.action.data, "sl:v1:confirm:" + result.session.revision);
+});
+test("accept button appears only after trusted policy is presented", () => {
+  const s = atConsent(); const labels = r => chat.toLineMessages(r)[0].quickReply.items.map(x => x.action.label);
+  assert.equal(labels({ session: s, text: "รอเงื่อนไข" }).includes("ยอมรับเงื่อนไข"), false);
+  const policy = chat.applyTerms(s, { revision: s.revision, version: "fixture_terms", text: "เงื่อนไขจำลอง" }, NOW);
+  assert.equal(labels(policy).includes("ยอมรับเงื่อนไข"), true);
+});
+test("in-flight and completed bookings never display another confirm or cancellation button", () => {
+  const submitted = send(review(), { action: "confirm" });
+  const labels = chat.toLineMessages(submitted)[0].quickReply.items.map(x => x.action.label);
+  assert.equal(labels.includes("ยืนยันการจอง"), false); assert.equal(labels.includes("ยกเลิกขั้นตอน"), false);
+});
