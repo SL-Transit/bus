@@ -320,7 +320,7 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
 
 ## LINE Chat Booking Foundation — 2026-11-02
 
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (current LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md (append-only entry)
@@ -330,3 +330,11 @@ DEPENDENCIES: Existing server booking/capacity and published journey contracts i
 PRODUCTION_WRITES: none; no deploy, secrets, LINE sends, bookings, Rules or menu changes.
 COST_RISK: No production traffic or added dependencies; CI only.
 NEXT_ACTION: Review foundation; integrate existing trusted booking boundary and emulator proof before separate deployment approval.
+
+
+### Foundation review report — PR #187
+RESULTS: Pure passenger webhook validation and command preview added. Disabled by default; no production export or sender. Full booking flow remains unfinished.
+TESTS: 20/20 synthetic assertion cases passed in memory from code read back from GitHub; GitHub security/performance run 41475464532 started for implementation commit 2f62cd3. No Emulator/end-to-end proof.
+IMPACT: Four changed files only (boundary, tests, migration plan, board). Existing board nonblank content preserved; web editor normalized line endings. No dependencies or production cost.
+PRODUCTION_WRITES: none. No main merge, Firebase deployment, secret change, LINE message, booking, Rules or Rich Menu mutation.
+NEXT_ACTION: Review draft #187, reconcile deployed source with main, implement durable inbox/session and reuse the existing booking/capacity boundary with Emulator tests. Payment runtime must be confirmed before handling slips. Deployment and passenger cutover remain separate.
