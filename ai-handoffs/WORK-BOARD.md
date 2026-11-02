@@ -341,7 +341,7 @@ NEXT_ACTION: Review draft #187, reconcile deployed source with main, implement d
 
 
 ### LINE conversation step — 2026-11-02
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (current LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/line-booking-conversation.js; tests/line-booking-conversation.test.js; functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md (append-only)
@@ -350,3 +350,13 @@ TESTS: Synthetic full journey, stale/cross-user input, quote/version/expiry gate
 PRODUCTION_WRITES: none; no export/deploy, live data/session writes, LINE sends, payment handling or main merge.
 COST_RISK: No new dependencies or production traffic.
 NEXT_ACTION: Implement and test pure state flow; durable integration remains a separate gate.
+
+
+### LINE conversation review report — PR #187
+STATUS: REVIEW (pure flow only; no live integration)
+RESULTS: origin/destination/date/trip/pax/name/phone/approved-terms/quote/review/confirmation/receipt transitions; revision-bound opaque choices; private owner check; quote version/expiry gates; paginated LINE Quick Reply rendering with test banner. Existing server remains authoritative; no duplicate journey/price/capacity engine.
+TESTS: 50/50 assertions passed in memory from GitHub source (25 webhook + 25 conversation/renderer); real Node/GitHub regression validation pending for final commit. No local filesystem used. No new Emulator/end-to-end or Production proof.
+IMPACT: functions/line-booking-conversation.js and tests/line-booking-conversation.test.js added; boundary/tests and migration docs updated. No index.js, runtime settings, Rules, credentials, public menu or dependency changes.
+PRODUCTION_WRITES: none; no main merge or deployment.
+COST_RISK: CI only, zero new production traffic.
+NEXT_ACTION: durable inbox/session/CAS/outbox and trusted published/quote/booking adapters, back/restart/handoff orchestration, source/deployment reconciliation and payment-runtime validation, then Emulator concurrency and full-flow proof. No live booking or customer cutover without separate review/approval.
