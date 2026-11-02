@@ -20,7 +20,7 @@ function atConsent() {
   s = send(s, { action: "input", inputText: "0890000000" }).session;
   return s;
 }
-function quoting() { return send(atConsent(), { action: "accept_terms", termsVersion: "fixture_terms_v1" }).session; }
+function quoting() { const s = atConsent(); const presented = chat.applyTerms(s, { revision: s.revision, version: "fixture_terms_v1", text: "เงื่อนไขจำลองที่หลังบ้านแสดง" }, NOW).session; return send(presented, { action: "accept_terms" }).session; }
 function quote(s, patch = {}) {
   return { revision: s.revision, id: "fixture_quote_1", publicationVersion: s.publicationVersion,
     currency: "THB", totalMinor: 12345, expiresAt: NOW + 60000, seats: 2, available: true, ...patch };
@@ -152,4 +152,12 @@ test("transitions leave the stored input session unchanged", () => {
   const s = options(start()); const before = JSON.stringify(s);
   send(s, { action: "choose", choiceToken: "fixture_token_01" });
   assert.equal(JSON.stringify(s), before);
+});
+
+test("client terms version cannot substitute for presented policy", () => {
+  const s = atConsent(); const result = send(s, { action: "accept_terms", termsVersion: "attacker_terms" });
+  assert.equal(result.session.state, "consent"); assert.equal(result.effects.length, 0);
+  assert.throws(() => chat.applyTerms(s, { revision: 999, version: "v1", text: "terms" }, NOW), /terms_not_ready/);
+  const presented = chat.applyTerms(s, { revision: s.revision, version: "fixture_terms", text: "เงื่อนไขจำลอง" }, NOW).session;
+  assert.equal(send(presented, { action: "accept_terms", termsVersion: "attacker_terms" }).session.consent.termsVersion, "fixture_terms");
 });
