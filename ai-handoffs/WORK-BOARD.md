@@ -338,3 +338,15 @@ TESTS: 20/20 synthetic assertion cases passed in memory from code read back from
 IMPACT: Four changed files only (boundary, tests, migration plan, board). Existing board nonblank content preserved; web editor normalized line endings. No dependencies or production cost.
 PRODUCTION_WRITES: none. No main merge, Firebase deployment, secret change, LINE message, booking, Rules or Rich Menu mutation.
 NEXT_ACTION: Review draft #187, reconcile deployed source with main, implement durable inbox/session and reuse the existing booking/capacity boundary with Emulator tests. Payment runtime must be confirmed before handling slips. Deployment and passenger cutover remain separate.
+
+
+### LINE conversation step — 2026-11-02
+STATUS: IN_PROGRESS
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-booking-conversation.js; tests/line-booking-conversation.test.js; functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md (append-only)
+SCOPE: Pure conversation state transitions and private choice/revision handling, with injected trusted published options/quotes/receipt; no duplicate journey/price/capacity engine. Extend verified command parsing for conversation input.
+TESTS: Synthetic full journey, stale/cross-user input, quote/version/expiry gates, duplicate confirmation, privacy and failed booking.
+PRODUCTION_WRITES: none; no export/deploy, live data/session writes, LINE sends, payment handling or main merge.
+COST_RISK: No new dependencies or production traffic.
+NEXT_ACTION: Implement and test pure state flow; durable integration remains a separate gate.
