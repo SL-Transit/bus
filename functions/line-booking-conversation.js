@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const STEPS = ["origin", "destination", "date", "trip", "pax"];
 const ID = /^[A-Za-z0-9_-]{8,128}$/;
 const TTL = 15 * 60 * 1000;
-function clone(s) { return { ...s, selection: { ...s.selection }, choices: (s.choices || []).map(x => ({ ...x })) }; }
+function clone(s) { return { ...s, selection: { ...s.selection }, selectionLabels: { ...s.selectionLabels }, choices: (s.choices || []).map(x => ({ ...x })) }; }
 function out(session, text, effects = []) { return { session, text, effects }; }
 function bump(s, state, now) {
   const next = clone(s); next.state = state; next.revision += 1;
@@ -68,16 +68,20 @@ function advanceConversation(session, command, { actorKey, now }) {
     return out(session, session.state === "complete" ? "รายการนี้ดำเนินการแล้ว" : "กำลังตรวจสอบการจอง กรุณารอสักครู่");
   }
   if (command.action === "cancel_flow") {
-    const s = bump(session, "cancelled", now); s.selection = {}; delete s.name; delete s.phone;
+    const s = bump(session, "cancelled", now); s.selection = {}; s.selectionLabels = {}; delete s.name; delete s.phone;
     delete s.quote; delete s.consent; return out(s, "ยกเลิกขั้นตอนแชทแล้ว ตั๋วเดิมไม่ได้ถูกยกเลิก");
   }
   if (command.action === "contact_staff") return out(session, "ส่งต่อเจ้าหน้าที่", [{ type: "request_staff_handoff" }]);
+  if (command.action === "page" && STEPS.includes(session.state)) {
+    try { publicChoices(session, command.page); } catch { return out(session, "หน้าตัวเลือกไม่ถูกต้อง"); }
+    return { ...out(session, "กรุณาเลือกจากปุ่ม"), page: command.page };
+  }
   if (command.action === "choose" && STEPS.includes(session.state)) {
     const selected = session.choices.find(x => x.token === command.choiceToken);
     if (!selected) return out(session, "ตัวเลือกไม่ถูกต้อง กรุณาใช้ปุ่มล่าสุด");
     const index = STEPS.indexOf(session.state);
     const s = bump(session, index === STEPS.length - 1 ? "name" : STEPS[index + 1], now);
-    s.selection[session.state] = selected.id;
+    s.selection[session.state] = selected.id; s.selectionLabels[session.state] = selected.label;
     return out(s, s.state === "name" ? "กรุณาพิมพ์ชื่อผู้โดยสาร" : "กรุณาเลือกขั้นตอนถัดไป",
       s.state === "name" ? [] : [loadEffect(s)]);
   }
@@ -133,7 +137,11 @@ function applyQuote(session, quote, now) {
   const s = bump(session, "review", now);
   s.quote = { id: quote.id, totalMinor: quote.totalMinor, currency: quote.currency, expiresAt: quote.expiresAt };
   // Fare/fees come only from the trusted server quote, never from postback data.
-  return out(s, "ยอดรวม " + (quote.totalMinor / 100).toFixed(2) + " บาท กรุณาตรวจสอบก่อนยืนยัน");
+  const labels = s.selectionLabels || {};
+  return out(s, ["ตรวจสอบรายการก่อนยืนยัน", "ต้นทาง: " + (labels.origin || s.selection.origin),
+    "ปลายทาง: " + (labels.destination || s.selection.destination), "วันเดินทาง: " + s.selection.date,
+    "เที่ยว: " + (labels.trip || s.selection.trip), "จำนวน: " + s.selection.pax + " คน",
+    "ชื่อ: " + s.name, "โทร: " + s.phone, "ยอดรวม " + (quote.totalMinor / 100).toFixed(2) + " บาท"].join("\n"));
 }
 function applyReceipt(session, receipt, now) {
   requireSession(session);
@@ -147,4 +155,25 @@ function applyReceipt(session, receipt, now) {
   return out(s, receipt.paymentStatus === "payment_verified" ? "ยืนยันชำระเงินแล้ว" :
     receipt.paymentStatus === "pay_on_site" ? "บันทึกการจองแล้ว ชำระเงินตามเงื่อนไขหน้างาน" : "บันทึกการจองแล้ว รอตรวจสอบการชำระเงิน");
 }
-module.exports = { startConversation, applyOptions, publicChoices, advanceConversation, applyTerms, applyQuote, applyReceipt };
+function toLineMessages(result, { testMode = true } = {}) {
+  const s = result.session; requireSession(s);
+  const items = [];
+  const button = (label, data) => ({ type: "action", action: { type: "postback",
+    label: Array.from(label).slice(0, 20).join(""), data } });
+  if (STEPS.includes(s.state) && s.choices.length) {
+    const page = publicChoices(s, result.page || 0);
+    page.items.forEach(x => items.push(button(x.label, x.data)));
+    if (page.page > 0) items.push(button("หน้าก่อน", "sl:v1:page:" + s.revision + ":" + (page.page - 1)));
+    if (page.page + 1 < page.pages) items.push(button("หน้าถัดไป", "sl:v1:page:" + s.revision + ":" + (page.page + 1)));
+  }
+  if (s.state === "consent" && s.termsVersion) items.push(button("ยอมรับเงื่อนไข", "sl:v1:accept:" + s.revision));
+  if (s.state === "review") items.push(button("ยืนยันการจอง", "sl:v1:confirm:" + s.revision));
+  if (!["submitting", "complete", "cancelled"].includes(s.state)) items.push(button("ยกเลิกขั้นตอน", "sl:v1:cancel:" + s.revision));
+  items.push(button("ติดต่อเจ้าหน้าที่", "sl:v1:staff:" + s.revision));
+  const prefix = testMode ? "[ตัวอย่างทดสอบ ยังไม่ใช่การจองจริง]\n" : "";
+  const message = { type: "text", text: prefix + String(result.text || "กรุณาเลือกขั้นตอน").slice(0, 4500) };
+  if (items.length) message.quickReply = { items };
+  return [message];
+}
+
+module.exports = { startConversation, applyOptions, publicChoices, advanceConversation, applyTerms, applyQuote, applyReceipt, toLineMessages };
