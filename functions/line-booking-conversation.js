@@ -95,8 +95,8 @@ function advanceConversation(session, command, { actorKey, now }) {
   }
   if (command.action === "accept_terms" && session.state === "consent") {
     // A real wrapper must first display the operator's approved versioned terms.
-    if (typeof command.termsVersion !== "string" || !command.termsVersion || command.termsVersion.length > 128) return out(session, "ยังไม่มีเงื่อนไขฉบับที่ยืนยันได้");
-    const s = bump(session, "quoting", now); s.consent = { termsVersion: command.termsVersion, acceptedAt: now };
+    if (typeof session.termsVersion !== "string" || !session.termsVersion) return out(session, "ยังไม่มีเงื่อนไขฉบับที่ยืนยันได้");
+    const s = bump(session, "quoting", now); s.consent = { termsVersion: session.termsVersion, acceptedAt: now };
     return out(s, "กำลังตรวจสอบราคาและที่นั่ง", [{ type: "quote_existing_booking", revision: s.revision,
       selection: { ...s.selection }, publicationVersion: s.publicationVersion }]);
   }
@@ -112,6 +112,15 @@ function advanceConversation(session, command, { actorKey, now }) {
       quoteId: s.quote.id, publicationVersion: s.publicationVersion }]);
   }
   return out(session, "กรุณาตอบตามขั้นตอนหรือใช้ปุ่มล่าสุด");
+}
+function applyTerms(session, policy, now) {
+  requireSession(session);
+  if (session.state !== "consent" || now >= session.expiresAt || !policy ||
+      policy.revision !== session.revision || typeof policy.version !== "string" ||
+      !policy.version || policy.version.length > 128 || typeof policy.text !== "string" ||
+      !policy.text || policy.text.length > 3000) fail("terms_not_ready");
+  const s = clone(session); s.termsVersion = policy.version;
+  return out(s, policy.text);
 }
 function applyQuote(session, quote, now) {
   requireSession(session);
@@ -138,4 +147,4 @@ function applyReceipt(session, receipt, now) {
   return out(s, receipt.paymentStatus === "payment_verified" ? "ยืนยันชำระเงินแล้ว" :
     receipt.paymentStatus === "pay_on_site" ? "บันทึกการจองแล้ว ชำระเงินตามเงื่อนไขหน้างาน" : "บันทึกการจองแล้ว รอตรวจสอบการชำระเงิน");
 }
-module.exports = { startConversation, applyOptions, publicChoices, advanceConversation, applyQuote, applyReceipt };
+module.exports = { startConversation, applyOptions, publicChoices, advanceConversation, applyTerms, applyQuote, applyReceipt };
