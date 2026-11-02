@@ -27,15 +27,29 @@ function verifySignature(rawBody, signature, channelSecret) {
   return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
-function classifyCommand(event) {
-  if (event.type === "follow") return "menu";
-  if (event.type === "postback") return POSTBACKS.get(event.postback?.data) || "help";
+function parseCommand(event) {
+  if (!event || typeof event !== "object") return null;
+  if (event.type === "follow") return { action: "menu" };
+  if (event.type === "postback") {
+    const data = typeof event.postback?.data === "string" ? event.postback.data : "";
+    const choice = /^sl:v1:choose:([1-9]\d{0,8}):([A-Za-z0-9_-]{8,128})$/.exec(data);
+    if (choice) return { action: "choose", revision: Number(choice[1]), choiceToken: choice[2] };
+    const step = /^sl:v1:(confirm|accept|cancel|staff):([1-9]\d{0,8})$/.exec(data);
+    if (step) return { action: { confirm: "confirm", accept: "accept_terms", cancel: "cancel_flow", staff: "contact_staff" }[step[1]], revision: Number(step[2]) };
+    const page = /^sl:v1:page:([1-9]\d{0,8}):(0|[1-9]|1[0-2])$/.exec(data);
+    if (page) return { action: "page", revision: Number(page[1]), page: Number(page[2]) };
+    return { action: POSTBACKS.get(data) || "help" };
+  }
   if (event.type === "message" && event.message?.type === "text") {
-    const text = String(event.message.text || "").trim();
-    return COMMANDS.get(text) || "help";
+    const text = typeof event.message.text === "string" ? event.message.text.trim() : "";
+    if (!text || text.length > 500) return { action: "help" };
+    const action = COMMANDS.get(text);
+    // Private command only. HTTP/logging output must never contain inputText.
+    return action ? { action } : { action: "input", inputText: text };
   }
   return null;
 }
+function classifyCommand(event) { return parseCommand(event)?.action || null; }
 
 function result(status, reason, commands = []) {
   // The HTTP wrapper must return ONLY publicBody; commands contain private IDs.
@@ -72,8 +86,8 @@ function prepareWebhook(request, config = {}) {
     if (event.source?.type !== "user" || !allowed.has(event.source?.userId)) continue;
     // Standby events belong to another active receiver; never reply to them.
     if (event.mode !== "active") continue;
-    const action = classifyCommand(event);
-    if (!action) continue;
+    const command = parseCommand(event);
+    if (!command) continue;
     if (typeof event.webhookEventId !== "string" || !EVENT_ID.test(event.webhookEventId) ||
         typeof event.replyToken !== "string" || !event.replyToken || event.replyToken.length > 256) {
       return result(400, "invalid_event_identity");
@@ -81,7 +95,7 @@ function prepareWebhook(request, config = {}) {
     if (seen.has(event.webhookEventId)) continue;
     seen.add(event.webhookEventId);
     commands.push({ eventId: event.webhookEventId, userId: event.source.userId,
-      replyToken: event.replyToken, action,
+      replyToken: event.replyToken, ...command,
       redelivery: event.deliveryContext?.isRedelivery === true });
   }
   // Only a preview. Before consumption, atomically claim each eventId in a
@@ -89,5 +103,5 @@ function prepareWebhook(request, config = {}) {
   return result(200, payload.events.length ? "preview_only" : "verified", commands);
 }
 
-module.exports = { prepareWebhook, verifySignature, classifyCommand,
+module.exports = { prepareWebhook, verifySignature, classifyCommand, parseCommand,
   PASSENGER_CHANNEL_ID, MAX_BODY_BYTES, MAX_EVENTS };
