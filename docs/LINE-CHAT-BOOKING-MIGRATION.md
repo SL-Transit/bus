@@ -1,0 +1,96 @@
+# ย้าย S.L.Transit จากเว็บมาจองในแชท LINE
+
+วันที่ตรวจ: 2 พฤศจิกายน 2569 (Asia/Bangkok)
+สถานะ: ฉบับร่างส่วนแรก ไม่ใช่ระบบรับจองพร้อมใช้
+
+## เป้าหมายที่ผู้ใช้ยืนยัน
+
+ผู้โดยสารจองผ่านข้อความและปุ่มในห้องแชท @420lzred จนครบ ไม่พาไปเว็บเพื่อทำรายการจอง และไม่สร้าง LIFF เป็นทางเลือกหลักในงานนี้ เว็บและหลังบ้านเดิมคงใช้งานระหว่างย้าย ส่วน staff S.L.Transit (@747uxelm) ใช้แจ้งคนขับและต้องคงไว้
+
+## หลักฐานระบบปัจจุบัน
+
+- โค้ดอ้างอิง: SL-Transit/bus main, commit 4fa94751da4ba75f8bba216c1e8171a8df322196
+- GitHub Pages run 33042101860 (สำเร็จ) เผยแพร่ main; CNAME = sl-transit.com
+- booking1.html ตั้ง Firebase project เป็น sl-transit-9464e
+- booking-bridge.js เรียก reserveBookingCapacity และ createBooking ใน asia-southeast1/sl-transit-9464e
+- ตรวจ Cloud Run processNotificationJob ใน sl-transit แล้วพบการแยก tokenKind/channelKind ของ passenger กับ staff และ secret คนละชื่อ โดยไม่ได้อ่านค่าลับหรือทดสอบส่งจริง
+- bus-booking-1d68c ยังมี sendLineOnBooking, sendLineOnPaymentVerified, verifySlip รุ่นเดิม การมีฟังก์ชันอยู่ไม่ใช่หลักฐานว่าเว็บปัจจุบันเรียกใช้ ห้ามปิดหรือลบ
+- OA ผู้โดยสารมี Messaging API เปิดแล้ว แต่ Webhook ปิด และ URL เดิมเป็น https://sl-transit.com/ ไม่ใช่หลักฐานว่ามีตัวรับแชท
+- Rich Menu เดิมยังเชื่อมหน้าเว็บ booking.html, passenger.html, check_ticket.html และไม่เปลี่ยนในงานนี้
+- ซอร์ส Functions ที่ติดตั้งจริงบางส่วนต่างจาก main ต้องทำ deployment diff ก่อน integration ไม่ใช้ main แทนหลักฐาน deployment
+- ค่า bookingProductionReady=false และ Rules bookings ที่เปิดอ่าน/เขียนซึ่งตรวจพบก่อนหน้าเป็นของ bus-booking ห้ามสรุปว่าเป็นสถานะของ sl-transit
+
+## สิ่งที่ฉบับร่างนี้ทำ
+
+functions/line-passenger-webhook.js เป็นฟังก์ชันบริสุทธิ์สำหรับตรวจคำขอและสร้าง command preview ไม่มี HTTP endpoint ที่ deploy ได้ ไม่มี Firebase/network/logging/LINE reply หรือ booking write และไม่เพิ่ม export ใน functions/index.js
+
+- ค่าเริ่มต้นปิด ต้องระบุ enabled=true, channelId ของผู้โดยสาร, secret, bot user ID และรายชื่อผู้ทดสอบ 1–20 คน
+- ตรวจ HMAC-SHA256 จาก rawBody เดิมก่อนแปลง JSON โดยเทียบแบบ timing-safe
+- ตรวจ destination และรับเฉพาะแชทส่วนตัวในรายชื่อทดสอบที่อยู่โหมด active
+- จำกัด body 256 KiB และ 20 events ต่อคำขอ; แยกคำสั่งจากปุ่ม/คำไทยที่กำหนดไว้
+- ตัด event ซ้ำเฉพาะภายในคำขอเดียว ยังไม่มีการกัน replay ข้ามคำขอ
+- ผล commands มี user ID และ reply token เป็นข้อมูลส่วนตัว ห้ามส่งออกเป็น HTTP body หรือ log; HTTP wrapper อนาคตส่งได้เฉพาะ publicBody
+- ยังไม่อ่านตารางรถ ยังไม่มี session/booking/payment adapter และยังไม่ตอบผู้ใช้จริง
+
+การทดสอบ: node --test tests/line-passenger-webhook.test.js
+ชุดทดสอบใช้ข้อมูลจำลอง 20 กรณี ไม่มีข้อมูลผู้โดยสารหรือ credential จริง ทดสอบชุดเดียวกันในหน่วยความจำแล้วผ่าน 20/20 โดยไม่ใช้ไฟล์ในเครื่อง แต่ยังไม่ใช่ Emulator หรือ end-to-end proof
+
+## ขั้นตอนแชทที่จะพัฒนาต่อ
+
+1. กด/พิมพ์ จองตั๋ว แล้วเลือกต้นทางจากข้อมูลที่เผยแพร่
+2. เลือกปลายทางที่มีเส้นทางให้บริการจริง
+3. เลือกวันเดินทางโดยยึด Asia/Bangkok
+4. ระบบแสดงเที่ยวที่จองได้ พร้อมราคา จุดขึ้นรถ การต่อรถ และที่นั่งจากหลังบ้าน
+5. เลือกจำนวนผู้โดยสาร และกรอกชื่อ/โทรศัพท์ในแชทส่วนตัว
+6. แสดงสรุปและขอความยินยอมที่จำเป็นก่อนยืนยัน
+7. ยืนยันผ่าน trusted booking boundary เดิม ซึ่งตรวจเวลา ราคา version และที่นั่งซ้ำบนเซิร์ฟเวอร์
+8. เลือกการชำระเงินตามนโยบายที่หลังบ้านอนุญาต โอนแล้วส่งรูปสลิปในแชทได้เมื่อ payment adapter ผ่านการทดสอบ
+9. สถานะชำระเงินสำเร็จต้องมาจากผลตรวจจริง ไม่ถือว่ารับรูปแล้วเท่ากับจ่ายสำเร็จ
+10. รับตั๋วและเรียกดูการจองของฉันจากบัญชี LINE ที่เป็นเจ้าของรายการเท่านั้น
+
+ทุกขั้นตอนมี ย้อนกลับ, ยกเลิกขั้นตอน และ ติดต่อเจ้าหน้าที่; ยกเลิกขั้นตอนแชทต้องไม่ยกเลิกตั๋วจริงโดยอัตโนมัติ
+
+## สัญญาการเชื่อมต่อและงานที่ยังต้องทำ
+
+### ตัวรับและสถานะแชท
+
+- เพิ่ม HTTP wrapper แยกของ passenger channel หลัง review เท่านั้น ห้ามใช้ URL ฟังก์ชันส่งแจ้งคนขับเป็น Webhook
+- verified event ต้องถูก claim แบบ atomic ใน private durable inbox โดยใช้ channel ID + webhookEventId ไม่ใช้ Map ใน memory เป็นตัวกันซ้ำ
+- durable session ต้องมี revision, state, expiry และ process แบบเรียงต่อผู้ใช้ เพื่อกันกดปุ่มซ้ำ/สลับลำดับ; ไม่เชื่อ postback ราคา user ID หรือ booking owner ที่ลูกค้าส่งมา
+- durable inbox/outbox ต้องกำหนด retry, lease, fencing, retention และพิสูจน์กรณีส่ง reply สำเร็จแต่บันทึกผลล้มเหลว; ยังไม่มีในฉบับนี้
+- รายชื่อผู้ทดสอบใช้ LINE user ID ฝั่ง server ไม่เก็บใน GitHub; ไม่เปิดโหมดรับทุกคนระหว่าง pilot
+- ไม่บันทึก raw webhook, reply token, ข้อความส่วนตัว หรือ secret ลง log; กำหนด retention และลบ draft session ตามนโยบาย
+
+### เส้นทาง ราคา และที่นั่ง
+
+- ใช้ published journey/read contract ที่มีอยู่พร้อม pin publicationVersion ไม่สร้าง Journey Engine/Schema หรือคัดตารางรถซ้ำ
+- แยก reusable trusted booking service จาก logic เดิมก่อนใช้กับ LINE ต้องมี trusted identity mapping ที่ตรวจได้ ไม่ปลอม Firebase bearer token และไม่เชื่อ LINE user ID จาก client
+- รักษาสัญญา ownerUid, booking code, canonical trip identity, fare snapshot, capacity และ notificationPreference ของระบบเดิม
+- จองพร้อมกันจากเว็บและ LINE ต้องใช้ counter/transaction เดียวกัน มี idempotency, expiry/release และชดเชยเมื่อกันที่นั่งแล้วบันทึกไม่สำเร็จ
+- main createBooking กับ capacity reservation เป็นคนละขั้น ต้องพิสูจน์ความสัมพันธ์และการคืนที่นั่งก่อนนำมาใช้จริง ไม่เรียกสร้าง booking โดยข้าม capacity gate
+- เงื่อนไขหมดเวลา ปิดเที่ยว วันให้บริการ และราคาที่เปลี่ยนต้อง fail closed หรือขอยืนยันใหม่ ไม่เดาราคา/เวลา
+
+### การชำระเงินและการแจ้งเตือน
+
+- ต้องตรวจ payment runtime ที่ใช้จริงใน sl-transit และเจ้าของการรับชำระก่อนเชื่อม เพราะ verifySlip ที่พบใน bus-booking อาจเขียนคนละฐานข้อมูล
+- ห้ามนำสลิปจาก LINE ส่งไปบริการอื่นหรือแก้สถานะการเงินจริงก่อนมีขอบเขตการอนุมัติและการทดสอบที่ชัดเจน
+- reuse notificationJobs/processNotificationJob เดิมสำหรับ staff และ passenger ไม่ส่ง staff alert ซ้ำจาก webhook
+- ต้องตรวจระบบทดสอบ/พักแจ้งเตือนและ routing คนขับที่ใช้งานจริง โดยไม่เปลี่ยนค่าระหว่างตรวจ
+- ตรวจสิทธิ์อ่านการจองจาก verified channel+user identity; รหัสตั๋วหรือเบอร์โทรอย่างเดียวไม่เพียงพอ
+
+## เกณฑ์ก่อนเปิดให้ทดสอบและเปิดจริง
+
+- deployment/source reconciliation, published source readiness, privacy/Rules review สำหรับ path ใหม่
+- Emulator: ปุ่มซ้ำ, replay, event สลับลำดับ, session หมดอายุ, จองข้ามบัญชี, ราคาเปลี่ยน, เที่ยวปิด, เวลาไทย, ที่นั่งสุดท้ายพร้อมกันจากเว็บ/LINE, reserve แล้ว create ล้มเหลว, cancel/release
+- Payment: สลิปผิดยอด/ผิดผู้รับ/ซ้ำ/ตรวจไม่ได้ และไม่มีการยืนยันเงินจากข้อความผู้ใช้
+- Staff: แจ้งเฉพาะคนขับที่ถูกต้องและไม่ซ้ำ; เว็บเดิมยังจอง/ตรวจตั๋ว/แจ้งเตือนได้
+- กำหนด maxInstances, concurrency, timeout, rate limit, retention และค่าใช้จ่ายตามผลทดสอบก่อน deploy; ไม่มี production load proof ในฉบับนี้
+- Owner review แยกก่อน merge/deploy, เชื่อม secret, เปิด Webhook, ส่งข้อความทดสอบจริง และเผยแพร่ Rich Menu ตามขอบเขตที่อนุมัติ
+- Rollback: ปิดเฉพาะตัวรับแชทใหม่และคืนเมนูเดิมตามแผนที่อนุมัติ ไม่ปิด staff bot/เว็บ ไม่ลบ booking/ธุรกรรม และต้องติดตาม booking ที่รับไปแล้วจนจบ
+
+## เอกสารอ้างอิง
+
+- https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/
+- https://developers.line.biz/en/docs/messaging-api/receiving-messages/
+- https://github.com/SL-Transit/bus/actions/runs/33042101860
+- ai-handoffs/SYSTEM-DIRECTION.md และ DECISION-LOG.md ใน main
