@@ -316,3 +316,17 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - FIREBASE_WRITES: none
   - STARTED_AT: 2026-08-27
   - LAST_UPDATE: 2026-08-27
+
+
+## LINE Chat Booking Foundation — 2026-11-02
+
+STATUS: IN_PROGRESS
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md (append-only entry)
+SCOPE: Passenger webhook validation boundary and offline tests; migration contract for full in-chat booking. No production endpoint export. No duplicate journey/schema/booking engine.
+TESTS: Synthetic signed requests; destination/user isolation; malformed requests; disabled configuration; bounded payload; deterministic command preview. Existing GitHub checks after draft PR.
+DEPENDENCIES: Existing server booking/capacity and published journey contracts in sl-transit-9464e; production source differs from current main and needs reconciliation before integration.
+PRODUCTION_WRITES: none; no deploy, secrets, LINE sends, bookings, Rules or menu changes.
+COST_RISK: No production traffic or added dependencies; CI only.
+NEXT_ACTION: Review foundation; integrate existing trusted booking boundary and emulator proof before separate deployment approval.
