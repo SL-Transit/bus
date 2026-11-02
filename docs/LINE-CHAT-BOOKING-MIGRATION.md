@@ -30,7 +30,7 @@ functions/line-passenger-webhook.js เป็นฟังก์ชันบร�
 - จำกัด body 256 KiB และ 20 events ต่อคำขอ; แยกคำสั่งจากปุ่ม/คำไทยที่กำหนดไว้
 - ตัด event ซ้ำเฉพาะภายในคำขอเดียว ยังไม่มีการกัน replay ข้ามคำขอ
 - ผล commands มี user ID และ reply token เป็นข้อมูลส่วนตัว ห้ามส่งออกเป็น HTTP body หรือ log; HTTP wrapper อนาคตส่งได้เฉพาะ publicBody
-- ยังไม่อ่านตารางรถ ยังไม่มี session/booking/payment adapter และยังไม่ตอบผู้ใช้จริง
+- ยังไม่อ่านตารางรถ ยังไม่มี durable session/published-data/booking/payment adapter และยังไม่ตอบผู้ใช้จริง
 
 การทดสอบ: node --test tests/line-passenger-webhook.test.js
 ชุดทดสอบใช้ข้อมูลจำลอง 20 กรณี ไม่มีข้อมูลผู้โดยสารหรือ credential จริง ทดสอบชุดเดียวกันในหน่วยความจำแล้วผ่าน 20/20 โดยไม่ใช้ไฟล์ในเครื่อง แต่ยังไม่ใช่ Emulator หรือ end-to-end proof
@@ -94,3 +94,23 @@ functions/line-passenger-webhook.js เป็นฟังก์ชันบร�
 - https://developers.line.biz/en/docs/messaging-api/receiving-messages/
 - https://github.com/SL-Transit/bus/actions/runs/33042101860
 - ai-handoffs/SYSTEM-DIRECTION.md และ DECISION-LOG.md ใน main
+
+
+## ความคืบหน้าขั้นตอนสนทนา — 2 พฤศจิกายน 2569
+
+เพิ่ม functions/line-booking-conversation.js และ tests/line-booking-conversation.test.js เป็น pure reducer กับตัวสร้างข้อความ Quick Reply สำหรับแชทส่วนตัว ไม่มี Firebase export, database access หรือ network
+
+- เลือกต้นทาง ปลายทาง วันเดินทาง เที่ยว และจำนวนคน ผ่านตัวเลือกที่ trusted adapter ส่งมา ไม่คำนวณเส้นทาง/ราคาหรือสร้างข้อมูลขนส่งซ้ำ
+- รับชื่อและโทรศัพท์ ตรวจรูปแบบ และยอมรับเฉพาะเงื่อนไขฉบับที่ trusted adapter แสดงผ่าน applyTerms เท่านั้น ไม่รับ termsVersion จากลูกค้า
+- ผูกการเลือกกับ private session owner, revision และ opaque token; แบ่งตัวเลือกครั้งละ 8 รายการ และจำกัดจำนวนปุ่ม/ความยาวปุ่ม
+- ตรวจ publicationVersion, วันเดินทางตาม Asia/Bangkok, quote expiry/currency/จำนวนคน และราคาจำนวนเต็มหน่วยสตางค์
+- แสดงสรุปเส้นทาง วัน เที่ยว จำนวนคน ชื่อ/โทร และยอดรวมจาก trusted quote ก่อนยืนยัน
+- ยืนยันแล้วได้ effect confirm_existing_booking เท่านั้น ต้องเชื่อมบริการเดิมที่กันที่นั่งและบันทึกอย่างมี idempotency ต่อ ไม่ถือว่า effect เท่ากับจองสำเร็จ
+- รับผลจองผ่าน applyReceipt เฉพาะจาก trusted adapter ที่ตรง requestId และเจ้าของ session; ภาพสลิปไม่ใช่หลักฐานชำระสำเร็จ
+- ข้อความที่สร้างมีป้ายตัวอย่างทดสอบเป็นค่าเริ่มต้น ไม่มีการส่งจริง
+
+ผลทดสอบ: webhook 25 กรณี + conversation/renderer 25 กรณี = 50/50 ผ่านจากโค้ดอ่านกลับจาก GitHub แล้วรันในหน่วยความจำ ไม่มีไฟล์ในเครื่อง ไม่มีข้อมูลจริง และยังไม่ใช่ Emulator/end-to-end proof
+
+ข้อจำกัดที่ยังมี: ไม่มี HTTP wrapper, durable inbox/session/CAS/outbox, private actor mapping, published view/quote/booking adapter, การตรวจสลิป หรือการเชื่อมข้อมูลจริง ปุ่มย้อนกลับ/เริ่มใหม่และการส่งต่อเจ้าหน้าที่ยังต้องเติมใน orchestrator การกันข้อความซ้ำข้ามคำขอและการจองพร้อมกันต้องพิสูจน์ใน Emulator ก่อนใช้งานจริง
+
+คำสั่ง inputText, ชื่อ/โทรใน session, ข้อความ review และผล toLineMessages เป็นข้อมูลส่วนตัวสำหรับแชทผู้โดยสารคนเดิมเท่านั้น ไม่ใช่ HTTP response/logging contract การรับข้อความตัวอักษรต้องถูกเติม current revision หลัง claim event และโหลด session จาก private actor mapping ไม่เชื่อ revision/actor จากลูกค้า
