@@ -89,13 +89,14 @@ function prepareWebhook(request, config = {}) {
     const command = parseCommand(event);
     if (!command) continue;
     if (typeof event.webhookEventId !== "string" || !EVENT_ID.test(event.webhookEventId) ||
-        typeof event.replyToken !== "string" || !event.replyToken || event.replyToken.length > 256) {
+        typeof event.replyToken !== "string" || !event.replyToken || event.replyToken.length > 256 ||
+        !Number.isSafeInteger(event.timestamp) || event.timestamp < 0) {
       return result(400, "invalid_event_identity");
     }
     if (seen.has(event.webhookEventId)) continue;
     seen.add(event.webhookEventId);
     commands.push({ eventId: event.webhookEventId, userId: event.source.userId,
-      replyToken: event.replyToken, ...command,
+      replyToken: event.replyToken, eventTimestamp: event.timestamp, ...command,
       redelivery: event.deliveryContext?.isRedelivery === true });
   }
   // Only a preview. Before consumption, atomically claim each eventId in a
