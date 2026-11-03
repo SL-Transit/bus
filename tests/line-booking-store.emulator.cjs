@@ -125,6 +125,35 @@ const reduce = (session, command, ctx) => ({ session: { actorKey: ctx.actorKey, 
     assert.ok(!JSON.stringify(crashed.response.publicBody).includes('0890000000'));
     console.log('PASS crash after synthetic service commit never triggers automatic booking retry or false completion; HTTP body has no private input');
 
+
+    // The same extracted service used by the HTTP endpoints, two injected callers, one RTDB counter.
+    const { createBookingAuthority } = require('../functions/booking-authority-service');
+    const validPart = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max && /^[A-Za-z0-9_-]+$/.test(value);
+    const authorityDeps = { db, serverTimestamp: { '.sv': 'timestamp' },
+      readSystemTestMode: async () => ({}), readCanonicalWorkbookSource: async () => ({}),
+      canonicalWorkbookReady: () => false, findCanonicalWorkbookPair: () => null,
+      resolvePublishedCapacity: async () => ({ capacityLimit: 3, bookedSeats: 0, seatsAvailable: 3, bookings: {} }),
+      bookingTimeAuthority: require('../functions/booking-time-authority'),
+      cleanBookingText: (value, max) => String(value == null ? '' : value).trim().slice(0, max), validCapacityPart: validPart,
+      capacityCounterPath: (date, key) => /^\d{4}-\d{2}-\d{2}$/.test(date || '') && validPart(key, 240) ? 'operations/bookingCapacityByServiceDate/' + date + '/' + key : null };
+    const webAuthority = createBookingAuthority(authorityDeps), lineAuthority = createBookingAuthority(authorityDeps);
+    const capacityBody = { serviceDate: '2027-01-15', capacityKey: 'synthetic_authority_shared', requestedSeats: 1, capacityLimit: 999 };
+    const seatRaces = await Promise.all(Array.from({ length: 20 }, (_, i) => (i % 2 ? webAuthority : lineAuthority).reserve({ ownerUid: 'synthetic_owner_' + i, body: { ...capacityBody, bookingCode: 'AUTHORITY_' + i } })));
+    assert.equal(seatRaces.filter(r => r.statusCode === 200).length, 3);
+    assert.equal(seatRaces.filter(r => r.statusCode === 409).length, 17);
+    const sharedCapacityRef = db.ref('operations/bookingCapacityByServiceDate/2027-01-15/synthetic_authority_shared');
+    const sharedCounter = (await sharedCapacityRef.get()).val();
+    assert.equal(sharedCounter.capacityLimit, 3); assert.equal(sharedCounter.bookedSeats, 3); assert.equal(Object.keys(sharedCounter.bookings).length, 3);
+    const [reservedCode, reservedOwner] = Object.entries(sharedCounter.bookings)[0];
+    await lineAuthority.reserve({ ownerUid: 'synthetic_wrong_owner', body: { ...capacityBody, bookingCode: reservedCode, action: 'release' } });
+    assert.equal((await sharedCapacityRef.get()).val().bookedSeats, 3);
+    await webAuthority.reserve({ ownerUid: reservedOwner.ownerUid, body: { ...capacityBody, bookingCode: reservedCode, action: 'release' } });
+    await webAuthority.reserve({ ownerUid: reservedOwner.ownerUid, body: { ...capacityBody, bookingCode: reservedCode, action: 'release' } });
+    assert.equal((await sharedCapacityRef.get()).val().bookedSeats, 2);
+    assert.equal((await lineAuthority.reserve({ ownerUid: 'synthetic_new_owner', body: { ...capacityBody, bookingCode: 'AUTHORITY_NEW' } })).statusCode, 200);
+    assert.equal((await sharedCapacityRef.get()).val().bookedSeats, 3);
+    console.log('PASS extracted booking authority: 20 web/LINE-labelled callers share three real Emulator seats, forged limit ignored, cross-owner release blocked and repeated release does not over-decrement');
+
     console.log('LINE demo Emulator validation passed; no production or LINE calls');
   } finally { await app.delete(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
