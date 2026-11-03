@@ -5,6 +5,7 @@ const path = require('path');
 const booking1 = fs.readFileSync(path.join(__dirname, '..', 'booking1.html'), 'utf8');
 const adapter = fs.readFileSync(path.join(__dirname, '..', 'booking1-preview-adapter.js'), 'utf8');
 const functionsIndex = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+const bookingAuthority = fs.readFileSync(path.join(__dirname, '..', 'functions', 'booking-authority-service.js'), 'utf8');
 const bridge = fs.readFileSync(path.join(__dirname, '..', 'booking-bridge.js'), 'utf8');
 const calculator = fs.readFileSync(path.join(__dirname, '..', 'erp-calculator-center.js'), 'utf8');
 const rules = fs.readFileSync(path.join(__dirname, '..', 'database.rules.json'), 'utf8');
@@ -170,7 +171,7 @@ assert(adapter.includes('selected.externalPaymentRequired'), 'Booking1 adapter m
 assert(bridge.includes('liveTrackingAvailable: false'), 'Booking1 bridge must keep schedule-only/no-live-tracking state internally');
 assert(bridge.includes('cloudfunctions.net/createBooking'), 'Booking1 booking creation must use the backend endpoint');
 assert(rules.includes("root.child('data/erpDataCenter/adminAccounts/' + auth.uid).val() === true"), 'Booking1 booking writes must be backend/admin-authorized');
-assert(functionsIndex.includes('authoritative_price_mismatch'), 'Booking1 backend must reject price tampering');
+assert(bookingAuthority.includes('authoritative_price_mismatch'), 'Booking1 backend must reject price tampering');
 assert.match(databaseRules.bookings['$bookingId']['.write'], /adminAccounts/, 'Booking1 booking writes must be backend/admin-only');
 assert.match(databaseRules.operations.bookings['$bookingId']['.write'], /adminAccounts/, 'operations/bookings writes must be admin-only');
 assert(adapter.includes('legacyBookingPayload'), 'Booking1 adapter must map ERP snapshot to legacy booking payload for check_ticket/passenger compatibility');

@@ -44,7 +44,8 @@ assert.strictEqual(
 
 const bridge = fs.readFileSync('booking-bridge.js', 'utf8');
 const adapter = fs.readFileSync('booking1-preview-adapter.js', 'utf8');
-const backend = fs.readFileSync('functions/index.js', 'utf8');
+const backend = fs.readFileSync('functions/index.js', 'utf8') + '\n' +
+  fs.readFileSync('functions/booking-authority-service.js', 'utf8');
 const bookingPage = fs.readFileSync('booking1.html', 'utf8');
 assert(bridge.includes("tripId: timeEntry.tripId || timeEntry.scheduleOfferId"));
 assert(bridge.includes("scheduleRowId: timeEntry.scheduleRowId || timeEntry.sourceRowId"));

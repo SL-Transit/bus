@@ -316,3 +316,137 @@ NEXT_ACTION: Owner ตรวจ PR #178; ห้าม merge/deploy โดยอ�
   - FIREBASE_WRITES: none
   - STARTED_AT: 2026-08-27
   - LAST_UPDATE: 2026-08-27
+
+
+## LINE Chat Booking Foundation — 2026-11-02
+
+STATUS: REVIEW
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md (append-only entry)
+SCOPE: Passenger webhook validation boundary and offline tests; migration contract for full in-chat booking. No production endpoint export. No duplicate journey/schema/booking engine.
+TESTS: Synthetic signed requests; destination/user isolation; malformed requests; disabled configuration; bounded payload; deterministic command preview. Existing GitHub checks after draft PR.
+DEPENDENCIES: Existing server booking/capacity and published journey contracts in sl-transit-9464e; production source differs from current main and needs reconciliation before integration.
+PRODUCTION_WRITES: none; no deploy, secrets, LINE sends, bookings, Rules or menu changes.
+COST_RISK: No production traffic or added dependencies; CI only.
+NEXT_ACTION: Review foundation; integrate existing trusted booking boundary and emulator proof before separate deployment approval.
+
+
+### Foundation review report — PR #187
+RESULTS: Pure passenger webhook validation and command preview added. Disabled by default; no production export or sender. Full booking flow remains unfinished.
+TESTS: 20/20 synthetic assertion cases passed in memory from code read back from GitHub; GitHub security/performance run 41475464532 started for implementation commit 2f62cd3. No Emulator/end-to-end proof.
+IMPACT: Four changed files only (boundary, tests, migration plan, board). Existing board nonblank content preserved; web editor normalized line endings. No dependencies or production cost.
+PRODUCTION_WRITES: none. No main merge, Firebase deployment, secret change, LINE message, booking, Rules or Rich Menu mutation.
+NEXT_ACTION: Review draft #187, reconcile deployed source with main, implement durable inbox/session and reuse the existing booking/capacity boundary with Emulator tests. Payment runtime must be confirmed before handling slips. Deployment and passenger cutover remain separate.
+
+
+### LINE conversation step — 2026-11-02
+STATUS: REVIEW
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-booking-conversation.js; tests/line-booking-conversation.test.js; functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md (append-only)
+SCOPE: Pure conversation state transitions and private choice/revision handling, with injected trusted published options/quotes/receipt; no duplicate journey/price/capacity engine. Extend verified command parsing for conversation input.
+TESTS: Synthetic full journey, stale/cross-user input, quote/version/expiry gates, duplicate confirmation, privacy and failed booking.
+PRODUCTION_WRITES: none; no export/deploy, live data/session writes, LINE sends, payment handling or main merge.
+COST_RISK: No new dependencies or production traffic.
+NEXT_ACTION: Implement and test pure state flow; durable integration remains a separate gate.
+
+
+### LINE conversation review report — PR #187
+STATUS: REVIEW (pure flow only; no live integration)
+RESULTS: origin/destination/date/trip/pax/name/phone/approved-terms/quote/review/confirmation/receipt transitions; revision-bound opaque choices; private owner check; quote version/expiry gates; paginated LINE Quick Reply rendering with test banner. Existing server remains authoritative; no duplicate journey/price/capacity engine.
+TESTS: 50/50 assertions passed in memory from GitHub source (25 webhook + 25 conversation/renderer); real Node/GitHub regression validation pending for final commit. No local filesystem used. No new Emulator/end-to-end or Production proof.
+IMPACT: functions/line-booking-conversation.js and tests/line-booking-conversation.test.js added; boundary/tests and migration docs updated. No index.js, runtime settings, Rules, credentials, public menu or dependency changes.
+PRODUCTION_WRITES: none; no main merge or deployment.
+COST_RISK: CI only, zero new production traffic.
+NEXT_ACTION: durable inbox/session/CAS/outbox and trusted published/quote/booking adapters, back/restart/handoff orchestration, source/deployment reconciliation and payment-runtime validation, then Emulator concurrency and full-flow proof. No live booking or customer cutover without separate review/approval.
+
+
+### LINE durable store step — 2026-11-03
+STATUS: REVIEW
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-booking-store.js; tests/line-booking-store.test.js; tests/line-booking-store.emulator.cjs; tests/fixtures/line-chat/firebase.json; tests/fixtures/line-chat/database.rules.json; .github/workflows/line-chat-draft-validation.yml; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Private injected RTDB transaction store; atomic inbox/session/outbox, revision CAS and conservative lease reconciliation. No duplicate transport engine.
+TESTS: Duplicates, ownership, revision races, retention, backpressure, fencing and demo-only Emulator with anonymous access denied.
+PRODUCTION_WRITES: none; no export/deploy, credentials, LINE sends, booking/payment/Rules/menu changes or main merge.
+COST_RISK: GitHub CI/Emulator only; no production resources.
+NEXT_ACTION: Implement and verify on demo Emulator before trusted adapter integration.
+
+
+### LINE durable store review report — 2026-11-03 / PR #187
+STATUS: REVIEW (isolated durable draft; no live integration)
+CODE_COMMIT: 982f95882a5b6c921f0d9090a6cf9baf3a392508
+RESULTS: Injected private passenger RTDB store atomically stages inbox/session/outbox; owner/revision/event-time checks; bounded retention/backpressure; lease/token fencing; expired ambiguous work requires reconciliation; acknowledgement removes private payload. Scoped cache listener retained only through transaction and cleaned up on failure; transaction clock refreshed on retry. No duplicated transport engine.
+TESTS: GitHub LINE chat draft validation 41554181929 SUCCESS: 67 unit tests (50 webhook/conversation + 16 store + 1 existing LINE test), guarded demo Emulator duplicate delivery x20 / revision race x20 / worker race x10, persistence, isolated actors, expired claim/stale acknowledgement, private payload cleanup and anonymous read/write denial. Non-demo project startup was refused before Admin initialization. Earlier emulator failures were fixed before this passing run. Existing regression run 41554181722 passed Node tests and is still running remaining Emulator/performance steps at report time.
+PRODUCTION_WRITES: none; no main merge, Firebase/Rules deploy, credentials, LINE sends, bookings/payment changes, Rich Menu or webhook changes. All new database writes were synthetic demo-sl-transit-line Emulator on GitHub. No local filesystem used.
+COST_RISK: CI only; no new production resources/dependencies/traffic. Workflow contents:read, timeout 15 minutes.
+KNOWN_LIMITS: No HTTP processor wiring, trusted identity/published/quote/booking adapter, sender or reconciliation service; session/PII retention cleanup still required. External exactly-once and web/LINE last-seat competition are not proven. Needs deployed/main source reconciliation before shared booking service changes.
+NEXT_ACTION: Integrate a disabled processor using injected trusted adapters, prove replay/crash and full conversation in demo Emulator, then reconcile/reuse existing capacity/booking authority. Production pilot and passenger cutover require separate concrete review/approval.
+
+
+### LINE processor simulation step — 2026-11-03
+STATUS: REVIEW
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-booking-processor.js; tests/line-booking-processor.test.js; tests/line-booking-store.emulator.cjs; functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Disabled-by-default simulation processor joins signed webhook, pure conversation and private RTDB envelope; injected synthetic published/terms/quote/booking services only. Stage confirmation before mock service, persist verified receipt before completion preview, no sender. Separate store/conversation revisions, no automatic rebase of conflicting text, restart-safe button revisions.
+TESTS: Signed full conversation through synthetic receipt, duplicate/worker races, stale text/buttons, restart/expiry, adapter failure, crash after synthetic booking and privacy. Existing guarded demo Emulator and GitHub regression.
+PRODUCTION_WRITES: none; no HTTP export/deploy, real adapter/credential/LINE send/booking/payment/Rules/menu/webhook changes or main merge.
+COST_RISK: CI and synthetic demo Emulator only; no new dependencies.
+NEXT_ACTION: Prove simulated orchestration, then reconcile deployed/main booking source before a separately scoped trusted production adapter.
+
+
+### LINE processor simulation review report — 2026-11-03 / PR #187
+STATUS: REVIEW (simulation orchestration; no production adapters)
+CODE_COMMIT: 4ddd28e56aef135ea154b2071306a6a3aecbd5fe; documentation update 314ae247d33717cb3a539bdd69c4060c940ede8f
+RESULTS: Signed/cohort-filtered webhook joins pure flow and private durable envelope; signed event timestamp retained; separate CAS/button revisions; restart-safe button IDs; RTDB empty-field hydration. Read services run before a single CAS, no rebase of competing text. Confirmation stages submitting/outbox before synthetic service call; validated receipt atomically stages complete/preview before original job acknowledgement. Private preview only; no sender/reply token persisted.
+TESTS: GitHub LINE run 41557186779 SUCCESS: 78 unit tests (26 boundary + 25 conversation + 16 store + 10 processor + 1 existing LINE). Guarded demo RTDB passed full signed flow across persisted read/write and recreated processor/store; duplicate confirmation plus 10 workers called synthetic booking once; crash after synthetic commit stayed submitting and did not retry or falsely complete. Existing durability races, actor isolation, stale lease, payload cleanup and anonymous read/write denial also passed. In-memory readback 36/36 boundary/processor tests passed without local filesystem. Existing full regression 41557330259 still running at report time; check latest PR checks before merge.
+IMPACT: New processor and tests; boundary now requires safe signed timestamp; demo Emulator flow extended; docs/board updated. No production API/index.js exports, no existing booking/capacity engine, schema or dependency changes.
+PRODUCTION_WRITES: none; no merge/deploy/Rules, credentials, LINE sends, actual booking/payment, Rich Menu, webhook or staff notification mutation. All writes synthetic demo-sl-transit-line Emulator on GitHub.
+COST_RISK: CI only, no added production reads/resources/dependencies. Bounded payloads/markers/outbox unchanged.
+KNOWN_LIMITS: Synthetic service uses an in-memory idempotency fixture; this is not proof of real booking/capacity/payment semantics or durable service recovery. No real identity mapping/published/booking adapter, sender/dispatcher/reconciliation/PII cleanup. Back navigation, real staff handoff and ticket lookup remain unfinished. Conflicting input is rejected, not silently reordered.
+NEXT_ACTION: Reconcile deployed/main trusted booking sources, define one reusable identity/capacity/booking boundary and test real contracts against Emulator before wiring any production adapter. User review/approval remains separate for production pilot, LINE sends and cutover.
+
+
+### Shared booking authority extraction — 2026-11-03
+STATUS: REVIEW
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/booking-authority-service.js; functions/index.js; tests/booking-authority-service.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Read-only deployed-source reconciliation completed for createBooking/reserveBookingCapacity/cancelBooking. Extract existing reserve/create business logic into one injected trusted service; existing HTTP endpoints retain authentication/CORS/method/response behavior and call it. No duplicate price/journey/capacity engine; no live LINE adapter.
+TESTS: Existing Node/HTTP Emulator/performance regression; focused service contract/auth/policy/price/idempotency tests; guarded demo RTDB shared last-seat/owner/release proof.
+SOURCE_EVIDENCE: createbooking-00009-yol 100 percent latest; index.js and booking-time-authority.js exact main after CRLF normalization. reservebookingcapacity-00009-nih 100 percent latest; reserve endpoint and actual auth/path/source-reader/capacity resolver match main, unrelated create helpers differ. cancelbooking-00003-soj 100 percent latest; cancel endpoint/rate-phone-departure/release helpers match main. Whole source bundles differ per function; do not redeploy all functions to reconcile them.
+KNOWN_GATES: Existing reserve and create remain separate transactions; create does not prove reservation ownership/binding and client releases on any create error. Live LINE integration requires durable recovery/reservation binding, trusted identity and published source contract before pilot. Extraction alone is not hardening/deploy approval.
+PRODUCTION_WRITES: none; no endpoint calls/test requests, deploy, Rules/credentials, booking/payment, notification, menu/webhook changes or main merge. Browser source read/clipboard only; no local filesystem.
+COST_RISK: GitHub CI/demo Emulator only; no new dependencies/resources/production traffic.
+NEXT_ACTION: Extract and verify shared service, then separately harden trusted confirmation/recovery and connect published/identity contracts before live adapter.
+
+SCOPE_ADDENDUM (same shared authority lock, before edits): tests/booking-capacity-backend.test.js and tests/booking-time-authority.test.js are included to follow extracted business logic while retaining endpoint/auth and authoritative price/time/owner/counter invariants. Add behavioral service tests rather than relying only on source layout assertions. No production changes.
+
+SCOPE_ADDENDUM (shared authority lock, before edit): tests/booking1-preview-data.test.js is included after CI 41586537019 found its price-tampering source assertion still reads only index.js. Point that invariant to the shared service while keeping the assertion and all UI/Rules checks. Dedicated service behavior tests already reject tampered prices; no production change.
+
+
+### Shared booking authority review report — 2026-11-03 / PR #187
+STATUS: REVIEW (shared core extraction; live LINE remains disabled)
+TESTED_COMMIT: 3202b7a8d863a53dd92a7be610bfa9a768438c60; subsequent source-comparison/report changes are documentation only.
+RESULTS: Existing reserve/create logic moved once to functions/booking-authority-service.js. Existing HTTP endpoints in index.js authenticate with requireUserToken then call the shared service with verified ownerUid. Method/CORS/error/status/body, system-test-before-input order, server capacity, owner release, canonical source/price/time and booking snapshot behavior retained. No duplicate transport engine or new production reads/dependencies. index.js outside two handlers plus import/factory is textually unchanged after newline normalization.
+DEPLOYMENT_RECONCILIATION: Per-function latest traffic revisions recorded in lock/docs. Fresh GitHub UI copies cleared with sentinel before comparison; code matches account for CRLF and Copy-raw trailing newline. createBooking whole index/time helper match main; actual reserve/cancel handlers and relevant dependencies match main despite older unrelated source bundles. No endpoint test call or configuration change.
+TESTS: 7/7 new shared-service behavioral tests passed from GitHub in memory and in full Node suite; LINE run 41586889764 SUCCESS (78 LINE unit tests plus existing signed conversation/durability and new service-level shared-counter Emulator proof). 20 web/LINE-labelled service callers competed for 3 real demo RTDB seats: exactly 3 succeeded, forged limit ignored, wrong owner could not release, repeated release did not over-decrement. Existing full validation run 41586889769 SUCCESS: Node tests, Phase 2/4/6A/5 Emulators and existing HTTP booking/security/k6 performance. One earlier layout-only assertion in Booking1 still read index.js; updated to shared service without dropping its price invariant.
+FILES_CHANGED_THIS_STEP: functions/booking-authority-service.js; functions/index.js; tests/booking-authority-service.test.js; tests/booking-capacity-backend.test.js; tests/booking-time-authority.test.js; tests/booking1-preview-data.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md.
+PRODUCTION_WRITES: none; no merge/deploy/Rules, credentials, actual booking/payment/LINE sends, staff notification, menu/webhook mutation. Cloud read-only UI; all new writes on guarded GitHub demo Emulator. No local filesystem used.
+KNOWN_LIMITS: Refactor preserves existing separate reserve/create semantics. Create does not yet bind a proven capacity reservation; browser release-on-any-create-error and ambiguous results need durable reconciliation. Source validation still uses existing backend canonical workbook helper; no real published/quote/identity adapter for LINE. Shared ownerUid is internal trusted input, never a client-auth mechanism. Service-level labelled-caller proof is not live web/LINE integration. No real payment/sender/PII cleanup proof.
+NEXT_ACTION: Add durable trusted booking command, reservation binding and uncertain-result recovery using the same counters/authority; derive capacity identity server-side and map signed LINE actor to verified booking ownership. Prove crash/last-seat/compensation in Emulator before enabling a live adapter. Production pilot/sends/cutover require separate concrete review/approval.
+
+
+### Bound booking command and recovery — 2026-11-03
+STATUS: IN_PROGRESS
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/booking-command-service.js; functions/booking-authority-service.js; tests/booking-command-service.test.js; tests/booking-authority-service.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Disabled-by-default trusted command coordinator; deterministic code/private ledger/lease/request fingerprint, same authority validation and counters. Extract validation once as private prepare method, derive capacity identity server-side, seal marker before bound create, reject mismatched owner/seats/trip/command, protect committing/committed markers from ordinary release. Existing HTTP create does not accept trusted binding from JSON. No LINE production adapter.
+TESTS: Bound create/release guards, same request replay, concurrent command claims, lost reserve/create response, failure before create, expired worker fencing, wrong payload/actor/marker, cancellation/missing-record reconciliation; demo RTDB and existing full regression.
+SAFETY: Booking and counter remain separate RTDB locations. Bound in-flight seats are not automatically released; uncertain/missing/conflicting outcomes require reconciliation. Recovery reads exact deterministic booking before another insert attempt; same code transaction prevents another booking record. No root transaction/scan, raw event/token logging or duplicate fare/journey engine.
+PRODUCTION_WRITES: none; no index endpoint/export/deploy, actual booking/payment/LINE send, Rules/credentials/menu/webhook or main merge. All new database writes only in guarded demo Emulator on GitHub; no local filesystem.
+COST_RISK: Private bounded ledger per command, bounded attempts and short lease, scoped DB reads/transactions; no new dependencies/resources or production traffic. Cleanup/reconciliation/identity/published contract remain pilot gates.
+NEXT_ACTION: Implement and prove bound command/recovery, then wire trusted identity/published/quote contracts and private chat adapter separately before pilot review.
