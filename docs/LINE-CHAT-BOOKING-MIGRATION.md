@@ -156,3 +156,42 @@ functions/line-passenger-webhook.js เป็นฟังก์ชันบร�
 ผล CI และ commit ที่ตรวจผ่านดู review report ล่าสุดใน WORK-BOARD และ PR #187 ข้อมูลทดสอบเป็น fixture เท่านั้น ไม่ใช่หลักฐานเชื่อมระบบจอง/ที่นั่ง/ชำระเงินจริง
 
 งานที่ยังต้องทำก่อน pilot: ตรวจ deployed/main source ให้ตรงกันและ reuse trusted booking/capacity authority เดิม, mapping เจ้าของตั๋วที่ยืนยันได้, real published/terms/quote adapter, ordered dispatcher ที่จัดการ conflict ให้ผู้ใช้, sender และ crash/reply reconciliation, cleanup PII/session, ย้อนกลับ/UX เริ่มใหม่/ส่งต่อเจ้าหน้าที่/ค้นตั๋วจริง และการทดสอบที่นั่งสุดท้ายร่วมกับเว็บ ไม่มีการแก้ Production, Rich Menu, webhook หรือ staff notification เดิมในขั้นนี้
+
+
+## ตรวจซอร์สที่ deploy และแยกบริการจองร่วม — 3 พฤศจิกายน 2569
+
+ตรวจแบบอ่านอย่างเดียวใน Cloud Console โครงการ sl-transit-9464e โดยเปิด Source และ Revision History ไม่กด Test/Edit/Redeploy ไม่เรียก endpoint และไม่อ่านข้อมูลผู้โดยสาร เทียบข้อความจากตัวแสดงโค้ดกับ GitHub main 4fa94751da4ba75f8bba216c1e8171a8df322196 ในหน่วยความจำโดยปรับ CRLF เป็น LF เท่านั้น ไม่มีการดาวน์โหลดหรือใช้ไฟล์ในเครื่อง
+
+| บริการ | revision รับ traffic 100% | ผลเทียบ |
+| --- | --- | --- |
+| createBooking | createbooking-00009-yol (15 ส.ค. 2569) | index.js ทั้งไฟล์และ booking-time-authority.js ตรง main ทุกบรรทัด |
+| reserveBookingCapacity | reservebookingcapacity-00009-nih (12 ส.ค. 2569) | handler กันที่นั่ง, requireUserToken/path validation, canonical reader/readiness และ resolvePublishedCapacity ที่ใช้จริงตรง main; bundle ทั้งไฟล์ต่างเพราะมี helper สร้างรายการรุ่นเก่าที่ฟังก์ชันนี้ไม่ได้ใช้ |
+| cancelBooking | cancelbooking-00003-soj (9 ส.ค. 2569) | handler ยกเลิก, rate/phone/departure guards และ releaseBookingCapacityServer ตรง main; bundle ทั้งไฟล์ต่างรุ่น |
+
+ผลนี้แก้ความเข้าใจเดิมให้เจาะจง: ความต่างใน source bundle ของ notification function ไม่ใช่หลักฐานว่า createBooking ที่ใช้งานจริงเก่า ต้องเทียบเฉพาะบริการและ dependency ที่รับ traffic จริง ห้ามแก้โดย deploy ทุกฟังก์ชันทับพร้อมกัน
+
+จุดอ้างอิง Cloud Console (ต้องใช้บัญชีโครงการที่มีสิทธิ์):
+- https://console.cloud.google.com/run/detail/asia-southeast1/createbooking/source?authuser=2&project=sl-transit-9464e
+- https://console.cloud.google.com/run/detail/asia-southeast1/reservebookingcapacity/source?authuser=2&project=sl-transit-9464e
+- https://console.cloud.google.com/run/detail/asia-southeast1/cancelbooking/source?authuser=2&project=sl-transit-9464e
+
+### บริการร่วมในสาขาร่าง
+
+เพิ่ม functions/booking-authority-service.js แล้วย้าย reserve/create business logic เดิมออกจาก HTTP callback มาไว้ที่เดียว functions/index.js ยังคง endpoint เดิมและตรวจ method/CORS/Firebase ID token ก่อนส่ง ownerUid ที่ verify แล้วเข้า service ไม่ใช้ LINE user ID แทน Firebase token
+
+- service รับ database และ authority helpers เดิมผ่าน dependency injection ไม่ initialize Firebase หรือเปิด HTTP เอง ไม่มี LINE adapter
+- ใช้ counter path เดิม operations/bookingCapacityByServiceDate, owner-bound reserve/release, server capacity limit และ booking transaction เดิม
+- ใช้ canonical pair/source, authoritative price/time, payment mapping และ booking snapshot เดิม ไม่สร้างเครื่องคิดราคา/เส้นทางหรือข้อมูลขนส่งซ้ำ
+- คงลำดับตรวจ system test mode ก่อนแปลง input ด้วย private synchronous readInput; HTTP status/body/error handling เดิม
+- โค้ด index.js นอก handler reserve/create และการนำเข้า/สร้าง service เทียบแล้วไม่เปลี่ยน; cancel/notification/driver functions ไม่แก้
+- ปรับ source-location assertions ใน regression tests ให้ตรวจ module ที่ย้ายไป โดยคงเงื่อนไขด้านราคา/เวลา/owner/counter/Auth ไว้ และเพิ่ม behavioral service tests 7 กรณี
+
+Emulator เพิ่มการเรียกบริการร่วม 2 instance ที่ติดป้าย web/LINE ในชุดทดสอบ ส่งพร้อมกัน 20 คำขอเข้าหนึ่ง counter 3 ที่นั่ง ปฏิเสธ client limit 999, คืนที่นั่งข้ามเจ้าของไม่ได้ และคืนซ้ำไม่ลดยอดเกินจริง นี่เป็น service-level proof กับ RTDB จำลอง ไม่ใช่ proof ว่า LINE หรือเว็บไซต์ Production เชื่อมบริการรุ่นใหม่นี้แล้ว การเรียก HTTP จริงของสาขาร่างต้องผ่าน regression Emulator เดิมด้วย
+
+### เกณฑ์ที่ยังต้องปิดก่อน live adapter
+
+การแยกโมดูลนี้รักษาพฤติกรรมเดิม ยังไม่ทำให้ reserve+create เป็น transaction เดียว createBooking เดิมไม่ตรวจหลักฐานจองที่นั่งที่ผูก owner/จำนวน/เที่ยว และ browser preview adapter คืนที่นั่งเมื่อ create ล้มเหลวทุกชนิด ซึ่งอาจเป็นผลตอบกลับสูญหายหลังบันทึกสำเร็จได้ ต้องมี durable command/recovery และตรวจผล booking ตาม requestId ก่อนตัดสินใจคืนที่นั่ง ไม่ใช้ blind retry หรือ blind release
+
+LINE ต้องได้ trusted identity mapping ไปเจ้าของตั๋ว, server-derived capacity key ที่ผูก canonical trip และ publicationVersion, reservation binding/expiry/compensation, approved terms/quote จาก published contract, sender/reconciliation และ cleanup PII ก่อนเปิด pilot ห้ามนำ service ที่รับ trusted ownerUid ไปเปิดเป็น endpoint รับ ownerUid จาก client โดยตรง Current real booking validation ยังอ่าน canonical workbookSource ผ่าน server helper เดิม; ยังไม่ใช่ published consumer adapter ของ LINE
+
+ไม่มี Firebase/Rules deploy, main merge, production write/booking/payment/LINE send หรือการเปลี่ยน staff notification, Rich Menu และ webhook ในขั้นนี้ ข้อกำหนด production review/approval และ rollback ยังใช้ตามเดิม ผล CI และ commit ล่าสุดดู Work Board/PR #187
