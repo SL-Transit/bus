@@ -101,8 +101,8 @@ function createBookingAuthority(deps = {}) {
     const decoded = owner(ownerUid);
     const systemTestMode = await readSystemTestMode();
     if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { return reply(503, { status: "blocked", error: "system_test_mode_enabled", message: "ระบบกำลังทดสอบ จึงยังไม่รับรายการนี้" }); }
-    const booking = typeof readInput === "function" ? readInput() : providedBooking;
-    const input = booking && typeof booking === "object" ? booking : {};
+    const rawBooking = typeof readInput === "function" ? readInput() : providedBooking;
+    const input = rawBooking && typeof rawBooking === "object" ? rawBooking : {};
     const code = cleanBookingText(input.code || input.bookingCode, 80);
     const pax = Number(input.pax == null ? input.seats : input.pax);
     const date = cleanBookingText(input.date || input.serviceDate, 10);
