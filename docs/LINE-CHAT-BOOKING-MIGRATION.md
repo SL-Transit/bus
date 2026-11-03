@@ -136,3 +136,23 @@ functions/line-passenger-webhook.js เป็นฟังก์ชันบร�
 ข้อจำกัดก่อนใช้จริง: ยังไม่มี persistent event processor ที่เชื่อม pure conversation กับ store, trusted actor-to-booking identity mapping, published/quote/booking adapter, sender, automated reconciliation หรือ session/PII retention cleanup; schema นี้ไม่ใช่ transport schema และไม่คำนวณที่นั่ง/ราคา การเก็บสถานะได้ไม่รับประกัน exactly-once ของบริการภายนอก ต้องพิสูจน์ crash-after-booking และ crash-after-send ก่อนเปิด pilot
 
 ข้อมูลผลทดสอบในหัวข้อก่อนหน้าเป็นหลักฐานของขั้นตอนนั้น ณ วันที่ระบุ ไม่ใช่สถานะ integration ล่าสุด ยังไม่ merge/deploy หรือเปิด webhook และไม่ได้ส่งข้อความจริง
+
+
+## ความคืบหน้าตัวประมวลผลจำลอง — 3 พฤศจิกายน 2569
+
+เพิ่ม functions/line-booking-processor.js เชื่อม signed webhook -> pure conversation -> private durable store -> simulation worker เป็นฉบับร่าง ปิดเป็นค่าเริ่มต้นและรับเฉพาะ adapter ที่ระบุ mode simulation ไม่มี Firebase initialization, HTTP export, index.js wiring, sender หรือ production adapter
+
+1. ตรวจ raw-body signature, passenger destination, private cohort และ signed event timestamp ก่อนอ่าน session; timestamp ต้องเป็นจำนวนเต็มไม่ติดลบ และ durable store ตรวจช่วงอายุ/ลำดับอีกชั้น
+2. แยก runtime envelope revision (CAS ต่อ event) จาก conversation revision (ปุ่ม/สถานะ) เพื่อรองรับการโหลดตัวเลือก/ใบเสนอราคาที่มี revision ของตนเอง คืนค่า selection/choices ว่างที่ RTDB ไม่เก็บ ก่อนเข้า pure reducer
+3. Read adapters สำหรับตัวเลือก/เงื่อนไข/quote ทำงานก่อน transaction แล้ว commit ด้วย revision ที่อ่านมาเท่านั้น หากชนกันไม่ตีความข้อความเดิมใหม่เป็นคำตอบขั้นถัดไป; ไม่มี service call ใน transaction callback
+4. เริ่มใหม่ได้เมื่อยกเลิก/จบ/หมดอายุ โดย conversation revision เพิ่มต่อเนื่องและ session ID เปลี่ยน ปุ่มจาก session เก่าจึงใช้กับ session ใหม่ไม่ได้
+5. ยืนยันแล้วเก็บ submitting + outbox ก่อนเรียกบริการจองจำลอง worker claim งานก่อนเรียก service นอก transaction และส่ง requestId เดิมเป็น idempotency key ไม่ใช้ LINE user ID แทน Firebase bearer token
+6. รับ synthetic receipt ที่ตรง requestId/actor แล้วเขียน complete + completion preview แบบ atomic ก่อน acknowledgement ของงานเดิม ไม่ถือว่ากดปุ่มแล้วเท่ากับจองสำเร็จ และไม่ถือว่ารับภาพสลิปแล้วเท่ากับชำระเงิน
+7. ถ้าบริการ/DB ล้มเหลวหลังเริ่มงาน หรือ lease หมด ไม่เรียกจองซ้ำอัตโนมัติ งานจะรอ reconciliation และยังไม่แสดง complete ถ้ายังไม่มี receipt ที่บันทึกสำเร็จ
+8. runSimulationJob คืนข้อความ preview เป็นข้อมูลส่วนตัวให้ชุดทดสอบเท่านั้น ไม่มีการส่งไป LINE และไม่เก็บ reply token ใน durable state; HTTP wrapper อนาคตส่งได้เฉพาะ publicBody ห้ามคืน privateResults/messages
+
+ชุดทดสอบเพิ่ม: บทสนทนา signed ตั้งแต่เริ่มจน receipt, duplicate ที่ reply token เปลี่ยน, CAS ของข้อความชื่อพร้อมกัน, restart/ปุ่มเก่า, signature/cohort, adapter failure, wrong-owner receipt, crash หลังบริการจองจำลอง commit และ privacy; Emulator ใช้ RTDB จริงใน demo project เดิมและสร้าง processor ใหม่ระหว่างคำขอ พร้อม worker 10 ตัวแย่งงานยืนยัน
+
+ผล CI และ commit ที่ตรวจผ่านดู review report ล่าสุดใน WORK-BOARD และ PR #187 ข้อมูลทดสอบเป็น fixture เท่านั้น ไม่ใช่หลักฐานเชื่อมระบบจอง/ที่นั่ง/ชำระเงินจริง
+
+งานที่ยังต้องทำก่อน pilot: ตรวจ deployed/main source ให้ตรงกันและ reuse trusted booking/capacity authority เดิม, mapping เจ้าของตั๋วที่ยืนยันได้, real published/terms/quote adapter, ordered dispatcher ที่จัดการ conflict ให้ผู้ใช้, sender และ crash/reply reconciliation, cleanup PII/session, ย้อนกลับ/UX เริ่มใหม่/ส่งต่อเจ้าหน้าที่/ค้นตั๋วจริง และการทดสอบที่นั่งสุดท้ายร่วมกับเว็บ ไม่มีการแก้ Production, Rich Menu, webhook หรือ staff notification เดิมในขั้นนี้
