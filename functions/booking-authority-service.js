@@ -1,4 +1,11 @@
 "use strict";
+const { createHash } = require("node:crypto");
+function canonicalJson(value) {
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
+  if (value && typeof value === "object") return "{" + Object.keys(value).sort().filter(key => value[key] !== undefined).map(key => JSON.stringify(key) + ":" + canonicalJson(value[key])).join(",") + "}";
+  return JSON.stringify(value);
+}
+const planDigest = value => createHash("sha256").update(canonicalJson(value)).digest("hex");
 // Existing reserve/create authority extracted once. Caller must supply a verified ownerUid.
 // No authentication bypass, Firebase initialization, HTTP export or LINE adapter here.
 function createBookingAuthority(deps = {}) {
@@ -53,11 +60,17 @@ function createBookingAuthority(deps = {}) {
         if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
         const existing = current.bookings[bookingCode];
         if (existing.ownerUid !== decoded.uid) return current;
+        // Bound seats can only be released by the trusted cancellation/reconciliation path.
+        if (existing.commandId && ["committing", "committed"].includes(existing.status)) return current;
         const bookings = { ...current.bookings };
         delete bookings[bookingCode];
         const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - Number(existing.seats || requestedSeats));
         return { ...current, bookedSeats, seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats), bookings, updatedAt: serverTimestamp };
       });
+      const remaining = result.snapshot.child(`bookings/${bookingCode}`).val();
+      if (remaining && remaining.commandId && ["committing", "committed"].includes(remaining.status)) {
+        return reply(409, { status: "error", error: "bound_reservation_requires_reconciliation" });
+      }
       return reply( 200, { status: "ok", action: "release", committed: result.committed === true });
     }
     const result = await ref.transaction((current) => {
@@ -97,7 +110,8 @@ function createBookingAuthority(deps = {}) {
     const value = result.snapshot.val() || {};
     return reply( 200, { status: "ok", action: "reserve", committed: true, capacityLimit: value.capacityLimit, bookedSeats: value.bookedSeats, seatsAvailable: value.seatsAvailable });
   }
-  async function create({ ownerUid, booking: providedBooking, readInput }) {
+  // Server-only preparation: HTTP callers receive only create() responses, never this private snapshot.
+  async function prepare({ ownerUid, booking: providedBooking, readInput }) {
     const decoded = owner(ownerUid);
     const systemTestMode = await readSystemTestMode();
     if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { return reply(503, { status: "blocked", error: "system_test_mode_enabled", message: "ระบบกำลังทดสอบ จึงยังไม่รับรายการนี้" }); }
@@ -156,13 +170,51 @@ function createBookingAuthority(deps = {}) {
       consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
       publishedSchedule: { readyForApply: false, schemaVersion: source.manifest.schemaVersion || "erpWorkbookSource.v1" }, createdAt: serverTimestamp
     };
-    const bookingRef = db.ref(`bookings/${code}`);
+    const canonicalPair = String(pair.pairKey || pair.pairId || pair.key || "");
+    const safeKey = value => String(value == null ? "" : value).trim().replace(/[.#$\[\]\/]/g, "_").replace(/\s+/g, "_") || "unknown";
+    // Same existing web counter identity: date + canonical fare pair + departure time.
+    const capacityKey = [date, canonicalPair, authoritativeTime.time].map(safeKey).join("__").replace(/[^A-Za-z0-9_-]/g, "_");
+    const counterPath = capacityCounterPath(date, capacityKey);
+    const capacity = canonicalPair && counterPath && pair.scheduleOfferId && pair.scheduleRowId ? {
+      contractVersion: "booking_capacity_v1", serviceDate: date, pairKey: canonicalPair,
+      tripKey: String(pair.scheduleOfferId), routeKey: String(pair.routeId || ""), pickupTime: authoritativeTime.time,
+      capacityKey, counterPath, requestedSeats: pax, bookingCode: code, sourceRowId: String(pair.scheduleRowId)
+    } : null;
+    return { statusCode: 200, body: { status: "ok" }, snapshot: booking, capacity,
+      planHash: planDigest({ snapshot: booking, capacity }) };
+  }
+  async function create({ ownerUid, booking: providedBooking, readInput, expectedReservation }) {
+    const prepared = await prepare({ ownerUid, booking: providedBooking, readInput });
+    if (prepared.statusCode !== 200) return prepared;
+    const booking = prepared.snapshot, code = booking.code;
+    // This argument is trusted server context; index.js NEVER takes it from request JSON.
+    if (expectedReservation !== undefined) {
+      const binding = expectedReservation, capacity = prepared.capacity;
+      if (!binding || !capacity || !/^[a-f0-9]{64}$/.test(binding.commandId || "") ||
+          !/^[a-f0-9]{64}$/.test(binding.requestHash || "") || binding.planHash !== prepared.planHash) {
+        return reply(409, { status: "error", error: "reservation_binding_required" });
+      }
+      const counter = (await db.ref(capacity.counterPath).get()).val();
+      const marker = counter && counter.bookings && counter.bookings[code];
+      if (!marker || marker.ownerUid !== ownerUid || Number(marker.seats) !== booking.pax ||
+          marker.status !== "committing" || marker.commandId !== binding.commandId ||
+          marker.requestHash !== binding.requestHash || marker.planHash !== prepared.planHash ||
+          marker.tripId !== capacity.tripKey || marker.capacityKey !== capacity.capacityKey ||
+          String(counter.sourceRowId || "") !== capacity.sourceRowId) {
+        return reply(409, { status: "error", error: "reservation_binding_mismatch" });
+      }
+      booking.source = "line_chat";
+      booking.capacity = { ...capacity, capacityLimit: counter.capacityLimit, status: "reserved" };
+      booking.bookingCommand = { schemaVersion: "booking_command_v1", commandId: binding.commandId,
+        requestHash: binding.requestHash, planHash: prepared.planHash };
+    }
+    const bookingRef = db.ref("bookings/" + code);
     const result = await bookingRef.transaction((current) => current ? undefined : booking);
     if (!result.committed) {
       return reply( 409, { status: "error", error: "booking_already_exists" });
     }
     return reply( 201, { status: "ok", booking: result.snapshot.val() });
   }
-  return { reserve, create };
+  return { reserve, create, prepare };
 }
-module.exports = { createBookingAuthority };
+module.exports = { createBookingAuthority, canonicalJson };
