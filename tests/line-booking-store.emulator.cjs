@@ -33,7 +33,7 @@ const reduce = (session, command, ctx) => ({ session: { actorKey: ctx.actorKey, 
     console.log('PASS new store retains deduplication; actor data is isolated');
     const jobId = duplicate.find(r => r.jobId).jobId;
     const claims = await Promise.all(Array.from({ length: 10 }, (_, i) => store.claimOutbox({ userId: user(1), jobId, workerId: 'worker_' + i, leaseMs: 1000 })));
-    assert.equal(claims.filter(r => r.status === 'claimed').length, 1);
+    assert.equal(claims.filter(r => r.status === 'claimed').length, 1, JSON.stringify({ statuses: claims.map(r => r.status), stored: (await db.ref('lineChatPrivate/v1/channels/2010730849/actors/' + actorKey(user(1)) + '/outbox/' + jobId + '/status').once('value')).val() }));
     const claim = claims.find(r => r.status === 'claimed');
     assert.equal((await store.acknowledge({ userId: user(1), jobId, workerId: 'wrong', token: claim.job.leaseToken })).status, 'lease_conflict');
     time += 1000;
