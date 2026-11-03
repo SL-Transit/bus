@@ -410,7 +410,7 @@ NEXT_ACTION: Reconcile deployed/main trusted booking sources, define one reusabl
 
 
 ### Shared booking authority extraction — 2026-11-03
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (current LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/booking-authority-service.js; functions/index.js; tests/booking-authority-service.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
@@ -425,3 +425,15 @@ NEXT_ACTION: Extract and verify shared service, then separately harden trusted c
 SCOPE_ADDENDUM (same shared authority lock, before edits): tests/booking-capacity-backend.test.js and tests/booking-time-authority.test.js are included to follow extracted business logic while retaining endpoint/auth and authoritative price/time/owner/counter invariants. Add behavioral service tests rather than relying only on source layout assertions. No production changes.
 
 SCOPE_ADDENDUM (shared authority lock, before edit): tests/booking1-preview-data.test.js is included after CI 41586537019 found its price-tampering source assertion still reads only index.js. Point that invariant to the shared service while keeping the assertion and all UI/Rules checks. Dedicated service behavior tests already reject tampered prices; no production change.
+
+
+### Shared booking authority review report — 2026-11-03 / PR #187
+STATUS: REVIEW (shared core extraction; live LINE remains disabled)
+TESTED_COMMIT: 3202b7a8d863a53dd92a7be610bfa9a768438c60; subsequent source-comparison/report changes are documentation only.
+RESULTS: Existing reserve/create logic moved once to functions/booking-authority-service.js. Existing HTTP endpoints in index.js authenticate with requireUserToken then call the shared service with verified ownerUid. Method/CORS/error/status/body, system-test-before-input order, server capacity, owner release, canonical source/price/time and booking snapshot behavior retained. No duplicate transport engine or new production reads/dependencies. index.js outside two handlers plus import/factory is textually unchanged after newline normalization.
+DEPLOYMENT_RECONCILIATION: Per-function latest traffic revisions recorded in lock/docs. Fresh GitHub UI copies cleared with sentinel before comparison; code matches account for CRLF and Copy-raw trailing newline. createBooking whole index/time helper match main; actual reserve/cancel handlers and relevant dependencies match main despite older unrelated source bundles. No endpoint test call or configuration change.
+TESTS: 7/7 new shared-service behavioral tests passed from GitHub in memory and in full Node suite; LINE run 41586889764 SUCCESS (78 LINE unit tests plus existing signed conversation/durability and new service-level shared-counter Emulator proof). 20 web/LINE-labelled service callers competed for 3 real demo RTDB seats: exactly 3 succeeded, forged limit ignored, wrong owner could not release, repeated release did not over-decrement. Existing full validation run 41586889769 SUCCESS: Node tests, Phase 2/4/6A/5 Emulators and existing HTTP booking/security/k6 performance. One earlier layout-only assertion in Booking1 still read index.js; updated to shared service without dropping its price invariant.
+FILES_CHANGED_THIS_STEP: functions/booking-authority-service.js; functions/index.js; tests/booking-authority-service.test.js; tests/booking-capacity-backend.test.js; tests/booking-time-authority.test.js; tests/booking1-preview-data.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md.
+PRODUCTION_WRITES: none; no merge/deploy/Rules, credentials, actual booking/payment/LINE sends, staff notification, menu/webhook mutation. Cloud read-only UI; all new writes on guarded GitHub demo Emulator. No local filesystem used.
+KNOWN_LIMITS: Refactor preserves existing separate reserve/create semantics. Create does not yet bind a proven capacity reservation; browser release-on-any-create-error and ambiguous results need durable reconciliation. Source validation still uses existing backend canonical workbook helper; no real published/quote/identity adapter for LINE. Shared ownerUid is internal trusted input, never a client-auth mechanism. Service-level labelled-caller proof is not live web/LINE integration. No real payment/sender/PII cleanup proof.
+NEXT_ACTION: Add durable trusted booking command, reservation binding and uncertain-result recovery using the same counters/authority; derive capacity identity server-side and map signed LINE actor to verified booking ownership. Prove crash/last-seat/compensation in Emulator before enabling a live adapter. Production pilot/sends/cutover require separate concrete review/approval.
