@@ -363,7 +363,7 @@ NEXT_ACTION: durable inbox/session/CAS/outbox and trusted published/quote/bookin
 
 
 ### LINE durable store step — 2026-11-03
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (current LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/line-booking-store.js; tests/line-booking-store.test.js; tests/line-booking-store.emulator.cjs; tests/fixtures/line-chat/firebase.json; tests/fixtures/line-chat/database.rules.json; .github/workflows/line-chat-draft-validation.yml; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
@@ -372,3 +372,14 @@ TESTS: Duplicates, ownership, revision races, retention, backpressure, fencing a
 PRODUCTION_WRITES: none; no export/deploy, credentials, LINE sends, booking/payment/Rules/menu changes or main merge.
 COST_RISK: GitHub CI/Emulator only; no production resources.
 NEXT_ACTION: Implement and verify on demo Emulator before trusted adapter integration.
+
+
+### LINE durable store review report — 2026-11-03 / PR #187
+STATUS: REVIEW (isolated durable draft; no live integration)
+CODE_COMMIT: 982f95882a5b6c921f0d9090a6cf9baf3a392508
+RESULTS: Injected private passenger RTDB store atomically stages inbox/session/outbox; owner/revision/event-time checks; bounded retention/backpressure; lease/token fencing; expired ambiguous work requires reconciliation; acknowledgement removes private payload. Scoped cache listener retained only through transaction and cleaned up on failure; transaction clock refreshed on retry. No duplicated transport engine.
+TESTS: GitHub LINE chat draft validation 41554181929 SUCCESS: 67 unit tests (50 webhook/conversation + 16 store + 1 existing LINE test), guarded demo Emulator duplicate delivery x20 / revision race x20 / worker race x10, persistence, isolated actors, expired claim/stale acknowledgement, private payload cleanup and anonymous read/write denial. Non-demo project startup was refused before Admin initialization. Earlier emulator failures were fixed before this passing run. Existing regression run 41554181722 passed Node tests and is still running remaining Emulator/performance steps at report time.
+PRODUCTION_WRITES: none; no main merge, Firebase/Rules deploy, credentials, LINE sends, bookings/payment changes, Rich Menu or webhook changes. All new database writes were synthetic demo-sl-transit-line Emulator on GitHub. No local filesystem used.
+COST_RISK: CI only; no new production resources/dependencies/traffic. Workflow contents:read, timeout 15 minutes.
+KNOWN_LIMITS: No HTTP processor wiring, trusted identity/published/quote/booking adapter, sender or reconciliation service; session/PII retention cleanup still required. External exactly-once and web/LINE last-seat competition are not proven. Needs deployed/main source reconciliation before shared booking service changes.
+NEXT_ACTION: Integrate a disabled processor using injected trusted adapters, prove replay/crash and full conversation in demo Emulator, then reconcile/reuse existing capacity/booking authority. Production pilot and passenger cutover require separate concrete review/approval.
