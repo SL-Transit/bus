@@ -23,6 +23,9 @@ function createLineBookingProcessor({ store, adapters, config = {}, clock = Date
   function now() { const n = clock(); if (!Number.isSafeInteger(n) || n < 0) throw Error('invalid_clock'); return n; }
   function envelope(value, actor) {
     if (value && (value.schemaVersion !== SCHEMA || value.actorKey !== actor || !Number.isSafeInteger(value.revision))) throw Error('incompatible_session');
+    // RTDB omits empty objects/arrays. Restore pure reducer defaults on private reads.
+    if (value?.conversation) value.conversation = { ...value.conversation, selection: value.conversation.selection || {},
+      selectionLabels: value.conversation.selectionLabels || {}, choices: value.conversation.choices || [] };
     return value;
   }
   async function plan(base, command, eventId, actor) {
