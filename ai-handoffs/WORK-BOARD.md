@@ -386,7 +386,7 @@ NEXT_ACTION: Integrate a disabled processor using injected trusted adapters, pro
 
 
 ### LINE processor simulation step — 2026-11-03
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (current LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/line-booking-processor.js; tests/line-booking-processor.test.js; tests/line-booking-store.emulator.cjs; functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
@@ -395,3 +395,15 @@ TESTS: Signed full conversation through synthetic receipt, duplicate/worker race
 PRODUCTION_WRITES: none; no HTTP export/deploy, real adapter/credential/LINE send/booking/payment/Rules/menu/webhook changes or main merge.
 COST_RISK: CI and synthetic demo Emulator only; no new dependencies.
 NEXT_ACTION: Prove simulated orchestration, then reconcile deployed/main booking source before a separately scoped trusted production adapter.
+
+
+### LINE processor simulation review report — 2026-11-03 / PR #187
+STATUS: REVIEW (simulation orchestration; no production adapters)
+CODE_COMMIT: 4ddd28e56aef135ea154b2071306a6a3aecbd5fe; documentation update 314ae247d33717cb3a539bdd69c4060c940ede8f
+RESULTS: Signed/cohort-filtered webhook joins pure flow and private durable envelope; signed event timestamp retained; separate CAS/button revisions; restart-safe button IDs; RTDB empty-field hydration. Read services run before a single CAS, no rebase of competing text. Confirmation stages submitting/outbox before synthetic service call; validated receipt atomically stages complete/preview before original job acknowledgement. Private preview only; no sender/reply token persisted.
+TESTS: GitHub LINE run 41557186779 SUCCESS: 78 unit tests (26 boundary + 25 conversation + 16 store + 10 processor + 1 existing LINE). Guarded demo RTDB passed full signed flow across persisted read/write and recreated processor/store; duplicate confirmation plus 10 workers called synthetic booking once; crash after synthetic commit stayed submitting and did not retry or falsely complete. Existing durability races, actor isolation, stale lease, payload cleanup and anonymous read/write denial also passed. In-memory readback 36/36 boundary/processor tests passed without local filesystem. Existing full regression 41557330259 still running at report time; check latest PR checks before merge.
+IMPACT: New processor and tests; boundary now requires safe signed timestamp; demo Emulator flow extended; docs/board updated. No production API/index.js exports, no existing booking/capacity engine, schema or dependency changes.
+PRODUCTION_WRITES: none; no merge/deploy/Rules, credentials, LINE sends, actual booking/payment, Rich Menu, webhook or staff notification mutation. All writes synthetic demo-sl-transit-line Emulator on GitHub.
+COST_RISK: CI only, no added production reads/resources/dependencies. Bounded payloads/markers/outbox unchanged.
+KNOWN_LIMITS: Synthetic service uses an in-memory idempotency fixture; this is not proof of real booking/capacity/payment semantics or durable service recovery. No real identity mapping/published/booking adapter, sender/dispatcher/reconciliation/PII cleanup. Back navigation, real staff handoff and ticket lookup remain unfinished. Conflicting input is rejected, not silently reordered.
+NEXT_ACTION: Reconcile deployed/main trusted booking sources, define one reusable identity/capacity/booking boundary and test real contracts against Emulator before wiring any production adapter. User review/approval remains separate for production pilot, LINE sends and cutover.
