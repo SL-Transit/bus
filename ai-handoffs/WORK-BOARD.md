@@ -421,3 +421,5 @@ KNOWN_GATES: Existing reserve and create remain separate transactions; create do
 PRODUCTION_WRITES: none; no endpoint calls/test requests, deploy, Rules/credentials, booking/payment, notification, menu/webhook changes or main merge. Browser source read/clipboard only; no local filesystem.
 COST_RISK: GitHub CI/demo Emulator only; no new dependencies/resources/production traffic.
 NEXT_ACTION: Extract and verify shared service, then separately harden trusted confirmation/recovery and connect published/identity contracts before live adapter.
+
+SCOPE_ADDENDUM (same shared authority lock, before edits): tests/booking-capacity-backend.test.js and tests/booking-time-authority.test.js are included to follow extracted business logic while retaining endpoint/auth and authoritative price/time/owner/counter invariants. Add behavioral service tests rather than relying only on source layout assertions. No production changes.
