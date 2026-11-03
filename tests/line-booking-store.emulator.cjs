@@ -53,6 +53,78 @@ const reduce = (session, command, ctx) => ({ session: { actorKey: ctx.actorKey, 
     time += RETENTION + 1;
     await assert.rejects(() => store.commitEvent({ ...event(1, 'same_event'), eventTimestamp: 1800000000000 }, reduce), /event_time/);
     console.log('PASS anonymous read/write denied; old envelopes rejected');
+
+    // Full signed conversation, actual RTDB persistence, synthetic services and NO LINE sender.
+    const { createLineBookingProcessor } = require('../functions/line-booking-processor');
+    const crypto = require('node:crypto');
+    const syntheticSecret = 'emulator-synthetic-secret', bot = user(9);
+    let sequence = 0, serviceCalls = 0, crashAfterBooking = false;
+    const syntheticBookings = new Map();
+    const adapters = {
+      mode: 'simulation',
+      async loadOptions(s) {
+        const values = { origin: 'emulator_origin', destination: 'emulator_destination', date: new Date(time + 25200000).toISOString().slice(0, 10), trip: 'emulator_trip', pax: '1' };
+        return { step: s.state, revision: s.revision, publicationVersion: 'emulator-publication', timezone: 'Asia/Bangkok',
+          options: [{ id: values[s.state], label: 'ตัวเลือกจำลอง ' + s.state, token: crypto.createHash('sha256').update(s.id + s.state).digest('hex').slice(0, 16) }] };
+      },
+      async loadTerms(s) { return { revision: s.revision, version: 'emulator_terms', text: 'เงื่อนไขจำลองเท่านั้น' }; },
+      async quote(s) { return { revision: s.revision, id: 'emulator_quote', publicationVersion: s.publicationVersion, currency: 'THB', totalMinor: 12300, seats: Number(s.selection.pax), available: true, expiresAt: time + 60000 }; },
+      async confirmBooking(input) {
+        serviceCalls++;
+        if (!syntheticBookings.has(input.requestId)) syntheticBookings.set(input.requestId, { requestId: input.requestId, actorKey: input.actorKey, bookingCode: 'EMULATOR_ONLY', paymentStatus: 'pay_on_site' });
+        if (crashAfterBooking) throw Error('synthetic_crash_after_booking');
+        return syntheticBookings.get(input.requestId);
+      }
+    };
+    const config = { enabled: true, channelId: '2010730849', channelSecret: syntheticSecret, botUserId: bot, allowedUserIds: [user(4), user(5)] };
+    let processor = createLineBookingProcessor({ store, adapters, config, clock: () => time });
+    function signedEvent(n, text, postback) {
+      time++;
+      const e = { mode: 'active', timestamp: time, webhookEventId: 'integration_' + ++sequence, replyToken: 'synthetic_reply', source: { type: 'user', userId: user(n) },
+        ...(postback ? { type: 'postback', postback: { data: postback } } : { type: 'message', message: { type: 'text', text } }) };
+      const rawBody = Buffer.from(JSON.stringify({ destination: bot, events: [e] }));
+      return { method: 'POST', rawBody, signature: crypto.createHmac('sha256', syntheticSecret).update(rawBody).digest('base64') };
+    }
+    async function send(n, text, postback, preview = true) {
+      const request = signedEvent(n, text, postback), response = await processor.processWebhook(request);
+      assert.equal(response.status, 200); assert.equal(response.privateResults[0].status, 'committed');
+      const jobId = response.privateResults[0].jobId;
+      if (preview) assert.equal((await processor.runSimulationJob({ userId: user(n), jobId, workerId: 'preview_worker' })).status, 'previewed');
+      return { request, response, jobId };
+    }
+    const conversation = async n => (await store.readSession(user(n))).conversation;
+    async function prepareConfirmation(n) {
+      await send(n, 'จองตั๋ว');
+      // Reconstruct processor/store between requests to prove the path uses durable session data.
+      processor = createLineBookingProcessor({ store: createLineBookingStore({ db, clock: () => time }), adapters, config, clock: () => time });
+      for (let i = 0; i < 5; i++) { const s = await conversation(n); await send(n, '', 'sl:v1:choose:' + s.revision + ':' + s.choices[0].token); }
+      await send(n, 'ผู้โดยสารจำลอง'); await send(n, '0890000000');
+      const terms = await conversation(n); assert.equal(terms.termsVersion, 'emulator_terms');
+      await send(n, '', 'sl:v1:accept:' + terms.revision);
+      const review = await conversation(n); assert.equal(review.state, 'review');
+      return send(n, '', 'sl:v1:confirm:' + review.revision, false);
+    }
+    const submitted = await prepareConfirmation(4);
+    assert.equal(serviceCalls, 0); assert.equal((await conversation(4)).state, 'submitting');
+    const replay = await processor.processWebhook(submitted.request);
+    assert.equal(replay.privateResults[0].status, 'duplicate');
+    const bookingWorkers = await Promise.all(Array.from({ length: 10 }, (_, i) => processor.runSimulationJob({ userId: user(4), jobId: submitted.jobId, workerId: 'booking_' + i })));
+    assert.equal(bookingWorkers.filter(r => r.status === 'receipt_staged').length, 1); assert.equal(serviceCalls, 1);
+    const receiptJob = bookingWorkers.find(r => r.nextJobId).nextJobId;
+    const receiptPreview = await processor.runSimulationJob({ userId: user(4), jobId: receiptJob, workerId: 'receipt_preview' });
+    assert.equal(receiptPreview.status, 'previewed'); assert.match(receiptPreview.messages[0].text, /EMULATOR_ONLY/);
+    const completed = await conversation(4); assert.equal(completed.state, 'complete'); assert.equal(completed.phone, undefined); assert.equal(completed.name, undefined);
+    console.log('PASS signed full simulated conversation survives RTDB round-trips and processor restart; duplicate plus 10 workers produce one synthetic booking and verified completion preview');
+    crashAfterBooking = true;
+    const crashed = await prepareConfirmation(5);
+    assert.equal((await processor.runSimulationJob({ userId: user(5), jobId: crashed.jobId, workerId: 'crash_worker' })).status, 'pending_reconciliation');
+    assert.equal((await conversation(5)).state, 'submitting'); assert.equal(syntheticBookings.size, 2);
+    const callsBeforeRecovery = serviceCalls; time += 30001;
+    assert.equal((await processor.runSimulationJob({ userId: user(5), jobId: crashed.jobId, workerId: 'replacement_worker' })).status, 'needs_reconciliation');
+    assert.equal(serviceCalls, callsBeforeRecovery); assert.equal((await conversation(5)).state, 'submitting');
+    assert.ok(!JSON.stringify(crashed.response.publicBody).includes('0890000000'));
+    console.log('PASS crash after synthetic service commit never triggers automatic booking retry or false completion; HTTP body has no private input');
+
     console.log('LINE demo Emulator validation passed; no production or LINE calls');
   } finally { await app.delete(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
