@@ -423,3 +423,5 @@ COST_RISK: GitHub CI/demo Emulator only; no new dependencies/resources/productio
 NEXT_ACTION: Extract and verify shared service, then separately harden trusted confirmation/recovery and connect published/identity contracts before live adapter.
 
 SCOPE_ADDENDUM (same shared authority lock, before edits): tests/booking-capacity-backend.test.js and tests/booking-time-authority.test.js are included to follow extracted business logic while retaining endpoint/auth and authoritative price/time/owner/counter invariants. Add behavioral service tests rather than relying only on source layout assertions. No production changes.
+
+SCOPE_ADDENDUM (shared authority lock, before edit): tests/booking1-preview-data.test.js is included after CI 41586537019 found its price-tampering source assertion still reads only index.js. Point that invariant to the shared service while keeping the assertion and all UI/Rules checks. Dedicated service behavior tests already reject tampered prices; no production change.
