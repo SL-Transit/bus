@@ -114,3 +114,25 @@ functions/line-passenger-webhook.js เป็นฟังก์ชันบร�
 ข้อจำกัดที่ยังมี: ไม่มี HTTP wrapper, durable inbox/session/CAS/outbox, private actor mapping, published view/quote/booking adapter, การตรวจสลิป หรือการเชื่อมข้อมูลจริง ปุ่มย้อนกลับ/เริ่มใหม่และการส่งต่อเจ้าหน้าที่ยังต้องเติมใน orchestrator การกันข้อความซ้ำข้ามคำขอและการจองพร้อมกันต้องพิสูจน์ใน Emulator ก่อนใช้งานจริง
 
 คำสั่ง inputText, ชื่อ/โทรใน session, ข้อความ review และผล toLineMessages เป็นข้อมูลส่วนตัวสำหรับแชทผู้โดยสารคนเดิมเท่านั้น ไม่ใช่ HTTP response/logging contract การรับข้อความตัวอักษรต้องถูกเติม current revision หลัง claim event และโหลด session จาก private actor mapping ไม่เชื่อ revision/actor จากลูกค้า
+
+
+## ความคืบหน้าการเก็บสถานะ — 3 พฤศจิกายน 2569
+
+เพิ่ม functions/line-booking-store.js เป็นโมดูล draft ที่รับ Admin RTDB ผ่าน dependency injection เท่านั้น ไม่เริ่ม Firebase เอง ไม่ export endpoint และยังไม่เชื่อม conversation/webhook หรือ sender จริง
+
+- บันทึก inbox marker, session revision และ outbox job ใน transaction เดียวต่อผู้ใช้; path แยก passenger channel 2010730849 และ hash actor ไม่ใช้ LINE user ID เป็นชื่อ path
+- duplicate event ไม่เรียก reducer ซ้ำ; event ID เดิมแต่เนื้อหาเปลี่ยนถูกปฏิเสธ; revision เก่าหรือเวลา event ย้อนกลับไม่เขียนทับขั้นตอนใหม่
+- reducer ต้อง pure เพราะ transaction อาจเรียกหลายครั้ง; external booking/LINE calls ต้องอยู่นอก callback และต้องใช้ idempotency ของบริการเดิม
+- โหลด cache จาก path เดียวก่อน transaction เพื่อไม่ตีความ null จาก cold cache ว่าไม่มีข้อมูล; การตัดสินใจและ write ยังอยู่ใน transaction
+- marker 24 ชั่วโมง สูงสุด 128 รายการต่อ actor; command 4 KiB, session 32 KiB, outbox payload 16 KiB และ actor transaction 64 KiB; outbox ค้างสูงสุด 16 งานแล้วพักรับเพิ่ม ไม่มีการทิ้งงานค้างเพื่อเปิดทางให้ replay
+- worker claim มี token และ lease 1–60 วินาที; acknowledgement ต้องตรง worker/token และยังไม่หมดเวลา; สำเร็จแล้วลบ private payload ออกจาก job
+- งาน processing หมดเวลาเปลี่ยนเป็น needs_reconciliation โดยไม่ส่งซ้ำอัตโนมัติ ต้องตรวจผล booking ตาม idempotency key/สถานะ reply ก่อนตัดสินใจ งานนี้ยังไม่มีตัว reconciliation หรือ sender
+- inbox pruning ทำเฉพาะ marker หมดอายุและปฏิเสธ envelope เก่า; delivered outbox ถูกเก็บกวาดใน event ถัดไป งานที่ไม่สำเร็จไม่ถูกลบอัตโนมัติ
+
+ไฟล์ Emulator ปฏิเสธทุก target ยกเว้น demo-sl-transit-line + 127.0.0.1:9000 ก่อนโหลด Admin SDK ใช้ deny-all Rules เฉพาะ fixture; ไม่แก้ database.rules.json ของระบบจริง Workflow ใหม่ใช้ contents:read และไม่มี credentials หรือ deploy step
+
+หลักฐาน CI จะบันทึกในรายงาน Work Board หลังตรวจผลครบ: unit ครอบคลุม replay/ownership/revision/backpressure/fencing; Emulator ตรวจ concurrent duplicate 20 ครั้ง, revision race 20 ครั้ง, worker race 10 ครั้ง, acknowledgement, denial และ persistence ข้าม store instance
+
+ข้อจำกัดก่อนใช้จริง: ยังไม่มี persistent event processor ที่เชื่อม pure conversation กับ store, trusted actor-to-booking identity mapping, published/quote/booking adapter, sender, automated reconciliation หรือ session/PII retention cleanup; schema นี้ไม่ใช่ transport schema และไม่คำนวณที่นั่ง/ราคา การเก็บสถานะได้ไม่รับประกัน exactly-once ของบริการภายนอก ต้องพิสูจน์ crash-after-booking และ crash-after-send ก่อนเปิด pilot
+
+ข้อมูลผลทดสอบในหัวข้อก่อนหน้าเป็นหลักฐานของขั้นตอนนั้น ณ วันที่ระบุ ไม่ใช่สถานะ integration ล่าสุด ยังไม่ merge/deploy หรือเปิด webhook และไม่ได้ส่งข้อความจริง
