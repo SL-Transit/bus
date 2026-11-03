@@ -360,3 +360,15 @@ IMPACT: functions/line-booking-conversation.js and tests/line-booking-conversati
 PRODUCTION_WRITES: none; no main merge or deployment.
 COST_RISK: CI only, zero new production traffic.
 NEXT_ACTION: durable inbox/session/CAS/outbox and trusted published/quote/booking adapters, back/restart/handoff orchestration, source/deployment reconciliation and payment-runtime validation, then Emulator concurrency and full-flow proof. No live booking or customer cutover without separate review/approval.
+
+
+### LINE durable store step — 2026-11-03
+STATUS: IN_PROGRESS
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-booking-store.js; tests/line-booking-store.test.js; tests/line-booking-store.emulator.cjs; tests/fixtures/line-chat/firebase.json; tests/fixtures/line-chat/database.rules.json; .github/workflows/line-chat-draft-validation.yml; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Private injected RTDB transaction store; atomic inbox/session/outbox, revision CAS and conservative lease reconciliation. No duplicate transport engine.
+TESTS: Duplicates, ownership, revision races, retention, backpressure, fencing and demo-only Emulator with anonymous access denied.
+PRODUCTION_WRITES: none; no export/deploy, credentials, LINE sends, booking/payment/Rules/menu changes or main merge.
+COST_RISK: GitHub CI/Emulator only; no production resources.
+NEXT_ACTION: Implement and verify on demo Emulator before trusted adapter integration.
