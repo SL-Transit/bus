@@ -407,3 +407,17 @@ PRODUCTION_WRITES: none; no merge/deploy/Rules, credentials, LINE sends, actual 
 COST_RISK: CI only, no added production reads/resources/dependencies. Bounded payloads/markers/outbox unchanged.
 KNOWN_LIMITS: Synthetic service uses an in-memory idempotency fixture; this is not proof of real booking/capacity/payment semantics or durable service recovery. No real identity mapping/published/booking adapter, sender/dispatcher/reconciliation/PII cleanup. Back navigation, real staff handoff and ticket lookup remain unfinished. Conflicting input is rejected, not silently reordered.
 NEXT_ACTION: Reconcile deployed/main trusted booking sources, define one reusable identity/capacity/booking boundary and test real contracts against Emulator before wiring any production adapter. User review/approval remains separate for production pilot, LINE sends and cutover.
+
+
+### Shared booking authority extraction — 2026-11-03
+STATUS: IN_PROGRESS
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/booking-authority-service.js; functions/index.js; tests/booking-authority-service.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Read-only deployed-source reconciliation completed for createBooking/reserveBookingCapacity/cancelBooking. Extract existing reserve/create business logic into one injected trusted service; existing HTTP endpoints retain authentication/CORS/method/response behavior and call it. No duplicate price/journey/capacity engine; no live LINE adapter.
+TESTS: Existing Node/HTTP Emulator/performance regression; focused service contract/auth/policy/price/idempotency tests; guarded demo RTDB shared last-seat/owner/release proof.
+SOURCE_EVIDENCE: createbooking-00009-yol 100 percent latest; index.js and booking-time-authority.js exact main after CRLF normalization. reservebookingcapacity-00009-nih 100 percent latest; reserve endpoint and actual auth/path/source-reader/capacity resolver match main, unrelated create helpers differ. cancelbooking-00003-soj 100 percent latest; cancel endpoint/rate-phone-departure/release helpers match main. Whole source bundles differ per function; do not redeploy all functions to reconcile them.
+KNOWN_GATES: Existing reserve and create remain separate transactions; create does not prove reservation ownership/binding and client releases on any create error. Live LINE integration requires durable recovery/reservation binding, trusted identity and published source contract before pilot. Extraction alone is not hardening/deploy approval.
+PRODUCTION_WRITES: none; no endpoint calls/test requests, deploy, Rules/credentials, booking/payment, notification, menu/webhook changes or main merge. Browser source read/clipboard only; no local filesystem.
+COST_RISK: GitHub CI/demo Emulator only; no new dependencies/resources/production traffic.
+NEXT_ACTION: Extract and verify shared service, then separately harden trusted confirmation/recovery and connect published/identity contracts before live adapter.
