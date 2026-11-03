@@ -68,3 +68,23 @@ test('store requires injection and cannot target staff channel', () => {
   assert.throws(() => createLineBookingStore(), /configuration/);
   assert.throws(() => createLineBookingStore({ db: { ref() {} }, channelId: '2010104391' }), /configuration/);
 });
+
+test('ack checks time after database wait and releases its cache listener', async () => {
+  let time = now, listeners = 0;
+  const job = { status: 'processing', workerId: 'worker', leaseToken: 'token', leaseUntil: now + 1000, payload: { synthetic: true } };
+  const ref = {
+    on() { listeners++; }, off() { listeners--; },
+    async once() { time += 2000; return { val: () => job }; },
+    async transaction(update) { assert.equal(listeners, 1); const value = update(job); assert.equal(value, undefined); return { committed: false }; }
+  };
+  const store = createLineBookingStore({ db: { ref: () => ref }, clock: () => time });
+  assert.equal((await store.acknowledge({ userId, jobId: 'a'.repeat(64), workerId: 'worker', token: 'token' })).status, 'lease_conflict');
+  assert.equal(listeners, 0);
+});
+test('database failure releases its temporary listener', async () => {
+  let listeners = 0;
+  const ref = { on() { listeners++; }, off() { listeners--; }, async once() { throw Error('database_unavailable'); } };
+  const store = createLineBookingStore({ db: { ref: () => ref }, clock: () => now });
+  await assert.rejects(() => store.commitEvent(input(), reducer), /database_unavailable/);
+  assert.equal(listeners, 0);
+});
