@@ -154,6 +154,65 @@ const reduce = (session, command, ctx) => ({ session: { actorKey: ctx.actorKey, 
     assert.equal((await sharedCapacityRef.get()).val().bookedSeats, 3);
     console.log('PASS extracted booking authority: 20 web/LINE-labelled callers share three real Emulator seats, forged limit ignored, cross-owner release blocked and repeated release does not over-decrement');
 
+
+    // Bound command proof with the real shared authority and real RTDB transactions.
+    const { createBookingCommandService, commandIdentity } = require('../functions/booking-command-service');
+    const boundPair = { pairKey: 'bound_fare', pairId: 'bound_fare', routeId: 'bound_route', scheduleOfferId: 'bound_trip', scheduleRowId: 'bound_schedule',
+      departureTime: '09:00', fareAmount: 100, fareContract: { serviceFeeAmount: 0 } };
+    const boundAuthority = createBookingAuthority({ ...authorityDeps,
+      readCanonicalWorkbookSource: async () => ({ ready: true, manifest: { schemaVersion: 'bound_fixture' }, pair: boundPair }),
+      canonicalWorkbookReady: source => source.ready === true,
+      findCanonicalWorkbookPair: (source, booking) => booking.pairKey === 'bound_fare' && booking.tripId === 'bound_trip' ? source.pair : null,
+      resolvePublishedCapacity: async () => ({ sourceRowId: 'bound_schedule', capacityLimit: 3, bookedSeats: 0, seatsAvailable: 3, bookings: {} }) });
+    const boundInput = { pairKey: 'bound_fare', tripId: 'bound_trip', date: '2027-01-15', pax: 1, name: 'ผู้ทดสอบจำลอง', phone: '0890000000',
+      time: '09:00', pickupTime: '09:00', fareAmount: 100, price: 100, fare: 100, paymentMode: 'onsite' };
+    let boundCreateCalls = 0;
+    const measuredAuthority = { prepare: args => boundAuthority.prepare(args), reserve: args => boundAuthority.reserve(args),
+      create: args => { boundCreateCalls++; return boundAuthority.create(args); } };
+    const boundCommands = createBookingCommandService({ enabled: true, db, authority: measuredAuthority, clock: () => time, leaseMs: 1000 });
+    const commandArgs = { ownerUid: 'synthetic_bound_owner', requestId: 'c'.repeat(64), booking: boundInput };
+    const boundResponses = await Promise.all(Array.from({ length: 20 }, () => boundCommands.confirm(commandArgs)));
+    assert.ok(boundResponses.some(result => result.status === 'confirmed'));
+    assert.ok(boundResponses.every(result => ['confirmed', 'busy'].includes(result.status))); assert.equal(boundCreateCalls, 1);
+    const boundIdentity = commandIdentity(commandArgs.ownerUid, commandArgs.requestId);
+    const boundBooking = (await db.ref('bookings/' + boundIdentity.bookingCode).get()).val();
+    assert.equal(boundBooking.ownerUid, commandArgs.ownerUid); assert.equal(boundBooking.bookingCommand.commandId, boundIdentity.commandId); assert.equal(boundBooking.source, 'line_chat');
+    const boundCounterRef = db.ref(boundBooking.capacity.counterPath);
+    assert.equal((await boundCounterRef.get()).val().bookedSeats, 1);
+    assert.equal((await boundCommands.confirm(commandArgs)).replay, true); assert.equal(boundCreateCalls, 1);
+    assert.equal((await boundAuthority.reserve({ ownerUid: commandArgs.ownerUid, body: { ...boundBooking.capacity, action: 'release' } })).statusCode, 409);
+    assert.equal((await boundCounterRef.get()).val().bookedSeats, 1);
+    console.log('PASS 20 duplicate bound commands create one canonical bound booking and one protected seat; replay returns the same receipt');
+    let lostCreateCalls = 0, loseCreate = true;
+    const lostCreateAuthority = { prepare: args => boundAuthority.prepare(args), reserve: args => boundAuthority.reserve(args),
+      async create(args) { lostCreateCalls++; const result = await boundAuthority.create(args); if (loseCreate) { loseCreate = false; throw Error('synthetic_lost_create_response'); } return result; } };
+    const lostCreateCommands = createBookingCommandService({ enabled: true, db, authority: lostCreateAuthority, clock: () => time, leaseMs: 1000 });
+    const lostCreateArgs = { ownerUid: 'synthetic_lost_create_owner', requestId: 'd'.repeat(64), booking: boundInput };
+    assert.equal((await lostCreateCommands.confirm(lostCreateArgs)).status, 'needs_reconciliation');
+    const lostIdentity = commandIdentity(lostCreateArgs.ownerUid, lostCreateArgs.requestId);
+    const lostRecord = (await db.ref(lostIdentity.ledgerPath).get()).val();
+    assert.equal((await db.ref('bookings/' + lostIdentity.bookingCode).get()).val().bookingCommand.commandId, lostIdentity.commandId);
+    assert.equal((await boundAuthority.reserve({ ownerUid: lostCreateArgs.ownerUid, body: { ...lostRecord.capacity, action: 'release' } })).statusCode, 409);
+    time += 1001;
+    const recoveredCreate = await lostCreateCommands.confirm(lostCreateArgs);
+    assert.equal(recoveredCreate.status, 'confirmed'); assert.equal(lostCreateCalls, 1); assert.equal((await boundCounterRef.get()).val().bookedSeats, 2);
+    assert.equal((await lostCreateCommands.confirm({ ...lostCreateArgs, booking: { ...boundInput, name: 'ข้อมูลเปลี่ยน' } })).status, 'request_conflict');
+    const privateRecord = JSON.stringify((await db.ref(lostIdentity.ledgerPath).get()).val());
+    assert.ok(!privateRecord.includes(boundInput.phone)); assert.ok(!privateRecord.includes(boundInput.name));
+    console.log('PASS lost create response recovers existing tagged booking without another insert, rejects changed payload and keeps raw personal input out of command ledger');
+    let lostReserveCalls = 0, loseReserve = true;
+    const lostReserveAuthority = { prepare: args => boundAuthority.prepare(args), create: args => boundAuthority.create(args),
+      async reserve(args) { lostReserveCalls++; const result = await boundAuthority.reserve(args); if (loseReserve) { loseReserve = false; throw Error('synthetic_lost_reserve_response'); } return result; } };
+    const lostReserveCommands = createBookingCommandService({ enabled: true, db, authority: lostReserveAuthority, clock: () => time, leaseMs: 1000 });
+    const lostReserveArgs = { ownerUid: 'synthetic_lost_reserve_owner', requestId: 'e'.repeat(64), booking: boundInput };
+    assert.equal((await lostReserveCommands.confirm(lostReserveArgs)).status, 'needs_reconciliation');
+    const reserveIdentity = commandIdentity(lostReserveArgs.ownerUid, lostReserveArgs.requestId);
+    assert.equal((await db.ref('bookings/' + reserveIdentity.bookingCode).get()).val(), null);
+    assert.equal((await boundCounterRef.get()).val().bookedSeats, 3);
+    time += 1001; assert.equal((await lostReserveCommands.confirm(lostReserveArgs)).status, 'confirmed');
+    assert.equal(lostReserveCalls, 1); assert.equal((await boundCounterRef.get()).val().bookedSeats, 3);
+    console.log('PASS lost reserve response reuses its existing reservation and creates a single bound booking without reserving another seat');
+
     console.log('LINE demo Emulator validation passed; no production or LINE calls');
   } finally { await app.delete(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
