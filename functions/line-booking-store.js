@@ -51,6 +51,8 @@ function planEvent(current, p, reducer) {
 function planClaim(current, { workerId, token, now, leaseMs }) {
   if (!current) return { status: 'missing' };
   const job = copy(current);
+  // RTDB can re-enter with this transaction's own optimistic local value.
+  if (job.status === 'processing' && job.leaseToken === token && job.workerId === workerId && job.leaseUntil > now) return { status: 'claimed', job };
   if (job.status === 'processing' && job.leaseUntil <= now) {
     job.status = 'needs_reconciliation'; delete job.leaseToken;
     return { status: 'needs_reconciliation', job };
