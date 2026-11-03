@@ -160,7 +160,7 @@ functions/line-passenger-webhook.js เป็นฟังก์ชันบร�
 
 ## ตรวจซอร์สที่ deploy และแยกบริการจองร่วม — 3 พฤศจิกายน 2569
 
-ตรวจแบบอ่านอย่างเดียวใน Cloud Console โครงการ sl-transit-9464e โดยเปิด Source และ Revision History ไม่กด Test/Edit/Redeploy ไม่เรียก endpoint และไม่อ่านข้อมูลผู้โดยสาร เทียบข้อความจากตัวแสดงโค้ดกับ GitHub main 4fa94751da4ba75f8bba216c1e8171a8df322196 ในหน่วยความจำโดยปรับ CRLF เป็น LF เท่านั้น ไม่มีการดาวน์โหลดหรือใช้ไฟล์ในเครื่อง
+ตรวจแบบอ่านอย่างเดียวใน Cloud Console โครงการ sl-transit-9464e โดยเปิด Source และ Revision History ไม่กด Test/Edit/Redeploy ไม่เรียก endpoint และไม่อ่านข้อมูลผู้โดยสาร เทียบข้อความจากตัวแสดงโค้ดกับ GitHub main 4fa94751da4ba75f8bba216c1e8171a8df322196 ในหน่วยความจำโดยปรับ CRLF เป็น LF และไม่นับ newline ท้ายไฟล์ที่ปุ่ม Copy raw file ตัดออก ตรวจการคัดลอกใหม่ด้วย sentinel ก่อนเทียบ ไม่มีการดาวน์โหลดหรือใช้ไฟล์ในเครื่อง
 
 | บริการ | revision รับ traffic 100% | ผลเทียบ |
 | --- | --- | --- |
