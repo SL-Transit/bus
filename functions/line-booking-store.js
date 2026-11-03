@@ -81,7 +81,9 @@ function createLineBookingStore({ db, clock = Date.now, channelId = CHANNEL } = 
     async commitEvent(input, reducer) {
       if (typeof reducer !== 'function') throw new Error('reducer_required');
       const p = prepare(input, now()); let decision;
-      const tx = await db.ref(path(input.userId)).transaction(current => {
+      const ref = db.ref(path(input.userId));
+      await ref.once('value'); // Prime RTDB cache: null in a cold transaction is not proof of absence.
+      const tx = await ref.transaction(current => {
         decision = planEvent(current, p, reducer);
         return decision.state; // undefined aborts. Duplicate events never re-run the reducer.
       }, undefined, false);
@@ -96,13 +98,15 @@ function createLineBookingStore({ db, clock = Date.now, channelId = CHANNEL } = 
       worker(workerId);
       if (!integer(leaseMs) || leaseMs < 1000 || leaseMs > 60000) throw new Error('lease_duration');
       const args = { workerId, token: randomUUID(), now: now(), leaseMs }; let decision;
-      const tx = await jobRef(userId, jobId).transaction(current => { decision = planClaim(current, args); return decision.job; }, undefined, false);
+      const ref = jobRef(userId, jobId); await ref.once('value');
+      const tx = await ref.transaction(current => { decision = planClaim(current, args); return decision.job; }, undefined, false);
       return tx.committed && decision.status === 'claimed' ? { status: 'claimed', job: decision.job } : { status: decision.status };
     },
     async acknowledge({ userId, jobId, workerId, token }) {
       worker(workerId);
       const args = { workerId, token, now: now() }; let decision;
-      const tx = await jobRef(userId, jobId).transaction(current => { decision = planAck(current, args); return decision.job; }, undefined, false);
+      const ref = jobRef(userId, jobId); await ref.once('value');
+      const tx = await ref.transaction(current => { decision = planAck(current, args); return decision.job; }, undefined, false);
       return { status: tx.committed ? 'delivered' : decision.status };
     }
   };
