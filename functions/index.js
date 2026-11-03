@@ -4,6 +4,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const bookingTimeAuthority = require("./booking-time-authority.js");
+const { createBookingAuthority } = require("./booking-authority-service.js");
 
 const ERP_DATA_CENTER_DATABASE_URL = "https://sl-transit-9464e-default-rtdb.asia-southeast1.firebasedatabase.app";
 const EMULATOR_DATABASE_URL = "http://127.0.0.1:9000?ns=sl-transit-9464e-default-rtdb";
@@ -440,6 +441,13 @@ function testModeResponse(res) {
   sendJson(res, 503, { status: "blocked", error: "system_test_mode_enabled", message: "ระบบกำลังทดสอบ จึงยังไม่รับรายการนี้" });
 }
 
+const bookingAuthority = createBookingAuthority({
+  db: admin.database(), serverTimestamp: SERVER_TIMESTAMP, readSystemTestMode, readCanonicalWorkbookSource,
+  canonicalWorkbookReady, findCanonicalWorkbookPair, resolvePublishedCapacity, bookingTimeAuthority,
+  cleanBookingText, validCapacityPart, capacityCounterPath, maxCapacityLimit: MAX_CAPACITY_LIMIT,
+  isEmulator: process.env.FUNCTIONS_EMULATOR === "true", warn: (...args) => console.warn(...args)
+});
+
 exports.reserveBookingCapacity = onRequest({
   region: "asia-southeast1",
   timeoutSeconds: 15,
@@ -451,90 +459,9 @@ exports.reserveBookingCapacity = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
-    const systemTestMode = await readSystemTestMode();
-    if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { testModeResponse(res); return; }
-    const body = parseJsonRequest(req);
-    const action = body.action || "reserve";
-    const path = capacityCounterPath(body.serviceDate, body.capacityKey);
-    const bookingCode = String(body.bookingCode || "");
-    const requestedSeats = Number(body.requestedSeats);
-    if (!path || !validCapacityPart(bookingCode, 80) || !Number.isInteger(requestedSeats) || requestedSeats < 1 || requestedSeats > 10) {
-      sendJson(res, 400, { status: "error", error: "invalid_capacity_request" });
-      return;
-    }
-    const ref = admin.database().ref(path);
-    let initialCapacity = (await ref.get()).val();
-    if (!initialCapacity && action !== "release") {
-      initialCapacity = await resolvePublishedCapacity({
-        serviceDate: body.serviceDate,
-        pairKey: body.pairKey,
-        tripKey: body.tripKey,
-        routeKey: body.routeKey,
-        pickupTime: body.pickupTime
-      });
-      if (!initialCapacity) {
-        console.warn("booking_capacity_rejected", {
-          reason: "published_trip_not_found",
-          serviceDate: body.serviceDate,
-          pairKey: body.pairKey,
-          tripKey: body.tripKey,
-          routeKey: body.routeKey,
-          pickupTime: body.pickupTime
-        });
-        sendJson(res, 409, { status: "error", error: "capacity_full_or_not_ready" });
-        return;
-      }
-    }
-    if (action === "release") {
-      const result = await ref.transaction((current) => {
-        if (!current || !current.bookings || !current.bookings[bookingCode]) return current;
-        const existing = current.bookings[bookingCode];
-        if (existing.ownerUid !== decoded.uid) return current;
-        const bookings = { ...current.bookings };
-        delete bookings[bookingCode];
-        const bookedSeats = Math.max(0, Number(current.bookedSeats || 0) - Number(existing.seats || requestedSeats));
-        return { ...current, bookedSeats, seatsAvailable: Math.max(0, Number(current.capacityLimit || 0) - bookedSeats), bookings, updatedAt: SERVER_TIMESTAMP };
-      });
-      sendJson(res, 200, { status: "ok", action: "release", committed: result.committed === true });
-      return;
-    }
-    const result = await ref.transaction((current) => {
-      const state = current || initialCapacity;
-      if (!state) return;
-      const transactionCapacityLimit = Number(state.capacityLimit);
-      if (!Number.isInteger(transactionCapacityLimit) || transactionCapacityLimit < 1 || transactionCapacityLimit > MAX_CAPACITY_LIMIT) return;
-      const bookings = state.bookings || {};
-      const existing = bookings[bookingCode];
-      if (existing) return existing.ownerUid === decoded.uid ? state : undefined;
-      const bookedSeats = Math.max(0, Number(state.bookedSeats || 0));
-      const capacityLimit = transactionCapacityLimit;
-      if (bookedSeats + requestedSeats > capacityLimit) return;
-      const serverNow = Date.now();
-      return {
-        ...state,
-        contractVersion: "booking_capacity_v1",
-        bookedSeats: bookedSeats + requestedSeats,
-        seatsAvailable: capacityLimit - bookedSeats - requestedSeats,
-        bookings: { ...bookings, [bookingCode]: { ownerUid: decoded.uid, seats: requestedSeats, status: "reserved", reservedAt: serverNow } },
-        updatedAt: serverNow
-      };
-    });
-    if (!result.committed) {
-      const snapshot = await ref.get();
-      const existing = snapshot.child(`bookings/${bookingCode}`).val();
-      console.warn("booking_capacity_rejected", {
-        reason: existing ? "capacity_already_reserved" : "capacity_transaction_not_committed",
-        serviceDate: body.serviceDate,
-        pairKey: body.pairKey,
-        tripKey: body.tripKey,
-        routeKey: body.routeKey,
-        pickupTime: body.pickupTime
-      });
-      sendJson(res, existing && existing.ownerUid === decoded.uid ? 200 : 409, { status: "error", error: existing ? "capacity_already_reserved" : "capacity_full_or_not_ready" });
-      return;
-    }
-    const value = result.snapshot.val() || {};
-    sendJson(res, 200, { status: "ok", action: "reserve", committed: true, capacityLimit: value.capacityLimit, bookedSeats: value.bookedSeats, seatsAvailable: value.seatsAvailable });
+    const result = await bookingAuthority.reserve({ ownerUid: decoded.uid,
+      readInput: () => parseJsonRequest(req) });
+    sendJson(res, result.statusCode, result.body);
   } catch (error) {
     sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "capacity_request_failed" });
   }
@@ -556,75 +483,9 @@ exports.createBooking = onRequest({
   if (req.method !== "POST") { sendJson(res, 405, { status: "error", error: "method_not_allowed" }); return; }
   try {
     const decoded = await requireUserToken(req);
-    const systemTestMode = await readSystemTestMode();
-    if (systemTestMode.enabled === true && systemTestMode.allowBookingsDuringTest !== true) { testModeResponse(res); return; }
-    const body = parseJsonRequest(req);
-    const input = body.booking && typeof body.booking === "object" ? body.booking : {};
-    const code = cleanBookingText(input.code || input.bookingCode, 80);
-    const pax = Number(input.pax == null ? input.seats : input.pax);
-    const date = cleanBookingText(input.date || input.serviceDate, 10);
-    const phone = cleanBookingText(input.phone, 20);
-    if (!validCapacityPart(code, 80) || !Number.isInteger(pax) || pax < 1 || pax > 10 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^0[689]\d{8}$/.test(phone)) {
-      sendJson(res, 400, { status: "error", error: "invalid_booking_request" });
-      return;
-    }
-    const source = await readCanonicalWorkbookSource();
-    if (![input.tripId, input.catalogTripId, input.scheduleOfferId].some((value) => String(value || "").trim())) {
-      sendJson(res, 409, { status: "error", error: "canonical_trip_identity_required" });
-      return;
-    }
-    let pair = canonicalWorkbookReady(source) ? findCanonicalWorkbookPair(source, input) : null;
-    if (!pair && process.env.FUNCTIONS_EMULATOR === "true") {
-      const emulatorSchedule = (await admin.database().ref("publishedSchedule").get()).val() || {};
-      const pairs = emulatorSchedule.pairs || {};
-      const wanted = [input.pairKey, input.pairId, input.canonicalPairKey].filter(Boolean).map(String);
-      pair = Object.entries(pairs).map(([key, value]) => ({ key, ...(value || {}) })).find((candidate) =>
-        wanted.includes(String(candidate.key)) || wanted.includes(String(candidate.pairKey || "")) || wanted.includes(String(candidate.pairId || ""))
-      ) || null;
-    }
-    if (!canonicalWorkbookReady(source) && process.env.FUNCTIONS_EMULATOR !== "true") {
-      sendJson(res, 409, { status: "error", error: "canonical_workbook_source_not_ready" });
-      return;
-    }
-    const serverFare = Number(pair && pair.fareAmount);
-    const serverFee = Number(pair && pair.fareContract && pair.fareContract.serviceFeeAmount || 0);
-    const expectedTotal = (serverFare + serverFee) * pax;
-    if (!pair || !Number.isFinite(serverFare) || serverFare < 0 || !Number.isFinite(serverFee) || serverFee < 0 || Number(input.fareAmount) !== serverFare || Number(input.price) !== expectedTotal || Number(input.fare) !== expectedTotal) {
-      sendJson(res, 409, { status: "error", error: "authoritative_price_mismatch" });
-      return;
-    }
-    const authoritativeTime = bookingTimeAuthority.resolveBookingTime(input, pair);
-    if (!authoritativeTime.ok) {
-      sendJson(res, 409, { status: "error", error: authoritativeTime.error });
-      return;
-    }
-    const paymentMode = input.paymentMode === "onsite" ? "onsite" : "transfer";
-    const paymentStatus = paymentMode === "onsite" ? "pay_on_site" : (input.slipUploaded === true ? "slip_uploaded" : "awaiting_payment");
-    const booking = {
-      code, bookingCode: code, ownerUid: decoded.uid, source: "booking1.html", sourceMode: "erp_data_center",
-      name: cleanBookingText(input.name, 120), phone, pax, seats: pax, date, serviceDate: date,
-      time: authoritativeTime.time, pickupTime: authoritativeTime.time, departTime: authoritativeTime.time,
-      canonicalDepartureTime: authoritativeTime.time,
-      origin: cleanBookingText(input.origin, 120), destination: cleanBookingText(input.destination, 120),
-      originKey: cleanBookingText(input.originKey, 120), destKey: cleanBookingText(input.destKey, 120),
-      pairKey: cleanBookingText(input.pairKey, 160), pairId: cleanBookingText(input.pairId, 160), canonicalPairKey: cleanBookingText(input.canonicalPairKey, 160),
-      routeId: cleanBookingText(pair.routeId, 160),
-      tripId: cleanBookingText(pair.scheduleOfferId, 160), catalogTripId: cleanBookingText(pair.scheduleOfferId, 160),
-      scheduleOfferId: cleanBookingText(pair.scheduleOfferId, 160), scheduleRowId: cleanBookingText(pair.scheduleRowId, 160),
-      fare: expectedTotal, price: expectedTotal, fareAmount: serverFare, fareContract: pair.fareContract || null,
-      paymentMode, paymentStatus, slipUploaded: paymentStatus === "slip_uploaded", paymentOwnership: "sl_transit",
-      externalPaymentRequired: false, testMode: systemTestMode.enabled === true, mockPayment: systemTestMode.enabled === true, mockOnly: systemTestMode.enabled === true, status: "awaiting_payment",
-      passengerIdentity: input.passengerIdentity || null, notificationPreference: input.notificationPreference || null,
-      consent: input.consent || null, assignment: input.assignment || null, capacity: input.capacity || null,
-      publishedSchedule: { readyForApply: false, schemaVersion: source.manifest.schemaVersion || "erpWorkbookSource.v1" }, createdAt: SERVER_TIMESTAMP
-    };
-    const bookingRef = admin.database().ref(`bookings/${code}`);
-    const result = await bookingRef.transaction((current) => current ? undefined : booking);
-    if (!result.committed) {
-      sendJson(res, 409, { status: "error", error: "booking_already_exists" });
-      return;
-    }
-    sendJson(res, 201, { status: "ok", booking: result.snapshot.val() });
+    const result = await bookingAuthority.create({ ownerUid: decoded.uid,
+      readInput: () => parseJsonRequest(req).booking });
+    sendJson(res, result.statusCode, result.body);
   } catch (error) {
     sendJson(res, Number(error.statusCode) || 500, { status: "error", error: error.message || "booking_create_failed" });
   }
