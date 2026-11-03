@@ -383,3 +383,15 @@ PRODUCTION_WRITES: none; no main merge, Firebase/Rules deploy, credentials, LINE
 COST_RISK: CI only; no new production resources/dependencies/traffic. Workflow contents:read, timeout 15 minutes.
 KNOWN_LIMITS: No HTTP processor wiring, trusted identity/published/quote/booking adapter, sender or reconciliation service; session/PII retention cleanup still required. External exactly-once and web/LINE last-seat competition are not proven. Needs deployed/main source reconciliation before shared booking service changes.
 NEXT_ACTION: Integrate a disabled processor using injected trusted adapters, prove replay/crash and full conversation in demo Emulator, then reconcile/reuse existing capacity/booking authority. Production pilot and passenger cutover require separate concrete review/approval.
+
+
+### LINE processor simulation step — 2026-11-03
+STATUS: IN_PROGRESS
+OWNER: Codex (current LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-booking-processor.js; tests/line-booking-processor.test.js; tests/line-booking-store.emulator.cjs; functions/line-passenger-webhook.js; tests/line-passenger-webhook.test.js; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
+SCOPE: Disabled-by-default simulation processor joins signed webhook, pure conversation and private RTDB envelope; injected synthetic published/terms/quote/booking services only. Stage confirmation before mock service, persist verified receipt before completion preview, no sender. Separate store/conversation revisions, no automatic rebase of conflicting text, restart-safe button revisions.
+TESTS: Signed full conversation through synthetic receipt, duplicate/worker races, stale text/buttons, restart/expiry, adapter failure, crash after synthetic booking and privacy. Existing guarded demo Emulator and GitHub regression.
+PRODUCTION_WRITES: none; no HTTP export/deploy, real adapter/credential/LINE send/booking/payment/Rules/menu/webhook changes or main merge.
+COST_RISK: CI and synthetic demo Emulator only; no new dependencies.
+NEXT_ACTION: Prove simulated orchestration, then reconcile deployed/main booking source before a separately scoped trusted production adapter.
