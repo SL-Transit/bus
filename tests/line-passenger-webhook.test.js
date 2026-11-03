@@ -10,7 +10,7 @@ const SECRET = "synthetic-test-secret-not-a-real-credential";
 const config = () => ({ enabled: true, channelId: "2010730849", channelSecret: SECRET,
   botUserId: BOT, allowedUserIds: [USER] });
 const event = (overrides = {}) => ({ type: "message", mode: "active",
-  webhookEventId: "fixture_event_1", replyToken: "synthetic-reply-token",
+  timestamp: 1800000000000, webhookEventId: "fixture_event_1", replyToken: "synthetic-reply-token",
   source: { type: "user", userId: USER }, message: { type: "text", text: "จองตั๋ว" }, ...overrides });
 function request(events = [event()], extra = {}) {
   const rawBody = Buffer.from(JSON.stringify({ destination: BOT, events, ...extra }));
@@ -148,4 +148,13 @@ test("signed selection delivery retains the server-parsed choice and revision", 
   const out = preview([event({ type: "postback", message: undefined, postback: { data: "sl:v1:choose:3:fixture_token_01" } })]);
   assert.equal(out.commands[0].revision, 3); assert.equal(out.commands[0].choiceToken, "fixture_token_01");
   assert.equal(out.commands[0].action, "choose");
+});
+
+
+test("signed timestamp is required and preserved for durable event ordering", () => {
+  assert.equal(preview([event()]).commands[0].eventTimestamp, 1800000000000);
+  for (const timestamp of [undefined, -1, 1.5, "1800000000000"]) {
+    const out = preview([event({ timestamp })]);
+    assert.equal(out.status, 400); assert.equal(out.commands.length, 0);
+  }
 });
