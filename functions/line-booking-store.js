@@ -88,10 +88,10 @@ function createLineBookingStore({ db, clock = Date.now, channelId = CHANNEL } = 
     actorKey,
     async commitEvent(input, reducer) {
       if (typeof reducer !== 'function') throw new Error('reducer_required');
-      const p = prepare(input, now()); let decision;
+      prepare(input, now()); let decision;
       const ref = db.ref(path(input.userId));
       const tx = await transact(ref, current => {
-        decision = planEvent(current, p, reducer);
+        decision = planEvent(current, prepare(input, now()), reducer);
         return decision.state; // undefined aborts. Duplicate events never re-run the reducer.
       });
       return tx.committed ? { status: 'committed', revision: decision.revision, jobId: decision.jobId } : { status: decision.status };
@@ -106,14 +106,14 @@ function createLineBookingStore({ db, clock = Date.now, channelId = CHANNEL } = 
       if (!integer(leaseMs) || leaseMs < 1000 || leaseMs > 60000) throw new Error('lease_duration');
       const args = { workerId, token: randomUUID(), now: now(), leaseMs }; let decision;
       const ref = jobRef(userId, jobId);
-      const tx = await transact(ref, current => { decision = planClaim(current, args); return decision.job; });
+      const tx = await transact(ref, current => { decision = planClaim(current, { ...args, now: now() }); return decision.job; });
       return tx.committed && decision.status === 'claimed' ? { status: 'claimed', job: decision.job } : { status: decision.status };
     },
     async acknowledge({ userId, jobId, workerId, token }) {
       worker(workerId);
       const args = { workerId, token, now: now() }; let decision;
       const ref = jobRef(userId, jobId);
-      const tx = await transact(ref, current => { decision = planAck(current, args); return decision.job; });
+      const tx = await transact(ref, current => { decision = planAck(current, { ...args, now: now() }); return decision.job; });
       return { status: tx.committed ? 'delivered' : decision.status };
     }
   };
