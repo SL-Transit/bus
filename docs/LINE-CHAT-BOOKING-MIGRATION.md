@@ -195,3 +195,12 @@ Emulator เพิ่มการเรียกบริการร่วม 2
 LINE ต้องได้ trusted identity mapping ไปเจ้าของตั๋ว, server-derived capacity key ที่ผูก canonical trip และ publicationVersion, reservation binding/expiry/compensation, approved terms/quote จาก published contract, sender/reconciliation และ cleanup PII ก่อนเปิด pilot ห้ามนำ service ที่รับ trusted ownerUid ไปเปิดเป็น endpoint รับ ownerUid จาก client โดยตรง Current real booking validation ยังอ่าน canonical workbookSource ผ่าน server helper เดิม; ยังไม่ใช่ published consumer adapter ของ LINE
 
 ไม่มี Firebase/Rules deploy, main merge, production write/booking/payment/LINE send หรือการเปลี่ยน staff notification, Rich Menu และ webhook ในขั้นนี้ ข้อกำหนด production review/approval และ rollback ยังใช้ตามเดิม ผล CI และ commit ล่าสุดดู Work Board/PR #187
+
+
+## การกันที่นั่งและกู้คืนคำสั่งจอง LINE (ฉบับร่าง)
+
+บริการฝั่งเซิร์ฟเวอร์ใช้ข้อมูลเที่ยวและราคาเดียวกับเว็บ สร้างรหัสจองเดิมสำหรับคำสั่งเดิม และตรวจว่าที่นั่งที่กันไว้ตรงกับเจ้าของ เที่ยว และจำนวนผู้โดยสารก่อนสร้างรายการจอง หากการตอบกลับหาย ระบบตรวจรายการเดิมก่อนลองใหม่และกันที่นั่งไว้ระหว่างตรวจสอบ การกันที่นั่งกับการเขียนรายการจองอยู่คนละธุรกรรม หลังครบจำนวนครั้งที่กำหนด (ค่าเริ่มต้น 5 ครั้ง) ต้องให้ผู้ดูแลตรวจสอบและจัดการที่นั่งค้าง
+
+ทดสอบกับ Firebase จำลองแล้ว คำสั่งซ้ำ 20 ครั้งสร้างรายการเดียวและกันที่นั่งเพียงครั้งเดียว กรณีผลตอบกลับจากการกันที่นั่งหรือการสร้างรายการหายใช้ข้อมูลเดิมต่อได้ ชุดทดสอบระบบเดิมผ่านด้วย ดู [ผลทดสอบ LINE](https://github.com/SL-Transit/bus/actions/runs/41591007874) และ [ผลตรวจระบบเดิม](https://github.com/SL-Transit/bus/actions/runs/41591007808)
+
+บริการนี้ปิดตามค่าเริ่มต้นและยังไม่ได้เชื่อมเข้ากับ webhook หรือการตอบแชทจริง ส่วน HTTP เดิมยังใช้เส้นทางเดิม ก่อนทดลองกับผู้โดยสารต้องเชื่อมตัวตนและข้อมูลเที่ยวจริง ทดสอบการส่งข้อความ และเตรียมขั้นตอนตรวจรายการค้างกับนโยบายเก็บข้อมูล
