@@ -440,7 +440,7 @@ NEXT_ACTION: Add durable trusted booking command, reservation binding and uncert
 
 
 ### Bound booking command and recovery — 2026-11-03
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (current LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/booking-command-service.js; functions/booking-authority-service.js; tests/booking-command-service.test.js; tests/booking-authority-service.test.js; tests/line-booking-store.emulator.cjs; docs/LINE-CHAT-BOOKING-MIGRATION.md; ai-handoffs/WORK-BOARD.md
@@ -449,4 +449,5 @@ TESTS: Bound create/release guards, same request replay, concurrent command clai
 SAFETY: Booking and counter remain separate RTDB locations. Bound in-flight seats are not automatically released; uncertain/missing/conflicting outcomes require reconciliation. Recovery reads exact deterministic booking before another insert attempt; same code transaction prevents another booking record. No root transaction/scan, raw event/token logging or duplicate fare/journey engine.
 PRODUCTION_WRITES: none; no index endpoint/export/deploy, actual booking/payment/LINE send, Rules/credentials/menu/webhook or main merge. All new database writes only in guarded demo Emulator on GitHub; no local filesystem.
 COST_RISK: Private bounded ledger per command, bounded attempts and short lease, scoped DB reads/transactions; no new dependencies/resources or production traffic. Cleanup/reconciliation/identity/published contract remain pilot gates.
-NEXT_ACTION: Implement and prove bound command/recovery, then wire trusted identity/published/quote contracts and private chat adapter separately before pilot review.
+RESULT: Code commit 2ddfad50de8053f11a0d608489697fe103f11b88. All 20 targeted authority/command cases passed. GitHub Actions runs 41591007874 (LINE and guarded demo RTDB) and 41591007808 (existing regression) passed. Concurrent duplicates and lost responses recovered without an extra booking or seat reservation.
+NEXT_ACTION: Wire trusted identity, published trip and quote contracts and private chat adapter. Add an operator reconciliation procedure and retention before pilot review.
