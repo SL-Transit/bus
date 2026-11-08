@@ -454,8 +454,10 @@ NEXT_ACTION: Wire trusted identity, published trip and quote contracts and priva
 
 
 ### LINE trip option authority check
-STATUS: IN_PROGRESS
+STATUS: REVIEW
 OWNER: Codex (LINE migration chat)
 BRANCH: codex/line-chat-booking-foundation-20261102
 FILES: functions/line-trip-options.js; tests/line-trip-options.test.js; ai-handoffs/WORK-BOARD.md
 SCOPE: Filter LINE trip options from the existing workbook route contract using the canonical booking resolver on the same snapshot. Prove rejection of same-label trips on other routes. No web, production, or sender wiring.
+RESULT: Draft filter and focused regression committed at d41d206. In-memory smoke test with the actual workbook reader and canonical resolver reduced three fixture choices to the one valid trip.
+NEXT_ACTION: Connect the filter to the trusted LINE option adapter with publication, date and capacity checks.
