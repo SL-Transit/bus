@@ -451,3 +451,11 @@ PRODUCTION_WRITES: none; no index endpoint/export/deploy, actual booking/payment
 COST_RISK: Private bounded ledger per command, bounded attempts and short lease, scoped DB reads/transactions; no new dependencies/resources or production traffic. Cleanup/reconciliation/identity/published contract remain pilot gates.
 RESULT: Code commit 2ddfad50de8053f11a0d608489697fe103f11b88. All 20 targeted authority/command cases passed. GitHub Actions runs 41591007874 (LINE and guarded demo RTDB) and 41591007808 (existing regression) passed. Concurrent duplicates and lost responses recovered without an extra booking or seat reservation.
 NEXT_ACTION: Wire trusted identity, published trip and quote contracts and private chat adapter. Add an operator reconciliation procedure and retention before pilot review.
+
+
+### LINE trip option authority check
+STATUS: IN_PROGRESS
+OWNER: Codex (LINE migration chat)
+BRANCH: codex/line-chat-booking-foundation-20261102
+FILES: functions/line-trip-options.js; tests/line-trip-options.test.js; ai-handoffs/WORK-BOARD.md
+SCOPE: Filter LINE trip options from the existing workbook route contract using the canonical booking resolver on the same snapshot. Prove rejection of same-label trips on other routes. No web, production, or sender wiring.
