@@ -27,7 +27,16 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir _site
-          cp -R *.html *.js manifest.webmanifest README.md .nojekyll assets driver-android ai-handoffs _site/
+          # Only staff and driver entry points are published. Passenger HTML
+          # remains in the repository for reference and is absent from Pages.
+          cp admin.html admin-bootstrap.html admin-console.html admin-erp.html \
+            admin-erp1.html admin-quick-edit.html driver-map.html _site/
+          cp -R *.js manifest.webmanifest .nojekyll assets _site/
+          mkdir -p _site/greenfield-erp/phase2
+          cp greenfield-erp/phase2/excel-row-mapper.js _site/greenfield-erp/phase2/
+          cover=driver-android/src/main/res/drawable-nodpi/app_cover.png
+          mkdir -p "_site/$(dirname "$cover")"
+          cp "$cover" "_site/$cover"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
