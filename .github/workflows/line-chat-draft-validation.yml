@@ -1,0 +1,46 @@
+name: LINE chat draft validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "functions/line-*.js"
+      - "tests/line-*"
+      - "tests/fixtures/line-chat/**"
+      - ".github/workflows/line-chat-draft-validation.yml"
+permissions:
+  contents: read
+concurrency:
+  group: line-chat-draft-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  line-chat-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Bangkok
+      GCLOUD_PROJECT: demo-sl-transit-line
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install existing backend dependencies
+        run: npm ci --prefix functions --ignore-scripts --no-audit --no-fund
+      - name: Install pinned official Firebase tooling
+        run: npm install --global firebase-tools@15.18.0 --no-audit --no-fund
+      - name: LINE unit tests
+        run: node --test tests/line-*.test.js
+      - name: Guard refuses non-demo target
+        run: |
+          if GCLOUD_PROJECT=sl-transit-9464e FIREBASE_DATABASE_EMULATOR_HOST=127.0.0.1:9000 node tests/line-booking-store.emulator.cjs; then
+            echo "Unsafe emulator guard accepted a production project"
+            exit 1
+          fi
+      - name: LINE transaction and privacy demo proof
+        run: firebase emulators:exec --only database --project demo-sl-transit-line --config tests/fixtures/line-chat/firebase.json "node tests/line-booking-store.emulator.cjs"
